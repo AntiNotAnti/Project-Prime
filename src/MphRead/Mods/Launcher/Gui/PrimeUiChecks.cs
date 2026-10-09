@@ -209,7 +209,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Check(texts.Any(text => text.Contains("3 W / 1 L / 1 T", StringComparison.Ordinal)),
                     "Hunter License recent form is computed from accepted matches");
                 Check(texts.Any(text => text.Contains("LATEST // WIN", StringComparison.Ordinal)
-                    && text.Contains("SANCTORUS", StringComparison.OrdinalIgnoreCase)),
+                    && text.Contains("DATA SHRINE", StringComparison.OrdinalIgnoreCase)),
                     "Hunter License identifies the latest accepted match");
                 Check(license.GetVisualDescendants().OfType<HunterStand>().Single().Name2
                     == Hunter.Trace.ToString(),

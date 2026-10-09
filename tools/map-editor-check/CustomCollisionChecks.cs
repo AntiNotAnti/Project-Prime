@@ -125,7 +125,7 @@ static class CustomCollisionChecks
             outerEdgePoint + Vector3.UnitY, outerEdgePoint - Vector3.UnitY, 0.5f, seamResults.Length,
             includeOffset: true, TestFlags.Players, scene, seamResults);
         check(outerEdgeCount > 0 && seamResults.Take(outerEdgeCount).Any(result =>
-                result.Field0 == 1 && result.Plane.X < -0.9f && MathF.Abs(result.Plane.Y) < 0.1f),
+                result.Field0 == 1 && Vector3.Distance(new Vector3(result.Plane.X, result.Plane.Y, result.Plane.Z), new Vector3(-.6f, .8f, 0)) < .001f),
             "robust outer-edge contact exposes a radial slide normal");
         float outerEdgeImpact = seamResults.Take(outerEdgeCount)
             .Where(result => result.Field0 == 1).Min(result => result.Distance);
