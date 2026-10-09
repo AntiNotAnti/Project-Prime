@@ -1,6 +1,7 @@
 """Execute actual release workflow shell gates with a local GitHub CLI fixture."""
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import textwrap
@@ -17,6 +18,53 @@ def step_script(name):
     end=run+1
     while end<len(lines) and (not lines[end].strip() or len(lines[end])-len(lines[end].lstrip())>=indent):end+=1
     return textwrap.dedent("\n".join(lines[run+1:end]))
+
+
+def job_block(name):
+    """Inspect one YAML job without adding a CI-only parser dependency."""
+    source=WORKFLOW.read_text()
+    pattern=r"(?ms)^  "+re.escape(name)+r":\n(.*?)(?=^  [a-z][a-z0-9-]*:\n|\Z)"
+    match=re.search(pattern,source)
+    if not match:
+        raise AssertionError("Release job not found: "+name)
+    return match.group(1)
+
+
+class NativeReleasePackagingTests(unittest.TestCase):
+    def test_desktop_rmlui_runtime_is_built_and_downloaded_at_pinned_sha(self):
+        native=job_block("release-rmlui-native")
+        client=job_block("release-linux")
+        self.assertIn("needs: resolve",native)
+        self.assertIn("ref: ${{ needs.resolve.outputs.sha }}",native)
+        self.assertIn("windows-latest",native)
+        self.assertIn("ubuntu-latest",native)
+        self.assertIn('tools/rmlui/build-native.sh "${{ matrix.rid }}" gl2',native)
+        self.assertIn("tools/rmlui/verify-runtime.py",native)
+        self.assertIn("name: release-rmlui-${{ matrix.rid }}",native)
+        self.assertIn("release-rmlui-native]",client)
+        self.assertIn("if: matrix.server == false\\n        with:\\n          name: release-rmlui-${{ matrix.rid }}",client)
+        self.assertIn("path: artifacts/rmlui-native/${{ matrix.rid }}/",client)
+        publish=step_script("publish target")
+        self.assertLess(publish.index('tools/rmlui/verify-runtime.py "artifacts/'),
+            publish.index('dotnet publish src/MphRead/MphRead.csproj'))
+        self.assertIn('tools/rmlui/verify-runtime.py --package "publish/$TARGET" "$RID"',publish)
+
+    def test_android_publish_includes_both_native_rmlui_abis(self):
+        script=step_script("publish the APK")
+        verify=step_script("verify Android native runtimes")
+        for target,abi in (("android-arm64","arm64-v8a"),("android-x64","x86_64")):
+            command=f'ANDROID_NDK_ROOT="$ndk" tools/rmlui/build-native.sh {target} draw-list'
+            self.assertIn(command,script)
+            self.assertLess(script.index(command),script.index('dotnet publish "$proj"'))
+            library=f"lib/{abi}/libProjectPrime.RmlUi.Native.so"
+            self.assertIn(library,verify)
+        self.assertIn('python3 tools/rmlui/verify-runtime.py --apk "$apk"',verify)
+
+    def test_macos_release_builds_and_verifies_native_bridge(self):
+        script=step_script("publish and verify macOS release")
+        self.assertLess(script.index('tools/rmlui/build-native.sh "$RID" gl2'),
+            script.index('dotnet publish src/MphRead/MphRead.csproj'))
+        self.assertIn('tools/rmlui/verify-runtime.py --package "publish/$RID" "$RID"',script)
 
 
 class ReleasePolicyTests(unittest.TestCase):
