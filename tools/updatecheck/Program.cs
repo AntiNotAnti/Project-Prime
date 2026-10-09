@@ -82,6 +82,11 @@ if (args.Length == 2 && args[0] == "--published-legacy-fixture")
     InstallationChecks.RunPublishedLegacyFixture(args[1], Check);
     return failures == 0 ? 0 : 1;
 }
+if (args.Length == 3 && args[0] == "--candidate-release-swap")
+{
+    InstallationChecks.RunCandidateReleaseSwap(args[1], args[2], Check);
+    return failures == 0 ? 0 : 1;
+}
 if (args.Length == 0)
     Check(!BuildVersion.IsRelease, "unstamped assembly remains a local build");
 else
