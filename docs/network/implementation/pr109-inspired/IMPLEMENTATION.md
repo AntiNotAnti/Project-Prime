@@ -6,7 +6,7 @@ Upstream Fruity PR109: `1756af902f960c82edde28bd31e6895f8bcb8198`, open and conf
 **Delivery status: gated partial implementation, not release acceptance.** Seven draft PRs
 implement transport, conservative cosmetics, shadow decisions, kill tickets, profiling and
 reproducible evidence. The follow-up claim proof adds opt-in early settlement for isolated Imperialist direct hits;
-other categories keep existing grace arbitration. Full visual acceptance and a collision optimization win are outstanding.
+other categories keep existing grace arbitration. Full visual acceptance remains outstanding. The server scratch follow-up now supplies measured allocation and historical-pose-read improvements.
 
 This implementation retains dedicated-server combat authority, existing movement ownership,
 claim grace/arbitration, shot/lifecycle identity and replay v1 facts. No release or merge is authorized.
@@ -57,7 +57,7 @@ rendered multiplayer acceptance. Before/after records never imply unexecuted pla
 | 2 Presentation | partial | pure endpoint cues, full primary-shot matching and fallback contracts; no corrected trails or weapon-specific effect campaign |
 | 3 Fast claims | partial | opt-in Imperialist path with exact component suppression and conservative admission/order proof; native deterministic parity verified, broader impaired campaign pending |
 | 4 Predicted kills | partial | opt-in Imperialist render-only tickets; authored animation and impaired rendered reversal campaign outstanding |
-| 5 Collision performance | partial | bounded profiling, native and synthetic samples; no new collision optimization or parity win |
+| 5 Collision performance | partial | opt-in immutable pose cache and bounded emission scratch pass native parity; hot-path allocation/read improvements measured, impaired live frame campaign pending |
 | 6 Acceptance | unverified | local contracts and real UDP evidence retained; full platform/rendered/bot/weapon matrix not accepted |
 
 ## Reviewable PR chain
@@ -76,6 +76,7 @@ evidence/docs after its implementation audit; its PR exposes the current complet
 | 4 | [#414](https://github.com/AntiNotAnti/Project-Prime/pull/414) | `codex/impact-04-predicted-visuals` | `c939be7b` |
 | 5 | [#415](https://github.com/AntiNotAnti/Project-Prime/pull/415) | `codex/impact-05-collision-profile` | `41179600` |
 | 6 | [#416](https://github.com/AntiNotAnti/Project-Prime/pull/416) | `codex/impact-06-acceptance` | `c463c14a` |
+| 7 Claim proof | [#417](https://github.com/AntiNotAnti/Project-Prime/pull/417) | `codex/impact-07-claim-proof` | `b0cd8821` |
 
 ## Slice 1: independent live fact transport
 
@@ -291,3 +292,36 @@ are unchanged. No automatic configuration migration, release or deployment is pe
   a bounded cache or read-only query on supported shots. Demonstrate an actual hotspot win
   and the enabled eight-player <=5% p99 gate with mixed bots/humans. Current default-off
   microbenchmarks and fixed bandwidth ceilings cannot establish that enabled release gate.
+
+## Server scratch follow-up
+
+`-impactserverscratch` (off by default) enables two bounded optimizations:
+
+- One emission equipment object per current player/pool replaces per-shot equipment and ammo-delegate allocations. Native spawned beams retain only its stable pool reference; charge, scope, weapon, smoke and payment state are reset for each spawn. Slot/lifecycle and pool replacement discard scratch.
+- An 8 × 128 cache reuses immutable historical player poses between history mutations. Exact fractional frame, victim generation/life and history revision fence each entry, including unavailable samples. Record, same-frame replacement, slot reset and room reset invalidate it. No world collision or line-of-sight result is cached, so doors/force fields retain their existing native queries.
+
+The feature retains native emission, rewind, catch-up and independent claim proof. Omit
+`-impactserverscratch` to use fresh equipment and uncached claim pose reads. No wire change.
+
+Three alternating native benchmark pairs for each 2/4/8-player population use identical
+positions and disabled tiered compilation to avoid tier transitions contaminating comparisons.
+The initial exploratory run with tiered compilation and changing spawn positions is retained
+as `preliminary-warmup.json`, excluded from conclusions. In the corrected run, eight-player
+emission allocation drops from 2,170,880 to 1,515,520 bytes over 2,048 shots: **320 bytes/shot**.
+The median batch of 1,024 repeated historical-pose reads falls from **0.0279 to 0.0069 ms**
+(75.3%); both allocate zero bytes. This deliberately stresses reuse and is not a whole-match
+speedup. Native emission medians improve 1.2%, but its microbenchmark p99 rises 13.5%; the
+optimization remains opt-in.
+
+A separate 18-run matched server-frame campaign (three alternating 30-second synthetic
+runs per population, same binary with flag off/on) reports median run p99 changes of
++3.79% / +3.09% / −1.90% for 2/4/8 players, and unchanged allocation per frame. Eight-player
+p99 is 0.1788 → 0.1754 ms. These are medians of run percentiles, not pooled percentiles or
+confidence intervals. The workload has no live UDP peers. Raw paired profiler samples,
+commands, assembly hashes and frame results are in `validation/live-impact/server-scratch/`.
+CI review was skipped as requested; these are local results only.
+
+The expanded native suite passes 1,925 top-level cache/benchmark/parity assertions, including
+57 authority-policy, 156 firing-context, 162 native combat, alternate-form history and
+178 early-settlement assertions in its nested suites. All 21 local live-impact regression
+checks also pass. Both features remain off by default pending impaired live acceptance.

@@ -1,0 +1,145 @@
+{
+  "commit": "b0cd8821-plus-scratch-enabled",
+  "protocol": 45,
+  "runtime": ".NET 10.0.12",
+  "environment": {
+    "machine": "Jarretts-MBP",
+    "cpu": "Apple M4 Pro",
+    "processors": 12,
+    "os": "macOS 27.0.0",
+    "architecture": "Arm64"
+  },
+  "scenario": {
+    "players": 4,
+    "room": "MP1 SANCTORUS",
+    "steps": 1800,
+    "warmupSteps": 300,
+    "kind": "asset-backed synthetic-intent server simulation; no transport"
+  },
+  "mean": 0.05340638888888883,
+  "p50": 0.0297,
+  "p95": 0.0573,
+  "p99": 0.0975,
+  "p999": 0.1537,
+  "worst": 36.0584,
+  "unit": "milliseconds",
+  "peakWorkingSetBytes": 0,
+  "profileEnabled": false,
+  "serverScratch": true,
+  "profile": [
+    {
+      "Section": "BeginShot",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    },
+    {
+      "Section": "EndShot",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    },
+    {
+      "Section": "HistoricalGeometry",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    },
+    {
+      "Section": "EmitPending",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    },
+    {
+      "Section": "NativeCatchup",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    },
+    {
+      "Section": "Supports",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    }
+  ],
+  "allocations": 2797688,
+  "allocationsPerStep": 1554.2711111111112,
+  "gen0": 0,
+  "gen1": 0,
+  "gen2": 0,
+  "overruns": 1,
+  "dropped": 0,
+  "stalls": 0,
+  "failures": 0,
+  "lag": {
+    "compensated": 420,
+    "rewind": 2520,
+    "maxRewind": 6,
+    "catchupSteps": 1566,
+    "shadowEligible": 420,
+    "shadowSampled": 26,
+    "shadowSteps": 162,
+    "shadowTicks": 7802168
+  },
+  "geometry": {
+    "considered": 0,
+    "applied": 0,
+    "historyMisses": 0,
+    "interpolations": 0,
+    "skipped": 0
+  },
+  "historicalCollision": {
+    "queries": 12059,
+    "hits": 1176,
+    "misses": 10883,
+    "buildTicks": 1212777
+  },
+  "arbitration": {
+    "pending": 0,
+    "resolved": 1,
+    "rescued": 0,
+    "probes": 2
+  },
+  "unavailable": [
+    "network impairment",
+    "transport lock contention (no transport in this workload)"
+  ]
+}

@@ -28,6 +28,7 @@ internal static class NetAcceptedAttacks
     private sealed class Slot
     {
         public ShotKey Fence;
+        public EmissionScratch? Scratch;
         public readonly Attack[] Attacks = new Attack[Capacity];
         public readonly Dictionary<uint, int> Index = new(Capacity);
         public uint CoilStart;
@@ -59,6 +60,39 @@ internal static class NetAcceptedAttacks
         public bool AltHolding, BoostHolding;
         public int ReservedBombs;
     }
+    // Native projectiles retain only this equipment's beam-pool reference after
+    // Spawn (including ricochet/cluster children). Fields used by Spawn are reset
+    // per emission. A new occupant/pool gets new scratch, preserving old flights.
+    private sealed class EmissionScratch
+    {
+        internal readonly PlayerEntity Owner;
+        internal readonly EquipInfo Equip;
+        internal EmissionScratch(PlayerEntity owner)
+        {
+            Owner = owner;
+            Equip = new(owner.EquipInfo.Weapon, owner.EquipInfo.Beams) { GetAmmo = Ammo, SetAmmo = SetAmmo };
+        }
+        private int Ammo() => Owner.ModAttackAmmo(Equip.Weapon.Beam, Equip.Weapon);
+        private void SetAmmo(int remaining) => Owner.ModConsumeAttackAmmo(Equip.Weapon.Beam, Equip.Weapon,
+            Math.Max(0, Ammo() - remaining));
+    }
+    internal static bool EmissionScratchEnabled { get; set; }
+    private static EquipInfo NewEmissionEquipment(PlayerEntity player, WeaponInfo weapon)
+        => new(weapon, player.EquipInfo.Beams)
+        {
+            GetAmmo = () => player.ModAttackAmmo(weapon.Beam, weapon),
+            SetAmmo = remaining => player.ModConsumeAttackAmmo(weapon.Beam, weapon,
+                Math.Max(0, player.ModAttackAmmo(weapon.Beam, weapon) - remaining))
+        };
+    private static EquipInfo EmissionEquipment(Slot state, PlayerEntity player, WeaponInfo weapon)
+    {
+        if (!EmissionScratchEnabled) return NewEmissionEquipment(player, weapon);
+        if (state.Scratch == null || state.Scratch.Owner != player
+            || state.Scratch.Equip.Beams != player.EquipInfo.Beams) state.Scratch = new(player);
+        var equip = state.Scratch.Equip;
+        equip.Weapon = weapon; equip.SmokeLevel = 0;
+        return equip;
+    }
     private struct NativeBomb
     {
         public int Id;
@@ -81,7 +115,7 @@ internal static class NetAcceptedAttacks
         ShotKey fence = ShotKey.For(slot, 0);
         if (state.Fence != fence)
         {
-            state.Fence = fence; state.Index.Clear(); state.CoilHeld = false;
+            state.Fence = fence; state.Scratch = null; state.Index.Clear(); state.CoilHeld = false;
             Array.Clear(state.BurnFrames); Array.Clear(state.NativeBombs); Array.Clear(state.BombHistory);
             Array.Clear(state.Attacks); Array.Clear(state.Reserved); Array.Clear(state.Outcomes); Array.Clear(state.Components);
             Array.Clear(state.Deferred); Array.Clear(state.Powerups); Array.Clear(state.SourceBodies);
@@ -101,7 +135,7 @@ internal static class NetAcceptedAttacks
         NetAttackPaths.Reset();
         foreach (Slot state in Slots)
         {
-            state.Fence = default; state.Index.Clear(); state.CoilHeld = false;
+            state.Fence = default; state.Scratch = null; state.Index.Clear(); state.CoilHeld = false;
             Array.Clear(state.BurnFrames); Array.Clear(state.NativeBombs); Array.Clear(state.BombHistory);
             Array.Clear(state.Attacks); Array.Clear(state.Deferred);
             Array.Clear(state.Reserved); Array.Clear(state.Outcomes); Array.Clear(state.Components); Array.Clear(state.Powerups); Array.Clear(state.SourceBodies);
@@ -481,14 +515,9 @@ internal static class NetAcceptedAttacks
                 EntityBase owner = fire.Kind == FireEventKind.TurretFire
                     ? player.Halfturret ?? new HalfturretEntity(player, player.OwningScene) : player;
                 bool paid = attack.Paid;
-                var equip = new EquipInfo(weapon, player.EquipInfo.Beams)
-                {
-                    ChargeLevel = fire.Charge, Zoomed = fire.ScopedAtFire,
-                    InfiniteAmmo = paid || attack.Cost == 0,
-                    GetAmmo = () => player.ModAttackAmmo(weapon.Beam, weapon),
-                    SetAmmo = remaining => player.ModConsumeAttackAmmo(weapon.Beam, weapon,
-                        Math.Max(0, player.ModAttackAmmo(weapon.Beam, weapon) - remaining))
-                };
+                var equip = EmissionEquipment(state, player, weapon);
+                equip.ChargeLevel = fire.Charge; equip.Zoomed = fire.ScopedAtFire;
+                equip.InfiniteAmmo = paid || attack.Cost == 0;
                 var previousWeapon = player.EquipInfo.Weapon;
                 ushort previousCharge = player.EquipInfo.ChargeLevel;
                 IntentPacket previousIntent = NetSession.RemoteIntents[slot];

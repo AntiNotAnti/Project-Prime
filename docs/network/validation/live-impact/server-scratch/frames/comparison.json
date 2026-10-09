@@ -1,0 +1,413 @@
+{
+  "schema": 1,
+  "host": "macOS-27.0-arm64-arm-64bit",
+  "binaries": {
+    "before": {
+      "path": "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+      "assemblySha256": "d8cd52f575cdeabf9015814b2b14bca72e4e9074f10a629e251f1152e7889a33",
+      "commit": "b0cd8821-plus-scratch-disabled"
+    },
+    "after": {
+      "path": "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+      "assemblySha256": "d8cd52f575cdeabf9015814b2b14bca72e4e9074f10a629e251f1152e7889a33",
+      "commit": "b0cd8821-plus-scratch-enabled"
+    }
+  },
+  "runs": [
+    {
+      "label": "before",
+      "players": 2,
+      "repeat": 1,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "2",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/before-2-1.json",
+        "30"
+      ],
+      "exitCode": 0,
+      "report": "before-2-1.json",
+      "log": "before-2-1.log"
+    },
+    {
+      "label": "after",
+      "players": 2,
+      "repeat": 1,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "2",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/after-2-1.json",
+        "30",
+        "--impact-server-scratch"
+      ],
+      "exitCode": 0,
+      "report": "after-2-1.json",
+      "log": "after-2-1.log"
+    },
+    {
+      "label": "after",
+      "players": 2,
+      "repeat": 2,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "2",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/after-2-2.json",
+        "30",
+        "--impact-server-scratch"
+      ],
+      "exitCode": 0,
+      "report": "after-2-2.json",
+      "log": "after-2-2.log"
+    },
+    {
+      "label": "before",
+      "players": 2,
+      "repeat": 2,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "2",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/before-2-2.json",
+        "30"
+      ],
+      "exitCode": 0,
+      "report": "before-2-2.json",
+      "log": "before-2-2.log"
+    },
+    {
+      "label": "before",
+      "players": 2,
+      "repeat": 3,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "2",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/before-2-3.json",
+        "30"
+      ],
+      "exitCode": 0,
+      "report": "before-2-3.json",
+      "log": "before-2-3.log"
+    },
+    {
+      "label": "after",
+      "players": 2,
+      "repeat": 3,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "2",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/after-2-3.json",
+        "30",
+        "--impact-server-scratch"
+      ],
+      "exitCode": 0,
+      "report": "after-2-3.json",
+      "log": "after-2-3.log"
+    },
+    {
+      "label": "before",
+      "players": 4,
+      "repeat": 1,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "4",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/before-4-1.json",
+        "30"
+      ],
+      "exitCode": 0,
+      "report": "before-4-1.json",
+      "log": "before-4-1.log"
+    },
+    {
+      "label": "after",
+      "players": 4,
+      "repeat": 1,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "4",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/after-4-1.json",
+        "30",
+        "--impact-server-scratch"
+      ],
+      "exitCode": 0,
+      "report": "after-4-1.json",
+      "log": "after-4-1.log"
+    },
+    {
+      "label": "after",
+      "players": 4,
+      "repeat": 2,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "4",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/after-4-2.json",
+        "30",
+        "--impact-server-scratch"
+      ],
+      "exitCode": 0,
+      "report": "after-4-2.json",
+      "log": "after-4-2.log"
+    },
+    {
+      "label": "before",
+      "players": 4,
+      "repeat": 2,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "4",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/before-4-2.json",
+        "30"
+      ],
+      "exitCode": 0,
+      "report": "before-4-2.json",
+      "log": "before-4-2.log"
+    },
+    {
+      "label": "before",
+      "players": 4,
+      "repeat": 3,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "4",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/before-4-3.json",
+        "30"
+      ],
+      "exitCode": 0,
+      "report": "before-4-3.json",
+      "log": "before-4-3.log"
+    },
+    {
+      "label": "after",
+      "players": 4,
+      "repeat": 3,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "4",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/after-4-3.json",
+        "30",
+        "--impact-server-scratch"
+      ],
+      "exitCode": 0,
+      "report": "after-4-3.json",
+      "log": "after-4-3.log"
+    },
+    {
+      "label": "before",
+      "players": 8,
+      "repeat": 1,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "8",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/before-8-1.json",
+        "30"
+      ],
+      "exitCode": 0,
+      "report": "before-8-1.json",
+      "log": "before-8-1.log"
+    },
+    {
+      "label": "after",
+      "players": 8,
+      "repeat": 1,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "8",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/after-8-1.json",
+        "30",
+        "--impact-server-scratch"
+      ],
+      "exitCode": 0,
+      "report": "after-8-1.json",
+      "log": "after-8-1.log"
+    },
+    {
+      "label": "after",
+      "players": 8,
+      "repeat": 2,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "8",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/after-8-2.json",
+        "30",
+        "--impact-server-scratch"
+      ],
+      "exitCode": 0,
+      "report": "after-8-2.json",
+      "log": "after-8-2.log"
+    },
+    {
+      "label": "before",
+      "players": 8,
+      "repeat": 2,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "8",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/before-8-2.json",
+        "30"
+      ],
+      "exitCode": 0,
+      "report": "before-8-2.json",
+      "log": "before-8-2.log"
+    },
+    {
+      "label": "before",
+      "players": 8,
+      "repeat": 3,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "8",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/before-8-3.json",
+        "30"
+      ],
+      "exitCode": 0,
+      "report": "before-8-3.json",
+      "log": "before-8-3.log"
+    },
+    {
+      "label": "after",
+      "players": 8,
+      "repeat": 3,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--server-performance",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "MP1 SANCTORUS",
+        "8",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/docs/network/validation/live-impact/server-scratch/frames/after-8-3.json",
+        "30",
+        "--impact-server-scratch"
+      ],
+      "exitCode": 0,
+      "report": "after-8-3.json",
+      "log": "after-8-3.log"
+    }
+  ],
+  "comparison": [
+    {
+      "players": 2,
+      "medianOfRuns": {
+        "before": {
+          "p99": 0.058,
+          "allocationsPerStep": 1366.2,
+          "mean": 0.04642233333333329
+        },
+        "after": {
+          "p99": 0.0602,
+          "allocationsPerStep": 1366.2,
+          "mean": 0.04600322222222212
+        }
+      },
+      "p99ChangePercent": 3.7931034482758585,
+      "allocationChangeBytesPerStep": 0.0
+    },
+    {
+      "players": 4,
+      "medianOfRuns": {
+        "before": {
+          "p99": 0.0875,
+          "allocationsPerStep": 1554.2711111111112,
+          "mean": 0.0542564999999999
+        },
+        "after": {
+          "p99": 0.0902,
+          "allocationsPerStep": 1554.2711111111112,
+          "mean": 0.05373149999999996
+        }
+      },
+      "p99ChangePercent": 3.0857142857142916,
+      "allocationChangeBytesPerStep": 0.0
+    },
+    {
+      "players": 8,
+      "medianOfRuns": {
+        "before": {
+          "p99": 0.1788,
+          "allocationsPerStep": 1934.4133333333334,
+          "mean": 0.07902022222222219
+        },
+        "after": {
+          "p99": 0.1754,
+          "allocationsPerStep": 1934.4133333333334,
+          "mean": 0.07539438888888875
+        }
+      },
+      "p99ChangePercent": -1.9015659955257225,
+      "allocationChangeBytesPerStep": 0.0
+    }
+  ],
+  "afterArguments": [
+    "--impact-server-scratch"
+  ],
+  "tieredCompilation": "0",
+  "limitations": [
+    "Synthetic-intent server frames; no live socket peers or rendered effects. Does not establish enabled eight-player transport/presentation acceptance.",
+    "Process-local microbenchmark with alternating runs; median of run p99s is not a pooled p99 or statistical confidence interval.",
+    "Historical baseline runner may have no p99.9 field; absence is not zero. Feature arguments are recorded explicitly."
+  ]
+}

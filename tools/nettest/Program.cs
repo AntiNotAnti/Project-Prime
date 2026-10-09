@@ -46,6 +46,13 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--server-engineering") return ServerEngineeringTests.Run();
             if (args.Length > 0 && args[0] == "--replay-protocol42") return ReplayProtocol42Tests.Run();
             if (args.Length > 0 && args[0] == "--server-pacing-benchmark") return ServerPacingBenchmark.Run();
+            if (args.Length > 3 && args[0] == "--impact-server-scratch")
+            {
+                string output = System.IO.Path.GetFullPath(args[3]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return NetServerScratchCheck.Run(args[2], output);
+            }
             if (args.Length > 1 && args[0] == "--impact-claim-native")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));

@@ -1,0 +1,20 @@
+[map] 2ad6ea5ea9904fd8b558101987cdfea2.ppmap FP-MAP-010: Duplicate runtime name: MY ARENA.
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] validation_summary.json FP-MAP-001: At least one material is required.
+[map] validation_summary.json FP-MAP-014: At least one player spawn is required.
+[map] my arena.json FP-MAP-010: Duplicate runtime name: MY ARENA.
+[net] player slots built, main player = slot 0
+[net] server map:  (None, 0 s left)
+[net] server map: MP1 SANCTORUS (Battle, 3600 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] match clock synced to server: 3600 s remaining on MP1 SANCTORUS
+[net] slot 0 activated (SIM1) -- 1 player(s) in scene
+[net] slot 1 activated (SIM2) -- 2 player(s) in scene
+[net] slot 2 activated (SIM3) -- 3 player(s) in scene
+[net] slot 3 activated (SIM4) -- 4 player(s) in scene
+[net] slot 0 (Samus) wears suit 1
+[net] slot 1 (Kanden) wears suit 1
+[net] slot 2 (Trace) wears suit 1
+[net] slot 3 (Sylux) wears suit 1
+PASS server performance: 4 players, 600 steps, mean=0.1665ms p99=0.4495ms worst=0.6783ms, allocated=998936
