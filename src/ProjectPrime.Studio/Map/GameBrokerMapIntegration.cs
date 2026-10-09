@@ -27,19 +27,28 @@ public sealed class GameBrokerMapIntegration : IStudioMapIntegration, IDisposabl
         await _playtestGate.WaitAsync(cancellation);
         try
         {
-            bool restarting=false;
+            // A previous session may still be loading or playing. Stop only the session
+            // that Studio owns before attempting to publish the next exact package.
             if (ActivePlaytestId != Guid.Empty)
             {
-                var status=await _client.GetPlaytestStatusAsync(ActivePlaytestId,cancellation);
-                if(status.Accepted && status.PlaytestState is StudioPlaytestState.Accepted or StudioPlaytestState.Started)
-                { RequireAccepted(await _client.StopPlaytestAsync(ActivePlaytestId,cancellation)); restarting=true; }
-                ActivePlaytestId=Guid.Empty;
+                var status = await _client.GetPlaytestStatusAsync(ActivePlaytestId, cancellation);
+                if (status.Accepted && status.PlaytestState is StudioPlaytestState.Accepted or StudioPlaytestState.Started)
+                    RequireAccepted(await _client.StopPlaytestAsync(ActivePlaytestId, cancellation));
+                ActivePlaytestId = Guid.Empty;
             }
-            var result = await _client.RequestPlaytestAsync(package,Identity(identity),cancellationToken:cancellation);
-            // A stop response precedes the game's next owner-thread disposal tick. Retry only this owned restart.
-            for(int attempt=0;restarting && !result.Accepted && result.Deferred && attempt<40;attempt++)
-            { await Task.Delay(250,cancellation); result=await _client.RequestPlaytestAsync(package,Identity(identity),cancellationToken:cancellation); }
-            RequireAccepted(result); ActivePlaytestId = result.PlaytestId;
+
+            StudioMapIdentity mapIdentity = Identity(identity);
+            // The broker can respond before the game's shell is ready. Retry deferred
+            // admission for cold starts as well as stop/edit/rebuild/restart, but never
+            // repeat a request that the game has already accepted.
+            var admitted = await StudioPlaytestHandoff.WaitForAdmissionAsync(
+                token => _client.RequestPlaytestAsync(package, mapIdentity, cancellationToken: token), cancellation);
+            ActivePlaytestId = admitted.PlaytestId;
+
+            // Accepted means queued, not playable. Surface the authoritative game's
+            // eventual scene failure instead of reporting a false Studio success.
+            await StudioPlaytestHandoff.WaitForStartedAsync(
+                (id, token) => _client.GetPlaytestStatusAsync(id, token), admitted.PlaytestId, cancellation);
         }
         finally { _playtestGate.Release(); }
     }
