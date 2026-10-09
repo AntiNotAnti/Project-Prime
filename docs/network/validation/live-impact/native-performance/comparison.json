@@ -1,0 +1,775 @@
+{
+  "scope": "Alternating same-binary UDP controls; inspect workload counts before comparing.\n\nThis measures whole-match server frames, including startup, with diagnostics on\nin both arms. Random match spawns mean equal configuration is not identical work.\nRun exclusively: concurrent builds or other campaigns invalidate timing claims.\n",
+  "tieredCompilation": false,
+  "arms": [
+    {
+      "repeat": 0,
+      "live": false,
+      "exit": 0,
+      "command": [
+        "python3",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/hitrig/run-networking-slices.py",
+        "--runtime",
+        "/tmp/pr109-complete-native-runtime",
+        "--data",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "--map",
+        "TEST ARENA",
+        "--mapdir",
+        "/tmp/pr109-arena-packages",
+        "--output",
+        "/tmp/pr109-native-performance-complete/0-off",
+        "--seconds",
+        "30",
+        "--dotnet",
+        "/Users/jarrett/.dotnet/dotnet",
+        "--owner-grace",
+        "8",
+        "--players",
+        "8",
+        "--modes",
+        "shockcoil-all",
+        "--profiles",
+        "rtt250-loss2",
+        "--jitter-ms",
+        "40",
+        "--impacts",
+        "--fixture-loadout",
+        "--require-combat",
+        "--claim-mode",
+        "shadow",
+        "--no-live"
+      ],
+      "server": {
+        "schema": 1,
+        "scope": "whole match including startup; loop excludes deliberate pacing wait",
+        "frames": 1640,
+        "meanMs": 0.9699985975609738,
+        "p50Ms": 0.57,
+        "p95Ms": 0.95,
+        "p99Ms": 1.76,
+        "p999Ms": 23.48,
+        "worstMs": 513.7606999999999,
+        "allocatedBytes": 64116560,
+        "allocatedBytesPerFrame": 39095.46341463415,
+        "StepFailures": 0,
+        "DroppedSteps": 0,
+        "Stalls": 1,
+        "OverrunSteps": 4,
+        "loop": {
+          "Work": {
+            "Count": 1501658,
+            "MeanMilliseconds": 0.004533907490254106,
+            "P95Milliseconds": 0,
+            "P99Milliseconds": 0.01,
+            "P999Milliseconds": 0.48,
+            "WorstMilliseconds": 515.625875,
+            "Histogram": []
+          },
+          "Phases": [
+            {
+              "Count": 1501658,
+              "MeanMilliseconds": 0.001166318682416369,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.21,
+              "WorstMilliseconds": 284.658542,
+              "Histogram": []
+            },
+            {
+              "Count": 1501658,
+              "MeanMilliseconds": 0.0005291479331512235,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.02,
+              "WorstMilliseconds": 4.39375,
+              "Histogram": []
+            },
+            {
+              "Count": 1501658,
+              "MeanMilliseconds": 0.00207151274724338,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.37,
+              "WorstMilliseconds": 514.289125,
+              "Histogram": []
+            },
+            {
+              "Count": 1501658,
+              "MeanMilliseconds": 0.000497575551157454,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.01,
+              "WorstMilliseconds": 6.062709,
+              "Histogram": []
+            },
+            {
+              "Count": 1501658,
+              "MeanMilliseconds": 0.0002693525762856789,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0,
+              "WorstMilliseconds": 11.119084,
+              "Histogram": []
+            }
+          ],
+          "OverBudget": 8
+        }
+      },
+      "workload": {
+        "PowerBeam": 0,
+        "VoltDriver": 0,
+        "Missile": 1,
+        "Battlehammer": 0,
+        "Imperialist": 0,
+        "Judicator": 0,
+        "Magmaul": 0,
+        "ShockCoil": 1106,
+        "OmegaCannon": 0
+      }
+    },
+    {
+      "repeat": 0,
+      "live": true,
+      "exit": 1,
+      "command": [
+        "python3",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/hitrig/run-networking-slices.py",
+        "--runtime",
+        "/tmp/pr109-complete-native-runtime",
+        "--data",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "--map",
+        "TEST ARENA",
+        "--mapdir",
+        "/tmp/pr109-arena-packages",
+        "--output",
+        "/tmp/pr109-native-performance-complete/0-on",
+        "--seconds",
+        "30",
+        "--dotnet",
+        "/Users/jarrett/.dotnet/dotnet",
+        "--owner-grace",
+        "8",
+        "--players",
+        "8",
+        "--modes",
+        "shockcoil-all",
+        "--profiles",
+        "rtt250-loss2",
+        "--jitter-ms",
+        "40",
+        "--impacts",
+        "--fixture-loadout",
+        "--require-combat",
+        "--claim-mode",
+        "shadow"
+      ],
+      "server": {
+        "schema": 1,
+        "scope": "whole match including startup; loop excludes deliberate pacing wait",
+        "frames": 1647,
+        "meanMs": 0.9044140862173647,
+        "p50Ms": 0.56,
+        "p95Ms": 0.9,
+        "p99Ms": 1.53,
+        "p999Ms": 24.46,
+        "worstMs": 442.076,
+        "allocatedBytes": 64144392,
+        "allocatedBytesPerFrame": 38946.200364298726,
+        "StepFailures": 0,
+        "DroppedSteps": 0,
+        "Stalls": 1,
+        "OverrunSteps": 5,
+        "loop": {
+          "Work": {
+            "Count": 2484456,
+            "MeanMilliseconds": 0.0026183336311852573,
+            "P95Milliseconds": 0,
+            "P99Milliseconds": 0,
+            "P999Milliseconds": 0.29,
+            "WorstMilliseconds": 444.125,
+            "Histogram": []
+          },
+          "Phases": [
+            {
+              "Count": 2484456,
+              "MeanMilliseconds": 0.0007309397679009006,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.16,
+              "WorstMilliseconds": 299.895042,
+              "Histogram": []
+            },
+            {
+              "Count": 2484456,
+              "MeanMilliseconds": 0.00040941070761567116,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.02,
+              "WorstMilliseconds": 4.305,
+              "Histogram": []
+            },
+            {
+              "Count": 2484456,
+              "MeanMilliseconds": 0.0008627858875343335,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.01,
+              "WorstMilliseconds": 442.86775,
+              "Histogram": []
+            },
+            {
+              "Count": 2484456,
+              "MeanMilliseconds": 0.00037713471158273685,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0,
+              "WorstMilliseconds": 6.650792,
+              "Histogram": []
+            },
+            {
+              "Count": 2484456,
+              "MeanMilliseconds": 0.00023806255655161533,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0,
+              "WorstMilliseconds": 11.081,
+              "Histogram": []
+            }
+          ],
+          "OverBudget": 9
+        }
+      },
+      "workload": {
+        "PowerBeam": 0,
+        "VoltDriver": 0,
+        "Missile": 0,
+        "Battlehammer": 0,
+        "Imperialist": 0,
+        "Judicator": 0,
+        "Magmaul": 0,
+        "ShockCoil": 1127,
+        "OmegaCannon": 0
+      }
+    },
+    {
+      "repeat": 1,
+      "live": true,
+      "exit": 1,
+      "command": [
+        "python3",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/hitrig/run-networking-slices.py",
+        "--runtime",
+        "/tmp/pr109-complete-native-runtime",
+        "--data",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "--map",
+        "TEST ARENA",
+        "--mapdir",
+        "/tmp/pr109-arena-packages",
+        "--output",
+        "/tmp/pr109-native-performance-complete/1-on",
+        "--seconds",
+        "30",
+        "--dotnet",
+        "/Users/jarrett/.dotnet/dotnet",
+        "--owner-grace",
+        "8",
+        "--players",
+        "8",
+        "--modes",
+        "shockcoil-all",
+        "--profiles",
+        "rtt250-loss2",
+        "--jitter-ms",
+        "40",
+        "--impacts",
+        "--fixture-loadout",
+        "--require-combat",
+        "--claim-mode",
+        "shadow"
+      ],
+      "server": {
+        "schema": 1,
+        "scope": "whole match including startup; loop excludes deliberate pacing wait",
+        "frames": 1599,
+        "meanMs": 0.9342794246403977,
+        "p50Ms": 0.58,
+        "p95Ms": 1.03,
+        "p99Ms": 1.89,
+        "p999Ms": 25.3,
+        "worstMs": 426.8311,
+        "allocatedBytes": 63700640,
+        "allocatedBytesPerFrame": 39837.79862414009,
+        "StepFailures": 0,
+        "DroppedSteps": 0,
+        "Stalls": 1,
+        "OverrunSteps": 4,
+        "loop": {
+          "Work": {
+            "Count": 3146247,
+            "MeanMilliseconds": 0.0022208358622193363,
+            "P95Milliseconds": 0,
+            "P99Milliseconds": 0,
+            "P999Milliseconds": 0.24,
+            "WorstMilliseconds": 429.577875,
+            "Histogram": []
+          },
+          "Phases": [
+            {
+              "Count": 3146247,
+              "MeanMilliseconds": 0.0005831728583293047,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.14,
+              "WorstMilliseconds": 277.804958,
+              "Histogram": []
+            },
+            {
+              "Count": 3146247,
+              "MeanMilliseconds": 0.0003410149975510505,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.01,
+              "WorstMilliseconds": 3.892667,
+              "Histogram": []
+            },
+            {
+              "Count": 3146247,
+              "MeanMilliseconds": 0.0007523957407031298,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0,
+              "WorstMilliseconds": 427.663708,
+              "Histogram": []
+            },
+            {
+              "Count": 3146247,
+              "MeanMilliseconds": 0.000318622316048295,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0,
+              "WorstMilliseconds": 6.53675,
+              "Histogram": []
+            },
+            {
+              "Count": 3146247,
+              "MeanMilliseconds": 0.00022562994958755624,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0,
+              "WorstMilliseconds": 11.754917,
+              "Histogram": []
+            }
+          ],
+          "OverBudget": 8
+        }
+      },
+      "workload": {
+        "PowerBeam": 0,
+        "VoltDriver": 0,
+        "Missile": 0,
+        "Battlehammer": 0,
+        "Imperialist": 0,
+        "Judicator": 0,
+        "Magmaul": 0,
+        "ShockCoil": 1130,
+        "OmegaCannon": 0
+      }
+    },
+    {
+      "repeat": 1,
+      "live": false,
+      "exit": 0,
+      "command": [
+        "python3",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/hitrig/run-networking-slices.py",
+        "--runtime",
+        "/tmp/pr109-complete-native-runtime",
+        "--data",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "--map",
+        "TEST ARENA",
+        "--mapdir",
+        "/tmp/pr109-arena-packages",
+        "--output",
+        "/tmp/pr109-native-performance-complete/1-off",
+        "--seconds",
+        "30",
+        "--dotnet",
+        "/Users/jarrett/.dotnet/dotnet",
+        "--owner-grace",
+        "8",
+        "--players",
+        "8",
+        "--modes",
+        "shockcoil-all",
+        "--profiles",
+        "rtt250-loss2",
+        "--jitter-ms",
+        "40",
+        "--impacts",
+        "--fixture-loadout",
+        "--require-combat",
+        "--claim-mode",
+        "shadow",
+        "--no-live"
+      ],
+      "server": {
+        "schema": 1,
+        "scope": "whole match including startup; loop excludes deliberate pacing wait",
+        "frames": 1471,
+        "meanMs": 0.9835188307273962,
+        "p50Ms": 0.6,
+        "p95Ms": 0.99,
+        "p99Ms": 1.91,
+        "p999Ms": 37.38,
+        "worstMs": 420.5779,
+        "allocatedBytes": 63345424,
+        "allocatedBytesPerFrame": 43062.83072739633,
+        "StepFailures": 0,
+        "DroppedSteps": 0,
+        "Stalls": 1,
+        "OverrunSteps": 3,
+        "loop": {
+          "Work": {
+            "Count": 1361977,
+            "MeanMilliseconds": 0.004748666157358017,
+            "P95Milliseconds": 0,
+            "P99Milliseconds": 0.01,
+            "P999Milliseconds": 0.5,
+            "WorstMilliseconds": 422.371583,
+            "Histogram": []
+          },
+          "Phases": [
+            {
+              "Count": 1361978,
+              "MeanMilliseconds": 0.0012224398081319963,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.21,
+              "WorstMilliseconds": 266.233292,
+              "Histogram": []
+            },
+            {
+              "Count": 1361978,
+              "MeanMilliseconds": 0.0005497412975833677,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.03,
+              "WorstMilliseconds": 4.706583,
+              "Histogram": []
+            },
+            {
+              "Count": 1361978,
+              "MeanMilliseconds": 0.002171551617573852,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.42,
+              "WorstMilliseconds": 421.161708,
+              "Histogram": []
+            },
+            {
+              "Count": 1361977,
+              "MeanMilliseconds": 0.0005193314072117224,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.01,
+              "WorstMilliseconds": 5.426959,
+              "Histogram": []
+            },
+            {
+              "Count": 1361977,
+              "MeanMilliseconds": 0.0002858342365546555,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0,
+              "WorstMilliseconds": 12.399,
+              "Histogram": []
+            }
+          ],
+          "OverBudget": 7
+        }
+      },
+      "workload": {
+        "PowerBeam": 0,
+        "VoltDriver": 0,
+        "Missile": 1,
+        "Battlehammer": 0,
+        "Imperialist": 0,
+        "Judicator": 0,
+        "Magmaul": 0,
+        "ShockCoil": 1100,
+        "OmegaCannon": 0
+      }
+    },
+    {
+      "repeat": 2,
+      "live": false,
+      "exit": 0,
+      "command": [
+        "python3",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/hitrig/run-networking-slices.py",
+        "--runtime",
+        "/tmp/pr109-complete-native-runtime",
+        "--data",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "--map",
+        "TEST ARENA",
+        "--mapdir",
+        "/tmp/pr109-arena-packages",
+        "--output",
+        "/tmp/pr109-native-performance-complete/2-off",
+        "--seconds",
+        "30",
+        "--dotnet",
+        "/Users/jarrett/.dotnet/dotnet",
+        "--owner-grace",
+        "8",
+        "--players",
+        "8",
+        "--modes",
+        "shockcoil-all",
+        "--profiles",
+        "rtt250-loss2",
+        "--jitter-ms",
+        "40",
+        "--impacts",
+        "--fixture-loadout",
+        "--require-combat",
+        "--claim-mode",
+        "shadow",
+        "--no-live"
+      ],
+      "server": {
+        "schema": 1,
+        "scope": "whole match including startup; loop excludes deliberate pacing wait",
+        "frames": 1660,
+        "meanMs": 0.9305144578313257,
+        "p50Ms": 0.59,
+        "p95Ms": 0.93,
+        "p99Ms": 1.72,
+        "p999Ms": 23.83,
+        "worstMs": 423.54380000000003,
+        "allocatedBytes": 64431160,
+        "allocatedBytesPerFrame": 38813.951807228914,
+        "StepFailures": 0,
+        "DroppedSteps": 0,
+        "Stalls": 1,
+        "OverrunSteps": 4,
+        "loop": {
+          "Work": {
+            "Count": 1342756,
+            "MeanMilliseconds": 0.004908613304278663,
+            "P95Milliseconds": 0,
+            "P99Milliseconds": 0.02,
+            "P999Milliseconds": 0.52,
+            "WorstMilliseconds": 426.769458,
+            "Histogram": []
+          },
+          "Phases": [
+            {
+              "Count": 1342756,
+              "MeanMilliseconds": 0.0013018903963192122,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.22,
+              "WorstMilliseconds": 276.396542,
+              "Histogram": []
+            },
+            {
+              "Count": 1342756,
+              "MeanMilliseconds": 0.0005924599368760966,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.03,
+              "WorstMilliseconds": 4.083459,
+              "Histogram": []
+            },
+            {
+              "Count": 1342756,
+              "MeanMilliseconds": 0.002171957354128375,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.48,
+              "WorstMilliseconds": 424.46475,
+              "Histogram": []
+            },
+            {
+              "Count": 1342756,
+              "MeanMilliseconds": 0.0005521487410966698,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.01,
+              "WorstMilliseconds": 7.39525,
+              "Histogram": []
+            },
+            {
+              "Count": 1342756,
+              "MeanMilliseconds": 0.00029015687585830935,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0,
+              "WorstMilliseconds": 13.294667,
+              "Histogram": []
+            }
+          ],
+          "OverBudget": 8
+        }
+      },
+      "workload": {
+        "PowerBeam": 0,
+        "VoltDriver": 0,
+        "Missile": 0,
+        "Battlehammer": 0,
+        "Imperialist": 0,
+        "Judicator": 0,
+        "Magmaul": 0,
+        "ShockCoil": 1129,
+        "OmegaCannon": 0
+      }
+    },
+    {
+      "repeat": 2,
+      "live": true,
+      "exit": 1,
+      "command": [
+        "python3",
+        "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/hitrig/run-networking-slices.py",
+        "--runtime",
+        "/tmp/pr109-complete-native-runtime",
+        "--data",
+        "/Users/jarrett/Library/Application Support/Project Prime",
+        "--map",
+        "TEST ARENA",
+        "--mapdir",
+        "/tmp/pr109-arena-packages",
+        "--output",
+        "/tmp/pr109-native-performance-complete/2-on",
+        "--seconds",
+        "30",
+        "--dotnet",
+        "/Users/jarrett/.dotnet/dotnet",
+        "--owner-grace",
+        "8",
+        "--players",
+        "8",
+        "--modes",
+        "shockcoil-all",
+        "--profiles",
+        "rtt250-loss2",
+        "--jitter-ms",
+        "40",
+        "--impacts",
+        "--fixture-loadout",
+        "--require-combat",
+        "--claim-mode",
+        "shadow"
+      ],
+      "server": {
+        "schema": 1,
+        "scope": "whole match including startup; loop excludes deliberate pacing wait",
+        "frames": 2080,
+        "meanMs": 0.8267253846153834,
+        "p50Ms": 0.56,
+        "p95Ms": 0.92,
+        "p99Ms": 1.8,
+        "p999Ms": 20.85,
+        "worstMs": 388.27119999999996,
+        "allocatedBytes": 64759704,
+        "allocatedBytesPerFrame": 31134.473076923077,
+        "StepFailures": 0,
+        "DroppedSteps": 0,
+        "Stalls": 1,
+        "OverrunSteps": 3,
+        "loop": {
+          "Work": {
+            "Count": 3418774,
+            "MeanMilliseconds": 0.0022486387140536346,
+            "P95Milliseconds": 0,
+            "P99Milliseconds": 0,
+            "P999Milliseconds": 0.26,
+            "WorstMilliseconds": 390.522,
+            "Histogram": []
+          },
+          "Phases": [
+            {
+              "Count": 3418774,
+              "MeanMilliseconds": 0.0005671140911917547,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.13,
+              "WorstMilliseconds": 274.147875,
+              "Histogram": []
+            },
+            {
+              "Count": 3418774,
+              "MeanMilliseconds": 0.0003596523630985845,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.01,
+              "WorstMilliseconds": 4.755083,
+              "Histogram": []
+            },
+            {
+              "Count": 3418774,
+              "MeanMilliseconds": 0.0007385936332732143,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0.01,
+              "WorstMilliseconds": 389.12175,
+              "Histogram": []
+            },
+            {
+              "Count": 3418774,
+              "MeanMilliseconds": 0.0003332557536707603,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0,
+              "WorstMilliseconds": 6.325375,
+              "Histogram": []
+            },
+            {
+              "Count": 3418774,
+              "MeanMilliseconds": 0.0002500228728193206,
+              "P95Milliseconds": 0,
+              "P99Milliseconds": 0,
+              "P999Milliseconds": 0,
+              "WorstMilliseconds": 14.228541,
+              "Histogram": []
+            }
+          ],
+          "OverBudget": 6
+        }
+      },
+      "workload": {
+        "PowerBeam": 0,
+        "VoltDriver": 0,
+        "Missile": 2,
+        "Battlehammer": 0,
+        "Imperialist": 0,
+        "Judicator": 0,
+        "Magmaul": 0,
+        "ShockCoil": 1072,
+        "OmegaCannon": 0
+      }
+    }
+  ],
+  "medians": {
+    "False": {
+      "p50Ms": 0.59,
+      "p95Ms": 0.95,
+      "p99Ms": 1.76,
+      "p999Ms": 23.83,
+      "allocatedBytesPerFrame": 39095.46341463415
+    },
+    "True": {
+      "p50Ms": 0.56,
+      "p95Ms": 0.92,
+      "p99Ms": 1.8,
+      "p999Ms": 24.46,
+      "allocatedBytesPerFrame": 38946.200364298726
+    }
+  }
+}

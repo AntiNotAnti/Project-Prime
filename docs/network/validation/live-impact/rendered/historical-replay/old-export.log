@@ -1,0 +1,30 @@
+[debug] standard error is being written to /tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0/logs/ProjectPrime-20261009-011913-46230-native.txt
+Project Prime a local build
+OS: macOS 27.0.0
+OS architecture: Arm64
+Process architecture: Arm64
+RID: osx-arm64
+Runtime: .NET 10.0.12
+Base directory: /private/tmp/pr109-final-native-runtime/
+Launch directory: /Users/jarrett/Documents/Development/Prime Hunters Online
+Current directory: /private/tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0
+User data: /tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0
+Native: /private/tmp/pr109-final-native-runtime/libopenal.1.dylib
+Native: /private/tmp/pr109-final-native-runtime/libglfw.3.dylib
+Native: /private/tmp/pr109-final-native-runtime/libSkiaSharp.dylib
+Native: /private/tmp/pr109-final-native-runtime/libminiaudio.dylib
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[input] gamepad mappings: 2275 from /private/tmp/pr109-final-native-runtime/gamecontrollerdb.txt
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[replayexport] FAIL: System.IO.InvalidDataException: 30 FPS export depends on prior seek or wall-clock cadence.
+   at MphRead.Mods.Network.ReplayExportCheck.Run(String path, String output) in /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead/Mods/Network/ReplayExportCheck.cs:line 94

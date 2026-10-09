@@ -1,139 +1,169 @@
-# Combat impact acceptance comparison
+# Combat impact implementation and acceptance
 
-The implemented chain is **partial and default-off**. It preserves combat authority;
-it has not passed the requested release/visual campaign. New retained text logs/CSV normalize line endings and trailing whitespace for repository
-review; numeric/event payloads are unchanged. Machine-readable status is
-in [after.json](after.json); the original observation is [baseline.json](baseline.json).
+The implementation is delivered through stacked draft PRs, with independent safe
+rollout defaults. Release acceptance is **partial**: the victim/spectator
+same-projectile target is unmet, sustained eight-player continuous fire exhausts
+semantic event history in both off/on controls, and some source/variant/platform cohorts remain
+unverified, and CI review was explicitly skipped. No merge or release occurred.
+The current machine-readable record is [after.json](after.json); the original
+baseline remains [baseline.json](baseline.json). The earlier checkpoint is preserved
+as [after-slice6.json](after-slice6.json), including failures later superseded by
+separately recorded repairs. A failed raw run is never rewritten as passed.
 
-## Local contracts
+## Local contracts and builds
 
-All 20 final checks passed. The existing 3,338,739 health/shot assertions, claim stress,
-2352 lag profiles, 1620 weapon timing profiles, transport stress, lifecycle and historical
-replay contracts remain green. New checks cover 21 baseline, 569 live codec/identity/queue,
-614 transport (includes the 569), 22 presentation, 39 settlement safety, 18 visual ticket,
-and three profiling contracts. The asset-backed checks passed 57 authority/resource and
-156 fire-context assertions on installed MP1 SANCTORUS data. Counts are not added together
-where suites overlap. Raw commands/results/logs are under [after-tests](after-tests/results.json).
+The final dedicated impact runner passes **21/21** groups: existing 3,338,739 health/
+shot assertions, claim stress, 2,352 lag profiles, 1,620 weapon profiles, transport,
+lifecycle and historical replays; plus 569 live codec/identity/queue, 614 transport
+(includes those 569), 30 presentation, 574 settlement safety, 18 kill-ticket and
+three profiling assertions. Asset-backed checks pass 57 authority/resource,
+156 firing-context and 178 native early-settlement assertions. Overlapping suites
+are not added into an inflated total. See [contracts](rendered/contracts/results.json).
 
-The [45-scenario transport simulation](after-transport.json) uses production outboxes and
-codecs for 2/4/8 peers and 0/50/150/250/350 ms RTT with positive FIFO jitter 0/40/80 ms,
-2% loss, 3% reorder and 1% duplicates. Each passes >=98% unique delivery at 10 facts/s/peer.
-This is not the requested symmetric-jitter rendered UDP acceptance campaign.
+All runtime checks in `bash tools/check-engineering-contracts.sh` pass, including
+SQL migration fixtures, renderer/lifecycle/pacing, updater recovery, replay timeline,
+lobby, map roadmap and replay preparation. Its final server build caught a missing
+graphics preprocessor guard in the netcheck harness. The guard was repaired and the
+server recompile passes with 40 warnings/zero errors. The original failed script and
+successful repaired build remain separate logs. Desktop/nettest and Android ARM64
+builds also pass. These are local results, not CI status.
 
-## Real native UDP
+The production transport/codec fault matrix still passes all 45 scenarios at
+2/4/8 peers, 0/50/150/250/350 ms RTT, 0/40/80 ms positive FIFO jitter, 2% loss,
+3% reorder and 1% duplication. Its >=98% unique-delivery result at 10 facts/s/peer
+is a synthetic queue result, not a pixel-visibility or eligible-UDP-delivery SLA.
 
-The frozen client/server assembly hash is identical to the final contract build.
-Eleven 30-second arms used isolated preferences and real 60 Hz native simulations.
-Seven passed movement, firing and a nonzero authority-confirmed combat requirement;
-four failed the combat requirement. All eleven retained their original successful native
-simulation checks. No test was weakened or relabeled to hide zero confirmed hits.
+## Native combat and rendered views
 
-| Players | Mode | RTT / loss | Result | Authority-confirmed client hits |
-| --- | --- | --- | --- | ---: |
-| 2 | Imperialist sniper | 0 / 0% | fail: zero confirmations | 0 |
-| 2 | Imperialist sniper | 250 / 2% | fail: zero confirmations | 0 |
-| 2 | Imperialist sniper | 350 / 2% | pass | 1 |
-| 2 | Power Beam | 0 / 0% | pass | 14 |
-| 2 | Power Beam | 250 / 2% | pass | 15 |
-| 2 | Power Beam | 350 / 2% | pass | 18 |
-| 2 | Shock Coil | 0 / 0% | pass | 1 |
-| 2 | Shock Coil | 250 / 2% | fail: zero confirmations | 0 |
-| 2 | Shock Coil | 350 / 2% | fail: zero confirmations | 0 |
-| 4 | Power Beam | 250 / 2% + 322 ms observed pause | pass | 25 |
-| 8 | Power Beam | 250 / 2% | pass | 92 |
+The authority-issued loopback fixture fixes the earlier invalid weapon-acquisition
+assumption. It requires an unlisted dedicated server and local peers, issues legal
+inventory, and retains native ammunition, cadence, source and collision proof.
+Charged cases require actual charged native emissions and intended-weapon damage.
 
-Impaired arms used jitter `min(60, RTT/5)` per the existing network conditioner,
-2% reorder and 1% duplication. Their exact commands, reports and source/binary freeze
-checks are under [native-p2](native-p2/summary.json), [native-p4](native-p4/summary.json)
-and [native-p8](native-p8/summary.json). This samples three rig modes, not all variants. **Actual facts are Power Beam (172)
-and Missile (3); no Imperialist or Shock Coil fact was produced.** The nonzero sniper/
-Shock Coil arms passed generic combat smoke using Missile facts, not intended-weapon
-acceptance. Per-weapon counters are retained in each report.
-The rig locally arms weapons; that does not confer authoritative weapon admission.
-The [pristine baseline controls](native-baseline/summary.json) reproduce zero confirmations
-in both the 250 ms sniper and Shock Coil arms, with successful native simulation checks.
-Their frozen protocol-44 assembly hash matches the benchmark baseline. This demonstrates
-the fixture gap before these impact changes. It does not validate the intended weapons.
-Zero-confirmation arms cannot establish delivery or weapon fidelity. Weapon acquisition/
-admission needs its own fixture repair without bypassing production validation.
+- **Nine-weapon Metal campaign:** 9/9 arms with shooter, victim and spectator,
+  250±40 ms RTT, 2% loss, 2% reorder and 1% duplicates. The retained classifications
+  are 644/644 authority-backed; all 587 first draw submissions are authority-backed.
+  There are 37,941 projectile-state comparisons and zero mutations.
+- **Variants:** 11/14 original arms pass. Two Omega arms and one Judicator arm
+  failed an old prediction-only counter despite native authority-only damage.
+  Separate final reruns pass; the original failure summaries remain intact.
+- **Four/eight players:** four-player 50/150/350 ms and eight-player 0/250 ms runs
+  exercise scoped duel and continuous ticks, including a 500 ms peer suspension.
+  A trigger-window counter and headless cosmetic-consumption issue were repaired.
+  The final four-player duel, two eight-player coil and two Omega reruns all pass;
+  the Judicator recheck makes six affected rechecks passing in total.
+- **Backends:** native OpenGL views and a three-view MoltenVK Missile arm render.
+  Metal and MoltenVK offscreen backend probes also pass. OpenGL's initial pilot
+  failed an inappropriate symmetric-shooting gate; later paired owner/observer
+  counters require remote observations only for participants that actually fire.
+- **Refresh:** requested 120/144/240/360 FPS Metal arms pass, with measured rates
+  approximately 117 FPS. Physical 240/360 Hz output is not claimed. The separate
+  virtual replay cadence test verifies identical gameplay at 60/120/144/240/360/540 Hz.
+- **Kill tickets:** three impaired arms start 13 tickets and confirm all 13, with
+  zero rejection or expiry. The short 350 ms/5% loss arm misses a remote shot
+  observation; its 60-second ±80 ms rerun passes. This sample remains too small
+  for default enablement or a population reversal-rate estimate.
 
-Across these runs there are 175 retained authority facts and 934 unique peer ingresses.
-All 934 exactly join to a server authority fact; zero have an absent authority identity.
-There were zero diagnostic ring overwrites. This is an ingress integrity observation,
-not a 100% visual success rate or a full eligible-delivery denominator: readiness,
-lifecycle and staggered client shutdown can omit facts from a peer. Headless clients
-never drew/dequeued cues and these runs stayed below the 128 pending-event capacity.
+Per-weapon raw denominators, stage classifications, ingress-to-draw p90/p99 and
+within-process hit-to-ingress samples are in [the report](rendered/metal-nine/report.json).
+No timestamps are subtracted across processes. Ring overwrite, readiness, lifecycle
+and shutdown censoring are explicit limitations. Classifications and accepted draw
+submissions are **not pixel visibility**. Spot inspections show actors, weapons and
+cues; screenshots remain local and are inventoried by hash because game imagery must
+not be committed. See [reproduction and evidence](rendered/README.md).
 
-The [same-process report](native-p2/report.json) retains every latency sample and counts
-negative arrival-before-local-hit candidates separately. For Power Beam at 250 ms,
-14 nonnegative samples have p90 217.445 ms; at 350 ms, 18 have p90 350.069 ms. Those small,
-conditional groups are not a global p90/p99 claim. Cross-process clocks are never
-subtracted. Local firing-to-audio, rendered cue latency, multi-camera correlation,
-observer-only views and predicted-kill reversal rates were not measured.
+The proposed >=90% same-projectile gate is not met in victim/spectator views; most
+use truthful fallback effects. The visibility-qualified >=98% cue gate is unverified.
+The retained 100% authoritative backing is encouraging but does not make those other
+gates pass. Live impact publication/correction stays off by default.
 
-The native profile now exercises `NetAttackPaths.Supports`: at two-player Power Beam
-250/350 ms, 133/163 calls totaled 1.673/1.985 ms with zero measured allocation. Catch-up
-used 23.692/23.449 ms over the complete runs; historical geometry used 2.759/2.619 ms.
-Scopes can overlap and are not additive. This is a small workload, not an optimization win.
+## Authority and settlement
 
-## Alternating before/after benchmark
+The native early-settlement fixture uses ordinary accepted firing, resource-backed
+native path evidence and final damage application. It proves exact component payment
+and later duplicate suppression, ordering blockers, lifecycle fences and lethal parity.
+At simulated 250 ms RTT, an isolated Imperialist claim settles 18 frames (300 ms)
+earlier than grace. This is a deterministic native fixture, **not** a measured UDP
+latency win. Sustained combat is deliberately likely to block eligibility. The default
+is shadow; unsupported/ambiguous hits keep the existing grace path.
 
-The original baseline timings overlapped builds and are retained as observations only.
-The new [matched comparison](matched/comparison.json) alternates frozen baseline and
-current binaries, three repeats each, 300 warm-up + 1800 measured steps per repeat,
-2/4/8 synthetic-intent players, same room and .NET 10 runtime. Other task-owned native
-runs/builds were complete before measurement. Feature gates use defaults.
+No arbitrary grace reduction, shooter-authoritative damage, skip-rewind branch or
+speculative gameplay death was introduced. Predicted lethal feedback changes only a
+render pose; actual health, collision, score, respawn and killcam retain authority.
 
-| Players | Before p99 ms | After p99 ms | Change | Allocation bytes/step, before = after |
-| --- | ---: | ---: | ---: | ---: |
-| 2 | 0.2681 | 0.2680 | -0.04% | 1670.20 |
-| 4 | 0.4549 | 0.4825 | +6.07% | 1858.27 |
-| 8 | 0.9848 | 0.9666 | -1.85% | 2238.41 |
+## Performance
 
-These are medians of three run percentiles, not pooled percentiles or confidence bounds.
-Four-player tail variation exceeds 5%; it is retained, not rounded into a pass. All
-steady-state allocation measurements match exactly. The baseline runner lacks p99.9;
-the new runner records it in each raw JSON. No collision optimization was enabled and
-no reduction is attributed to one. There are no sockets or mixed bots in this benchmark,
-so the plan's enabled eight-player <=5% p99 gate remains **unverified**.
+The original matched baseline/default-feature comparison retains eight-player p99
+0.9848 -> 0.9666 ms (−1.85%) and identical allocations/step. Four-player p99 increases
+6.07%, so this is not a universal performance win. These are synthetic intent workloads
+with live impacts and predicted-kill visuals off, not enabled native acceptance.
 
-Each live payload is 74 bytes, framed datagram 98 bytes, below the 1472-byte ceiling.
-Snapshots are unchanged. Two unreliable attempts are bounded to four transmissions per
-simulation frame per ready peer: <=240 datagrams / 23,520 framed bytes/s per peer,
-<=188,160 for eight peers, excluding IP/UDP overhead. This is the enforced saturation
-ceiling, not measured typical bandwidth. Cosmetic receive capacity is separate and
-ordinary realtime gameplay drains first. Saturation tests retain full gameplay/critical
-admission while cosmetics are full.
+The opt-in server scratch feature saves **320 bytes/native emission**, and the median
+batch of 1,024 repeated historical-pose reads improves **0.0279 -> 0.0069 ms** (75.3%).
+Its exact native/parity suite passes 1,925 top-level assertions plus nested authority,
+fire, combat and early-settlement checks. Native-emission microbenchmark p99 increases
+13.5%; keep the feature opt-in. The three-pair synthetic server-frame medians change
++3.79% / +3.09% / −1.90% at 2/4/8 players, with unchanged allocations/frame. See
+[paired frames](server-scratch/frames/comparison.json) and
+[native parity](server-scratch/expanded-parity.json).
 
-## Platform/build verification
+The later native UDP experiment alternates live delivery off/on on one frozen binary,
+with identical diagnostics, eight real peers, 250±40 ms RTT, 2% loss and tiering off.
+It reuses bounded server histograms and captures p50/p95/p99/p99.9 and allocation at
+teardown. Whole-match samples include startup, staggered departure and random combat;
+they cannot prove the controlled steady-state allocation or <=5% p99 release gate.
+Both initial and repeated controls disconnect peers for **semantic history overrun**.
+An owner-shutdown hypothesis was tested with eight extra owner seconds and did not
+resolve it. Both live off/on arms hit the failure, so no live-impact-specific cause
+or pristine-baseline origin is asserted. All six repeated arms are invalid for
+performance acceptance, even though the earlier off-arm harness returned zero.
+The final harness now fails explicit server timeout/reliable/semantic disconnects;
+its off-mode reproducer confirms this stricter result. Raw timing medians are retained
+only for diagnosis in [native-performance/comparison.json](native-performance/comparison.json)
+and [disconnect-audit.json](native-performance/disconnect-audit.json).
 
-The complete `tools/check-engineering-contracts.sh` passed on macOS, including
-replay format/control, input/lobby/health/transport, renderer/pacing, map/replay
-preparation contracts and the final dedicated-server compile. The raw log is retained.
+For diagnosis only, the median run p99 is 1.76 ms off versus 1.80 ms on;
+allocation is 39095 versus 38946 bytes/frame. Disconnects
+change the simulated population, so these values do not meet the matched-load contract.
 
-The Android ARM64 Debug build passed with 128 warnings and zero errors, with embedded
-managed assemblies and RmlUi enabled. The initially stale native bridge was rebuilt from
-its pinned sources; the produced APK passed the repository's RmlUi package verifier.
-No device installation/rendered combat is claimed. Logs are in `platforms/`.
+This is a release blocker. Weakening required semantic delivery, dropping authoritative
+match events or expanding retention without a bounded transport design would not be a
+safe way to make the test pass. The live cosmetic lane remains independent and disabled
+by default; its safe default does not resolve this sustained-load acceptance failure.
 
-The final implementation CI snapshot has successful Linux and Windows impact contracts;
-macOS is queued. Overall CI is **not green**: the Windows native RmlUi UIA fixture accepts
-four requests but observes no acknowledged native invocation. The migration aggregator
-also fails on cancelled dependencies from a superseded run. Exact links and logs are
-under `ci/`. Those jobs exercise unchanged UI bridge code; this report does not infer
-that a failure is pre-existing without a baseline CI comparison.
+No broad historical-world/line-of-sight cache or rewind replacement is claimed.
+The pose cache keys exact fractional frame, lifecycle and history revision and
+invalidates on every relevant history mutation. Dynamic geometry remains native.
 
-## Acceptance still required
+## Replay, bots and platform scope
 
-The new local contract and headless evidence does not certify Windows/Linux/macOS/Android
-rendered play, Replay Studio seek/render/export, custom/dynamic geometry, all charged/
-affinity/child/alt/turret/burn paths, mixed bots, spectator-only clients, 60–360 Hz,
-physical mobile focus/resume, or an impaired predicted-kill reversal rate. CI/build results
-are recorded separately in `after.json`; a compile pass cannot close these runtime gates.
+A real recorded match passes theatre, player/POV changes, seeks, pause, 720p/4K clean-
+HUD export, repeated 24..144 FPS samples, serialized jobs/reels and render-state
+invariance. A generated eight-actor replay passes all game modes, checkpoint and
+frozen-clip restoration, 2,354 killcam checks, and high-refresh virtual drawing.
+Seven-bot simulation and mixed human/bot online replication pass, as do 995 alternate-
+contact and 62 continuous-target scene assertions. These are functional checks, not
+matched mixed-bot optimization benchmarks.
 
-Early claim settlement is explicitly refused because the exact native component
-suppression and closed attack-order proof are missing. Shadow sampling changes no
-reservation, outcome or grace interval. The prototype kill ticket and impact rendering
-remain off. See the [implementation report](../../implementation/pr109-inspired/IMPLEMENTATION.md)
-for the PR chain, rollback commands and prioritized security, fidelity, visuals and
-performance work.
+Protocol-44 fixtures created by the original baseline open and seek under the new
+build. Strict repeat export at 30 FPS differs by one/two pixels within both baseline
+and current builds. Every corresponding baseline/current frame is pixel-identical;
+the pre-existing repeatability failure is retained in
+[pixel-comparison.json](rendered/historical-replay/pixel-comparison.json).
+
+Android ARM64 builds with 129 warnings and zero errors, and the installed debug APK
+passes three fresh Vulkan surface/readback/present/UI-overlay Home/resume cycles on
+the ARM64 emulator. This does not verify physical Android combat, touch or focus loss.
+Windows DX12/Vulkan, Linux Vulkan and physical Android acceptance require those hosts.
+Controller/touch/audio quality, moving platforms/dynamic cover, repeated-child lineage,
+affinity/homing variants and unsupported turret-only/bomb/alt/burn fact sources remain
+explicit release/fidelity work. CI review is skipped by user request.
+
+## Defaults and rollout
+
+Live impacts, predicted-kill visuals, server scratch and detailed diagnostics remain
+off; claim fast settlement remains shadow. Roll back independently with
+`-noliveimpacts`, `-claimfastpath off`, or by omitting the respective opt-in flag.
+Protocol 45 clients and servers must ship together if later released; replay fact v1
+and historical checkpoint compatibility remain unchanged. No deployment, merge or
+automatic configuration migration occurred.

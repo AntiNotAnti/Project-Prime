@@ -1,0 +1,436 @@
+[debug] standard error is being written to /tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0/logs/ProjectPrime-20261009-011554-45132-native.txt
+Project Prime a local build
+OS: macOS 27.0.0
+OS architecture: Arm64
+Process architecture: Arm64
+RID: osx-arm64
+Runtime: .NET 10.0.12
+Base directory: /private/tmp/pr109-native-final-eight/runtime/
+Launch directory: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online
+Current directory: /private/tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0
+User data: /tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0
+Native: /private/tmp/pr109-native-final-eight/runtime/libopenal.1.dylib
+Native: /private/tmp/pr109-native-final-eight/runtime/libglfw.3.dylib
+Native: /private/tmp/pr109-native-final-eight/runtime/libSkiaSharp.dylib
+Native: /private/tmp/pr109-native-final-eight/runtime/libminiaudio.dylib
+[replayworld] Battle: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 684129 bytes; capture 27.26 ms, create/restore 47.77 ms
+[replayreplica] restored frame 600: 684129 bytes; capture 37.26 ms, create/restore 36.13 ms
+[replayreplica] restored frame 810: 684263 bytes; capture 30.37 ms, create/restore 63.77 ms
+[replayreplica] restored frame 900: 684451 bytes; capture 30.60 ms, create/restore 48.53 ms
+[replayreplica] restored frame 1200: 684357 bytes; capture 29.07 ms, create/restore 36.34 ms
+[replayreplica] restored frame 1500: 684357 bytes; capture 34.83 ms, create/restore 40.48 ms
+[replayreplica] restored frame 1800: 684357 bytes; capture 27.03 ms, create/restore 35.50 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 311.04 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 72.91 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 111.92 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 112.17 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 39.39 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 86.74 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 79.44 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 80.67 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 77.50 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11130 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] BattleTeams: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 684129 bytes; capture 6.33 ms, create/restore 19.23 ms
+[replayreplica] restored frame 600: 684129 bytes; capture 6.91 ms, create/restore 20.55 ms
+[replayreplica] restored frame 810: 684263 bytes; capture 10.79 ms, create/restore 21.92 ms
+[replayreplica] restored frame 900: 684451 bytes; capture 12.48 ms, create/restore 18.67 ms
+[replayreplica] restored frame 1200: 684357 bytes; capture 5.89 ms, create/restore 18.66 ms
+[replayreplica] restored frame 1500: 684357 bytes; capture 5.55 ms, create/restore 18.93 ms
+[replayreplica] restored frame 1800: 684357 bytes; capture 5.33 ms, create/restore 15.87 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 242.56 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 53.86 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 87.96 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 72.29 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 18.81 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 70.19 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 57.97 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 73.11 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 73.01 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11130 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] Survival: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 683654 bytes; capture 5.20 ms, create/restore 42.21 ms
+[replayreplica] restored frame 600: 683654 bytes; capture 5.59 ms, create/restore 17.74 ms
+[replayreplica] restored frame 810: 683788 bytes; capture 5.81 ms, create/restore 20.72 ms
+[replayreplica] restored frame 900: 683976 bytes; capture 5.29 ms, create/restore 30.80 ms
+[replayreplica] restored frame 1200: 683882 bytes; capture 5.23 ms, create/restore 17.71 ms
+[replayreplica] restored frame 1500: 683882 bytes; capture 5.70 ms, create/restore 18.13 ms
+[replayreplica] restored frame 1800: 683882 bytes; capture 5.93 ms, create/restore 23.74 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 225.86 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 53.10 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 89.55 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 73.45 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 17.79 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 78.65 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 56.83 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 78.00 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 75.63 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11130 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] SurvivalTeams: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 683654 bytes; capture 5.51 ms, create/restore 17.36 ms
+[replayreplica] restored frame 600: 683654 bytes; capture 5.20 ms, create/restore 19.92 ms
+[replayreplica] restored frame 810: 683788 bytes; capture 5.81 ms, create/restore 18.68 ms
+[replayreplica] restored frame 900: 683976 bytes; capture 5.82 ms, create/restore 18.21 ms
+[replayreplica] restored frame 1200: 683882 bytes; capture 5.65 ms, create/restore 18.92 ms
+[replayreplica] restored frame 1500: 683882 bytes; capture 5.30 ms, create/restore 18.77 ms
+[replayreplica] restored frame 1800: 683882 bytes; capture 5.89 ms, create/restore 15.02 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 230.98 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 56.53 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 86.91 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 73.58 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 17.44 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 70.19 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 59.58 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 71.76 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 82.25 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11130 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] Capture: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 673156 bytes; capture 5.62 ms, create/restore 18.04 ms
+[replayreplica] restored frame 600: 673156 bytes; capture 5.31 ms, create/restore 17.87 ms
+[replayreplica] restored frame 810: 673290 bytes; capture 5.90 ms, create/restore 17.35 ms
+[replayreplica] restored frame 900: 673478 bytes; capture 6.01 ms, create/restore 17.59 ms
+[replayreplica] restored frame 1200: 673384 bytes; capture 5.68 ms, create/restore 17.76 ms
+[replayreplica] restored frame 1500: 673384 bytes; capture 6.74 ms, create/restore 23.46 ms
+[replayreplica] restored frame 1800: 673384 bytes; capture 5.02 ms, create/restore 14.16 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 221.93 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 51.76 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 81.17 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 69.54 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 17.05 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 73.74 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 54.59 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 74.24 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 70.65 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 9434 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] Bounty: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 673156 bytes; capture 5.40 ms, create/restore 24.62 ms
+[replayreplica] restored frame 600: 673156 bytes; capture 5.16 ms, create/restore 18.86 ms
+[replayreplica] restored frame 810: 673290 bytes; capture 5.57 ms, create/restore 17.87 ms
+[replayreplica] restored frame 900: 673478 bytes; capture 5.64 ms, create/restore 17.68 ms
+[replayreplica] restored frame 1200: 673384 bytes; capture 5.01 ms, create/restore 17.16 ms
+[replayreplica] restored frame 1500: 673384 bytes; capture 5.21 ms, create/restore 25.81 ms
+[replayreplica] restored frame 1800: 673384 bytes; capture 5.86 ms, create/restore 20.72 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 229.15 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 55.71 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 83.43 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 77.14 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 19.10 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 77.98 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 60.13 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 69.56 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 74.68 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 9434 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] BountyTeams: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 673156 bytes; capture 5.47 ms, create/restore 25.79 ms
+[replayreplica] restored frame 600: 673156 bytes; capture 4.90 ms, create/restore 22.77 ms
+[replayreplica] restored frame 810: 673290 bytes; capture 5.57 ms, create/restore 18.86 ms
+[replayreplica] restored frame 900: 673478 bytes; capture 5.51 ms, create/restore 17.98 ms
+[replayreplica] restored frame 1200: 673384 bytes; capture 5.55 ms, create/restore 17.55 ms
+[replayreplica] restored frame 1500: 673384 bytes; capture 5.11 ms, create/restore 18.43 ms
+[replayreplica] restored frame 1800: 673384 bytes; capture 5.49 ms, create/restore 14.09 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 233.81 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 59.70 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 93.31 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 69.78 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 22.08 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 69.48 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 60.50 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 67.64 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 78.00 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 9434 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] Defender: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 686134 bytes; capture 5.27 ms, create/restore 17.65 ms
+[replayreplica] restored frame 600: 686134 bytes; capture 5.36 ms, create/restore 25.43 ms
+[replayreplica] restored frame 810: 686268 bytes; capture 5.20 ms, create/restore 18.53 ms
+[replayreplica] restored frame 900: 686456 bytes; capture 5.28 ms, create/restore 17.91 ms
+[replayreplica] restored frame 1200: 686362 bytes; capture 5.15 ms, create/restore 17.11 ms
+[replayreplica] restored frame 1500: 686362 bytes; capture 5.40 ms, create/restore 17.06 ms
+[replayreplica] restored frame 1800: 686362 bytes; capture 5.28 ms, create/restore 15.00 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 233.14 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 51.34 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 88.18 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 71.50 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 26.85 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 68.20 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 63.43 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 72.00 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 73.01 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11342 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] DefenderTeams: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 686134 bytes; capture 5.52 ms, create/restore 27.00 ms
+[replayreplica] restored frame 600: 686134 bytes; capture 5.57 ms, create/restore 18.22 ms
+[replayreplica] restored frame 810: 686268 bytes; capture 5.64 ms, create/restore 18.62 ms
+[replayreplica] restored frame 900: 686456 bytes; capture 5.92 ms, create/restore 18.52 ms
+[replayreplica] restored frame 1200: 686362 bytes; capture 5.88 ms, create/restore 18.50 ms
+[replayreplica] restored frame 1500: 686362 bytes; capture 5.28 ms, create/restore 18.87 ms
+[replayreplica] restored frame 1800: 686362 bytes; capture 5.59 ms, create/restore 14.78 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 232.59 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 53.05 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 90.32 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 73.55 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 18.21 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 74.90 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 57.91 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 74.17 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 72.71 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11342 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] Nodes: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 686988 bytes; capture 5.71 ms, create/restore 18.34 ms
+[replayreplica] restored frame 600: 686988 bytes; capture 5.40 ms, create/restore 23.88 ms
+[replayreplica] restored frame 810: 687122 bytes; capture 5.37 ms, create/restore 19.67 ms
+[replayreplica] restored frame 900: 687310 bytes; capture 5.46 ms, create/restore 18.99 ms
+[replayreplica] restored frame 1200: 687216 bytes; capture 5.27 ms, create/restore 17.79 ms
+[replayreplica] restored frame 1500: 687216 bytes; capture 5.58 ms, create/restore 18.18 ms
+[replayreplica] restored frame 1800: 687216 bytes; capture 5.29 ms, create/restore 23.26 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 229.90 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 54.64 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 86.35 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 75.95 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 17.08 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 75.78 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 53.88 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 72.67 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 70.75 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11660 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] NodesTeams: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 686988 bytes; capture 5.64 ms, create/restore 18.81 ms
+[replayreplica] restored frame 600: 686988 bytes; capture 5.97 ms, create/restore 18.62 ms
+[replayreplica] restored frame 810: 687122 bytes; capture 5.48 ms, create/restore 18.92 ms
+[replayreplica] restored frame 900: 687310 bytes; capture 5.18 ms, create/restore 24.69 ms
+[replayreplica] restored frame 1200: 687216 bytes; capture 5.78 ms, create/restore 18.10 ms
+[replayreplica] restored frame 1500: 687216 bytes; capture 6.63 ms, create/restore 25.22 ms
+[replayreplica] restored frame 1800: 687216 bytes; capture 5.83 ms, create/restore 22.90 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 232.18 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 57.18 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 86.05 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 74.72 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 18.26 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 72.58 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 55.17 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 74.54 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 77.49 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11660 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] Hardpoint: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 686988 bytes; capture 5.28 ms, create/restore 18.41 ms
+[replayreplica] restored frame 600: 686988 bytes; capture 5.50 ms, create/restore 18.67 ms
+[replayreplica] restored frame 810: 687122 bytes; capture 5.44 ms, create/restore 18.24 ms
+[replayreplica] restored frame 900: 687310 bytes; capture 5.93 ms, create/restore 18.92 ms
+[replayreplica] restored frame 1200: 687216 bytes; capture 5.23 ms, create/restore 17.56 ms
+[replayreplica] restored frame 1500: 687216 bytes; capture 5.56 ms, create/restore 18.76 ms
+[replayreplica] restored frame 1800: 687216 bytes; capture 5.50 ms, create/restore 15.07 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 238.51 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 52.48 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 92.59 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 72.35 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 16.47 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 69.09 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 61.81 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 72.98 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 70.48 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11660 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] HardpointTeams: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 686988 bytes; capture 4.94 ms, create/restore 17.73 ms
+[replayreplica] restored frame 600: 686988 bytes; capture 5.09 ms, create/restore 18.29 ms
+[replayreplica] restored frame 810: 687122 bytes; capture 5.77 ms, create/restore 19.07 ms
+[replayreplica] restored frame 900: 687310 bytes; capture 5.15 ms, create/restore 17.38 ms
+[replayreplica] restored frame 1200: 687216 bytes; capture 5.31 ms, create/restore 18.36 ms
+[replayreplica] restored frame 1500: 687216 bytes; capture 5.33 ms, create/restore 18.08 ms
+[replayreplica] restored frame 1800: 687216 bytes; capture 5.70 ms, create/restore 15.43 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 235.42 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 54.85 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 95.06 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 75.79 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 18.51 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 70.30 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 63.59 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 73.36 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 72.13 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11660 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] GunGame: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 683975 bytes; capture 5.12 ms, create/restore 18.83 ms
+[replayreplica] restored frame 600: 683975 bytes; capture 4.95 ms, create/restore 17.35 ms
+[replayreplica] restored frame 810: 684109 bytes; capture 6.06 ms, create/restore 18.34 ms
+[replayreplica] restored frame 900: 684297 bytes; capture 5.63 ms, create/restore 17.97 ms
+[replayreplica] restored frame 1200: 684203 bytes; capture 6.07 ms, create/restore 19.92 ms
+[replayreplica] restored frame 1500: 684203 bytes; capture 5.55 ms, create/restore 18.52 ms
+[replayreplica] restored frame 1800: 684203 bytes; capture 5.71 ms, create/restore 13.77 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 228.87 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 58.78 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 89.43 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 72.14 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 25.83 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 73.19 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 64.13 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 73.80 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 70.44 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11130 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] OneInTheChamber: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 683522 bytes; capture 5.57 ms, create/restore 17.40 ms
+[replayreplica] restored frame 600: 683522 bytes; capture 5.37 ms, create/restore 17.97 ms
+[replayreplica] restored frame 810: 683656 bytes; capture 5.69 ms, create/restore 19.00 ms
+[replayreplica] restored frame 900: 683844 bytes; capture 5.23 ms, create/restore 17.58 ms
+[replayreplica] restored frame 1200: 683750 bytes; capture 5.54 ms, create/restore 18.65 ms
+[replayreplica] restored frame 1500: 683750 bytes; capture 5.55 ms, create/restore 17.21 ms
+[replayreplica] restored frame 1800: 683750 bytes; capture 5.53 ms, create/restore 15.12 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 227.01 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 52.54 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 86.76 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 74.20 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 17.16 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 75.51 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 54.04 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 72.42 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 71.23 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11130 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] KillConfirmed: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 682540 bytes; capture 5.35 ms, create/restore 18.11 ms
+[replayreplica] restored frame 600: 682514 bytes; capture 5.43 ms, create/restore 17.57 ms
+[replayreplica] restored frame 810: 682090 bytes; capture 5.85 ms, create/restore 18.07 ms
+[replayreplica] restored frame 900: 682278 bytes; capture 5.16 ms, create/restore 24.47 ms
+[replayreplica] restored frame 1200: 682768 bytes; capture 6.11 ms, create/restore 18.78 ms
+[replayreplica] restored frame 1500: 682742 bytes; capture 5.44 ms, create/restore 26.30 ms
+[replayreplica] restored frame 1800: 682184 bytes; capture 6.12 ms, create/restore 22.84 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 237.96 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 56.95 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 86.33 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 80.45 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 17.83 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 80.10 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 58.63 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 68.69 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 79.76 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 10424 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] KillConfirmedTeams: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 682540 bytes; capture 5.08 ms, create/restore 23.14 ms
+[replayreplica] restored frame 600: 682514 bytes; capture 5.15 ms, create/restore 18.01 ms
+[replayreplica] restored frame 810: 682090 bytes; capture 5.37 ms, create/restore 17.54 ms
+[replayreplica] restored frame 900: 682278 bytes; capture 5.16 ms, create/restore 18.67 ms
+[replayreplica] restored frame 1200: 682768 bytes; capture 5.47 ms, create/restore 17.21 ms
+[replayreplica] restored frame 1500: 682742 bytes; capture 5.22 ms, create/restore 17.54 ms
+[replayreplica] restored frame 1800: 682184 bytes; capture 5.28 ms, create/restore 23.37 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 227.52 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 51.17 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 88.83 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 75.37 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 17.96 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 75.52 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 57.57 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 67.90 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 75.10 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 10424 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] Headhunter: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 675505 bytes; capture 5.79 ms, create/restore 22.96 ms
+[replayreplica] restored frame 600: 675479 bytes; capture 5.11 ms, create/restore 17.19 ms
+[replayreplica] restored frame 810: 675055 bytes; capture 5.94 ms, create/restore 17.36 ms
+[replayreplica] restored frame 900: 675243 bytes; capture 6.37 ms, create/restore 18.88 ms
+[replayreplica] restored frame 1200: 675733 bytes; capture 5.25 ms, create/restore 17.23 ms
+[replayreplica] restored frame 1500: 675707 bytes; capture 5.31 ms, create/restore 17.80 ms
+[replayreplica] restored frame 1800: 675149 bytes; capture 5.89 ms, create/restore 15.22 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 223.08 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 52.52 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 84.65 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 74.37 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 17.26 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 67.09 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 65.58 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 72.19 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 76.66 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 9470 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] Relic: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 673156 bytes; capture 4.77 ms, create/restore 17.99 ms
+[replayreplica] restored frame 600: 673156 bytes; capture 5.43 ms, create/restore 16.86 ms
+[replayreplica] restored frame 810: 673290 bytes; capture 5.20 ms, create/restore 17.78 ms
+[replayreplica] restored frame 900: 673478 bytes; capture 5.47 ms, create/restore 18.51 ms
+[replayreplica] restored frame 1200: 673384 bytes; capture 5.40 ms, create/restore 17.51 ms
+[replayreplica] restored frame 1500: 673384 bytes; capture 5.51 ms, create/restore 17.94 ms
+[replayreplica] restored frame 1800: 673384 bytes; capture 5.36 ms, create/restore 15.00 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 228.41 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 53.05 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 85.39 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 72.91 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 18.28 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 72.61 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 56.48 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 72.56 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 70.65 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 9434 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] PrimeHunter: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[replayreplica] restored frame 300: 684129 bytes; capture 5.33 ms, create/restore 17.56 ms
+[replayreplica] restored frame 600: 684129 bytes; capture 5.83 ms, create/restore 18.14 ms
+[replayreplica] restored frame 810: 684263 bytes; capture 5.46 ms, create/restore 18.53 ms
+[replayreplica] restored frame 900: 684451 bytes; capture 5.49 ms, create/restore 18.30 ms
+[replayreplica] restored frame 1200: 684357 bytes; capture 5.51 ms, create/restore 17.91 ms
+[replayreplica] restored frame 1500: 684357 bytes; capture 5.40 ms, create/restore 17.70 ms
+[replayreplica] restored frame 1800: 684357 bytes; capture 5.97 ms, create/restore 21.87 ms
+[replayseek] 1500 from 0: 1501 steps, 13 updates, 248.82 ms
+[replayseek] 35 from 0: 35 steps, 1 updates, 63.01 ms
+[replayseek] 1100 from 900: 200 steps, 2 updates, 88.25 ms
+[replayseek] 615 from 600: 15 steps, 1 updates, 71.06 ms
+[replayseek] 0 from 0: 0 steps, 1 updates, 19.21 ms
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 78.48 ms
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 58.02 ms
+[replayseek] 610 from 600: 10 steps, 1 updates, 79.22 ms
+[replayseek] 1800 from 1500: 300 steps, 3 updates, 79.77 ms
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 61 file/clip comparisons, 7 checkpoints, 7340928 retained bytes, frozen EOF.
+[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11130 animation restores, 7 detached worlds and 1500 continuation frames, 294 frames with projectiles; interleaved scenes and teardown preserve foreground state.
+[replayworld] PASS: all selectable multiplayer modes with detached restore, continuation and file/frozen-clip seeks.

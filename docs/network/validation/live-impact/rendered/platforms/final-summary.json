@@ -1,0 +1,27 @@
+[
+  {
+    "name": "server",
+    "exit": 0,
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "build",
+      "src/MphRead/MphRead.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-p:MphReadServer=true"
+    ]
+  },
+  {
+    "name": "client-tests",
+    "exit": 0,
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "build",
+      "tools/nettest",
+      "-c",
+      "Release",
+      "-m:1"
+    ]
+  }
+]

@@ -1,0 +1,21 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  ProjectPrime.Studio.Protocol -> /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/ProjectPrime.Studio.Protocol/bin/Release/net10.0/ProjectPrime.Studio.Protocol.dll
+  NcsfPlay -> /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/NcsfPlay/bin/Release/net10.0/NcsfPlay.dll
+  MphRead.Protocol.Generator -> /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead.Protocol.Generator/bin/Release/netstandard2.0/MphRead.Protocol.Generator.dll
+  MphRead -> /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll
+/Library/Developer/CommandLineTools/usr/bin/install_name_tool : warning : changes being made to the file will invalidate the code signature in: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libvulkan.dylib (for architecture x86_64) [/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead/MphRead.csproj]
+/Library/Developer/CommandLineTools/usr/bin/install_name_tool : warning : changes being made to the file will invalidate the code signature in: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libvulkan.dylib (for architecture arm64) [/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead/MphRead.csproj]
+  /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libvulkan.dylib: replacing existing signature
+/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/PlayerNameChatTests.cs(7,7): warning CS0105: The using directive for 'System.Text' appeared previously in this namespace [/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/nettest.csproj]
+  nettest -> /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll
+
+Build succeeded.
+
+/Library/Developer/CommandLineTools/usr/bin/install_name_tool : warning : changes being made to the file will invalidate the code signature in: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libvulkan.dylib (for architecture x86_64) [/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead/MphRead.csproj]
+/Library/Developer/CommandLineTools/usr/bin/install_name_tool : warning : changes being made to the file will invalidate the code signature in: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libvulkan.dylib (for architecture arm64) [/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead/MphRead.csproj]
+/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/PlayerNameChatTests.cs(7,7): warning CS0105: The using directive for 'System.Text' appeared previously in this namespace [/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/tools/nettest/nettest.csproj]
+    3 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.09

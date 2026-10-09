@@ -75,6 +75,7 @@ def main():
     parser.add_argument("--output", type=Path, help="New evidence directory; the runner refuses existing contents")
     parser.add_argument("--dotnet", default=str(Path.home() / ".dotnet/dotnet"))
     parser.add_argument("--seconds", type=int, default=30)
+    parser.add_argument("--owner-grace", type=int, default=0, help="Extra owner seconds so staggered peers export before an owner-driven session close")
     parser.add_argument("--seed", type=int, default=431)
     parser.add_argument("--modes", default="jump")
     parser.add_argument("--profiles", default="rtt0-loss0,rtt100-loss2,rtt500-loss10", help="Comma-separated names or all (40 profiles)")
@@ -113,7 +114,7 @@ def main():
     if args.observer and (not args.rendered or args.players == 8): parser.error("observer requires rendered mode and a free player slot")
     if args.fixture_loadout and args.require_combat and not args.impacts: parser.error("fixture combat proof requires --impacts")
     if args.jitter_ms is not None and not 0 <= args.jitter_ms <= 250: parser.error("jitter must be 0..250 ms")
-    if args.seconds < 5 or args.startup_timeout <= 0 or args.pause_seconds <= 0 or args.pause_after < 0:
+    if args.seconds < 5 or not 0 <= args.owner_grace <= 30 or args.startup_timeout <= 0 or args.pause_seconds <= 0 or args.pause_after < 0:
         parser.error("invalid duration/deadline")
     if args.pause_after and (os.name != "posix" or args.pause_after + args.pause_seconds >= args.seconds):
         parser.error("pause requires POSIX signals and time for active simulation after resume")
@@ -136,6 +137,7 @@ def main():
     repo = Path(__file__).resolve().parents[2]
     source_hashes = {name: sha(repo / name) for name in GATES if (repo / name).is_file()}
     manifest = dict(seed=args.seed, runtime_source=str(runtime), runtime_sha256=sha(frozen / "ProjectPrime.dll"),
+                    ownerGraceSeconds=args.owner_grace,
                     liveDelivery=not args.no_live,
                     paths_source=str(data / "paths.txt"), map=args.map, modes=modes,
                     profiles=[dict(profile, jitter_ms=args.jitter_ms) if args.jitter_ms is not None and profile["rtt_ms"] else profile for profile in PROFILES if profile["name"] in requested],
@@ -188,7 +190,7 @@ def main():
                 for index in range(total_players):
                     role = f"peer{index}"
                     options = ["-netcheck", "127.0.0.1", "-port", port, "-name", role,
-                        "-hunter", args.hunter, "-seconds", str(args.seconds),
+                        "-hunter", args.hunter, "-seconds", str(args.seconds+(args.owner_grace if index==0 else 0)),
                         "-netchecklobbyplayers", str(total_players),
                         "-netlag", f"{profile['rtt_ms']}:{profile['jitter_ms']}", "-netloss", f"{profile['loss_percent']}%",
                         "-netreorder", f"{profile['reorder_percent']}%", "-netduplicate", f"{profile['duplicate_percent']}%",
@@ -210,7 +212,7 @@ def main():
                 gap = bool(args.pause_after and (args.pause_profiles == "all" or profile["name"] in args.pause_profiles.split(",")))
                 paused_at = None
                 ready_at = None
-                deadline = started + args.seconds + args.startup_timeout + 15
+                deadline = started + args.seconds + args.owner_grace + args.startup_timeout + 15
                 while any(peer.poll() is None for peer in peers.values()):
                     elapsed = time.monotonic() - started
                     loaded_slots = set(re.findall(r"\bslot (\d+) synchronizing\b", text(folder / "server.log")))
@@ -304,6 +306,12 @@ def main():
                         row["passed"] = row["passed"] and row["charged_native_emission_observed"]
             elif args.fixture_loadout and args.require_combat and mode in WEAPONS:
                 row["passed"]=False;row["intended_weapon_exercised"]=False
+            # A client can finish its timed simulation after a server refusal or
+            # disconnect has reset its counters. Exit zero is not proof that the
+            # intended population stayed connected through the campaign.
+            row["unexpected_disconnects"] = [line.strip() for line in text(folder/"server.log").splitlines()
+                if "semantic history overrun" in line or "reliable control failed" in line or " timed out (slot " in line]
+            if row["unexpected_disconnects"]: row["passed"] = False
             results.append(row)
             (output / "summary.json").write_text(json.dumps(results, indent=2) + "\n")
             print(json.dumps(row), flush=True)

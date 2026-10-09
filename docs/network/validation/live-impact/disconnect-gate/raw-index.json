@@ -1,0 +1,78 @@
+[
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "a12997402d186ff0beca7b853cb3219908230c257a54d2f70de4c73281ed8b06"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer7-impacts.json.gz",
+    "sha256": "4fde7eb939d27878a63ef48aa36eec235327072dce2efddcffe489df8aefc227"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer6-impacts.json.gz",
+    "sha256": "8d5af86533f22a4ec515e974d28aee32bdbff89ea8c62b192fe1b0bccf641d60"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "fafbc5a1b639996b8d602bace781d34675e5993ad5303528533c59ab9253159a"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer3.log.gz",
+    "sha256": "87c646c48c24bcc02ca70ad9a7d43bfc0804b3cebd72b997896e50a760681a16"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer2.log.gz",
+    "sha256": "d0e7e366f62ff985493e6219c1870dad5bf3e365d2383b1467f034233d07696b"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer0.log.gz",
+    "sha256": "ed7200fe2081c9544bb5a1c65768cbc20efc3433f0bcf013d8868048b7ed7055"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer1.log.gz",
+    "sha256": "1c8c66c356a3c9515389afefb35a50d0a67b56f724467fd8ab422f46f3e72cc1"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer3-impacts.json.gz",
+    "sha256": "a513d87171b9bde2bf26fdf025a1ae8df4ae721261c49200d89d0f5f32faa925"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer4-impacts.json.gz",
+    "sha256": "68e50b8ddbe2a7683dba80c7df76e6804a6211590657c574f0571acf719b80d2"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/server-impacts.json.server.json.gz",
+    "sha256": "ae7cf31091f2cac0adb19f8019f83599c741a32c623b13b8fc7754a543a1704e"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer5.log.gz",
+    "sha256": "8e914eb92ff9ed9c3fdb845c55329b0dd99412a8bc940e561f693516017550e8"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer4.log.gz",
+    "sha256": "bd13ad6fba8646c3b8ea41f08814ba84a5887ea92e82829d646f521591f6a982"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer6.log.gz",
+    "sha256": "9fe4845981c94047af0bdabf4172da79d7cf1c523148f639ab84c0201c6c3e70"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer5-impacts.json.gz",
+    "sha256": "81212df01e686d5efe2e67982b5a814dc538661d64822f8f2e5fd9155ec6a686"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "4097d044bcc383d1b1eb55f5fa32aabb21895a88d251a470df99e610decf2374"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/peer7.log.gz",
+    "sha256": "0d76a1f82d255ed1dc9a1e39779a3704a6df6e28f9bee74f56be66f858f00a0f"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/server.log.gz",
+    "sha256": "e5782716b4e91052529c4a7938b46bdb86bca3c907ca05b60ca456dae4bdafab"
+  },
+  {
+    "path": "shockcoil-all-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "2db9356ecde77e24fd32fe9fada1ef32e7d0155f98ed4df21ad53689d3ab8486"
+  }
+]
