@@ -66,7 +66,7 @@ internal static partial class Shell
                 ReleaseRmlLobby(retirePages: false);
                 _rmlMultiplayer?.Cancel();
                 Network.NetSession.Stop(); Network.NetHostSession.Stop();
-            });
+            }, reportFailure: message => RmlUiPrototype.Pages?.ReportSystemNotice(message));
         _nativeSetup.Open();
         WireNativePages();
         if (_window?.HasScene == true) RmlUiPrototype.ShowGameplayMenu();
