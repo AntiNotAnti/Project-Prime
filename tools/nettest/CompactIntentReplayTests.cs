@@ -28,7 +28,7 @@ internal static class CompactIntentReplayTests
             var older = newer; older.Frame = 100; older.Position = new(2, 0, 0); older.FireEventCount = 2;
             older.FireEvents[0] = new(41, 100, 79, 128, FireEventKind.ReleaseFire, 0, 7, 0,
                 FireEvent.FlagPose | FireEvent.FlagReticle, new(3, 4, 5), Vector3.UnitZ,
-                Vector3.UnitX, Vector3.UnitY, new(.25f, .75f));
+                Vector3.UnitX, Vector3.UnitY, new(.25f, .75f), SourceLife: 1);
             older.FireEvents[1] = older.FireEvents[0] with { ShotId = 42, Kind = FireEventKind.AutomaticFire };
             // Publication precedes the first restore point; transient payloads are
             // released immediately after the event, so copy them inside the callback.
@@ -57,7 +57,7 @@ internal static class CompactIntentReplayTests
             Span<byte> historical = stackalloc byte[IntentPacket.FullSize];
             Span<byte> adapted = stackalloc byte[IntentPacket.FullSize];
             older.Write(historical); decoded.Write(adapted);
-            Check(historical.SequenceEqual(adapted) && IntentPacket.FullSize == 1175,
+            Check(historical.SequenceEqual(adapted) && IntentPacket.FullSize == 1287,
                 "protocol 41 canonical bytes survive compact live adapter unchanged");
 
             Type replicaType = assembly.GetType("MphRead.Mods.Network.ReplayReplicaState", true)!;
@@ -113,6 +113,30 @@ internal static class CompactIntentReplayTests
                 && events[41].AckFrame == 79 && events[41].AckSubFrame == 128
                 && events[41].Origin == new Vector3(3, 4, 5) && events[41].Charge == 7,
                 "replay event indexing preserves original timing, pose, and charge metadata");
+            var respawnCarrier = older; respawnCarrier.Frame = 103; respawnCarrier.LifeId = 2;
+            respawnCarrier.FireEventCount = 2;
+            respawnCarrier.FireEvents[0] = older.FireEvents[0] with { SourceLife = 1 };
+            respawnCarrier.FireEvents[1] = older.FireEvents[1] with { ShotId = 44, SourceLife = 1 };
+            index.Invoke(stream, new object[] { 107u, 0, respawnCarrier });
+            // A separate life may reuse an ID without colliding with its predecessor.
+            var newLife = respawnCarrier; newLife.FireEventCount = 1;
+            newLife.FireEvents[0] = older.FireEvents[0] with { SourceLife = 2, SourceFrame = 103 };
+            index.Invoke(stream, new object[] { 107u, 0, newLife });
+            index.Invoke(stream, new object[] { 108u, 0, respawnCarrier });
+            int life1Id41 = 0, life2Id41 = 0, oldLifeNewEvent = 0;
+            foreach (DictionaryEntry entry in fires)
+                foreach (object scheduled in (IList)entry.Value!)
+                {
+                    var fire = (FireEvent)scheduled.GetType().GetProperty("Event", All)!.GetValue(scheduled)!;
+                    ushort life = (ushort)scheduled.GetType().GetProperty("Life", All)!.GetValue(scheduled)!;
+                    if (fire.ShotId == 41 && life == 1) life1Id41++;
+                    if (fire.ShotId == 41 && life == 2) life2Id41++;
+                    if (fire.ShotId == 44 && life == 1) oldLifeNewEvent++;
+                }
+            Check(life1Id41 == 1 && life2Id41 == 1 && oldLifeNewEvent == 1,
+                "replay indexes full life identity and old-life shots carried after respawn exactly once");
+            Check(((IList)fires[104u]!).Count == 3,
+                "same-frame replay scheduling retains every independent old-life event");
             recorderType.GetMethod("Reset", All)!.Invoke(recorder, null);
             Console.WriteLine("compact intent replay tests passed");
             return 0;

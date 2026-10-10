@@ -1402,6 +1402,7 @@ namespace MphRead.Mods.Network
         public const int StateSize = ShotStateSize + AnalogStateSize + ContinuousTickSize;
         public const int LegacyFullSize = Size + StateSize;
         public const int Protocol38FullSize = LegacyFullSize + NetFireEvents.LegacyWireSize;
+        public const int Protocol42FullSize = LegacyFullSize + 1 + NetFireEvents.Capacity * FireEvent.PoseSize;
         public const int FullSize = LegacyFullSize + NetFireEvents.WireSize;
         public bool HasFireEvents;
         public byte FireEventCount;
@@ -1654,15 +1655,20 @@ namespace MphRead.Mods.Network
             }
             FireEventHistory fireEvents = default;
             bool currentFireEvents = src.Length >= FullSize;
-            bool legacyFireEvents = !currentFireEvents && src.Length >= Protocol38FullSize;
-            int fireEventSize = currentFireEvents ? FireEvent.Size : FireEvent.LegacySize;
-            byte fireCount = currentFireEvents || legacyFireEvents ? src[LegacyFullSize] : (byte)0;
+            bool posedFireEvents = !currentFireEvents && src.Length >= Protocol42FullSize;
+            bool legacyFireEvents = !currentFireEvents && !posedFireEvents && src.Length >= Protocol38FullSize;
+            int fireEventSize = currentFireEvents ? FireEvent.Size : posedFireEvents ? FireEvent.PoseSize : FireEvent.LegacySize;
+            byte fireCount = currentFireEvents || posedFireEvents || legacyFireEvents ? src[LegacyFullSize] : (byte)0;
             for (int i = 0; i < Math.Min((int)fireCount, NetFireEvents.Capacity); i++)
-                fireEvents[i] = FireEvent.Read(src.Slice(
+            {
+                var fire = FireEvent.Read(src.Slice(
                     LegacyFullSize + 1 + i * fireEventSize, fireEventSize));
+                fireEvents[i] = !currentFireEvents ? fire with
+                    { SourceLife = BinaryPrimitives.ReadUInt16LittleEndian(src[86..]) } : fire;
+            }
             return new IntentPacket
             {
-                HasFireEvents = currentFireEvents || legacyFireEvents,
+                HasFireEvents = currentFireEvents || posedFireEvents || legacyFireEvents,
                 FireEventCount = fireCount, FireEvents = fireEvents,
                 MatchId = BinaryPrimitives.ReadUInt16LittleEndian(src[74..]),
                 AuthorityEpoch = BinaryPrimitives.ReadUInt64LittleEndian(src[76..]),
@@ -2478,7 +2484,9 @@ namespace MphRead.Mods.Network
         // the unknown reliable type without acknowledging it, so mixed v40/v41
         // peers must be refused rather than retrying replay evidence forever.
         // Protocol 42 sends compact live intents; canonical replay record widths stay unchanged.
-        public const int ProtocolVersion = 42;
+        // Protocol 43 appends source life and fenced homing targets to authored shots,
+        // preserves discrete shot-time modifiers, and caps live carriers at fourteen events.
+        public const int ProtocolVersion = 43;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

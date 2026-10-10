@@ -720,8 +720,14 @@ namespace MphRead.Mods.Network
             int firstPlayer = rosterStart + RosterPacket.Size;
             int stride = 7 + PlayerState.Size + 1 + IntentPacket.FullSize + 4;
             for (int slot = PlayerEntity.SlotCapacity - 1; slot >= 0; slot--)
+            {
+                int intentStart = firstPlayer + slot * stride + 8 + PlayerState.Size;
+                // Protocol 27 predates authored fire-event blocks entirely.
+                historicalBytes.RemoveRange(intentStart + IntentPacket.LegacyFullSize,
+                    IntentPacket.FullSize - IntentPacket.LegacyFullSize);
                 historicalBytes.RemoveRange(firstPlayer + slot * stride + 7 + PlayerState.LegacySize,
                     Mods.EnhancedHunters.EnhancedHunterNetState.Size);
+            }
             // Protocol 33 added one handicap byte to every fixed roster entry.
             // A protocol-27 checkpoint genuinely predates those bytes, so remove
             // them rather than only relabelling a current-width roster.

@@ -66,8 +66,11 @@ internal sealed class ReplayPoseStream : IDisposable
         bool MissingProjectile);
     private sealed class FireIndex
     {
-        internal ushort Generation, Life;
-        internal readonly NetIncomingFireHistory History = new();
+        internal ushort Generation;
+        internal ushort MatchId;
+        internal ulong Epoch;
+        internal readonly Dictionary<ushort, NetIncomingFireHistory> Histories = new();
+        internal readonly Queue<ushort> Lives = new();
     }
 
     private readonly PassiveReplayScene _world;
@@ -82,6 +85,7 @@ internal sealed class ReplayPoseStream : IDisposable
     private readonly List<uint> _firePrune = new();
     private readonly ScheduledFire?[] _activeFire = new ScheduledFire?[8];
     private readonly bool[] _fireConsumed = new bool[8];
+    private readonly bool[] _discreteDrained = new bool[8];
     private readonly List<ServerClockSample> _serverClock = new(MaximumClockSamples);
     private readonly List<PendingShotFact> _pendingShotFacts = new();
     private readonly Dictionary<uint, List<ReplayShotFact>> _resolvedShotFacts = new();
@@ -98,11 +102,11 @@ internal sealed class ReplayPoseStream : IDisposable
     private DemoRecord? _pending, _shotPending;
     private int _index, _shotIndex;
     private uint? _advanced, _firePrepared, _impactPrepared;
-    private bool _initialized, _failed, _supportsFireEvents, _supportsShotFacts;
+    private bool _initialized, _failed, _supportsFireEvents, _supportsShotFacts, _supportsAcceptedFire;
     internal string? LastError { get; private set; }
     internal ReplayPoseStream(PassiveReplayScene world, string path) : this(world) { _path = path; }
     internal ReplayPoseStream(PassiveReplayScene world, ReplayTimelineClip clip) : this(world)
-    { _clip = clip; _supportsFireEvents = true; _supportsShotFacts = true; }
+    { _clip = clip; _supportsFireEvents = true; _supportsShotFacts = true; _supportsAcceptedFire = true; }
     private ReplayPoseStream(PassiveReplayScene world)
     {
         _world = world;
@@ -197,7 +201,8 @@ internal sealed class ReplayPoseStream : IDisposable
             return false;
         }
         key = new(match.AuthorityEpoch, match.MatchId, player.SlotIndex,
-            state.SlotGeneration, state.LifeId, fire.ShotId);
+            _activeFire[player.SlotIndex]!.Value.Generation,
+            _activeFire[player.SlotIndex]!.Value.Life, fire.ShotId);
         sourceFrame = fire.SourceFrame;
         return fire.ShotId != 0;
     }
@@ -696,7 +701,9 @@ internal sealed class ReplayPoseStream : IDisposable
     {
         if ((uint)player.SlotIndex >= 8 || !Prepare() || !_supportsFireEvents) return false;
         if (!_world.State.TryGetPlayer(player.SlotIndex, out var state)) return false;
-        return _fireCapable.Contains(new(player.SlotIndex, state.SlotGeneration, state.LifeId));
+        foreach (var capable in _fireCapable)
+            if (capable.Slot == player.SlotIndex && capable.Generation == state.SlotGeneration) return true;
+        return false;
     }
 
     internal bool HasPendingFire(PlayerEntity player)
@@ -743,7 +750,34 @@ internal sealed class ReplayPoseStream : IDisposable
     {
         PrepareFireFrame();
         int slot = player.SlotIndex;
-        if ((uint)slot >= 8 || !UsesFireEvents(player) || _activeFire[slot] is not { } active
+        if ((uint)slot >= 8 || !UsesFireEvents(player)) return;
+        if (!_discreteDrained[slot])
+        {
+            _discreteDrained[slot] = true;
+            if (_fires.TryGetValue(_world.Session.RecordingFrame, out var scheduledFires)
+                && _world.State.TryGetPlayer(slot, out var recorded)
+                && _world.State.Match is MatchStatePacket match)
+            {
+                var legacy = _activeFire[slot];
+                bool legacyConsumed = _fireConsumed[slot];
+                try
+                {
+                    foreach (var scheduled in scheduledFires)
+                    {
+                        if (scheduled.Slot != slot || scheduled.Generation != recorded.SlotGeneration
+                            || scheduled.Carrier.MatchId != match.MatchId
+                            || scheduled.Carrier.AuthorityEpoch != match.AuthorityEpoch
+                            || !IsPosedDiscrete(scheduled.Event)) continue;
+                        _activeFire[slot] = scheduled;
+                        var key = new ShotKey(match.AuthorityEpoch, match.MatchId, slot,
+                            scheduled.Generation, scheduled.Life, scheduled.Event.ShotId);
+                        NetFireEvents.PlayAccepted(player, key, scheduled.Event);
+                    }
+                }
+                finally { _activeFire[slot] = legacy; _fireConsumed[slot] = legacyConsumed; }
+            }
+        }
+        if (_activeFire[slot] is not { } active
             || active.Event.Kind == FireEventKind.TurretFire)
         {
             return;
@@ -776,6 +810,9 @@ internal sealed class ReplayPoseStream : IDisposable
             or FireEventKind.ContinuousTick) player.Controls.Shoot.IsDown = true;
     }
 
+    private bool IsPosedDiscrete(in FireEvent fire) => _supportsAcceptedFire && fire.HasPose
+        && fire.Kind is not FireEventKind.ContinuousTick and not FireEventKind.TurretFire;
+
     private void PrepareFireFrame()
     {
         uint frame = _world.Session.RecordingFrame;
@@ -784,6 +821,7 @@ internal sealed class ReplayPoseStream : IDisposable
         _firePrepared = frame;
         Array.Clear(_activeFire);
         Array.Clear(_fireConsumed);
+        Array.Clear(_discreteDrained);
         if (!_supportsFireEvents || !_fires.TryGetValue(frame, out var fires)) return;
 
         foreach (var scheduled in fires)
@@ -792,7 +830,7 @@ internal sealed class ReplayPoseStream : IDisposable
             if ((uint)slot >= 8
                 || !_world.State.TryGetPlayer(slot, out var state)
                 || state.SlotGeneration != scheduled.Generation
-                || state.LifeId != scheduled.Life)
+                || state.LifeId != scheduled.Life || IsPosedDiscrete(scheduled.Event))
             {
                 continue;
             }
@@ -956,6 +994,7 @@ internal sealed class ReplayPoseStream : IDisposable
                 _reader = DemoReader.Open(_path, out var result)
                     ?? throw new InvalidDataException(result.ToString());
                 _supportsFireEvents = _reader.ProtocolVersion >= 30;
+                _supportsAcceptedFire = _reader.ProtocolVersion >= 43;
                 _supportsShotFacts = _reader.ProtocolVersion >= 40;
                 _pending = from > origin ? _reader.SeekAfter(from - origin - 1) : _reader.ReadNext();
                 if (_supportsShotFacts)
@@ -1106,25 +1145,34 @@ internal sealed class ReplayPoseStream : IDisposable
         _fireCapable.Add(life);
 
         FireIndex index = _fireIndex[slot];
-        if (index.Generation != intent.SlotGeneration || index.Life != intent.LifeId)
+        if (index.Generation != intent.SlotGeneration || index.MatchId != intent.MatchId
+            || index.Epoch != intent.AuthorityEpoch)
         {
-            index.Generation = intent.SlotGeneration;
-            index.Life = intent.LifeId;
-            index.History.Clear();
+            index.Generation = intent.SlotGeneration; index.MatchId = intent.MatchId;
+            index.Epoch = intent.AuthorityEpoch; index.Histories.Clear(); index.Lives.Clear();
         }
-
-        if (!index.History.Accept(intent)) return;
-        while (index.History.TryPeek(out FireEvent fire))
+        for (int i = 0; i < intent.FireEventCount; i++)
         {
-            index.History.Consume(fire.ShotId);
+            var fire = intent.FireEvents[i];
+            ushort sourceLife = fire.SourceLife != 0 ? fire.SourceLife : intent.LifeId;
+            if (!index.Histories.TryGetValue(sourceLife, out var history))
+            {
+                // Eight retained lives bound memory while preserving overlapping
+                // old-life carriers inside the short event recovery window.
+                if (index.Histories.Count == 8) index.Histories.Remove(index.Lives.Dequeue());
+                history = new(); index.Histories.Add(sourceLife, history); index.Lives.Enqueue(sourceLife);
+            }
+            var one = intent; one.FireEventCount = 1; one.FireEvents = default;
+            one.FireEvents[0] = fire;
+            if (!history.Accept(one) || !history.TryPeek(out fire)) continue;
+            history.Consume(fire.ShotId);
             uint scheduledFrame = FireSourceRecordingFrame(
                 carrierRecordingFrame, intent.Frame, fire.SourceFrame);
             if (!_fires.TryGetValue(scheduledFrame, out var list))
             {
-                list = new();
-                _fires.Add(scheduledFrame, list);
+                list = new(); _fires.Add(scheduledFrame, list);
             }
-            list.Add(new(scheduledFrame, slot, intent.SlotGeneration, intent.LifeId, fire, intent));
+            list.Add(new(scheduledFrame, slot, intent.SlotGeneration, sourceLife, fire, intent));
         }
     }
 
@@ -1251,6 +1299,7 @@ internal sealed class ReplayPoseStream : IDisposable
         _advanced = _firePrepared = _impactPrepared = null;
         _initialized = _failed = false;
         _supportsFireEvents = _clip != null;
+        _supportsAcceptedFire = _clip != null;
         _supportsShotFacts = _clip != null;
         LastError = null;
         _serverClock.Clear();
@@ -1263,6 +1312,7 @@ internal sealed class ReplayPoseStream : IDisposable
         _firePrune.Clear();
         Array.Clear(_activeFire);
         Array.Clear(_fireConsumed);
+        Array.Clear(_discreteDrained);
         Array.Fill(_lastResolvedHitFrame, uint.MaxValue);
         Array.Clear(_lastResolvedHitGeneration);
         Array.Clear(_lastResolvedHitLife);
@@ -1275,8 +1325,8 @@ internal sealed class ReplayPoseStream : IDisposable
             _poses[i].Clear();
             _intents[i].Clear();
             _fireIndex[i].Generation = 0;
-            _fireIndex[i].Life = 0;
-            _fireIndex[i].History.Clear();
+            _fireIndex[i].MatchId = 0; _fireIndex[i].Epoch = 0;
+            _fireIndex[i].Histories.Clear(); _fireIndex[i].Lives.Clear();
         }
     }
 

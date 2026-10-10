@@ -42,6 +42,14 @@ namespace MphRead.Mods.Network
                 beam.ModShotId = parent.ModShotId;
                 return;
             }
+            if (owner != null && NetFireEvents.TryAcceptedKey(owner, out var accepted))
+            {
+                beam.ModLaunchKey = accepted; beam.ModShotId = accepted.ShotId;
+                beam.ModLaunchMatch = accepted.MatchId; beam.ModLaunchAuthority = accepted.AuthorityEpoch;
+                beam.ModLaunchGeneration = accepted.Generation; beam.ModLaunchLife = accepted.LifeId;
+                beam.ModLaunchFrame = NetUnlagged.LaunchFrameFor(owner);
+                return;
+            }
             beam.ModLaunchMatch = NetSession.CurrentMatchId;
             beam.ModLaunchAuthority = NetSession.AuthorityEpoch;
             beam.ModLaunchGeneration = owner == null ? (ushort)0 : Generation(owner.SlotIndex);
@@ -99,7 +107,7 @@ namespace MphRead.Mods.Network
             NetHitClaims.ForgetSlot(slot, preserveFlights: true);
             NetSmoothing.ResetSlot(slot);
             NetUnlagged.ResetSlot(slot);
-            NetSession.ForgetSlot(slot);
+            NetSession.ForgetSlot(slot, preserveShots: true);
             player.ModResetNetworkHistory();
             player.Controls?.ClearAll();
             Spawns++;
@@ -142,6 +150,23 @@ namespace MphRead.Mods.Network
                 if (next == NetworkPlayerState.Dead) Deaths++;
                 Log(slot, fresh ? "SPAWN" : next.ToString(), frame, state.Health,
                     (state.Flags & PlayerState.FlagSpawned) != 0);
+            }
+            return true;
+        }
+
+        // Old-life carriers may deliver retained shots, but are never admitted
+        // as movement, trigger edges, inventory, or respawn requests.
+        internal static bool AcceptEventCarrier(int slot, in IntentPacket intent)
+        {
+            if (!NetSession.MatchesStream(intent.MatchId, intent.AuthorityEpoch)
+                || intent.SlotGeneration == 0 || intent.SlotGeneration != Generation(slot)
+                || intent.LifeId == 0 || Get(slot) == 0
+                || unchecked((short)(intent.LifeId - Get(slot))) > 0) return false;
+            for (int i = 0; i < intent.FireEventCount; i++)
+            {
+                ushort life = intent.FireEvents[i].SourceLife;
+                if (life != 0 && (unchecked((short)(life - Get(slot))) > 0
+                    || unchecked((short)(life - intent.LifeId)) > 0)) return false;
             }
             return true;
         }

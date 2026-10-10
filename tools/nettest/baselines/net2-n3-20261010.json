@@ -1,0 +1,899 @@
+{
+  "schema": 1,
+  "slice": "N3",
+  "date": "2026-10-10",
+  "base": "23a33475bed7549dad1d3b668031000581de8aa2",
+  "productionCandidate": "109463bba640eeb00ba4846a2f2e34ea58f7c073",
+  "finalTestCandidate": "c311e17b5f9621c80a71472b2e25d64efbd72da3",
+  "productionSourceEquivalent": true,
+  "platform": "macOS 27 arm64, Apple M4 Pro",
+  "sdk": "10.0.401",
+  "runtime": "10.0.12",
+  "protocol": 43,
+  "protocolDelta": "42 -> 43; 74-byte captured shot event, nonzero source life, fenced target and modifiers; live capacity 14; relay max 1164 bytes",
+  "gate": "PASS",
+  "gateScope": "N3 delivered/retained discrete-shot accounting, source weapon/charge/life correctness and duplicate suppression. Not a full Netcode 2.0 sign-off or performance-overhead proof.",
+  "defaultEnabled": true,
+  "comparisonSwitch": "PRIME_ACCEPTED_SHOTS=0",
+  "engineSha256": "6ad689d22f74547b3a92503e200b57daa44151f1a9645fad88762c179c7875d7",
+  "buildManifest": {
+    "productionCommit": "109463bba640eeb00ba4846a2f2e34ea58f7c073",
+    "turretTestCommit": "c311e17b5f9621c80a71472b2e25d64efbd72da3",
+    "productionDiffEmpty": true,
+    "files": [
+      {
+        "path": "builds/109463bb/ProjectPrime.deps.json",
+        "bytes": 42297,
+        "sha256": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4"
+      },
+      {
+        "path": "builds/109463bb/ProjectPrime.dll",
+        "bytes": 31832576,
+        "sha256": "6ad689d22f74547b3a92503e200b57daa44151f1a9645fad88762c179c7875d7"
+      },
+      {
+        "path": "builds/109463bb/ProjectPrime.runtimeconfig.json",
+        "bytes": 330,
+        "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      {
+        "path": "builds/109463bb/nettest.deps.json",
+        "bytes": 42984,
+        "sha256": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff"
+      },
+      {
+        "path": "builds/109463bb/nettest.dll",
+        "bytes": 293888,
+        "sha256": "961b8fd436c8b8e6c3ecb342f73617dfb73067fedc55b1465494e2170b86a9b3"
+      },
+      {
+        "path": "builds/109463bb/nettest.pdb",
+        "bytes": 71508,
+        "sha256": "d87b441a32bdee12672e9a9095389f52e1bf835c7c1f5aa582e45ffcfd1dbf62"
+      },
+      {
+        "path": "builds/109463bb/nettest.runtimeconfig.json",
+        "bytes": 330,
+        "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      {
+        "path": "builds/c311e17b-test-only/ProjectPrime.deps.json",
+        "bytes": 42297,
+        "sha256": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4"
+      },
+      {
+        "path": "builds/c311e17b-test-only/ProjectPrime.dll",
+        "bytes": 31832576,
+        "sha256": "6ad689d22f74547b3a92503e200b57daa44151f1a9645fad88762c179c7875d7"
+      },
+      {
+        "path": "builds/c311e17b-test-only/ProjectPrime.runtimeconfig.json",
+        "bytes": 330,
+        "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      {
+        "path": "builds/c311e17b-test-only/nettest.deps.json",
+        "bytes": 42984,
+        "sha256": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff"
+      },
+      {
+        "path": "builds/c311e17b-test-only/nettest.dll",
+        "bytes": 297984,
+        "sha256": "9c46b320f42f7cfb69520112f48dd7ef131bf9020bd9fc68f4921b04bed82bf4"
+      },
+      {
+        "path": "builds/c311e17b-test-only/nettest.pdb",
+        "bytes": 72392,
+        "sha256": "8c5b19b6f1c9f7db00f87b86f64bb58fefed08004e1a0381ed76594181000a2b"
+      },
+      {
+        "path": "builds/c311e17b-test-only/nettest.runtimeconfig.json",
+        "bytes": 330,
+        "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      }
+    ]
+  },
+  "evidence": {
+    "archive": {
+      "path": "artifacts/net2-n3-evidence.tar.gz",
+      "bytes": 46417601,
+      "sha256": "835a4980693ab83171ccd86cf54f45d26b9e0884b9cf4c7d3a525aa60065bdcc"
+    },
+    "index": {
+      "path": "artifacts/net2-n3/evidence-index.json",
+      "bytes": 28525,
+      "sha256": "00984a1a05a056bda36820fe17600f45520402d31d5ba13d20bb79e7783bcc99",
+      "files": 163,
+      "indexedBytes": 79240207
+    },
+    "verifiedArchiveMembers": true
+  },
+  "campaigns": [
+    {
+      "name": "mac-8-lan",
+      "source": "109463bba640eeb00ba4846a2f2e34ea58f7c073",
+      "platform": "macOS-27.0-arm64-arm-64bit",
+      "settings": {
+        "build": "tools/nettest/bin/Release/net10.0",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "109463bba640eeb00ba4846a2f2e34ea58f7c073",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n3/mac-8-lan",
+        "dotnet": "/private/tmp/project-prime-dotnet10/dotnet",
+        "protocol": 43,
+        "players": 8,
+        "seconds": 25.0,
+        "port": 28530,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "manifest": {
+        "path": "artifacts/net2-n3/mac-8-lan/manifest.json",
+        "sha256": "f23919a9c4fcd08f79eb2fc73e428a4cd0c61da96ed584528a1894f062e71c6b"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "assetFiles": 3803,
+      "status": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "allProcessExitsZero": true,
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN"
+      },
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272701648806830,
+          "CurrentMatchId": 2,
+          "Frames": 1606,
+          "StepFailures": 0,
+          "DroppedSteps": 7,
+          "Stalls": 1,
+          "StepAllocatedBytes": 70543744,
+          "MeanMs": 0.6494484433374843,
+          "P50Ms": 0.33,
+          "P95Ms": 1.19,
+          "P99Ms": 1.99,
+          "P999Ms": 22.44,
+          "WorstMs": 201.2469
+        }
+      ],
+      "serverTransport": {
+        "PacketsReceived": 13698,
+        "PacketsSent": 103236,
+        "BytesReceived": 1844980,
+        "BytesSent": 29180417,
+        "Invalid": 0,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 10,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 12655,
+        "ProcessingMilliseconds": 1743.951453,
+        "SocketErrors": 0
+      },
+      "shotLifecycleStatus": "PASS",
+      "reports": {
+        "peer-0": {
+          "acceptedDiscrete": 88,
+          "committedDiscrete": 113,
+          "terminalCounts": {
+            "fired": 88
+          },
+          "unaccountedKeys": [],
+          "invalidTerminalKeys": [],
+          "wrongWeaponChargeKindKeys": [],
+          "duplicateCommitKeys": [],
+          "rejections": [],
+          "acceptedPlayback": true,
+          "sha256": "dda5952db6a703721106d955dea6149398d9309381240c55007a0d25244ec5b1"
+        },
+        "peer-1": {
+          "acceptedDiscrete": 113,
+          "committedDiscrete": 113,
+          "terminalCounts": {
+            "fired": 113
+          },
+          "unaccountedKeys": [],
+          "invalidTerminalKeys": [],
+          "wrongWeaponChargeKindKeys": [],
+          "duplicateCommitKeys": [],
+          "rejections": [],
+          "acceptedPlayback": true,
+          "sha256": "d4b28df93936e12e6cded34fefc9fc1fd90fc40deb4a962d9751f39167dcf560"
+        },
+        "peer-2": {
+          "acceptedDiscrete": 79,
+          "committedDiscrete": 113,
+          "terminalCounts": {
+            "fired": 79
+          },
+          "unaccountedKeys": [],
+          "invalidTerminalKeys": [],
+          "wrongWeaponChargeKindKeys": [],
+          "duplicateCommitKeys": [],
+          "rejections": [],
+          "acceptedPlayback": true,
+          "sha256": "da33e8ae2f950db2c299ef9bda605e74316a1b16bcc1528475c8eafc7deb092c"
+        },
+        "peer-3": {
+          "acceptedDiscrete": 113,
+          "committedDiscrete": 113,
+          "terminalCounts": {
+            "fired": 113
+          },
+          "unaccountedKeys": [],
+          "invalidTerminalKeys": [],
+          "wrongWeaponChargeKindKeys": [],
+          "duplicateCommitKeys": [],
+          "rejections": [],
+          "acceptedPlayback": true,
+          "sha256": "135cf18910b77d89b1e401ea88e44738ffceb087e38e01b921decf686863d984"
+        },
+        "peer-4": {
+          "acceptedDiscrete": 81,
+          "committedDiscrete": 113,
+          "terminalCounts": {
+            "fired": 81
+          },
+          "unaccountedKeys": [],
+          "invalidTerminalKeys": [],
+          "wrongWeaponChargeKindKeys": [],
+          "duplicateCommitKeys": [],
+          "rejections": [],
+          "acceptedPlayback": true,
+          "sha256": "11583c9e3f51c7c2ad6c26fb106e53dcfbb392fde49008f8f7b6ff3b1d16c888"
+        },
+        "peer-5": {
+          "acceptedDiscrete": 114,
+          "committedDiscrete": 114,
+          "terminalCounts": {
+            "fired": 114
+          },
+          "unaccountedKeys": [],
+          "invalidTerminalKeys": [],
+          "wrongWeaponChargeKindKeys": [],
+          "duplicateCommitKeys": [],
+          "rejections": [],
+          "acceptedPlayback": true,
+          "sha256": "77fe85360ecaa809435b65993ac11a98fd64fefacd62f2a4da7bc0db05c35ba2"
+        },
+        "peer-6": {
+          "acceptedDiscrete": 91,
+          "committedDiscrete": 114,
+          "terminalCounts": {
+            "fired": 91
+          },
+          "unaccountedKeys": [],
+          "invalidTerminalKeys": [],
+          "wrongWeaponChargeKindKeys": [],
+          "duplicateCommitKeys": [],
+          "rejections": [],
+          "acceptedPlayback": true,
+          "sha256": "4a8dd867cd6a0cbfaf35b9ec3b6521235f932cee11be8f0ef95b745992a199f2"
+        },
+        "peer-7": {
+          "acceptedDiscrete": 114,
+          "committedDiscrete": 114,
+          "terminalCounts": {
+            "fired": 114
+          },
+          "unaccountedKeys": [],
+          "invalidTerminalKeys": [],
+          "wrongWeaponChargeKindKeys": [],
+          "duplicateCommitKeys": [],
+          "rejections": [],
+          "acceptedPlayback": true,
+          "sha256": "525bb58dd28eb0c04c6f0ff8c0b235eeda6ba29c49388bd66af2943012101cce"
+        },
+        "server": {
+          "acceptedDiscrete": 114,
+          "committedDiscrete": 114,
+          "terminalCounts": {
+            "fired": 114
+          },
+          "unaccountedKeys": [],
+          "invalidTerminalKeys": [],
+          "wrongWeaponChargeKindKeys": [],
+          "duplicateCommitKeys": [],
+          "rejections": [],
+          "acceptedPlayback": true,
+          "sha256": "29599df24b92e80c028acc7d7d8ab2e157f84f1cbfe6f8dbfb61a0441ad56e94"
+        }
+      },
+      "viewParity": {
+        "peer-0": {
+          "healthSamplesCompared": 1975,
+          "healthMismatches": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 110,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 1982,
+          "healthMismatches": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 112,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-2": {
+          "healthSamplesCompared": 1988,
+          "healthMismatches": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 110,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-3": {
+          "healthSamplesCompared": 1990,
+          "healthMismatches": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 112,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-4": {
+          "healthSamplesCompared": 1975,
+          "healthMismatches": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 110,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-5": {
+          "healthSamplesCompared": 1961,
+          "healthMismatches": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 110,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-6": {
+          "healthSamplesCompared": 1952,
+          "healthMismatches": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 111,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 117,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-7": {
+          "healthSamplesCompared": 1932,
+          "healthMismatches": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 108,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 117,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS"
+        }
+      }
+    },
+    {
+      "name": "mac-2-extreme",
+      "source": "109463bba640eeb00ba4846a2f2e34ea58f7c073",
+      "platform": "macOS-27.0-arm64-arm-64bit",
+      "settings": {
+        "build": "tools/nettest/bin/Release/net10.0",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "109463bba640eeb00ba4846a2f2e34ea58f7c073",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n3/mac-2-extreme",
+        "dotnet": "/private/tmp/project-prime-dotnet10/dotnet",
+        "protocol": 43,
+        "players": 2,
+        "seconds": 25.0,
+        "port": 28540,
+        "seed": 2128,
+        "profile": "extreme",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "manifest": {
+        "path": "artifacts/net2-n3/mac-2-extreme/manifest.json",
+        "sha256": "5dcb2c3357e9e8ba4ea5cd458c6a3c2a679b17c711d77dc577b6b831ca54990e"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "assetFiles": 3803,
+      "status": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "allProcessExitsZero": true,
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN"
+      },
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272702351604570,
+          "CurrentMatchId": 2,
+          "Frames": 1585,
+          "StepFailures": 0,
+          "DroppedSteps": 9,
+          "Stalls": 1,
+          "StepAllocatedBytes": 31354328,
+          "MeanMs": 0.5050646056782336,
+          "P50Ms": 0.29,
+          "P95Ms": 0.66,
+          "P99Ms": 1.36,
+          "P999Ms": 14.49,
+          "WorstMs": 247.3496
+        }
+      ],
+      "serverTransport": {
+        "PacketsReceived": 2960,
+        "PacketsSent": 7591,
+        "BytesReceived": 437246,
+        "BytesSent": 2001739,
+        "Invalid": 0,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 8,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 2892,
+        "ProcessingMilliseconds": 664.839508,
+        "SocketErrors": 0
+      },
+      "shotLifecycleStatus": "PASS",
+      "reports": {
+        "peer-0": {
+          "acceptedDiscrete": 0,
+          "committedDiscrete": 34,
+          "terminalCounts": {},
+          "unaccountedKeys": [],
+          "invalidTerminalKeys": [],
+          "wrongWeaponChargeKindKeys": [],
+          "duplicateCommitKeys": [],
+          "rejections": [],
+          "acceptedPlayback": true,
+          "sha256": "755442eaa9c8a61d61d42a6960df64979cec265396a38954a39bc01bc6667c86"
+        },
+        "peer-1": {
+          "acceptedDiscrete": 33,
+          "committedDiscrete": 33,
+          "terminalCounts": {
+            "fired": 33
+          },
+          "unaccountedKeys": [],
+          "invalidTerminalKeys": [],
+          "wrongWeaponChargeKindKeys": [],
+          "duplicateCommitKeys": [],
+          "rejections": [],
+          "acceptedPlayback": true,
+          "sha256": "6eb72f49ad4004ded0be8eb3a72bc7c6a6c010ad44fc4ad8d70511091ed3cda0"
+        },
+        "server": {
+          "acceptedDiscrete": 34,
+          "committedDiscrete": 34,
+          "terminalCounts": {
+            "fired": 34
+          },
+          "unaccountedKeys": [],
+          "invalidTerminalKeys": [],
+          "wrongWeaponChargeKindKeys": [],
+          "duplicateCommitKeys": [],
+          "rejections": [],
+          "acceptedPlayback": true,
+          "sha256": "20fe0de5613c165361ec94ac346b7ba5743eec456132a9b6843dcbdd263f9ecb"
+        }
+      },
+      "viewParity": {
+        "peer-0": {
+          "healthSamplesCompared": 466,
+          "healthMismatches": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 32,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 31,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 440,
+          "healthMismatches": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 31,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 31,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS"
+        }
+      }
+    }
+  ],
+  "accountingNotes": [
+    "All admitted remote discrete events have exactly one fired terminal outcome. No rejection, expiry, unaccounted event, duplicate commit or weapon/charge/kind mismatch in either final control.",
+    "Local authors have committed events without remote accepted/fired ledger rows; the per-process accounting distinguishes those.",
+    "Final server IntentHistory counters reset during teardown; exact-key Shots evidence rows provide the accounting proof.",
+    "Impaired observer received and fired 33 events; server fired 34. Final shutdown-tail delivery is not claimed. Existing view/semantic adjudicators exclude 30/60 terminal frames respectively."
+  ],
+  "finalTests": [
+    {
+      "name": "release build",
+      "status": "PASS",
+      "warnings": 41,
+      "errors": 0,
+      "log": {
+        "path": "artifacts/net2-n3/tests-final/build.log",
+        "sha256": "849834e758faa7f7cf630c104fe47a0a1a3ebbb2a984c04b3a7e4e2bba4a8568"
+      },
+      "productionCommit": "109463bba640eeb00ba4846a2f2e34ea58f7c073"
+    },
+    {
+      "commit": "109463bba640eeb00ba4846a2f2e34ea58f7c073",
+      "enginePath": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/tools/nettest/bin/Release/net10.0/ProjectPrime.dll",
+      "engineSHA256": "6ad689d22f74547b3a92503e200b57daa44151f1a9645fad88762c179c7875d7",
+      "tests": [
+        {
+          "test": "combat",
+          "exitCode": 0,
+          "assertions": 204,
+          "log": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n3/tests-final/combat.log"
+        },
+        {
+          "test": "continuous",
+          "exitCode": 0,
+          "assertions": 63,
+          "log": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n3/tests-final/continuous.log"
+        },
+        {
+          "test": "protocol19-scene",
+          "exitCode": 0,
+          "assertions": 60,
+          "log": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n3/tests-final/protocol19-scene.log"
+        }
+      ]
+    },
+    {
+      "source_commit": "109463bba640eeb00ba4846a2f2e34ea58f7c073",
+      "rebuilt": false,
+      "checks": [
+        {
+          "name": "compact-intents",
+          "exit_code": 0,
+          "log": "artifacts/net2-n3/tests-final/compact-intents.log",
+          "log_sha256": "0fd8ae4216b2f3a4782cb4920a8bfd7fb382c22afa6d8f6c2bfab497dc4208e5",
+          "passed": true,
+          "assertions": null,
+          "virtual_cells": 20
+        },
+        {
+          "name": "replayformat",
+          "exit_code": 0,
+          "log": "artifacts/net2-n3/tests-final/replayformat.log",
+          "log_sha256": "422ca70ab76f8771a18628b351e1e4cdd9523e019090871d652d733dd00dbb65",
+          "passed": true,
+          "assertions": 2888,
+          "virtual_cells": null
+        }
+      ],
+      "binaries": {
+        "src/MphRead/bin/Release/net10.0/ProjectPrime.dll": "6ad689d22f74547b3a92503e200b57daa44151f1a9645fad88762c179c7875d7",
+        "tools/nettest/bin/Release/net10.0/nettest.dll": "961b8fd436c8b8e6c3ecb342f73617dfb73067fedc55b1465494e2170b86a9b3"
+      }
+    },
+    {
+      "name": "turret-events",
+      "status": "PASS",
+      "source": "c311e17b5f9621c80a71472b2e25d64efbd72da3",
+      "log": {
+        "path": "artifacts/net2-n3/tests-final/turret-events.log",
+        "sha256": "1eed7a3654d04f124d8f646a3a6739596108fb94d7fe7e0c4278c6e50efdc10a"
+      },
+      "buildLog": {
+        "path": "artifacts/net2-n3/tests-final/turret-events-build.log",
+        "sha256": "a9a3fa4c64d6078ba037717ce175c50a4a71508cf7cb8b7c85c48d3aec726a13"
+      },
+      "exitCode": 0,
+      "assertions": 13,
+      "buildProjectReferences": false,
+      "engineSHA256Before": "6ad689d22f74547b3a92503e200b57daa44151f1a9645fad88762c179c7875d7",
+      "engineSHA256After": "6ad689d22f74547b3a92503e200b57daa44151f1a9645fad88762c179c7875d7",
+      "engineUnchanged": true
+    }
+  ],
+  "earlierDraftChecks": {
+    "sourceAttribution": "Pre-commit integrated draft. Exact prior binaries/source snapshots were not retained; do not attribute these checks to the final binary. Final focused scene/codec/replay checks above cover the committed engine.",
+    "checks": [
+      {
+        "name": "shot-lifecycle",
+        "status": "PASS",
+        "log": {
+          "path": "artifacts/net2-n3/tests-integrated-v2/shot-lifecycle-1791672966428173000.log",
+          "sha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3"
+        },
+        "resultLines": [
+          "shot lifecycle: PASS"
+        ]
+      },
+      {
+        "name": "protocol17",
+        "status": "PASS",
+        "log": {
+          "path": "artifacts/net2-n3/tests-integrated-v2/protocol17-1791672966471007000.log",
+          "sha256": "9139e28bde8d880ea9119ad134d83c8781c8955febd0c69e14afd1c561533ac1"
+        },
+        "resultLines": [
+          "PASS: protocol 19 transport sequences, ACK bits, wrap, identity and UDP integration"
+        ]
+      },
+      {
+        "name": "architecture",
+        "status": "PASS",
+        "log": {
+          "path": "artifacts/net2-n3/tests-integrated-v2/architecture-1791672966639964000.log",
+          "sha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+        },
+        "resultLines": [
+          "[net] server map:  (None, 0 s left)",
+          "PASS: architecture, owner position, full snapshots and v20 byte fixture"
+        ]
+      },
+      {
+        "name": "health-shots",
+        "status": "PASS",
+        "log": {
+          "path": "artifacts/net2-n3/tests-integrated-v2/health-shots-1791672966847081000.log",
+          "sha256": "aecf7d32ccee8535cfdd3e2fcf28def20c188908fc2af9d0e7482aa2d06e982a"
+        },
+        "resultLines": [
+          "[net] server map:  (None, 0 s left)",
+          "Ghost input matrix: 7776 weapon/profiles, 2 delivery streams, dropped=18360 duplicated=8424 reordered=14256",
+          "PASS: 3338739 health/shot assertions"
+        ]
+      },
+      {
+        "name": "lifecycle",
+        "status": "PASS",
+        "log": {
+          "path": "artifacts/net2-n3/tests-integrated-v2/lifecycle-1791672975099748000.log",
+          "sha256": "223ba4b4bd1b51c50a17363dce7d41a4cb13423f957f6adff522c4cd4b1bda7c"
+        },
+        "resultLines": [
+          "[net] server map:  (None, 0 s left)",
+          "[net] server map:  (None, 0 s left)",
+          "PASS: 3690 lifecycle assertions (production code, deterministic seed 8128)"
+        ]
+      },
+      {
+        "name": "continuous-targets",
+        "status": "PASS",
+        "log": {
+          "path": "artifacts/net2-n3/tests-integrated-v2/continuous-targets-1791672976275315000.log",
+          "sha256": "0b1093499c00c64edddfdd5c76a05e708a64d1def309194ac7620e71e771ffb4"
+        },
+        "resultLines": [
+          "[net] server map:  (None, 0 s left)",
+          "PASS: protocol 19, targeting geometry, retention, classified traces, 20 impairment profiles, zero warmed allocations"
+        ]
+      },
+      {
+        "name": "allocations",
+        "status": "PASS",
+        "log": {
+          "path": "artifacts/net2-n3/tests-integrated-v2/allocations-1791672976417739000.log",
+          "sha256": "3f3d1f4dd43e08660ba9c8871bc47f2d64c9f34d679274f79951016e4a215db0"
+        },
+        "resultLines": [
+          "Snapshot.Compose: 0.00 B/op",
+          "Snapshot.Decode: 0.00 B/op",
+          "NetTransport.Send UDP: 0.00 B/op (receive/fault/replay ownership excluded)"
+        ]
+      }
+    ]
+  },
+  "failedAttempts": [
+    {
+      "status": "FAIL",
+      "log": {
+        "path": "artifacts/net2-n3/tests-initial/compact-intents-1791672530.log",
+        "sha256": "2be5fc51dec54542653cd0864fbc664dfa3c71397c20b686bdeb12ee13254b20"
+      },
+      "correction": "Malformed target test fixture used encoded slot 4 instead of 0x84. Corrected fixture and added malformed-target coverage."
+    },
+    {
+      "status": "FAIL",
+      "log": {
+        "path": "artifacts/net2-n3/tests-initial/replayformat.log",
+        "sha256": "24cc7390b5a91e134ca2961d6c266e7cf10b4f4f8876449e46570c6d1e8af06f"
+      },
+      "correction": "Historical checkpoint fixtures advertised an old protocol but wrote the new canonical width. Corrected fixtures to the original encoding widths."
+    },
+    {
+      "status": "FAIL",
+      "log": {
+        "path": "artifacts/net2-n3/tests-integrated/build.log",
+        "sha256": "3c6853c9c7637b43ebe420cf27541a84668b9b1a73fb58a14a5925b907478680"
+      },
+      "correction": "Test-only MphRead.Formats.Hunter namespace compile error; corrected Hunter reference."
+    },
+    {
+      "status": "FAIL",
+      "log": {
+        "path": "artifacts/net2-n3/tests-integrated-v2/combat.log",
+        "sha256": "c237a2278182d59be1fb1778ec0159191e6b8eadde282afac52650ecd011c1e8"
+      },
+      "correction": "Enhanced-child assertion inspected live pool after rewind catch-up could retire flights. Final fixture examines emitted children at ACK-now; separate checks retain historical timing. Original log did not establish exact child retirement cause."
+    },
+    {
+      "status": "FAILED_FIXTURE_THEN_PASS",
+      "originalLogPreserved": false,
+      "originalLogOverwritten": "tests-final/turret-events.log",
+      "originalAssertion": "turret event captures Battlehammer equipment while owner selects Power Beam",
+      "cause": "The fixture used IntentPacket.Frame = 0 when filling a newly authored turret event, causing expiry against the retention clock.",
+      "correction": "Initialize the carrier Frame with NetSession.NetFrame.",
+      "finalResult": "13 assertions pass; test-only build; production engine unchanged.",
+      "provenance": "Agent report after run. This note is not a recovered original log."
+    }
+  ],
+  "performance": {
+    "status": "OBSERVATIONAL_ONLY",
+    "method": "Frames301-1500, exact60-step aggregates; quarter-ms histogram bins. Retained single runs, no causal overhead claim; exact matched p99 cannot be established from coarse bins.",
+    "source": {
+      "path": "artifacts/net2-n3/step-comparison.json",
+      "sha256": "48a86e173fc388e08e51b230372730424d34ac3691c56a4d80eeea1a321c0884"
+    },
+    "runs": {
+      "n2": {
+        "steps": 1200,
+        "meanMs": 0.31372866666666677,
+        "maxMs": 6.9697,
+        "p95BucketMs": [
+          0.5,
+          0.75
+        ],
+        "p99BucketMs": [
+          0.75,
+          1.0
+        ],
+        "overBudgetSteps": 0,
+        "allocatedBytes": 3048632,
+        "sources": [
+          {
+            "path": "artifacts/net2-n2/optimized-mac-8/server/telemetry/2026-10-10/match-c5670d31b1b543cc8476498d04c5d645.jsonl.gz",
+            "sha256": "e8c5f19d7637b58a4c1c50c67f3c6b22a93acf98b362cc3b626cd959c94eae8b"
+          }
+        ],
+        "fullRunSegments": [
+          {
+            "Room": "MP1 SANCTORUS",
+            "AuthorityEpoch": 639272668391962800,
+            "CurrentMatchId": 2,
+            "Frames": 1626,
+            "StepFailures": 0,
+            "DroppedSteps": 9,
+            "Stalls": 1,
+            "StepAllocatedBytes": 62758136,
+            "MeanMs": 0.6169384993849928,
+            "P50Ms": 0.3,
+            "P95Ms": 1.13,
+            "P99Ms": 2.02,
+            "P999Ms": 26.62,
+            "WorstMs": 232.9637
+          }
+        ]
+      },
+      "n3": {
+        "steps": 1200,
+        "meanMs": 0.3653298333333334,
+        "maxMs": 6.7844999999999995,
+        "p95BucketMs": [
+          0.5,
+          0.75
+        ],
+        "p99BucketMs": [
+          1.0,
+          1.25
+        ],
+        "overBudgetSteps": 0,
+        "allocatedBytes": 2831272,
+        "sources": [
+          {
+            "path": "artifacts/net2-n3/mac-8-lan/server/telemetry/2026-10-10/match-91548cef6e224b5c9569fa57eaf2a3fd.jsonl.gz",
+            "sha256": "4b11fb0188519a2c6a6024f304884924068aa075ffb0ad51d5bb034e8e3ee5af"
+          }
+        ],
+        "fullRunSegments": [
+          {
+            "Room": "MP1 SANCTORUS",
+            "AuthorityEpoch": 639272701648806830,
+            "CurrentMatchId": 2,
+            "Frames": 1606,
+            "StepFailures": 0,
+            "DroppedSteps": 7,
+            "Stalls": 1,
+            "StepAllocatedBytes": 70543744,
+            "MeanMs": 0.6494484433374843,
+            "P50Ms": 0.33,
+            "P95Ms": 1.19,
+            "P99Ms": 1.99,
+            "P999Ms": 22.44,
+            "WorstMs": 201.2469
+          }
+        ]
+      }
+    },
+    "limitation": "Independent single runs and quarter-ms histogram buckets cannot establish an exact matched p99 overhead bound or causal benefit. N3 steady mean is higher (0.365 vs 0.314 ms), p99 bucket [1.0,1.25) vs [0.75,1.0), while full-run p99 is 1.99 vs 2.02 ms. Both retained steady windows have zero steps over 16.67 ms. N3 startup has seven dropped steps and one stall, all present in the first 60-frame aggregate."
+  },
+  "notRun": [
+    "Windows: not needed for these platform-independent changes, per user preference",
+    "Linux/Android and GitHub Actions",
+    "20-minute soak",
+    "Rendered visual projectile parity",
+    "Full-match continuous/turret/Imperialist stress campaigns",
+    "Isolated matched CPU overhead benchmark"
+  ],
+  "remainingScope": [
+    "N4 accepted-shot claim proof and anti-exploit admission",
+    "N5 broader verdict reliability, headshot correction and arbitration",
+    "N6 continuous-target redesign",
+    "Unmatched old-life claims remain conservatively rejected; only already authority-resolved physical hits acknowledge matching duplicates."
+  ]
+}

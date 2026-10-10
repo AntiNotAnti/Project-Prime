@@ -335,6 +335,7 @@ namespace MphRead.Mods.Network
                 // spectator.
                 player.Controls.ClearAll();
                 player.ModSetSpectating(true);
+                NetFireEvents.DrainAccepted(player);
                 return true;
             }
             // A puppet the snapshot owns is placed here as well as after the
@@ -406,6 +407,7 @@ namespace MphRead.Mods.Network
                     player.ModSetSpectating(NetSession.SlotSpectating[slot]);
                 }
             }
+            NetFireEvents.DrainAccepted(player);
             return true;
         }
 

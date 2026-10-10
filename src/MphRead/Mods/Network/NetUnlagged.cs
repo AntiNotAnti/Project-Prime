@@ -686,7 +686,9 @@ namespace MphRead.Mods.Network
                 // against the same puppets. Nothing is owed.
                 return 0;
             }
-            if (!NetSession.RemoteIntentValid[slot])
+            if (!NetSession.RemoteIntentValid[slot]
+                && !((uint)slot < PlayerEntity.Players.Count
+                    && NetFireEvents.TryAcceptedKey(PlayerEntity.Players[slot], out _)))
             {
                 return 0;
             }
@@ -734,7 +736,7 @@ namespace MphRead.Mods.Network
         /// they are in the same packet as the trigger, and
         /// <see cref="NetPlayerBridge"/> has already put them there.
         /// </summary>
-        public static void BeginShot(PlayerEntity shooter, Vector3 origin = default, Vector3 direction = default)
+        public static void BeginShot(PlayerEntity shooter, Vector3 origin = default, Vector3 direction = default, EquipInfo? acceptedEquip = null)
         {
             if (shooter.SceneServices.IsReplica) return;
             if (_inProgress)
@@ -749,7 +751,9 @@ namespace MphRead.Mods.Network
                 return;
             }
             int slot = shooter.SlotIndex;
-            _shotPolicy = WeaponLagPolicies.Resolve(shooter.EquipInfo);
+            var shotEquip = acceptedEquip ?? shooter.EquipInfo;
+            BeamType shotWeapon = shotEquip.Weapon.Beam;
+            _shotPolicy = WeaponLagPolicies.Resolve(shotEquip);
             if (!_shotPolicy.UsesHistoricalPlayers) return;
             double rewind = RewindFor(slot, _shotPolicy.AllowPressAge, out int requested, out double rawRequested);
             if (_shotPolicy.UseShadowPlausibility && LagCompensationPolicy.Plausibility != LagCompPlausibility.Off && rewind > 0)
@@ -765,12 +769,12 @@ namespace MphRead.Mods.Network
                     FramesShadowRefused = Math.Max(0, rewind - (decision.ShadowAllowedFrames ?? rewind)),
                     WouldClamp = decision.ShadowAllowedFrames.HasValue && rewind > decision.ShadowAllowedFrames.Value };
                 var outcome = decision.ShadowAllowedFrames.HasValue
-                    ? NetShadowSampler.CompareShot(ShotKey.For(slot, NetFireEvents.ActiveShotId(shooter)), shooter, origin, direction, rewind, Math.Min(rewind, decision.ShadowAllowedFrames.Value))
+                    ? NetShadowSampler.CompareShot(NetFireEvents.TryAcceptedKey(shooter, out var acceptedKey) ? acceptedKey : ShotKey.For(slot, NetFireEvents.ActiveShotId(shooter)), shooter, origin, direction, rewind, Math.Min(rewind, decision.ShadowAllowedFrames.Value))
                     : ShadowOutcome.HistoricalDataUnavailable;
-                LagCompensationPolicy.Record(slot, NetShotDiagnostics.Bucket(shooter.CurrentWeapon), decision, outcome);
-                LagCompensationPolicy.RecordShotContext(slot, NetFireEvents.ActiveShotId(shooter), policy, NetShotDiagnostics.Bucket(shooter.CurrentWeapon));
+                LagCompensationPolicy.Record(slot, NetShotDiagnostics.Bucket(shotWeapon), decision, outcome);
+                LagCompensationPolicy.RecordShotContext(slot, NetFireEvents.ActiveShotId(shooter), policy, NetShotDiagnostics.Bucket(shotWeapon));
                 Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.Shot, NetSession.NetFrame,
-                    Player: (byte)slot, Weapon: (byte)shooter.CurrentWeapon, Id: NetSession.RemoteIntents[slot].AckFrame,
+                    Player: (byte)slot, Weapon: (byte)shotWeapon, Id: NetSession.RemoteIntents[slot].AckFrame,
                     Result: (int)outcome, A: rawRequested, B: rewind, C: decision.ShadowAllowedFrames ?? -1,
                     D: PressAgeEnabled && _shotPolicy.AllowPressAge ? NetPlayerBridge.ShootPressAge[slot] : 0, ShotId: NetFireEvents.ActiveShotId(shooter)));
                 rewind = LagCompensationPolicy.Applied(decision);
@@ -784,7 +788,7 @@ namespace MphRead.Mods.Network
                 WorstRequested = requested;
             }
             int served = (int)Math.Round(rewind);
-            int weapon = NetShotDiagnostics.Bucket(shooter.CurrentWeapon);
+            int weapon = NetShotDiagnostics.Bucket(shotWeapon);
             NetShotDiagnostics.RewindSamples[weapon]++;
             NetShotDiagnostics.RewindFrames[weapon] += served;
             if (requested > served) NetShotDiagnostics.RewindClamps[weapon]++;
@@ -805,7 +809,7 @@ namespace MphRead.Mods.Network
             double target = NetSession.NetFrame - rewind;
             _shotTargetFrame = target;
             NetDynamicGeometryHistory.CompareShadow(shooter.OwningScene, origin, direction, target,
-                shooter.EquipInfo.Weapon.UnchargedSpeed / 8192f);
+                shotEquip.Weapon.UnchargedSpeed / 8192f);
             if (!Reconcile(slot, target))
             {
                 HistoryMisses++;

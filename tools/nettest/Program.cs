@@ -28,6 +28,13 @@ namespace MphRead.NetTest
 
         private static int Main(string[] args)
         {
+            if (args.Length > 1 && args[0] == "--turret-events")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TurretEventTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 0 && args[0] == "--shot-lifecycle") return ShotLifecycleTests.Run();
             if (args.Length > 0 && args[0] == "--gamemodecheck") return GameModeCheck.Run();
             if (args.Length > 1 && args[0] == "--gamemodecheck-scene")
             {
