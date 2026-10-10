@@ -233,6 +233,13 @@ sealed class CheckWindow : RenderWindow
             ?? Array.Empty<RenderItem>();
         var translucent = (IReadOnlyList<RenderItem>?)SceneField("_translucentItems")
             ?? Array.Empty<RenderItem>();
+        // RenderItem's retained-room marker is internal to the client
+        // assembly. This separate test executable must inspect it, not
+        // widen production access just to compile diagnostics.
+        var roomOwned = typeof(RenderItem).GetProperty(
+            "RetainedRoomOwned", instance)
+            ?? throw new MissingMemberException("Retained room item marker unavailable");
+        bool IsRoomOwned(RenderItem item) => roomOwned.GetValue(item) is true;
         var camera = Scene.CameraPosition;
         // This is intentional evidence: 1 and 2 players should share the
         // Battle-mode room layer and LOD. If not, compare the actual setup
@@ -275,7 +282,7 @@ sealed class CheckWindow : RenderWindow
             },
             cullingFallbackAllParts = fallbackAllParts,
             visiblePartCount = activeParts.Count(enabled => enabled),
-            roomOwnedOpaquePackets = opaque.Count(item => item.RetainedRoomOwned),
+            roomOwnedOpaquePackets = opaque.Count(IsRoomOwned),
             opaquePackets = opaque.Count,
             decalPackets = decals.Count,
             translucentPackets = translucent.Count,
