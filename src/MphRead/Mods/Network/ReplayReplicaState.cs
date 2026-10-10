@@ -246,12 +246,18 @@ namespace MphRead.Mods.Network
                     IntentPacket intent = IntentPacket.Read(payload[1..]);
                     if (!Matches(intent.MatchId, intent.AuthorityEpoch) || intent.SlotGeneration == 0
                         || intent.SlotGeneration != _lives[actor].Generation || intent.LifeId == 0
-                        || intent.LifeId != _lives[actor].LifeId
-                        || _hasIntent[actor] && !NetLifecycleTracker.Newer(intent.Frame, _intents[actor].Frame)) break;
-                    _intents[actor] = intent;
-                    _intentReceivedFrame[actor] = frame;
-                    _hasIntent[actor] = true;
-                    accepted = true;
+                        || intent.LifeId != _lives[actor].LifeId) break;
+                    if (intent.HasFireEvents && !NetFireEvents.Validate(intent)) throw Malformed();
+                    if (!_hasIntent[actor] || NetLifecycleTracker.Newer(intent.Frame, _intents[actor].Frame))
+                    {
+                        _intents[actor] = intent;
+                        _intentReceivedFrame[actor] = frame;
+                        _hasIntent[actor] = true;
+                        accepted = true;
+                    }
+                    else accepted = intent.HasFireEvents && intent.FireEventCount > 0;
+                    // Older canonical carriers may add shots to the presentation
+                    // index without replacing the newest movement state.
                     break;
                 case PacketType.Chat:
                     if (payload.Length != ChatPacket.Size) throw Malformed();

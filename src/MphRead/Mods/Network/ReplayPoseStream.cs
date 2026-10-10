@@ -67,8 +67,7 @@ internal sealed class ReplayPoseStream : IDisposable
     private sealed class FireIndex
     {
         internal ushort Generation, Life;
-        internal uint LastShotId;
-        internal bool Seen;
+        internal readonly NetIncomingFireHistory History = new();
     }
 
     private readonly PassiveReplayScene _world;
@@ -1075,10 +1074,12 @@ internal sealed class ReplayPoseStream : IDisposable
             if ((uint)slot >= 8) return;
             var list = _intents[slot];
             var intent = IntentPacket.Read(packet[2..]);
-            if (list.Count > 0 && list[^1].RecordingFrame == frame)
-                list[^1] = new(frame, intent);
-            else
-                list.Add(new(frame, intent));
+            if (list.Count == 0 || NetLifecycleTracker.Newer(intent.Frame, list[^1].Intent.Frame)
+                || intent.SlotGeneration != list[^1].Intent.SlotGeneration || intent.LifeId != list[^1].Intent.LifeId)
+            {
+                if (list.Count > 0 && list[^1].RecordingFrame == frame) list[^1] = new(frame, intent);
+                else list.Add(new(frame, intent));
+            }
             if (list.Count > MaximumIntentSamples) list.RemoveAt(0);
             IndexFireEvents(frame, slot, intent);
             return;
@@ -1109,16 +1110,13 @@ internal sealed class ReplayPoseStream : IDisposable
         {
             index.Generation = intent.SlotGeneration;
             index.Life = intent.LifeId;
-            index.LastShotId = 0;
-            index.Seen = false;
+            index.History.Clear();
         }
 
-        for (int i = 0; i < intent.FireEventCount; i++)
+        if (!index.History.Accept(intent)) return;
+        while (index.History.TryPeek(out FireEvent fire))
         {
-            FireEvent fire = intent.FireEvents[i];
-            if (index.Seen && !NetLifecycleTracker.Newer(fire.ShotId, index.LastShotId)) continue;
-            index.Seen = true;
-            index.LastShotId = fire.ShotId;
+            index.History.Consume(fire.ShotId);
             uint scheduledFrame = FireSourceRecordingFrame(
                 carrierRecordingFrame, intent.Frame, fire.SourceFrame);
             if (!_fires.TryGetValue(scheduledFrame, out var list))
@@ -1278,8 +1276,7 @@ internal sealed class ReplayPoseStream : IDisposable
             _intents[i].Clear();
             _fireIndex[i].Generation = 0;
             _fireIndex[i].Life = 0;
-            _fireIndex[i].LastShotId = 0;
-            _fireIndex[i].Seen = false;
+            _fireIndex[i].History.Clear();
         }
     }
 

@@ -71,7 +71,7 @@ public readonly record struct NetHeader(PacketType Type, NetHeaderFlags Flags, u
 
 public readonly record struct NetConnectionSnapshot(ulong ConnectionId, long Sent, long Acknowledged,
     long EstimatedLost, long Duplicates, long Reordered, long TooOld, double? RttMilliseconds,
-    double? RttJitterMilliseconds, double? MinimumRttMilliseconds);
+    double? RttJitterMilliseconds, double? MinimumRttMilliseconds, long IntentByteRejections = 0);
 
 /// <summary>Bound to one endpoint/incarnation; caller serializes all access. No payload ownership.</summary>
 public sealed class NetConnection
@@ -80,6 +80,11 @@ public sealed class NetConnection
     public const int IntentRate = 180, IntentBurst = 64, StateRate = 2000, StateBurst = 512,
         ControlRate = 60, ControlBurst = 128, BackgroundRate = 100, BackgroundBurst = 32,
         AuthorityFactRate = 1920, AuthorityFactBurst = 128;
+    public const int IntentBytesPerSecond = 96000, IntentByteBurst = 38400;
+    private double _intentByteTokens, _intentByteLast;
+    private bool _intentBytesInitialized;
+    private long _intentByteRejections;
+    public long IntentByteRejections => _intentByteRejections;
     private struct Attempt { public uint Sequence; public double SentAt; public bool Pending; public uint? EventId; }
     private readonly Attempt[] _attempts = new Attempt[512];
     private NetReceiveWindow _received;
@@ -95,13 +100,24 @@ public sealed class NetConnection
     // that legitimate stream and starved reliable retries. Match the bounded
     // background drain (32/frame at 60 Hz); retain the existing inbox/reserve.
     internal bool ReceivesAuthorityFacts { get; set; }
-    public bool Allow(PacketType type, double nowMs) => type == PacketType.Intent
-        ? _intentBudget.Take(nowMs, IntentRate, IntentBurst)
-        : ReceivesAuthorityFacts && type is (PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact)
+    public bool Allow(PacketType type, double nowMs, int datagramBytes = 0)
+    {
+        if (type == PacketType.Intent)
+        {
+            if (!_intentBytesInitialized) { _intentBytesInitialized = true; _intentByteTokens = IntentByteBurst; _intentByteLast = nowMs; }
+            _intentByteTokens = Math.Min(IntentByteBurst, _intentByteTokens + Math.Max(0, nowMs - _intentByteLast) * IntentBytesPerSecond / 1000);
+            _intentByteLast = nowMs;
+            if (datagramBytes < 0 || _intentByteTokens < datagramBytes) { _intentByteRejections++; return false; }
+            if (!_intentBudget.Take(nowMs, IntentRate, IntentBurst)) return false;
+            _intentByteTokens -= datagramBytes;
+            return true;
+        }
+        return ReceivesAuthorityFacts && type is (PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact)
             ? _authorityFactBudget.Take(nowMs, AuthorityFactRate, AuthorityFactBurst)
         : NetPacketQueue.Priority(type) == NetPacketPriority.Realtime ? _stateBudget.Take(nowMs, StateRate, StateBurst)
         : NetPacketQueue.Priority(type) == NetPacketPriority.Critical ? _controlBudget.Take(nowMs, ControlRate, ControlBurst)
         : _backgroundBudget.Take(nowMs, BackgroundRate, BackgroundBurst);
+    }
     public NetReliableChannel Reliable { get; } = new();
     internal bool QueueOnly { get; set; }
     internal bool QueueServerSide { get; set; }
@@ -165,5 +181,5 @@ public sealed class NetConnection
         _rtt = _rtt.HasValue ? .875 * _rtt.Value + .125 * sample : sample;
         Reliable.UpdateRto(_rtt, _variance);
     }
-    public NetConnectionSnapshot Capture() => new(Id, _sent, _acked, _lost, _duplicates, _reordered, _old, _rtt, _variance, _minimum);
+    public NetConnectionSnapshot Capture() => new(Id, _sent, _acked, _lost, _duplicates, _reordered, _old, _rtt, _variance, _minimum, _intentByteRejections);
 }

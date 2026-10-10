@@ -114,11 +114,11 @@ public static class NetFireEvents
     private sealed class Slot
     {
         public ShotKey Fence;
-        public uint NextId, LastConsumed, SelectedAt;
-        public bool Seen, Selected;
+        public uint NextId, SelectedAt;
+        public bool Selected;
         public FireEvent Active;
-        public readonly FireEvent[] Events = new FireEvent[Capacity];
-        public int Count;
+        public readonly NetOutgoingFireHistory Outgoing = new();
+        public readonly NetIncomingFireHistory Incoming = new();
     }
     private static readonly Slot[] _slots = CreateSlots();
     private static Slot[] CreateSlots() { var result = new Slot[8]; for (int i = 0; i < 8; i++) result[i] = new(); return result; }
@@ -126,11 +126,27 @@ public static class NetFireEvents
     {
         var state = _slots[slot]; var fence = ShotKey.For(slot, 0);
         if (state.Fence != fence)
-        { state.Fence = fence; state.Count = 0; state.NextId = state.LastConsumed = 0; state.Seen = state.Selected = false; state.Active = default; }
+        { state.Fence = fence; state.Outgoing.Clear(); state.Incoming.Clear(); state.NextId = 0; state.Selected = false; state.Active = default; }
         return state;
     }
     public static void Reset()
-    { foreach (var slot in _slots) { slot.Fence = default; slot.Count = 0; slot.Selected = slot.Seen = false; slot.Active = default; slot.NextId = slot.LastConsumed = 0; } }
+    { foreach (var slot in _slots) { slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
+    internal static bool Accept(int slot, in IntentPacket intent)
+        => (uint)slot < 8 && For(slot).Incoming.Accept(intent);
+    internal static void ForgetSlot(int slot)
+    {
+        if ((uint)slot >= 8) return;
+        var state = _slots[slot]; state.Fence = default;
+        state.Outgoing.Clear(); state.Incoming.Clear(); state.NextId = 0;
+        state.Selected = false; state.Active = default;
+    }
+    internal static object CaptureHistory() => Array.ConvertAll(_slots, state => new
+    {
+        Outgoing = state.Outgoing.Count, Pending = state.Incoming.Pending,
+        OutgoingOverflow = state.Outgoing.Overflows, UnsentExpired = state.Outgoing.UnsentExpired,
+        IncomingOverflow = state.Incoming.Overflows, Conflicts = state.Incoming.Conflicts,
+        StaleCarriers = state.Incoming.StaleCarriers, ExpiredPending = state.Incoming.ExpiredPending
+    });
     private static bool Finite(Vector3 value)
         => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
     public static bool Validate(in IntentPacket intent)
@@ -183,10 +199,13 @@ public static class NetFireEvents
             return player.OwningScene.ReplayPoses?.TryActiveFire(player, out fire) == true
                 && fire.Kind == FireEventKind.TurretFire;
         }
-        return !UsesEvents(player)
-            || For(player.SlotIndex).Selected && For(player.SlotIndex).Active.Kind == FireEventKind.TurretFire;
+        return !UsesEvents(player) ? CanAuthor(player)
+            : For(player.SlotIndex).Selected && For(player.SlotIndex).Active.Kind == FireEventKind.TurretFire;
     }
-    internal static bool CanFire(PlayerEntity player) => !UsesEvents(player) || HasPending(player);
+    private static bool CanAuthor(PlayerEntity player) => !NetSession.Active
+        || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8
+        || For(player.SlotIndex).Outgoing.CanAdd(NetSession.NetFrame);
+    internal static bool CanFire(PlayerEntity player) => UsesEvents(player) ? HasPending(player) : CanAuthor(player);
     /// <summary>
     /// Scope belongs to the authored Imperialist shot, not necessarily to the
     /// newer intent packet that happened to deliver a recovered fire event.
@@ -216,16 +235,15 @@ public static class NetFireEvents
         var state = For(player.SlotIndex);
         if (state.SelectedAt == NetSession.NetFrame && state.Selected) return;
         state.Selected = false; state.Active = default;
-        // Events are repeated in every carrier; use their original order and identity.
-        // A delayed carrier cannot re-run an already consumed shot.
-        for (int i = 0; i < intent.FireEventCount; i++)
+        // Intake unions events before movement ordering. A newer empty carrier
+        // cannot erase a shot, and consuming a newer ID cannot suppress a late
+        // older ID still inside the bounded recovery window.
+        while (state.Incoming.TryPeek(out var e))
         {
-            var e = intent.FireEvents[i];
-            if (state.Seen && !NetLifecycleTracker.Newer(e.ShotId, state.LastConsumed)) continue;
             if (e.Kind == FireEventKind.ContinuousTick && e.ContinuousPhase != intent.ContinuousFireTick)
             {
                 NetCampaignEvidence.SkippedContinuousPhase(player, e);
-                state.Seen = true; state.LastConsumed = e.ShotId; continue;
+                state.Incoming.Consume(e.ShotId); continue;
             }
             state.Active = e; state.Selected = true; state.SelectedAt = NetSession.NetFrame;
             if (e.Kind == FireEventKind.TurretFire) return;
@@ -255,7 +273,7 @@ public static class NetFireEvents
         if (UsesEvents(player))
         {
             if (!state.Selected) { state.Active = default; return; }
-            state.LastConsumed = state.Active.ShotId; state.Seen = true; state.Selected = false;
+            state.Incoming.Consume(state.Active.ShotId); state.Selected = false;
             return;
         }
         uint id = unchecked(++state.NextId); if (id == 0) id = ++state.NextId;
@@ -293,18 +311,13 @@ public static class NetFireEvents
         if (!NetSession.Active || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8 || UsesEvents(player)) return;
         var state = For(player.SlotIndex);
         if (state.Active.ShotId == 0) return;
-        if (state.Count == Capacity) { Array.Copy(state.Events, 1, state.Events, 0, Capacity - 1); state.Count--; }
         uint phaseOrState = state.Active.Kind == FireEventKind.ContinuousTick
             ? player.ModContinuousFireTick : state.Active.ContinuousPhase;
-        state.Events[state.Count++] = state.Active with { ContinuousPhase = phaseOrState };
+        state.Outgoing.Add(state.Active with { ContinuousPhase = phaseOrState });
     }
     internal static void Fill(ref IntentPacket intent, int slot)
     {
-        var state = For(slot); int count = 0;
-        for (int i = 0; i < state.Count; i++)
-            if (unchecked(intent.Frame - state.Events[i].SourceFrame) <= RetentionFrames) state.Events[count++] = state.Events[i];
-        state.Count = count; intent.FireEventCount = (byte)count; intent.FireEvents = default; intent.HasFireEvents = true;
-        for (int i = 0; i < count; i++) intent.FireEvents[i] = state.Events[i];
+        For(slot).Outgoing.Fill(ref intent);
     }
     internal static bool TryTiming(PlayerEntity player, out FireEvent e)
     {

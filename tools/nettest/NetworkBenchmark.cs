@@ -63,12 +63,12 @@ internal static class NetworkBenchmark
             return at + 64 + NetHealthSync.HeaderSize;
         }
         lanes.Prepare(canonical.AsSpan(0, Canonical(1)));
-        int PacketLength(int kind) => NetHeader.Size + (kind == 0 ? IntentPacket.FullSize : kind == 1
-            ? SnapshotHeader.Size + s.Players * SnapshotFast.PlayerSize : kind == 2 ? lanes.SlowLength : lanes.WorldLength);
         var intent = IntentPacket.Read(NetArchitectureTests.IntentFixture());
+        int PacketLength(int kind) => NetHeader.Size + (kind == 0 ? CompactIntentCodec.Size(intent) : kind == 1
+            ? SnapshotHeader.Size + s.Players * SnapshotFast.PlayerSize : kind == 2 ? lanes.SlowLength : lanes.WorldLength);
         var state = new PlayerState { SlotGeneration = 9, LifeId = 2, Position = new Vector3(1, 2, 3), Facing = Vector3.UnitZ };
         // Warm the exact codecs before allocation measurement.
-        for (int i = 0; i < 1000; i++) { intent.Write(buffer); _ = IntentPacket.Read(buffer); state.Write(buffer); _ = PlayerState.Read(buffer); }
+        for (int i = 0; i < 1000; i++) { int size = CompactIntentCodec.Write(intent, buffer); _ = CompactIntentCodec.TryRead(buffer.AsSpan(0, size), out _); state.Write(buffer); _ = PlayerState.Read(buffer); }
         long allocated = GC.GetAllocatedBytesForCurrentThread();
         int g0 = GC.CollectionCount(0), g1 = GC.CollectionCount(1), g2 = GC.CollectionCount(2);
         var telemetry = new NetTransportTelemetry();
@@ -95,10 +95,11 @@ internal static class NetworkBenchmark
                 int kind = packet.Kind;
                 if (kind == 0)
                 {
-                    intent.Frame = packet.Frame; intent.Write(buffer);
-                    var decoded = IntentPacket.Read(buffer.AsSpan(0, IntentPacket.FullSize));
+                    intent.Frame = packet.Frame;
+                    int size = CompactIntentCodec.Write(intent, buffer);
+                    NetArchitectureTests.Check(CompactIntentCodec.TryRead(buffer.AsSpan(0, size), out var decoded), "benchmark compact intent decode");
                     NetArchitectureTests.Check(decoded.Position == intent.Position && decoded.Frame == packet.Frame, "benchmark intent mismatch");
-                    bytesReceived += IntentPacket.FullSize + NetHeader.Size;
+                    bytesReceived += size + NetHeader.Size;
                 }
                 else if (kind == 1)
                 {

@@ -63,13 +63,13 @@ internal static class NetArchitectureTests
             Check(output.SequenceEqual(fixture), "protocol 38 legacy intent fixture remains readable");
             Check(intent.AckFrame == 0x87654321 && intent.AckSubFrame == 128 && IntentPacket.PressHistory == 8,
                 "displayed world ACK and eight-frame edge retention");
-            Check(NetConfig.ProtocolVersion == 41
+            Check(NetConfig.ProtocolVersion == 42
                 && IntentPacket.Protocol38FullSize == 423
                 && IntentPacket.FullSize == 1175 && intent.HasAnalogMove
                 && intent.MoveX == 64 && intent.MoveY == -96
                 && intent.HasContinuousFireTick && intent.ContinuousFireTick == 0xCAFEBABE
                 && Math.Abs(IntentPacket.UnpackMoveAxis(intent.MoveX) - 64 / 127f) < .00001f,
-                "protocol 41 preserves protocol-40 Balanced ability semantics and exact FireEvent pose");
+                "protocol 42 preserves protocol-40 Balanced ability semantics and exact FireEvent pose");
             var posed = new FireEvent(7, 99, 80, 64, FireEventKind.PressFire,
                 (byte)BeamType.Imperialist, 0, 0,
                 (byte)(FireEvent.FlagPose | FireEvent.FlagReticle),

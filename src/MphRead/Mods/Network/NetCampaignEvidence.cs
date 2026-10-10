@@ -202,6 +202,7 @@ internal static class NetCampaignEvidence
                 HeapBytes = GC.GetTotalMemory(false), WorkingSet = Environment.WorkingSet,
                 Transport = transport ?? NetSession.CaptureTelemetry().Transport,
                 AdmissionBudgets = NetTransport.AdmissionBudgets,
+                IntentHistory = NetFireEvents.CaptureHistory(),
                 TransportWindows, Readiness, Windows, ServerSegments, Shots, States, Facts };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             JsonSerializer.Serialize(file, report);

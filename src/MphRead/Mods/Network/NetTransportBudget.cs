@@ -7,19 +7,22 @@ namespace MphRead.Mods.Network;
 public sealed record NetEndpointBudgetSnapshot(string Endpoint, NetConnectionSnapshot Connection,
     NetReliableSnapshot Reliable, NetWireSnapshot Wire);
 public sealed record NetTransportBudgetSnapshot(NetWireSnapshot Wire, NetTransportSnapshot Queue,
-    NetTransportContentionSnapshot Contention, NetEndpointBudgetSnapshot[] Endpoints);
-public readonly record struct NetAdmissionBudget(string Lane, int PacketsPerSecond, int Burst)
+    NetTransportContentionSnapshot Contention, NetEndpointBudgetSnapshot[] Endpoints)
+{
+    public long IntentByteRejections { get { long total = 0; foreach (var endpoint in Endpoints) total += endpoint.Connection.IntentByteRejections; return total; } }
+}
+public readonly record struct NetAdmissionBudget(string Lane, int PacketsPerSecond, int Burst, int? BytesPerSecond = null, int? ByteBurst = null)
 {
     // Upper bound for one shared lane, not a target or a separate per-type allowance.
     public int MaximumDatagramBytes => NetConfig.MaxPacketSize;
-    public long MaximumBytesPerSecond => (long)PacketsPerSecond * MaximumDatagramBytes;
+    public long MaximumBytesPerSecond => BytesPerSecond ?? (long)PacketsPerSecond * MaximumDatagramBytes;
 }
 
 public sealed partial class NetTransport
 {
     public static NetAdmissionBudget[] AdmissionBudgets => new[]
     {
-        new NetAdmissionBudget("Intent", NetConnection.IntentRate, NetConnection.IntentBurst),
+        new NetAdmissionBudget("Intent", NetConnection.IntentRate, NetConnection.IntentBurst, NetConnection.IntentBytesPerSecond, NetConnection.IntentByteBurst),
         new NetAdmissionBudget("Realtime", NetConnection.StateRate, NetConnection.StateBurst),
         new NetAdmissionBudget("Critical", NetConnection.ControlRate, NetConnection.ControlBurst),
         new NetAdmissionBudget("Background", NetConnection.BackgroundRate, NetConnection.BackgroundBurst),

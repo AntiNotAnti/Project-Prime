@@ -1242,7 +1242,7 @@ namespace MphRead.Mods.Network
 
         private static void HandleIntent(ReceivedPacket packet, double time)
         {
-            if (packet.Payload.Length < IntentPacket.FullSize)
+            if (!CompactIntentCodec.TryRead(packet.Payload, out IntentPacket intent))
             {
                 return;
             }
@@ -1251,12 +1251,11 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            IntentPacket intent = IntentPacket.Read(packet.Payload);
-            if (!NetFireEvents.Validate(intent)) return;
             if (!NetPlayerLifecycle.AcceptIntent(peer.SlotIndex, intent)) return;
-            // UDP reorders; an older frame must not overwrite a newer one --
-            // unless it is so much older that the peer restarted its counter.
-            // See HandleSlotIntent.
+            if (!NetFireEvents.Accept(peer.SlotIndex, intent)) return;
+            NetCampaignEvidence.Intent(peer.SlotIndex, intent, offered: false);
+            ReplayCapture.AcceptedIntent(peer.SlotIndex, intent);
+            // Recovered shots were admitted above; movement follows only the newest carrier.
             if (peer.HasIntentFrame && !NetLifecycleTracker.Newer(intent.Frame, peer.LastIntentFrame))
             {
                 return;
@@ -1282,7 +1281,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         private static void HandleSlotIntent(ReceivedPacket packet)
         {
-            if (packet.Payload.Length < 1 + IntentPacket.FullSize)
+            if (packet.Payload.Length < 1 + CompactIntentCodec.HeaderSize)
             {
                 return;
             }
@@ -1291,8 +1290,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            var intent = IntentPacket.Read(packet.Payload[1..]);
-            if (!NetFireEvents.Validate(intent)) return;
+            if (!CompactIntentCodec.TryRead(packet.Payload[1..], out var intent)) return;
             AcceptSlotIntent(slot, intent);
         }
 
@@ -1305,11 +1303,11 @@ namespace MphRead.Mods.Network
         /// them here -- so the ordering rule below, which is the part with the
         /// history behind it, is written once and applied to both.
         /// </summary>
-        public static void AcceptSlotIntent(int slot, IntentPacket intent)
+        public static bool AcceptSlotIntent(int slot, IntentPacket intent)
         {
             if (slot < 0 || slot >= RemoteIntents.Length || slot == LocalSlot)
             {
-                return;
+                return false;
             }
             NetIntentRejection reason = intent.MatchId != CurrentMatchId ? NetIntentRejection.WrongMatch
                 : intent.AuthorityEpoch != AuthorityEpoch ? NetIntentRejection.WrongEpoch
@@ -1318,13 +1316,17 @@ namespace MphRead.Mods.Network
             // Identity is checked before ordering. A new occupant/life clears
             // the frame baseline; a late packet can never reset it.
             if (!NetPlayerLifecycle.AcceptIntent(slot, intent))
-            { NetTelemetry.Intent(slot, intent.Frame, reason == NetIntentRejection.None ? NetIntentRejection.Invalid : reason); return; }
+            { NetTelemetry.Intent(slot, intent.Frame, reason == NetIntentRejection.None ? NetIntentRejection.Invalid : reason); return false; }
+            if (!NetFireEvents.Accept(slot, intent))
+            { NetTelemetry.Intent(slot, intent.Frame, NetIntentRejection.Invalid); return false; }
+            NetCampaignEvidence.Intent(slot, intent, offered: false);
+            ReplayCapture.AcceptedIntent(slot, intent);
             if (RemoteIntentValid[slot] && !NetLifecycleTracker.Newer(intent.Frame, _lastSlotIntentFrame[slot]))
             {
                 IntentsOutOfOrder++;
                 NetTelemetry.Intent(slot, intent.Frame, intent.Frame == _lastSlotIntentFrame[slot]
                     ? NetIntentRejection.Duplicate : NetIntentRejection.Reordered);
-                return;
+                return true;
             }
             NetTelemetry.Intent(slot, intent.Frame, NetIntentRejection.None);
             _lastSlotIntentFrame[slot] = intent.Frame;
@@ -1332,11 +1334,10 @@ namespace MphRead.Mods.Network
             RemoteIntentValid[slot] = true;
             RemoteIntentArrived[slot] = Math.Max(NetFrame, 1);
             IntentsReceived++;
-            NetCampaignEvidence.Intent(slot, intent, offered: false);
-            ReplayCapture.AcceptedIntent(slot, intent);
             if (NetLog.Enabled && intent.Buttons.HasFlag(IntentButtons.Shoot))
                 NetShotDiagnostics.Trace("intent", ShotKey.For(slot, intent.AckFrame), (BeamType)intent.WeaponSelect,
                     $"intentFrame={intent.Frame} intentLife={intent.LifeId} inPlay={intent.Buttons.HasFlag(IntentButtons.InPlayState)} shoot=true");
+            return true;
         }
 
         private static readonly uint[] _lastSlotIntentFrame = new uint[PlayerEntity.SlotCapacity];
@@ -1362,6 +1363,7 @@ namespace MphRead.Mods.Network
                 return;
             }
             NetTelemetry.NewLife(slot);
+            NetFireEvents.ForgetSlot(slot);
             ContinuousPhase.ResetSlot(slot);
             NetContinuousTargeting.ForgetSlot(slot);
             _lastSlotIntentFrame[slot] = 0;
@@ -1891,8 +1893,8 @@ namespace MphRead.Mods.Network
             intent.AuthorityEpoch = AuthorityEpoch;
             intent.SlotGeneration = NetPlayerLifecycle.Generation(LocalSlot);
             intent.LifeId = NetPlayerLifecycle.Get(LocalSlot);
-            intent.Write(_scratch);
-            _transport.Send(_hostEndPoint, PacketType.Intent, _scratch.AsSpan(0, IntentPacket.FullSize));
+            int intentSize = CompactIntentCodec.Write(intent, _scratch);
+            _transport.Send(_hostEndPoint, PacketType.Intent, _scratch.AsSpan(0, intentSize));
             NetCampaignEvidence.Intent(LocalSlot, intent, offered: true);
             // A demo only ever contains what this client *received* -- and
             // this client never receives its own SlotIntent back, since it

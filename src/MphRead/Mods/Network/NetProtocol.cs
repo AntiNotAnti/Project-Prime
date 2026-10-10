@@ -2477,7 +2477,8 @@ namespace MphRead.Mods.Network
         // not affect gameplay simulation, but protocol-40 transports would reject
         // the unknown reliable type without acknowledging it, so mixed v40/v41
         // peers must be refused rather than retrying replay evidence forever.
-        public const int ProtocolVersion = 41;
+        // Protocol 42 sends compact live intents; canonical replay record widths stay unchanged.
+        public const int ProtocolVersion = 42;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

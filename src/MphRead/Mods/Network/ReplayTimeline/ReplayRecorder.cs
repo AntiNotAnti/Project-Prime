@@ -93,25 +93,34 @@ internal sealed class ReplayRecorder
         _configuration = new(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Match, bytes);
         Publish(_configuration.Value);
     }
-    // Remote callers enter after lifecycle/order acceptance. A local caller records
+    // Remote callers enter after lifecycle/event acceptance. A local caller records
     // the submitted input for presentation, never a hit or a damage decision.
     public void AcceptIntent(int slot, in IntentPacket intent, uint frame)
     {
         if ((uint)slot >= (uint)_intents.Length || intent.MatchId != _matchId
             || intent.AuthorityEpoch != _epoch || intent.SlotGeneration == 0 || intent.LifeId == 0) return;
+        bool newest = true;
         if (_intents[slot] is { } prior)
         {
             var old = IntentPacket.Read(prior.Payload[2..]);
             if (old.SlotGeneration == intent.SlotGeneration && old.LifeId == intent.LifeId
-                && !NetLifecycleTracker.Newer(intent.Frame, old.Frame)) return;
+                && !NetLifecycleTracker.Newer(intent.Frame, old.Frame)) newest = false;
         }
+        // Storage stays canonical even when the live protocol uses compact intents.
+        // Accepted live packets have already been decoded into this complete model.
         Span<byte> bytes = stackalloc byte[2 + IntentPacket.FullSize];
         bytes[0] = (byte)PacketType.SlotIntent; bytes[1] = (byte)slot;
         intent.Write(bytes[2..]);
         var record = new ReplayTimelineRecord(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Intent, bytes);
-        _intents[slot]?.Release();
-        _intents[slot] = record;
-        Publish(record);
+        if (newest)
+        {
+            _intents[slot]?.Release();
+            _intents[slot] = record;
+            Publish(record);
+        }
+        else if (intent.HasFireEvents && intent.FireEventCount > 0)
+            PublishTransient(record); // Event carrier, never the movement bootstrap.
+        else record.Release();
     }
     public void AcceptSnapshot(ReadOnlySpan<byte> packet, uint frame, uint tick)
     {

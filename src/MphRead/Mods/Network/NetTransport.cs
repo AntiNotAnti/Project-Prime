@@ -170,9 +170,9 @@ namespace MphRead.Mods.Network
         private readonly Socket? _nativeSocket;
         private readonly Thread? _worker;
         // Playback remains lossless and ordered. Live queue reserves 128 control
-        // slots plus nine bounded coalescing cells within the 2048 packet ceiling.
+        // slots plus one bounded snapshot coalescing cell within the 2048 packet ceiling.
         private readonly ConcurrentQueue<ReceivedPacket> _inbox = new();
-        private readonly NetPacketQueue _liveInbox = new(MaxQueuedPackets - 9, 128);
+        private readonly NetPacketQueue _liveInbox = new(MaxQueuedPackets - 1, 128);
         private readonly ConcurrentQueue<ReceivedPacket> _connectionFailures = new();
         private readonly AutoResetEvent _activity = new(false);
         private NetTokenBucket _discoveryBudget;
@@ -185,14 +185,12 @@ namespace MphRead.Mods.Network
         private int _playbackBytes;
 
         // Real-time clients do not benefit from processing six obsolete
-        // snapshots after a hitch. Keep only the newest full snapshot and the
-        // newest SlotIntent for each remote slot. Control/event traffic remains
-        // ordered in _inbox, and playback/fault-injection never enables this.
+        // snapshots after a hitch. Keep only the newest full snapshot.
+        // SlotIntent carriers may contain distinct shot events and remain
+        // ordered in the live queue; playback/fault-injection never enables this.
         private volatile bool _coalesceRealtimeState;
         private readonly object _stateLock = new();
         private ReceivedPacket? _latestSnapshot;
-        private readonly ReceivedPacket?[] _latestSlotIntent =
-            new ReceivedPacket?[MphRead.Entities.PlayerEntity.SlotCapacity];
         private long _statePacketsCoalesced;
         public long StatePacketsCoalesced => Interlocked.Read(ref _statePacketsCoalesced);
 
@@ -267,22 +265,6 @@ namespace MphRead.Mods.Network
                     }
                     _latestSnapshot = packet;
                     return true;
-                }
-                if (packet.Type == PacketType.SlotIntent && packet.Length > 1)
-                {
-                    int slot = packet.Data[1];
-                    if ((uint)slot < _latestSlotIntent.Length)
-                    {
-                        if (_latestSlotIntent[slot].HasValue)
-                        {
-                            if (OlderThan(packet, _latestSlotIntent[slot]!.Value)) { packet.Release(); Telemetry.Coalesce(); return true; }
-                            _latestSlotIntent[slot]!.Value.Release();
-                            Interlocked.Increment(ref _statePacketsCoalesced);
-                        Telemetry.Coalesce();
-                        }
-                        _latestSlotIntent[slot] = packet;
-                        return true;
-                    }
                 }
             }
             return false;
@@ -512,7 +494,7 @@ namespace MphRead.Mods.Network
             for (int category = 0; category < 3; category++)
             {
                 int remaining = category == 0 ? Math.Max(0, failureBudget + 1)
-                    : category == 1 ? Math.Max(0, limits.Realtime - 9) : limits.Background;
+                    : category == 1 ? Math.Max(0, limits.Realtime - (_coalesceRealtimeState ? 1 : 0)) : limits.Background;
                 while (remaining-- > 0 && _liveInbox.TryDequeue((NetPacketPriority)category, out var packet))
                 {
                     Telemetry.Queue(_liveInbox.Count);
@@ -523,25 +505,8 @@ namespace MphRead.Mods.Network
                 }
             }
 
-            if (_coalesceRealtimeState && limits.Realtime >= 9)
+            if (_coalesceRealtimeState && limits.Realtime >= 1)
             {
-                for (int slot = 0; slot < _latestSlotIntent.Length; slot++)
-                {
-                    ReceivedPacket? latest;
-                    lock (_stateLock)
-                    {
-                        latest = _latestSlotIntent[slot];
-                        _latestSlotIntent[slot] = null;
-                    }
-                    if (latest.HasValue)
-                    {
-                        ReceivedPacket value = latest.Value;
-                        RecordDequeued(value, Stopwatch.GetTimestamp());
-                        try { yield return value; }
-                        finally { value.Release(); }
-                    }
-                }
-
                 ReceivedPacket? snapshot;
                 lock (_stateLock)
                 {
@@ -813,7 +778,7 @@ namespace MphRead.Mods.Network
                     connection.ReceivesAuthorityFacts = true;
                 }
                 if (!connection.Accepts(sender, header)) { Telemetry.Invalid(); return false; }
-                if ((header.Flags & NetHeaderFlags.AckOnly) == 0 && !connection.Allow(header.Type, NowMilliseconds))
+                if ((header.Flags & NetHeaderFlags.AckOnly) == 0 && !connection.Allow(header.Type, NowMilliseconds, length))
                 { Telemetry.Drop(); return false; }
                 bool reliable = (header.Flags & NetHeaderFlags.Reliable) != 0;
                 uint eventId = 0;
@@ -1057,11 +1022,6 @@ namespace MphRead.Mods.Network
             {
                 if (_latestSnapshot.HasValue) _latestSnapshot.Value.Release();
                 _latestSnapshot = null;
-                for (int i = 0; i < _latestSlotIntent.Length; i++)
-                {
-                    if (_latestSlotIntent[i].HasValue) _latestSlotIntent[i]!.Value.Release();
-                    _latestSlotIntent[i] = null;
-                }
             }
             _lagWorker?.Join(TimeSpan.FromSeconds(1));
             _activity.Dispose();

@@ -350,6 +350,7 @@ namespace MphRead.Mods.Network
             var fire = typeof(PlayerEntity).GetMethod("TryFireWeapon", BindingFlags.Instance | BindingFlags.NonPublic)!;
             try
             {
+                Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
                 NetFireEvents.Prepare(shooter, carrier);
                 object[] timing = { shooter.SlotIndex, true, 0, 0.0 };
                 typeof(NetUnlagged).GetMethod("RewindFor", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, timing);
@@ -368,11 +369,13 @@ namespace MphRead.Mods.Network
                 Receive(0, claim); NetHitClaims.Tick();
                 Check(victim.Health == before - 1 && NetHitClaims.DuplicateHere == 1 && NetHitClaims.AppliedHere == 0,
                     "recovered shot double-hit regression: later claim never rescues duplicate damage");
+                Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
                 NetFireEvents.Prepare(shooter, carrier);
                 Check(!NetFireEvents.CanFire(shooter), "repeated or reordered carrier cannot fire twice");
                 carrier.Frame++; carrier.FireEventCount = 2;
                 carrier.FireEvents[1] = source with { ShotId = 42, SourceFrame = 101 };
                 NetSession.RemoteIntents[0] = carrier;
+                Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
                 NetFireEvents.Prepare(shooter, carrier);
                 typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
                 Check((bool)fire.Invoke(shooter, null)!, "second rapid shot with same launch clock spawns independently");
@@ -397,6 +400,7 @@ namespace MphRead.Mods.Network
                     source.AckFrame, source.AckSubFrame, FireEventKind.PressFire,
                     (byte)BeamType.Imperialist, 0, FireEvent.ScopedStateBit);
                 NetSession.RemoteIntents[0] = carrier;
+                Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
                 NetFireEvents.Prepare(shooter, carrier);
                 Check(!shooter.EquipInfo.Zoomed,
                     "recovered Imperialist quick-scope leaves newer carrier zoom state intact");
@@ -408,6 +412,7 @@ namespace MphRead.Mods.Network
                     if (candidate.ModShotId == scopedId) scopedBeam = candidate;
                 Check(scopedBeam != null && scopedBeam.HeadshotDamage == shooter.EquipInfo.HeadshotDamage,
                     "recovered scoped Imperialist keeps full headshot damage");
+                Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
                 NetFireEvents.Prepare(shooter, carrier);
                 Check(!NetFireEvents.CanFire(shooter),
                     "repeated scoped Imperialist carrier cannot fire twice");
@@ -421,6 +426,7 @@ namespace MphRead.Mods.Network
                     carrier.FireEvents[carrier.FireEventCount - 1] = new(id, carrier.Frame, source.AckFrame,
                         source.AckSubFrame, kind, (byte)BeamType.PowerBeam, charge, 0);
                     NetSession.RemoteIntents[0] = carrier;
+                    Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
                     NetFireEvents.Prepare(shooter, carrier);
                     Check(shooter.EquipInfo.ChargeLevel == charge
                         && (kind != FireEventKind.ReleaseFire || shooter.Controls.Shoot.IsReleased),
@@ -430,6 +436,7 @@ namespace MphRead.Mods.Network
                     bool stamped = false;
                     foreach (var candidate in shooter.EquipInfo.Beams) if (candidate.ModShotId == id) stamped = true;
                     Check(stamped, $"retained {kind} carries independent shot identity");
+                    Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
                     NetFireEvents.Prepare(shooter, carrier);
                     Check(!NetFireEvents.CanFire(shooter), $"repeated {kind} does not spawn twice");
                 }
