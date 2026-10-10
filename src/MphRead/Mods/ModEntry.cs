@@ -100,7 +100,7 @@ namespace MphRead.Mods
 #endif
             if (HasFlag(args, "renderbackendcheck"))
             {
-                Environment.ExitCode = Render.ModernGraphicsBackendCheck.Run();
+                Environment.ExitCode = Render.OpenGlBackendCheck.Run();
                 return true;
             }
 #if !MPHREAD_SERVER
@@ -113,7 +113,7 @@ namespace MphRead.Mods
 #if !MPHREAD_SERVER
             if (HasFlag(args, "renderbackendprobe"))
             {
-                Environment.ExitCode = Render.ModernGraphicsBackendCheck.Run();
+                Environment.ExitCode = Render.OpenGlBackendCheck.Run();
                 return true;
             }
 #if !ANDROID

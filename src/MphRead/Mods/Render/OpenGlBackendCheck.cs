@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace MphRead.Mods.Render
 {
-    public static class ModernGraphicsBackendCheck
+    public static class OpenGlBackendCheck
     {
         public static int Run()
         {
