@@ -52,10 +52,28 @@ if [[ ! -x "$adb_bin" ]]; then
 fi
 [[ -n "$adb_bin" && -x "$adb_bin" ]] || fail "adb was not found after installing platform-tools."
 
-stage "Creating API 36 emulator."
+stage "Creating API 36 emulator in a deterministic AVD home."
+# sdkmanager/avdmanager and emulator can pick different defaults for their
+# config directories on GitHub-hosted runners. Use an explicit home, plus the
+# AVD's absolute data path, and publish its .ini entry at that exact location.
+# Without this, avdmanager reports success but emulator -avd cannot find it.
+export ANDROID_AVD_HOME="$RUNNER_TEMP/prime-map-avds"
+export ANDROID_USER_HOME="$RUNNER_TEMP/prime-map-android-user"
+mkdir -p "$ANDROID_AVD_HOME" "$ANDROID_USER_HOME"
+avd_directory="$ANDROID_AVD_HOME/prime-map-check.avd"
 printf 'no\n' | timeout --kill-after=5s 60s "$avdmanager_bin" create avd --force \
-  --name prime-map-check --package 'system-images;android-36;google_apis;x86_64' ||
+  --name prime-map-check --path "$avd_directory" \
+  --package 'system-images;android-36;google_apis;x86_64' ||
   fail "AVD creation failed or timed out."
+[[ -s "$avd_directory/config.ini" ]] ||
+  fail "avdmanager completed without creating $avd_directory/config.ini."
+printf 'avd.ini.encoding=UTF-8\npath=%s\ntarget=android-36\n' "$avd_directory" \
+  > "$ANDROID_AVD_HOME/prime-map-check.ini"
+stage "Verifying emulator discovery of prime-map-check."
+timeout --kill-after=5s 20s "$ANDROID_HOME/emulator/emulator" -list-avds \
+  | tee "$RUNNER_TEMP/map-android-avd-list.txt"
+grep -Fxq prime-map-check "$RUNNER_TEMP/map-android-avd-list.txt" ||
+  fail "Emulator does not see prime-map-check despite the AVD manifest; refusing to wait for adb."
 
 # Booting x86_64 without KVM is prohibitively slow on hosted CI. Make this
 # runner prerequisite explicit rather than silently spinning in adb.
