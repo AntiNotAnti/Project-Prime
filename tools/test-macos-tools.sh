@@ -27,7 +27,6 @@ clang "$temp/main.c" -o "$root/ProjectPrime"
 clang -dynamiclib "$temp/native.c" -o "$root/libopenal.1.dylib"
 # The synthetic package must meet the same signed native-dependency contract
 # as the real app. These tiny locally built Mach-O fixtures contain no assets.
-clang -dynamiclib "$temp/native.c" -o "$root/libwgpu_native.dylib"
 clang -dynamiclib "$temp/native.c" -o "$root/libktx.dylib"
 clang -dynamiclib "$temp/native.c" -o "$root/nested/extensionless-native"
 "$repo/tools/sign-macos.sh" "$root"
@@ -47,9 +46,6 @@ chmod +x "$root/ProjectPrime"
 mv "$root/libopenal.1.dylib" "$temp/openal"
 expect_failure "$repo/tools/check-macos-build.sh" "$root" "$rid"
 mv "$temp/openal" "$root/libopenal.1.dylib"
-mv "$root/libwgpu_native.dylib" "$temp/wgpu"
-expect_failure "$repo/tools/check-macos-build.sh" "$root" "$rid"
-mv "$temp/wgpu" "$root/libwgpu_native.dylib"
 mv "$root/libktx.dylib" "$temp/ktx"
 expect_failure "$repo/tools/check-macos-build.sh" "$root" "$rid"
 mv "$temp/ktx" "$root/libktx.dylib"
@@ -81,7 +77,7 @@ echo 'macOS signing gate regressions passed.'
 # can sign and launch successfully while its enclosing app cannot be signed.
 fixture="$temp/package-input"
 mkdir -p "$fixture/maps" "$fixture/fidelity-baselines"
-cp "$root/ProjectPrime" "$root/libopenal.1.dylib" "$root/libwgpu_native.dylib" "$root/libktx.dylib" "$fixture/"
+cp "$root/ProjectPrime" "$root/libopenal.1.dylib" "$root/libktx.dylib" "$fixture/"
 # Synthetic data keeps the packaging gate independent of controller/fidelity feature branches.
 printf '# Controller mapping packaging fixture\n' > "$fixture/gamecontrollerdb.txt"
 printf 'Controller mapping license fixture\n' > "$fixture/gamecontrollerdb.LICENSE"

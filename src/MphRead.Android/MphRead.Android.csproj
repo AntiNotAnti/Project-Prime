@@ -114,8 +114,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\MphRead\Mods\Render\Generated\*.wgsl"
-                      LogicalName="MphRead.Mods.Render.Generated.%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\MphRead\Assets\Fonts\Roboto-Bold.ttf" Link="Assets\Fonts\Roboto-Bold.ttf" />
     <EmbeddedResource Include="..\MphRead\Assets\Sounds\Combat\*.wav"
                       Link="Assets\Sounds\Combat\%(Filename)%(Extension)" />
@@ -124,17 +122,8 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
     <PackageReference Include="OpenTK" Version="4.9.4" />
-    <!-- Same managed WebGPU ABI as desktop. Android's wgpu-native .so is built
-         by tools/wgpu/build-native.sh so it can target the NDK/16 KB page-size
-         contract instead of importing desktop natives into the APK. -->
-    <PackageReference Include="Silk.NET.WebGPU" Version="2.23.0" />
-    <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.23.0" />
-    <!-- The managed binding only. The package's natives are built for Linux and
-         Windows, so they are dead weight in an APK and the only thing they do
-         there is make the build warn that they are not 16 KB page aligned.
-         Nothing on this head calls STB: exporting images and movies is a
-         desktop feature, preview capture goes through AndroidPng, and material
-         PNG decoding uses the platform BitmapFactory with unscaled straight RGBA. -->
+    <!-- OpenGL ES texture decoding retains the KTX/Basis RGBA transcoder.
+         STB's native package is excluded on Android, which uses BitmapFactory. -->
     <PackageReference Include="ReFuel.StbImage" Version="2.1.1" ExcludeAssets="native" />
     <PackageReference Include="Ktx2.NET" Version="1.0.5" ExcludeAssets="native" />
     <!-- The custom maps. The room binaries they describe are built on the
@@ -186,15 +175,6 @@
          it is shipped by the same rule rather than by remembering. -->
     <AvaloniaResource Include="..\MphRead\Assets\Geo\*.gz"
                       Link="Assets\Geo\%(Filename)%(Extension)" />
-  </ItemGroup>
-
-  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\arm64-v8a\libwgpu_native.so')">
-    <AndroidNativeLibrary Include="$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\arm64-v8a\libwgpu_native.so"
-                          Link="lib\arm64-v8a\libwgpu_native.so" />
-  </ItemGroup>
-  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\x86_64\libwgpu_native.so')">
-    <AndroidNativeLibrary Include="$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\x86_64\libwgpu_native.so"
-                          Link="lib\x86_64\libwgpu_native.so" />
   </ItemGroup>
 
   <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\artifacts\ktx-native-android\lib\arm64-v8a\libktx.so')">

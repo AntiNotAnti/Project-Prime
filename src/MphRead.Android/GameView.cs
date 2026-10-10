@@ -1283,7 +1283,7 @@ namespace MphRead.Droid
                 int cap = FrameTiming.FrameRateCap;
                 bool displayPaced = AndroidPerformance.UseDisplayPacing(cap);
                 bool presentationPaced = AndroidFramePacer.PresentationOwnsCadence(
-                    displayPaced, presentationBlocks: false);
+                    displayPaced, false);
                 double deadline = _framePacer.Deadline(now, cap, presentationPaced);
                 double wait = deadline - now;
                 if (wait > 0)
