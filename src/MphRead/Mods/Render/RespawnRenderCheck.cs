@@ -229,13 +229,13 @@ namespace MphRead.Mods.Render
                 _scene.OnSimulationFrame();
                 ObserveSpawn();
                 ulong simulatedFrame = _scene.FrameCount;
-                if (_advanced && _scene.ValidateModernAdvancedRendering()) _advancedFrames++;
                 _scene.OnDrawFrame();
                 if (!_scene.OnRenderFrame())
                 {
                     throw new InvalidOperationException("Renderer stopped before the diagnostic completed.");
                 }
                 _frames++;
+                if (_advanced && _scene.CheckRenderInvariants()) _advancedFrames++;
                 if (_scene.FrameCount != simulatedFrame)
                 {
                     throw new InvalidOperationException("Rendering advanced the simulation frame counter.");
