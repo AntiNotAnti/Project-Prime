@@ -92,7 +92,14 @@ public static class NetContinuousTargetCheck
             Check(Remote(identity) == ContinuousTargetRejection.Angle && beam.Target == null, "loss leaves cone without retaining prior target");
             target.ModPlaceAt(new(0, 0, 5)); Check(Remote(identity) == ContinuousTargetRejection.None, "re-entry reacquires");
             typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(target, target.Flags2 | PlayerFlags2.Spectating);
-            Check(Remote(identity) == ContinuousTargetRejection.Eligibility, "spectator rejected");
+            var spectatorTrace = new NetContinuousTargetDiagnostics.Evaluation();
+            Check(NetContinuousTargeting.EvaluatePlayer(beam, owner.EquipInfo, target, null,
+                target.IsMorphing, target.TeamIndex, ref spectatorTrace) == ContinuousTargetRejection.Eligibility,
+                "production predicate rejects spectator eligibility");
+            // Current-frame pose lookup rejects a bodyless spectator before
+            // the resolver reaches its geometry/eligibility predicate.
+            Check(Remote(identity) == ContinuousTargetRejection.UnavailableHistory && beam.Target == null,
+                "spectator pose unavailable and target cleared");
             typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(target, target.Flags2 & ~PlayerFlags2.Spectating);
             foreach (var player in PlayerEntity.Players)
             {

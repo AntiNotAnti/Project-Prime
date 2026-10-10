@@ -76,6 +76,12 @@ namespace MphRead.Mods.Network
         internal static void PumpLoading()
         {
             Update(Clock, advanceFrame: false);
+            // Rotation must construct the next scene before it can acknowledge
+            // the barrier. Both graphical hosts and headless clients reach this
+            // pump while ordinary simulation (including AfterInput) is stopped.
+            if (IsClient && !IsAuthority && GameState.Current.Owner is { } scene
+                && !scene.Services.IsReplica)
+                NetRoomChange.Sync(scene);
             // A bootstrap/countdown release can be followed by a newer fast
             // snapshot in this same receive batch. The renderer draws after
             // this pump without taking a simulation step: apply any newer

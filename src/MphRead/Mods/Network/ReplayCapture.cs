@@ -43,6 +43,7 @@ namespace MphRead.Mods.Network
         internal static void AfterSimulation(Scene scene)
         {
             if (scene.Services.IsReplica) return;
+            NetCampaignEvidence.Tick(scene);
             using var perf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.Capture);
             DemoClip.Tick(scene.Size);
             if (DemoPlayback.IsActive || !NetSession.Active || !scene.GameState.Multiplayer) return;
@@ -329,6 +330,7 @@ namespace MphRead.Mods.Network
         {
             int slot = state.SlotIndex;
             if (DemoPlayback.IsActive || slot >= Known.Length) return;
+            if (authoritativeFrame is uint frame) NetCampaignEvidence.State(state, frame);
             if (Known[slot] && Previous[slot].SlotGeneration == state.SlotGeneration)
             {
                 var old = Previous[slot];

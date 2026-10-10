@@ -223,7 +223,10 @@ public static class NetFireEvents
             var e = intent.FireEvents[i];
             if (state.Seen && !NetLifecycleTracker.Newer(e.ShotId, state.LastConsumed)) continue;
             if (e.Kind == FireEventKind.ContinuousTick && e.ContinuousPhase != intent.ContinuousFireTick)
-            { state.Seen = true; state.LastConsumed = e.ShotId; continue; }
+            {
+                NetCampaignEvidence.SkippedContinuousPhase(player, e);
+                state.Seen = true; state.LastConsumed = e.ShotId; continue;
+            }
             state.Active = e; state.Selected = true; state.SelectedAt = NetSession.NetFrame;
             if (e.Kind == FireEventKind.TurretFire) return;
             player.ModSetWeapon((BeamType)e.Weapon);
@@ -284,6 +287,9 @@ public static class NetFireEvents
     }
     internal static void Commit(PlayerEntity player)
     {
+        if (NetCampaignEvidence.Enabled && NetSession.Active && !player.SceneServices.IsReplica
+            && (uint)player.SlotIndex < 8)
+            NetCampaignEvidence.Committed(player, For(player.SlotIndex).Active);
         if (!NetSession.Active || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8 || UsesEvents(player)) return;
         var state = For(player.SlotIndex);
         if (state.Active.ShotId == 0) return;

@@ -698,7 +698,7 @@ namespace MphRead.Mods.Network
                             supersedeState: type is PacketType.SessionState
                                 or PacketType.Roster or PacketType.QueueState
                                 or PacketType.QueueSeatOffer))
-                            connection.Reliable.Fail();
+                            connection.Reliable.Fail($"{type}: admission refused");
                         reliableQueued = true;
                     }
                     else
@@ -781,7 +781,8 @@ namespace MphRead.Mods.Network
                     { Telemetry.Invalid(); return false; }
                     if (queueBootstrap) clientId = _pendingQueueConnections[sender].ClientId;
                     if (connection != null) _supersededIds.Add(connection.Id);
-                    connection = new NetConnection(sender, header.ConnectionId, clientId) { QueueOnly = queueBootstrap };
+                    connection = new NetConnection(sender, header.ConnectionId, clientId)
+                        { QueueOnly = queueBootstrap, ReceivesAuthorityFacts = playerBootstrap };
                     _connections[sender] = connection;
                     _pendingConnections.Remove(sender); _pendingQueueConnections.Remove(sender);
                 }
@@ -795,6 +796,7 @@ namespace MphRead.Mods.Network
                         || BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(NetHeader.Size + 5)) != connection.ClientId)
                     { Telemetry.Invalid(); return false; }
                     connection.QueueOnly = false;
+                    connection.ReceivesAuthorityFacts = true;
                 }
                 if (!connection.Accepts(sender, header)) { Telemetry.Invalid(); return false; }
                 if ((header.Flags & NetHeaderFlags.AckOnly) == 0 && !connection.Allow(header.Type, NowMilliseconds))
@@ -905,7 +907,7 @@ namespace MphRead.Mods.Network
                     {
                         if (!_connections.TryGetValue(endpoint, out var connection)) continue;
                         if (connection.RetiredAt.HasValue
-                            && (connection.Reliable.Capture(now).Pending == 0
+                            && (!connection.AckPending && connection.Reliable.Capture(now).Pending == 0
                                 || now - connection.RetiredAt.Value
                                     >= NetReliableChannel.LifetimeMilliseconds))
                         {
@@ -919,6 +921,8 @@ namespace MphRead.Mods.Network
                     FlushReliable(endpoint, now);
 
                     bool failed = false;
+                    string? failureReason = null;
+                    NetReliableSnapshot? failureSnapshot = null;
                     bool sendAck = false;
                     Span<byte> ack = stackalloc byte[NetHeader.Size];
                     stamp = EnterConnectionLock();
@@ -930,6 +934,8 @@ namespace MphRead.Mods.Network
                         {
                             connection.FailureReported = true;
                             failed = true;
+                            failureReason = connection.Reliable.FailureReason;
+                            failureSnapshot = connection.Reliable.Capture(now);
                         }
                         if (connection.AckPending)
                         {
@@ -942,7 +948,7 @@ namespace MphRead.Mods.Network
                     if (failed)
                     {
                         Console.Error.WriteLine(
-                            $"[net] reliable control failed for {endpoint}; disconnecting");
+                            $"[net] reliable control failed for {endpoint}; disconnecting; {failureReason}; {failureSnapshot}");
                         _connectionFailures.Enqueue(new ReceivedPacket(endpoint,
                             new byte[] { (byte)PacketType.Bye }, 1));
                         _activity.Set();

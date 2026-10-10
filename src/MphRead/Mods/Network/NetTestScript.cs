@@ -252,6 +252,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            ApplyCampaignPhase();
             // The headshot rig replaces the tour rather than being a phase of
             // it. A phase would still be one fifteenth of the run, and what it
             // needs is the whole run holding one weapon at one range -- see
@@ -264,6 +265,19 @@ namespace MphRead.Mods.Network
             }
             _frame++;
             Drive(player);
+        }
+
+        private static readonly bool CampaignSoak = Environment.GetEnvironmentVariable("PRIME_NET2_SOAK") == "1";
+        private static int _campaignPhase = -1;
+        private static readonly string[] CampaignRigs = { "shockcoil-all", "duel", "missile" };
+        private static void ApplyCampaignPhase()
+        {
+            if (!CampaignSoak || !NetCampaignEvidence.Enabled) return;
+            int phase = (int)((NetSession.ServerMatch?.TimeElapsed ?? 0) / 60) % CampaignRigs.Length;
+            if (phase == _campaignPhase) return;
+            _campaignPhase = phase;
+            HitRig.Configure(CampaignRigs[phase]);
+            Console.WriteLine($"[net2] workload={CampaignRigs[phase]} match={NetSession.CurrentMatchId}");
         }
 
         private static void Drive(PlayerEntity player)

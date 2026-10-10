@@ -655,7 +655,8 @@ namespace MphRead.Mods.Network
         /// arrived": every version of this feature that shipped broken had
         /// packets arriving.
         /// </summary>
-        private bool Passed => _everSawSomeone || AnyoneSeen();
+        private bool Passed => NetCampaignEvidence.Enabled && HitRig.Active
+            ? NetCampaignEvidence.RigHasEvidence : _everSawSomeone || AnyoneSeen();
 
         private bool AnyoneSeen()
         {
@@ -868,11 +869,24 @@ namespace MphRead.Mods.Network
                     + $"of which {_duelShots} with an opponent in view, "
                     + $"busiest frame {_litFraction * 100:0.0}% lit");
             }
-            bool featuresOk = _features.Report(out int featureFailures);
+            // A fixed-weapon rig does not perform the tour's jumps, morphs,
+            // weapon switches, etc. N0 adjudicates its actual shot/health/fact
+            // evidence across all processes instead of failing unrelated tour
+            // assertions (or pretending those features were exercised).
+            bool campaignRig = NetCampaignEvidence.Enabled && HitRig.Active;
+            int featureFailures;
+            bool featuresOk;
+            if (campaignRig)
+            {
+                featuresOk = NetCampaignEvidence.RigHasEvidence;
+                featureFailures = featuresOk ? 0 : 1;
+                Console.WriteLine("  N0 rig: cross-process shot/health/semantic verdict is in summary.json; feature tour NOT_RUN");
+            }
+            else featuresOk = _features.Report(out featureFailures);
             _featureFailures = featureFailures;
             Console.WriteLine();
             Console.WriteLine(Passed && featuresOk
-                ? "  RESULT: PASS"
+                ? campaignRig ? "  RESULT: LOCAL_EVIDENCE_ONLY" : "  RESULT: PASS"
                 : $"  RESULT: FAIL -- "
                     + (Passed ? "" : "no other player was on the map and moving; ")
                     + $"{featureFailures} feature(s) did not cross");
@@ -929,7 +943,7 @@ namespace MphRead.Mods.Network
             NetCheckClient? window = null;
             try
             {
-                if (simulationOnly) return NetCheckSimulation.Run(room.RoomKey, room.Mode, hunter, seconds);
+                if (simulationOnly) return NetCheckSimulation.Run(room.RoomKey, room.Mode, hunter, seconds, spectateAt, rejoinAt);
                 window = new NetCheckClient(name, room.RoomKey, room.Mode, hunter,
                     seconds, shotDirectory, width, height, spectateAt, rejoinAt,
                     NetSession.LocalColor);
@@ -944,6 +958,7 @@ namespace MphRead.Mods.Network
             }
             finally
             {
+                NetCampaignEvidence.Write(simulationOnly ? "simulation-client" : "rendered-client");
                 if (DemoRecorder.IsRecording)
                 {
                     Console.WriteLine($"[netcheck] {name} recorded {DemoRecorder.CurrentPath}");

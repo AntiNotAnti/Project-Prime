@@ -33,7 +33,9 @@ public sealed class NetReliableChannel
     private int _count, _ordinary, _high;
     private long _refused, _reserve, _spanRefused, _retransmissions, _duplicates;
     public bool Failed { get; private set; }
-    internal void Fail() => Failed = true;
+    public string? FailureReason { get; private set; }
+    internal void Fail(string reason = "reliable admission refused")
+    { Failed = true; FailureReason ??= reason; }
     public void UpdateRto(double? smoothedRttMilliseconds, double? variationMilliseconds)
     {
         if (smoothedRttMilliseconds is not double rtt || variationMilliseconds is not double variation
@@ -90,7 +92,7 @@ public sealed class NetReliableChannel
         if (_count >= Capacity || !critical && _ordinary >= OrdinaryCapacity || spanFull)
         {
             _refused++; if (spanFull) _spanRefused++;
-            if (critical) Failed = true;
+            if (critical) Fail($"{type}: pending={_count} ordinary={_ordinary} spanFull={spanFull}");
             return false;
         }
         for (int i = 0; i < _pending.Length; i++) if (_pending[i] == null)
@@ -112,7 +114,8 @@ public sealed class NetReliableChannel
         {
             var pending = _pending[i];
             if (pending == null) continue;
-            if (nowMs - pending.Created >= LifetimeMilliseconds) { Failed = true; return false; }
+            if (nowMs - pending.Created >= LifetimeMilliseconds)
+            { Fail($"expired {pending.Type} event={pending.Id}"); return false; }
             if (pending.Due > nowMs) continue;
             if (pending.Attempts++ > 0) _retransmissions++;
             pending.Due = nowMs + pending.Rto; pending.Rto = Math.Min(MaximumRtoMilliseconds, pending.Rto * 2);

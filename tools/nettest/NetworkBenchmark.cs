@@ -4,6 +4,8 @@ using System.Buffers.Binary;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
@@ -172,9 +174,17 @@ internal static class NetworkBenchmark
             {
                 if (output + 1 >= args.Length) throw new ArgumentException("Missing JSON path");
                 string path = Path.GetFullPath(args[output + 1]); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                var start = new ProcessStartInfo("git", "rev-parse HEAD") { RedirectStandardOutput = true };
-                using var git = Process.Start(start)!; string commit = git.StandardOutput.ReadToEnd().Trim(); git.WaitForExit();
-                File.WriteAllText(path, JsonSerializer.Serialize(new { commit, protocol = NetConfig.ProtocolVersion,
+                // A frozen control may run inside a newer checkout, or from a
+                // source archive with no .git directory (Windows SSH campaign).
+                // The current working tree is not the identity of the loaded DLL.
+                var engine = typeof(NetConfig).Assembly;
+                string version = engine.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
+                int separator = version.IndexOf('+');
+                string commit = Environment.GetEnvironmentVariable("PRIME_BENCHMARK_COMMIT")
+                    ?? (separator < 0 ? "unknown" : version[(separator + 1)..]);
+                string assemblySha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(engine.Location))).ToLowerInvariant();
+                int protocol = (int)typeof(NetConfig).GetField(nameof(NetConfig.ProtocolVersion))!.GetRawConstantValue()!;
+                File.WriteAllText(path, JsonSerializer.Serialize(new { commit, assemblySha256, version, protocol,
                     runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
                     environment = new { machine = Environment.MachineName, processors = Environment.ProcessorCount,
                         os = System.Runtime.InteropServices.RuntimeInformation.OSDescription,

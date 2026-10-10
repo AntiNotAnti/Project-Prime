@@ -94,7 +94,11 @@ namespace MphRead.Mods.Network
             // Never load a room against the preceding match's package identity.
             if (NetSession.ServerSession is not { } session || session.MatchId != match
                 || !session.Match.RoomKey.Equals(wanted, StringComparison.OrdinalIgnoreCase)) return;
-            if (_loadPending) return;
+            if (_loadPending)
+            {
+                if (_requestedMatch == match) LoadAtBarrier(scene);
+                return;
+            }
             string current = Metadata.GetRoomById(scene.RoomId, noThrow: true)?.Name ?? "";
             // A joiner arrives already on the server's map and must not
             // immediately reload it, so the first match number seen is adopted
@@ -135,7 +139,22 @@ namespace MphRead.Mods.Network
                 : $"[net] server rotated to {wanted}; loading it");
             NetLog.Event($"loading {wanted} for match {match}");
             scene.GameState.TransitionRoomId = meta.Id;
-            scene.SetFade(FadeType.FadeOutBlack, length: 10 / 30f, overwrite: true, AfterFade.LoadRoom);
+            if (!LoadAtBarrier(scene))
+                scene.SetFade(FadeType.FadeOutBlack, length: 10 / 30f, overwrite: true, AfterFade.LoadRoom);
+        }
+
+        private static bool LoadAtBarrier(Scene scene)
+        {
+            if (!NetSession.IsClient || NetSession.IsAuthority || !NetSession.FreezeGameplay)
+                return false;
+            // The loading screen owns presentation at this boundary. A fade
+            // driven by gameplay time cannot finish while the barrier is held.
+            // Use the existing synchronous room rebuild and its MatchLoaded ACK;
+            // never advance combat or release the authority's readiness barrier.
+            scene.SetFade(FadeType.None, 0, overwrite: true);
+            scene.Room!.LoadRoom(resume: false);
+            scene.SetFade(FadeType.FadeInBlack, 10 / 30f, overwrite: true);
+            return true;
         }
 
         /// <summary>
@@ -242,6 +261,12 @@ namespace MphRead.Mods.Network
             // cheat list is on, in case a long session had one restored.
             NetLaunch.DisableCheatsForMatch();
             ReloadIntroCamSeq(scene);
+            // A spectator can enter the rebuild with a Roam camera. Initialize
+            // normally builds the local HUD only in Player camera mode, but the
+            // live scene still updates Main's HUD and may later rejoin/watch.
+            // Recreated players cannot inherit the previous room's HUD objects.
+            if (!Headless.Active && !scene.Players.Main.HudReady)
+                scene.Players.Main.SetUpHud();
             for (int slot = 0; slot < scene.Players.Items.Count; slot++)
             {
                 PlayerEntity player = scene.Players.Items[slot];

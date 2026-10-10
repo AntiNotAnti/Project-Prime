@@ -39,5 +39,6 @@ public sealed partial class DedicatedServer
             _semanticAwardFrontier = award.AwardId;
         }
         _semanticDelivery.Append(type, payload);
+        NetCampaignEvidence.Semantic(type, bytes[..(payload.Length + 1)]);
     }
 }

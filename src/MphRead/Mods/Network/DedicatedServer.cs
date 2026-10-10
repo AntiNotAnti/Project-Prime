@@ -481,6 +481,7 @@ namespace MphRead.Mods.Network
                 while (_running && !cancel.IsCancellationRequested)
                 {
                     double now = clock.Elapsed.TotalSeconds;
+                    if (NetCampaignEvidence.StopRequested(now)) break;
                     _now = now;
                     RefreshWaitlist(now);
                     foreach (ReceivedPacket packet in _transport.Drain(NetPumpBudget.BeforeSimulation))
@@ -493,6 +494,7 @@ namespace MphRead.Mods.Network
                     // what arrived before it steps.
                     PumpLobbyMapPreparation(now);
                     CheckLoadBarrier(now);
+                    PumpCampaignBot(now);
                     PumpSemanticDelivery();
                     PumpReplayShotDelivery();
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
@@ -770,6 +772,8 @@ namespace MphRead.Mods.Network
         /// </summary>
         private void Shutdown(ushort listenPort)
         {
+            if (_sim != null) NetCampaignEvidence.ServerSegment(_sim, NetSession.ServerMatch?.RoomKey ?? "");
+            NetCampaignEvidence.Write("server", _transport?.Telemetry.Capture(), _semanticSlowPeerDisconnects);
             foreach (var queued in _queuePeers.Values) _transport?.Send(queued.Endpoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
             _waitlist?.Clear();
             _queuePeers.Clear();

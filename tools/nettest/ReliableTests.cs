@@ -16,6 +16,8 @@ internal static class ReliableTests
         {
             FullStateStartupBurst();
             BackgroundInboxRetry();
+            AuthorityFactBudget();
+            RetiredPeerAcknowledgesBye();
             var endpoint = new IPEndPoint(IPAddress.Loopback, 42);
             NetConnection sender = new NetConnection(endpoint, 12), receiver = new NetConnection(endpoint, 12);
             var queue = new NetFaultQueue<Wire>(42, 160, 80, .05, .03, .01);
@@ -129,6 +131,60 @@ internal static class ReliableTests
             foreach (var packet in transport.Drain()) applied |= packet.Type == PacketType.MatchSemanticEvent && packet.Payload[0] == 42;
             return applied;
         }, 2000), "same reliable event survives inbox saturation and applies on retry");
+    }
+
+    private static void AuthorityFactBudget()
+    {
+        var endpoint = new IPEndPoint(IPAddress.Loopback, 42);
+        var authority = new NetConnection(endpoint, 1) { ReceivesAuthorityFacts = true };
+        var client = new NetConnection(endpoint, 2);
+        // One semantic event and one resolution per shot, for eight continuous
+        // weapons at 60 Hz. No queue increase or unlimited admission is needed.
+        for (int frame = 0; frame < 240; frame++)
+            for (int fact = 0; fact < 16; fact++)
+                NetArchitectureTests.Check(authority.Allow(fact % 2 == 0
+                    ? PacketType.MatchSemanticEvent : PacketType.ReplayShotFact, frame * 1000.0 / 60),
+                    "eight-player authority facts fit the client drain budget");
+        int burst = 0;
+        while (authority.Allow(PacketType.MatchAward, 5000) && burst < 2048) burst++;
+        NetArchitectureTests.Check(burst < 2048 && !authority.Allow(PacketType.MatchAward, 5000),
+            "authority fact admission remains bounded");
+        int clientBurst = 0;
+        while (client.Allow(PacketType.MatchSemanticEvent, 0) && clientBurst < 2048) clientBurst++;
+        NetArchitectureTests.Check(clientBurst == 32 && client.Allow(PacketType.WorldReady, 0),
+            "client-to-server background budget and critical reserve remain independent");
+    }
+
+    private static void RetiredPeerAcknowledgesBye()
+    {
+        using var server = new NetTransport(0);
+        using var client = new NetTransport(0);
+        var serverAddress = new IPEndPoint(IPAddress.Loopback, server.LocalPort);
+        var clientAddress = new IPEndPoint(IPAddress.Loopback, client.LocalPort);
+        client.Send(serverAddress, PacketType.Hello, new byte[] { (byte)NetConfig.ProtocolVersion });
+        server.Send(clientAddress, PacketType.Welcome, new byte[17]);
+        bool welcomed = false;
+        NetArchitectureTests.Check(SpinWait.SpinUntil(() =>
+        {
+            foreach (var packet in client.Drain()) welcomed |= packet.Type == PacketType.Welcome;
+            return welcomed;
+        }, 2000), "close regression admitted a real UDP client");
+        // Ensure the application retires this connection BEFORE ACK maintenance.
+        var serviceAt = typeof(NetTransport).GetField("_nextConnectionService",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        serviceAt.SetValue(server, System.Diagnostics.Stopwatch.GetTimestamp() + 30 * System.Diagnostics.Stopwatch.Frequency);
+        client.Send(serverAddress, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+        bool closed = false;
+        NetArchitectureTests.Check(SpinWait.SpinUntil(() =>
+        {
+            foreach (var packet in server.Drain())
+                if (packet.Type == PacketType.Bye) { server.RetireConnection(packet.Sender); closed = true; }
+            return closed;
+        }, 2000), "application retires the peer after receiving Bye");
+        serviceAt.SetValue(server, 0L);
+        client.Dispose();
+        NetArchitectureTests.Check(client.UnacknowledgedCloseEvents == 0,
+            "retirement preserves the received Bye ACK until the socket worker sends it");
     }
 
     private static void FullStateStartupBurst()

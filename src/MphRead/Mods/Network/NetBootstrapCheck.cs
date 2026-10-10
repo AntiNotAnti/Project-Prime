@@ -167,6 +167,31 @@ public static class NetBootstrapCheck
             session.StartGeneration++; session.Revision++; NetSession.ApplySessionState(session);
             Deliver(0, identity); Deliver(1, identity); Deliver(2, identity);
             Check(!NetSession.WorldIsReady && NetSession.FreezeGameplay, "old bootstrap cannot release rematch");
+            // Exercise the two real frozen host entry points. Loading a new map
+            // (and restarting the same map) must not depend on combat stepping
+            // or on a fade's simulation clock while the barrier is held.
+            Scene scene = PlayerEntity.Players[0].OwningScene;
+            NetRoomChange.Sync(scene); // Adopt the initial loaded match.
+            string rotatedRoom = room == "MP3 PROVING GROUND" ? "MP1 SANCTORUS" : "MP3 PROVING GROUND";
+            foreach (bool graphicalHost in new[] { false, true })
+            {
+                session.MatchId++; session.StartGeneration++; session.Revision++;
+                session.StartStage = StartStage.Loading;
+                session.Match = session.Match with { RoomKey = rotatedRoom };
+                NetSession.ApplySessionState(session);
+                Check(NetSession.FreezeGameplay, "rotation begins behind the loading barrier");
+                uint frozenFrame = NetSession.NetFrame;
+                if (graphicalHost) Check(NetSession.HoldLoadingFrame(), "render host holds loading frame");
+                else scene.OnSimulationFrame();
+                Check(Metadata.GetRoomById(scene.RoomId)?.Name == rotatedRoom
+                    && NetRoomChange.GameplayReady
+                    && (MatchStartIdentity?)typeof(NetSession).GetField("_loadedStart", flags)!.GetValue(null)
+                        == new MatchStartIdentity(session.MatchId, session.AuthorityEpoch, session.StartGeneration),
+                    graphicalHost ? "render host rebuilds same-map rematch and acknowledges load"
+                        : "headless host rebuilds rotated map and acknowledges load");
+                Check(NetSession.NetFrame == frozenFrame && NetSession.FreezeGameplay && !NetSession.WorldIsReady,
+                    "room load neither steps gameplay nor bypasses authoritative bootstrap");
+            }
             Console.WriteLine($"BOOTSTRAP {mode} PASS: eight real players, frozen spawn, lane loss/reorder/duplicate, valid first ACK and rematch fence"); return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
