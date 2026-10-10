@@ -22,6 +22,7 @@ internal static class OpenGlSubmissionProfiler
     [ThreadStatic] private static bool _active;
     [ThreadStatic] private static long _start;
     [ThreadStatic] private static int _lists;
+    [ThreadStatic] private static int _vboDraws;
     [ThreadStatic] private static int _immediate;
     [ThreadStatic] private static int _textureBinds;
     [ThreadStatic] private static int _programBinds;
@@ -32,6 +33,7 @@ internal static class OpenGlSubmissionProfiler
     [ThreadStatic] private static long[]? _windowTicks;
     [ThreadStatic] private static int _windowCount;
     [ThreadStatic] private static long _sumLists;
+    [ThreadStatic] private static long _sumVboDraws;
     [ThreadStatic] private static long _sumImmediate;
     [ThreadStatic] private static long _sumTextureBinds;
     [ThreadStatic] private static long _sumProgramBinds;
@@ -64,7 +66,7 @@ internal static class OpenGlSubmissionProfiler
     {
         if (!_enabled || _active)
             return false;
-        _lists = _immediate = _textureBinds = _programBinds = 0;
+        _lists = _vboDraws = _immediate = _textureBinds = _programBinds = 0;
         _framebufferBinds = _stateRequests = _stateRequestsSkipped = _stencilRequests = 0;
         _start = Stopwatch.GetTimestamp();
         _active = true;
@@ -72,6 +74,7 @@ internal static class OpenGlSubmissionProfiler
     }
 
     internal static void NoteDisplayList() { if (_active) _lists++; }
+    internal static void NoteVboDraw() { if (_active) _vboDraws++; }
     internal static void NoteImmediateBegin() { if (_active) _immediate++; }
     internal static void NoteTextureBind() { if (_active) _textureBinds++; }
     internal static void NoteProgramBind() { if (_active) _programBinds++; }
@@ -94,6 +97,7 @@ internal static class OpenGlSubmissionProfiler
         _windowTicks ??= new long[Window];
         _windowTicks[_windowCount++] = elapsed;
         _sumLists += _lists;
+        _sumVboDraws += _vboDraws;
         _sumImmediate += _immediate;
         _sumTextureBinds += _textureBinds;
         _sumProgramBinds += _programBinds;
@@ -118,6 +122,7 @@ internal static class OpenGlSubmissionProfiler
                 + $" p95={sorted[PercentileIndex(Window, 95)] * tickMs:F3}ms"
                 + $" p99={sorted[PercentileIndex(Window, 99)] * tickMs:F3}ms"
                 + $" avg-list={_sumLists / (double)Window:F1}"
+                + $" avg-vboDraws={_sumVboDraws / (double)Window:F1}"
                 + $" avg-immediate={_sumImmediate / (double)Window:F1}"
                 + $" avg-texbind={_sumTextureBinds / (double)Window:F1}"
                 + $" avg-program={_sumProgramBinds / (double)Window:F1}"
@@ -129,7 +134,7 @@ internal static class OpenGlSubmissionProfiler
                 + $" avg-batches={_sumBatches / (double)Window:F1}"
                 + $" depth-replay-item-submissions-saved={_sumSavedReplaySubmissions}");
             _windowCount = 0;
-            _sumLists = _sumImmediate = _sumTextureBinds = 0;
+            _sumLists = _sumVboDraws = _sumImmediate = _sumTextureBinds = 0;
             _sumProgramBinds = _sumFramebufferBinds = _sumStencilRequests = 0;
             _sumStateRequests = _sumStateRequestsSkipped = _sumPackets
                 = _sumBatches = _sumSavedReplaySubmissions = 0;
