@@ -117,6 +117,14 @@ namespace MphRead.Mods
                 return true;
             }
 #if !ANDROID
+            if (HasFlag(args, "glvisualcheck"))
+            {
+                Environment.ExitCode = Render.OpenGlVisualCheck.Run(
+                    ValueAfter(args, "glvisualcheck")
+                    ?? System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+                        "project-prime-glvisual"));
+                return true;
+            }
             if (HasFlag(args, "textureupdatecheck"))
             {
                 Environment.ExitCode = Render.TextureUpdateCheck.Run(ValueAfter(args, "renderer"));

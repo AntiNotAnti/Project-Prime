@@ -200,6 +200,17 @@ jobs:
         run: |
           xvfb-run -a --server-args="-screen 0 640x480x24" \
             publish/opengl-linux/ProjectPrime -textureupdatecheck -renderer opengl
+      - name: OpenGL depth, alpha, stencil and repeated-frame pixel fixtures
+        run: |
+          xvfb-run -a --server-args="-screen 0 640x480x24" \
+            publish/opengl-linux/ProjectPrime -glvisualcheck "$RUNNER_TEMP/glvisual"
+      - name: GL synthetic pixel captures (not real-map hardware acceptance)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: opengl-depth-alpha-stencil-fixture
+          path: ${{ runner.temp }}/glvisual
+          if-no-files-found: warn
 
   android-pacing-policy:
     name: Android frame pacing and governor policy
