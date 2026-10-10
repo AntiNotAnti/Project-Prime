@@ -84,9 +84,17 @@ public sealed class NetConnection
     private double? _rtt, _variance, _minimum;
     private readonly double[] _recentRtt = new double[64];
     private int _recentCount, _recentCursor;
-    private NetTokenBucket _intentBudget, _stateBudget, _controlBudget, _backgroundBudget;
+    private NetTokenBucket _intentBudget, _stateBudget, _controlBudget, _backgroundBudget, _authorityFactBudget;
+    // Only the connection admitted from the server's Welcome gets this lane.
+    // Eight continuous weapons produce 480 shot events/second, plus replay
+    // resolutions and match facts. The generic 100/s background limit rejected
+    // that legitimate stream and starved reliable retries. Match the bounded
+    // background drain (32/frame at 60 Hz); retain the existing inbox/reserve.
+    internal bool ReceivesAuthorityFacts { get; set; }
     public bool Allow(PacketType type, double nowMs) => type == PacketType.Intent
         ? _intentBudget.Take(nowMs, 180, 64)
+        : ReceivesAuthorityFacts && type is (PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact)
+            ? _authorityFactBudget.Take(nowMs, NetPumpBudget.Default.Background * 60, 128)
         : NetPacketQueue.Priority(type) == NetPacketPriority.Realtime ? _stateBudget.Take(nowMs, 2000, 512)
         : NetPacketQueue.Priority(type) == NetPacketPriority.Critical ? _controlBudget.Take(nowMs, 60, 128)
         : _backgroundBudget.Take(nowMs, 100, 32);
