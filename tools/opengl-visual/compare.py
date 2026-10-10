@@ -12,7 +12,8 @@ from pathlib import Path
 import sys
 
 EXPECTED = ("opaque-wall.rgba", "opaque-wall-repeat.rgba",
-            "translucent-window.rgba", "stencil-mask.rgba")
+            "translucent-window.rgba", "stencil-mask.rgba",
+            "combined-opaque.rgba")
 
 
 def load(folder: Path):
