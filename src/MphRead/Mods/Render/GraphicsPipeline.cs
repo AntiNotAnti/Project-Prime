@@ -460,9 +460,6 @@ namespace MphRead
                 _graphicsHistoryTexture = GL.GenTexture();
             }
             PixelInternalFormat historyFormat = PixelInternalFormat.Rgba8;
-#if !MPHREAD_SERVER
-            if (Mods.Render.ModernGraphicsCompat.Active && RenderOptions.InternalHdr) historyFormat = PixelInternalFormat.Rgba16f;
-#endif
             if (_graphicsHistorySize == target && _graphicsHistoryFormat == historyFormat) return;
             GL.ActiveTexture(TextureUnit.Texture3);
             GL.BindTexture(TextureTarget.Texture2D, _graphicsHistoryTexture);
@@ -638,13 +635,6 @@ namespace MphRead
 
         private static void DrawGraphicsFullscreenQuad()
         {
-#if !MPHREAD_SERVER
-            if (Mods.Render.ModernGraphicsCompat.Active
-                && Mods.Render.ModernGraphicsCompat.TryDrawRetainedFullscreenQuad())
-            {
-                return;
-            }
-#endif
             GL.Begin(PrimitiveType.TriangleStrip);
             GL.TexCoord3(1f, 1f, 0f); GL.Vertex3(1f, 1f, 0f);
             GL.TexCoord3(0f, 1f, 0f); GL.Vertex3(-1f, 1f, 0f);

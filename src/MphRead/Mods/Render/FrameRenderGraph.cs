@@ -168,17 +168,6 @@ namespace MphRead
                     break;
 
                 case Mods.Render.FrameRenderPassKind.GpuVisibility:
-#if !MPHREAD_SERVER
-                    if (Mods.Render.ModernGraphicsCompat.Active
-                        && Mods.Render.ModernGraphicsCompat.GpuVisibilityEnabled)
-                    {
-                        Mods.Render.ModernGraphicsCompat.PrepareRetainedGpuVisibility(
-                            _retainedRenderWorld.Opaque,
-                            _perspectiveMatrix, _viewMatrix,
-                            _depthTexture, _targetSize.X, _targetSize.Y,
-                            _retainedDepthHistoryValid);
-                    }
-#endif
                     break;
 
                 case Mods.Render.FrameRenderPassKind.WorldSetup:
@@ -197,20 +186,7 @@ namespace MphRead
                     break;
 
                 case Mods.Render.FrameRenderPassKind.GpuHiZBuild:
-#if !MPHREAD_SERVER
-                    if (Mods.Render.ModernGraphicsCompat.Active
-                        && Mods.Render.ModernGraphicsCompat.GpuVisibilityEnabled)
-                    {
-                        _retainedDepthHistoryValid =
-                            Mods.Render.ModernGraphicsCompat.CaptureRetainedGpuVisibilityHistory(
-                                _perspectiveMatrix, _viewMatrix,
-                                _depthTexture, _targetSize.X, _targetSize.Y);
-                    }
-                    else
-#endif
-                    {
-                        _retainedDepthHistoryValid = false;
-                    }
+                    _retainedDepthHistoryValid = false;
                     break;
 
                 case Mods.Render.FrameRenderPassKind.Outlines:
@@ -248,10 +224,6 @@ namespace MphRead
                     CheckGlError("EndWorldPass");
                     BeginCompositePass();
                     GL.Clear(ClearBufferMask.ColorBufferBit);
-#if !MPHREAD_SERVER
-                    if (!Mods.Render.ModernGraphicsCompat.Active
-                        || !Mods.Render.ModernGraphicsCompat.TryDrawRetainedFullscreenQuad())
-#endif
                     {
                         GL.Begin(PrimitiveType.TriangleStrip);
                         GL.TexCoord3(1f, 1f, 0f);
