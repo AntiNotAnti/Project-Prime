@@ -1331,6 +1331,7 @@ namespace MphRead.Mods.Network
             RemoteIntentValid[slot] = true;
             RemoteIntentArrived[slot] = Math.Max(NetFrame, 1);
             IntentsReceived++;
+            NetCampaignEvidence.Intent(slot, intent, offered: false);
             ReplayCapture.AcceptedIntent(slot, intent);
             if (NetLog.Enabled && intent.Buttons.HasFlag(IntentButtons.Shoot))
                 NetShotDiagnostics.Trace("intent", ShotKey.For(slot, intent.AckFrame), (BeamType)intent.WeaponSelect,
@@ -1890,6 +1891,7 @@ namespace MphRead.Mods.Network
             intent.LifeId = NetPlayerLifecycle.Get(LocalSlot);
             intent.Write(_scratch);
             _transport.Send(_hostEndPoint, PacketType.Intent, _scratch.AsSpan(0, IntentPacket.FullSize));
+            NetCampaignEvidence.Intent(LocalSlot, intent, offered: true);
             // A demo only ever contains what this client *received* -- and
             // this client never receives its own SlotIntent back, since it
             // already knows what it pressed. Without this, playback shows

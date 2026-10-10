@@ -11,7 +11,8 @@ namespace MphRead.Mods.Network;
 /// client simulation at 60 Hz; makes no claims about rendering or visible killcams.</summary>
 internal static class NetCheckSimulation
 {
-    internal static int Run(string room, GameMode mode, Hunter hunter, double seconds)
+    internal static int Run(string room, GameMode mode, Hunter hunter, double seconds,
+        double spectateAt = -1, double rejoinAt = -1)
     {
         var scene = new Scene(new Vector2i(256, 192), SyntheticInput.CreateKeyboard(),
             SyntheticInput.CreateMouse(), _ => { }, () => { });
@@ -26,6 +27,7 @@ internal static class NetCheckSimulation
         double clipAt = Math.Min(60, Math.Max(0, seconds - 12));
         var positions = new Vector3[PlayerEntity.SlotCapacity];
         var moved = new bool[PlayerEntity.SlotCapacity];
+        bool spectated = false, rejoined = false;
         while (Stopwatch.GetElapsedTime(start).TotalSeconds < seconds)
         {
             double now = Stopwatch.GetElapsedTime(start).TotalSeconds;
@@ -33,6 +35,17 @@ internal static class NetCheckSimulation
             if (now - next > 0.25) next = now;
             next += 1.0 / 60;
             scene.OnSimulationFrame();
+            if (!spectated && spectateAt >= 0 && now >= spectateAt)
+            {
+                SpectatorMode.Start();
+                spectated = true;
+                Console.WriteLine(SpectatorMode.IsSpectating ? "[netchecksim] spectating" : "[netchecksim] could not spectate");
+            }
+            if (!rejoined && rejoinAt >= 0 && now >= rejoinAt && SpectatorMode.IsSpectating)
+            {
+                SpectatorMode.Rejoin(); rejoined = true;
+                Console.WriteLine("[netchecksim] rejoined from spectator");
+            }
             // A graphical client advances this in OnRenderFrame. Without a
             // virtual presentation at 60 Hz, ACK stays on the initial snapshot
             // and every headless shot eventually asks for the rewind ceiling.

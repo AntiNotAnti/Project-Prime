@@ -16,12 +16,14 @@ public static partial class NetSession
         if (type == PacketType.MatchSemanticEvent)
         {
             if (!MatchSemanticEventPacket.TryRead(packet[..size], out var fact) || !SemanticReceived.Accept(fact)) return;
+            NetCampaignEvidence.Semantic(type, packet[..size]);
             if (fact.IsBaseline) return;
             tick = fact.Tick;
         }
         else
         {
             if (!MatchAwardPacket.TryRead(packet[..size], out var award) || !SemanticReceived.Accept(award)) return;
+            NetCampaignEvidence.Semantic(type, packet[..size]);
             tick = award.Tick;
         }
         ReplayCapture.Recorder.AcceptSemantic(packet[..size], CurrentMatchId, AuthorityEpoch, tick, NetFrame);

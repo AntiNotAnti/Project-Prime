@@ -349,6 +349,7 @@ namespace MphRead.Mods.Network
 
         public void Stop(bool preserveRoomPrewarm = false)
         {
+            if (_scene != null) NetCampaignEvidence.ServerSegment(this, _room);
             Mods.Multiplayer.BalancedModeTelemetry.FlushToProductionTelemetry();
             Telemetry.ProductionTelemetry.FlushServerSteps();
             Telemetry.ProductionTelemetry.End();

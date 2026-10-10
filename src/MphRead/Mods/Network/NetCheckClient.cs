@@ -929,7 +929,7 @@ namespace MphRead.Mods.Network
             NetCheckClient? window = null;
             try
             {
-                if (simulationOnly) return NetCheckSimulation.Run(room.RoomKey, room.Mode, hunter, seconds);
+                if (simulationOnly) return NetCheckSimulation.Run(room.RoomKey, room.Mode, hunter, seconds, spectateAt, rejoinAt);
                 window = new NetCheckClient(name, room.RoomKey, room.Mode, hunter,
                     seconds, shotDirectory, width, height, spectateAt, rejoinAt,
                     NetSession.LocalColor);
@@ -944,6 +944,7 @@ namespace MphRead.Mods.Network
             }
             finally
             {
+                NetCampaignEvidence.Write(simulationOnly ? "simulation-client" : "rendered-client");
                 if (DemoRecorder.IsRecording)
                 {
                     Console.WriteLine($"[netcheck] {name} recorded {DemoRecorder.CurrentPath}");

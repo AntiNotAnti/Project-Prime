@@ -1,0 +1,178 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Text.Json;
+using MphRead.Entities;
+using MphRead.Mods.MatchEvents;
+
+namespace MphRead.Mods.Network;
+
+/// <summary>N0 opt-in, process-owned evidence. Never feeds a gameplay decision.
+/// Bounded buffers fail closed on overflow; no disk I/O in simulation hooks.
+/// Wire/replay formats and normal play are unchanged.</summary>
+internal static class NetCampaignEvidence
+{
+    private static readonly string? Path = Environment.GetEnvironmentVariable("PRIME_NET2_EVIDENCE");
+    internal static bool Enabled => !String.IsNullOrWhiteSpace(Path);
+    private const int RowLimit = 262144;
+    private static readonly List<Shot> Shots = new();
+    private static readonly List<Health> States = new();
+    private static readonly List<Fact> Facts = new();
+    private static readonly List<Window> Windows = new();
+    private static readonly List<object> ServerSegments = new();
+    private static readonly HashSet<ShotKey> Offered = new();
+    private static readonly HashSet<ShotKey> Accepted = new();
+    private static readonly long[] AliveFrames = new long[8];
+    private static long _start, _lastWindow, _frames, _overflow, _offeredCarriers, _acceptedCarriers;
+    private static bool _connectionLost, _semanticOverrun;
+    private static string? _lastError;
+    private static double _lastStopCheck;
+    private static readonly long AllocatedAtStart = GC.GetTotalAllocatedBytes();
+    private sealed record Shot(string Stage, ShotKey Key, uint SourceFrame, uint ObservedFrame,
+        byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase);
+    private sealed record Health(ulong Epoch, ushort Match, uint Frame, byte Slot, ushort Generation,
+        ushort Life, ushort Hp, ushort TurretHp, ushort Kills, ushort Deaths, uint DamageEvent);
+    private sealed record Fact(byte Type, ulong Epoch, ushort Match, uint Id, uint Tick,
+        bool Baseline, bool Award, uint AwardFrontier, string Payload);
+    private sealed record Window(double Seconds, ulong Epoch, ushort Match, uint Frame, int LocalSlot,
+        long Frames, long[] AliveFrames, NetTelemetrySnapshot Network, NetIntentSnapshot[] Intents,
+        uint SemanticLatest, uint SemanticPresented, uint AwardLatest, uint AwardPresented,
+        string Lifecycle, string Room, int BotMask, bool Spectating);
+
+    private static void Add<T>(List<T> rows, T row)
+    {
+        if (rows.Count < RowLimit) rows.Add(row); else _overflow++;
+    }
+
+    internal static void Intent(int slot, in IntentPacket intent, bool offered)
+    {
+        if (!Enabled) return;
+        if (offered) _offeredCarriers++; else _acceptedCarriers++;
+        var seen = offered ? Offered : Accepted;
+        for (int i = 0; i < intent.FireEventCount; i++)
+        {
+            var fire = intent.FireEvents[i];
+            var key = new ShotKey(intent.AuthorityEpoch, intent.MatchId, slot,
+                intent.SlotGeneration, intent.LifeId, fire.ShotId);
+            if (seen.Contains(key)) continue;
+            if (seen.Count >= RowLimit) { _overflow++; continue; }
+            seen.Add(key);
+            Add(Shots, new(offered ? "offered" : "accepted", key, fire.SourceFrame,
+                NetSession.NetFrame, fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase));
+        }
+    }
+
+    internal static void Committed(PlayerEntity player, in FireEvent fire)
+    {
+        if (!Enabled || fire.ShotId == 0 || player.SceneServices.IsReplica) return;
+        Add(Shots, new("committed", ShotKey.For(player.SlotIndex, fire.ShotId), fire.SourceFrame,
+            NetSession.NetFrame, fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase));
+    }
+
+    internal static void State(in PlayerState state, uint frame)
+    {
+        if (!Enabled || frame % 6 != 0) return;
+        Add(States, new(NetSession.AuthorityEpoch, NetSession.CurrentMatchId, frame, state.SlotIndex,
+            state.SlotGeneration, state.LifeId, state.Health, state.HalfturretHealth,
+            state.Kills, state.Deaths, state.DamageEventId));
+    }
+
+    internal static void Semantic(PacketType type, ReadOnlySpan<byte> payload)
+    {
+        if (!Enabled) return;
+        // Exact, already-validated authority bytes retain event, actor and victim identities.
+        if (Facts.Count >= RowLimit) { _overflow++; return; }
+        if (type == PacketType.MatchSemanticEvent && MatchSemanticEventPacket.TryRead(payload, out var fact))
+            Facts.Add(new((byte)type, fact.AuthorityEpoch, fact.MatchId, fact.EventId, fact.Tick,
+                fact.IsBaseline, false, fact.AwardFrontier, Convert.ToHexString(payload)));
+        else if (type == PacketType.MatchAward && MatchAwardPacket.TryRead(payload, out var award))
+            Facts.Add(new((byte)type, award.AuthorityEpoch, award.MatchId, award.AwardId, award.Tick,
+                false, true, 0, Convert.ToHexString(payload)));
+    }
+
+    internal static void Tick(Scene scene)
+    {
+        if (!Enabled || scene.Services.IsReplica) return;
+        long now = Stopwatch.GetTimestamp();
+        if (_start == 0) _start = _lastWindow = now;
+        _frames++;
+        foreach (var player in scene.Players.Items)
+            if ((uint)player.SlotIndex < 8 && player.ModIsInPlay && player.Health > 0)
+                AliveFrames[player.SlotIndex]++;
+        _connectionLost |= NetSession.ConnectionLost;
+        _semanticOverrun |= NetSession.SemanticReceived.PresentationOverrun;
+        _lastError ??= NetSession.LastError;
+        if (Stopwatch.GetElapsedTime(_lastWindow, now).TotalSeconds >= 1)
+        {
+            CaptureWindow(now);
+            _lastWindow = now;
+        }
+    }
+
+    private static void CaptureWindow(long now)
+    {
+        var semantic = NetSession.SemanticReceived;
+        Add(Windows, new(Stopwatch.GetElapsedTime(_start, now).TotalSeconds,
+            NetSession.AuthorityEpoch, NetSession.CurrentMatchId, NetSession.NetFrame,
+            NetSession.LocalSlot, _frames, (long[])AliveFrames.Clone(), NetSession.CaptureTelemetry(),
+            NetTelemetry.Session.Select(peer => peer.Capture()).ToArray(),
+            semantic.LatestEvent, semantic.PresentedEvent, semantic.LatestAward, semantic.PresentedAward,
+            NetPlayerLifecycle.Describe(), NetSession.ServerMatch?.RoomKey ?? "",
+            Enumerable.Range(0, 8).Aggregate(0, (mask, slot) => mask | (NetSession.SlotIsBot[slot] ? 1 << slot : 0)),
+            SpectatorMode.IsSpectating));
+    }
+
+    internal static void ServerSegment(ServerSim sim, string room)
+    {
+        if (!Enabled || sim.Frames == 0) return;
+        Add(ServerSegments, new { Room = room, NetSession.AuthorityEpoch, NetSession.CurrentMatchId,
+            sim.Frames, sim.StepFailures, sim.DroppedSteps, sim.Stalls, sim.StepAllocatedBytes,
+            MeanMs = sim.StepSeconds * 1000 / sim.Frames, P50Ms = sim.StepPercentile(.5),
+            P95Ms = sim.StepPercentile(.95), P99Ms = sim.StepPercentile(.99),
+            P999Ms = sim.StepPercentile(.999), WorstMs = sim.WorstStepSeconds * 1000 });
+    }
+
+    // Cross-platform graceful shutdown of this isolated test server. The runner owns
+    // the marker and never needs to signal a user's unrelated game/server process.
+    internal static bool StopRequested(double seconds)
+    {
+        if (!Enabled || seconds - _lastStopCheck < 1) return false;
+        _lastStopCheck = seconds;
+        return File.Exists(Path + ".stop");
+    }
+
+    internal static void Write(string role, NetTransportSnapshot? transport = null, long semanticDisconnects = 0)
+    {
+        if (!Enabled) return;
+        try
+        {
+            if (_start != 0) CaptureWindow(Stopwatch.GetTimestamp());
+            var assembly = typeof(NetCampaignEvidence).Assembly;
+            var report = new { Schema = 1, Role = role, Protocol = NetConfig.ProtocolVersion,
+                Version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
+                Platform = RuntimeInformation.OSDescription, Runtime = RuntimeInformation.FrameworkDescription,
+                Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                Frames = _frames, AliveFrames, Overflow = _overflow,
+                ConnectionLost = _connectionLost || NetSession.ConnectionLost,
+                SemanticOverrun = _semanticOverrun || NetSession.SemanticReceived.PresentationOverrun,
+                SemanticDisconnects = semanticDisconnects, LastError = _lastError ?? NetSession.LastError,
+                OfferedCarriers = _offeredCarriers, AcceptedCarriers = _acceptedCarriers,
+                AllocatedBytes = GC.GetTotalAllocatedBytes() - AllocatedAtStart,
+                HeapBytes = GC.GetTotalMemory(false), WorkingSet = Environment.WorkingSet,
+                Transport = transport ?? NetSession.CaptureTelemetry().Transport,
+                Windows, ServerSegments, Shots, States, Facts };
+            using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+            JsonSerializer.Serialize(file, report);
+            Console.WriteLine("[net2] evidence completed");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            // Missing/partial evidence is INCOMPLETE in the runner, never a green run.
+            Console.WriteLine($"[net2] evidence failed: {ex.Message}");
+        }
+    }
+}
