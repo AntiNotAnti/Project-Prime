@@ -38,3 +38,8 @@ thumbnail workers assuming the client's entry point. Its reflection accesses
 are confined to test setup/diagnostics; the production renderer is unchanged.
 `-p:MphReadProject=/absolute/baseline/MphRead.csproj` can build this same tool
 against a baseline implementation into a separate output directory.
+
+For a quiet offline scene use `-players 1 -idle`. Add `-windowcycle` for a
+separate lifecycle run: fullscreen, restored window size, hide/show and focus
+recovery. This uses native window APIs and records focus events. It does not
+prove OS keyboard Alt-Tab behavior and must not be included in benchmarks.

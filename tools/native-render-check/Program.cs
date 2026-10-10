@@ -28,6 +28,8 @@ string output = Path.GetFullPath(Value("-output", "native-render-result.json"));
 string? shots = args.Contains("-shots") ? Path.GetFullPath(Value("-shots", "native-render-shots")) : null;
 int cap = int.Parse(Value("-hz", "60"));
 int seconds = int.Parse(Value("-seconds", "24"));
+int players = int.Parse(Value("-players", "8"));
+if (players < 1 || players > 8) throw new ArgumentOutOfRangeException("Use -players 1..8.");
 if ((cap != -1 && cap < 30) || cap > 500 || seconds < 8 || seconds > 120)
     throw new ArgumentOutOfRangeException("Use -hz -1 or 30..500, -seconds 8..120.");
 ShadowQuality shadows = Enum.Parse<ShadowQuality>(Value("-shadows", "Off"), true);
@@ -42,7 +44,7 @@ typeof(Scene).Assembly.GetType("MphRead.ConsoleSetup")!.GetMethod("Run")!.Invoke
 GraphicsBackendPolicy.LoadPreference();
 Paths.UpdatePaths(); Paths.ChooseMphPath(); Paths.ChooseFhPath();
 MphRead.Mods.MapGen.CustomRooms.GenerateMissing(room);
-using var window = new CheckWindow(room, seconds, cap, shadows, shots, size);
+using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"));
 try
 {
     window.Run();
@@ -73,11 +75,16 @@ sealed class CheckWindow : RenderWindow
     private int _capture;
     private readonly string _room;
     private readonly List<object> _captures = new();
+    private readonly bool _windowCycle;
+    private readonly Vector2i _requestedPixels;
+    private readonly List<object> _windowEvents = new();
+    private int _windowStage;
     public bool Complete { get; private set; }
 
-    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels)
+    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle)
     {
         _room = room; _seconds = seconds; _cap = cap; _shadows = shadows; _shots = shots;
+        _windowCycle = windowCycle; _requestedPixels = pixels;
         MinimumSize = new Vector2i(160, 90);
         double sx = FramebufferSize.X / (double)ClientSize.X, sy = FramebufferSize.Y / (double)ClientSize.Y;
         ClientSize = new Vector2i((int)Math.Round(pixels.X / sx), (int)Math.Round(pixels.Y / sy));
@@ -88,13 +95,14 @@ sealed class CheckWindow : RenderWindow
         typeof(Scene).GetField("_mouseState", BindingFlags.NonPublic | BindingFlags.Instance)!
             .SetValue(Scene, SyntheticInput.CreateMouse());
         Scene.Random.SetRng1(12345); Scene.Random.SetRng2(98765);
-        PlayerEntity.MaxPlayers = 8;
-        for (int i = 0; i < 8; i++) AddPlayer((Hunter)(i % 7));
-        PlayerEntity.PlayerCount = 8;
+        PlayerEntity.MaxPlayers = players;
+        for (int i = 0; i < players; i++) AddPlayer((Hunter)(i % 7));
+        PlayerEntity.PlayerCount = players;
         PlayerEntity.MainPlayerIndex = 0;
         foreach (var player in PlayerEntity.Players) { player.IsBot = true; player.BotLevel = 1; }
+        if (idle) Scene.Players.Main.IsBot = false;
         typeof(MphRead.Mods.Network.MapAudit).GetProperty("ForceEveryone")!.SetValue(null, true);
-        AddRoom(room, GameMode.Battle, playerCount: 8);
+        AddRoom(room, GameMode.Battle, playerCount: players);
     }
 
     protected override void OnLoad()
@@ -117,6 +125,26 @@ sealed class CheckWindow : RenderWindow
 
     protected override void OnRenderFrame(FrameEventArgs args)
     {
+        if (_windowCycle && Scene.FrameCount >= (ulong)(300 + _windowStage * 120) && _windowStage < 4)
+        {
+            // Real native window transitions, separate from benchmark runs.
+            // Hiding then showing the owned window exercises focus loss/recovery;
+            // this does not assert OS keyboard Alt-Tab behavior.
+            switch (_windowStage)
+            {
+                case 0: WindowState = WindowState.Fullscreen; break;
+                case 1:
+                    WindowState = WindowState.Normal;
+                    double scale = FramebufferSize.X / (double)ClientSize.X;
+                    ClientSize = new Vector2i((int)Math.Round(_requestedPixels.X / scale), (int)Math.Round(_requestedPixels.Y / scale));
+                    break;
+                case 2: IsVisible = false; break;
+                case 3: IsVisible = true; Focus(); break;
+            }
+            _windowEvents.Add(new { stage = _windowStage++, simulationFrame = Scene.FrameCount,
+                state = WindowState.ToString(), visible = IsVisible, focused = IsFocused,
+                framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y } });
+        }
         if (_shots != null)
         {
             // Capture-only runs step exactly once per picture, so paired arms
@@ -160,9 +188,20 @@ sealed class CheckWindow : RenderWindow
         }
         if (GL.GetError() is var error && error != ErrorCode.NoError)
             throw new InvalidOperationException("Native renderer GL error: " + error);
-        if (Scene.FrameCount >= (ulong)(_seconds * 60)) { Complete = true; Close(); }
+        if (Scene.FrameCount >= (ulong)(_seconds * 60))
+        {
+            if (_windowCycle && (_windowStage != 4 || FramebufferSize.X <= 0 || FramebufferSize.Y <= 0 || !IsVisible))
+                throw new InvalidOperationException("Native window cycle did not recover a visible framebuffer.");
+            Complete = true; Close();
+        }
         if (_wall.Elapsed.TotalSeconds > (_shots == null ? _seconds + 45 : _seconds * 5 + 45))
             throw new TimeoutException("Native renderer did not finish its fixed-step workload.");
+    }
+
+    protected override void OnFocusedChanged(FocusedChangedEventArgs e)
+    {
+        base.OnFocusedChanged(e);
+        if (_windowCycle) _windowEvents.Add(new { focusChanged = e.IsFocused, wallSeconds = _wall.Elapsed.TotalSeconds });
     }
 
     private object[] PickupSnapshot()
@@ -249,6 +288,6 @@ sealed class CheckWindow : RenderWindow
             gcCollections = Enumerable.Range(0, 3).Select(i => GC.CollectionCount(i) - _collections[i]).ToArray(),
             managedBytes = GC.GetTotalMemory(false), workingSetBytes = Environment.WorkingSet,
             simulationHz = FrameTiming.MeasuredSimulationHz, droppedSimulationSteps = FrameTiming.DroppedSteps,
-            stalls = FrameTiming.Stalls, captures = _captures, complete = Complete };
+            stalls = FrameTiming.Stalls, captures = _captures, windowEvents = _windowEvents, complete = Complete };
     }
 }
