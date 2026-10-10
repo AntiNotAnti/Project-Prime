@@ -1,6 +1,7 @@
 #if !MPHREAD_SERVER && !ANDROID
 using System;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace MphRead.Mods.Render;
 
@@ -85,6 +86,26 @@ internal static class OpenGlFrameProfiler
                     + $" drawHz={FrameTiming.MeasuredFrameHz:F1}"
                     + $" droppedSimSteps={FrameTiming.DroppedSteps}"
                     + $" stalls={FrameTiming.Stalls}");
+                // Stable machine-readable fields; a period captures exactly
+                // 240 *completed presentations* rather than an FPS estimate.
+                // Do not treat presentWall as GPU execution time.
+                Console.WriteLine("[glframe-json] " + JsonSerializer.Serialize(new
+                {
+                    schema = 1,
+                    samples = Window,
+                    renderCpuP95Ms = renderP95,
+                    renderCpuP99Ms = P(_renderMs, 99),
+                    presentWallP99Ms = P(_presentMs, 99),
+                    frameIntervalP95Ms = P(_intervalMs, 95),
+                    frameIntervalP99Ms = intervalP99,
+                    onePercentLowEstimateFps = OnePercentLowFromP99Milliseconds(intervalP99),
+                    simulationHz = FrameTiming.MeasuredSimulationHz,
+                    displayedHz = FrameTiming.MeasuredFrameHz,
+                    droppedSimulationSteps = FrameTiming.DroppedSteps,
+                    stalls = FrameTiming.Stalls,
+                    vbo = DesktopRetainedGeometry.Enabled,
+                    bindingCache = OpenGlScopedBindingCache.Enabled
+                }));
                 _count = 0;
             }
         }
