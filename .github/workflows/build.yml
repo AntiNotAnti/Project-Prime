@@ -37,6 +37,9 @@ jobs:
       - name: nothing from the game is tracked
         run: tools/check-no-game-assets.sh
 
+      - name: enforce OpenGL/GLES-only source and dependencies
+        run: tools/check-opengl-only.sh
+
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
 
@@ -675,12 +678,10 @@ jobs:
           dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
           find "$PROJECT_PRIME_USER_DATA/user-maps" -type f -name '*.ppmap' -exec cp {} maps/ \;
 
-      - name: build modern renderer and KTX runtimes
+      - name: build required KTX/Basis texture decoder
         env:
           RID: ${{ matrix.rid }}
-        run: |
-          tools/wgpu/build-native.sh "$RID"
-          tools/ktx/build-native.sh "$RID"
+        run: tools/ktx/build-native.sh "$RID"
 
       - name: publish, sign and validate
         env:
@@ -789,7 +790,7 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
-      - name: build transitional Android native runtimes (WebGPU/KTX removal in phase 2)
+      - name: build Android KTX/Basis decoder runtimes
         run: |
           set -euo pipefail
           ndk="${ANDROID_NDK_LATEST_HOME:-${ANDROID_NDK_ROOT:-${ANDROID_NDK_HOME:-}}}"
@@ -800,8 +801,6 @@ jobs:
             "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358"
             ndk="$ANDROID_HOME/ndk/28.2.13676358"
           fi
-          ANDROID_NDK_ROOT="$ndk" tools/wgpu/build-native.sh android-arm64
-          ANDROID_NDK_ROOT="$ndk" tools/wgpu/build-native.sh android-x64
           ANDROID_NDK_ROOT="$ndk" tools/ktx/build-native.sh android-arm64
           ANDROID_NDK_ROOT="$ndk" tools/ktx/build-native.sh android-x64
 

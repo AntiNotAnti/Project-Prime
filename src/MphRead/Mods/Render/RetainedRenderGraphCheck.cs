@@ -26,23 +26,15 @@ namespace MphRead.Mods.Render
                 "top-level frame render graph validates"
                     + (frameError.Length == 0 ? "" : ": " + frameError));
             var frameGraph = new FrameRenderGraph();
-            Check(frameGraph.Passes.Count > 4
-                && frameGraph.Passes[1].Kind == FrameRenderPassKind.GpuVisibility
-                && (frameGraph.Passes[1].Reads & FrameRenderResource.HiZ) != 0
-                && (frameGraph.Passes[1].Writes & FrameRenderResource.Visibility) != 0
-                && frameGraph.Passes[4].Kind == FrameRenderPassKind.GpuHiZBuild
-                && (frameGraph.Passes[4].Reads & FrameRenderResource.SceneDepth) != 0
-                && (frameGraph.Passes[4].Writes & FrameRenderResource.HiZ) != 0,
-                "GPU visibility consumes prior Hi-Z before clear and rebuilds it after World");
-            Check(ModernGraphicsCompat.ValidateRetainedWorldUniformLayout(
-                    out string layoutError),
-                "retained World generated uniform layout validates"
-                    + (layoutError.Length == 0 ? "" : ": " + layoutError));
-            Check(ModernGraphicsCompat.ValidateRetainedDeferredPbrLayout(
-                    out string pbrLayoutError),
-                "retained DeferredPbrMrt generated uniform layout validates"
-                    + (pbrLayoutError.Length == 0 ? "" : ": " + pbrLayoutError));
-
+            Check(frameGraph.Passes.Count == 8
+                && frameGraph.Passes[0].Kind == FrameRenderPassKind.Shadow
+                && frameGraph.Passes[1].Kind == FrameRenderPassKind.WorldSetup
+                && frameGraph.Passes[2].Kind == FrameRenderPassKind.World
+                && (frameGraph.Passes[2].Reads & FrameRenderResource.SceneDepth) != 0
+                && frameGraph.Passes[3].Kind == FrameRenderPassKind.Outlines
+                && frameGraph.Passes[^1].Kind == FrameRenderPassKind.Composite
+                && (frameGraph.Passes[^1].Writes & FrameRenderResource.Output) != 0,
+                "OpenGL frame graph excludes retired GPU visibility and Hi-Z passes");
             var opaqueA = new RenderItem
             {
                 Type = RenderItemType.Mesh, ListId = 11,
@@ -184,135 +176,6 @@ namespace MphRead.Mods.Render
                 && world.OpaqueSortRunCount == 0
                 && world.OpaqueReorderedPacketCount == 0,
                 "dynamic opaque packet is a hard sorting barrier");
-
-            var denseStateA = new RenderItem
-            {
-                MatrixStackCount = 0,
-                Transform = Matrix4.Identity,
-                LightInfo = new LightInfo(
-                    Vector3.UnitX, Vector3.One,
-                    Vector3.UnitY, new Vector3(.5f))
-            };
-            var denseStateB = new RenderItem
-            {
-                MatrixStackCount = 0,
-                Transform = Matrix4.Identity,
-                LightInfo = denseStateA.LightInfo
-            };
-            Check(ModernGraphicsCompat.RetainedMultiDrawDynamicStateEquivalent(
-                    denseStateA, denseStateB),
-                "dense multi-draw accepts bit-identical light/transform state");
-            denseStateB.Transform =
-                Matrix4.CreateTranslation(1, 0, 0);
-            Check(!ModernGraphicsCompat.RetainedMultiDrawDynamicStateEquivalent(
-                    denseStateA, denseStateB),
-                "dense multi-draw splits different room transforms");
-            denseStateB.Transform = Matrix4.Identity;
-            denseStateB.LightInfo = new LightInfo(
-                Vector3.UnitX, Vector3.One,
-                Vector3.UnitZ, new Vector3(.5f));
-            Check(!ModernGraphicsCompat.RetainedMultiDrawDynamicStateEquivalent(
-                    denseStateA, denseStateB),
-                "dense multi-draw splits different room lighting");
-
-            var direct = new RenderItem
-            {
-                Type = RenderItemType.Mesh,
-                RenderMode = RenderMode.Normal,
-                BillboardMode = BillboardMode.None,
-                Alpha = 1,
-                MatrixStackCount = 0,
-                Diffuse = Vector3.One
-            };
-            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "plain opaque mesh is eligible for direct modern submission");
-            direct.WeightedSkinning = true;
-            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "Weighted4 mesh stays on compatibility submission until direct parity is implemented");
-            direct.WeightedSkinning = false;
-
-            direct.ViewModel = true;
-            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "plain viewmodel mesh is eligible for direct submission");
-            direct.ViewModel = false;
-            direct.BillboardMode = BillboardMode.Sphere;
-            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "spherical billboard is eligible for direct submission");
-            direct.BillboardMode = BillboardMode.Cylinder;
-            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "cylindrical billboard is eligible for direct submission");
-            direct.BillboardMode = (BillboardMode)255;
-            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "unknown billboard mode stays on compatibility executor");
-            direct.BillboardMode = BillboardMode.None;
-            direct.OverrideColor = new Vector4(1, 0, 0, 1);
-            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "explicit color override is eligible for direct submission");
-            direct.OverrideColor = null;
-            direct.PaletteOverride = new Vector4(0, 1, 0, 1);
-            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "palette override is eligible for direct submission");
-            direct.PaletteOverride = null;
-            direct.TexturedPlayerSkin = true;
-            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "textured-player skin is eligible for direct submission");
-            direct.TexturedPlayerSkin = false;
-            direct.PlayerOutlineColor = new Vector4(0, 1, 1, 1);
-            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "outlined player's normal world draw is direct eligible");
-            direct.PlayerOutlineColor = null;
-            direct.RenderMode = RenderMode.Translucent;
-            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "translucent mesh stays off opaque direct eligibility");
-            Check(ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
-                    direct, WorldRenderPassKind.MarkTranslucent)
-                && ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
-                    direct, WorldRenderPassKind.TranslucentBehind)
-                && ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
-                    direct, WorldRenderPassKind.TranslucentFront),
-                "translucent mesh is direct eligible in all retained transparency passes");
-            direct.RenderMode = RenderMode.Decal;
-            Check(ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
-                    direct, WorldRenderPassKind.Decal),
-                "decal mesh is direct eligible in retained decal pass");
-            direct.RenderMode = RenderMode.Normal;
-            direct.MatrixStackCount = direct.MatrixStack.Length / 16;
-            Check(direct.MatrixStackCount == 32
-                && ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "full 32-matrix shader palette is eligible for ordinary direct submission");
-            direct.MatrixStackCount = direct.MatrixStack.Length / 16 + 1;
-            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "out-of-range matrix stack stays on compatibility executor");
-            direct.MatrixStackCount = 0;
-            direct.Alpha = 0.5f;
-            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "alpha-blended normal mesh skips the opaque direct path");
-
-            var pbrDirect = new RenderItem
-            {
-                Type = RenderItemType.Mesh,
-                RenderMode = RenderMode.Normal,
-                Alpha = 1,
-                BillboardMode = BillboardMode.None
-            };
-            Check(ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
-                "plain opaque mesh is eligible for direct retained PBR MRT");
-            pbrDirect.WeightedSkinning = true;
-            Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
-                "Weighted4 mesh stays on compatibility PBR replay");
-            pbrDirect.WeightedSkinning = false;
-            pbrDirect.ViewModel = true;
-            Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
-                "viewmodel stays off direct PBR MRT replay");
-            pbrDirect.ViewModel = false;
-            pbrDirect.Cosmetics = new Mods.Cosmetics.CosmeticSurface(
-                1, 0, 0, Vector3.One, Vector3.One, 1, 0, 0);
-            Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
-                "cosmetic surface stays on compatibility PBR replay");
-            pbrDirect.Cosmetics = default;
-            pbrDirect.Alpha = 0.5f;
-            Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
-                "alpha-blended mesh stays off direct PBR MRT replay");
 
             var baseOnly = new RetainedWorldTextureSet(
                 new RetainedTextureBinding(10, default, true),

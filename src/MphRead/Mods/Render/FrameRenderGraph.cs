@@ -16,18 +16,14 @@ namespace MphRead.Mods.Render
         PbrNormal = 32,
         PbrMaterial = 64,
         ProcessedScene = 128,
-        Output = 256,
-        HiZ = 512,
-        Visibility = 1024
+        Output = 256
     }
 
     internal enum FrameRenderPassKind
     {
         Shadow,
-        GpuVisibility,
         WorldSetup,
         World,
-        GpuHiZBuild,
         Outlines,
         SceneOverlays,
         DeferredPbr,
@@ -53,23 +49,16 @@ namespace MphRead.Mods.Render
         {
             new(FrameRenderPassKind.Shadow, "frame.shadow",
                 FrameRenderResource.None, FrameRenderResource.ShadowDepth),
-            new(FrameRenderPassKind.GpuVisibility, "frame.gpu-visibility",
-                FrameRenderResource.HiZ,
-                FrameRenderResource.Visibility),
             new(FrameRenderPassKind.WorldSetup, "frame.world-setup",
                 FrameRenderResource.None,
                 FrameRenderResource.SceneColor
                     | FrameRenderResource.SceneDepth
                     | FrameRenderResource.SceneStencil),
             new(FrameRenderPassKind.World, "frame.world",
-                FrameRenderResource.SceneDepth | FrameRenderResource.SceneStencil
-                    | FrameRenderResource.Visibility,
+                FrameRenderResource.SceneDepth | FrameRenderResource.SceneStencil,
                 FrameRenderResource.SceneColor
                     | FrameRenderResource.SceneDepth
                     | FrameRenderResource.SceneStencil),
-            new(FrameRenderPassKind.GpuHiZBuild, "frame.gpu-hiz-build",
-                FrameRenderResource.SceneDepth,
-                FrameRenderResource.HiZ),
             new(FrameRenderPassKind.Outlines, "frame.outlines",
                 FrameRenderResource.SceneDepth,
                 FrameRenderResource.SceneColor),
@@ -101,10 +90,8 @@ namespace MphRead.Mods.Render
             FrameRenderPassKind[] expected =
             {
                 FrameRenderPassKind.Shadow,
-                FrameRenderPassKind.GpuVisibility,
                 FrameRenderPassKind.WorldSetup,
                 FrameRenderPassKind.World,
-                FrameRenderPassKind.GpuHiZBuild,
                 FrameRenderPassKind.Outlines,
                 FrameRenderPassKind.SceneOverlays,
                 FrameRenderPassKind.DeferredPbr,
@@ -129,7 +116,7 @@ namespace MphRead.Mods.Render
                     return false;
                 }
             }
-            if ((_passes[2].Writes & (FrameRenderResource.SceneColor
+            if ((_passes[1].Writes & (FrameRenderResource.SceneColor
                 | FrameRenderResource.SceneDepth
                 | FrameRenderResource.SceneStencil))
                 != (FrameRenderResource.SceneColor
@@ -155,7 +142,6 @@ namespace MphRead
     public partial class Scene
     {
         private readonly Mods.Render.FrameRenderGraph _frameRenderGraph = new();
-        private bool _retainedDepthHistoryValid;
 
         private bool ExecuteCoreFrameRenderGraph(bool drawGameHud)
         {
@@ -165,20 +151,6 @@ namespace MphRead
                 {
                 case Mods.Render.FrameRenderPassKind.Shadow:
                     RenderShadowMap();
-                    break;
-
-                case Mods.Render.FrameRenderPassKind.GpuVisibility:
-#if !MPHREAD_SERVER
-                    if (Mods.Render.ModernGraphicsCompat.Active
-                        && Mods.Render.ModernGraphicsCompat.GpuVisibilityEnabled)
-                    {
-                        Mods.Render.ModernGraphicsCompat.PrepareRetainedGpuVisibility(
-                            _retainedRenderWorld.Opaque,
-                            _perspectiveMatrix, _viewMatrix,
-                            _depthTexture, _targetSize.X, _targetSize.Y,
-                            _retainedDepthHistoryValid);
-                    }
-#endif
                     break;
 
                 case Mods.Render.FrameRenderPassKind.WorldSetup:
@@ -194,23 +166,6 @@ namespace MphRead
 
                 case Mods.Render.FrameRenderPassKind.World:
                     ExecuteWorldRenderGraph();
-                    break;
-
-                case Mods.Render.FrameRenderPassKind.GpuHiZBuild:
-#if !MPHREAD_SERVER
-                    if (Mods.Render.ModernGraphicsCompat.Active
-                        && Mods.Render.ModernGraphicsCompat.GpuVisibilityEnabled)
-                    {
-                        _retainedDepthHistoryValid =
-                            Mods.Render.ModernGraphicsCompat.CaptureRetainedGpuVisibilityHistory(
-                                _perspectiveMatrix, _viewMatrix,
-                                _depthTexture, _targetSize.X, _targetSize.Y);
-                    }
-                    else
-#endif
-                    {
-                        _retainedDepthHistoryValid = false;
-                    }
                     break;
 
                 case Mods.Render.FrameRenderPassKind.Outlines:
@@ -248,10 +203,6 @@ namespace MphRead
                     CheckGlError("EndWorldPass");
                     BeginCompositePass();
                     GL.Clear(ClearBufferMask.ColorBufferBit);
-#if !MPHREAD_SERVER
-                    if (!Mods.Render.ModernGraphicsCompat.Active
-                        || !Mods.Render.ModernGraphicsCompat.TryDrawRetainedFullscreenQuad())
-#endif
                     {
                         GL.Begin(PrimitiveType.TriangleStrip);
                         GL.TexCoord3(1f, 1f, 0f);

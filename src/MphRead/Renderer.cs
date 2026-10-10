@@ -577,10 +577,6 @@ namespace MphRead
 
         public void OnLoad()
         {
-#if !MPHREAD_SERVER
-            if (Mods.Render.ModernGraphicsCompat.Active)
-                Mods.Render.ModernGraphicsCompat.PrewarmCommonPipelines();
-#endif
             // What the driver calls itself, once, at the only moment there is
             // certainly a context current. Everything about a picture being
             // wrong on somebody else's machine starts with these three lines,
@@ -759,10 +755,6 @@ namespace MphRead
         {
             get
             {
-#if !MPHREAD_SERVER
-                if (Mods.Render.ModernGraphicsCompat.Active && Mods.RenderOptions.InternalHdr)
-                    return PixelInternalFormat.Rgba16f;
-#endif
                 return PixelInternalFormat.Rgb;
             }
         }
@@ -1929,16 +1921,6 @@ namespace MphRead
                 GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
                     uploadWidth, uploadHeight, 0, PixelFormat.Rgba,
                     PixelType.UnsignedByte, uploadPixels);
-#if !MPHREAD_SERVER
-                if (streamReplacement && Mods.Render.ModernGraphicsCompat.Active)
-                {
-                    // Make the tiny cartridge/native fallback real on the GPU
-                    // before an off-thread HD decode can replace the CPU record.
-                    // Large modern promotions can then fill a hidden texture
-                    // over several frames without ever sampling a partial image.
-                    Mods.Render.ModernGraphicsCompat.EnsureBoundTextureResident();
-                }
-#endif
             }
             // Native cartridge textures keep lazy mip generation so the
             // legacy path pays nothing when filtering is disabled. Modern
@@ -2762,18 +2744,8 @@ namespace MphRead
         /// would make the game run differently on a fast monitor, which is the
         /// one failure this split must not have.
         /// </summary>
-#if !MPHREAD_SERVER
-        private int _modernDeviceGeneration;
-#endif
         public void OnDrawFrame()
         {
-#if !MPHREAD_SERVER
-            if (_modernDeviceGeneration != Mods.Render.ModernGraphicsCompat.DeviceGeneration)
-            {
-                _modernDeviceGeneration = Mods.Render.ModernGraphicsCompat.DeviceGeneration;
-                _graphicsHistoryValid = false;
-            }
-#endif
             if (Mods.Network.DemoPlayback.PreparePresentation(this) is { } theatre)
             { theatre.OnDrawFrame(); return; }
             if (Mods.KillCam.Presentation(this) is { } historical)
@@ -2823,8 +2795,7 @@ namespace MphRead
             Vector2i target = RenderSize;
             if (target != _targetSize || _sceneColorFormat != SceneColorFormat)
             {
-                _retainedDepthHistoryValid = false;
-                OnResize();
+                    OnResize();
                 target = _targetSize;
             }
             // Before the frame is drawn into it, since this swaps what the
@@ -3091,16 +3062,11 @@ namespace MphRead
                 !_depthTextureRefused
                 && ((Mods.RenderOptions.CelShading && Mods.RenderOptions.CelEdge > 0)
                     || Mods.RenderOptions.NeedsReadableDepth
-#if !MPHREAD_SERVER
-                    || (Mods.Render.ModernGraphicsCompat.Active
-                        && Mods.Render.ModernGraphicsCompat.GpuVisibilityEnabled)
-#endif
                 );
             if (want == (_depthTexture != 0))
             {
                 return;
             }
-            _retainedDepthHistoryValid = false;
             _playerOutlineDepth = -1;
             if (!want)
             {
@@ -5632,15 +5598,6 @@ namespace MphRead
             {
                 return;
             }
-#if !MPHREAD_SERVER
-            // Projection changes are a hard compatibility boundary, but only
-            // the transition needs one. Keeping every consecutive arm-cannon
-            // mesh inside the same viewmodel run preserves the isolation that
-            // prevents world/viewmodel state bleed without creating a fresh
-            // WebGPU render pass for every material on the weapon.
-            if (Mods.Render.ModernGraphicsCompat.Active)
-                Mods.Render.ModernGraphicsCompat.BreakDrawPass();
-#endif
             _renderingViewModelItems = viewModel;
             Matrix4 projection = viewModel ? _viewModelPerspectiveMatrix : _perspectiveMatrix;
             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref projection);
@@ -8459,21 +8416,6 @@ localCenter *= _profileHudScale;
             // IgnoreUnavailableGlfwFeatures for why a throw here is fatal
             // rather than catchable.
             IgnoreUnavailableGlfwFeatures();
-#if !ANDROID && !MPHREAD_SERVER
-            if (Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
-            {
-                try
-                {
-                    Mods.Render.ModernGraphicsCompat.Initialize(this,
-                        Mods.Render.GraphicsBackendPolicy.Resolved);
-                }
-                catch
-                {
-                    Dispose();
-                    throw;
-                }
-            }
-#endif
             // The mark, on this window: it is the only one the program has
             // now, so it is the only one that can carry it. Set here rather
             // than in the settings above because those are static and shared
@@ -8770,14 +8712,8 @@ localCenter *= _profileHudScale;
             finally
             {
                 if (_shell) Sound.AudioLifetime.Shutdown();
-#if !MPHREAD_SERVER
 #if MPHREAD_SHELL
-                // Map Studio owns GPU resources too. Release them before the
-                // modern facade is detached from this NoAPI window.
-                if (Mods.Render.ModernGraphicsCompat.RecoveryFailure == null)
-                    Mods.Launcher.Gui.UiSurface.Current?.ReleaseMapRenderer();
-#endif
-                Mods.Render.ModernGraphicsCompat.Shutdown();
+                Mods.Launcher.Gui.UiSurface.Current?.ReleaseMapRenderer();
 #endif
                 base.OnUnload();
             }
@@ -8840,7 +8776,6 @@ localCenter *= _profileHudScale;
         private double _appliedMonitorRefreshRate = -1;
         private bool _linuxVSyncFallback;
         private bool _appliedLinuxVSyncFallback;
-        private bool _reportedModernBlockingFallback;
         private long _presentationInputRevision = Mods.Input.GamepadContexts.Revision;
 
         private static unsafe double MonitorRefreshRate(NativeWindow window)
@@ -8878,15 +8813,9 @@ localCenter *= _profileHudScale;
             if (sourceChanged)
             {
                 _linuxVSyncFallback = false;
-                _reportedModernBlockingFallback = false;
             }
 
-#if !MPHREAD_SERVER
-            bool modern = Mods.Render.ModernGraphicsCompat.Active;
-#else
-            const bool modern = false;
-#endif
-            bool linuxFallback = !modern && Mods.Render.DesktopFramePacing.LinuxVSyncIgnored(
+            bool linuxFallback = Mods.Render.DesktopFramePacing.LinuxVSyncIgnored(
                 OperatingSystem.IsLinux(), cap, refreshRate,
                 Mods.Render.FrameTiming.MeasuredFrameHz, _linuxVSyncFallback);
             if (linuxFallback && !_linuxVSyncFallback)
@@ -8907,30 +8836,6 @@ localCenter *= _profileHudScale;
             _appliedLinuxVSyncFallback = linuxFallback;
 
             bool displayPaced = Mods.Render.DesktopFramePacing.UseDisplayPacing(cap, refreshRate);
-#if !MPHREAD_SERVER
-            if (modern)
-            {
-                // A NoAPI GLFW window has no GL swap interval. Ask WebGPU for a
-                // non-blocking mode only when a non-native explicit cap needs
-                // software pacing. If the backend can offer only FIFO, never
-                // stack OpenTK's cap on top of that blocking presentation clock.
-                Mods.Render.ModernGraphicsCompat.SetVSync(displayPaced);
-                bool blocks = Mods.Render.ModernGraphicsCompat.PresentationBlocks;
-                UpdateFrequency = Mods.Render.DesktopFramePacing.SoftwareFrequency(
-                    cap, refreshRate, displayPaced, blocks, linuxVSyncFallback: false);
-                if (!displayPaced && blocks && !_reportedModernBlockingFallback)
-                {
-                    _reportedModernBlockingFallback = true;
-                    Mods.DebugLog.Line("frametiming",
-                        $"requested {Mods.Render.FrameTiming.CapString(cap)} FPS but "
-                        + $"{Mods.Render.ModernGraphicsCompat.ActivePresentMode} is the only "
-                        + "available modern presentation cadence; using display pacing "
-                        + "instead of double-pacing the frame.");
-                }
-                return;
-            }
-#endif
-
             if (linuxFallback)
             {
                 // The two-second measurement proved swap interval ineffective.
@@ -8957,13 +8862,6 @@ localCenter *= _profileHudScale;
 
         private void PresentFrame()
         {
-#if !MPHREAD_SERVER
-            if (Mods.Render.ModernGraphicsCompat.Active)
-            {
-                Mods.Render.ModernGraphicsCompat.Present();
-                return;
-            }
-#endif
             SwapBuffers();
         }
 
@@ -9313,9 +9211,6 @@ localCenter *= _profileHudScale;
             {
                 return;
             }
-#if !MPHREAD_SERVER
-            Mods.Render.ModernGraphicsCompat.Resize(size.X, size.Y);
-#endif
             GL.Viewport(0, 0, size.X, size.Y);
             if (_scene != null && _scene.Size != size)
             {

@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.Threading;
-using System.Runtime.InteropServices;
 using Android.Content;
 using Android.Graphics;
 using Android.Opengl;
@@ -380,11 +379,6 @@ namespace MphRead.Droid
             private long _presentationInputRevision =
                 MphRead.Mods.Input.GamepadContexts.Revision;
 
-            private bool _modern;
-            private nint _nativeWindow;
-            [DllImport("android")] private static extern nint ANativeWindow_fromSurface(nint env, nint surface);
-            [DllImport("android")] private static extern void ANativeWindow_release(nint window);
-
             private EGLDisplay? _display;
             private EGLConfig? _config;
             private EGLSurface? _eglSurface;
@@ -403,8 +397,6 @@ namespace MphRead.Droid
                 Func<AndroidInput, Vector2i, Scene> build, Action onEnd, Action onLoaded,
                 Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard)
             {
-                GraphicsBackendPolicy.LoadPreference();
-                _modern = GraphicsBackendPolicy.ModernGameplayRequested;
                 _onPauseMenu = onPauseMenu;
                 _onSoftKeyboard = onSoftKeyboard;
                 _controls = controls;
@@ -500,9 +492,6 @@ namespace MphRead.Droid
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[android] the render thread stopped: {ex}");
-                    if (GraphicsBackendPolicy.Requested == GraphicsBackend.Auto
-                        && ModernGraphicsCompat.RecoveryFailure != null)
-                        GraphicsBackendPolicy.UseCompatibilityFallback(ex.Message);
                     if (!_ended)
                     {
                         _ended = true;
@@ -609,40 +598,6 @@ namespace MphRead.Droid
             /// </summary>
             private bool BindSurface(ISurfaceHolder holder, Vector2i wanted)
             {
-                if (_modern)
-                {
-                    if (!ReferenceEquals(_boundTo, holder) || _nativeWindow == 0)
-                    {
-                        ReleaseSurface();
-                        if (holder.Surface == null || !holder.Surface.IsValid) return false;
-                        _nativeWindow = ANativeWindow_fromSurface(Android.Runtime.JNIEnv.Handle, holder.Surface.Handle);
-                        if (_nativeWindow == 0) return false;
-                        try { ModernGraphicsCompat.AttachAndroidWindow(_nativeWindow, wanted.X, wanted.Y); }
-                        catch (Exception ex) when (!ModernGraphicsCompat.Active)
-                        {
-                            ANativeWindow_release(_nativeWindow);
-                            _nativeWindow = 0;
-                            GraphicsBackendPolicy.UseCompatibilityFallback(ex.Message);
-                            _modern = false;
-                            return BindSurface(holder, wanted);
-                        }
-                        lock (_lock) { _boundTo = holder; _holdingSurface = true; }
-                    }
-                    if (wanted != _size)
-                    {
-                        _size = wanted;
-                        ModernGraphicsCompat.Resize(wanted.X, wanted.Y);
-                        GL.Viewport(0, 0, wanted.X, wanted.Y);
-                        if (Scene != null) { Scene.Size = wanted; Scene.OnResize(); }
-                    }
-                    // Presentation policy has exactly one owner: ApplySwapInterval below.
-                    // This used to force every numeric cap to un-vsynced modern
-                    // presentation here, even when 60/90/120/144 matched a native
-                    // panel mode. ApplySwapInterval then believed it had already
-                    // restored display pacing, so the next BindSurface could leave
-                    // Vulkan in Immediate/Mailbox while WaitForTick assumed FIFO.
-                    return true;
-                }
                 if (_display == null && !CreateContext())
                 {
                     return false;
@@ -823,12 +778,6 @@ namespace MphRead.Droid
                     _appliedSwapInterval = -1;
                     Monitor.PulseAll(_lock);
                 }
-                if (_nativeWindow != 0)
-                {
-                    ModernGraphicsCompat.DetachAndroidWindow();
-                    ANativeWindow_release(_nativeWindow);
-                    _nativeWindow = 0;
-                }
                 if (_display == null || surface == null)
                 {
                     return;
@@ -847,7 +796,6 @@ namespace MphRead.Droid
 
             private void DestroyContext()
             {
-                if (_modern) ModernGraphicsCompat.Shutdown();
                 if (_display == null)
                 {
                     return;
@@ -899,13 +847,6 @@ namespace MphRead.Droid
                 try
                 {
                     AndroidPerformance.PrepareForWindow(_size.X, _size.Y);
-                    if (_modern)
-                    {
-                        // This thread owns the WebGPU device and the loading
-                        // notice still covers the surface. Compile common
-                        // pipelines here instead of lazily during gameplay.
-                        ModernGraphicsCompat.PrewarmCommonPipelines();
-                    }
                     Scene = _build(_input, _size);
                     Scene.OnLoad();
                     // Compile/execute the real presentation path once while the
@@ -1114,8 +1055,7 @@ namespace MphRead.Droid
                 long swapStart = uiEnd;
                 MphRead.Mods.Render.LowLatencyController.Mark(
                     latencyFrame, MphRead.Mods.Render.LowLatencyMarker.PresentStart);
-                if (_modern) ModernGraphicsCompat.Present();
-                else if (_display != null && _eglSurface != null
+                if (_display != null && _eglSurface != null
                     && !EGL14.EglSwapBuffers(_display, _eglSurface))
                 {
                     // The framework took the surface back. Let go of it and
@@ -1286,12 +1226,6 @@ namespace MphRead.Droid
             {
                 int wanted = AndroidPerformance.UseDisplayPacing(FrameTiming.FrameRateCap) ? 1 : 0;
                 if (_appliedSwapInterval == wanted) return;
-                if (_modern)
-                {
-                    ModernGraphicsCompat.SetVSync(wanted == 1);
-                    _appliedSwapInterval = wanted;
-                    return;
-                }
                 if (_display == null)
                 {
                     return;
@@ -1348,9 +1282,8 @@ namespace MphRead.Droid
                 double now = _clock.Elapsed.TotalSeconds;
                 int cap = FrameTiming.FrameRateCap;
                 bool displayPaced = AndroidPerformance.UseDisplayPacing(cap);
-                bool modernPresentationBlocks = _modern && ModernGraphicsCompat.PresentationBlocks;
                 bool presentationPaced = AndroidFramePacer.PresentationOwnsCadence(
-                    displayPaced, modernPresentationBlocks);
+                    displayPaced, false);
                 double deadline = _framePacer.Deadline(now, cap, presentationPaced);
                 double wait = deadline - now;
                 if (wait > 0)

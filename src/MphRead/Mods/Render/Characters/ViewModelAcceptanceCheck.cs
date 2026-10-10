@@ -244,7 +244,7 @@ internal static class ViewModelAcceptanceCheck
                 File.Delete(Path.Combine(directory,"failure.txt"));
                 File.WriteAllText(Path.Combine(directory,"acceptance.json"),JsonSerializer.Serialize(new {
                     pass=true, hunter=hunter.ToString(), testedModelSha256=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(replacement.Asset.ModelPath))).ToLowerInvariant(), backend=GraphicsBackendPolicy.Resolved.ToString(), room,submitted,lateFrames,effectFrames,fired,zoomed,muzzleAligned, animations,
-                    mobileTextureTier=CharacterModelPack.ForceMobileTierForCheck,textureCompression=ModernGraphicsCompat.PreferredCharacterTextureCompression.ToString(),
+                    mobileTextureTier=CharacterModelPack.ForceMobileTierForCheck,textureCompression="Rgba8",
                     nodes=replacement.Segments.Select(s=>gun.Model.Nodes[s.NativeNodeIndex].Name), cases,
                     scope="Real bot scene and native gun animation. Scripted focus-independent input. Native rigid packet transforms, embedded atlas bindings, material toggles, FOV 60/78/120 and Imperialist zoom. Draw scheduling simulated at 90/120/240/540 Hz; not physical display latency measurements. Visual review is separate."
                 },json));

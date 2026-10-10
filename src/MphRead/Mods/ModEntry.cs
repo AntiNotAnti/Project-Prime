@@ -100,7 +100,7 @@ namespace MphRead.Mods
 #endif
             if (HasFlag(args, "renderbackendcheck"))
             {
-                Environment.ExitCode = Render.ModernGraphicsBackendCheck.Run();
+                Environment.ExitCode = Render.OpenGlBackendCheck.Run();
                 return true;
             }
 #if !MPHREAD_SERVER
@@ -113,7 +113,7 @@ namespace MphRead.Mods
 #if !MPHREAD_SERVER
             if (HasFlag(args, "renderbackendprobe"))
             {
-                Environment.ExitCode = Render.ModernGraphicsBackendProbe.Run(ValueAfter(args, "renderer"));
+                Environment.ExitCode = Render.OpenGlBackendCheck.Run();
                 return true;
             }
 #if !ANDROID
@@ -126,19 +126,6 @@ namespace MphRead.Mods
             {
                 Environment.ExitCode=Render.Characters.CharacterTextureProbeDesktop.Run(texturePack,
                     ValueAfter(args,"output")??"character-texture-probe.json",ValueAfter(args,"compression"));
-                return true;
-            }
-            if (HasFlag(args, "renderfullcheck"))
-            {
-                int result = Render.ModernGraphicsBackendCheck.Run();
-                if (result == 0) result = Render.ModernGraphicsBackendProbe.Run(ValueAfter(args, "renderer"));
-                if (result == 0) result = Render.ModernGraphicsWindowCheck.Run(ValueAfter(args, "renderer"));
-                Environment.ExitCode = result;
-                return true;
-            }
-            if (HasFlag(args, "renderwindowcheck"))
-            {
-                Environment.ExitCode = Render.ModernGraphicsWindowCheck.Run(ValueAfter(args, "renderer"));
                 return true;
             }
 #endif
@@ -290,14 +277,6 @@ namespace MphRead.Mods
             // or enter any of the launcher/network command paths.
             if (HasFlag(args, "respawnrendercheck") || HasFlag(args, "characteracceptancecheck") || HasFlag(args, "lod1acceptancecheck") || HasFlag(args, "charactermaterialpalette") || HasFlag(args, "charactermaterialacceptancecheck") || HasFlag(args, "morphballacceptancecheck") || HasFlag(args, "viewmodelacceptancecheck"))
             {
-#if !MPHREAD_SERVER
-                if (ValueAfter(args, "compression") is string compression)
-                {
-                    if (!Enum.TryParse<Render.GpuTextureCompressionFormat>(compression, true, out var format))
-                        throw new ArgumentException("Unknown diagnostic texture compression: " + compression);
-                    Render.ModernGraphicsCompat.TextureCompressionForCheck = format;
-                }
-#endif
                 Update.Updater.Disabled = true;
                 return false;
             }
@@ -1405,21 +1384,6 @@ namespace MphRead.Mods
 
         public static bool TryHandle(string[] args)
         {
-#if !ANDROID && !MPHREAD_SERVER
-            if (ValueAfter(args, "renderparitycheck") is string parityRoom)
-            {
-                Environment.ExitCode = Render.ModernRenderParityCheck.Run(parityRoom,
-                    ValueAfter(args, "output") ?? "render-parity");
-                return true;
-            }
-            if (ValueAfter(args, "renderbenchmark") is string benchmarkRoom)
-            {
-                Environment.ExitCode = Render.ModernRenderBenchmark.Run(benchmarkRoom,
-                    ValueAfter(args, "output") ?? "render-benchmark.json",
-                    int.TryParse(ValueAfter(args, "samples"), out int benchmarkSamples) ? benchmarkSamples : 1200);
-                return true;
-            }
-#endif
             if (HasFlag(args, "respawnrendercheck"))
             {
                 Environment.ExitCode = Render.RespawnRenderCheck.Run(

@@ -12,7 +12,7 @@ namespace MphRead
     ///
     /// OpenGL 2.1 has no dependable MRT contract on every machine Project Prime
     /// supports, so compatibility OpenGL/GLES retains the three-pass replay.
-    /// Modern WebGPU backends bind all three compact G-buffer targets (albedo,
+    /// OpenGL/GLES replays all three compact G-buffer targets (albedo,
     /// normal, material) in one pass. At native scale the finished
     /// scene depth remains the exact visibility contract. When the world is
     /// supersampled, the G-buffer resolves at presentation resolution with its own
@@ -68,18 +68,6 @@ namespace MphRead
         internal long RetainedDirectPbrMrtDraws => _retainedDirectPbrMrtDraws;
         internal long RetainedCompatibilityPbrDraws => _retainedCompatibilityPbrDraws;
 
-        private static bool DeferredPbrMrtSupported
-        {
-            get
-            {
-#if MPHREAD_SERVER
-                return false;
-#else
-                return ModernGraphicsCompat.Active;
-#endif
-            }
-        }
-
         private void RenderDeferredPbrGBuffer()
         {
             _pbrReady = false;
@@ -124,29 +112,6 @@ namespace MphRead
                 GL.Uniform1(_pbrSpecularSampler, 2);
                 GL.Uniform1(_pbrEmissiveSampler, 3);
 
-                if (DeferredPbrMrtSupported)
-                {
-                    // Mode zero is consumed only by ModernGraphicsCompat. It
-                    // selects the generated three-target fragment derivative;
-                    // legacy GLSL never executes this branch.
-                    GL.ClearColor(0, 0, 0, 0);
-                    if (_pbrIndependentDepth)
-                    {
-                        GL.DepthFunc(DepthFunction.Less);
-                        GL.DepthMask(true);
-                        GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-                    }
-                    else
-                    {
-                        GL.DepthFunc(DepthFunction.Equal);
-                        GL.DepthMask(false);
-                        GL.Clear(ClearBufferMask.ColorBufferBit);
-                    }
-                    GL.Uniform1(_pbrMode, 0);
-                    DrawDeferredPbrOpaqueItems();
-                }
-                else
-                {
                     for (int mode = 1; mode <= 3; mode++)
                     {
                         int attachmentTexture = mode == 1 ? _pbrAlbedoTexture
@@ -173,7 +138,7 @@ namespace MphRead
                         GL.Uniform1(_pbrMode, mode);
                         DrawDeferredPbrOpaqueItems();
                     }
-                }
+
                 _pbrReady = true;
             }
             catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
@@ -207,73 +172,17 @@ namespace MphRead
 
         private void DrawDeferredPbrOpaqueItems()
         {
-#if !MPHREAD_SERVER
-            bool directMrt = DeferredPbrMrtSupported
-                && ModernGraphicsCompat.BeginRetainedDeferredPbrFrame();
-#else
-            bool directMrt = false;
-#endif
-            IReadOnlyList<Mods.Render.RetainedDrawPacket> packets =
-                _retainedRenderWorld.Opaque;
-            IReadOnlyList<Mods.Render.RetainedDrawBatch> batches =
-                _retainedRenderWorld.OpaqueBatches;
+            IReadOnlyList<Mods.Render.RetainedDrawPacket> packets = _retainedRenderWorld.Opaque;
+            IReadOnlyList<Mods.Render.RetainedDrawBatch> batches = _retainedRenderWorld.OpaqueBatches;
             for (int batchIndex = 0; batchIndex < batches.Count; batchIndex++)
             {
                 Mods.Render.RetainedDrawBatch batch = batches[batchIndex];
-#if !MPHREAD_SERVER
-                if (directMrt && batch.Count > 1)
-                {
-                    RenderItem firstItem = packets[batch.Start].Item;
-                    Mods.Render.RetainedWorldTextureSet batchTextures =
-                        RetainedWorldTextures(firstItem);
-                    if (ModernGraphicsCompat.TryDrawRetainedPbrMultiDraw(
-                        packets, batch.Start, batch.Count, batchTextures,
-                        _showTextures, _faceCulling, _perspectiveMatrix))
-                    {
-                        _retainedDirectPbrMrtDraws += batch.Count;
-                        NoteRetainedTextureSampling(
-                            batchTextures,
-                            firstItem.XRepeat, firstItem.YRepeat);
-                        continue;
-                    }
-                }
-#endif
                 for (int offset = 0; offset < batch.Count; offset++)
                 {
-                    Mods.Render.RetainedDrawPacket packet =
-                        packets[batch.Start + offset];
-                    RenderItem item = packet.Item;
-                    if (item.Type != RenderItemType.Mesh
-                        || item.ViewModel
-                        || item.Alpha < .999f
-                        || item.RenderMode == RenderMode.Translucent)
-                    {
+                    RenderItem item = packets[batch.Start + offset].Item;
+                    if (item.Type != RenderItemType.Mesh || item.ViewModel
+                        || item.Alpha < .999f || item.RenderMode == RenderMode.Translucent)
                         continue;
-                    }
-
-#if !MPHREAD_SERVER
-                    if (directMrt
-                        && ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(item))
-                    {
-                        Mods.Render.RetainedWorldTextureSet textures =
-                            RetainedWorldTextures(item);
-                        Matrix4 viewInverse = item.BillboardMode switch
-                        {
-                            BillboardMode.Sphere => _viewInvRotMatrix,
-                            BillboardMode.Cylinder => _viewInvRotYMatrix,
-                            _ => Matrix4.Identity
-                        };
-                        if (ModernGraphicsCompat.TryDrawRetainedDeferredPbrMrt(
-                            item, packet.Mesh, textures, _showTextures,
-                            _faceCulling, _perspectiveMatrix, viewInverse))
-                        {
-                            _retainedDirectPbrMrtDraws++;
-                            NoteRetainedTextureSampling(
-                                textures, item.XRepeat, item.YRepeat);
-                            continue;
-                        }
-                    }
-#endif
                     _retainedCompatibilityPbrDraws++;
                     DrawDeferredPbrItem(item);
                 }
@@ -361,15 +270,6 @@ namespace MphRead
                 GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                     FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
                     _pbrAlbedoTexture, 0);
-                if (DeferredPbrMrtSupported)
-                {
-                    GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
-                        FramebufferAttachment.ColorAttachment1, TextureTarget.Texture2D,
-                        _pbrNormalTexture, 0);
-                    GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
-                        FramebufferAttachment.ColorAttachment2, TextureTarget.Texture2D,
-                        _pbrMaterialTexture, 0);
-                }
                 if (independentDepth)
                 {
                     if (_pbrDepthRenderbuffer == 0)

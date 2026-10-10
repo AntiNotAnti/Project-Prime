@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace MphRead.Mods.Render
 {
-    public static class ModernGraphicsBackendCheck
+    public static class OpenGlBackendCheck
     {
         public static int Run()
         {
@@ -52,9 +52,7 @@ namespace MphRead.Mods.Render
             CheckSurfaceLifecycle(ref failures);
             CheckLowLatencyFoundation(ref failures);
 #if !MPHREAD_SERVER
-            CheckUniformCompatibility(ref failures);
             CheckLegacyUniformCache(ref failures);
-            CheckResourceCompatibility(ref failures);
 #endif
 
             Console.WriteLine(failures == 0
@@ -278,157 +276,6 @@ namespace MphRead.Mods.Render
                 ref failures);
         }
 
-        private static void CheckUniformCompatibility(ref int failures)
-        {
-            var state = new ModernGraphicsCompatState();
-            int vertex = state.CreateShader(OpenTK.Graphics.OpenGL.ShaderType.VertexShader);
-            state.ShaderSource(vertex, "uniform mat4 proj_mtx; void main() { }");
-            state.CompileShader(vertex);
-            int fragment = state.CreateShader(OpenTK.Graphics.OpenGL.ShaderType.FragmentShader);
-            state.ShaderSource(fragment,
-                "uniform int mat_mode; uniform float shift_table[64]; void main() { }");
-            state.CompileShader(fragment);
-            int program = state.CreateProgram();
-            state.AttachShader(program, vertex);
-            state.AttachShader(program, fragment);
-            state.LinkProgram(program);
-            state.GetProgram(program, OpenTK.Graphics.OpenGL.GetProgramParameterName.LinkStatus,
-                out int linked);
-            Check(linked == 1, "compat shader/program IDs link without GL objects", ref failures);
-
-            int mode = state.GetUniformLocation(program, "mat_mode");
-            int shift = state.GetUniformLocation(program, "shift_table");
-            int missing = state.GetUniformLocation(program, "definitely_missing");
-            Check(mode > 0 && shift > 0 && missing == -1,
-                "compat uniform locations preserve declared/missing behavior", ref failures);
-
-            state.UseProgram(program);
-            state.Uniform1(mode, 7);
-            state.GetUniform(program, mode, out int stored);
-            Check(stored == 7, "compat uniform writes remain program-local and readable", ref failures);
-        }
-
-        private static void CheckResourceCompatibility(ref int failures)
-        {
-            var state = new ModernGraphicsResourceState();
-
-            int texture = state.GenTexture();
-            state.ActiveTexture(OpenTK.Graphics.OpenGL.TextureUnit.Texture0);
-            state.BindTexture(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, texture);
-            byte[] pixels =
-            {
-                1, 2, 3, 4,   5, 6, 7, 8,
-                9, 10, 11, 12, 13, 14, 15, 16
-            };
-            state.TexImage2D(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
-                OpenTK.Graphics.OpenGL.PixelInternalFormat.Rgba, 2, 2,
-                OpenTK.Graphics.OpenGL.PixelFormat.Rgba,
-                OpenTK.Graphics.OpenGL.PixelType.UnsignedByte, pixels);
-            state.GetTexLevelParameter(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, 0,
-                OpenTK.Graphics.OpenGL.GetTextureParameter.TextureWidth, out int width);
-            state.GetTexLevelParameter(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, 0,
-                OpenTK.Graphics.OpenGL.GetTextureParameter.TextureHeight, out int height);
-            Check(width == 2 && height == 2 && state.IsTexture(texture),
-                "compat texture allocation preserves size and object identity", ref failures);
-
-            byte[] replacement = { 101, 102, 103, 104 };
-            state.TexSubImage2D(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
-                1, 0, 1, 1, OpenTK.Graphics.OpenGL.PixelFormat.Rgba,
-                OpenTK.Graphics.OpenGL.PixelType.UnsignedByte, replacement);
-            byte[]? stored = state.Texture(texture).Pixels;
-            Check(stored != null && stored.Length == 16
-                && stored[4] == 101 && stored[5] == 102
-                && stored[6] == 103 && stored[7] == 104,
-                "compat texture sub-image updates the addressed texel", ref failures);
-
-            byte[] beforeInvalidUpdate = (byte[])state.Texture(texture).Pixels!.Clone();
-            bool rejectedRowOverflow = false, rejectedShortSource = false;
-            try
-            {
-                state.TexSubImage2D(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
-                    1, 0, 2, 1, OpenTK.Graphics.OpenGL.PixelFormat.Rgba,
-                    OpenTK.Graphics.OpenGL.PixelType.UnsignedByte, new byte[8]);
-            }
-            catch (ArgumentOutOfRangeException) { rejectedRowOverflow = true; }
-            try
-            {
-                state.TexSubImage2D(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
-                    0, 0, 1, 2, OpenTK.Graphics.OpenGL.PixelFormat.Rgba,
-                    OpenTK.Graphics.OpenGL.PixelType.UnsignedByte, new byte[4]);
-            }
-            catch (ArgumentException) { rejectedShortSource = true; }
-            Check(rejectedRowOverflow && rejectedShortSource
-                && beforeInvalidUpdate.AsSpan().SequenceEqual(state.Texture(texture).Pixels),
-                "invalid sub-images fail before changing any texels", ref failures);
-
-            state.Texture(texture).Dirty = false; // Simulate a completed upload.
-            state.TexParameter(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
-                (OpenTK.Graphics.OpenGL.TextureParameterName)0x84FE, 64);
-            Check(state.Texture(texture).Anisotropy == 16 && !state.Texture(texture).Dirty
-                && state.Texture(texture).SamplerDirty,
-                "sampler edits clamp anisotropy without invalidating texture contents", ref failures);
-            state.GenerateMipmap(OpenTK.Graphics.OpenGL.GenerateMipmapTarget.Texture2D);
-            Check(state.Texture(texture).HasMipmaps && state.Texture(texture).MipmapsDirty
-                && !state.Texture(texture).Dirty,
-                "mipmap requests preserve the uploaded base level", ref failures);
-
-            state.Texture(texture).SamplerDirty = false;
-            state.TexParameter(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
-                (OpenTK.Graphics.OpenGL.TextureParameterName)0x84FE, 64);
-            state.TexParameter(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
-                OpenTK.Graphics.OpenGL.TextureParameterName.TextureMinFilter, state.Texture(texture).MinFilter);
-            Check(!state.Texture(texture).SamplerDirty,
-                "unchanged effective sampler settings preserve the native sampler", ref failures);
-
-            int framebuffer = state.GenFramebuffer();
-            state.BindFramebuffer(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer, framebuffer);
-            state.FramebufferTexture2D(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
-                OpenTK.Graphics.OpenGL.FramebufferAttachment.ColorAttachment0, texture);
-            int mrtTexture1 = state.GenTexture();
-            int mrtTexture2 = state.GenTexture();
-            state.FramebufferTexture2D(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
-                OpenTK.Graphics.OpenGL.FramebufferAttachment.ColorAttachment1, mrtTexture1);
-            state.FramebufferTexture2D(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
-                OpenTK.Graphics.OpenGL.FramebufferAttachment.ColorAttachment2, mrtTexture2);
-            Check(state.Framebuffer(framebuffer).ColorTexture == texture
-                    && state.Framebuffer(framebuffer).ColorTexture1 == mrtTexture1
-                    && state.Framebuffer(framebuffer).ColorTexture2 == mrtTexture2,
-                "compat framebuffer tracks three MRT color attachments", ref failures);
-            Check(state.CheckFramebufferStatus(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer)
-                    == OpenTK.Graphics.OpenGL.FramebufferErrorCode.FramebufferComplete,
-                "compat framebuffer completes with MRT color attachments", ref failures);
-
-            int renderbuffer = state.GenRenderbuffer();
-            state.BindRenderbuffer(OpenTK.Graphics.OpenGL.RenderbufferTarget.Renderbuffer, renderbuffer);
-            state.RenderbufferStorage(OpenTK.Graphics.OpenGL.RenderbufferTarget.Renderbuffer,
-                OpenTK.Graphics.OpenGL.RenderbufferStorage.Depth24Stencil8, 2, 2);
-            state.FramebufferRenderbuffer(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
-                OpenTK.Graphics.OpenGL.FramebufferAttachment.DepthStencilAttachment,
-                OpenTK.Graphics.OpenGL.RenderbufferTarget.Renderbuffer, renderbuffer);
-            state.GetFramebufferAttachmentParameter(
-                OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
-                OpenTK.Graphics.OpenGL.FramebufferAttachment.DepthStencilAttachment,
-                OpenTK.Graphics.OpenGL.FramebufferParameterName.FramebufferAttachmentDepthSize,
-                out int depthBits);
-            Check(depthBits == 24,
-                "compat depth/stencil attachment reports 24 depth bits", ref failures);
-
-            state.FramebufferTexture2D(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
-                OpenTK.Graphics.OpenGL.FramebufferAttachment.ColorAttachment0, 0);
-            Check(state.IsFramebufferTexture(texture),
-                "detached render targets retain their sampling origin", ref failures);
-            state.FramebufferTexture2D(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
-                OpenTK.Graphics.OpenGL.FramebufferAttachment.ColorAttachment0, texture);
-
-            state.DeleteTexture(mrtTexture1);
-            state.DeleteTexture(mrtTexture2);
-            Check(state.Framebuffer(framebuffer).ColorTexture1 == 0
-                    && state.Framebuffer(framebuffer).ColorTexture2 == 0,
-                "deleting MRT textures clears secondary framebuffer references", ref failures);
-            state.DeleteTexture(texture);
-            Check(!state.IsTexture(texture) && state.Framebuffer(framebuffer).ColorTexture == 0,
-                "deleting texture clears framebuffer attachment references", ref failures);
-        }
 #endif
 
         private static void Check(bool success, string name, ref int failures)

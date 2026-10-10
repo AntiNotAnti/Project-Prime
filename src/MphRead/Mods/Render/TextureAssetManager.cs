@@ -167,21 +167,6 @@ namespace MphRead.Mods.Render
                 ApplyBoundSampling(repeat, sampling, generateMipmaps: sampling.Mipmaps);
                 return;
             }
-#if !MPHREAD_SERVER
-            if (asset is Ktx2TextureAsset compressed)
-            {
-                if (!ModernGraphicsCompat.Active)
-                    throw new InvalidOperationException(
-                        "Compressed KTX2 promotion requires the modern renderer.");
-                sampling = sampling with
-                {
-                    Mipmaps = sampling.Mipmaps && compressed.MipmapsAvailable
-                };
-                ModernGraphicsCompat.UploadCompressedTexture(compressed, sampling.Mipmaps);
-                ApplyBoundSampling(repeat, sampling, generateMipmaps: false);
-                return;
-            }
-#endif
             throw new NotSupportedException($"Prepared texture type {asset.GetType().Name} is unsupported.");
         }
 

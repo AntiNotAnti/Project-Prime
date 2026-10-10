@@ -99,18 +99,6 @@ namespace MphRead
                 GL.Uniform1(_shaderLocations.UseFog, 0);
                 GL.Uniform1(_shaderLocations.CelBands, 0);
 
-#if !MPHREAD_SERVER
-                bool directShadow = Mods.Render.ModernGraphicsCompat.Active
-                    && _wireframeLevel == 0
-                    && !Mods.RenderOptions.CelShading;
-                if (directShadow)
-                {
-                    Mods.Render.ModernGraphicsCompat.BeginRetainedPreVisibilityPass();
-                    Mods.Render.ModernGraphicsCompat.BeginRetainedWorldFrame();
-                }
-#else
-                const bool directShadow = false;
-#endif
                 IReadOnlyList<Mods.Render.RetainedDrawPacket> shadowPackets =
                     _retainedRenderWorld.Opaque;
                 for (int i = 0; i < shadowPackets.Count; i++)
@@ -123,30 +111,6 @@ namespace MphRead
                         continue;
                     }
 
-#if !MPHREAD_SERVER
-                    if (directShadow)
-                    {
-                        Matrix4 viewInverse = item.BillboardMode switch
-                        {
-                            BillboardMode.Sphere => _viewInvRotMatrix,
-                            BillboardMode.Cylinder => _viewInvRotYMatrix,
-                            _ => Matrix4.Identity
-                        };
-                        Mods.Render.RetainedWorldTextureSet textures =
-                            RetainedWorldTextures(item);
-                        if (Mods.Render.ModernGraphicsCompat.TryDrawRetainedWorld(
-                            item, packet.Mesh, textures, _showTextures,
-                            useLighting: false, _faceCulling,
-                            projectionOverride: null, viewInverse,
-                            Mods.Render.WorldRenderPassKind.Opaque))
-                        {
-                            _retainedDirectShadowDraws++;
-                            NoteRetainedTextureSampling(
-                                textures, item.XRepeat, item.YRepeat);
-                            continue;
-                        }
-                    }
-#endif
                     _retainedCompatibilityShadowDraws++;
                     RenderItem(item);
                 }
