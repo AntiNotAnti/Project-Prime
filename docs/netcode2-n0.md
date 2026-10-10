@@ -8,9 +8,12 @@ v0.1.47 baseline `0351ef6f707ab0369c95d8d4185869f6e02622f8`. No code from PRs
 **41**, with unchanged live packet and replay encodings, combat authority,
 movement authority, renderer, and settings UI.
 
-The first Mac/Windows campaign is **blocked**. See the
-[validation and defect ledger](netcode2-n0-validation.md) for preserved failures,
-assembly identities, measured results and unresolved acceptance gates.
+The first Mac/Windows campaign found the defects preserved in the
+[original validation and ledger](netcode2-n0-validation.md). The
+[N0 completion report](netcode2-n0-completion.md) separates the baseline-harness
+exit contract from later combat/release gates, records the loading repair and
+focused Mac validation, and assigns unresolved shot failures to N3/N6. An N0
+completion does not turn those failed combat campaigns into passes.
 
 ## What is measured
 
@@ -100,9 +103,15 @@ python3 tools/nettest/run-net2.py --build tools/nettest/bin/Release/net10.0 \
   --rooms "MP1 SANCTORUS,MP3 PROVING GROUND" --round-minutes 4
 ```
 
-`PRIME_NET2_SOAK=1` is set only for this campaign. Within the existing scripted
+The owner waived another long soak for the N0 completion follow-up. Short
+rotation validation uses the ordinary runner, for example `--players 8
+--seconds 85 --scenario shockcoil-all --rooms "MP1 SANCTORUS,MP3 PROVING GROUND"
+--round-minutes 0.5`. This does not satisfy or claim the twenty-minute coverage
+flag; the prior long runs remain available as evidence.
+
+`PRIME_NET2_SOAK=1` is set only for the sustained campaign. Within the existing scripted
 input driver it cycles Shock Coil, Imperialist duels and Missiles on the server
-clock. Seven initial participants allow an owner-command bot fill/removal, then
+clock. Seven initial participants allow authority-driven bot fill/removal, then
 a late join at 30 seconds, a planned departure and fresh connection at 240
 seconds, plus a spectator/rejoin interval. Coverage is observed, not assumed
 from requested flags. Failed joins/commands, frozen gameplay and short-lived
@@ -149,5 +158,6 @@ Leaving both `PRIME_NET2_*` environment variables unset disables the evidence
 and test drivers. The production delivery repair is enabled independently;
 revert `4e38efe2` to roll back that behavior, or revert the N0 slice as a whole. There is no wire migration or saved-profile migration. Preserve
 all original attempts before any subsequent fixes. N1 and later dependent slices
-remain blocked until the baseline defects and unresolved acceptance gates in the
-evidence ledger are reviewed.
+must preserve the classified baseline failures in the completion ledger. N0's
+exit gate is a reproducible baseline and truthful harness; exact shot disposition
+and specialized combat acceptance belong to their specified later slices.
