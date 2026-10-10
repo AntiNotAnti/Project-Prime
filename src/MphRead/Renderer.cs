@@ -809,7 +809,6 @@ namespace MphRead
                     // Publish only after all attachments agree on the new size.
                     _targetSize = target;
                     _sceneColorFormat = SceneColorFormat;
-                    _graphicsHistoryValid = false;
                 }
                 finally
                 {

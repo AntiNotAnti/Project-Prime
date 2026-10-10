@@ -138,6 +138,12 @@ namespace MphRead
         private int GraphicsCompositeTexture()
             => _graphicsOutputReady ? _graphicsOutputTexture : _screenTexture;
 
+        // Screenshot and Replay Studio readback still use the current scene
+        // presentation framebuffer, which is the shadow compositor only when
+        // the optional shadow pass actually produced output.
+        private int GraphicsReadFramebuffer()
+            => _graphicsOutputReady ? _graphicsOutputFramebuffer : _frameBuffer;
+
         private void EnsureGraphicsPipeline(Vector2i target)
         {
             if (_graphicsProgram == 0)
