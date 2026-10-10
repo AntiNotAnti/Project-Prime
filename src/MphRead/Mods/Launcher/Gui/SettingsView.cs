@@ -143,27 +143,10 @@ namespace MphRead.Mods.Launcher.Gui
         private ChoiceRow _textureUpscaleRow = null!;
         private ChoiceRow _textureQualityRow = null!;
         private ChoiceRow _graphicsPresetRow = null!;
-        private ChoiceRow _antiAliasingRow = null!;
-        private SliderRow _sharpenRow = null!;
-        private ToggleRow _bloomRow = null!;
-        private SliderRow _bloomIntensityRow = null!;
-        private ChoiceRow _colorGradeRow = null!;
-        private SliderRow _gammaRow = null!;
-        private SliderRow _contrastRow = null!;
-        private SliderRow _saturationRow = null!;
-        private ToggleRow _enhancedLightingRow = null!;
         private ToggleRow _advancedMaterialsRow = null!;
-        private ToggleRow _deferredPbrRow = null!;
         private ToggleRow _showCosmeticsRow = null!;
         private ChoiceRow _cosmeticQualityRow = null!;
         private ChoiceRow _shadowQualityRow = null!;
-        private ChoiceRow _ambientOcclusionRow = null!;
-        private ToggleRow _contactShadowsRow = null!;
-        private ToggleRow _enhancedFogRow = null!;
-        private ToggleRow _volumetricFogRow = null!;
-        private ToggleRow _internalHdrRow = null!;
-        private ToggleRow _reflectionsRow = null!;
-        private ToggleRow _dynamicGlowRow = null!;
         private ToggleRow _textureReplacementsRow = null!;
         private ToggleRow _characterModelReplacementsRow = null!;
         private ToggleRow _celRow = null!;
@@ -989,7 +972,6 @@ namespace MphRead.Mods.Launcher.Gui
             if (String.Equals(section, "Graphics", StringComparison.OrdinalIgnoreCase))
             {
                 ShowTextureQualityRows();
-                ShowModernGraphicsRows();
                 ShowCelRows();
             }
             InvalidateVisual();
@@ -1574,7 +1556,7 @@ namespace MphRead.Mods.Launcher.Gui
             _graphicsPresetRow = Add(page, new ChoiceRow("Preset",
                 new[] { "Original", "Performance", "Enhanced", "Ultra", "Extreme", "Custom" },
                 (int)RenderOptions.Preset));
-            Explain(page, "Original preserves the cartridge look. Performance uses native resolution with light anti-aliasing. Enhanced adds subtle bloom and ambient occlusion while preserving the original colors, lighting and fog.");
+            Explain(page, "Quality presets adjust native texture sampling and render resolution only. They no longer enable experimental post-processing, color changes or hidden GPU passes.");
 
             Heading(page, "Rendering");
             Explain(page, "100% is native. 200%, 400% and 800% are true 2x, 4x and 8x internal dimensions. If that exceeds the GPU's render-target limit, Project Prime automatically fits the largest aspect-correct target the driver supports.");
@@ -1586,11 +1568,6 @@ namespace MphRead.Mods.Launcher.Gui
                     : v == 800 ? "800% (8x)"
                     : v > 100 ? $"{v}% (supersampled)" : $"{v}%",
                 min: RenderOptions.MinScale, max: RenderOptions.MaxScale, keyStep: 5));
-            _antiAliasingRow = Add(page, new ChoiceRow("Anti-aliasing",
-                new[] { "Off", "FXAA", "FXAA High", "SMAA 1x", "TAA (reprojection)" }, (int)RenderOptions.AntiAliasing));
-            _sharpenRow = Add(page, new SliderRow("Image sharpening",
-                RenderOptions.SharpenStrength, v => $"{v}%", min: 0, max: 100, keyStep: 5));
-
             Heading(page, "Textures");
             _textureSamplingRow = Add(page, new ChoiceRow("HD texture sampling",
                 new[] { "Auto (stable)", "Legacy pixel", "Custom" },
@@ -1620,53 +1597,19 @@ namespace MphRead.Mods.Launcher.Gui
             _filteringRow.Changed += (_, _) => ShowTextureQualityRows();
             ShowTextureQualityRows();
 
-            Heading(page, "Lighting and depth");
+            Heading(page, "Native lighting and shadows");
             _lightingRow = Add(page, new ToggleRow("Original lighting", RenderOptions.Lighting));
-            _enhancedLightingRow = Add(page, new ToggleRow("Enhanced per-pixel lighting",
-                RenderOptions.EnhancedLighting));
             _advancedMaterialsRow = Add(page, new ToggleRow("Advanced material maps",
                 RenderOptions.AdvancedMaterials));
-            _deferredPbrRow = Add(page, new ToggleRow("Deferred PBR lighting",
-                RenderOptions.DeferredPbr));
             _shadowQualityRow = Add(page, new ChoiceRow("Directional shadows",
                 new[] { "Off", "Low", "High", "Ultra" }, (int)RenderOptions.Shadows));
-            _ambientOcclusionRow = Add(page, new ChoiceRow("Ambient occlusion",
-                new[] { "Off", "Low", "Medium", "High" }, (int)RenderOptions.AmbientOcclusion));
-            _contactShadowsRow = Add(page, new ToggleRow("Contact shadows",
-                RenderOptions.ContactShadows));
-            _reflectionsRow = Add(page, new ToggleRow("Screen-space reflections",
-                RenderOptions.Reflections));
-            Explain(page, "Deferred PBR replays opaque geometry into albedo/normal/material buffers and lights it with a GGX pass. Enhanced lighting, AO, shadows and reflections remain presentation-only and do not alter collision, networking or weapon simulation.");
+            Explain(page, "Original world lighting and authored surface textures are preserved. Optional directional shadows are independently controlled; experimental bloom, temporal AA, HDR, AO, screen-space reflections, PBR and fog overlays have been retired.");
 
-            Heading(page, "Atmosphere and glow");
+            Heading(page, "Atmosphere");
             _fogRow = Add(page, new ToggleRow("Original fog", RenderOptions.Fog));
-            _enhancedFogRow = Add(page, new ToggleRow("Enhanced atmospheric fog",
-                RenderOptions.EnhancedFog));
-            _volumetricFogRow = Add(page, new ToggleRow("Volumetric fog detail",
-                RenderOptions.VolumetricFog));
-            _bloomRow = Add(page, new ToggleRow("Bloom", RenderOptions.Bloom));
-            _bloomIntensityRow = Add(page, new SliderRow("Bloom intensity",
-                RenderOptions.BloomIntensity, v => $"{v}%", min: 0, max: 150, keyStep: 5));
-            _dynamicGlowRow = Add(page, new ToggleRow("Dynamic energy glow",
-                RenderOptions.DynamicGlow));
-            _internalHdrRow = Add(page, new ToggleRow("HDR tone mapping",
-                RenderOptions.InternalHdr));
-            _bloomRow.Changed += (_, _) => ShowModernGraphicsRows();
-            _enhancedFogRow.Changed += (_, _) => ShowModernGraphicsRows();
-
-            Heading(page, "Color");
-            _colorGradeRow = Add(page, new ChoiceRow("Color profile",
-                new[] { "Original", "Enhanced", "Vibrant", "Cinematic" },
-                (int)RenderOptions.ColorGrade));
-            _gammaRow = Add(page, new SliderRow("Gamma", RenderOptions.Gamma,
-                v => $"{v}%", min: 50, max: 150, keyStep: 5));
-            _contrastRow = Add(page, new SliderRow("Contrast", RenderOptions.Contrast,
-                v => $"{v}%", min: 50, max: 150, keyStep: 5));
-            _saturationRow = Add(page, new SliderRow("Saturation", RenderOptions.Saturation,
-                v => $"{v}%", min: 0, max: 200, keyStep: 5));
 
             var maxQuality = new HubNavButton("APPLY EXTREME PRESET",
-                "2x supersampling and detailed shadows with restrained bloom", primary: true)
+                "2x supersampling, stable HD sampling and native lighting", primary: true)
             {
                 MinHeight = 50,
                 Margin = new Thickness(0, 10, 0, 4)
@@ -1678,7 +1621,7 @@ namespace MphRead.Mods.Launcher.Gui
                 ApplyGraphicsPresetDraft(GraphicsPreset.Extreme);
             };
             page.Children.Add(maxQuality);
-            Explain(page, "Ultra uses 150% resolution and directional shadows; Extreme uses 200% with finer shadows. Both keep the Enhanced color balance. PBR, reflections, extra fog, energy glow and texture upscaling are optional custom choices. Higher render scales remain available for screenshots.");
+            Explain(page, "Ultra uses 150% render scale, while Extreme uses 200%. Both preserve original colors and only adjust native resolution and texture sampling. Enable directional shadows separately if desired.");
 
             Heading(page, "Cosmetics");
             _showCosmeticsRow = Add(page, new ToggleRow("Show custom cosmetics", RenderOptions.ShowCustomCosmetics));
@@ -1694,7 +1637,6 @@ namespace MphRead.Mods.Launcher.Gui
             _celRow.Changed += (_, _) => ShowCelRows();
             _graphicsPresetRow.Changed += (_, _) =>
                 ApplyGraphicsPresetDraft((GraphicsPreset)Math.Clamp(_graphicsPresetRow.Index, 0, 5));
-            ShowModernGraphicsRows();
             ShowCelRows();
         }
 
@@ -1703,25 +1645,8 @@ namespace MphRead.Mods.Launcher.Gui
             var profile = GraphicsPresetProfile.Get(preset);
             if (profile == null) return;
             _resolutionScale.Value = profile.ResolutionScale;
-            _antiAliasingRow.Index = (int)profile.AntiAliasing;
-            _sharpenRow.Value = profile.SharpenStrength;
-            _bloomRow.On = profile.Bloom;
-            _bloomIntensityRow.Value = profile.BloomIntensity;
-            _colorGradeRow.Index = (int)profile.ColorGrade;
-            _gammaRow.Value = profile.Gamma;
-            _contrastRow.Value = profile.Contrast;
-            _saturationRow.Value = profile.Saturation;
-            _enhancedLightingRow.On = profile.EnhancedLighting;
             _advancedMaterialsRow.On = profile.AdvancedMaterials;
-            _deferredPbrRow.On = profile.DeferredPbr;
             _shadowQualityRow.Index = (int)profile.Shadows;
-            _ambientOcclusionRow.Index = (int)profile.AmbientOcclusion;
-            _contactShadowsRow.On = profile.ContactShadows;
-            _enhancedFogRow.On = profile.EnhancedFog;
-            _volumetricFogRow.On = profile.VolumetricFog;
-            _internalHdrRow.On = profile.InternalHdr;
-            _reflectionsRow.On = profile.Reflections;
-            _dynamicGlowRow.On = profile.DynamicGlow;
             _lightingRow.On = profile.Lighting;
             _fogRow.On = profile.Fog;
             _filteringRow.On = profile.TextureFiltering;
@@ -1734,13 +1659,6 @@ namespace MphRead.Mods.Launcher.Gui
                 _characterModelReplacementsRow.On = false;
             }
             ShowTextureQualityRows();
-            ShowModernGraphicsRows();
-        }
-
-        private void ShowModernGraphicsRows()
-        {
-            _bloomIntensityRow.IsVisible = _bloomRow.On;
-            _volumetricFogRow.IsVisible = _enhancedFogRow.On;
         }
 
         private void ShowTextureQualityRows()
@@ -2952,29 +2870,10 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.Renderer = "OpenGL";
             _settings.GraphicsPreset = ((GraphicsPreset)Math.Clamp(_graphicsPresetRow.Index, 0, 5))
                 .ToString().ToLowerInvariant();
-            _settings.AntiAliasing = ((AntiAliasingMode)Math.Clamp(_antiAliasingRow.Index, 0, 4))
-                .ToString().ToLowerInvariant();
-            _settings.SharpenStrength = _sharpenRow.Value.ToString(CultureInfo.InvariantCulture);
-            _settings.Bloom = RenderOptions.OnOff(_bloomRow.On);
-            _settings.BloomIntensity = _bloomIntensityRow.Value.ToString(CultureInfo.InvariantCulture);
-            _settings.ColorGrade = ((ColorGradeProfile)Math.Clamp(_colorGradeRow.Index, 0, 3))
-                .ToString().ToLowerInvariant();
-            _settings.Gamma = _gammaRow.Value.ToString(CultureInfo.InvariantCulture);
-            _settings.Contrast = _contrastRow.Value.ToString(CultureInfo.InvariantCulture);
-            _settings.Saturation = _saturationRow.Value.ToString(CultureInfo.InvariantCulture);
-            _settings.EnhancedLighting = RenderOptions.OnOff(_enhancedLightingRow.On);
             _settings.AdvancedMaterials = RenderOptions.OnOff(_advancedMaterialsRow.On);
-            _settings.DeferredPbr = RenderOptions.OnOff(_deferredPbrRow.On);
             _settings.ShadowQuality = ((ShadowQuality)Math.Clamp(_shadowQualityRow.Index, 0, 3))
                 .ToString().ToLowerInvariant();
-            _settings.AmbientOcclusion = ((AmbientOcclusionQuality)Math.Clamp(_ambientOcclusionRow.Index, 0, 3))
-                .ToString().ToLowerInvariant();
-            _settings.ContactShadows = RenderOptions.OnOff(_contactShadowsRow.On);
-            _settings.EnhancedFog = RenderOptions.OnOff(_enhancedFogRow.On);
-            _settings.VolumetricFog = RenderOptions.OnOff(_volumetricFogRow.On);
-            _settings.InternalHdr = RenderOptions.OnOff(_internalHdrRow.On);
-            _settings.Reflections = RenderOptions.OnOff(_reflectionsRow.On);
-            _settings.DynamicGlow = RenderOptions.OnOff(_dynamicGlowRow.On);
+            SettingsMigration.ResetRetiredPostProcessing(_settings);
             _settings.ShowCustomCosmetics = RenderOptions.OnOff(_showCosmeticsRow.On);
             _settings.CosmeticQuality = ((Cosmetics.CosmeticEffectQuality)Math.Clamp(_cosmeticQualityRow.Index, 0, 3)).ToString().ToLowerInvariant();
             _settings.TextureReplacements = RenderOptions.OnOff(_textureReplacementsRow.On);

@@ -142,6 +142,32 @@ namespace MphRead.Mods
             return from != CurrentSchema || changed.Count > 0;
         }
 
+        /// <summary>
+        /// Canonical values for options removed from the OpenGL settings UI.
+        /// Retain JSON fields for old installations, but never re-enable their
+        /// shaders, history textures or transient framebuffers on save.
+        /// </summary>
+        public static void ResetRetiredPostProcessing(MenuSettings settings)
+        {
+            settings.AntiAliasing = "off";
+            settings.SharpenStrength = "0";
+            settings.Bloom = "off";
+            settings.BloomIntensity = "0";
+            settings.ColorGrade = "original";
+            settings.Gamma = "100";
+            settings.Contrast = "100";
+            settings.Saturation = "100";
+            settings.EnhancedLighting = "off";
+            settings.DeferredPbr = "off";
+            settings.AmbientOcclusion = "off";
+            settings.ContactShadows = "off";
+            settings.EnhancedFog = "off";
+            settings.VolumetricFog = "off";
+            settings.InternalHdr = "off";
+            settings.Reflections = "off";
+            settings.DynamicGlow = "off";
+        }
+
         public static void ResetPerformance(MenuSettings settings)
         {
             settings.Renderer = "OpenGL";
