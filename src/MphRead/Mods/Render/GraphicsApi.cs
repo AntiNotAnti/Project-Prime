@@ -26,9 +26,18 @@ namespace MphRead.Mods.Render
         {
             if (!OpenGlSubmissionProfiler.ForceLegacyStateRequests)
                 CapabilityCache.Begin();
+#if !ANDROID
+            DesktopRetainedGeometry.BeginWorldScope();
+#endif
         }
 
-        internal static void EndScopedWorldStateElision() => _capabilityCache?.End();
+        internal static void EndScopedWorldStateElision()
+        {
+            _capabilityCache?.End();
+#if !ANDROID
+            DesktopRetainedGeometry.EndWorldScope();
+#endif
+        }
 
         internal static void ResetStateElisionForContext() =>
             _capabilityCache?.ResetContext();
@@ -39,6 +48,7 @@ namespace MphRead.Mods.Render
         internal static void ResetLegacyState()
         {
             _legacyUniforms.ResetContext();
+            DesktopRetainedGeometry.ResetContext();
             ResetStateElisionForContext();
         }
         internal static void BeginLegacyUniformSample() => _legacyUniforms.BeginSample();
@@ -50,6 +60,7 @@ namespace MphRead.Mods.Render
 #if !ANDROID
             DesktopGL.LoadBindings(context);
             _legacyUniforms.ResetContext();
+            DesktopRetainedGeometry.ResetContext();
 #endif
             ResetStateElisionForContext();
         }
@@ -57,41 +68,141 @@ namespace MphRead.Mods.Render
         public static void Begin(PrimitiveType mode)
         {
             OpenGlSubmissionProfiler.NoteImmediateBegin();
+#if !ANDROID
+            DesktopRetainedGeometry.Begin(mode);
+#endif
             DesktopGL.Begin(mode);
         }
-        public static void End() { DesktopGL.End(); }
-        public static void Vertex2(float x, float y) { DesktopGL.Vertex2(x, y); }
-        public static void Vertex3(float x, float y, float z) { DesktopGL.Vertex3(x, y, z); }
-        public static void Vertex3(Vector3 value) { DesktopGL.Vertex3(value); }
-        public static void Color3(float r, float g, float b) { DesktopGL.Color3(r, g, b); }
-        public static void Color3(Vector3 value) { DesktopGL.Color3(value); }
-        public static void Color4(float r, float g, float b, float a) { DesktopGL.Color4(r, g, b, a); }
-        public static void Normal3(float x, float y, float z) { DesktopGL.Normal3(x, y, z); }
-        public static void TexCoord2(float s, float t) { DesktopGL.TexCoord2(s, t); }
-        public static void TexCoord3(float s, float t, float r) { DesktopGL.TexCoord3(s, t, r); }
-        public static void TexCoord3(Vector3 value) { DesktopGL.TexCoord3(value); }
-        public static void MultiTexCoord2(TextureUnit unit, float s, float t) { DesktopGL.MultiTexCoord2(unit, s, t); }
+        public static void End()
+        {
+            DesktopGL.End();
+#if !ANDROID
+            DesktopRetainedGeometry.End();
+#endif
+        }
+        public static void Vertex2(float x, float y)
+        {
+#if !ANDROID
+            DesktopRetainedGeometry.Vertex(new Vector3(x, y, 0));
+#endif
+            DesktopGL.Vertex2(x, y);
+        }
+        public static void Vertex3(float x, float y, float z)
+        {
+#if !ANDROID
+            DesktopRetainedGeometry.Vertex(new Vector3(x, y, z));
+#endif
+            DesktopGL.Vertex3(x, y, z);
+        }
+        public static void Vertex3(Vector3 value)
+        {
+#if !ANDROID
+            DesktopRetainedGeometry.Vertex(value);
+#endif
+            DesktopGL.Vertex3(value);
+        }
+        public static void Color3(float r, float g, float b)
+        {
+#if !ANDROID
+            DesktopRetainedGeometry.Color(new Vector4(r, g, b, 1));
+#endif
+            DesktopGL.Color3(r, g, b);
+        }
+        public static void Color3(Vector3 value)
+        {
+#if !ANDROID
+            DesktopRetainedGeometry.Color(new Vector4(value, 1));
+#endif
+            DesktopGL.Color3(value);
+        }
+        public static void Color4(float r, float g, float b, float a)
+        {
+#if !ANDROID
+            DesktopRetainedGeometry.Color(new Vector4(r, g, b, a));
+#endif
+            DesktopGL.Color4(r, g, b, a);
+        }
+        public static void Normal3(float x, float y, float z)
+        {
+#if !ANDROID
+            DesktopRetainedGeometry.Normal(new Vector3(x, y, z));
+#endif
+            DesktopGL.Normal3(x, y, z);
+        }
+        public static void TexCoord2(float s, float t)
+        {
+#if !ANDROID
+            DesktopRetainedGeometry.Texcoord(new Vector3(s, t, 0));
+#endif
+            DesktopGL.TexCoord2(s, t);
+        }
+        public static void TexCoord3(float s, float t, float r)
+        {
+#if !ANDROID
+            DesktopRetainedGeometry.Texcoord(new Vector3(s, t, r));
+#endif
+            DesktopGL.TexCoord3(s, t, r);
+        }
+        public static void TexCoord3(Vector3 value)
+        {
+#if !ANDROID
+            DesktopRetainedGeometry.Texcoord(value);
+#endif
+            DesktopGL.TexCoord3(value);
+        }
+        public static void MultiTexCoord2(TextureUnit unit, float s, float t)
+        {
+#if !ANDROID
+            if (unit == TextureUnit.Texture0)
+                DesktopRetainedGeometry.Texcoord(new Vector3(s, t, 0));
+            else
+                DesktopRetainedGeometry.RejectCurrentList();
+#endif
+            DesktopGL.MultiTexCoord2(unit, s, t);
+        }
 
         public static int GenLists(int range) => DesktopGL.GenLists(range);
+        public static void RegisterRoomGeometryList(int list)
+        {
+#if !ANDROID
+            DesktopRetainedGeometry.RegisterRoomList(list);
+#endif
+        }
         public static void NewList(int list, ListMode mode)
         {
             CapabilityCache.BeginList(list, mode);
+#if !ANDROID
+            DesktopRetainedGeometry.NewList(list, mode);
+#endif
             DesktopGL.NewList(list, mode);
         }
         public static void EndList()
         {
             DesktopGL.EndList();
+#if !ANDROID
+            DesktopRetainedGeometry.EndList();
+#endif
             CapabilityCache.EndList();
         }
         public static void CallList(int list)
         {
-            OpenGlSubmissionProfiler.NoteDisplayList();
             _capabilityCache?.CallList(list);
+#if !ANDROID
+            if (DesktopRetainedGeometry.TryDraw(list))
+            {
+                OpenGlSubmissionProfiler.NoteVboDraw();
+                return;
+            }
+#endif
+            OpenGlSubmissionProfiler.NoteDisplayList();
             DesktopGL.CallList(list);
         }
         public static void DeleteLists(int list, int range)
         {
             DesktopGL.DeleteLists(list, range);
+#if !ANDROID
+            DesktopRetainedGeometry.DeleteLists(list, range);
+#endif
             _capabilityCache?.DeleteLists(list, range);
         }
 

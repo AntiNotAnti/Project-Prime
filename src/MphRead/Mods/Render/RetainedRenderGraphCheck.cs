@@ -20,6 +20,14 @@ namespace MphRead.Mods.Render
                 }
             }
 
+#if !ANDROID
+            Check(DesktopRetainedGeometry.CanUseClientArrays(12, 0, 0, 0)
+                && DesktopRetainedGeometry.CanUseClientArrays(12, 12, 12, 12)
+                && !DesktopRetainedGeometry.CanUseClientArrays(12, 6, 12, 12)
+                && !DesktopRetainedGeometry.CanUseClientArrays(12, 12, 4, 12)
+                && !DesktopRetainedGeometry.CanUseClientArrays(12, 12, 12, 10),
+                "desktop VBO promotion accepts only homogeneous fixed-function attribute streams");
+#endif
             Check(WorldRenderGraph.Validate(out string error),
                 "six-pass graph validates" + (error.Length == 0 ? "" : ": " + error));
             Check(MphRead.Entities.RoomEntity.RefreshRoomVisibilityOnDraw(
