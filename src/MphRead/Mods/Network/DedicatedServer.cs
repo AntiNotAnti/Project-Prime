@@ -494,6 +494,7 @@ namespace MphRead.Mods.Network
                     // what arrived before it steps.
                     PumpLobbyMapPreparation(now);
                     CheckLoadBarrier(now);
+                    PumpCampaignBot(now);
                     PumpSemanticDelivery();
                     PumpReplayShotDelivery();
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);

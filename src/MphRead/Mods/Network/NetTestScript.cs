@@ -269,32 +269,10 @@ namespace MphRead.Mods.Network
 
         private static readonly bool CampaignSoak = Environment.GetEnvironmentVariable("PRIME_NET2_SOAK") == "1";
         private static int _campaignPhase = -1;
-        private static long _campaignStarted;
-        private static bool _campaignBotAdded, _campaignBotRemoved;
         private static readonly string[] CampaignRigs = { "shockcoil-all", "duel", "missile" };
         private static void ApplyCampaignPhase()
         {
             if (!CampaignSoak || !NetCampaignEvidence.Enabled) return;
-            if (_campaignStarted == 0) _campaignStarted = System.Diagnostics.Stopwatch.GetTimestamp();
-            double elapsed = System.Diagnostics.Stopwatch.GetElapsedTime(_campaignStarted).TotalSeconds;
-            if (NetSession.LocalSlot == 0 && NetSession.LocalIsLobbyOwner)
-            {
-                if (!_campaignBotAdded && elapsed >= 10)
-                {
-                    _campaignBotAdded = NetSession.SendLobbyCommand(LobbyCommandType.AddBot, hunter: (byte)Hunter.Sylux);
-                    if (_campaignBotAdded) Console.WriteLine("[net2] requested bot fill");
-                }
-                if (!_campaignBotRemoved && elapsed >= 20)
-                {
-                    for (int slot = 0; slot < NetSession.SlotIsBot.Length; slot++)
-                        if (NetSession.SlotIsBot[slot])
-                        {
-                            _campaignBotRemoved = NetSession.SendLobbyCommand(LobbyCommandType.RemoveBot, targetSlot: (byte)slot);
-                            if (_campaignBotRemoved) Console.WriteLine("[net2] requested bot removal for late join");
-                            break;
-                        }
-                }
-            }
             int phase = (int)((NetSession.ServerMatch?.TimeElapsed ?? 0) / 60) % CampaignRigs.Length;
             if (phase == _campaignPhase) return;
             _campaignPhase = phase;

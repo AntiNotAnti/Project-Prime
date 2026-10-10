@@ -18,7 +18,10 @@ internal static class NetCampaignEvidence
 {
     private static readonly string? Path = Environment.GetEnvironmentVariable("PRIME_NET2_EVIDENCE");
     internal static bool Enabled => !String.IsNullOrWhiteSpace(Path);
-    private const int RowLimit = 262144;
+    // A 30-minute eight-slot campaign can retain two rows per continuous shot.
+    // This is an opt-in evidence bound, independent of gameplay/transport queues.
+    private static readonly int RowLimit = Environment.GetEnvironmentVariable("PRIME_NET2_SOAK") == "1"
+        ? 1048576 : 262144;
     private static readonly List<Shot> Shots = new();
     private static readonly List<Health> States = new();
     private static readonly List<Fact> Facts = new();
@@ -67,6 +70,13 @@ internal static class NetCampaignEvidence
             Add(Shots, new(offered ? "offered" : "accepted", key, fire.SourceFrame,
                 NetSession.NetFrame, fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase));
         }
+    }
+
+    internal static void SkippedContinuousPhase(PlayerEntity player, in FireEvent fire)
+    {
+        if (!Enabled || player.SceneServices.IsReplica) return;
+        Add(Shots, new("phase-skipped", ShotKey.For(player.SlotIndex, fire.ShotId), fire.SourceFrame,
+            NetSession.NetFrame, fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase));
     }
 
     internal static void Committed(PlayerEntity player, in FireEvent fire)

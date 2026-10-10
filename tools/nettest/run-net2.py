@@ -167,10 +167,12 @@ def run(args):
         late_started = reconnect_started = False
         while True:
             elapsed = time.monotonic() - client_start
-            if args.soak and not late_started and elapsed >= 30:
+            bot_finished = not args.soak or "[net2] bot fill complete" in (args.out / "server.log").read_text(errors="replace")
+            if args.soak and not late_started and elapsed >= 30 and (bot_finished or elapsed >= 120):
                 client(args.players - 1, "peer-late", 180)
                 late_started = True
-            if args.soak and late_started and not reconnect_started and elapsed >= 240:
+                late_started_seconds = elapsed
+            if args.soak and late_started and not reconnect_started and elapsed >= late_started_seconds + 210:
                 client(args.players - 1, "peer-reconnect", max(1, args.seconds - elapsed))
                 reconnect_started = True
             for process, record, limit in clients:

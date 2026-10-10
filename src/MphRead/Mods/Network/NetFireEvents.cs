@@ -223,7 +223,10 @@ public static class NetFireEvents
             var e = intent.FireEvents[i];
             if (state.Seen && !NetLifecycleTracker.Newer(e.ShotId, state.LastConsumed)) continue;
             if (e.Kind == FireEventKind.ContinuousTick && e.ContinuousPhase != intent.ContinuousFireTick)
-            { state.Seen = true; state.LastConsumed = e.ShotId; continue; }
+            {
+                NetCampaignEvidence.SkippedContinuousPhase(player, e);
+                state.Seen = true; state.LastConsumed = e.ShotId; continue;
+            }
             state.Active = e; state.Selected = true; state.SelectedAt = NetSession.NetFrame;
             if (e.Kind == FireEventKind.TurretFire) return;
             player.ModSetWeapon((BeamType)e.Weapon);
