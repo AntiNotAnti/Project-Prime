@@ -401,6 +401,10 @@ jobs:
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
 
+      - name: compile native solo/bot renderer evidence harness
+        if: matrix.os == 'windows-latest' || matrix.os == 'macos-latest'
+        run: dotnet build tools/native-render-check/native-render-check.csproj -c Release
+
       - name: deterministic graphics preset and texture checks
         if: matrix.os == 'windows-latest'
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -graphicscheck
