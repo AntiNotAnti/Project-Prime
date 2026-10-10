@@ -261,6 +261,12 @@ namespace MphRead.Mods.Network
             // cheat list is on, in case a long session had one restored.
             NetLaunch.DisableCheatsForMatch();
             ReloadIntroCamSeq(scene);
+            // A spectator can enter the rebuild with a Roam camera. Initialize
+            // normally builds the local HUD only in Player camera mode, but the
+            // live scene still updates Main's HUD and may later rejoin/watch.
+            // Recreated players cannot inherit the previous room's HUD objects.
+            if (!Headless.Active && !scene.Players.Main.HudReady)
+                scene.Players.Main.SetUpHud();
             for (int slot = 0; slot < scene.Players.Items.Count; slot++)
             {
                 PlayerEntity player = scene.Players.Items[slot];
