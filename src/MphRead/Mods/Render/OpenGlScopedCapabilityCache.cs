@@ -101,3 +101,4 @@ internal sealed class OpenGlScopedCapabilityCache
         or EnableCap.DepthTest or EnableCap.StencilTest
         or EnableCap.ScissorTest or EnableCap.PolygonOffsetFill;
 }
+#endif
