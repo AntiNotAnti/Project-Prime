@@ -1,6 +1,7 @@
 using System;
 using MphRead.Entities;
 using MphRead.Formats;
+using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.EnhancedHunters;
@@ -21,31 +22,45 @@ internal static class EnhancedHunterProjectiles
             return;
         }
         if (beam.Owner is not PlayerEntity owner || !EnhancedHunters.UsingAffinity(owner, beam.Beam)) return;
+        bool accepted = NetFireEvents.TryAcceptedKey(owner, out _)
+            && NetFireEvents.TryTiming(owner, out _);
+        FireEvent fire = default;
+        if (accepted) NetFireEvents.TryTiming(owner, out fire);
+        PlayerEntity? AuthoredTarget()
+        {
+            var identity = fire.Target;
+            if (!identity.HasPlayer || identity.Slot >= owner.OwningScene.Players.Items.Count) return null;
+            var target = owner.OwningScene.Players.Items[identity.Slot];
+            return EnhancedHunters.Hostile(owner, target)
+                && EnhancedHunters.Generation(target) == identity.Generation
+                && EnhancedHunters.Life(target) == identity.LifeId ? target : null;
+        }
+        PlayerEntity? shotTarget = accepted ? AuthoredTarget() : EnhancedHunters.Target(owner);
         if (beam.EnhancedMicroSeeker)
         {
             beam.Damage = beam.HeadshotDamage = 6; beam.SplashDamage = 3; beam.SplashRadius = .65f;
             beam.Afflictions = Affliction.None; beam.Flags &= ~BeamFlags.SelfDamage;
             beam.Flags |= BeamFlags.Homing;
-            beam.Homing = Math.Max(beam.Homing, .2f); beam.Target = EnhancedHunters.Target(owner);
+            beam.Homing = Math.Max(beam.Homing, .2f); beam.Target = shotTarget;
             return;
         }
         if (owner.Hunter == Hunter.Kanden && !beam.Flags.TestFlag(BeamFlags.Charged))
         {
-            var target = EnhancedHunters.Target(owner);
-            if (target != null && EnhancedHunters.InCone(owner, target, 20, 15))
+            var target = shotTarget;
+            if (target != null && (accepted || EnhancedHunters.InCone(owner, target, 20, 15)))
             { beam.Target = target; beam.Flags |= BeamFlags.Homing; beam.Homing = Math.Max(beam.Homing, .06f); }
         }
         if (parent != null) return;
         if (owner.Hunter == Hunter.Samus && beam.Flags.TestFlag(BeamFlags.Charged))
         {
             var state = owner.EnhancedState;
-            int count = state.ValueA;
+            int count = accepted ? fire.EnhancedPips : state.ValueA;
             if (EnhancedHunters.Authority(owner))
             { EnhancedHunterTelemetry.Event(owner.Hunter, "barrages"); EnhancedHunterTelemetry.Event(owner.Hunter, "pips-at-fire", count); }
-            if (!EnhancedHunters.Authority(owner) && count == 0 && state.TimerB > 0) count = state.ValueB;
-            if (EnhancedHunters.Target(owner) == null) count = 0;
-            state.ValueA = 0; state.ContactFrames = 0;
-            var equip = new EquipInfo { Weapon = owner.EquipInfo.Weapon, Beams = owner.EquipInfo.Beams,
+            if (!accepted && !EnhancedHunters.Authority(owner) && count == 0 && state.TimerB > 0) count = state.ValueB;
+            if (shotTarget == null) count = 0;
+            if (!accepted) { state.ValueA = 0; state.ContactFrames = 0; }
+            var equip = new EquipInfo { Weapon = beam.Equip!.Weapon, Beams = beam.Equip.Beams,
                 InfiniteAmmo = true, UnchargedDamage = 6, HeadshotDamage = 6, SplashDamage = 3 };
             for (int i = 0; i < count; i++)
             {
@@ -54,7 +69,7 @@ internal static class EnhancedHunterProjectiles
                     beam.NodeRef, owner.OwningScene, parent: beam, enhancedMicro: true);
             }
             EnhancedHunterTelemetry.Event(owner.Hunter, "micro-missiles", count);
-            state.ValueB = (byte)count; state.TimerB = 18;
+            if (!accepted) { state.ValueB = (byte)count; state.TimerB = 18; }
         }
     }
     internal static void Impact(BeamProjectileEntity beam, CollisionResult collision, EntityBase? hit)

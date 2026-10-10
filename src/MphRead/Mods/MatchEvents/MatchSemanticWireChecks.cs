@@ -166,13 +166,33 @@ internal static class MatchSemanticWireChecks
         bool rejected = false;
         try { replica.RestoreCheckpoint(new(malformed)); } catch (InvalidDataException) { rejected = true; }
         require(rejected && replica.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes), "bad semantic checkpoint is atomic");
-        // Version4 protocol34 ends before the new semantic component. Existing layout is unchanged.
+        // Historical checkpoints must carry the event stride their protocol advertised.
         var empty = new ReplayReplicaState(); empty.Accept(matchBytes, 0);
-        byte[] schemaFive = empty.CaptureCheckpoint().Bytes[..^8].ToArray(); schemaFive[4] = 5;
+        byte[] HistoricalEmpty(ushort schema, byte protocol, int intentSize, int omittedTail)
+        {
+            var source = empty.CaptureCheckpoint().Bytes.ToArray();
+            // Empty decoder: fixed header, present match, absent configuration,
+            // fixed roster, then eight lifecycle/player/intent blocks.
+            int firstPlayer = 46 + MatchStatePacket.Size + 1 + RosterPacket.Size;
+            using var historical = new MemoryStream();
+            historical.Write(source.AsSpan(0, firstPlayer));
+            int at = firstPlayer;
+            for (int slot = 0; slot < RosterPacket.MaxSlots; slot++)
+            {
+                int prefix = 8 + PlayerState.Size;
+                historical.Write(source.AsSpan(at, prefix)); at += prefix;
+                historical.Write(source.AsSpan(at, intentSize)); at += IntentPacket.FullSize;
+                historical.Write(source.AsSpan(at, 4)); at += 4;
+            }
+            historical.Write(source.AsSpan(at, source.Length - at - omittedTail));
+            byte[] result = historical.ToArray();
+            BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(4), schema); result[6] = protocol;
+            return result;
+        }
+        byte[] schemaFive = HistoricalEmpty(5, 42, IntentPacket.Protocol42FullSize, 8);
         var oldFive = new ReplayReplicaState(); oldFive.RestoreCheckpoint(new(schemaFive));
         require(oldFive.SemanticEvents.Events.Count == 0, "schema 5 checkpoints remain readable without presentation frontier");
-        byte[] legacy = empty.CaptureCheckpoint().Bytes[..^16].ToArray();
-        BinaryPrimitives.WriteUInt16LittleEndian(legacy.AsSpan(4), 4); legacy[6] = 34;
+        byte[] legacy = HistoricalEmpty(4, 34, IntentPacket.Protocol38FullSize, 16);
         replica.RestoreCheckpoint(new(legacy));
         require(replica.Match?.MatchId == 1 && replica.SemanticEvents.Events.Count == 0, "protocol34 version4 checkpoint remains readable");
     }

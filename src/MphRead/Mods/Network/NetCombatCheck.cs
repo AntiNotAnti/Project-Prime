@@ -340,46 +340,79 @@ namespace MphRead.Mods.Network
         {
             PrepareClaims(); NetFireEvents.Reset();
             var shooter = PlayerEntity.Players[0]; var victim = PlayerEntity.Players[1];
-            shooter.Health = victim.Health = 999;
-            shooter.ModArmWeapon(BeamType.Missile);
             uint now = NetSession.NetFrame;
-            var source = new FireEvent(41, 100, now - 2, 128, FireEventKind.PressFire, (byte)BeamType.Missile, 0, 0);
-            var carrier = new IntentPacket { Frame = 103, AckFrame = now, FireEventCount = 1, HasFireEvents = true };
-            carrier.FireEvents[0] = source;
-            NetSession.RemoteIntents[0] = carrier; NetSession.RemoteIntentValid[0] = true;
-            var fire = typeof(PlayerEntity).GetMethod("TryFireWeapon", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            bool savedPlayback = NetFireEvents.AcceptedPlaybackEnabled;
+            NetFireEvents.AcceptedPlaybackEnabled = true;
+            var cooldown = typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            ushort sourceLife = NetPlayerLifecycle.Get(0);
+            FireEvent Event(uint id, BeamType weapon, FireEventKind kind = FireEventKind.PressFire,
+                byte charge = 0, uint state = 0) => new(id, now - 2, now - 2, 128, kind,
+                    (byte)weapon, charge, state, FireEvent.FlagPose,
+                    shooter.Position + Vector3.UnitY, Vector3.UnitY, Vector3.UnitY, Vector3.UnitY,
+                    SourceLife: sourceLife);
+            IntentPacket Carrier(params FireEvent[] events)
+            {
+                var packet = Intent(shooter, now, playing: false, shoot: false);
+                packet.HasFireEvents = true; packet.FireEventCount = (byte)events.Length;
+                for (int i = 0; i < events.Length; i++) packet.FireEvents[i] = events[i];
+                return packet;
+            }
+            void PresentState()
+            {
+                shooter.ModArmWeapon(BeamType.PowerBeam); shooter.ModSetAmmo(0, 0);
+                shooter.ModSetZoom(false); shooter.EquipInfo.ChargeLevel = 0;
+                shooter.Controls.ClearAll(); shooter.Health = 0; cooldown.SetValue(shooter, (ushort)0);
+            }
+            void Unchanged()
+            {
+                Check(shooter.Health == 0 && shooter.CurrentWeapon == BeamType.PowerBeam
+                    && shooter.EquipInfo.Ammo == 0 && shooter.EquipInfo.ChargeLevel == 0
+                    && !shooter.EquipInfo.Zoomed && (ushort)cooldown.GetValue(shooter)! == 0
+                    && !shooter.Controls.Shoot.IsDown && !shooter.Controls.Shoot.IsPressed
+                    && !shooter.Controls.Shoot.IsReleased,
+                    "accepted fire preserves present health, weapon, ammo, charge, zoom, cooldown and controls");
+                Check(!NetFireEvents.TryAcceptedKey(shooter, out _), "accepted fire context closes after emission");
+            }
+            BeamProjectileEntity Find(uint id)
+            {
+                var beam = shooter.EquipInfo.Beams.FirstOrDefault(candidate => candidate.ModShotId == id);
+                Check(beam != null, $"accepted shot {id} emits a stamped projectile");
+                return beam!;
+            }
+            void Drain(in IntentPacket packet)
+            {
+                NetSession.RemoteIntents[0] = packet; NetSession.RemoteIntentValid[0] = true;
+                Check(NetFireEvents.Accept(0, packet), "fixture carrier admitted to accepted ledger");
+                NetFireEvents.DrainAccepted(shooter); Unchanged();
+            }
             try
             {
-                Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
-                NetFireEvents.Prepare(shooter, carrier);
-                object[] timing = { shooter.SlotIndex, true, 0, 0.0 };
-                typeof(NetUnlagged).GetMethod("RewindFor", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, timing);
-                Check((double)timing[3] > 0, "recovered event ACK is selected before validating a newer carrier ACK");
-
-                typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
-                Check((bool)fire.Invoke(shooter, null)!, "recovered press spawns from retained fire event");
-                BeamProjectileEntity? beam = null;
-                foreach (var candidate in shooter.EquipInfo.Beams) if (candidate.ModShotId == 41) beam = candidate;
-                Check(beam != null && beam.ModLaunchFrame == source.AckFrame && beam.ModLaunchKey.ShotId == 41,
-                    "non-1:1 carrier ACK retains original ShotId and launch clock");
+                PresentState(); victim.Health = 999;
+                var source = Event(41, BeamType.Missile);
+                var carrier = Carrier(source);
+                Drain(carrier);
+                var beam = Find(41);
+                Check(beam.Beam == BeamType.Missile && beam.ModLaunchFrame == source.AckFrame
+                    && beam.ModLaunchKey.ShotId == 41 && beam.ModLaunchLife == sourceLife,
+                    "dead owner recovered shot retains authored weapon, launch clock and full identity");
                 int before = victim.Health;
                 victim.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, beam);
                 Check(victim.Health == before - 1, "authority applies recovered physical hit once");
-                var claim = Claim(0, now); claim.Beam = (byte)BeamType.Missile; claim.ShotId = 41; claim.LaunchFrame = source.AckFrame;
+                var claim = Claim(0, now); claim.Beam = (byte)BeamType.Missile;
+                claim.ShotId = 41; claim.LaunchFrame = source.AckFrame;
                 Receive(0, claim); NetHitClaims.Tick();
                 Check(victim.Health == before - 1 && NetHitClaims.DuplicateHere == 1 && NetHitClaims.AppliedHere == 0,
-                    "recovered shot double-hit regression: later claim never rescues duplicate damage");
-                Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
-                NetFireEvents.Prepare(shooter, carrier);
-                Check(!NetFireEvents.CanFire(shooter), "repeated or reordered carrier cannot fire twice");
-                carrier.Frame++; carrier.FireEventCount = 2;
-                carrier.FireEvents[1] = source with { ShotId = 42, SourceFrame = 101 };
-                NetSession.RemoteIntents[0] = carrier;
-                Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
-                NetFireEvents.Prepare(shooter, carrier);
-                typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
-                Check((bool)fire.Invoke(shooter, null)!, "second rapid shot with same launch clock spawns independently");
-                foreach (var candidate in shooter.EquipInfo.Beams) if (candidate.ModShotId == 42) beam = candidate;
+                    "recovered shot later claim never rescues duplicate physical damage");
+                long fired = NetFireEvents.CaptureLedger(0).Fired;
+                Drain(carrier); carrier.Frame--; Drain(carrier);
+                Check(NetFireEvents.CaptureLedger(0).Fired == fired,
+                    "repeated and reordered carriers emit no duplicate projectiles");
+
+                // Release pool slots between fixtures: Spawn must not recycle a live
+                // fixture and accidentally apply collision damage during the next case.
+                foreach (var candidate in shooter.EquipInfo.Beams) candidate.Lifespan = 0;
+                var second = Event(42, BeamType.Missile);
+                Drain(Carrier(second)); beam = Find(42);
                 victim.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, beam);
                 claim.ClaimId = 2; claim.ShotId = 42;
                 Receive(0, claim); NetHitClaims.Tick();
@@ -387,61 +420,131 @@ namespace MphRead.Mods.Network
                     "distinct ShotIds at the same launch frame both pay exactly once");
                 NetHitClaims.ValidateLedgerCounters();
 
-                // Quick-scope regression: the carrier that finally delivers a
-                // lost shot may already say "unscoped". The fire event must
-                // restore the scope state from the frame the shot was authored.
-                shooter.ModArmWeapon(BeamType.Imperialist);
-                shooter.ModSetZoom(false);
-                carrier.Frame++;
-                carrier.FireEventCount++;
-                uint scopedId = (uint)(40 + carrier.FireEventCount);
-                carrier.Buttons &= ~IntentButtons.ZoomedState;
-                carrier.FireEvents[carrier.FireEventCount - 1] = new(scopedId, carrier.Frame,
-                    source.AckFrame, source.AckSubFrame, FireEventKind.PressFire,
-                    (byte)BeamType.Imperialist, 0, FireEvent.ScopedStateBit);
-                NetSession.RemoteIntents[0] = carrier;
-                Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
-                NetFireEvents.Prepare(shooter, carrier);
-                Check(!shooter.EquipInfo.Zoomed,
-                    "recovered Imperialist quick-scope leaves newer carrier zoom state intact");
-                typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
-                Check((bool)fire.Invoke(shooter, null)!,
-                    "recovered scoped Imperialist quick-scope actually spawns");
-                BeamProjectileEntity? scopedBeam = null;
-                foreach (var candidate in shooter.EquipInfo.Beams)
-                    if (candidate.ModShotId == scopedId) scopedBeam = candidate;
-                Check(scopedBeam != null && scopedBeam.HeadshotDamage == shooter.EquipInfo.HeadshotDamage,
-                    "recovered scoped Imperialist keeps full headshot damage");
-                Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
-                NetFireEvents.Prepare(shooter, carrier);
-                Check(!NetFireEvents.CanFire(shooter),
-                    "repeated scoped Imperialist carrier cannot fire twice");
+                foreach (var candidate in shooter.EquipInfo.Beams) candidate.Lifespan = 0;
+                fired = NetFireEvents.CaptureLedger(0).Fired;
+                var burstCarrier = Carrier(Event(43, BeamType.OmegaCannon), Event(44, BeamType.PowerBeam, FireEventKind.AutomaticFire));
+                NetSession.RemoteIntents[0] = burstCarrier; NetSession.RemoteIntentValid[0] = true;
+                Check(NetFireEvents.Accept(0, burstCarrier), "burst admitted before normal remote input hook");
+                Check(NetHooks.TryApplyRemoteInput(shooter, 0), "normal remote input hook owns accepted burst playback");
+                Unchanged();
+                Check(Find(43).Beam == BeamType.OmegaCannon && Find(44).Beam == BeamType.PowerBeam
+                    && NetFireEvents.CaptureLedger(0).Fired == fired + 2,
+                    "same-frame Omega-to-Power Beam burst drains both authored weapons once");
 
-                foreach (var kind in new[] { FireEventKind.ReleaseFire, FireEventKind.AutomaticFire })
+                foreach (var candidate in shooter.EquipInfo.Beams) candidate.Lifespan = 0;
+                byte missileCharge = (byte)(shooter.OwningScene.WeaponRules[(int)BeamType.Missile].FullCharge * 2);
+                Drain(Carrier(Event(45, BeamType.Missile, FireEventKind.ReleaseFire, missileCharge)));
+                Check(Find(45).Beam == BeamType.Missile && Find(45).Flags.TestFlag(BeamFlags.Charged),
+                    "charged missile release uses authored charge while present charge stays zero");
+
+                foreach (var candidate in shooter.EquipInfo.Beams) candidate.Lifespan = 0;
+                Drain(Carrier(Event(46, BeamType.Imperialist, state: FireEvent.ScopedStateBit)));
+                Check(Find(46).HeadshotDamage == shooter.OwningScene.WeaponRules[(int)BeamType.Imperialist].HeadshotDamage,
+                    "recovered scoped Imperialist retains full headshot damage while currently unscoped");
+
+                foreach (var candidate in shooter.EquipInfo.Beams) candidate.Lifespan = 0;
+                shooter.Spawn(shooter.Position, Vector3.UnitZ, Vector3.UnitY, shooter.NodeRef, respawn: true);
+                Check(NetPlayerLifecycle.Get(0) != sourceLife, "fixture advances actual owner life");
+                PresentState();
+                var oldCarrier = Carrier(Event(47, BeamType.Missile));
+                oldCarrier.LifeId = sourceLife;
+                var currentPosition = shooter.Position;
+                oldCarrier.Position = currentPosition + Vector3.UnitX * 100;
+                oldCarrier.WeaponSelect = (byte)BeamType.OmegaCannon;
+                Check(NetSession.AcceptSlotIntent(0, oldCarrier), "old-life carrier admits retained event without movement intake");
+                Check(!NetSession.RemoteIntentValid[0] && shooter.Position == currentPosition,
+                    "old-life carrier cannot install movement or current input state");
+                NetFireEvents.DrainAccepted(shooter); Unchanged();
+                var impossibleCarrier = Carrier(Event(49, BeamType.PowerBeam) with { SourceLife = NetPlayerLifecycle.Get(0) });
+                impossibleCarrier.LifeId = sourceLife;
+                Check(!NetSession.AcceptSlotIntent(0, impossibleCarrier),
+                    "event source life newer than its carrier is rejected");
+                beam = Find(47);
+                Check(beam.ModLaunchLife == sourceLife && beam.ModLaunchKey.LifeId == sourceLife
+                    && NetPlayerLifecycle.CurrentProjectile(beam),
+                    "late old-life event after respawn keeps original launch key and valid flight ownership");
+                int oldLifeBefore = victim.Health;
+                victim.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, beam);
+                Check(victim.Health == oldLifeBefore - 1, "old-life accepted flight deals authority physical hit");
+                long duplicatesBefore = NetHitClaims.DuplicateHere;
+                long rescuesBefore = NetHitClaims.AppliedHere;
+                var oldClaim = Claim(0, now); oldClaim.ClaimId = 50;
+                oldClaim.ShotId = 47; oldClaim.Beam = (byte)BeamType.Missile;
+                oldClaim.ShooterLifeId = sourceLife; oldClaim.LaunchFrame = now - 2;
+                byte oldVerdict = 255;
+                var savedSink = NetHitClaims.CombatAckSink;
+                NetHitClaims.CombatAckSink = (_, entries) =>
                 {
-                    shooter.ModArmWeapon(BeamType.PowerBeam);
-                    byte charge = kind == FireEventKind.ReleaseFire ? (byte)(shooter.EquipInfo.Weapon.FullCharge * 2) : (byte)0;
-                    carrier.Frame++; carrier.FireEventCount++;
-                    uint id = (uint)(40 + carrier.FireEventCount);
-                    carrier.FireEvents[carrier.FireEventCount - 1] = new(id, carrier.Frame, source.AckFrame,
-                        source.AckSubFrame, kind, (byte)BeamType.PowerBeam, charge, 0);
-                    NetSession.RemoteIntents[0] = carrier;
-                    Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
-                    NetFireEvents.Prepare(shooter, carrier);
-                    Check(shooter.EquipInfo.ChargeLevel == charge
-                        && (kind != FireEventKind.ReleaseFire || shooter.Controls.Shoot.IsReleased),
-                        $"lost {kind} retains charge and control edge");
-                    typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
-                    Check((bool)fire.Invoke(shooter, null)!, $"retained {kind} actually spawns");
-                    bool stamped = false;
-                    foreach (var candidate in shooter.EquipInfo.Beams) if (candidate.ModShotId == id) stamped = true;
-                    Check(stamped, $"retained {kind} carries independent shot identity");
-                    Check(NetFireEvents.Accept(shooter.SlotIndex, carrier), "fixture carrier admitted to fire-event ledger");
-                    NetFireEvents.Prepare(shooter, carrier);
-                    Check(!NetFireEvents.CanFire(shooter), $"repeated {kind} does not spawn twice");
+                    foreach (var entry in entries) if (entry.ClaimId == oldClaim.ClaimId) oldVerdict = entry.Result;
+                };
+                try
+                {
+                    Receive(0, oldClaim); NetHitClaims.Tick();
+                    Check(oldVerdict == HitVerdictPacket.ResultDuplicate
+                        && victim.Health == oldLifeBefore - 1
+                        && NetHitClaims.DuplicateHere == duplicatesBefore + 1
+                        && NetHitClaims.AppliedHere == rescuesBefore,
+                        "old-life full-key claim pairs resolved physical hit without rescue");
+                    oldVerdict = 255;
+                    Receive(0, oldClaim); NetHitClaims.Tick();
+                    Check(oldVerdict == HitVerdictPacket.ResultDuplicate
+                        && NetHitClaims.DuplicateHere == duplicatesBefore + 1
+                        && victim.Health == oldLifeBefore - 1,
+                        "old-life duplicate claim retry repeats verdict without consuming another hit");
+                    oldClaim.ClaimId++; oldClaim.ShotId = 48; oldVerdict = 255;
+                    Receive(0, oldClaim); NetHitClaims.Tick();
+                    Check(oldVerdict == HitVerdictPacket.ResultWrongLife
+                        && NetHitClaims.ClaimsPendingCurrent == 0
+                        && NetHitClaims.AppliedHere == rescuesBefore && victim.Health == oldLifeBefore - 1,
+                        "unresolved old-life claim receives explicit wrong-life verdict without damage rescue");
                 }
+                finally { NetHitClaims.CombatAckSink = savedSink; }
+                NetHitClaims.ValidateLedgerCounters();
+                foreach (var candidate in shooter.EquipInfo.Beams) candidate.Lifespan = 0;
+                var sceneState = shooter.OwningScene.GameState;
+                bool savedEnhanced = sceneState.EnhancedHunters, savedBalanced = sceneState.BalancedMode;
+                var savedHunter = shooter.Hunter;
+                var enhanced = shooter.EnhancedState;
+                byte savedPips = enhanced.ValueA, savedB = enhanced.ValueB;
+                int savedTimer = enhanced.TimerB, savedContacts = enhanced.ContactFrames;
+                try
+                {
+                    sceneState.EnhancedHunters = true; sceneState.BalancedMode = false;
+                    shooter.Hunter = Hunter.Samus;
+                    enhanced.ValueA = 3; enhanced.ValueB = 7; enhanced.TimerB = 91; enhanced.ContactFrames = 17;
+                    victim.Health = 999;
+                    var enhancedFire = Event(50, BeamType.Missile, FireEventKind.ReleaseFire,
+                        missileCharge, FireEvent.EnhancedStateBit | FireEvent.AffinityStateBit | 2u) with { Target = NetTargetIdentity.ForSlot(1), AckFrame = now, AckSubFrame = 0 };
+                    Drain(Carrier(enhancedFire));
+                    var flights = shooter.EquipInfo.Beams.Where(candidate => candidate.Lifespan > 0
+                        && candidate.ModShotId == 50).ToArray();
+                    Check(flights.Length == 3 && flights.Count(candidate => candidate.EnhancedMicroSeeker) == 2
+                        && flights.All(candidate => candidate.Beam == BeamType.Missile
+                            && candidate.ModLaunchKey == flights[0].ModLaunchKey
+                            && candidate.ModLaunchLife == sourceLife)
+                        && flights.Where(candidate => candidate.EnhancedMicroSeeker).All(candidate => candidate.Target == victim),
+                        "accepted Samus barrage uses captured two pips, fenced target and authored Missile child identity: "
+                        + string.Join(";", shooter.EquipInfo.Beams.Where(b => b.ModShotId == 50).Select(b => $"{b.Beam}/micro={b.EnhancedMicroSeeker}/life={b.Lifespan}/key={b.ModLaunchKey}/target={b.Target?.Id}")));
+                    Check(enhanced.ValueA == 3 && enhanced.ValueB == 7
+                        && enhanced.TimerB == 91 && enhanced.ContactFrames == 17,
+                        "accepted old-life Samus barrage preserves present enhanced pips and timers");
+                    Unchanged();
+                }
+                finally
+                {
+                    sceneState.EnhancedHunters = savedEnhanced; sceneState.BalancedMode = savedBalanced;
+                    shooter.Hunter = savedHunter; enhanced.ValueA = savedPips; enhanced.ValueB = savedB;
+                    enhanced.TimerB = savedTimer; enhanced.ContactFrames = savedContacts;
+                }
+                var ledger = NetFireEvents.CaptureLedger(0);
+                Check(ledger.Pending == 0 && ledger.Rejected == 0 && ledger.Expired == 0,
+                    "every retained fixture shot has one fired terminal disposition");
             }
-            finally { NetSession.RemoteIntentValid[0] = false; NetFireEvents.Reset(); PrepareClaims(); }
+            finally
+            {
+                NetSession.RemoteIntentValid[0] = false; NetFireEvents.Reset();
+                NetFireEvents.AcceptedPlaybackEnabled = savedPlayback; PrepareClaims();
+            }
         }
 
         private static void ContinuousPhaseAgreesAcrossPeers()

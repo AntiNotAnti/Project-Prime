@@ -46,12 +46,12 @@ internal sealed class NetOutgoingFireHistory
     {
         Prune(intent.Frame);
         intent.HasFireEvents = true; intent.FireEventCount = 0; intent.FireEvents = default;
-        Span<int> selected = stackalloc int[NetFireEvents.Capacity];
+        Span<int> selected = stackalloc int[NetFireEvents.LiveCapacity];
         int count = 0;
         for (int i = 0; i < _count && count < selected.Length; i++)
             if (!_sent[i]) selected[count++] = i;
         int scans = 0;
-        int repeatBudget = Math.Min(NetFireEvents.Capacity, Math.Max(RepeatBudget, (_count + 5) / 6));
+        int repeatBudget = Math.Min(NetFireEvents.LiveCapacity, Math.Max(RepeatBudget, (_count + 5) / 6));
         while (count < repeatBudget && scans++ < _count)
         {
             int index = _cursor; _cursor = (_cursor + 1) % _count;

@@ -41,7 +41,7 @@ internal static class NetCampaignEvidence
         && (SpectatorMode.IsSpectating || !HitRig.IsSniper
             || Offered.Any(key => key.ShooterSlot == NetSession.LocalSlot));
     private sealed record Shot(string Stage, ShotKey Key, uint SourceFrame, uint ObservedFrame,
-        byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase);
+        byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase, string? Reason = null);
     private sealed record Health(ulong Epoch, ushort Match, uint Frame, byte Slot, ushort Generation,
         ushort Life, ushort Hp, ushort TurretHp, ushort Kills, ushort Deaths, uint DamageEvent);
     private sealed record Fact(byte Type, ulong Epoch, ushort Match, uint Id, uint Tick,
@@ -66,7 +66,7 @@ internal static class NetCampaignEvidence
         {
             var fire = intent.FireEvents[i];
             var key = new ShotKey(intent.AuthorityEpoch, intent.MatchId, slot,
-                intent.SlotGeneration, intent.LifeId, fire.ShotId);
+                intent.SlotGeneration, fire.SourceLife != 0 ? fire.SourceLife : intent.LifeId, fire.ShotId);
             if (seen.Contains(key)) continue;
             if (seen.Count >= RowLimit) { _overflow++; continue; }
             seen.Add(key);
@@ -85,8 +85,22 @@ internal static class NetCampaignEvidence
     internal static void Committed(PlayerEntity player, in FireEvent fire)
     {
         if (!Enabled || fire.ShotId == 0 || player.SceneServices.IsReplica) return;
-        Add(Shots, new("committed", ShotKey.For(player.SlotIndex, fire.ShotId), fire.SourceFrame,
+        Add(Shots, new("committed", NetFireEvents.TryAcceptedKey(player, out var accepted) ? accepted
+            : ShotKey.For(player.SlotIndex, fire.ShotId), fire.SourceFrame,
             NetSession.NetFrame, fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase));
+    }
+
+    internal static void Disposition(AcceptedShot shot, ShotDisposition disposition, string reason)
+    {
+        if (!Enabled) return;
+        Add(Shots, new(disposition.ToString().ToLowerInvariant(), shot.Key, shot.Fire.SourceFrame,
+            NetSession.NetFrame, shot.Fire.Weapon, shot.Fire.Charge, shot.Fire.Kind, shot.Fire.ContinuousPhase, reason));
+    }
+    internal static void AdmissionRejected(ShotKey key, FireEvent fire, string reason)
+    {
+        if (!Enabled) return;
+        Add(Shots, new("admission-rejected", key, fire.SourceFrame, NetSession.NetFrame,
+            fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase, reason));
     }
 
     internal static void State(in PlayerState state, uint frame)
@@ -190,6 +204,7 @@ internal static class NetCampaignEvidence
             if (_start != 0) CaptureWindow(Stopwatch.GetTimestamp());
             var assembly = typeof(NetCampaignEvidence).Assembly;
             var report = new { Schema = 1, Role = role, Protocol = NetConfig.ProtocolVersion,
+                AcceptedShotPlayback = NetFireEvents.AcceptedPlaybackEnabled,
                 Version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
                 Platform = RuntimeInformation.OSDescription, Runtime = RuntimeInformation.FrameworkDescription,
                 Architecture = RuntimeInformation.ProcessArchitecture.ToString(),

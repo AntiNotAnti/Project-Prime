@@ -780,11 +780,16 @@ namespace MphRead.Mods.Network
             if (pending != ClaimsPendingCurrent || resolved != ResolvedLedgerCurrent || rescued != RescuedLedgerCurrent)
                 throw new InvalidOperationException($"Ledger counters differ: {pending}/{ClaimsPendingCurrent}, {resolved}/{ResolvedLedgerCurrent}, {rescued}/{RescuedLedgerCurrent}");
         }
+        private static bool ResolvedShooterCurrent(in ShotKey key, int slot)
+            => NetSession.MatchesStream(key.MatchId, key.AuthorityEpoch)
+                && key.ShooterSlot == slot && key.Generation != 0 && key.LifeId != 0
+                && key.Generation == NetPlayerLifecycle.Generation(slot);
+
         private static bool LedgerLive(int attacker, int victim, int index)
         {
             if (!_authorityLive[attacker, victim, index]) return false;
             if (NetSession.NetFrame - _authorityHit[attacker, victim, index] > MaxGraceFrames
-                || _authorityKeys[attacker, victim, index] != ShotKey.For(attacker, _authorityKeys[attacker, victim, index].ShotId)
+                || !ResolvedShooterCurrent(_authorityKeys[attacker, victim, index], attacker)
                 || !NetPlayerLifecycle.Matches(victim, _victimGeneration[attacker, victim, index], _victimLife[attacker, victim, index]))
             {
                 if (!_authorityHitUsed[attacker, victim, index]) ResolvedLedgerExpiredUnused++;
@@ -947,7 +952,7 @@ namespace MphRead.Mods.Network
         }
 
         private static bool TakeLedger(int attacker, int victim, uint claimAck,
-            uint claimLaunch, uint arrived, int window, out int authorityDamage, uint shotId = 0)
+            uint claimLaunch, uint arrived, int window, out int authorityDamage, uint shotId = 0, ShotKey? claimKey = null)
         {
             authorityDamage = 0;
             // Pair explicit lifecycle-fenced ShotId, independently of launch/ACK clocks.
@@ -961,7 +966,7 @@ namespace MphRead.Mods.Network
                     {
                         continue;
                     }
-                    if (_authorityKeys[attacker, victim, i] == ShotKey.For(attacker, shotId))
+                    if (_authorityKeys[attacker, victim, i] == (claimKey ?? ShotKey.For(attacker, shotId)))
                     {
                         _authorityHitUsed[attacker, victim, i] = true;
                         authorityDamage = _authorityHitDamage[attacker, victim, i];
@@ -1248,7 +1253,7 @@ namespace MphRead.Mods.Network
                 Received++;
                 if (claim.ShooterLifeId == 0 || claim.VictimLifeId == 0
                     || !NetSession.MatchesStream(claim.MatchId, claim.AuthorityEpoch)
-                    || !NetPlayerLifecycle.Matches(shooterSlot, claim.ShooterGeneration, claim.ShooterLifeId))
+                    || claim.ShooterGeneration == 0 || claim.ShooterGeneration != NetPlayerLifecycle.Generation(shooterSlot))
                 {
                     NetPlayerLifecycle.OldLifeClaims++;
                     continue;
@@ -1261,10 +1266,61 @@ namespace MphRead.Mods.Network
                             VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId });
                     continue;
                 }
+                if (claim.ShooterLifeId != NetPlayerLifecycle.Get(shooterSlot))
+                {
+                    // N3 supports acknowledging an exact authority-resolved old-life
+                    // flight, never rescuing damage using a different present body.
+                    var key = new ShotKey(claim.AuthorityEpoch, claim.MatchId, shooterSlot,
+                        claim.ShooterGeneration, claim.ShooterLifeId, claim.ShotId);
+                    var outcome = new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot,
+                        VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId };
+                    int seenAt = claim.ClaimId % SeenCapacity;
+                    if (claim.ClaimId != 0 && _seenIds[shooterSlot, seenAt] == claim.ClaimId
+                        && _seenKeys[shooterSlot, seenAt] == key
+                        && _seenResults[shooterSlot, seenAt] == HitVerdictPacket.ResultDuplicate
+                        && _seenOutcomes[shooterSlot, seenAt].VictimSlot == claim.VictimSlot
+                        && _seenOutcomes[shooterSlot, seenAt].VictimGeneration == claim.VictimGeneration
+                        && _seenOutcomes[shooterSlot, seenAt].VictimLife == claim.VictimLifeId)
+                    {
+                        RepeatsHere++;
+                        Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate,
+                            remember: false, outcome: _seenOutcomes[shooterSlot, seenAt]);
+                    }
+                    else if (claim.ClaimId != 0 && claim.ShotId != 0
+                        && TakeLedger(shooterSlot, claim.VictimSlot, claim.AckFrame, claim.LaunchFrame,
+                            NetSession.NetFrame, MaxGraceFrames, out _, claim.ShotId, key))
+                    {
+                        DuplicateHere++;
+                        // Do not replace a present-life claim's answer when an
+                        // earlier life reused its ClaimId. Full shot keys remain distinct.
+                        bool cache = _seenIds[shooterSlot, seenAt] != claim.ClaimId
+                            || _seenKeys[shooterSlot, seenAt] == key;
+                        if (cache)
+                        {
+                            _seenKeys[shooterSlot, seenAt] = key;
+                            _seenBeams[shooterSlot, seenAt] = (BeamType)claim.Beam;
+                        }
+                        ushort currentNewest = _newestId[shooterSlot];
+                        Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate,
+                            remember: cache, outcome: _takenOutcome);
+                        _newestId[shooterSlot] = currentNewest;
+                    }
+                    else
+                    {
+                        NetPlayerLifecycle.OldLifeClaims++;
+                        Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultWrongLife,
+                            remember: false, outcome: outcome);
+                    }
+                    continue;
+                }
                 // A repeat of something already answered. The answer is
                 // repeated too: the shooter is asking because the first one
                 // did not arrive.
-                if (Seen(shooterSlot, claim.ClaimId))
+                var claimKey = new ShotKey(claim.AuthorityEpoch, claim.MatchId, shooterSlot,
+                    claim.ShooterGeneration, claim.ShooterLifeId, claim.ShotId);
+                if (Seen(shooterSlot, claim.ClaimId)
+                    && (_seenIds[shooterSlot, claim.ClaimId % SeenCapacity] != claim.ClaimId
+                        || _seenKeys[shooterSlot, claim.ClaimId % SeenCapacity].LifeId == claim.ShooterLifeId))
                 {
                     RepeatsHere++;
                     int seenAt = claim.ClaimId % SeenCapacity;
@@ -1275,7 +1331,7 @@ namespace MphRead.Mods.Network
                 }
                 int claimAt = claim.ClaimId % SeenCapacity;
                 _seenBeams[shooterSlot, claimAt] = (BeamType)claim.Beam;
-                _seenKeys[shooterSlot, claimAt] = ShotKey.For(shooterSlot, claim.ShotId);
+                _seenKeys[shooterSlot, claimAt] = claimKey;
                 NetShotDiagnostics.Claims[NetShotDiagnostics.Bucket((BeamType)claim.Beam)]++;
                 Remember(shooterSlot, claim.ClaimId, ResultPending);
                 _seenOutcomes[shooterSlot, claimAt] = new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot, VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId };
@@ -1815,7 +1871,9 @@ namespace MphRead.Mods.Network
                     if (entry.ContinuousPhase != 0
                         ? TakeContinuousLedger(entry.ShooterSlot, entry.VictimSlot, entry.ContinuousPhase, out resolved)
                         : TakeLedger(entry.ShooterSlot, entry.VictimSlot, entry.AckFrame,
-                            entry.LaunchFrame, entry.Arrived, entry.Grace, out resolved, entry.ShotId))
+                            entry.LaunchFrame, entry.Arrived, entry.Grace, out resolved, entry.ShotId,
+                            new ShotKey(entry.AuthorityEpoch, entry.MatchId, entry.ShooterSlot,
+                                entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId)))
                     {
                         // A validated Imperialist headshot can pair with the
                         // authority's body hit when the two rewinds differ by

@@ -28,6 +28,7 @@ namespace MphRead.NetTest
 
         private static int Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "--shot-lifecycle") return ShotLifecycleTests.Run();
             if (args.Length > 0 && args[0] == "--gamemodecheck") return GameModeCheck.Run();
             if (args.Length > 1 && args[0] == "--gamemodecheck-scene")
             {

@@ -21,7 +21,7 @@ internal sealed class ReplayReplicaCheckpoint
 internal sealed partial class ReplayReplicaState
 {
     private const uint CheckpointMagic = 0x43525050; // PPRC, independent of demo/wire formats
-    private const ushort CheckpointVersion = 6;
+    private const ushort CheckpointVersion = 7;
     internal ReplayReplicaCheckpoint CaptureCheckpoint()
     {
         using var stream = new MemoryStream();
@@ -159,7 +159,9 @@ internal sealed partial class ReplayReplicaState
                 restored._lives[i].Restore(new(reader.ReadUInt16(), reader.ReadUInt16(),
                     (NetworkPlayerState)reader.ReadByte(), reader.ReadBoolean()));
                 restored._hasPlayer[i] = reader.ReadBoolean(); restored._players[i] = ReadPlayer();
-                restored._hasIntent[i] = reader.ReadBoolean(); restored._intents[i] = IntentPacket.Read(Read(IntentPacket.FullSize));
+                restored._hasIntent[i] = reader.ReadBoolean(); restored._intents[i] = IntentPacket.Read(Read(protocol >= 43 ? IntentPacket.FullSize
+                    : protocol >= 39 ? IntentPacket.Protocol42FullSize
+                    : protocol >= 30 ? IntentPacket.Protocol38FullSize : IntentPacket.LegacyFullSize));
                 restored._intentReceivedFrame[i] = reader.ReadUInt32();
                 if (restored._lives[i].Generation != restored._roster[i].Generation
                     || restored._hasPlayer[i] && (!restored.MatchesLife(i, restored._players[i].SlotGeneration, restored._players[i].LifeId)

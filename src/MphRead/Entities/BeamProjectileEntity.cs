@@ -1642,7 +1642,7 @@ namespace MphRead.Entities
             if (turretOwner != null)
             {
                 if (!NetFireEvents.CanFireTurret(turretOwner)) return BeamResultFlags.NoSpawn;
-                NetFireEvents.Begin(turretOwner, position, direction, turret: true);
+                NetFireEvents.Begin(turretOwner, position, direction, turret: true, firedEquip: equip);
             }
             BeamResultFlags result = BeamResultFlags.Spawned;
             WeaponInfo weapon = equip.Weapon;
@@ -1676,7 +1676,9 @@ namespace MphRead.Entities
             {
                 // Consume at the attempt, not after the beam is allocated: a
                 // no-ammo release must not leak its target into the next shot.
-                syncedHomingTarget = homingOwner.ModConsumePendingHomingTarget();
+                syncedHomingTarget = NetFireEvents.TryAcceptedKey(homingOwner, out _)
+                    && NetFireEvents.TryTiming(homingOwner, out var acceptedFire)
+                    ? acceptedFire.Target : homingOwner.ModConsumePendingHomingTarget();
             }
             int cost = (int)GetAmount(weapon.AmmoCost, weapon.MinChargeCost, weapon.ChargeCost);
             ulong phase = scene.FrameCount;
@@ -1750,6 +1752,18 @@ namespace MphRead.Entities
                 }
             }
             int projectiles = (int)GetAmount(weapon.Projectiles, weapon.MinChargeProjectiles, weapon.ChargedProjectiles);
+            if (owner is PlayerEntity acceptedPlayer && NetFireEvents.TryAcceptedKey(acceptedPlayer, out _))
+            {
+                int free = 0;
+                foreach (var candidate in equip.Beams) if (candidate.Lifespan <= 0) free++;
+                // Reserve the whole pellet burst before emitting any part of it.
+                int required = projectiles;
+                if (parent == null && acceptedPlayer.Hunter == Hunter.Samus && charged
+                    && Mods.EnhancedHunters.EnhancedHunters.UsingAffinity(acceptedPlayer, weapon.Beam)
+                    && NetFireEvents.TryTiming(acceptedPlayer, out var acceptedBurst))
+                    required += acceptedBurst.EnhancedPips;
+                if (free < required) return BeamResultFlags.NoSpawn;
+            }
             if (projectiles <= 0)
             {
                 return result;
@@ -2011,7 +2025,8 @@ namespace MphRead.Entities
                 beam.ModLaunchAuthority = 0;
                 beam.ModLaunchGeneration = beam.ModLaunchLife = 0;
                 beam.ModLaunchKey = default;
-                if (!scene.Services.IsReplica)
+                if (!scene.Services.IsReplica || owner is PlayerEntity acceptedOwner
+                    && NetFireEvents.TryAcceptedKey(acceptedOwner, out _))
                 {
                     NetPlayerLifecycle.StampProjectile(beam, parent);
                 }

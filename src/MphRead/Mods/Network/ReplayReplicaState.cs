@@ -240,7 +240,8 @@ namespace MphRead.Mods.Network
                     accepted = AcceptSnapshot(payload);
                     break;
                 case PacketType.SlotIntent:
-                    if ((payload.Length != 1 + IntentPacket.Size && payload.Length != 1 + IntentPacket.FullSize)
+                    if ((payload.Length != 1 + IntentPacket.Size && payload.Length != 1 + IntentPacket.FullSize
+                        && payload.Length != 1 + IntentPacket.Protocol42FullSize)
                         || payload[0] >= _intents.Length) throw Malformed();
                     int actor = payload[0];
                     IntentPacket intent = IntentPacket.Read(payload[1..]);

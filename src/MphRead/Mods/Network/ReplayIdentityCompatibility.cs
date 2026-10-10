@@ -6,8 +6,8 @@ namespace MphRead.Mods.Network;
 
 /// <summary>
 /// Upgrades recorded packets at playback boundaries, never on a live connection.
-/// Protocol 42 changes only the live intent codec: replay intents remain canonical
-/// fixed-width records, including historical protocol 41 recordings.
+/// Replay intents retain canonical fixed-width records. Protocol 43 adds shot
+/// lifecycle and target fields; earlier strides are expanded at this boundary.
 /// Historical replays are deliberately best-effort: missing fields get historical
 /// defaults and optional packet families may be ignored, while live peers still
 /// have to match <see cref="NetConfig.ProtocolVersion"/> exactly.
@@ -74,24 +74,20 @@ internal static class ReplayIdentityCompatibility
                 Require(converted.Length == prefix + IntentPacket.FullSize);
             }
         }
-        else if (protocol < 39 && type is PacketType.Intent or PacketType.SlotIntent)
+        else if (protocol < 43 && type is PacketType.Intent or PacketType.SlotIntent)
         {
             int prefix = type == PacketType.SlotIntent ? 2 : 1;
-            Require(converted.Length == prefix + IntentPacket.Protocol38FullSize);
-            byte[] expanded = new byte[prefix + IntentPacket.FullSize];
-            converted[..(prefix + IntentPacket.LegacyFullSize)].CopyTo(expanded);
-            byte count = converted[prefix + IntentPacket.LegacyFullSize];
-            expanded[prefix + IntentPacket.LegacyFullSize] = count;
-            int copyCount = Math.Min((int)count, NetFireEvents.Capacity);
-            for (int i = 0; i < copyCount; i++)
+            int oldSize = protocol < 39 ? IntentPacket.Protocol38FullSize : IntentPacket.Protocol42FullSize;
+            // Test fixtures and already canonicalized inputs may already carry the current width.
+            if (converted.Length != prefix + IntentPacket.FullSize)
             {
-                int oldAt = prefix + IntentPacket.LegacyFullSize + 1 + i * FireEvent.LegacySize;
-                int newAt = prefix + IntentPacket.LegacyFullSize + 1 + i * FireEvent.Size;
-                converted.Slice(oldAt, FireEvent.LegacySize).CopyTo(expanded.AsSpan(newAt));
-                // PoseFlags/origin/direction remain zero: old recordings keep
-                // slice-2 timing but cannot claim an exact source shot pose.
+                Require(converted.Length == prefix + oldSize);
+                var intent = IntentPacket.Read(converted[prefix..]);
+                byte[] expanded = new byte[prefix + IntentPacket.FullSize];
+                converted[..prefix].CopyTo(expanded);
+                intent.Write(expanded.AsSpan(prefix));
+                converted = expanded;
             }
-            converted = expanded;
         }
 
         if (protocol < 29 && type == PacketType.MatchState

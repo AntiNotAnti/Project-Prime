@@ -1251,10 +1251,11 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            if (!NetPlayerLifecycle.AcceptIntent(peer.SlotIndex, intent)) return;
+            if (!NetPlayerLifecycle.AcceptEventCarrier(peer.SlotIndex, intent)) return;
             if (!NetFireEvents.Accept(peer.SlotIndex, intent)) return;
             NetCampaignEvidence.Intent(peer.SlotIndex, intent, offered: false);
             ReplayCapture.AcceptedIntent(peer.SlotIndex, intent);
+            if (intent.LifeId != NetPlayerLifecycle.Get(peer.SlotIndex)) return;
             // Recovered shots were admitted above; movement follows only the newest carrier.
             if (peer.HasIntentFrame && !NetLifecycleTracker.Newer(intent.Frame, peer.LastIntentFrame))
             {
@@ -1315,12 +1316,13 @@ namespace MphRead.Mods.Network
                 : intent.LifeId != NetPlayerLifecycle.Get(slot) ? NetIntentRejection.WrongLife : NetIntentRejection.None;
             // Identity is checked before ordering. A new occupant/life clears
             // the frame baseline; a late packet can never reset it.
-            if (!NetPlayerLifecycle.AcceptIntent(slot, intent))
+            if (!NetPlayerLifecycle.AcceptEventCarrier(slot, intent))
             { NetTelemetry.Intent(slot, intent.Frame, reason == NetIntentRejection.None ? NetIntentRejection.Invalid : reason); return false; }
             if (!NetFireEvents.Accept(slot, intent))
             { NetTelemetry.Intent(slot, intent.Frame, NetIntentRejection.Invalid); return false; }
             NetCampaignEvidence.Intent(slot, intent, offered: false);
             ReplayCapture.AcceptedIntent(slot, intent);
+            if (intent.LifeId != NetPlayerLifecycle.Get(slot)) return true;
             if (RemoteIntentValid[slot] && !NetLifecycleTracker.Newer(intent.Frame, _lastSlotIntentFrame[slot]))
             {
                 IntentsOutOfOrder++;
@@ -1356,14 +1358,14 @@ namespace MphRead.Mods.Network
         /// player who had left -- and kept their frame counter, which is what
         /// refused the next occupant's packets.
         /// </summary>
-        public static void ForgetSlot(int slot)
+        public static void ForgetSlot(int slot, bool preserveShots = false)
         {
             if (slot < 0 || slot >= PlayerEntity.SlotCapacity)
             {
                 return;
             }
             NetTelemetry.NewLife(slot);
-            NetFireEvents.ForgetSlot(slot);
+            if (!preserveShots) NetFireEvents.ForgetSlot(slot);
             ContinuousPhase.ResetSlot(slot);
             NetContinuousTargeting.ForgetSlot(slot);
             _lastSlotIntentFrame[slot] = 0;

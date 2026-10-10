@@ -9,7 +9,7 @@ public static class CompactIntentCodec
 
     public static int Size(in IntentPacket intent)
     {
-        if (intent.FireEventCount > NetFireEvents.Capacity)
+        if (intent.FireEventCount > NetFireEvents.LiveCapacity)
             throw new ArgumentOutOfRangeException(nameof(intent), "Too many fire events.");
         return HeaderSize + intent.FireEventCount * FireEvent.Size;
     }
@@ -31,13 +31,19 @@ public static class CompactIntentCodec
         intent = default;
         if (payload.Length < HeaderSize) return false;
         byte count = payload[IntentPacket.LegacyFullSize];
-        if (count > NetFireEvents.Capacity || payload.Length != HeaderSize + count * FireEvent.Size)
+        if (count > NetFireEvents.LiveCapacity || payload.Length != HeaderSize + count * FireEvent.Size)
             return false;
         IntentPacket decoded = IntentPacket.Read(payload[..IntentPacket.LegacyFullSize]);
         decoded.HasFireEvents = true;
         decoded.FireEventCount = count;
         for (int i = 0; i < count; i++)
-            decoded.FireEvents[i] = FireEvent.Read(payload.Slice(HeaderSize + i * FireEvent.Size, FireEvent.Size));
+        {
+            var fire = FireEvent.Read(payload.Slice(HeaderSize + i * FireEvent.Size, FireEvent.Size));
+            // Live events carry their own source life. Only legacy canonical
+            // replay records may inherit it from a carrier.
+            if (fire.SourceLife == 0) return false;
+            decoded.FireEvents[i] = fire;
+        }
         if (!float.IsFinite(decoded.Aim.X) || !float.IsFinite(decoded.Aim.Y) || !float.IsFinite(decoded.Aim.Z)
             || !float.IsFinite(decoded.Position.X) || !float.IsFinite(decoded.Position.Y) || !float.IsFinite(decoded.Position.Z)
             || !NetFireEvents.Validate(decoded)) return false;

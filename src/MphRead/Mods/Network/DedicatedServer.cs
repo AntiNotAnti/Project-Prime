@@ -2443,7 +2443,8 @@ namespace MphRead.Mods.Network
             var rejection = intent.MatchId != _matchId ? NetIntentRejection.WrongMatch
                 : intent.AuthorityEpoch != _authorityEpoch ? NetIntentRejection.WrongEpoch
                 : intent.SlotGeneration != _slotGenerations[peer.SlotIndex] ? NetIntentRejection.WrongGeneration
-                : intent.LifeId != life ? NetIntentRejection.WrongLife : NetIntentRejection.None;
+                : intent.LifeId == 0 || life == 0 || unchecked((short)(intent.LifeId - life)) > 0
+                    ? NetIntentRejection.WrongLife : NetIntentRejection.None;
             if (rejection != NetIntentRejection.None) { peer.Telemetry.Intent(intent.Frame, rejection); return; }
             var connection = _transport?.ConnectionStats(peer.EndPoint);
             LagCompensationPolicy.SetTiming(peer.SlotIndex, new LagTiming(
@@ -2454,7 +2455,9 @@ namespace MphRead.Mods.Network
                     && now - peer.TimingReportedAt <= 3 ? peer.PresentationDelay : null));
             if (!NetSession.AcceptSlotIntent(peer.SlotIndex, intent)) return;
             // Admit recovered shots from older carriers without replacing current movement/readiness.
-            if (peer.HasIntentFrame && !NetLifecycleTracker.Newer(intent.Frame, peer.LastIntentFrame))
+            if (intent.LifeId != life)
+            { peer.Telemetry.Intent(intent.Frame, NetIntentRejection.WrongLife); }
+            else if (peer.HasIntentFrame && !NetLifecycleTracker.Newer(intent.Frame, peer.LastIntentFrame))
             {
                 peer.Telemetry.Intent(intent.Frame, peer.LastIntentFrame == intent.Frame
                     ? NetIntentRejection.Duplicate : NetIntentRejection.Reordered);
