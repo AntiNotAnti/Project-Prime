@@ -117,3 +117,13 @@ per-mesh submissions; those counts alone do **not** prove lower frame
 latency. Validate lifetime, VRAM high water, GL2.1 client-state restore,
 3D texture coordinates, RGB/alpha, stencil parity and actual p95/p99
 before turning on E/F/D by default. Batched submission is OFF by default.
+
+### Combined-draw native pixel A/B
+
+Linux OpenGL Mesa CI additionally runs `-glvisualcheck` once with legacy
+lists, once with `-glvbo -glbatch`, and compares the exact five RGBA frames,
+including `combined-opaque.rgba`, on the **same GL driver**. A failure in
+buffer promotion, vertex/index concatenation, color-array state, object
+lifetime or pixel values fails the focused renderer job. This is a synthetic
+shader/fixed-function check and still does not replace native Ice Hive and
+custom-map authoring captures.
