@@ -428,7 +428,7 @@ namespace MphRead.NetTest
             sender.Send(new byte[] { (byte)PacketType.Bye }, 1, endpoint);
 
             Check(System.Threading.SpinWait.SpinUntil(
-                () => transport.StatePacketsCoalesced >= 3, 2000),
+                () => transport.StatePacketsCoalesced >= 2, 2000),
                 "transport actually coalesces burst state");
             // The counter above proves every replaceable packet arrived; give
             // the ordered Bye immediately behind them one scheduler slice too.
@@ -455,8 +455,8 @@ namespace MphRead.NetTest
             }
             Check(snapshots == 1 && newestSnapshot == 3,
                 "latest snapshot wins after a receive burst");
-            Check(intents == 1 && newestIntent == 5,
-                "latest slot intent wins per slot");
+            Check(intents == 2 && newestIntent == 5,
+                "both slot intent carriers survive state coalescing");
             Check(byes == 1, "control traffic is not coalesced");
             Check(transport.PacketsDropped == 0,
                 "coalescing burst does not overflow transport queue");
@@ -490,9 +490,14 @@ namespace MphRead.NetTest
             input.SlotGeneration = 11; input.LifeId = 1; input.Frame = 1;
             NetSession.AcceptSlotIntent(1, input);
             Check(NetSession.RemoteIntentValid[1], "rejected packet did not advance intent ordering");
+            input.Frame = 3; input.Position = new Vector3(3, 0, 0);
+            Check(NetSession.AcceptSlotIntent(1, input), "newer carrier admitted");
+            input.Frame = 2; input.Position = new Vector3(2, 0, 0);
+            Check(NetSession.AcceptSlotIntent(1, input) && NetSession.RemoteIntents[1].Frame == 3
+                && NetSession.RemoteIntents[1].Position.X == 3, "admitted older carrier cannot overwrite movement");
             input.LifeId = 2; input.Frame = 2;
             NetSession.AcceptSlotIntent(1, input);
-            Check(NetSession.RemoteIntents[1].Frame == 1, "unallocated life intent rejected");
+            Check(NetSession.RemoteIntents[1].Frame == 3, "unallocated life intent rejected");
             NetSession.ApplyMatchState(new MatchStatePacket { MatchId = 51, AuthorityEpoch = 5 }, false);
             var nextRoster = Roster(11, 1); nextRoster.AuthorityEpoch = 5;
             NetSession.ApplyRoster(nextRoster);

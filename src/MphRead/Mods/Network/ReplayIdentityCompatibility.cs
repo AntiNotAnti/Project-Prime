@@ -6,6 +6,8 @@ namespace MphRead.Mods.Network;
 
 /// <summary>
 /// Upgrades recorded packets at playback boundaries, never on a live connection.
+/// Protocol 42 changes only the live intent codec: replay intents remain canonical
+/// fixed-width records, including historical protocol 41 recordings.
 /// Historical replays are deliberately best-effort: missing fields get historical
 /// defaults and optional packet families may be ignored, while live peers still
 /// have to match <see cref="NetConfig.ProtocolVersion"/> exactly.

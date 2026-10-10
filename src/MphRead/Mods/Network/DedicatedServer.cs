@@ -2436,41 +2436,31 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            if (packet.Payload.Length < IntentPacket.FullSize || packet.Payload.Length > IntentPacket.FullSize) return;
+            if (!CompactIntentCodec.TryRead(packet.Payload, out IntentPacket intent)) return;
             peer.LastSeen = now;
-            if (packet.Payload.Length >= IntentPacket.Size)
+
+            ushort life = NetPlayerLifecycle.Get(peer.SlotIndex);
+            var rejection = intent.MatchId != _matchId ? NetIntentRejection.WrongMatch
+                : intent.AuthorityEpoch != _authorityEpoch ? NetIntentRejection.WrongEpoch
+                : intent.SlotGeneration != _slotGenerations[peer.SlotIndex] ? NetIntentRejection.WrongGeneration
+                : intent.LifeId != life ? NetIntentRejection.WrongLife : NetIntentRejection.None;
+            if (rejection != NetIntentRejection.None) { peer.Telemetry.Intent(intent.Frame, rejection); return; }
+            var connection = _transport?.ConnectionStats(peer.EndPoint);
+            LagCompensationPolicy.SetTiming(peer.SlotIndex, new LagTiming(
+                connection?.RttMilliseconds ?? (peer.Ping > 0 ? peer.Ping : null),
+                connection?.RttJitterMilliseconds,
+                connection?.MinimumRttMilliseconds,
+                peer.TimingMatch == _matchId && peer.TimingEpoch == _authorityEpoch
+                    && now - peer.TimingReportedAt <= 3 ? peer.PresentationDelay : null));
+            if (!NetSession.AcceptSlotIntent(peer.SlotIndex, intent)) return;
+            // Admit recovered shots from older carriers without replacing current movement/readiness.
+            if (peer.HasIntentFrame && !NetLifecycleTracker.Newer(intent.Frame, peer.LastIntentFrame))
             {
-                IntentPacket intent = IntentPacket.Read(packet.Payload);
-                if (!NetFireEvents.Validate(intent)) return;
-                ushort life = NetPlayerLifecycle.Get(peer.SlotIndex);
-                var rejection = intent.MatchId != _matchId ? NetIntentRejection.WrongMatch
-                    : intent.AuthorityEpoch != _authorityEpoch ? NetIntentRejection.WrongEpoch
-                    : intent.SlotGeneration != _slotGenerations[peer.SlotIndex] ? NetIntentRejection.WrongGeneration
-                    : intent.LifeId != life ? NetIntentRejection.WrongLife : NetIntentRejection.None;
-                if (rejection != NetIntentRejection.None) { peer.Telemetry.Intent(intent.Frame, rejection); return; }
-                var connection = _transport?.ConnectionStats(peer.EndPoint);
-                LagCompensationPolicy.SetTiming(peer.SlotIndex, new LagTiming(
-                    connection?.RttMilliseconds ?? (peer.Ping > 0 ? peer.Ping : null),
-                    connection?.RttJitterMilliseconds,
-                    connection?.MinimumRttMilliseconds,
-                    peer.TimingMatch == _matchId && peer.TimingEpoch == _authorityEpoch
-                        && now - peer.TimingReportedAt <= 3 ? peer.PresentationDelay : null));
-                NetSession.AcceptSlotIntent(peer.SlotIndex, intent);
-                // UDP reorders; an older frame must not replace a newer one.
-                //
-                // Unless it is far enough behind to be a different session
-                // rather than a straggler: a client's counter restarts at
-                // zero when it joins, and a Peer that survived a reconnect --
-                // one that came back to the same endpoint before this server
-                // noticed it had gone -- would otherwise have every packet of
-                // its new session refused until the counter climbed back past
-                // the old one. Same ten seconds NetSession allows.
-                if (peer.HasIntentFrame && !NetLifecycleTracker.Newer(intent.Frame, peer.LastIntentFrame))
-                {
-                    peer.Telemetry.Intent(intent.Frame, peer.LastIntentFrame == intent.Frame
-                        ? NetIntentRejection.Duplicate : NetIntentRejection.Reordered);
-                    return;
-                }
+                peer.Telemetry.Intent(intent.Frame, peer.LastIntentFrame == intent.Frame
+                    ? NetIntentRejection.Duplicate : NetIntentRejection.Reordered);
+            }
+            else
+            {
                 peer.Telemetry.Intent(intent.Frame, NetIntentRejection.None);
                 peer.LastIntentFrame = intent.Frame; peer.HasIntentFrame = true;
                 // Only meaningful between the end of one match and the start

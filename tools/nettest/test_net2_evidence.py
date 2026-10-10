@@ -326,6 +326,21 @@ class EvidenceTests(unittest.TestCase):
         self.write()
         self.assertEqual(self.result()["status"], "FAIL")
 
+    def test_protocol_42_requires_explicit_expected_protocol(self):
+        self.server["Protocol"] = self.client["Protocol"] = 42
+        self.write()
+        default_result = self.result()
+        self.assertEqual(default_result["status"], "FAIL")
+        self.assertIn("server: schema/protocol mismatch", default_result["failures"])
+        self.assertIn("shooter: schema/protocol mismatch", default_result["failures"])
+        self.assertEqual(adjudicate(self.out, self.processes, expected_protocol=42)["status"], "PASS")
+
+    def test_historical_protocol_41_default_remains_accepted(self):
+        self.assertEqual(self.result()["status"], "PASS")
+        explicit_new = adjudicate(self.out, self.processes, expected_protocol=42)
+        self.assertEqual(explicit_new["status"], "FAIL")
+        self.assertIn("server: schema/protocol mismatch", explicit_new["failures"])
+
     def test_wrong_protocol(self):
         self.client["Protocol"] = 42
         self.write()

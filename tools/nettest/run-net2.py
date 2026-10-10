@@ -212,7 +212,7 @@ def run(args):
         manifest["elapsedSeconds"] = time.monotonic() - started
         manifest["assemblyAfterSha256"] = digest(assembly)
         save(args.out / "manifest.json", manifest)
-        summary = adjudicate(args.out, records)
+        summary = adjudicate(args.out, records, expected_protocol=args.protocol)
         if len(records) < args.players + 1 or manifest.get("runnerError") or manifest["assemblyAfterSha256"] != manifest["assemblySha256"]:
             summary["status"] = "FAIL"
             summary["failures"].append(manifest.get("runnerError", "missing participants or modified running assembly"))
@@ -228,6 +228,7 @@ if __name__ == "__main__":
     p.add_argument("--source", required=True, help="Exact source SHA plus dirty diff hash if applicable")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--dotnet", default="dotnet")
+    p.add_argument("--protocol", type=int, default=42, help="Expected evidence protocol (historical campaigns may specify 41)")
     p.add_argument("--players", type=int, choices=(2, 3, 4, 8), default=2)
     p.add_argument("--seconds", type=float, default=90)
     p.add_argument("--port", type=int, default=27991)

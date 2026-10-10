@@ -112,6 +112,15 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--bots") return NetLobbyTest.RunBots();
             if (args.Length > 0 && args[0] == "--waitlist") return NetLobbyTest.RunWaitlist();
             if (args.Length > 0 && args[0] == "--lobby") return NetLobbyTest.Run();
+            if (args.Length > 0 && args[0] == "--compact-intents")
+            {
+                int result = CompactIntentCodecTests.Run();
+                if (result != 0) return result;
+                result = CompactIntentTransportTests.Run();
+                if (result != 0) return result;
+                result = CompactIntentHistoryTests.Run();
+                return result != 0 ? result : CompactIntentReplayTests.Run();
+            }
             if (args.Length > 0 && args[0] == "--architecture") return NetArchitectureTests.Run();
             if (Array.IndexOf(args, "--network-benchmark") >= 0 || Array.IndexOf(args, "--network-benchmark-json") >= 0)
                 return NetworkBenchmark.Run(args);
@@ -292,8 +301,8 @@ namespace MphRead.NetTest
                     MatchId = LastState?.MatchId ?? 0, AuthorityEpoch = LastState?.AuthorityEpoch ?? 0,
                     SlotGeneration = Slot < 0 ? (ushort)0 : _generations[Slot],
                     LifeId = Slot < 0 ? (ushort)0 : _lives[Slot] };
-                byte[] payload = new byte[IntentPacket.Size];
-                intent.Write(payload);
+                byte[] payload = new byte[CompactIntentCodec.Size(intent)];
+                CompactIntentCodec.Write(intent, payload);
                 Send(PacketType.Intent, payload);
             }
 
