@@ -23,6 +23,57 @@ def health_value(row):
     return tuple(row[k] for k in ("Hp", "TurretHp", "Kills", "Deaths", "DamageEvent"))
 
 
+def rotation_coverage(reports, processes, settings):
+    """A room label is not proof that a new match simulated on every peer."""
+    authority = reports.get("server", {})
+    server_windows = authority.get("Windows", [])
+    identities = {(w.get("Epoch"), w.get("Match")) for w in server_windows
+                  if w.get("Epoch") and w.get("Match")}
+    room_labels = {w["Room"] for r in reports.values() for w in r["Windows"] if w.get("Room")}
+    requested_rooms = {room.strip() for room in str(settings.get("rooms", "")).split(",") if room.strip()}
+    attempted = len(identities) > 1 or len(room_labels) > 1 or len(requested_rooms) > 1
+    if not attempted:
+        return "NOT_RUN", []
+    gaps = []
+    if len(identities) < 2:
+        return "INCOMPLETE", ["server: fewer than two actual authority matches"]
+    states = {state_key(s) for s in authority.get("States", [])}
+    for identity in sorted(identities):
+        frames = [w.get("Frame", 0) for w in server_windows if (w.get("Epoch"), w.get("Match")) == identity]
+        segments = [s for s in authority.get("ServerSegments", [])
+                    if (s.get("AuthorityEpoch"), s.get("CurrentMatchId")) == identity]
+        if max(frames) - min(frames) < 60 or not any(s.get("Frames", 0) >= 60 for s in segments):
+            gaps.append(f"server: match {identity} lacks 60 frames of observed simulation")
+    shared_transition = False
+    records = {p["name"]: p for p in processes}
+    for name, report in reports.items():
+        if name == "server":
+            continue
+        seen = {(w.get("Epoch"), w.get("Match")) for w in report["Windows"]
+                if w.get("Epoch") and w.get("Match")}
+        shared_transition |= len(seen & identities) >= 2
+        record = records[name]
+        # Full-duration initial peers must survive the complete rotation. A late
+        # join or deliberately short departure need only prove the matches it saw.
+        full_duration = (settings.get("seconds", 0) > 0
+                         and record.get("requestedSeconds", 0) >= settings["seconds"] - 2)
+        required = identities if full_duration else seen & identities
+        if not required:
+            gaps.append(f"{name}: no observed authority match during rotation")
+        for identity in sorted(required):
+            frames = [w.get("Frame", 0) for w in report["Windows"]
+                      if (w.get("Epoch"), w.get("Match")) == identity]
+            common_frames = {s["Frame"] for s in report["States"]
+                             if (s["Epoch"], s["Match"]) == identity and state_key(s) in states}
+            if not frames or max(frames) - min(frames) < 60:
+                gaps.append(f"{name}: match {identity} lacks 60 frames of observed simulation")
+            if not common_frames or max(common_frames) - min(common_frames) < 60:
+                gaps.append(f"{name}: match {identity} lacks health comparison across 60 authority frames")
+    if not shared_transition:
+        gaps.append("no independent client observed both authority matches")
+    return ("INCOMPLETE" if gaps else "PASS"), gaps
+
+
 def shot_gap_context(missing, authority_shots, report, death_frames):
     """Diagnostic context only. Phase skips and death proximity never waive gaps.
 
@@ -220,6 +271,9 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
     # Keep coverage in the offline adjudicator so re-reading raw evidence cannot
     # turn a short or frozen soak into a pass by losing the runner's final checks.
     windows = [w for report in reports.values() for w in report["Windows"]]
+    rotation, rotation_gaps = rotation_coverage(reports, processes, settings)
+    if rotation_gaps:
+        incomplete.extend("map rotation: " + gap for gap in rotation_gaps)
     soak = settings.get("soak", False)
     sustained = soak and settings.get("players") == 8 and 1200 <= settings.get("seconds", 0) <= 1800 and all(
         record.get("requestedSeconds", 0) > 0
@@ -229,11 +283,12 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
     coverage = {"renderedProjectileAgreement": "NOT_RUN",
         "botFills": "PASS" if any(w.get("BotMask", 0) for w in windows) else "NOT_RUN",
         "spectator": "PASS" if any(w.get("Spectating") for w in windows) else "NOT_RUN",
-        "mapRotation": "PASS" if len({w["Room"] for w in windows if w.get("Room")}) > 1 else "NOT_RUN",
+        "mapRotation": rotation,
         "shockCoilDrainKillParity": "NOT_RUN", "imperialistSpawnTrapCoverage": "NOT_RUN",
         "sustained20Minutes": "PASS" if sustained else "INCOMPLETE" if soak else "NOT_RUN"}
     if soak and (not sustained or any(coverage[k] != "PASS" for k in ("botFills", "spectator", "mapRotation"))):
         incomplete.append("soak duration, load, bot, spectator or map-rotation coverage missing")
     return {"status": "FAIL" if failures else "INCOMPLETE" if incomplete else "PASS", "coverage": coverage,
+            "mapRotationEvidenceGaps": rotation_gaps,
             "failures": failures, "incomplete": incomplete, "processes": processes,
             "observations": observations, "parity": parity}

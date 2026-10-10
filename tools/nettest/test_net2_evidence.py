@@ -65,6 +65,118 @@ class EvidenceTests(unittest.TestCase):
         self.write()
         self.assertEqual(self.result()["coverage"]["sustained20Minutes"], "INCOMPLETE")
 
+    def rotation_fixture(self):
+        self.manifest["settings"].update(seconds=6, rooms="A,B")
+        (self.out / "manifest.json").write_text(json.dumps(self.manifest))
+        self.processes[-1]["requestedSeconds"] = 6
+        for report in (self.server, self.client):
+            report["Windows"] = [dict(Epoch=111, Match=match, Frame=frame, Room=room)
+                                  for match, room in ((2, "A"), (3, "B")) for frame in (6, 180)]
+            report["States"] += [dict(s, Match=3) for s in report["States"]]
+            report["ServerSegments"] = [dict(AuthorityEpoch=111, CurrentMatchId=match,
+                                               Frames=180, StepFailures=0) for match in (2, 3)]
+
+    def test_short_rotation_proves_actual_matches_without_soak(self):
+        self.rotation_fixture()
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["coverage"]["mapRotation"], "PASS")
+        self.assertEqual(result["coverage"]["sustained20Minutes"], "NOT_RUN")
+
+    def test_two_room_labels_without_new_match_are_incomplete(self):
+        self.server["Windows"] = [dict(Epoch=111, Match=2, Frame=6, Room="A"),
+                                  dict(Epoch=111, Match=2, Frame=180, Room="B")]
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "INCOMPLETE")
+        self.assertEqual(result["coverage"]["mapRotation"], "INCOMPLETE")
+
+    def test_repeated_room_with_distinct_matches_proves_rotation(self):
+        self.rotation_fixture()
+        for report in (self.server, self.client):
+            for window in report["Windows"]:
+                window["Room"] = "A"
+        self.write()
+        self.assertEqual(self.result()["coverage"]["mapRotation"], "PASS")
+
+    def test_reused_match_number_in_different_epoch_is_distinct(self):
+        self.rotation_fixture()
+        for report in (self.server, self.client):
+            for window in report["Windows"]:
+                if window["Match"] == 3:
+                    window.update(Epoch=222, Match=2)
+            for state in report["States"]:
+                if state["Match"] == 3:
+                    state.update(Epoch=222, Match=2)
+            for segment in report["ServerSegments"]:
+                if segment["CurrentMatchId"] == 3:
+                    segment.update(AuthorityEpoch=222, CurrentMatchId=2)
+        self.write()
+        self.assertEqual(self.result()["coverage"]["mapRotation"], "PASS")
+
+    def test_frozen_new_match_cannot_prove_rotation(self):
+        self.rotation_fixture()
+        self.client["Windows"][-1]["Frame"] = 6
+        self.write()
+        self.assertEqual(self.result()["coverage"]["mapRotation"], "INCOMPLETE")
+
+    def test_old_match_health_cannot_hide_missing_new_match_health(self):
+        self.rotation_fixture()
+        self.client["States"] = [s for s in self.client["States"] if s["Match"] == 2]
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "INCOMPLETE")
+        self.assertEqual(result["coverage"]["mapRotation"], "INCOMPLETE")
+
+    def test_one_new_match_health_frame_cannot_prove_rotation(self):
+        self.rotation_fixture()
+        self.client["States"] = [s for s in self.client["States"] if s["Match"] == 2 or s["Frame"] == 180]
+        self.write()
+        self.assertEqual(self.result()["coverage"]["mapRotation"], "INCOMPLETE")
+
+    def test_health_different_epoch_cannot_prove_new_match(self):
+        self.rotation_fixture()
+        for state in self.client["States"]:
+            if state["Match"] == 3:
+                state["Epoch"] = 222
+        self.write()
+        self.assertEqual(self.result()["coverage"]["mapRotation"], "INCOMPLETE")
+
+    def test_full_duration_peer_stuck_on_old_match_is_incomplete(self):
+        self.rotation_fixture()
+        self.client["Windows"] = [w for w in self.client["Windows"] if w["Match"] == 2]
+        self.write()
+        self.assertEqual(self.result()["coverage"]["mapRotation"], "INCOMPLETE")
+
+    def test_late_join_needs_only_match_it_observed(self):
+        self.rotation_fixture()
+        late = copy.deepcopy(self.client)
+        late["Windows"] = [w for w in late["Windows"] if w["Match"] == 3]
+        late["States"] = [s for s in late["States"] if s["Match"] == 3]
+        late["Shots"] = []
+        late["Facts"] = [dict(f, Match=3) for f in late["Facts"]]
+        # Exercise the independent new-match shot/semantic denominators as well.
+        for report in (self.server, self.client, late):
+            report["Shots"] += [dict(s, Key=dict(s["Key"], MatchId=3)) for s in self.client["Shots"][:1]]
+        self.client["Shots"].append(dict(self.client["Shots"][-1], Stage="offered"))
+        self.server["Shots"].append(dict(self.server["Shots"][-1], Stage="accepted"))
+        self.server["Facts"] += [dict(self.server["Facts"][0], Match=3)]
+        self.client["Facts"] += [dict(f, Match=3) for f in self.client["Facts"]]
+        self.manifest["settings"]["players"] = 2
+        (self.out / "manifest.json").write_text(json.dumps(self.manifest))
+        self.processes.append(dict(name="late", exit=0, timedOut=False, expectsShots=False, requestedSeconds=3))
+        self.write()
+        (self.out / "late.json").write_text(json.dumps(late))
+        (self.out / "late.log").write_text("RESULT: PASS")
+        self.assertEqual(self.result()["status"], "PASS")
+
+    def test_unadvanced_server_segment_cannot_prove_rotation(self):
+        self.rotation_fixture()
+        self.server["ServerSegments"][-1]["Frames"] = 1
+        self.write()
+        self.assertEqual(self.result()["coverage"]["mapRotation"], "INCOMPLETE")
+
     def test_success_exit_cannot_hide_timeout(self):
         (self.out / "shooter.log").write_text("RESULT: PASS\npeer timed out\n")
         self.assertEqual(self.result()["status"], "FAIL")

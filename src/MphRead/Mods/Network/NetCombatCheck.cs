@@ -189,9 +189,27 @@ namespace MphRead.Mods.Network
             Check((bool)validImpulse.Invoke(null, new object[]
                 { (byte)BeamType.Battlehammer, Hunter.Weavel, new Vector3(.49f, 0, 0) })!,
                 "InvalidHitClaimIsRefused/affinity Battlehammer impulse accepted");
-            Check(!(bool)validImpulse.Invoke(null, new object[]
-                { (byte)BeamType.Battlehammer, Hunter.Samus, new Vector3(.49f, 0, 0) })!,
-                "InvalidHitClaimIsRefused/non-affinity Battlehammer cannot borrow affinity impulse");
+            // TryFireWeapon selects the +9 production row for every Prime
+            // Hunter, including Samus. Hunter identity alone cannot prove that
+            // an affinity-sized Battlehammer impulse was forged.
+            var primeWeapon = PlayerEntity.Players[0].OwningScene.WeaponRules[(int)BeamType.Battlehammer + 9];
+            float primeImpulse = primeWeapon.UnchargedDmgDirMag / 4096f;
+            Check(primeImpulse == .5f && (bool)validImpulse.Invoke(null, new object[]
+                { (byte)BeamType.Battlehammer, Hunter.Samus, new Vector3(primeImpulse, 0, 0) })!,
+                "InvalidHitClaimIsRefused/non-affinity Prime Hunter production impulse accepted");
+            foreach (Hunter hunter in new[] { Hunter.Samus, Hunter.Weavel })
+            {
+                Check((bool)validImpulse.Invoke(null, new object[]
+                    { (byte)BeamType.Battlehammer, hunter, new Vector3(.526f, 0, 0) })!,
+                    $"InvalidHitClaimIsRefused/Battlehammer rescue ceiling accepted/{hunter}");
+                foreach (Vector3 direction in new[] { new Vector3(.527f, 0, 0), new Vector3(.4f, .4f, 0),
+                    new Vector3(float.NaN, 0, 0), new Vector3(0, float.PositiveInfinity, 0) })
+                {
+                    Check(!(bool)validImpulse.Invoke(null, new object[]
+                        { (byte)BeamType.Battlehammer, hunter, direction })!,
+                        $"InvalidHitClaimIsRefused/oversized or nonfinite Battlehammer impulse rejected/{hunter}/{direction}");
+                }
+            }
         }
         private static void MutualKillOrdering()
         {
