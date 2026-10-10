@@ -31,7 +31,12 @@ class GateTests(unittest.TestCase):
                     "frameIntervalP95Ms": 8, "frameIntervalP99Ms": 8 if name == "baseline" else 7.6,
                     "simulationHz": 60,
                     "onePercentLowEstimateFps": 125 if name == "baseline" else 131,
-                    "droppedSimulationSteps": 0, "stalls": 0}))
+                    "droppedSimulationSteps": 0, "stalls": 0,
+                    "context": {"room": "Ice Hive", "width": 1280,
+                        "height": 720, "shadows": "Off",
+                        "renderScale": 100, "cap": 120,
+                        "renderer": "GPU fixture", "glVersion": "4.1",
+                        "assemblyMvid": "same-binary"}}))
                 lines.append(line("[glgpu-json] ", {
                     "schema": 1, "samples": 240, "worldGpuP95Ms": 1,
                     "worldGpuP99Ms": 1.5, "droppedQueries": 0}))
@@ -65,6 +70,12 @@ class GateTests(unittest.TestCase):
         x = self.logs["baseline"]
         x.write_text(x.read_text().replace('"stalls": 0', '"stalls": 1'))
         with self.assertRaisesRegex(ValueError, "dropped simulation"):
+            evaluate(self.logs, self.visual)
+
+    def test_mismatched_hardware_or_render_settings_fail_closed(self):
+        x = self.logs["binding"]
+        x.write_text(x.read_text().replace('"width": 1280', '"width": 1920'))
+        with self.assertRaisesRegex(ValueError, "mixed game build"):
             evaluate(self.logs, self.visual)
 
     def test_missing_warmup_window_fails_closed(self):
