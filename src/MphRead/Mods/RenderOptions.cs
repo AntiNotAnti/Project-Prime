@@ -315,8 +315,8 @@ namespace MphRead.Mods
         };
 
         /// <summary>
-        /// Named bundles for the modern presentation path. Individual values remain
-        /// authoritative so a saved preset can be edited into a custom setup.
+        /// Quality presets now control the native OpenGL/GLES path, texture
+        /// sampling and render scale rather than experimental post effects.
         /// </summary>
         public static GraphicsPreset Preset { get; set; } = GraphicsPreset.Original;
 
@@ -397,19 +397,41 @@ namespace MphRead.Mods
         /// </summary>
         public static TextureAssetQuality TextureQuality { get; set; } = TextureAssetQuality.Automatic;
 
-        public static bool NeedsReadableDepth => AntiAliasing == AntiAliasingMode.Taa || DynamicGlow
-            || Shadows != ShadowQuality.Off
-            || AmbientOcclusion != AmbientOcclusionQuality.Off
-            || ContactShadows || EnhancedLighting || DeferredPbr
-            || EnhancedFog || VolumetricFog || Reflections;
+        // Directional shadows are the only remaining depth-based OpenGL
+        // presentation feature. Native cel outlines and player outlines have
+        // their own depth targets and are not controlled by this switch.
+        public static bool NeedsReadableDepth => Shadows != ShadowQuality.Off;
 
-        public static bool PostProcessingEnabled => AntiAliasing != AntiAliasingMode.Off
-            || SharpenStrength > 0 || (Bloom && BloomIntensity > 0) || ColorGrade != ColorGradeProfile.Original
-            || Gamma != 100 || Contrast != 100 || Saturation != 100
-            || EnhancedLighting || DeferredPbr || Shadows != ShadowQuality.Off
-            || AmbientOcclusion != AmbientOcclusionQuality.Off
-            || ContactShadows || EnhancedFog || VolumetricFog || InternalHdr
-            || Reflections || DynamicGlow;
+        // Retired experimental post FX cannot trigger a fullscreen shader pass,
+        // regardless of older settings or calls from diagnostic tools.
+        public static bool PostProcessingEnabled => Shadows != ShadowQuality.Off;
+
+        /// <summary>
+        /// Explicitly reset retired postprocessing controls. Keep all native
+        /// scene, texture, fog, outline and directional-shadow settings intact.
+        /// Older config files and diagnostic presets must not silently restore
+        /// expensive HDR, temporal or multi-target effects.
+        /// </summary>
+        public static void RetireExperimentalPostEffects()
+        {
+            AntiAliasing = AntiAliasingMode.Off;
+            SharpenStrength = 0;
+            Bloom = false;
+            BloomIntensity = 0;
+            ColorGrade = ColorGradeProfile.Original;
+            Gamma = 100;
+            Contrast = 100;
+            Saturation = 100;
+            EnhancedLighting = false;
+            DeferredPbr = false;
+            AmbientOcclusion = AmbientOcclusionQuality.Off;
+            ContactShadows = false;
+            EnhancedFog = false;
+            VolumetricFog = false;
+            InternalHdr = false;
+            Reflections = false;
+            DynamicGlow = false;
+        }
 
         public static bool ShowCustomCosmetics { get; set; } = true;
         public static Cosmetics.CosmeticEffectQuality CosmeticQuality { get; set; } = Cosmetics.CosmeticEffectQuality.Medium;
@@ -445,6 +467,7 @@ namespace MphRead.Mods
             InternalHdr = profile.InternalHdr;
             Reflections = profile.Reflections;
             DynamicGlow = profile.DynamicGlow;
+            RetireExperimentalPostEffects();
             if (preset == GraphicsPreset.Original)
             {
                 TextureReplacements = false;
