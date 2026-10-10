@@ -37,6 +37,9 @@ jobs:
       - name: nothing from the game is tracked
         run: tools/check-no-game-assets.sh
 
+      - name: enforce OpenGL/GLES-only source and dependencies
+        run: tools/check-opengl-only.sh
+
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
 

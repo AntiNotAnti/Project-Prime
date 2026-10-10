@@ -705,6 +705,7 @@ jobs:
         run: |
           set -euo pipefail
           tools/check-no-game-assets.sh
+          tools/check-opengl-only.sh
           tools/check-maps-shipped.sh
       - name: publish and verify macOS release
         env:
