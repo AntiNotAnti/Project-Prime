@@ -41,7 +41,7 @@ internal static class CharacterTextureProbe
         using var residency=new TextureAssetManager(GraphicsApi.GenTexture,GraphicsApi.DeleteTexture);
         int color=GraphicsApi.GenTexture(),framebuffer=GraphicsApi.GenFramebuffer();
         var checks=new List<object>();int compressed=0,maxError=0,samples=0;double squaredError=0;
-        var format=ModernGraphicsCompat.PreferredCharacterTextureCompression;
+        const string format = "Rgba8";
         try
         {
             GraphicsApi.BindTexture(TextureTarget.Texture2D,color);
@@ -55,7 +55,7 @@ internal static class CharacterTextureProbe
                 var image=pair.Value;var channel=pair.Key.Item2;
                 using var encoded=new MemoryStream(image.Image,writable:false);
                 var prepared=PreparedTextureCodec.Decode(encoded,pair.Key.Item1,TextureAssetClass.Hunter,channel,1024);
-                compressed+=prepared is Ktx2TextureAsset ? 1 : 0;
+                compressed+=PreparedTextureCodec.IsKtx2Payload(image.Image) ? 1 : 0;
                 int binding=residency.Upload(pair.Key.Item1,()=>new MemoryStream(image.Image,writable:false),TextureAssetClass.Hunter,channel,false,out int width,out int height);
                 if(binding==0)throw new InvalidOperationException("Mobile texture admission/upload failed.");
                 using var referenceStream=new MemoryStream(image.Image,writable:false);
@@ -63,7 +63,7 @@ internal static class CharacterTextureProbe
                 GraphicsApi.ActiveTexture(TextureUnit.Texture0);GraphicsApi.BindTexture(TextureTarget.Texture2D,binding);GraphicsApi.Enable(EnableCap.Texture2D);GraphicsApi.Color4(1f,1f,1f,1f);
                 GraphicsApi.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
                 // Sample a spatial grid too: four constant-UV points can miss damaged blocks.
-                foreach (int mip in new[]{0,prepared is Ktx2TextureAsset ? Math.Max(0,(int)Math.Log2(width/32)) : 0}.Distinct())
+                foreach (int mip in new[]{0})
                 {
                 GraphicsApi.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
                     (int)(mip==0 ? TextureMinFilter.Nearest : TextureMinFilter.LinearMipmapLinear));
@@ -93,7 +93,7 @@ internal static class CharacterTextureProbe
                         if(c<3)squaredError+=delta*delta;
                     }
                     maxError=Math.Max(maxError,error);samples++;
-                    int ceiling=format==GpuTextureCompressionFormat.Etc2Rgba8 ? 64 : 32;
+                    const int ceiling=32;
                     if(error>ceiling)throw new InvalidOperationException($"Compressed grid error {error}: {channel}, {width}, mip {mip}, grid {gx},{gy}; GPU={string.Join(',',grid.Skip(actual).Take(4))} reference={string.Join(',',gridReference.Pixels.Skip(offset).Take(4))}");
                 }
                 }
@@ -119,7 +119,7 @@ internal static class CharacterTextureProbe
                             if(c<3)squaredError+=delta*delta;
                         }
                         maxError=Math.Max(maxError,error);samples++;
-                        int ceiling=format==GpuTextureCompressionFormat.Etc2Rgba8 ? 64 : 32;
+                        const int ceiling=32;
                         if(error>ceiling)throw new InvalidOperationException($"Compressed block error {error}: {channel}, {width}, {x},{y}");
                     }
                 }
@@ -129,7 +129,7 @@ internal static class CharacterTextureProbe
             double rmsError=Math.Sqrt(squaredError/(samples*3));
             if(rmsError>8)throw new InvalidOperationException("Aggregate compressed RGB error too high: "+rmsError);
             residency.Clear();if(residency.ResidentBytes!=0||residency.ResidentCount!=0)throw new InvalidOperationException("Texture release accounting failed.");
-            return JsonSerializer.Serialize(new{pass=true,compression=format.ToString(),images=images.Count,compressed,samples,maxError,rmsError,residentBytes=resident,residentCount=count,releasedBytes=residency.ResidentBytes,checks,scope="Asset-only upload/sample/readback and release on active GPU. ETC2 max channel delta ceiling 64, other formats 32; all formats RMS <=8/255. Does not measure game frame pacing or process/driver residency."},new JsonSerializerOptions{WriteIndented=true});
+            return JsonSerializer.Serialize(new{pass=true,compression=format.ToString(),images=images.Count,compressed,samples,maxError,rmsError,residentBytes=resident,residentCount=count,releasedBytes=residency.ResidentBytes,checks,scope="OpenGL/GLES RGBA upload/readback from decoded KTX2/Basis or PNG; 32 max channel delta, RMS <=8/255. Does not measure frame pacing or driver residency."},new JsonSerializerOptions{WriteIndented=true});
         }
         finally{GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer,0);GraphicsApi.DeleteFramebuffer(framebuffer);GraphicsApi.DeleteTexture(color);}
     }

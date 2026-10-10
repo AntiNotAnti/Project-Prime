@@ -31,10 +31,9 @@ internal static class PixelCheck
             var settings = DesktopGlContext.Settings(background: true); settings.ClientSize = new(96,96);
             using var window = new NativeWindow(settings);
             using var session = new DesktopGraphicsSession(window);
-            bool modern = ModernGraphicsCompat.Active;
             string version = G.GetString(StringName.Version);
-            Check(backend.Equals("opengl",StringComparison.OrdinalIgnoreCase) ? !modern
-                : modern && version.Contains(backend,StringComparison.OrdinalIgnoreCase), "requested backend executes without fallback");
+            Check(GraphicsBackendPolicy.Resolved == GraphicsBackend.OpenGL
+                && !string.IsNullOrWhiteSpace(version), "OpenGL context executes without fallback");
             var results = new Dictionary<string, byte[]>();
             var alpha = new Dictionary<string, byte>();
             var scene = Scene.CreateEditorRenderer(new(96,96));

@@ -14,14 +14,6 @@ namespace MphRead.Mods.Render.Characters
                 "project-prime-character-model-check-" + Guid.NewGuid().ToString("N"));
             try
             {
-#if !MPHREAD_SERVER
-                Check(ModernGraphicsCompat.ResolveCharacterTextureCompression(GpuTextureCompressionFormat.Etc2Rgba8)
-                    == GpuTextureCompressionFormat.None, "ETC2-only character adapters use bounded RGBA quality fallback");
-                Check(ModernGraphicsCompat.ResolveCharacterTextureCompression(GpuTextureCompressionFormat.Astc4x4Rgba)
-                    == GpuTextureCompressionFormat.Astc4x4Rgba, "ASTC character compression remains selected");
-                Check(ModernGraphicsCompat.ResolveCharacterTextureCompression(GpuTextureCompressionFormat.Etc2Rgba8, true)
-                    == GpuTextureCompressionFormat.Etc2Rgba8, "explicit diagnostics can inspect rejected ETC2 quality");
-#endif
                 Directory.CreateDirectory(Path.Combine(root, "samus"));
                 WriteTriangleGlb(Path.Combine(root, "samus", "biped.glb"));
 

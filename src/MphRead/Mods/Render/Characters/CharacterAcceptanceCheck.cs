@@ -611,7 +611,7 @@ internal static class CharacterAcceptanceCheck
             {
                 hunter = hunter.ToString(), backend = GraphicsBackendPolicy.Resolved.ToString(), room, submittedFrames, lodFrames, lodTransitions,
                 materialSweep, fidelitySweep, morphSweep, ballFrames, boosted, bombed, bombJumped, altAirborne, ballDied, ballRespawned, ballRollTravel, boostTravel, textureBytesBeforeBall, textureBytesAfterBall, residencyAfterMaterialSweep,
-                mobileTextureTier=CharacterModelPack.ForceMobileTierForCheck, textureCompression=ModernGraphicsCompat.PreferredCharacterTextureCompression.ToString(),
+                mobileTextureTier=CharacterModelPack.ForceMobileTierForCheck, textureCompression="Rgba8",
                 peakCharacterTextureBytes,variantEvictions,remainingVariantTextures,
                 sharedLodTextureBindings = lodSweep, residencyBeforeSecondLod, residencyAfterSecondLod, runTravel, strafeTravel,
                 airborne, falling, landed, fired, frozen, doubled, morphing, alt, altTravel, unmorphing, died, respawned,
