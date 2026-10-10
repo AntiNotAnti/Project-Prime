@@ -51,3 +51,45 @@ Phase 4C performance rollout additionally requires paired hardware p95/p99
 CPU world and GPU times, p99 presented frame intervals, stable 60 Hz
 simulation, no GPU errors, and zero visual acceptance failures. Rollout flags
 stay opt-in until explicitly accepted.
+
+## Phase 4C: same-executable optimization A/B and rollout thresholds
+
+The `-glprofile` data stream now includes machine-readable
+`[glframe-json]` and `[glprofile-json]` records for every 240 completed
+frames, and `-glgpu` adds `[glgpu-json]` only on supported real GPU timer
+drivers. Every record reports explicit sample count and numeric statistics;
+the desktop frame record also reports whether VBO/binding optimization is
+**actually enabled**, avoiding accidentally mislabeled A/B runs.
+
+Collect at least 4 contiguous profiling windows (960 completed frames) for
+each **same build, same map, same camera route, identical cap/quality** mode:
+
+```text
+baseline: -glprofile -glgpu
+vbo:      -glprofile -glgpu -glvbo
+binding:  -glprofile -glgpu -glbindcache
+combined: -glprofile -glgpu -glvbo -glbindcache
+```
+
+Save console/debug output separately as `baseline.log`, `vbo.log`,
+`binding.log`, `combined.log`. Provide an independently reviewed hardware
+capture manifest (`source = "native-game-on-device"`, `passed = true`, and
+`cases` for Ice Hive walls, Ice Hive shadows, glass/portals, Studio/HUD,
+Android GLES). The manifest must cite actual evidence; do not manufacture it
+from the synthetic GL fixture.
+
+```sh
+python tools/opengl-phase4/analyze.py \
+  --baseline baseline.log --vbo vbo.log --binding binding.log \
+  --combined combined.log --visual native-acceptance.json \
+  --output optimization-decision.json
+```
+
+The analyzer rejects missing/invalid samples, simulation drift, stalls,
+runtime flags that disagree with the declared arm, and GL errors. A mode
+needs at least 3% lower median frame-interval p99, GPU world p99 within 3%,
+CPU render p99 and frame p95 within 5%, 1% low within 2%, no dropped GPU
+queries, and **independent real-game visual acceptance** to become
+*eligible for review*. Default enablement is **not automatic**, and GL2.1
+without timer query remains unverified until alternative GPU evidence is
+provided. Run the asset-free gate's unit tests in CI.

@@ -9074,7 +9074,7 @@ localCenter *= _profileHudScale;
             Mods.Render.LowLatencyController.Mark(
                 latencyFrame, Mods.Render.LowLatencyMarker.RenderSubmitStart);
 #if !MPHREAD_SERVER && !ANDROID
-            Mods.Render.OpenGlFrameProfiler.BeginRender();
+            Mods.Render.OpenGlFrameProfiler.BeginRender(Scene);
 #endif
             Scene.OnDrawFrame();
             if (!Scene.OnRenderFrame())

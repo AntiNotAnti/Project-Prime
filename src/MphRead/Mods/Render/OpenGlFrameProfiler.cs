@@ -1,6 +1,8 @@
 #if !MPHREAD_SERVER && !ANDROID
 using System;
 using System.Diagnostics;
+using System.Text.Json;
+using OpenTK.Graphics.OpenGL;
 
 namespace MphRead.Mods.Render;
 
@@ -24,16 +26,28 @@ internal static class OpenGlFrameProfiler
     private static long _renderStart, _presentStart, _previousPresentEnd;
     private static double _renderElapsed;
     private static bool _renderActive, _presentActive;
+    private static MphRead.Scene? _measuredScene;
 
     internal static bool Enabled => _enabled;
 
     internal static double OnePercentLowFromP99Milliseconds(double p99Ms)
         => p99Ms > 0 && double.IsFinite(p99Ms) ? 1000.0 / p99Ms : 0.0;
 
-    internal static void BeginRender()
+    internal static void BeginRender(MphRead.Scene scene)
     {
         if (!_enabled) return;
-        _renderStart = Stopwatch.GetTimestamp();
+        _measuredScene = scene;
+        // Scene/window transitions may leave long idle intervals between
+        // real gameplay presentations. Never include that idle time in the
+        // next 240-frame percentile window.
+        long now = Stopwatch.GetTimestamp();
+        if (_previousPresentEnd != 0
+            && now - _previousPresentEnd > Stopwatch.Frequency / 2)
+        {
+            _previousPresentEnd = 0;
+            _count = 0;
+        }
+        _renderStart = now;
         _renderActive = true;
         _presentActive = false;
     }
@@ -42,6 +56,7 @@ internal static class OpenGlFrameProfiler
     {
         _renderActive = false;
         _presentActive = false;
+        _measuredScene = null;
     }
 
     internal static void EndRender()
@@ -85,10 +100,45 @@ internal static class OpenGlFrameProfiler
                     + $" drawHz={FrameTiming.MeasuredFrameHz:F1}"
                     + $" droppedSimSteps={FrameTiming.DroppedSteps}"
                     + $" stalls={FrameTiming.Stalls}");
+                // Stable machine-readable fields; a period captures exactly
+                // 240 *completed presentations* rather than an FPS estimate.
+                // Do not treat presentWall as GPU execution time.
+                Console.WriteLine("[glframe-json] " + JsonSerializer.Serialize(new
+                {
+                    schema = 1,
+                    samples = Window,
+                    renderCpuP95Ms = renderP95,
+                    renderCpuP99Ms = P(_renderMs, 99),
+                    presentWallP99Ms = P(_presentMs, 99),
+                    frameIntervalP95Ms = P(_intervalMs, 95),
+                    frameIntervalP99Ms = intervalP99,
+                    onePercentLowEstimateFps = OnePercentLowFromP99Milliseconds(intervalP99),
+                    simulationHz = FrameTiming.MeasuredSimulationHz,
+                    displayedHz = FrameTiming.MeasuredFrameHz,
+                    droppedSimulationSteps = FrameTiming.DroppedSteps,
+                    stalls = FrameTiming.Stalls,
+                    vbo = DesktopRetainedGeometry.Enabled,
+                    bindingCache = OpenGlScopedBindingCache.Enabled,
+                    context = new
+                    {
+                        room = _measuredScene?.Room?.Meta.Name ?? "",
+                        width = _measuredScene?.Size.X ?? 0,
+                        height = _measuredScene?.Size.Y ?? 0,
+                        shadows = RenderOptions.Shadows.ToString(),
+                        renderScale = RenderOptions.ResolutionScale,
+                        cap = FrameTiming.FrameRateCap,
+                        renderer = GraphicsApi.GetString(StringName.Renderer) ?? "",
+                        glVersion = GraphicsApi.GetString(StringName.Version) ?? "",
+                        assemblyMvid = typeof(MphRead.Scene).Module.ModuleVersionId.ToString("D")
+                    }
+                }));
                 _count = 0;
             }
         }
         _previousPresentEnd = end;
+        // Profiler must not extend the lifetime of a scene after returning
+        // to launcher/Studio or switching maps.
+        _measuredScene = null;
     }
 
     private static double ElapsedMs(long begin, long end)

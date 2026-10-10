@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace MphRead.Mods.Render;
 
@@ -149,6 +150,19 @@ internal static class OpenGlSubmissionProfiler
                 + $" avg-packets={_sumPackets / (double)Window:F1}"
                 + $" avg-batches={_sumBatches / (double)Window:F1}"
                 + $" depth-replay-item-submissions-saved={_sumSavedReplaySubmissions}");
+            Console.WriteLine("[glprofile-json] " + JsonSerializer.Serialize(new
+            {
+                schema = 1,
+                samples = Window,
+                worldCpuP95Ms = sorted[PercentileIndex(Window, 95)] * tickMs,
+                worldCpuP99Ms = sorted[PercentileIndex(Window, 99)] * tickMs,
+                averageDisplayLists = _sumLists / (double)Window,
+                averageVboDraws = _sumVboDraws / (double)Window,
+                averageMaterialBatches = _sumBatches / (double)Window,
+                averageTextureBinds = _sumTextureBinds / (double)Window,
+                averageTextureBindsElided = _sumTextureBindsElided / (double)Window,
+                averageStateRequestsElided = _sumStateRequestsSkipped / (double)Window
+            }));
             _windowCount = 0;
             _sumLists = _sumVboDraws = _sumImmediate = _sumTextureBinds = 0;
             _sumTextureBindsElided = _sumTextureUnitsElided

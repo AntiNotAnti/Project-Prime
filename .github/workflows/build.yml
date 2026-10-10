@@ -202,6 +202,8 @@ jobs:
             publish/opengl-linux/ProjectPrime -textureupdatecheck -renderer opengl
       - name: Validate OpenGL capture evidence comparator
         run: python -m unittest discover -s tools/opengl-visual -v
+      - name: Validate OpenGL E/F benchmark evidence gate
+        run: python -m unittest discover -s tools/opengl-phase4 -v
       - name: OpenGL depth, alpha, stencil and repeated-frame pixel fixtures
         run: |
           xvfb-run -a --server-args="-screen 0 640x480x24" \
