@@ -385,6 +385,12 @@ namespace MphRead.Mods.Render
     /// </summary>
     internal sealed class WorldRenderGraph
     {
+        // Opaque-only rendering has no intervening decal depth writes or
+        // translucent surfaces requiring a front/behind depth rebuild.
+        // Never reuse the initial depth if either class is nonempty.
+        internal static bool CanReuseOpaqueDepth(int decalCount, int translucentCount)
+            => decalCount == 0 && translucentCount == 0;
+
         private static readonly WorldRenderGraphPass[] _passes =
         {
             new(WorldRenderPassKind.Opaque, "world.opaque",
@@ -516,6 +522,10 @@ namespace MphRead
         internal long RetainedCompatibilityWorldDraws =>
             _retainedCompatibilityWorldDraws;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
+        private long _retainedDepthReplaySkips;
+        private long _retainedOpaqueReplayCallsSaved;
+        internal long RetainedDepthReplaySkips => _retainedDepthReplaySkips;
+        internal long RetainedOpaqueReplayCallsSaved => _retainedOpaqueReplayCallsSaved;
 
         private void CaptureRetainedRenderWorld()
         {
@@ -629,6 +639,8 @@ namespace MphRead
         /// </summary>
         private void ExecuteWorldRenderGraph()
         {
+            bool reuseOpaqueDepth = Mods.Render.WorldRenderGraph.CanReuseOpaqueDepth(
+                _retainedRenderWorld.Decals.Count, _retainedRenderWorld.Translucent.Count);
             foreach (Mods.Render.WorldRenderGraphPass pass in _worldRenderGraph.Passes)
             {
                 switch (pass.Kind)
@@ -669,12 +681,21 @@ namespace MphRead
                     break;
 
                 case Mods.Render.WorldRenderPassKind.RebuildDepth:
-                    GL.Clear(ClearBufferMask.DepthBufferBit);
+                    if (!reuseOpaqueDepth)
+                        GL.Clear(ClearBufferMask.DepthBufferBit);
                     GL.StencilOp(StencilOp.Keep, StencilOp.Keep,
                         StencilOp.Keep);
                     GL.StencilFunc(StencilFunction.Always, 0, 0xFF);
                     GL.AlphaFunc(AlphaFunction.Equal, 1.0f);
-                    DrawRenderGraphPackets(pass.Kind);
+                    if (reuseOpaqueDepth)
+                    {
+                        _retainedDepthReplaySkips++;
+                        _retainedOpaqueReplayCallsSaved += _retainedRenderWorld.Opaque.Count;
+                    }
+                    else
+                    {
+                        DrawRenderGraphPackets(pass.Kind);
+                    }
                     break;
 
                 case Mods.Render.WorldRenderPassKind.TranslucentBehind:

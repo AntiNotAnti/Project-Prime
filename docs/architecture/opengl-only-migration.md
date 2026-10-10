@@ -95,8 +95,18 @@ GL2.1 shader linking and existing regressions, but real device screenshot
 parity and p95/p99 frametime measurements are still required before
 performance claims.
 
-### Next slices
+### Slice C: retained OpenGL submission and measurement (draft PR)
 
+- When a captured world has **zero decals and zero translucent packets**,
+  preserve the initial opaque depth instead of clearing it and submitting
+  every opaque display list again. The original stencil/alpha transitions are
+  kept; any decal or transparency forces the unchanged six-pass renderer.
+- Avoid unnecessary glEnable/glDisable pairs for uncullable room batches.
+- Add opt-in GL submission counters and CPU frametime statistics to establish
+  a before/after baseline for later desktop VBO/IBO migration. Android already
+  uses VBO/IBO for retained display lists.
+
+### Next slices
 
 - Retire optional post effects and remove their framebuffers and user-facing
   controls only after proving native world/depth/stencil, player outlines,
