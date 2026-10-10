@@ -116,6 +116,11 @@ namespace MphRead.Mods.Render
             capabilityCache.End();
             capabilityCache.ResetContext();
 
+#if !ANDROID
+            Check(OpenGlFrameProfiler.OnePercentLowFromP99Milliseconds(20) == 50
+                && OpenGlFrameProfiler.OnePercentLowFromP99Milliseconds(0) == 0,
+                "interval-derived 1-percent low estimate requires a positive p99 frame interval");
+#endif
             Check(OpenGlSubmissionProfiler.PercentileIndex(100, 50) == 49
                 && OpenGlSubmissionProfiler.PercentileIndex(100, 95) == 94
                 && OpenGlSubmissionProfiler.PercentileIndex(100, 99) == 98

@@ -646,6 +646,9 @@ namespace MphRead
             bool profile = Mods.Render.OpenGlSubmissionProfiler.BeginWorldGraph();
 #if !MPHREAD_SERVER
             GL.BeginScopedWorldStateElision();
+#if !ANDROID
+            Mods.Render.OpenGlGpuProfiler.BeginWorld();
+#endif
 #endif
             try
             {
@@ -733,6 +736,9 @@ namespace MphRead
             finally
             {
 #if !MPHREAD_SERVER
+#if !ANDROID
+                Mods.Render.OpenGlGpuProfiler.EndWorld();
+#endif
                 GL.EndScopedWorldStateElision();
 #endif
                 if (profile)

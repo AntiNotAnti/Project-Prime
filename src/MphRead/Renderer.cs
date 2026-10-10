@@ -9070,9 +9070,11 @@ localCenter *= _profileHudScale;
 
             Mods.Render.LowLatencyController.Mark(
                 latencyFrame, Mods.Render.LowLatencyMarker.RenderSubmitStart);
+            Mods.Render.OpenGlFrameProfiler.BeginRender();
             Scene.OnDrawFrame();
             if (!Scene.OnRenderFrame())
             {
+                Mods.Render.OpenGlFrameProfiler.CancelFrame();
                 Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
                 return;
             }
@@ -9091,11 +9093,14 @@ localCenter *= _profileHudScale;
             // Before the swap, for the reason the sceneless branch gives.
             Mods.Launcher.Gui.Shell.AfterDraw(this);
 #endif
+            Mods.Render.OpenGlFrameProfiler.EndRender();
             Mods.Render.LowLatencyController.Mark(
                 latencyFrame, Mods.Render.LowLatencyMarker.RenderSubmitEnd);
             Mods.Render.LowLatencyController.Mark(
                 latencyFrame, Mods.Render.LowLatencyMarker.PresentStart);
-            PresentFrame();
+            Mods.Render.OpenGlFrameProfiler.BeginPresent();
+            try { PresentFrame(); }
+            finally { Mods.Render.OpenGlFrameProfiler.EndPresent(); }
             Mods.Render.LowLatencyController.Mark(
                 latencyFrame, Mods.Render.LowLatencyMarker.PresentEnd);
             Reveal();
