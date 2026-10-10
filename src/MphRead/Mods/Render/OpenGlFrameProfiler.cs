@@ -119,6 +119,7 @@ internal static class OpenGlFrameProfiler
                     stalls = FrameTiming.Stalls,
                     vbo = DesktopRetainedGeometry.Enabled,
                     bindingCache = OpenGlScopedBindingCache.Enabled,
+                    batching = DesktopRetainedGeometry.BatchEnabled,
                     context = new
                     {
                         room = _measuredScene?.Room?.Meta.Name ?? "",

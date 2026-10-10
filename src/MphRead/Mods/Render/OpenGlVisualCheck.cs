@@ -227,8 +227,8 @@ internal static class OpenGlVisualCheck
                 "stencil geometry outside mask must stay visible");
 
             // The same geometry is drawn through native display lists in
-            // baseline mode, and a single merged indexed draw with
-            // -glvbo -glbatch. The A/B fixture comparator is pixel-exact.
+            // -gllegacylist mode, and a single merged indexed draw by
+            // default. The A/B fixture comparator is pixel-exact.
             ResetPass();
             int firstList = GraphicsApi.GenLists(2);
             try

@@ -1,5 +1,25 @@
 # Phase 4 OpenGL acceptance matrix
 
+## Desktop default enablement
+
+VBOs, scoped binding caching and safe opaque room batching are enabled by
+default on desktop by explicit maintainer request. Profiling and GPU timers
+remain opt-in. Android defaults are unchanged.
+
+This is a manual rollout, not a successful automatic benchmark gate. The Mac
+campaign found fewer submissions and corrected shadow rendering, but no
+consistent FPS gain. Native VBO captures have unresolved lit-surface differences,
+and Windows hardware acceptance remains incomplete. The analyzer retains its
+existing thresholds and does not mark these gaps as passes.
+
+Use `-gllegacylist -gllegacybindings` for the legacy submission path. Individual
+optimizations can be disabled with `PROJECT_PRIME_GL_VBO=0`,
+`PROJECT_PRIME_GL_BIND_CACHE=0` or `PROJECT_PRIME_GL_BATCH=0`.
+Explicit `-glvbo`, `-glbindcache` and `-glbatch` override the corresponding
+environment zero; legacy flags/force variables always take precedence.
+Unsupported room lists and failed batch allocations retain their ordered
+display-list fallback.
+
 ## Synthetic automated GL pixels (Phase 4B)
 
 Run `ProjectPrime -glvisualcheck /absolute/output` with a desktop OpenGL
@@ -50,7 +70,8 @@ Capture a new reviewed OpenGL reference and establish image-specific tolerances.
 Phase 4C performance rollout additionally requires paired hardware p95/p99
 CPU world and GPU times, p99 presented frame intervals, stable 60 Hz
 simulation, no GPU errors, and zero visual acceptance failures. Rollout flags
-stay opt-in until explicitly accepted.
+are enabled by the manual desktop rollout above; the acceptance gaps remain
+open and must still be tested.
 
 ## Phase 4C: same-executable optimization A/B and rollout thresholds
 
@@ -65,10 +86,11 @@ Collect at least 4 contiguous profiling windows (960 completed frames) for
 each **same build, same map, same camera route, identical cap/quality** mode:
 
 ```text
-baseline: -glprofile -glgpu
-vbo:      -glprofile -glgpu -glvbo
-binding:  -glprofile -glgpu -glbindcache
-combined: -glprofile -glgpu -glvbo -glbindcache
+baseline: -glprofile -glgpu -gllegacylist -gllegacybindings
+vbo:      PROJECT_PRIME_GL_BATCH=0 -glprofile -glgpu -glvbo -gllegacybindings
+binding:  -glprofile -glgpu -gllegacylist -glbindcache
+combined: PROJECT_PRIME_GL_BATCH=0 -glprofile -glgpu -glvbo -glbindcache
+batch:    -glprofile -glgpu
 ```
 
 Save console/debug output separately as `baseline.log`, `vbo.log`,
@@ -94,10 +116,10 @@ queries, and **independent real-game visual acceptance** to become
 without timer query remains unverified until alternative GPU evidence is
 provided. Run the asset-free gate's unit tests in CI.
 
-## Phase 4D: actual static room draw-call reduction (opt-in)
+## Phase 4D: actual static room draw-call reduction
 
-`-glvbo -glbatch` (or `PROJECT_PRIME_GL_VBO=1` and
-`PROJECT_PRIME_GL_BATCH=1`) combines **only adjacent safe opaque
+The default desktop path (also explicitly selected with `-glvbo -glbatch`)
+combines **only adjacent safe opaque
 room packets with identical frame-local shader/material state** into
 one indexed draw. This is more than a material-state cache:
 CPU vertex/index arrays from eligible room display-list compilation are
@@ -116,12 +138,14 @@ requested. `-glprofile` reports actual combined draws and avoided
 per-mesh submissions; those counts alone do **not** prove lower frame
 latency. Validate lifetime, VRAM high water, GL2.1 client-state restore,
 3D texture coordinates, RGB/alpha, stencil parity and actual p95/p99
-before turning on E/F/D by default. Batched submission is OFF by default.
+as part of completing hardware acceptance. Batched submission is ON by default
+through the explicit manual rollout, with the exclusions and fallbacks above.
 
 ### Combined-draw native pixel A/B
 
-Linux OpenGL Mesa CI additionally runs `-glvisualcheck` once with legacy
-lists, once with `-glvbo -glbatch`, and compares the exact five RGBA frames,
+Linux OpenGL Mesa CI is configured to run `-glvisualcheck` once with
+`-gllegacylist -gllegacybindings`, once with `-glvbo -glbatch`, and compare
+the exact five RGBA frames,
 including `combined-opaque.rgba`, on the **same GL driver**. A failure in
 buffer promotion, vertex/index concatenation, color-array state, object
 lifetime or pixel values fails the focused renderer job. This is a synthetic

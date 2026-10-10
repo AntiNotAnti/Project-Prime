@@ -8,7 +8,7 @@ using DesktopGL = OpenTK.Graphics.OpenGL.GL;
 namespace MphRead.Mods.Render;
 
 /// <summary>
-/// Opt-in desktop GL2.1 retained vertex/index buffers for static room lists.
+/// Desktop GL2.1 retained vertex/index buffers for static room lists.
 /// The original compiled display list remains available for every mesh and is
 /// used when a list has inherited/mixed client state or any unsupported opcode.
 /// Legacy lists are never deleted until their normal owner releases them.
@@ -16,12 +16,14 @@ namespace MphRead.Mods.Render;
 internal static class DesktopRetainedGeometry
 {
     private const int Stride = LegacyGeometryBatch.FloatsPerVertex * sizeof(float);
+    // Desktop defaults are enabled; environment zero opts out of an individual
+    // optimization, an explicit enable flag overrides zero, and legacy wins.
     private static readonly bool _enabled =
-        Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_VBO") == "1"
+        Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_VBO") != "0"
         || Array.Exists(Environment.GetCommandLineArgs(), arg =>
             arg.Equals("-glvbo", StringComparison.OrdinalIgnoreCase));
     private static readonly bool _batchRequested =
-        Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_BATCH") == "1"
+        Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_BATCH") != "0"
         || Array.Exists(Environment.GetCommandLineArgs(), arg =>
             arg.Equals("-glbatch", StringComparison.OrdinalIgnoreCase));
     private static readonly bool _legacy =
@@ -87,14 +89,14 @@ internal static class DesktopRetainedGeometry
 
     internal static void RegisterRoomList(int id)
     {
-        if (_enabled && id > 0)
+        if (Enabled && id > 0)
             (_roomCandidates ??= new HashSet<int>()).Add(id);
     }
 
     internal static void NewList(int id, ListMode mode)
     {
         _capture = null;
-        if (!_enabled || _roomCandidates == null || !_roomCandidates.Remove(id)
+        if (!Enabled || _roomCandidates == null || !_roomCandidates.Remove(id)
             || mode != ListMode.Compile)
             return;
         _capture = new Capture { Id = id };

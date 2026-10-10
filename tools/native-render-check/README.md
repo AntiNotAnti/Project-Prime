@@ -8,12 +8,16 @@ It does not bundle game data or change renderer defaults.
 ```sh
 dotnet build tools/native-render-check -c Release
 dotnet tools/native-render-check/bin/Release/net10.0/native-render-check.dll \
-  -room UNIT4_RM1 -seconds 24 -hz 60 -glprofile \
+  -room UNIT4_RM1 -seconds 24 -hz 60 -glprofile -gllegacylist -gllegacybindings \
   -output /absolute/path/baseline.json
 ```
 
-Use caps 60/120/144/240 or `-hz -1` for uncapped. Repeat with `-glvbo`,
-`-glbindcache`, both, and both plus `-glbatch`. Request `-glgpu` only after
+Use caps 60/120/144/240 or `-hz -1` for uncapped. Desktop VBOs, binding caching
+and opaque batching now default on. For a VBO-only arm use
+`PROJECT_PRIME_GL_BATCH=0` with `-gllegacybindings`; for binding-only use
+`-gllegacylist`. Set `PROJECT_PRIME_GL_BATCH=0` for combined VBO/binding without
+batching, and omit overrides for the full default path. Explicit enable flags
+override an environment zero; legacy flags always win. Request `-glgpu` only after
 checking driver support. Apple GL2.1 on the tested M4 Pro lacks timer queries.
 
 The workload has eight bots, frozen keyboard/mouse snapshots, fixed RNG

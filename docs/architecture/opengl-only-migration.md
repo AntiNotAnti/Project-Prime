@@ -172,16 +172,19 @@ pickup sight lines, with `-gllegacydepth` and `-gllegacystate` separately.
 This is a plausible culling fix, **not** a hardware-verified occlusion fix;
 solid-wall pickup masking and shadow behavior need independent screenshots.
 
-### Slice E–G: opt-in OpenGL performance engineering (draft stacked PRs)
+### Slice E–G: OpenGL performance engineering
 
 - **E**: `-glvbo` (or `PROJECT_PRIME_GL_VBO=1`) captures and
   promotes eligible homogeneous static room display lists to persistent
   desktop GL2.1 VBO/IBO objects. The original display list remains valid
-  and is the default/fallback; `-gllegacylist` forces it even in an opt-in run.
+  as a fallback; `-gllegacylist` forces it. Desktop VBOs are enabled by default;
+  `PROJECT_PRIME_GL_VBO=0` disables them unless `-glvbo` is supplied.
   Android continues using its pre-existing GLES3 buffered path.
 - **F**: `-glbindcache` (or `PROJECT_PRIME_GL_BIND_CACHE=1`) skips
   redundant *known* texture-unit/bind and raster requests inside the world
   graph only. `-gllegacybindings` forces the old path in the same binary.
+  Desktop binding caching is enabled by default; `PROJECT_PRIME_GL_BIND_CACHE=0`
+  disables it unless `-glbindcache` is supplied.
   The initial state is always unknown, and context changes, unknown lists,
   attribute stacks, or deletions invalidate the cache.
 - **G**: `-glprofile` also reports desktop game-frame CPU render and
@@ -195,7 +198,7 @@ solid-wall pickup masking and shadow behavior need independent screenshots.
 
 Suggested A/B matrix with **identical** map/camera route, native shadows
 and assets, render scale, FPS cap, and vsync:
-1. Baseline `-glprofile -gllegacyroomvis -gllegacydepth -gllegacystate`.
+1. Baseline `-glprofile -gllegacylist -gllegacybindings -gllegacyroomvis -gllegacydepth -gllegacystate`.
 2. Fixed visibility and depth defaults at 60/120/144/240.
 3. Add `-glvbo` versus `-gllegacylist`, one option at a time.
 4. Add `-glbindcache` versus `-gllegacybindings`, one option at a time.
@@ -205,9 +208,13 @@ and assets, render scale, FPS cap, and vsync:
    portal boundaries, shadows, player outlines, HUD, viewmodels,
    Replay/Map Studio and Android GLES3. Confirm fixed 60 Hz simulation.
 
-**All E–G features remain off by default** until build matrix, device
-screenshot parity and measured benefit are confirmed. CPU submission counts
-alone do not establish a performance gain.
+**Desktop VBOs, binding caching and opaque batching are enabled by maintainer
+request.** Profiling and GPU timers remain off by default. Set
+`PROJECT_PRIME_GL_BATCH=0` to isolate unbatched VBOs, or use
+`-gllegacylist -gllegacybindings` for the legacy submission path. Android
+defaults are unchanged. CPU submission counts alone do not establish a
+performance gain; unresolved native VBO image differences and incomplete
+Windows hardware acceptance are recorded in the Phase 4 acceptance matrix.
 
 ### Phase 4A: shadow caster and pickup occlusion correctness
 

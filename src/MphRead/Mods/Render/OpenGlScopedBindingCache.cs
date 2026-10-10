@@ -14,7 +14,11 @@ namespace MphRead.Mods.Render;
 internal sealed class OpenGlScopedBindingCache
 {
     internal static bool Enabled { get; } =
+#if ANDROID
         (Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_BIND_CACHE") == "1"
+#else
+        (Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_BIND_CACHE") != "0"
+#endif
          || Array.Exists(Environment.GetCommandLineArgs(), a =>
              a.Equals("-glbindcache", StringComparison.OrdinalIgnoreCase)))
         && Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_FORCE_BINDINGS") != "1"

@@ -207,7 +207,7 @@ jobs:
       - name: OpenGL depth, alpha, stencil and repeated-frame pixel fixtures
         run: |
           xvfb-run -a --server-args="-screen 0 640x480x24" \
-            publish/opengl-linux/ProjectPrime -glvisualcheck "$RUNNER_TEMP/glvisual"
+            publish/opengl-linux/ProjectPrime -glvisualcheck "$RUNNER_TEMP/glvisual" -gllegacylist -gllegacybindings
           python tools/opengl-visual/compare.py "$RUNNER_TEMP/glvisual" "$RUNNER_TEMP/glvisual" --output "$RUNNER_TEMP/glvisual-compare.json"
       - name: OpenGL merged room indexed-draw parity against legacy display lists
         run: |
