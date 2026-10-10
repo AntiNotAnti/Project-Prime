@@ -155,3 +155,19 @@ device-level high-refresh and Android lifecycle pass, and no accidental WebGPU
 native dependencies in shipped artifacts after phase 2. Do not infer a speedup
 from code removal alone. Preserve the original v0.1.47 rendering baseline for
 before/after metrics.
+
+### Render-frame portal visibility fix (separate correctness PR)
+
+RoomEntity previously updated portal/frustum visibility only on fixed simulation
+frames, then reused that culling result for intervening 120/144/240 Hz draws.
+It now rebuilds the room visibility mask using the current rendering camera
+before either connector or room geometry is submitted. The audio reachability
+mask continues to update only during fixed simulation ticks. Invalid or
+unplaceable camera node refs still fall back to drawing all nodes.
+
+For a same-binary A/B diagnosis of disappearing surfaces, launch with
+`-gllegacyroomvis` or `PROJECT_PRIME_GL_LEGACY_ROOM_VIS=1` to restore the
+previous tick-only culling. Compare the same Ice Hive camera motion and
+pickup sight lines, with `-gllegacydepth` and `-gllegacystate` separately.
+This is a plausible culling fix, **not** a hardware-verified occlusion fix;
+solid-wall pickup masking and shadow behavior need independent screenshots.
