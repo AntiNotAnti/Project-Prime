@@ -839,6 +839,7 @@ namespace MphRead.Entities
             TryEquipWeapon(PreviousWeapon, silent: true);
             ApplyGunGameLoadout(force: true);
             ApplySpawnLoadoutModifiers();
+            ModSeedShotProof();
             Metadata.LoadEffectiveness(0x2AAAA, BeamEffectiveness);
             _frozenTimer = 0;
             _timeSinceFrozen = 255;
@@ -2052,7 +2053,8 @@ namespace MphRead.Entities
             ushort replayDamageEventId = Mods.Network.NetDamage.Note(this, attacker,
                 beam?.Beam ?? BeamType.None, flags, direction,
                 damage, bomb != null, beam?.ModLaunchFrame ?? 0, launchKey: beam?.ModLaunchKey,
-                enhancedChild: beam?.EnhancedMicroSeeker == true,
+                enhancedChild: beam?.EnhancedMicroSeeker == true, componentId: beam?.ModComponentId ?? 0,
+                damageKind: (byte)((beam?.EnhancedDirectHit == true ? 1 : 2) | (flags.TestFlag(DamageFlags.Halfturret) ? 4 : 0)),
                 continuousPhase: beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true }
                     ? (uint)beam.ModContinuousPhase : 0);
             if (flags.TestFlag(DamageFlags.Headshot))
@@ -2065,7 +2067,7 @@ namespace MphRead.Entities
             // low health kills on the frame it happens.
             // Mods.Network.NetHitPrediction.
             Mods.Network.NetHitPrediction.NoteHit(this, attacker, ref flags, ref damage,
-                beam?.Beam ?? BeamType.None, beam?.ModLaunchFrame ?? 0, beam?.Age ?? 0, direction, shotId: beam?.ModShotId ?? 0, shotKey: beam?.ModLaunchKey,
+                beam?.Beam ?? BeamType.None, beam?.ModLaunchFrame ?? 0, beam?.Age ?? 0, direction, shotId: beam?.ModShotId ?? 0, shotKey: beam?.ModLaunchKey, componentId: beam?.ModComponentId ?? 0,
                 direct: beam?.EnhancedDirectHit == true || source is PlayerEntity && attacker?.IsAltForm == true && !flags.TestFlag(DamageFlags.Burn)
                     || bomb?.BombType == BombType.Stinglarva,
                 afflictions: beam != null && !ignoreDamage && !flags.TestFlag(DamageFlags.Halfturret)
@@ -3078,6 +3080,8 @@ namespace MphRead.Entities
                         replayImpact));
                 }
             }
+            if (beam != null && (_health < combatHealthBefore || (Halfturret?.Health ?? 0) < combatTurretBefore))
+                Mods.Network.NetShotProof.Physical(this, beam, damage, flags, direction ?? Vector3.Zero);
             if (combatSequence != combatSequenceBefore && beam?.EnhancedMicroSeeker != true)
                 Mods.Network.NetHitClaims.CompleteAuthorityHit(this, attacker, combatHealthBefore, flags, combatSequence, beam?.ModLaunchFrame ?? 0, beam?.Beam ?? BeamType.None);
             if (attacker != null && _health < combatHealthBefore && !Mods.Network.NetDamage.ApplyingClaim)

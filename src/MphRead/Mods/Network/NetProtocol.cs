@@ -2076,8 +2076,10 @@ namespace MphRead.Mods.Network
         public ushort ShooterLifeId;
         public ushort VictimGeneration;
         public ushort VictimLifeId;
-        public const int Size = 59;
+        public const int LegacySize = 59;
+        public const int Size = 63;
         public uint ShotId;
+        public uint ComponentId;
         private const float DirectionScale = 16384f;
 
         /// <summary>How many claims one datagram may carry.</summary>
@@ -2156,6 +2158,7 @@ namespace MphRead.Mods.Network
         public void Write(Span<byte> dest)
         {
             BinaryPrimitives.WriteUInt32LittleEndian(dest[55..], ShotId);
+            BinaryPrimitives.WriteUInt32LittleEndian(dest[59..], ComponentId);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[31..], MatchId);
             BinaryPrimitives.WriteUInt64LittleEndian(dest[33..], AuthorityEpoch);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[41..], ShooterGeneration);
@@ -2182,7 +2185,8 @@ namespace MphRead.Mods.Network
         {
             return new HitClaimPacket
             {
-                ShotId = src.Length >= Size ? BinaryPrimitives.ReadUInt32LittleEndian(src[55..]) : 0,
+                ShotId = src.Length >= LegacySize ? BinaryPrimitives.ReadUInt32LittleEndian(src[55..]) : 0,
+                ComponentId = src.Length >= Size ? BinaryPrimitives.ReadUInt32LittleEndian(src[59..]) : 0,
                 MatchId = BinaryPrimitives.ReadUInt16LittleEndian(src[31..]),
                 AuthorityEpoch = BinaryPrimitives.ReadUInt64LittleEndian(src[33..]),
                 ShooterGeneration = BinaryPrimitives.ReadUInt16LittleEndian(src[41..]),
@@ -2486,7 +2490,8 @@ namespace MphRead.Mods.Network
         // Protocol 42 sends compact live intents; canonical replay record widths stay unchanged.
         // Protocol 43 appends source life and fenced homing targets to authored shots,
         // preserves discrete shot-time modifiers, and caps live carriers at fourteen events.
-        public const int ProtocolVersion = 43;
+        // Protocol 44 appends exact emitted-component identity to hit claims.
+        public const int ProtocolVersion = 44;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

@@ -396,6 +396,7 @@ namespace MphRead.Mods.Network
                     // Match/life identity and room readiness exclude reports
                     // captured in the previous room.
                     NetPlayerBridge.ApplyReportedPosition(player, NetSession.RemoteIntents[slot]);
+                    NetShotProof.ObservePose(player, NetSession.RemoteIntents[slot]);
                 }
                 NetTelemetry.ConsumedIntent(slot, NetSession.RemoteIntentAge(slot));
                 NetPlayerBridge.ApplyIntent(player, NetSession.RemoteIntents[slot]);

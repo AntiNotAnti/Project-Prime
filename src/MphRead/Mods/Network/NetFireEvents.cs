@@ -174,7 +174,7 @@ public static class NetFireEvents
         }
     }
     public static void Reset()
-    { foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
+    { NetShotProof.Reset(); foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
     internal static bool Accept(int slot, in IntentPacket intent)
     {
         if ((uint)slot >= 8 || !Validate(intent)) return false;
@@ -239,7 +239,17 @@ public static class NetFireEvents
         if (state.PlayingAccepted) throw new InvalidOperationException("Nested accepted shot playback.");
         FireEvent saved = state.Active;
         state.Active = fire; state.ActiveKey = key; state.PlayingAccepted = true;
-        try { return player.ModSpawnAcceptedShot(fire); }
+        try
+        {
+            NetShotProof.Admit(player, key, fire);
+            var admission = NetShotProof.ObserveEmission(key);
+            if (NetHitClaims.Arbitrating && NetShotProof.Mode == ShotProofMode.Enforce
+                && admission != ShotProofReason.Verified)
+                return BeamResultFlags.NoSpawn;
+            var result = player.ModSpawnAcceptedShot(fire);
+            if (result != BeamResultFlags.NoSpawn) NetShotProof.Fired(key);
+            return result;
+        }
         finally { state.PlayingAccepted = false; state.ActiveKey = default; state.Active = saved; }
     }
     internal static void ForgetSlot(int slot)
@@ -431,6 +441,7 @@ public static class NetFireEvents
             poseValid ? view.Normalized() : default,
             poseValid && reticleValid ? reticle : default,
             NetPlayerLifecycle.Get(player.SlotIndex), player.ModCaptureFireTarget());
+        NetShotProof.Admit(player, ShotKey.For(player.SlotIndex, id), state.Active);
     }
     internal static void Commit(PlayerEntity player)
     {
@@ -445,6 +456,7 @@ public static class NetFireEvents
         uint phaseOrState = state.Active.Kind == FireEventKind.ContinuousTick
             ? player.ModContinuousFireTick : state.Active.ContinuousPhase;
         state.Outgoing.Add(state.Active with { ContinuousPhase = phaseOrState });
+        NetShotProof.Fired(ShotKey.For(player.SlotIndex, state.Active.ShotId));
     }
     internal static void Fill(ref IntentPacket intent, int slot)
     {

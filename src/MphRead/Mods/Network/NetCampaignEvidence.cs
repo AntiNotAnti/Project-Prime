@@ -218,6 +218,7 @@ internal static class NetCampaignEvidence
                 Transport = transport ?? NetSession.CaptureTelemetry().Transport,
                 AdmissionBudgets = NetTransport.AdmissionBudgets,
                 IntentHistory = NetFireEvents.CaptureHistory(),
+                ShotProof = NetShotProof.Capture(),
                 TransportWindows, Readiness, Windows, ServerSegments, Shots, States, Facts };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             JsonSerializer.Serialize(file, report);

@@ -30,6 +30,8 @@ namespace MphRead.Entities
         /// </summary>
         public uint ModLaunchFrame { get; set; }
         public uint ModShotId { get; set; }
+        public uint ModComponentId { get; internal set; }
+        private int _modChildOrdinal;
         public ShotKey ModLaunchKey { get; internal set; }
 
         // Replay impact reconciliation is presentation-only. It never changes
@@ -1990,6 +1992,8 @@ namespace MphRead.Entities
             }
             for (int i = 0; i < projectiles; i++)
             {
+                uint componentId = parent != null && parent.ModComponentId == 0 ? 0 : NetShotProof.ComponentId(parent?.ModComponentId ?? 0,
+                    parent != null ? ++parent._modChildOrdinal : i + 1);
                 BeamProjectileEntity beam = ChooseBeamSlot(equip, owner);
                 if (beam.Lifespan > 0 && !beam.Flags.TestFlag(BeamFlags.Collided))
                 {
@@ -2021,6 +2025,7 @@ namespace MphRead.Entities
                 beam.ModContinuousPhase = phase;
                 beam.ModHasSharedContinuousPhase = sharedPhase;
                 beam.ModLaunchFrame = beam.ModShotId = 0;
+                beam.ModComponentId = componentId; beam._modChildOrdinal = 0;
                 beam.ModLaunchMatch = 0;
                 beam.ModLaunchAuthority = 0;
                 beam.ModLaunchGeneration = beam.ModLaunchLife = 0;
@@ -2111,6 +2116,7 @@ namespace MphRead.Entities
                 }
                 if (instantAoe)
                 {
+                    NetShotProof.Emitted(beam, parent);
                     beam.SpawnIceWave(weapon, chargePct);
                     // we don't actually "spawn" the beam projectile
                     beam.Velocity = beam.Acceleration = Vector3.Zero;
@@ -2134,6 +2140,7 @@ namespace MphRead.Entities
                 }
                 beam.Velocity = velocity;
                 beam.Acceleration = acceleration;
+                NetShotProof.Emitted(beam, parent);
                 // A beam comes off a free list and keeps whatever transform the
                 // last one left on it until the draw pass computes a new one.
                 // Only draw functions 3 and 17 set one here, so every other

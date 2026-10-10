@@ -1581,6 +1581,10 @@ namespace MphRead.Entities
                 }
                 if (pickedUp)
                 {
+                    if (item.ItemType is ItemType.UASmall or ItemType.UABig or ItemType.MissileSmall or ItemType.MissileBig
+                        or ItemType.VoltDriver or ItemType.Battlehammer or ItemType.Imperialist or ItemType.Judicator
+                        or ItemType.Magmaul or ItemType.ShockCoil or ItemType.OmegaCannon or ItemType.AffinityWeapon
+                        or ItemType.DoubleDamage) Mods.Network.NetShotProof.SourceChanged(this);
                     item.OnPickedUp(this);
                 }
             }

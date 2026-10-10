@@ -8,9 +8,16 @@ internal static class ClaimStressTests
     private static object? Call(string name, params object[] args)
     {
         var method = typeof(NetHitClaims).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)!;
-        if (name is "NoteLedger" or "TakeLedger" && args.Length + 1 == method.GetParameters().Length)
+        var parameters = method.GetParameters();
+        if (args.Length < parameters.Length)
         {
-            object[] expanded = new object[args.Length + 1]; args.CopyTo(expanded, 0); expanded[^1] = args[3];
+            object[] expanded = new object[parameters.Length];
+            args.CopyTo(expanded, 0);
+            for (int i = args.Length; i < parameters.Length; i++)
+                expanded[i] = parameters[i].DefaultValue!;
+            // The legacy fixture uses launch as its explicit shot identity.
+            if (name == "NoteLedger" && args.Length == 6) expanded[6] = args[3];
+            if (name == "TakeLedger" && args.Length == 7) expanded[7] = args[3];
             var result = method.Invoke(null, expanded);
             Array.Copy(expanded, args, args.Length); return result;
         }

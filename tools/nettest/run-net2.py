@@ -99,7 +99,8 @@ def run(args):
         env = {key: value for key, value in os.environ.items()
                if not key.startswith(("PRIME_", "MPHREAD_", "PROJECT_PRIME_"))}
         env.update(PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS="null",
-                   MPHREAD_PHASE_SECONDS="2", PRIME_NET2_EVIDENCE=str(args.out / f"{name}.json"))
+                   MPHREAD_PHASE_SECONDS="2", PRIME_NET2_EVIDENCE=str(args.out / f"{name}.json"),
+                   PRIME_SHOT_PROOF=args.shot_proof)
         if args.soak:
             env["PRIME_NET2_SOAK"] = "1"
         command = [dotnet, str(assembly), "-mapdir", str(maps), "-noupdate", "-noautoupdate", *extra]
@@ -112,7 +113,7 @@ def run(args):
                   "requestedSeconds": duration, "expectsShots": expects_shots, "exit": None, "timedOut": False}
         records.append(record)
         manifest["commands"].append({"name": name, "argv": command,
-            "environment": {k: env[k] for k in ("PROJECT_PRIME_USER_DATA", "ALSOFT_DRIVERS", "MPHREAD_PHASE_SECONDS", "PRIME_NET2_EVIDENCE")},
+            "environment": {k: env[k] for k in ("PROJECT_PRIME_USER_DATA", "ALSOFT_DRIVERS", "MPHREAD_PHASE_SECONDS", "PRIME_NET2_EVIDENCE", "PRIME_SHOT_PROOF")},
             "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
             "soak": args.soak})
         save(args.out / "manifest.json", manifest)
@@ -228,7 +229,9 @@ if __name__ == "__main__":
     p.add_argument("--source", required=True, help="Exact source SHA plus dirty diff hash if applicable")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--dotnet", default="dotnet")
-    p.add_argument("--protocol", type=int, default=43, help="Expected evidence protocol (historical campaigns may specify 41)")
+    p.add_argument("--protocol", type=int, default=44, help="Expected evidence protocol (historical campaigns may specify 41)")
+    p.add_argument("--shot-proof", choices=("off", "shadow", "enforce"), default="shadow",
+                   help="Record and apply the explicit N4 admission mode")
     p.add_argument("--players", type=int, choices=(2, 3, 4, 8), default=2)
     p.add_argument("--seconds", type=float, default=90)
     p.add_argument("--port", type=int, default=27991)
