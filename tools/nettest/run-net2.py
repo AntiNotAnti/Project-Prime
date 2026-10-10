@@ -94,7 +94,11 @@ def run(args):
         (profile / "paths.txt").write_text("\n".join([*isolated_paths, f"Export={exports}", ""]), encoding="utf-8")
         maps = profile / "empty-maps"
         maps.mkdir()
-        env = dict(os.environ, PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS="null",
+        # Do not silently inherit a developer's experimental/test flags into a
+        # supposedly reproducible control. Keep ordinary OS/runtime environment.
+        env = {key: value for key, value in os.environ.items()
+               if not key.startswith(("PRIME_", "MPHREAD_", "PROJECT_PRIME_"))}
+        env.update(PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS="null",
                    MPHREAD_PHASE_SECONDS="2", PRIME_NET2_EVIDENCE=str(args.out / f"{name}.json"))
         if args.soak:
             env["PRIME_NET2_SOAK"] = "1"
@@ -109,6 +113,7 @@ def run(args):
         records.append(record)
         manifest["commands"].append({"name": name, "argv": command,
             "environment": {k: env[k] for k in ("PROJECT_PRIME_USER_DATA", "ALSOFT_DRIVERS", "MPHREAD_PHASE_SECONDS", "PRIME_NET2_EVIDENCE")},
+            "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
             "soak": args.soak})
         save(args.out / "manifest.json", manifest)
         return process, record
