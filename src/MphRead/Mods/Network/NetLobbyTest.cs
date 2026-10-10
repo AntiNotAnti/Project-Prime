@@ -475,10 +475,20 @@ namespace MphRead.Mods.Network
             Metadata.RegisterDownloadedMap(MapDefinition.Load(path));
             try
             {
+                // Registration invalidates the installed-map index. Materialize
+                // and verify the fixture before the server binds: rebuilding an
+                // index of local archives is setup work, outside the peer's
+                // four-second admission budget.
+                NetworkMapIdentity preparedIdentity = NetworkMapIdentity.ForRoom(definition.Name);
+                Check(preparedIdentity.IsCustom
+                    && preparedIdentity.Content(definition.Name).Matches(MapContentIdentity.FromPackage(path)),
+                    "custom fixture exact identity prepared before admission");
                 using var rig = new Rig(room: definition.Name);
                 Client owner = rig.Add(310), other = rig.Add(311);
                 NetworkMapIdentity identity = owner.State!.Value.Match.MapIdentity;
-                Check(identity.IsCustom && identity.Content(definition.Name).Matches(MapContentIdentity.FromPackage(path)), "server announces exact custom package");
+                Check(identity == preparedIdentity && identity.IsCustom
+                    && identity.Content(definition.Name).Matches(MapContentIdentity.FromPackage(path)),
+                    "server announces exact custom package");
                 var wire = new byte[NetworkMapIdentity.Size]; identity.Write(wire);
                 Check(NetworkMapIdentity.TryRead(wire, out var restored) && restored == identity, "custom identity binary round trip");
                 wire[80] = 255; Check(!NetworkMapIdentity.TryRead(wire, out _), "unknown identity flags rejected");
