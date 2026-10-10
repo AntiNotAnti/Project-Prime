@@ -29,6 +29,20 @@ string? shots = args.Contains("-shots") ? Path.GetFullPath(Value("-shots", "nati
 int cap = int.Parse(Value("-hz", "60"));
 int seconds = int.Parse(Value("-seconds", "24"));
 int players = int.Parse(Value("-players", "8"));
+Hunter hunter = Enum.Parse<Hunter>(Value("-hunter", "Samus"), true);
+PlayerOutlineStyle outlines = Enum.Parse<PlayerOutlineStyle>(Value("-outlines", "Off"), true);
+Vector3? VectorArg(string name)
+{
+    if (!args.Contains(name)) return null;
+    var parts = Value(name, "").Split(',');
+    if (parts.Length != 3) throw new ArgumentException(name + " requires x,y,z");
+    return new Vector3(float.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture),
+        float.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture),
+        float.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture));
+}
+Vector3? camera = VectorArg("-camera"), facing = VectorArg("-facing");
+if (args.Contains("-outlinecheck") && (players < 2 || outlines == PlayerOutlineStyle.Off || shots == null))
+    throw new ArgumentException("-outlinecheck requires -players 2..8, enabled -outlines and -shots.");
 if (players < 1 || players > 8) throw new ArgumentOutOfRangeException("Use -players 1..8.");
 if ((cap != -1 && cap < 30) || cap > 500 || seconds < 8 || seconds > 120)
     throw new ArgumentOutOfRangeException("Use -hz -1 or 30..500, -seconds 8..120.");
@@ -44,7 +58,7 @@ typeof(Scene).Assembly.GetType("MphRead.ConsoleSetup")!.GetMethod("Run")!.Invoke
 GraphicsBackendPolicy.LoadPreference();
 Paths.UpdatePaths(); Paths.ChooseMphPath(); Paths.ChooseFhPath();
 MphRead.Mods.MapGen.CustomRooms.GenerateMissing(room);
-using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"));
+using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"));
 try
 {
     window.Run();
@@ -76,15 +90,20 @@ sealed class CheckWindow : RenderWindow
     private readonly string _room;
     private readonly List<object> _captures = new();
     private readonly bool _windowCycle;
+    private readonly PlayerOutlineStyle _outlines;
+    private readonly Vector3? _camera, _facing;
+    private readonly bool _outlineCheck;
+    private object? _outlineEvidence;
     private readonly Vector2i _requestedPixels;
     private readonly List<object> _windowEvents = new();
     private int _windowStage;
     public bool Complete { get; private set; }
 
-    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle)
+    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck)
     {
         _room = room; _seconds = seconds; _cap = cap; _shadows = shadows; _shots = shots;
         _windowCycle = windowCycle; _requestedPixels = pixels;
+        _outlines = outlines; _camera = camera; _facing = facing; _outlineCheck = outlineCheck;
         MinimumSize = new Vector2i(160, 90);
         double sx = FramebufferSize.X / (double)ClientSize.X, sy = FramebufferSize.Y / (double)ClientSize.Y;
         ClientSize = new Vector2i((int)Math.Round(pixels.X / sx), (int)Math.Round(pixels.Y / sy));
@@ -96,7 +115,7 @@ sealed class CheckWindow : RenderWindow
             .SetValue(Scene, SyntheticInput.CreateMouse());
         Scene.Random.SetRng1(12345); Scene.Random.SetRng2(98765);
         PlayerEntity.MaxPlayers = players;
-        for (int i = 0; i < players; i++) AddPlayer((Hunter)(i % 7));
+        for (int i = 0; i < players; i++) AddPlayer(i == 0 ? hunter : (Hunter)(i % 7));
         PlayerEntity.PlayerCount = players;
         PlayerEntity.MainPlayerIndex = 0;
         foreach (var player in PlayerEntity.Players) { player.IsBot = true; player.BotLevel = 1; }
@@ -110,6 +129,8 @@ sealed class CheckWindow : RenderWindow
         base.OnLoad();
         RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
         RenderOptions.Shadows = _shadows;
+        RenderOptions.PlayerOutline = _outlines;
+        ApplyCheckCamera();
         RenderOptions.ResolutionScale = 100; RenderOptions.ShowFps = false;
         RenderOptions.TextureFiltering = false; RenderOptions.TextureMipmaps = false;
         RenderOptions.TextureAnisotropy = 1;
@@ -121,6 +142,20 @@ sealed class CheckWindow : RenderWindow
             + $" vendor={GL.GetString(StringName.Vendor)} renderer={GL.GetString(StringName.Renderer)} gl={GL.GetString(StringName.Version)}"
             + $" mvid={typeof(Scene).Module.ModuleVersionId:D}");
         _wall.Start();
+    }
+
+    private void ApplyCheckCamera()
+    {
+        if (_camera is Vector3 position)
+        {
+            Scene.SetFreeCamera(true);
+            Vector3 forward = (_facing ?? -Vector3.UnitZ).Normalized();
+            Vector3 right = Vector3.Cross(forward, Vector3.UnitY).Normalized();
+            void Set(string name, Vector3 value) => typeof(Scene)
+                .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Scene, value);
+            Set("_cameraPosition", position); Set("_cameraFacing", forward);
+            Set("_cameraRight", right); Set("_cameraUp", Vector3.Cross(right, forward));
+        }
     }
 
     protected override void OnRenderFrame(FrameEventArgs args)
@@ -152,6 +187,7 @@ sealed class CheckWindow : RenderWindow
             typeof(Scene).GetField("_frameAdvanceOn", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(Scene, true);
             typeof(Scene).GetField("_advanceOneFrame", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(Scene, true);
         }
+        ApplyCheckCamera();
         // Actual client pacing, simulation, render and SwapBuffers all run here.
         base.OnRenderFrame(args);
         long now = Stopwatch.GetTimestamp();
@@ -184,6 +220,7 @@ sealed class CheckWindow : RenderWindow
             _captures.Add(new { index = _capture, simulationFrame = Scene.FrameCount,
                 camera = Scene.CameraPosition.ToString(), width = Scene.Size.X, height = Scene.Size.Y,
                 shadow = ShadowSnapshot(_capture == 0), pickups = PickupSnapshot() });
+            if (_capture == 0 && _outlineCheck) CheckOutlineOcclusion();
             _capture++;
         }
         if (GL.GetError() is var error && error != ErrorCode.NoError)
@@ -196,6 +233,76 @@ sealed class CheckWindow : RenderWindow
         }
         if (_wall.Elapsed.TotalSeconds > (_shots == null ? _seconds + 45 : _seconds * 5 + 45))
             throw new TimeoutException("Native renderer did not finish its fixed-step workload.");
+    }
+
+    // Diagnostic input is frozen, including native mouse callbacks.
+    protected override void OnMouseMove(MouseMoveEventArgs e) { }
+
+    private void CheckOutlineOcclusion()
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        object? Field(string name) => typeof(Scene).GetField(name, flags)!.GetValue(Scene);
+        void Set(string name, object value) => typeof(Scene).GetField(name, flags)!.SetValue(Scene, value);
+        if (PlayerEntity.PlayerCount < 2 || _outlines == PlayerOutlineStyle.Off)
+            throw new InvalidOperationException("-outlinecheck requires two players and enabled outlines.");
+        // Use an actual animated hunter and the production outline mask/composite.
+        // Replacing world depth with a near wall must occlude every outline pixel;
+        // far depth is the positive control proving that the body was submitted.
+        var names = new[] { "_cameraMode", "_cameraPosition", "_cameraFacing", "_cameraRight", "_cameraUp",
+            "_freeCam", "_inputMode", "_cameraFov", "_viewModelFov" };
+        var saved = names.Select(Field).ToArray();
+        void CheckGl(string stage)
+        {
+            var error = GL.GetError();
+            if (error != ErrorCode.NoError) throw new InvalidOperationException("Outline check " + stage + ": " + error);
+        }
+        CheckGl("entry");
+        try
+        {
+            Scene.SetFreeCamera(true);
+            Vector3 target = Scene.Players.Items[1].Position + Vector3.UnitY;
+            Set("_cameraPosition", target + Vector3.UnitZ * 5);
+            Set("_cameraFacing", -Vector3.UnitZ);
+            Set("_cameraRight", Vector3.UnitX); Set("_cameraUp", Vector3.UnitY);
+            Scene.OnDrawFrame(); Scene.OnRenderFrame();
+            CheckGl("camera draw");
+            var draw = typeof(Scene).GetMethod("DrawPlayerOutlines", flags)!;
+            int framebuffer = (int)Field("_frameBuffer")!;
+            var size = (Vector2i)Field("_targetSize")!;
+            int Pixels(double depth)
+            {
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, framebuffer);
+                GL.Viewport(0, 0, size.X, size.Y);
+                GL.ColorMask(true, true, true, true); GL.DepthMask(true);
+                GL.Disable(EnableCap.ScissorTest);
+                GL.ClearColor(0, 0, 0, 0); GL.ClearDepth(depth);
+                GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+                CheckGl("depth setup");
+                draw.Invoke(Scene, null);
+                CheckGl("outline draw");
+                var pixels = new byte[size.X * size.Y * 4];
+                GL.ReadPixels(0, 0, size.X, size.Y, PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+                CheckGl("readback");
+                int count = 0;
+                for (int i = 0; i < pixels.Length; i += 4)
+                    if (pixels[i] != 0 || pixels[i + 1] != 0 || pixels[i + 2] != 0) count++;
+                return count;
+            }
+            int occludedPixels = Pixels(0), visiblePixels = Pixels(1);
+            if (occludedPixels != 0 || visiblePixels == 0)
+                throw new InvalidOperationException($"Outline occlusion failed: hidden={occludedPixels}, visible={visiblePixels}");
+            _outlineEvidence = new { occludedPixels, visiblePixels };
+            Console.WriteLine($"NATIVERENDER outline occlusion PASS hidden={occludedPixels} visible={visiblePixels}");
+        }
+        finally
+        {
+            // Use the GL2.1 double overload, not the newer glClearDepthf entry point.
+            GL.ClearDepth(1.0);
+            for (int i = 0; i < names.Length; i++) Set(names[i], saved[i]!);
+            CheckGl("restore state");
+            Scene.OnDrawFrame(); CheckGl("restore prepare");
+            Scene.OnRenderFrame(); CheckGl("restore draw");
+        }
     }
 
     protected override void OnFocusedChanged(FocusedChangedEventArgs e)
@@ -289,6 +396,6 @@ sealed class CheckWindow : RenderWindow
             gcCollections = Enumerable.Range(0, 3).Select(i => GC.CollectionCount(i) - _collections[i]).ToArray(),
             managedBytes = GC.GetTotalMemory(false), workingSetBytes = Environment.WorkingSet,
             simulationHz = FrameTiming.MeasuredSimulationHz, droppedSimulationSteps = FrameTiming.DroppedSteps,
-            stalls = FrameTiming.Stalls, captures = _captures, windowEvents = _windowEvents, complete = Complete };
+            stalls = FrameTiming.Stalls, captures = _captures, outlineOcclusion = _outlineEvidence, windowEvents = _windowEvents, complete = Complete };
     }
 }

@@ -380,6 +380,7 @@ namespace MphRead.Mods.Render
         {
             {
 #if !ANDROID
+                _legacyUniforms.InvalidateFloatArray();
                 _legacyUniforms.NoteUncachedWrite();
 #endif
                 DesktopGL.Uniform1(location, count, value);
@@ -407,6 +408,7 @@ namespace MphRead.Mods.Render
         {
             {
 #if !ANDROID
+                _legacyUniforms.InvalidateVector3Array();
                 _legacyUniforms.NoteUncachedWrite();
 #endif
                 DesktopGL.Uniform3(location, count, value);
@@ -462,6 +464,7 @@ namespace MphRead.Mods.Render
         {
             {
 #if !ANDROID
+                _legacyUniforms.InvalidateMatrix4Array();
                 _legacyUniforms.NoteUncachedWrite();
 #endif
                 DesktopGL.UniformMatrix4(location, count, transpose, value);

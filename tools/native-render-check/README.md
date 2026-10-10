@@ -48,3 +48,22 @@ separate lifecycle run: fullscreen, restored window size, hide/show and focus
 request. This uses native window APIs and records focus events. Actual focus
 loss and recovery require observed callbacks, beyond a successful hide/show. It does not
 prove OS keyboard Alt-Tab behavior and must not be included in benchmarks.
+
+For the Ice Hive transform/occlusion regression, use the multiplayer room
+`MP9 CRYOCHASM` (not its adventure counterpart `UNIT4_RM1`):
+
+```sh
+dotnet tools/native-render-check/bin/Release/net10.0/native-render-check.dll \
+  -room 'MP9 CRYOCHASM' -players 2 -hunter Spire -idle -seconds 8 \
+  -outlines Red -outlinecheck -size 1280x720 \
+  -shots /absolute/path/ice-hive -output /absolute/path/ice-hive.json
+```
+
+Repeat with `-players 1` and omit `-outlinecheck` to check solo lighting and
+jump-pad placement. `-outlinecheck` uses an actual animated hunter and the
+production outline pass: a near depth wall must hide every outline pixel,
+and far depth must expose some pixels as a positive control. Both counts
+are recorded in the result; a missing body cannot silently pass the test.
+`-camera x,y,z -facing x,y,z` sets a fixed free camera for paired captures.
+Native mouse movement is ignored so activity outside the diagnostic cannot
+change the camera between comparison runs.
