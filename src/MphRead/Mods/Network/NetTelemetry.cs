@@ -35,6 +35,8 @@ public sealed class NetTransportTelemetry
 }
 
 public enum NetIntentRejection { None, Duplicate, Reordered, WrongMatch, WrongEpoch, WrongGeneration, WrongLife, Invalid }
+public readonly record struct NetInputAgeSnapshot(long Samples, long Unavailable, long TotalFrames,
+    uint MaximumFrames, long[] Histogram);
 public readonly record struct NetIntentSnapshot(long Received, long Accepted, long Duplicate, long Reordered,
     long WrongMatch, long WrongEpoch, long WrongGeneration, long WrongLife, long Invalid, long FrameGaps,
     uint LargestGap, double? SilenceMilliseconds, double MaximumSilenceMilliseconds);
@@ -47,6 +49,20 @@ public sealed class NetPeerTelemetry
     private long _lastArrival;
     private double _maxSilence;
     private bool _seen;
+    private long _ageSamples, _ageUnavailable, _ageTotal;
+    private uint _ageMax;
+    // Inclusive upper edges: 0,1,2,4,8,16,32,64,128,256,unbounded frames.
+    private readonly long[] _ages = new long[11];
+    public void Consumed(uint age)
+    {
+        if (age == uint.MaxValue) { _ageUnavailable++; return; }
+        _ageSamples++; _ageTotal += age; _ageMax = Math.Max(_ageMax, age);
+        int bucket = 0;
+        while (bucket < _ages.Length - 1 && age > (bucket == 0 ? 0u : 1u << (bucket - 1))) bucket++;
+        _ages[bucket]++;
+    }
+    public NetInputAgeSnapshot CaptureInputAge() => new(_ageSamples, _ageUnavailable, _ageTotal,
+        _ageMax, (long[])_ages.Clone());
     public void Intent(uint frame, NetIntentRejection rejection, long now = 0)
     {
         _received++;
@@ -77,6 +93,7 @@ public sealed class NetPeerTelemetry
     {
         _received = _accepted = _duplicate = _reordered = _match = _epoch = _generation = _life = _invalid = _gaps = 0;
         _largestGap = 0; _maxSilence = 0; NewLife();
+        _ageSamples = _ageUnavailable = _ageTotal = 0; _ageMax = 0; Array.Clear(_ages);
     }
 }
 
@@ -100,6 +117,8 @@ public static class NetTelemetry
     { var peers = new NetPeerTelemetry[PlayerEntity.SlotCapacity]; for (int i = 0; i < peers.Length; i++) peers[i] = new(); return peers; }
     public static void Intent(int slot, uint frame, NetIntentRejection reason)
     { if ((uint)slot < Match.Length) { Match[slot].Intent(frame, reason); Session[slot].Intent(frame, reason); } }
+    public static void ConsumedIntent(int slot, uint age)
+    { if ((uint)slot < Match.Length) { Match[slot].Consumed(age); Session[slot].Consumed(age); } }
     public static void NewLife(int slot) { if ((uint)slot < Match.Length) { Match[slot].NewLife(); Session[slot].NewLife(); } }
     public static void ForgetSlot(int slot) { if ((uint)slot < Match.Length) { Match[slot].Reset(); Session[slot].Reset(); } }
     public static void NewMatch() { foreach (var peer in Match) peer.Reset(); foreach (var peer in Session) peer.NewLife(); }

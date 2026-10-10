@@ -76,6 +76,10 @@ public readonly record struct NetConnectionSnapshot(ulong ConnectionId, long Sen
 /// <summary>Bound to one endpoint/incarnation; caller serializes all access. No payload ownership.</summary>
 public sealed class NetConnection
 {
+    public NetWireTelemetry Wire { get; } = new();
+    public const int IntentRate = 180, IntentBurst = 64, StateRate = 2000, StateBurst = 512,
+        ControlRate = 60, ControlBurst = 128, BackgroundRate = 100, BackgroundBurst = 32,
+        AuthorityFactRate = 1920, AuthorityFactBurst = 128;
     private struct Attempt { public uint Sequence; public double SentAt; public bool Pending; public uint? EventId; }
     private readonly Attempt[] _attempts = new Attempt[512];
     private NetReceiveWindow _received;
@@ -92,12 +96,12 @@ public sealed class NetConnection
     // background drain (32/frame at 60 Hz); retain the existing inbox/reserve.
     internal bool ReceivesAuthorityFacts { get; set; }
     public bool Allow(PacketType type, double nowMs) => type == PacketType.Intent
-        ? _intentBudget.Take(nowMs, 180, 64)
+        ? _intentBudget.Take(nowMs, IntentRate, IntentBurst)
         : ReceivesAuthorityFacts && type is (PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact)
-            ? _authorityFactBudget.Take(nowMs, NetPumpBudget.Default.Background * 60, 128)
-        : NetPacketQueue.Priority(type) == NetPacketPriority.Realtime ? _stateBudget.Take(nowMs, 2000, 512)
-        : NetPacketQueue.Priority(type) == NetPacketPriority.Critical ? _controlBudget.Take(nowMs, 60, 128)
-        : _backgroundBudget.Take(nowMs, 100, 32);
+            ? _authorityFactBudget.Take(nowMs, AuthorityFactRate, AuthorityFactBurst)
+        : NetPacketQueue.Priority(type) == NetPacketPriority.Realtime ? _stateBudget.Take(nowMs, StateRate, StateBurst)
+        : NetPacketQueue.Priority(type) == NetPacketPriority.Critical ? _controlBudget.Take(nowMs, ControlRate, ControlBurst)
+        : _backgroundBudget.Take(nowMs, BackgroundRate, BackgroundBurst);
     public NetReliableChannel Reliable { get; } = new();
     internal bool QueueOnly { get; set; }
     internal bool QueueServerSide { get; set; }

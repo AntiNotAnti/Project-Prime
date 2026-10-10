@@ -396,6 +396,7 @@ namespace MphRead.Mods.Network
                     // captured in the previous room.
                     NetPlayerBridge.ApplyReportedPosition(player, NetSession.RemoteIntents[slot]);
                 }
+                NetTelemetry.ConsumedIntent(slot, NetSession.RemoteIntentAge(slot));
                 NetPlayerBridge.ApplyIntent(player, NetSession.RemoteIntents[slot]);
                 if (authorityRole)
                 {

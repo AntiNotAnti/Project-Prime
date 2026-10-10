@@ -225,6 +225,10 @@ public sealed partial class DedicatedServer
             || ready != peer.BootstrapIdentity || ready.Start != CurrentStartIdentity
             || ready.SlotGeneration != _slotGenerations[peer.SlotIndex]) return;
         peer.LastSeen = now;
+        if (!peer.MatchReady) NetCampaignEvidence.Ready(peer.SlotIndex, _slotGenerations[peer.SlotIndex],
+            peer.Rejoining, peer.LateJoin, peer.AdmissionReady, (now - peer.JoinedAt) * 1000,
+            (now - peer.LoadStartedAt) * 1000,
+            peer.FirstBootstrapAt < 0 ? -1 : (now - peer.FirstBootstrapAt) * 1000);
         if (!peer.MatchReady) Log($"[lobby] slot {peer.SlotIndex} applied world revision {ready.Revision}, frame {ready.AuthorityFrame}");
         if (!peer.MatchReady) Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.Lifecycle, NetSession.NetFrame,
             Player: (byte)peer.SlotIndex, Generation: _slotGenerations[peer.SlotIndex], Result: 200,

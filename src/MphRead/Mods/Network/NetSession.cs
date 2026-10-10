@@ -1659,6 +1659,7 @@ namespace MphRead.Mods.Network
         }
 
         public static NetTelemetrySnapshot CaptureTelemetry() => NetTelemetry.Capture(_transport);
+        internal static NetTransport? EvidenceTransport => _transport;
 
         public static long SnapshotsOutOfOrder { get; private set; }
 
