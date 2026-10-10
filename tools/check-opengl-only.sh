@@ -16,6 +16,12 @@ if [[ -d src/MphRead/Mods/Render/Generated ]] && find src/MphRead/Mods/Render/Ge
   fail 'generated WebGPU shader artifacts present'
 fi
 [[ ! -d tools/wgpu && ! -d tools/modern-shaders ]] || fail 'retired renderer build tools present'
+[[ ! -f src/MphRead/Mods/Render/DeferredPbr.cs ]] ||
+  fail 'retired deferred PBR implementation present'
+if grep -Eq 'history_tex|pbr_albedo|hdr_tex|bloom_enable|dynamic_light_count|aa_mode|reflections' \
+  src/MphRead/Mods/Render/GraphicsPipeline.cs; then
+  fail 'retired postprocessing shader resource or uniform present'
+fi
 if grep -Eq 'libwgpu_native|libMoltenVK|MoltenVK_icd|tools/wgpu/build-native' \
   .github/workflows/build.yml .github/workflows/release.yml \
   tools/check-macos-build.sh tools/test-macos-tools.sh tools/package-macos.sh; then

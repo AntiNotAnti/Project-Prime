@@ -99,6 +99,17 @@ namespace MphRead.Mods.Render
                 RenderOptions.Shadows = ShadowQuality.High;
                 Check(RenderOptions.PostProcessingEnabled && RenderOptions.NeedsReadableDepth,
                     "directional shadow is independently permitted to request readable depth");
+                string shader = GraphicsPipelineShader.FragmentSource;
+                Check(shader.Contains("directional_shadow(", StringComparison.Ordinal)
+                    && shader.Contains("shadow_tex", StringComparison.Ordinal)
+                    && shader.Contains("depth_tex", StringComparison.Ordinal)
+                    && !shader.Contains("history_tex", StringComparison.Ordinal)
+                    && !shader.Contains("pbr_albedo", StringComparison.Ordinal)
+                    && !shader.Contains("hdr_tex", StringComparison.Ordinal)
+                    && !shader.Contains("bloom_enable", StringComparison.Ordinal)
+                    && !shader.Contains("aa_mode", StringComparison.Ordinal)
+                    && !shader.Contains("reflections", StringComparison.Ordinal),
+                    "shadow-only GLSL compiles without retired post-FX contracts");
                 Check(!MphRead.Scene.ShouldCompositeDirectionalShadow(
                             ShadowQuality.Off, shadowReady: true, depthReady: true)
                     && !MphRead.Scene.ShouldCompositeDirectionalShadow(

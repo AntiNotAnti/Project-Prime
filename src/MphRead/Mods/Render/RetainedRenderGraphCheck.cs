@@ -34,6 +34,10 @@ namespace MphRead.Mods.Render
                 && frameGraph.Passes[3].Kind == FrameRenderPassKind.Outlines
                 && !System.Linq.Enumerable.Any(frameGraph.Passes,
                     pass => pass.Name.Contains("pbr", StringComparison.OrdinalIgnoreCase))
+                && System.Linq.Enumerable.Single(frameGraph.Passes,
+                    pass => pass.Kind == FrameRenderPassKind.PostProcess).Reads
+                    == (FrameRenderResource.SceneColor | FrameRenderResource.SceneDepth
+                        | FrameRenderResource.ShadowDepth)
                 && frameGraph.Passes[^1].Kind == FrameRenderPassKind.Composite
                 && (frameGraph.Passes[^1].Writes & FrameRenderResource.Output) != 0,
                 "OpenGL frame graph excludes retired GPU visibility and Hi-Z passes");

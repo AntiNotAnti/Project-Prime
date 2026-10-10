@@ -50,7 +50,9 @@ namespace MphRead
                 // Delete the optional shadow color target when shadows are
                 // switched off, without holding a large GPU allocation until
                 // this scene is unloaded.
-                if (_graphicsOutputTexture != 0)
+                if (_graphicsOutputTexture != 0
+                    && (_graphicsPipelineRefused
+                        || RenderOptions.Shadows == ShadowQuality.Off))
                     ReleaseGraphicsOutputTarget();
                 return;
             }
