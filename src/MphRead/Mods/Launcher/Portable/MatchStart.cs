@@ -217,15 +217,10 @@ namespace MphRead.Mods.Launcher
             {
                 window.BeginScene();
             }
-#if !MPHREAD_SERVER
-            // The modern backend already has a bounded common-pipeline prewarm,
-            // but it was never called. Pay the first-use pipeline creation cost
-            // while the launcher/loading surface still owns the screen rather
-            // than on the first combat frame that happens to need each state.
-            if (Mods.Render.ModernGraphicsCompat.Active)
-                Mods.Render.ModernGraphicsCompat.PrewarmCommonPipelines();
-#endif
         }
+
+        /// <summary>
+        /// What has to happen after a match, whichever way it ended.        }
 
         /// <summary>
         /// What has to happen after a match, whichever way it ended.

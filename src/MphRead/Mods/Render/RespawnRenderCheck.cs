@@ -140,12 +140,7 @@ namespace MphRead.Mods.Render
 
             public CheckWindow() : base(new GameWindowSettings { UpdateFrequency = 0 }, CheckSettings())
             {
-                if (GraphicsBackendPolicy.ModernGameplayRequested)
-                {
-                    ModernGraphicsCompat.Initialize(this, GraphicsBackendPolicy.Resolved);
-                    ModernGraphicsCompat.SetVSync(false);
-                }
-                else VSync = VSyncMode.Off;
+                VSync = VSyncMode.Off;
                 CursorState = CursorState.Normal;
             }
 
@@ -194,7 +189,7 @@ namespace MphRead.Mods.Render
                 PlayerEntity.PlayerCount = 2;
                 PlayerEntity.MainPlayerIndex = 0;
                 _scene.AddRoom(room, GameMode.Battle, playerCount: NetLaunch.RoomPlayerCount);
-                Console.WriteLine($"RESPAWNRENDER backend requested={GraphicsBackendPolicy.Requested} actual={(ModernGraphicsCompat.Active ? ModernGraphicsCompat.DeviceIdentity.Item1.ToString() : "OpenGL")}");
+                Console.WriteLine($"RESPAWNRENDER backend requested={GraphicsBackendPolicy.Requested} actual=OpenGL");
                 Console.WriteLine($"RESPAWNRENDER start room={room} cycles={cycles} timeout={timeout}s"
                     + " | visible/unfocused, cursor free, vsync off | accelerated 60 Hz simulation"
                     + " | every step rendered; 300 settling frames per completed cycle"
@@ -235,7 +230,6 @@ namespace MphRead.Mods.Render
                 ObserveSpawn();
                 ulong simulatedFrame = _scene.FrameCount;
                 if (_advanced && _scene.ValidateModernAdvancedRendering()) _advancedFrames++;
-                if (ModernGraphicsCompat.Active) ModernGraphicsCompat.Resize(FramebufferSize.X, FramebufferSize.Y);
                 _scene.OnDrawFrame();
                 if (!_scene.OnRenderFrame())
                 {
@@ -263,8 +257,7 @@ namespace MphRead.Mods.Render
                     CheckPassBoundaries();
                     _controlDone = true;
                 }
-                if (ModernGraphicsCompat.Active) ModernGraphicsCompat.Present();
-                else SwapBuffers();
+                SwapBuffers();
                 _scene.AfterRenderFrame();
                 PollErrors("swap/after-frame");
                 AdvancePhase();
@@ -723,7 +716,6 @@ namespace MphRead.Mods.Render
                 finally
                 {
                     if (_loaded) _scene.UnloadGl();
-                    if (ModernGraphicsCompat.Active) ModernGraphicsCompat.Shutdown();
                 }
             }
 
