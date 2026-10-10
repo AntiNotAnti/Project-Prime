@@ -23,112 +23,89 @@ namespace MphRead.Mods.Render
                     && !RenderOptions.TextureReplacements
                     && !RenderOptions.CharacterModelReplacements
                     && !RenderOptions.PostProcessingEnabled,
-                    "original preset remains the unprocessed compatibility path");
+                    "original preset remains the native OpenGL compatibility path");
 
                 foreach (var preset in new[] { GraphicsPreset.Performance, GraphicsPreset.Enhanced,
                     GraphicsPreset.Ultra, GraphicsPreset.Extreme })
                 {
-                    // Poison every optional effect first: a preset must clear
-                    // a previous custom/maximal look, not inherit its switches.
-                    RenderOptions.DeferredPbr = RenderOptions.Reflections = true;
-                    RenderOptions.EnhancedFog = RenderOptions.VolumetricFog = true;
-                    RenderOptions.InternalHdr = RenderOptions.DynamicGlow = true;
-                    RenderOptions.ContactShadows = RenderOptions.EnhancedLighting = true;
-                    RenderOptions.ColorGrade = ColorGradeProfile.Cinematic;
-                    RenderOptions.Contrast = 150; RenderOptions.Saturation = 200;
-                    RenderOptions.TextureUpscale = TextureUpscaleMode.Scale4x;
+                    // A preset must clear legacy experimental effects even
+                    // after a maximal hidden configuration was loaded.
+                    RenderOptions.Bloom = true;
+                    RenderOptions.DeferredPbr = true;
+                    RenderOptions.InternalHdr = true;
+                    RenderOptions.DynamicGlow = true;
+                    RenderOptions.Reflections = true;
+                    RenderOptions.AntiAliasing = AntiAliasingMode.Taa;
+                    RenderOptions.Shadows = ShadowQuality.Ultra;
                     RenderOptions.ApplyGraphicsPreset(preset);
-                    Check(!RenderOptions.DeferredPbr && !RenderOptions.Reflections
-                        && !RenderOptions.EnhancedFog && !RenderOptions.VolumetricFog
-                        && !RenderOptions.InternalHdr && !RenderOptions.DynamicGlow
-                        && !RenderOptions.ContactShadows && !RenderOptions.EnhancedLighting
-                        && RenderOptions.ColorGrade == ColorGradeProfile.Original
-                        && RenderOptions.Gamma == 100 && RenderOptions.Contrast == 100
-                        && RenderOptions.Saturation == 100
-                        && RenderOptions.TextureUpscale == TextureUpscaleMode.Off,
-                        $"{preset} clears stacked lighting, atmosphere and grading");
-                    // Every shared draft field must also reach the live renderer.
+                    Check(RenderOptions.Shadows == ShadowQuality.Off
+                        && !RenderOptions.PostProcessingEnabled
+                        && !RenderOptions.NeedsReadableDepth
+                        && !RenderOptions.Bloom && !RenderOptions.InternalHdr
+                        && !RenderOptions.DeferredPbr && !RenderOptions.DynamicGlow
+                        && !RenderOptions.Reflections
+                        && RenderOptions.AntiAliasing == AntiAliasingMode.Off,
+                        preset + " uses native GL without experimental post FX");
                     var profile = GraphicsPresetProfile.Get(preset)!;
-                    foreach (var field in typeof(GraphicsPresetProfile).GetProperties())
+                    foreach (var property in typeof(GraphicsPresetProfile).GetProperties())
                     {
-                        Check(Equals(field.GetValue(profile),
-                            typeof(RenderOptions).GetProperty(field.Name)!.GetValue(null)),
-                            $"{preset} applies {field.Name} consistently");
+                        Check(Equals(property.GetValue(profile),
+                            typeof(RenderOptions).GetProperty(property.Name)!.GetValue(null)),
+                            preset + " applies " + property.Name + " consistently");
                     }
                 }
 
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Performance);
                 Check(RenderOptions.ResolutionScale == 100
-                    && RenderOptions.AntiAliasing == AntiAliasingMode.Fxaa
                     && RenderOptions.TextureAnisotropy == 4
-                    && !RenderOptions.NeedsReadableDepth && !RenderOptions.Bloom,
-                    "performance preserves native detail without depth effects");
+                    && RenderOptions.TextureMipmaps
+                    && RenderOptions.AntiAliasing == AntiAliasingMode.Off,
+                    "performance uses native texture filtering without postprocess");
 
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Enhanced);
                 Check(RenderOptions.ResolutionScale == 100
-                    && RenderOptions.AntiAliasing == AntiAliasingMode.Smaa
-                    && RenderOptions.AmbientOcclusion == AmbientOcclusionQuality.Low
-                    && RenderOptions.Bloom && RenderOptions.BloomIntensity == 20
-                    && RenderOptions.Shadows == ShadowQuality.Off
-                    && RenderOptions.AdvancedMaterials && RenderOptions.NeedsReadableDepth,
-                    "enhanced uses subtle bloom and occlusion at native resolution");
+                    && RenderOptions.AdvancedMaterials
+                    && RenderOptions.TextureAnisotropy == 8
+                    && !RenderOptions.PostProcessingEnabled,
+                    "enhanced uses authored maps and native sampling");
 
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Ultra);
                 Check(RenderOptions.ResolutionScale == 150
-                    && RenderOptions.Shadows == ShadowQuality.High,
-                    "ultra spends quality on supersampling and shadows");
+                    && RenderOptions.Shadows == ShadowQuality.Off,
+                    "ultra is supersampling without implicit shadows");
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Extreme);
                 Check(RenderOptions.ResolutionScale == 200
-                    && RenderOptions.Shadows == ShadowQuality.Ultra
-                    && RenderOptions.SharpenStrength == 0,
-                    "extreme uses 2x supersampling without sharpening halos");
+                    && RenderOptions.Shadows == ShadowQuality.Off,
+                    "extreme is 2x supersampling with no extra fullscreen passes");
 
                 var before = RenderOptions.ResolutionScale;
                 Check(GraphicsPresetProfile.Get(GraphicsPreset.Original) != null
                     && RenderOptions.ResolutionScale == before,
-                    "reading a launcher draft does not mutate live rendering");
+                    "reading launcher preset does not mutate runtime");
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Custom);
                 Check(RenderOptions.ResolutionScale == before
                     && GraphicsPresetProfile.Get(GraphicsPreset.Custom) == null,
-                    "custom preserves manually tuned values");
+                    "custom leaves manually tuned values intact");
 
+                // Retired properties can still exist in old JSON or CLI tools,
+                // but must never create a render pass or request depth.
                 RenderOptions.AntiAliasing = AntiAliasingMode.Taa;
-                Check(RenderOptions.PostProcessingEnabled,
-                    "TAA remains available as an explicit temporal reprojection mode");
-
-                Check(MphRead.Scene.ResolvePostProcessAntiAliasing(
-                        AntiAliasingMode.Taa, hdrRequested: false, pbrAvailable: false)
-                        == AntiAliasingMode.Taa
-                    && MphRead.Scene.ResolvePostProcessAntiAliasing(
-                        AntiAliasingMode.Taa, hdrRequested: true, pbrAvailable: false)
-                        == AntiAliasingMode.Smaa
-                    && MphRead.Scene.ResolvePostProcessAntiAliasing(
-                        AntiAliasingMode.Taa, hdrRequested: false, pbrAvailable: true)
-                        == AntiAliasingMode.Smaa,
-                    "TAA avoids allocating rejected history for HDR/PBR and falls back to SMAA");
-
-                var supersampled = new OpenTK.Mathematics.Vector2i(5760, 3240);
-                var presentation = new OpenTK.Mathematics.Vector2i(3840, 2160);
-                Check(MphRead.Scene.ResolveGraphicsProcessingSize(
-                        supersampled, presentation, taaActive: false) == presentation
-                    && MphRead.Scene.ResolveGraphicsProcessingSize(
-                        supersampled, presentation, taaActive: true) == supersampled,
-                    "supersampled worlds resolve expensive post processing at presentation size unless TAA needs full history");
-
-                // Exercise individual on -> off transitions independently of presets.
-                foreach (string toggle in new[] { "Bloom", "EnhancedLighting", "DeferredPbr", "ContactShadows",
-                    "EnhancedFog", "VolumetricFog", "InternalHdr", "Reflections", "DynamicGlow" })
-                {
-                    RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
-                    var property = typeof(RenderOptions).GetProperty(toggle)!;
-                    property.SetValue(null, true);
-                    Check(RenderOptions.PostProcessingEnabled, toggle + " enables processing");
-                    property.SetValue(null, false);
-                    Check(!RenderOptions.PostProcessingEnabled && !RenderOptions.NeedsReadableDepth,
-                        toggle + " releases processing and readable depth when off");
-                }
-                RenderOptions.Bloom = true; RenderOptions.BloomIntensity = 0;
-                Check(!RenderOptions.PostProcessingEnabled, "zero-intensity bloom does not run a pass");
+                RenderOptions.Bloom = true;
+                RenderOptions.InternalHdr = true;
+                RenderOptions.DeferredPbr = true;
+                RenderOptions.Reflections = true;
+                Check(!RenderOptions.PostProcessingEnabled && !RenderOptions.NeedsReadableDepth,
+                    "retired legacy flags cannot re-enable HDR/TAA/PBR/postprocess");
+                RenderOptions.Shadows = ShadowQuality.High;
+                Check(RenderOptions.PostProcessingEnabled && RenderOptions.NeedsReadableDepth,
+                    "directional shadow is independently permitted to request readable depth");
+                RenderOptions.RetireExperimentalPostEffects();
+                Check(RenderOptions.Shadows == ShadowQuality.High
+                    && RenderOptions.AdvancedMaterials
+                    && !RenderOptions.Bloom && !RenderOptions.InternalHdr
+                    && RenderOptions.AntiAliasing == AntiAliasingMode.Off
+                    && RenderOptions.PostProcessingEnabled,
+                    "retired effect reset preserves shadows and advanced materials");
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
 
                 uint pixel = 0x7F3366CCu;
@@ -164,9 +141,9 @@ namespace MphRead.Mods.Render
                     && settings.TextureUpscale == "scale4x"
                     && settings.TextureQuality == "automatic"
                     && settings.TextureSampling == "auto"
-                    && settings.Gamma == "150"
+                    && settings.Gamma == "100"
                     && settings.AdvancedMaterials == "on"
-                    && settings.InternalHdr == "on"
+                    && settings.InternalHdr == "off"
                     && settings.CharacterModelReplacements == "on"
                     && summary.Length > 0,
                     "graphics settings migration clamps and normalizes new options");
