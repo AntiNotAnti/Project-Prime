@@ -209,12 +209,20 @@ jobs:
           xvfb-run -a --server-args="-screen 0 640x480x24" \
             publish/opengl-linux/ProjectPrime -glvisualcheck "$RUNNER_TEMP/glvisual"
           python tools/opengl-visual/compare.py "$RUNNER_TEMP/glvisual" "$RUNNER_TEMP/glvisual" --output "$RUNNER_TEMP/glvisual-compare.json"
+      - name: OpenGL merged room indexed-draw parity against legacy display lists
+        run: |
+          xvfb-run -a --server-args="-screen 0 640x480x24" \
+            publish/opengl-linux/ProjectPrime -glvisualcheck "$RUNNER_TEMP/glvisual-batch" -glvbo -glbatch
+          python tools/opengl-visual/compare.py "$RUNNER_TEMP/glvisual" "$RUNNER_TEMP/glvisual-batch" --output "$RUNNER_TEMP/glbatch-parity.json"
       - name: GL synthetic pixel captures (not real-map hardware acceptance)
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: opengl-depth-alpha-stencil-fixture
-          path: ${{ runner.temp }}/glvisual
+          path: |
+            ${{ runner.temp }}/glvisual
+            ${{ runner.temp }}/glvisual-batch
+            ${{ runner.temp }}/glbatch-parity.json
           if-no-files-found: warn
 
   android-pacing-policy:

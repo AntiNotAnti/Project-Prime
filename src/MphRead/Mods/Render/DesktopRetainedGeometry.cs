@@ -20,6 +20,10 @@ internal static class DesktopRetainedGeometry
         Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_VBO") == "1"
         || Array.Exists(Environment.GetCommandLineArgs(), arg =>
             arg.Equals("-glvbo", StringComparison.OrdinalIgnoreCase));
+    private static readonly bool _batchRequested =
+        Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_BATCH") == "1"
+        || Array.Exists(Environment.GetCommandLineArgs(), arg =>
+            arg.Equals("-glbatch", StringComparison.OrdinalIgnoreCase));
     private static readonly bool _legacy =
         Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_FORCE_LISTS") == "1"
         || Array.Exists(Environment.GetCommandLineArgs(), arg =>
@@ -32,6 +36,15 @@ internal static class DesktopRetainedGeometry
         internal bool SetColor, SetNormal, SetTexcoord;
         internal Vector4 LastColor;
         internal Vector3 LastNormal, LastTexcoord;
+        internal float[]? Vertices;
+        internal int[]? Indices;
+    }
+
+    private sealed class Combined
+    {
+        internal int[] Ids = Array.Empty<int>();
+        internal Compiled Geometry = null!;
+        internal long Bytes;
     }
 
     private sealed class Capture
@@ -47,6 +60,9 @@ internal static class DesktopRetainedGeometry
     }
 
     [ThreadStatic] private static Dictionary<int, Compiled>? _lists;
+    [ThreadStatic] private static Dictionary<ulong, Combined>? _combinedBatches;
+    [ThreadStatic] private static long _combinedBytes;
+    private const long MaxCombinedBytes = 64L * 1024 * 1024;
     [ThreadStatic] private static HashSet<int>? _roomCandidates;
     [ThreadStatic] private static Capture? _capture;
     [ThreadStatic] private static bool _worldScope;
@@ -55,6 +71,7 @@ internal static class DesktopRetainedGeometry
     [ThreadStatic] private static long _uploadedBytes;
 
     internal static bool Enabled => _enabled && !_legacy;
+    internal static bool BatchEnabled => Enabled && _batchRequested;
     internal static int RetainedListCount => _lists?.Count ?? 0;
     internal static long UploadedBytes => _uploadedBytes;
 
@@ -182,7 +199,9 @@ internal static class DesktopRetainedGeometry
                 Texcoords = c.TexcoordVertices > 0,
                 SetColor = c.SetColor, SetNormal = c.SetNormal,
                 SetTexcoord = c.SetTexcoord, LastColor = c.Color,
-                LastNormal = c.Normal, LastTexcoord = c.Texcoord
+                LastNormal = c.Normal, LastTexcoord = c.Texcoord,
+                Vertices = BatchEnabled ? vertices : null,
+                Indices = BatchEnabled ? indices : null
             });
             _uploadedBytes += (long)vertices.Length * sizeof(float)
                 + (long)indices.Length * sizeof(int);
@@ -223,14 +242,151 @@ internal static class DesktopRetainedGeometry
         if (!Enabled || !_worldScope || _lists == null
             || !_lists.TryGetValue(id, out Compiled? list))
             return false;
+        DrawIndexed(list);
+        ApplyFinalAttributes(list);
+        return true;
+    }
+
+    internal static bool TryDrawBatch(int[] ids, int count)
+    {
+        if (!BatchEnabled || !_worldScope || _lists == null
+            || count < 2 || count > ids.Length)
+            return false;
+        ulong key = BatchHash(ids, count);
+        _combinedBatches ??= new Dictionary<ulong, Combined>();
+        if (!_combinedBatches.TryGetValue(key, out Combined? group))
+        {
+            group = BuildCombined(ids, count);
+            if (group == null) return false;
+            _combinedBatches.Add(key, group);
+        }
+        else
+        {
+            // A hash collision must never silently draw unrelated geometry.
+            if (group.Ids.Length != count) return false;
+            for (int i = 0; i < count; i++)
+                if (group.Ids[i] != ids[i]) return false;
+        }
+        DrawIndexed(group.Geometry);
+        ApplyFinalAttributes(group.Geometry);
+        return true;
+    }
+
+    // Identifies a *sequence* of immutable mesh list IDs. The dictionary is
+    // context-local; contents are compared exactly before cache reuse.
+    private static ulong BatchHash(int[] ids, int count)
+    {
+        unchecked
+        {
+            ulong hash = 14695981039346656037UL;
+            for (int i = 0; i < count; i++)
+            {
+                hash ^= (uint)ids[i];
+                hash *= 1099511628211UL;
+            }
+            hash ^= (uint)count;
+            return hash * 1099511628211UL;
+        }
+    }
+
+    private static unsafe Combined? BuildCombined(int[] ids, int count)
+    {
+        if (_lists == null || !_lists.TryGetValue(ids[0], out Compiled? first)
+            || first.Vertices == null || first.Indices == null
+            || first.LineCount != 0)
+            return null;
+        long floats = 0, indices = 0;
+        for (int i = 0; i < count; i++)
+        {
+            if (!_lists.TryGetValue(ids[i], out Compiled? part)
+                || part.Vertices == null || part.Indices == null
+                || part.TriangleCount == 0 || part.LineCount != 0
+                || part.Colors != first.Colors
+                || part.Normals != first.Normals
+                || part.Texcoords != first.Texcoords)
+                return null;
+            floats += part.Vertices.Length;
+            indices += part.TriangleCount;
+            if (floats > int.MaxValue || indices > int.MaxValue)
+                return null;
+        }
+        long bytes = floats * sizeof(float) + indices * sizeof(int);
+        if (bytes > MaxCombinedBytes - _combinedBytes) return null;
+        float[] mergedVertices = new float[(int)floats];
+        int[] mergedIndices = new int[(int)indices];
+        int vertexFloatOffset = 0, indexOffset = 0;
+        for (int i = 0; i < count; i++)
+        {
+            Compiled part = _lists[ids[i]];
+            float[] vertices = part.Vertices!;
+            int[] indexes = part.Indices!;
+            Array.Copy(vertices, 0, mergedVertices, vertexFloatOffset,
+                vertices.Length);
+            int baseVertex = vertexFloatOffset / LegacyGeometryBatch.FloatsPerVertex;
+            for (int j = 0; j < part.TriangleCount; j++)
+                mergedIndices[indexOffset + j] = checked(indexes[j] + baseVertex);
+            vertexFloatOffset += vertices.Length;
+            indexOffset += part.TriangleCount;
+        }
+
+        int vbo = 0, ibo = 0;
+        int oldVbo = DesktopGL.GetInteger(GetPName.ArrayBufferBinding);
+        int oldIbo = DesktopGL.GetInteger(GetPName.ElementArrayBufferBinding);
+        try
+        {
+            vbo = DesktopGL.GenBuffer();
+            ibo = DesktopGL.GenBuffer();
+            if (vbo == 0 || ibo == 0) throw new InvalidOperationException("retained batch allocation");
+            DesktopGL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+            fixed (float* v = mergedVertices)
+                DesktopGL.BufferData(BufferTarget.ArrayBuffer,
+                    (IntPtr)(mergedVertices.Length * sizeof(float)), (IntPtr)v,
+                    BufferUsageHint.StaticDraw);
+            DesktopGL.BindBuffer(BufferTarget.ElementArrayBuffer, ibo);
+            fixed (int* ix = mergedIndices)
+                DesktopGL.BufferData(BufferTarget.ElementArrayBuffer,
+                    (IntPtr)(mergedIndices.Length * sizeof(int)), (IntPtr)ix,
+                    BufferUsageHint.StaticDraw);
+            Compiled last = _lists[ids[count - 1]];
+            var geometry = new Compiled
+            {
+                Vbo = vbo, Ibo = ibo, TriangleCount = mergedIndices.Length,
+                Colors = first.Colors, Normals = first.Normals,
+                Texcoords = first.Texcoords, LastColor = last.LastColor,
+                LastNormal = last.LastNormal, LastTexcoord = last.LastTexcoord,
+                SetColor = last.SetColor, SetNormal = last.SetNormal,
+                SetTexcoord = last.SetTexcoord
+            };
+            _combinedBytes += bytes;
+            _uploadedBytes += bytes;
+            return new Combined
+            {
+                Ids = ids.AsSpan(0, count).ToArray(),
+                Geometry = geometry, Bytes = bytes
+            };
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException
+            and not StackOverflowException)
+        {
+            if (vbo != 0) DesktopGL.DeleteBuffer(vbo);
+            if (ibo != 0) DesktopGL.DeleteBuffer(ibo);
+            return null; // Individual display lists remain the fallback.
+        }
+        finally
+        {
+            DesktopGL.BindBuffer(BufferTarget.ArrayBuffer, oldVbo);
+            DesktopGL.BindBuffer(BufferTarget.ElementArrayBuffer, oldIbo);
+        }
+    }
+
+    private static void DrawIndexed(Compiled list)
+    {
         if (!_bindingsCaptured)
         {
             _arrayBinding = DesktopGL.GetInteger(GetPName.ArrayBufferBinding);
             _elementBinding = DesktopGL.GetInteger(GetPName.ElementArrayBufferBinding);
             _bindingsCaptured = true;
         }
-        // Preserve whatever client-array layout a different renderer/window
-        // left behind. Only the world scope can consume the promoted buffers.
         DesktopGL.PushClientAttrib(ClientAttribMask.ClientVertexArrayBit);
         try
         {
@@ -262,7 +418,8 @@ internal static class DesktopRetainedGeometry
                     DrawElementsType.UnsignedInt, IntPtr.Zero);
             if (list.LineCount > 0)
                 DesktopGL.DrawElements(PrimitiveType.Lines, list.LineCount,
-                    DrawElementsType.UnsignedInt, (IntPtr)(list.TriangleCount * sizeof(int)));
+                    DrawElementsType.UnsignedInt,
+                    (IntPtr)(list.TriangleCount * sizeof(int)));
         }
         finally
         {
@@ -270,16 +427,31 @@ internal static class DesktopRetainedGeometry
             DesktopGL.BindBuffer(BufferTarget.ArrayBuffer, _arrayBinding);
             DesktopGL.BindBuffer(BufferTarget.ElementArrayBuffer, _elementBinding);
         }
-        // Display lists execute attribute commands and leave the final current
-        // values behind. Reproduce that side effect after the client-array draw.
+    }
+
+    private static void ApplyFinalAttributes(Compiled list)
+    {
+        // A sequence of GL display lists leaves the last list's current
+        // attributes active, even after the client array draw is finished.
         if (list.SetColor)
             DesktopGL.Color4(list.LastColor.X, list.LastColor.Y,
                 list.LastColor.Z, list.LastColor.W);
         if (list.SetNormal)
             DesktopGL.Normal3(list.LastNormal.X, list.LastNormal.Y, list.LastNormal.Z);
         if (list.SetTexcoord)
-            DesktopGL.TexCoord3(list.LastTexcoord.X, list.LastTexcoord.Y, list.LastTexcoord.Z);
-        return true;
+            DesktopGL.TexCoord3(list.LastTexcoord.X, list.LastTexcoord.Y,
+                list.LastTexcoord.Z);
+    }
+
+    private static void ClearCombined()
+    {
+        if (_combinedBatches != null)
+        {
+            foreach (Combined batch in _combinedBatches.Values)
+                Release(batch.Geometry);
+            _combinedBatches.Clear();
+        }
+        _combinedBytes = 0;
     }
 
     private static void Release(Compiled c)
@@ -290,6 +462,9 @@ internal static class DesktopRetainedGeometry
 
     internal static void DeleteLists(int first, int count)
     {
+        // A promoted list can appear in several combined immutable buffers.
+        // Discard them before the list ID is recycled or the owning map unloads.
+        ClearCombined();
         for (int i = 0; i < count; i++)
         {
             int id = first + i;
@@ -304,6 +479,8 @@ internal static class DesktopRetainedGeometry
         // Context loss destroys its GPU objects; never delete an old context's
         // handles after the new context has been made current.
         _lists = null;
+        _combinedBatches = null;
+        _combinedBytes = 0;
         _roomCandidates = null;
         _capture = null;
         _worldScope = false;

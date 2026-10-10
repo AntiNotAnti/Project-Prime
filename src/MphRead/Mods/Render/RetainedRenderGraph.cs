@@ -206,6 +206,42 @@ namespace MphRead.Mods.Render
         RetainedBatchState State);
 
     /// <summary>
+    /// Proof boundary for one indexed GL draw replacing several opaque room
+    /// packets. Shared material is insufficient: every per-draw shader value
+    /// (including full bone/matrix palette and dynamic light vectors) must
+    /// match exactly. Translucent/stencil/decals/dynamic entities remain
+    /// forbidden regardless of apparent batching state.
+    /// </summary>
+    internal static class RetainedOpaqueBatchPolicy
+    {
+        internal static bool CanMerge(RetainedDrawPacket first, RetainedDrawPacket next)
+        {
+            if (!first.ReorderableOpaque || !next.ReorderableOpaque
+                || first.BatchState != next.BatchState)
+                return false;
+            RenderItem a = first.Item, b = next.Item;
+            if (a.WeightedSkinning || b.WeightedSkinning
+                || a.BillboardMode != BillboardMode.None
+                || b.BillboardMode != BillboardMode.None
+                || !a.Transform.Equals(b.Transform)
+                || a.MatrixStackCount != b.MatrixStackCount
+                || a.EmissiveIntensity != b.EmissiveIntensity
+                || a.LightInfo.Light1Vector != b.LightInfo.Light1Vector
+                || a.LightInfo.Light2Vector != b.LightInfo.Light2Vector
+                || a.LightInfo.Light1Color != b.LightInfo.Light1Color
+                || a.LightInfo.Light2Color != b.LightInfo.Light2Color)
+                return false;
+            int values = a.MatrixStackCount * 16;
+            if (values > a.MatrixStack.Length || values > b.MatrixStack.Length)
+                return false;
+            for (int i = 0; i < values; i++)
+                if (a.MatrixStack[i] != b.MatrixStack[i])
+                    return false;
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Reusable retained view of the frame's visible submissions. Mesh
     /// descriptors are interned for the scene lifetime; frame packets and
     /// adjacent batches retain list capacity and add no packet-object
@@ -554,6 +590,37 @@ namespace MphRead
             _ => _retainedRenderWorld.OpaqueBatches
         };
 
+        private int[] _retainedGlOpaqueBatchIds = Array.Empty<int>();
+
+        private bool TryDrawRetainedOpaqueBatch(
+            Mods.Render.WorldRenderPassKind kind,
+            IReadOnlyList<Mods.Render.RetainedDrawPacket> packets,
+            Mods.Render.RetainedDrawBatch batch)
+        {
+#if !MPHREAD_SERVER
+            if (kind != Mods.Render.WorldRenderPassKind.Opaque
+                || batch.Count < 2 || !GL.RetainedGeometryBatchingEnabled)
+                return false;
+            Mods.Render.RetainedDrawPacket first = packets[batch.Start];
+            for (int offset = 1; offset < batch.Count; offset++)
+                if (!Mods.Render.RetainedOpaqueBatchPolicy.CanMerge(
+                    first, packets[batch.Start + offset]))
+                    return false;
+
+            if (_retainedGlOpaqueBatchIds.Length < batch.Count)
+                Array.Resize(ref _retainedGlOpaqueBatchIds, Math.Max(16, batch.Count));
+            for (int offset = 0; offset < batch.Count; offset++)
+                _retainedGlOpaqueBatchIds[offset] = packets[batch.Start + offset].Mesh.ListId;
+            // Prepare the shared uniforms once, but do not draw any geometry
+            // until the indexed atlas confirms every list is promotable.
+            RenderItem(first.Item, applySharedState: true,
+                retainedMesh: first.Mesh, drawGeometry: false);
+            return GL.TryDrawRetainedBatch(_retainedGlOpaqueBatchIds, batch.Count);
+#else
+            return false;
+#endif
+        }
+
         private void DrawRenderGraphPackets(Mods.Render.WorldRenderPassKind kind)
         {
             IReadOnlyList<Mods.Render.RetainedDrawPacket> packets = PacketsFor(kind);
@@ -561,6 +628,8 @@ namespace MphRead
             for (int batchIndex = 0; batchIndex < batches.Count; batchIndex++)
             {
                 Mods.Render.RetainedDrawBatch batch = batches[batchIndex];
+                if (TryDrawRetainedOpaqueBatch(kind, packets, batch))
+                    continue;
                 bool sharedStateValid = false;
                 for (int offset = 0; offset < batch.Count; offset++)
                 {

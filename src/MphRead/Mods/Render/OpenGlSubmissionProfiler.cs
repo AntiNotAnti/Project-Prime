@@ -24,6 +24,8 @@ internal static class OpenGlSubmissionProfiler
     [ThreadStatic] private static long _start;
     [ThreadStatic] private static int _lists;
     [ThreadStatic] private static int _vboDraws;
+    [ThreadStatic] private static int _retainedBatchedDraws;
+    [ThreadStatic] private static int _retainedSavedDraws;
     [ThreadStatic] private static int _immediate;
     [ThreadStatic] private static int _textureBinds;
     [ThreadStatic] private static int _textureBindsElided;
@@ -38,6 +40,8 @@ internal static class OpenGlSubmissionProfiler
     [ThreadStatic] private static int _windowCount;
     [ThreadStatic] private static long _sumLists;
     [ThreadStatic] private static long _sumVboDraws;
+    [ThreadStatic] private static long _sumRetainedBatchedDraws;
+    [ThreadStatic] private static long _sumRetainedSavedDraws;
     [ThreadStatic] private static long _sumImmediate;
     [ThreadStatic] private static long _sumTextureBinds;
     [ThreadStatic] private static long _sumTextureBindsElided;
@@ -74,6 +78,7 @@ internal static class OpenGlSubmissionProfiler
         if (!_enabled || _active)
             return false;
         _lists = _vboDraws = _immediate = _textureBinds = _programBinds = 0;
+        _retainedBatchedDraws = _retainedSavedDraws = 0;
         _textureBindsElided = _textureUnitsElided = _rasterStatesElided = 0;
         _framebufferBinds = _stateRequests = _stateRequestsSkipped = _stencilRequests = 0;
         _start = Stopwatch.GetTimestamp();
@@ -83,6 +88,13 @@ internal static class OpenGlSubmissionProfiler
 
     internal static void NoteDisplayList() { if (_active) _lists++; }
     internal static void NoteVboDraw() { if (_active) _vboDraws++; }
+    internal static void NoteRetainedBatch(int mergedCount)
+    {
+        if (!_active) return;
+        _vboDraws++;
+        _retainedBatchedDraws++;
+        _retainedSavedDraws += Math.Max(0, mergedCount - 1);
+    }
     internal static void NoteImmediateBegin() { if (_active) _immediate++; }
     internal static void NoteTextureBind() { if (_active) _textureBinds++; }
     internal static void NoteTextureBindElided() { if (_active) _textureBindsElided++; }
@@ -109,6 +121,8 @@ internal static class OpenGlSubmissionProfiler
         _windowTicks[_windowCount++] = elapsed;
         _sumLists += _lists;
         _sumVboDraws += _vboDraws;
+        _sumRetainedBatchedDraws += _retainedBatchedDraws;
+        _sumRetainedSavedDraws += _retainedSavedDraws;
         _sumImmediate += _immediate;
         _sumTextureBinds += _textureBinds;
         _sumTextureBindsElided += _textureBindsElided;
@@ -137,6 +151,8 @@ internal static class OpenGlSubmissionProfiler
                 + $" p99={sorted[PercentileIndex(Window, 99)] * tickMs:F3}ms"
                 + $" avg-list={_sumLists / (double)Window:F1}"
                 + $" avg-vboDraws={_sumVboDraws / (double)Window:F1}"
+                + $" avg-mergedDraws={_sumRetainedBatchedDraws / (double)Window:F1}"
+                + $" avg-drawsSaved={_sumRetainedSavedDraws / (double)Window:F1}"
                 + $" avg-immediate={_sumImmediate / (double)Window:F1}"
                 + $" avg-texbind={_sumTextureBinds / (double)Window:F1}"
                 + $" avg-texbindElided={_sumTextureBindsElided / (double)Window:F1}"
@@ -158,6 +174,8 @@ internal static class OpenGlSubmissionProfiler
                 worldCpuP99Ms = sorted[PercentileIndex(Window, 99)] * tickMs,
                 averageDisplayLists = _sumLists / (double)Window,
                 averageVboDraws = _sumVboDraws / (double)Window,
+                averageCombinedDraws = _sumRetainedBatchedDraws / (double)Window,
+                averageDrawsSaved = _sumRetainedSavedDraws / (double)Window,
                 averageMaterialBatches = _sumBatches / (double)Window,
                 averageTextureBinds = _sumTextureBinds / (double)Window,
                 averageTextureBindsElided = _sumTextureBindsElided / (double)Window,
@@ -165,6 +183,7 @@ internal static class OpenGlSubmissionProfiler
             }));
             _windowCount = 0;
             _sumLists = _sumVboDraws = _sumImmediate = _sumTextureBinds = 0;
+            _sumRetainedBatchedDraws = _sumRetainedSavedDraws = 0;
             _sumTextureBindsElided = _sumTextureUnitsElided
                 = _sumRasterStatesElided = 0;
             _sumProgramBinds = _sumFramebufferBinds = _sumStencilRequests = 0;

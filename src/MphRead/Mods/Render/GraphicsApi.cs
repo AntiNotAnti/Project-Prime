@@ -173,6 +173,30 @@ namespace MphRead.Mods.Render
             DesktopGL.MultiTexCoord2(unit, s, t);
         }
 
+        internal static bool RetainedGeometryBatchingEnabled
+        {
+            get
+            {
+#if !ANDROID
+                return DesktopRetainedGeometry.BatchEnabled;
+#else
+                return false;
+#endif
+            }
+        }
+
+        internal static bool TryDrawRetainedBatch(int[] ids, int count)
+        {
+#if !ANDROID
+            if (DesktopRetainedGeometry.TryDrawBatch(ids, count))
+            {
+                OpenGlSubmissionProfiler.NoteRetainedBatch(count);
+                return true;
+            }
+#endif
+            return false;
+        }
+
         public static int GenLists(int range) => DesktopGL.GenLists(range);
         public static void RegisterRoomGeometryList(int list)
         {
