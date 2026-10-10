@@ -17,6 +17,10 @@ using OpenTK.Windowing.Common;
 
 if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsWindows())
     throw new PlatformNotSupportedException("This QA campaign permits only macOS and Windows.");
+// The client may start a preview worker when an end panel opens. This entry
+// point is a diagnostic, so reject that command rather than recursively
+// starting another diagnostic with its default room.
+if (args.Contains("-thumbnail")) { Console.WriteLine("NATIVERENDER: thumbnail workers require the client entry point."); return 2; }
 string Value(string name, string fallback) => Array.IndexOf(args, name) is int i && i >= 0 && i + 1 < args.Length
     ? args[i + 1] : fallback;
 string room = Value("-room", "UNIT4_RM1");
@@ -102,6 +106,7 @@ sealed class CheckWindow : RenderWindow
         RenderOptions.TextureFiltering = false; RenderOptions.TextureMipmaps = false;
         RenderOptions.TextureAnisotropy = 1;
         FrameTiming.FrameRateCap = _cap;
+        Scene.GameState.PointGoal = 0; Scene.GameState.MatchTime = -1;
         FrameTiming.Reset(); FrameTiming.ResetDiagnostics();
         CursorState = CursorState.Normal;
         Console.WriteLine($"NATIVERENDER context room={_room} pixels={FramebufferSize} cap={_cap} shadows={_shadows}"
@@ -165,7 +170,9 @@ sealed class CheckWindow : RenderWindow
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var visible = typeof(ItemInstanceEntity).GetMethod("IsPickupVisuallyVisible", flags);
         var blocked = typeof(ItemInstanceEntity).GetMethod("PickupSampleBlocked", flags);
-        return Scene.Entities.OfType<ItemInstanceEntity>().Select(item =>
+        var items = new List<ItemInstanceEntity>();
+        foreach (var entity in Scene.Entities) if (entity is ItemInstanceEntity item) items.Add(item);
+        return items.Select(item =>
         {
             Vector3 right = Vector3.Cross(item.Position - Scene.CameraPosition, Vector3.UnitY);
             right = right.LengthSquared > .0001f ? right.Normalized() : Vector3.UnitX;
