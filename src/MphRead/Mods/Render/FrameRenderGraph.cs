@@ -26,7 +26,6 @@ namespace MphRead.Mods.Render
         World,
         Outlines,
         SceneOverlays,
-        DeferredPbr,
         PostProcess,
         Composite
     }
@@ -65,11 +64,6 @@ namespace MphRead.Mods.Render
             new(FrameRenderPassKind.SceneOverlays, "frame.scene-overlays",
                 FrameRenderResource.SceneColor | FrameRenderResource.SceneDepth,
                 FrameRenderResource.SceneColor | FrameRenderResource.SceneDepth),
-            new(FrameRenderPassKind.DeferredPbr, "frame.pbr",
-                FrameRenderResource.SceneDepth,
-                FrameRenderResource.PbrAlbedo
-                    | FrameRenderResource.PbrNormal
-                    | FrameRenderResource.PbrMaterial),
             new(FrameRenderPassKind.PostProcess, "frame.post",
                 FrameRenderResource.SceneColor
                     | FrameRenderResource.SceneDepth
@@ -94,7 +88,6 @@ namespace MphRead.Mods.Render
                 FrameRenderPassKind.World,
                 FrameRenderPassKind.Outlines,
                 FrameRenderPassKind.SceneOverlays,
-                FrameRenderPassKind.DeferredPbr,
                 FrameRenderPassKind.PostProcess,
                 FrameRenderPassKind.Composite
             };
@@ -189,10 +182,6 @@ namespace MphRead
                         this.Players.Main.DrawHudModels();
                         UnsetHudLayerUniforms();
                     }
-                    break;
-
-                case Mods.Render.FrameRenderPassKind.DeferredPbr:
-                    RenderDeferredPbrGBuffer();
                     break;
 
                 case Mods.Render.FrameRenderPassKind.PostProcess:

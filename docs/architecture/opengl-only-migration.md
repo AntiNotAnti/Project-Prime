@@ -49,6 +49,33 @@ dependencies until phase 2. The runtime policy refuses to select them.
 
 ## Phase 3: graphics cleanup and performance engineering
 
+### Slice A: retire experimental postprocessing (PR staged on main)
+
+- The UI now exposes native lighting/fog, render scale, texture sampling,
+  authored material maps, player/cel outlines and separately selectable
+  directional shadows. Retired TAA/HDR/bloom/SSAO/reflections/volumetric
+  postprocessing controls are no longer displayed.
+- Settings schema 10 migrates every retired effect to a neutral value, even for
+  same-schema JSON, while preserving actual native graphics preferences and
+  authored texture/character options.
+- Quality presets change render scale and texture sampling, not fullscreen
+  effects. They no longer implicitly activate shadows.
+- The GL frame graph no longer executes the deferred-PBR buffer build. The
+  remaining directional-shadow composition keeps the gameplay scene and
+  HUD compositor intact while no longer filling temporal history or binding
+  deferred PBR textures. HDR tone-map shaders are not compiled for that path.
+- The shadow-only composite skips GPU work when the map/depth is unavailable.
+  Turning shadows off deletes the shadow framebuffer and up-to-4K depth/color
+  attachments rather than keeping their allocations for the rest of the match.
+- Existing retired effect storage/code remains only as compatibility scaffolding
+  for a later physical-delete slice; its runtime processing is disabled.
+- This is a correctness and pass-count reduction, **not** a measured FPS gain.
+  Validate map shadows, player/cel outlines, HUD, beams and focus/fullscreen,
+  and compare p95/p99 frametimes before claiming an improvement.
+
+### Next slices
+
+
 - Retire optional post effects and remove their framebuffers and user-facing
   controls only after proving native world/depth/stencil, player outlines,
   beam/glow, HUD and compositor remain visually correct.

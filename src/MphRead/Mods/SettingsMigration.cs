@@ -15,7 +15,7 @@ namespace MphRead.Mods
     /// </summary>
     public static class SettingsMigration
     {
-        public const int CurrentSchema = 9;
+        public const int CurrentSchema = 10;
 
         public static bool Apply(MenuSettings settings, out string summary)
         {
@@ -86,48 +86,34 @@ namespace MphRead.Mods
 
             settings.GraphicsPreset = NormalizeEnum(settings.GraphicsPreset,
                 GraphicsPreset.Original, "graphics preset", changed);
-            settings.AntiAliasing = NormalizeEnum(settings.AntiAliasing,
-                AntiAliasingMode.Off, "anti-aliasing", changed);
-            settings.SharpenStrength = Normalize(settings.SharpenStrength,
-                Math.Clamp(RenderOptions.ParseInt(settings.SharpenStrength, 0), 0, 100)
-                    .ToString(CultureInfo.InvariantCulture), "sharpening", changed);
-            settings.Bloom = NormalizeToggle(settings.Bloom, false, "bloom", changed);
-            settings.BloomIntensity = Normalize(settings.BloomIntensity,
-                Math.Clamp(RenderOptions.ParseInt(settings.BloomIntensity, 60), 0, 150)
-                    .ToString(CultureInfo.InvariantCulture), "bloom intensity", changed);
-            settings.ColorGrade = NormalizeEnum(settings.ColorGrade,
-                ColorGradeProfile.Original, "color grade", changed);
-            settings.Gamma = Normalize(settings.Gamma,
-                Math.Clamp(RenderOptions.ParseInt(settings.Gamma, 100), 50, 150)
-                    .ToString(CultureInfo.InvariantCulture), "gamma", changed);
-            settings.Contrast = Normalize(settings.Contrast,
-                Math.Clamp(RenderOptions.ParseInt(settings.Contrast, 100), 50, 150)
-                    .ToString(CultureInfo.InvariantCulture), "contrast", changed);
-            settings.Saturation = Normalize(settings.Saturation,
-                Math.Clamp(RenderOptions.ParseInt(settings.Saturation, 100), 0, 200)
-                    .ToString(CultureInfo.InvariantCulture), "saturation", changed);
-            settings.EnhancedLighting = NormalizeToggle(settings.EnhancedLighting, false,
-                "enhanced lighting", changed);
+
+            // Phase 3 retires the experimental postprocessing controls. Force
+            // legacy JSON to canonical neutral values even when its schema is
+            // current, so hidden options cannot stay active after an update.
+            settings.AntiAliasing = Normalize(settings.AntiAliasing, "off", "anti-aliasing", changed);
+            settings.SharpenStrength = Normalize(settings.SharpenStrength, "0", "sharpening", changed);
+            settings.Bloom = Normalize(settings.Bloom, "off", "bloom", changed);
+            settings.BloomIntensity = Normalize(settings.BloomIntensity, "0", "bloom intensity", changed);
+            settings.ColorGrade = Normalize(settings.ColorGrade, "original", "color grade", changed);
+            settings.Gamma = Normalize(settings.Gamma, "100", "gamma", changed);
+            settings.Contrast = Normalize(settings.Contrast, "100", "contrast", changed);
+            settings.Saturation = Normalize(settings.Saturation, "100", "saturation", changed);
+            settings.EnhancedLighting = Normalize(settings.EnhancedLighting, "off", "enhanced lighting", changed);
+            settings.DeferredPbr = Normalize(settings.DeferredPbr, "off", "deferred PBR", changed);
+            settings.AmbientOcclusion = Normalize(settings.AmbientOcclusion, "off", "ambient occlusion", changed);
+            settings.ContactShadows = Normalize(settings.ContactShadows, "off", "contact shadows", changed);
+            settings.EnhancedFog = Normalize(settings.EnhancedFog, "off", "enhanced fog", changed);
+            settings.VolumetricFog = Normalize(settings.VolumetricFog, "off", "volumetric fog", changed);
+            settings.InternalHdr = Normalize(settings.InternalHdr, "off", "HDR tone mapping", changed);
+            settings.Reflections = Normalize(settings.Reflections, "off", "reflections", changed);
+            settings.DynamicGlow = Normalize(settings.DynamicGlow, "off", "dynamic glow", changed);
+
+            // Advanced authored material maps and native directional shadows
+            // are maintained by OpenGL and remain user-selectable.
             settings.AdvancedMaterials = NormalizeToggle(settings.AdvancedMaterials, false,
                 "advanced materials", changed);
-            settings.DeferredPbr = NormalizeToggle(settings.DeferredPbr, false,
-                "deferred PBR", changed);
             settings.ShadowQuality = NormalizeEnum(settings.ShadowQuality,
                 ShadowQuality.Off, "shadow quality", changed);
-            settings.AmbientOcclusion = NormalizeEnum(settings.AmbientOcclusion,
-                AmbientOcclusionQuality.Off, "ambient occlusion", changed);
-            settings.ContactShadows = NormalizeToggle(settings.ContactShadows, false,
-                "contact shadows", changed);
-            settings.EnhancedFog = NormalizeToggle(settings.EnhancedFog, false,
-                "enhanced fog", changed);
-            settings.VolumetricFog = NormalizeToggle(settings.VolumetricFog, false,
-                "volumetric fog", changed);
-            settings.InternalHdr = NormalizeToggle(settings.InternalHdr, false,
-                "HDR tone mapping", changed);
-            settings.Reflections = NormalizeToggle(settings.Reflections, false,
-                "reflections", changed);
-            settings.DynamicGlow = NormalizeToggle(settings.DynamicGlow, false,
-                "dynamic glow", changed);
             settings.TextureReplacements = NormalizeToggle(settings.TextureReplacements, false,
                 "HD texture replacements", changed);
             settings.CharacterModelReplacements = NormalizeToggle(
@@ -156,6 +142,32 @@ namespace MphRead.Mods
             return from != CurrentSchema || changed.Count > 0;
         }
 
+        /// <summary>
+        /// Canonical values for options removed from the OpenGL settings UI.
+        /// Retain JSON fields for old installations, but never re-enable their
+        /// shaders, history textures or transient framebuffers on save.
+        /// </summary>
+        public static void ResetRetiredPostProcessing(MenuSettings settings)
+        {
+            settings.AntiAliasing = "off";
+            settings.SharpenStrength = "0";
+            settings.Bloom = "off";
+            settings.BloomIntensity = "0";
+            settings.ColorGrade = "original";
+            settings.Gamma = "100";
+            settings.Contrast = "100";
+            settings.Saturation = "100";
+            settings.EnhancedLighting = "off";
+            settings.DeferredPbr = "off";
+            settings.AmbientOcclusion = "off";
+            settings.ContactShadows = "off";
+            settings.EnhancedFog = "off";
+            settings.VolumetricFog = "off";
+            settings.InternalHdr = "off";
+            settings.Reflections = "off";
+            settings.DynamicGlow = "off";
+        }
+
         public static void ResetPerformance(MenuSettings settings)
         {
             settings.Renderer = "OpenGL";
@@ -177,7 +189,7 @@ namespace MphRead.Mods
             settings.AntiAliasing = "off";
             settings.SharpenStrength = "0";
             settings.Bloom = "off";
-            settings.BloomIntensity = "60";
+            settings.BloomIntensity = "0";
             settings.ColorGrade = "original";
             settings.Gamma = "100";
             settings.Contrast = "100";

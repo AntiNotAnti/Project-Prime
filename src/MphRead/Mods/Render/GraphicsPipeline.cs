@@ -56,14 +56,29 @@ namespace MphRead
         private readonly record struct DynamicLightCandidate(float Distance, Vector3 Position,
             Vector3 Color, float Radius, float Intensity);
 
+        /// <summary>
+        /// No full-screen post pass is needed when the shadow map is disabled,
+        /// refused by the driver or lacks a valid scene depth attachment.
+        /// Keeping this decision testable without a GL context protects the
+        /// no-effects fast path and avoids allocating an identity framebuffer.
+        /// </summary>
+        internal static bool ShouldCompositeDirectionalShadow(
+            ShadowQuality quality, bool shadowReady, bool depthReady)
+            => quality != ShadowQuality.Off && shadowReady && depthReady;
+
         private void ApplyGraphicsPostProcess()
         {
             _graphicsOutputReady = false;
-            if (!RenderOptions.PostProcessingEnabled || _graphicsPipelineRefused)
+            if (_graphicsPipelineRefused || !ShouldCompositeDirectionalShadow(
+                RenderOptions.Shadows, ShadowMapReady, _depthTexture != 0))
             {
                 _graphicsHistoryValid = false;
                 return;
             }
+
+            // Keep the native shadow shader independent of retired graphics
+            // settings even when diagnostics mutate options during a match.
+            RenderOptions.RetireExperimentalPostEffects();
             try
             {
                 bool pbrAvailable = RenderOptions.DeferredPbr && DeferredPbrReady;
@@ -115,29 +130,8 @@ namespace MphRead
                     GL.Uniform3(_gfxShadowLightDir, shadowDirection.Normalized());
                 }
 
-                EnsureGraphicsHistory(_targetSize, taa);
-                GL.ActiveTexture(TextureUnit.Texture3);
-                GL.BindTexture(TextureTarget.Texture2D,
-                    taa && _graphicsHistoryValid ? _graphicsHistoryTexture : 0);
-                GL.Uniform1(_gfxHistorySampler, 3);
-                GL.Uniform1(_gfxHistoryValid, taa && _graphicsHistoryValid ? 1 : 0);
-                Matrix4 previousViewProjection = _graphicsPreviousViewProjection;
-                GL.UniformMatrix4(_gfxPreviousViewProjection, false, ref previousViewProjection);
-
-                GL.ActiveTexture(TextureUnit.Texture4);
-                GL.BindTexture(TextureTarget.Texture2D, pbrAvailable ? DeferredPbrAlbedo : 0);
-                GL.Uniform1(_gfxPbrAlbedo, 4);
-                GL.ActiveTexture(TextureUnit.Texture5);
-                GL.BindTexture(TextureTarget.Texture2D, pbrAvailable ? DeferredPbrNormal : 0);
-                GL.Uniform1(_gfxPbrNormal, 5);
-                GL.ActiveTexture(TextureUnit.Texture6);
-                GL.BindTexture(TextureTarget.Texture2D, pbrAvailable ? DeferredPbrMaterial : 0);
-                GL.Uniform1(_gfxPbrMaterial, 6);
-                GL.Uniform1(_gfxPbrEnabled, pbrAvailable ? 1 : 0);
-                GL.Uniform3(_gfxPbrLight1Direction, _light1Vector);
-                GL.Uniform3(_gfxPbrLight1Color, _light1Color);
-                GL.Uniform3(_gfxPbrLight2Direction, _light2Vector);
-                GL.Uniform3(_gfxPbrLight2Color, _light2Color);
+                GL.Uniform1(_gfxHistoryValid, 0);
+                GL.Uniform1(_gfxPbrEnabled, 0);
                 GL.ActiveTexture(TextureUnit.Texture0);
 
                 // Sampling offsets describe the full-resolution world/depth
@@ -183,7 +177,7 @@ namespace MphRead
                         ref _graphicsHdrTexture, _graphicsHdrFramebuffer,
                         _graphicsOutputFramebuffer);
                 }
-                UpdateGraphicsHistory(_targetSize, taa);
+                _graphicsHistoryValid = false;
                 _graphicsOutputReady = true;
                 RenderPostProcessCount++;
                 CheckGlError("GraphicsPostProcess");
@@ -337,7 +331,7 @@ namespace MphRead
                 }
             }
 
-            if (_graphicsToneMapProgram == 0)
+            if (_graphicsToneMapProgram == 0 && RenderOptions.InternalHdr)
             {
                 int vertex = CompileGraphicsShader(ShaderType.VertexShader,
                     Mods.Render.GraphicsToneMapShader.VertexSource);

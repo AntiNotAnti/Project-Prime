@@ -26,12 +26,14 @@ namespace MphRead.Mods.Render
                 "top-level frame render graph validates"
                     + (frameError.Length == 0 ? "" : ": " + frameError));
             var frameGraph = new FrameRenderGraph();
-            Check(frameGraph.Passes.Count == 8
+            Check(frameGraph.Passes.Count == 7
                 && frameGraph.Passes[0].Kind == FrameRenderPassKind.Shadow
                 && frameGraph.Passes[1].Kind == FrameRenderPassKind.WorldSetup
                 && frameGraph.Passes[2].Kind == FrameRenderPassKind.World
                 && (frameGraph.Passes[2].Reads & FrameRenderResource.SceneDepth) != 0
                 && frameGraph.Passes[3].Kind == FrameRenderPassKind.Outlines
+                && !System.Linq.Enumerable.Any(frameGraph.Passes,
+                    pass => pass.Name.Contains("pbr", StringComparison.OrdinalIgnoreCase))
                 && frameGraph.Passes[^1].Kind == FrameRenderPassKind.Composite
                 && (frameGraph.Passes[^1].Writes & FrameRenderResource.Output) != 0,
                 "OpenGL frame graph excludes retired GPU visibility and Hi-Z passes");
