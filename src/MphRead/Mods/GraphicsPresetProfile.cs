@@ -18,7 +18,7 @@ namespace MphRead.Mods
         public AntiAliasingMode AntiAliasing { get; init; } = AntiAliasingMode.Off;
         public int SharpenStrength { get; init; } = 0;
         public bool Bloom { get; init; } = false;
-        public int BloomIntensity { get; init; } = 60;
+        public int BloomIntensity { get; init; } = 0;
         public ColorGradeProfile ColorGrade { get; init; } = ColorGradeProfile.Original;
         public int Gamma { get; init; } = 100;
         public int Contrast { get; init; } = 100;
@@ -38,8 +38,8 @@ namespace MphRead.Mods
         public static GraphicsPresetProfile? Get(GraphicsPreset preset)
         {
             var original = new GraphicsPresetProfile();
-            // Keep native resolution even on the cheap path: sub-native FXAA
-            // softens the cartridge textures before sharpening can recover them.
+            // Keep the native scene pixel path intact. Texture filtering and
+            // source supersampling are independent of fullscreen post FX.
             var performance = original with
             {
                 TextureFiltering = true, TextureMipmaps = true, TextureAnisotropy = 4

@@ -146,7 +146,35 @@ namespace MphRead.Mods.Render
                     && settings.InternalHdr == "off"
                     && settings.CharacterModelReplacements == "on"
                     && summary.Length > 0,
-                    "graphics settings migration clamps and normalizes new options");
+                    "graphics settings migration clamps and retires experimental FX");
+
+                var retiredEffects = new MenuSettings
+                {
+                    SettingsSchemaVersion = SettingsMigration.CurrentSchema,
+                    Bloom = "on",
+                    InternalHdr = "on",
+                    DeferredPbr = "on",
+                    AntiAliasing = "taa",
+                    ShadowQuality = "high",
+                    AdvancedMaterials = "on"
+                };
+                Check(SettingsMigration.Apply(retiredEffects, out string retiredSummary)
+                    && retiredEffects.Bloom == "off"
+                    && retiredEffects.InternalHdr == "off"
+                    && retiredEffects.DeferredPbr == "off"
+                    && retiredEffects.AntiAliasing == "off"
+                    && retiredEffects.ShadowQuality == "high"
+                    && retiredEffects.AdvancedMaterials == "on"
+                    && retiredSummary.Contains("bloom", StringComparison.OrdinalIgnoreCase)
+                    && !SettingsMigration.Apply(retiredEffects, out _),
+                    "same-schema legacy post-FX settings normalize once without touching shadows");
+
+                SettingsMigration.ResetRetiredPostProcessing(retiredEffects);
+                Check(retiredEffects.Bloom == "off"
+                    && retiredEffects.InternalHdr == "off"
+                    && retiredEffects.ShadowQuality == "high"
+                    && retiredEffects.AdvancedMaterials == "on",
+                    "settings save cannot resurrect hidden experimental post FX");
 
                 var retiredRendererSettings = new MenuSettings
                 {

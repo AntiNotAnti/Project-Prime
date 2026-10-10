@@ -123,8 +123,6 @@ namespace MphRead
                 GL.Uniform1(_gfxPbrEnabled, 0);
                 GL.ActiveTexture(TextureUnit.Texture0);
 
-                // Sampling offsets describe the full-resolution world/depth                GL.ActiveTexture(TextureUnit.Texture0);
-
                 // Sampling offsets describe the full-resolution world/depth
                 // sources, even when the expensive post-process pass is resolved
                 // directly at the final presentation size.
