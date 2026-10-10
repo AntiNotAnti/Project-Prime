@@ -240,8 +240,8 @@ sealed class CheckWindow : RenderWindow
         int count = Scene.Players.PlayerCount;
         int nodeLayer = SceneSetup.GetNodeLayer(Scene.GameState.Mode, room.Meta.NodeLayer,
             count);
-        int entityLayer = SceneSetup.GetMultiplayerEntityLayer(
-            Scene.GameState.Mode, count, MphRead.Mods.Multiplayer.MatchWorldProfile.Resolve(count).Resources);
+        int entityLayer = Metadata.GetMultiplayerEntityLayer(
+            Scene.GameState.Mode, count);
         int bots = Scene.Players.Items.Count(player => player.IsBot
             && player.LoadFlags.TestFlag(LoadFlags.Active));
 
