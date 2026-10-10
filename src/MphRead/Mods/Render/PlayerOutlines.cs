@@ -70,15 +70,6 @@ namespace MphRead
                 GL.UseProgram(_shaderProgramId);
                 GL.Uniform1(_playerOutlineMaskUniform, 1);
                 _drawingPlayerOutlineMask = true;
-#if !MPHREAD_SERVER
-                bool directOutlineMask =
-                    Mods.Render.ModernGraphicsCompat.Active
-                    && !_editorMaterialPreview
-                    && _wireframeLevel == 0
-                    && !RenderOptions.CelShading;
-                if (directOutlineMask)
-                    Mods.Render.ModernGraphicsCompat.BeginRetainedWorldFrame();
-#endif
                 // Reuse submitted geometry and the world depth attachment. No
                 // inflated shell: every mask pixel must pass the same
                 // depth/culling/cutout tests as its body.
@@ -88,32 +79,6 @@ namespace MphRead
                         continue;
 
                     GL.Uniform3(_playerOutlineColorUniform, color.Xyz);
-#if !MPHREAD_SERVER
-                    if (directOutlineMask
-                        && _retainedRenderWorld.TryGetPacket(
-                            item, out Mods.Render.RetainedDrawPacket packet))
-                    {
-                        SetViewModelRenderState(item.ViewModel);
-                        Matrix4? projectionOverride = item.ViewModel
-                            ? _viewModelPerspectiveMatrix : null;
-                        Matrix4 viewInverse = item.BillboardMode switch
-                        {
-                            BillboardMode.Sphere => _viewInvRotMatrix,
-                            BillboardMode.Cylinder => _viewInvRotYMatrix,
-                            _ => Matrix4.Identity
-                        };
-                        Mods.Render.RetainedWorldTextureSet textures =
-                            RetainedWorldTextures(item);
-                        if (Mods.Render.ModernGraphicsCompat.TryDrawRetainedOutlineMask(
-                            item, packet.Mesh, textures, _showTextures,
-                            LightingOn, _faceCulling,
-                            projectionOverride, viewInverse))
-                        {
-                            _retainedDirectOutlineMaskDraws++;
-                            continue;
-                        }
-                    }
-#endif
                     RenderItem(item);
                 }
                 FinishViewModelRenderRun();
@@ -135,10 +100,6 @@ namespace MphRead
                 GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
                 GL.Enable(EnableCap.Blend);
                 GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-#if !MPHREAD_SERVER
-                if (!Mods.Render.ModernGraphicsCompat.Active
-                    || !Mods.Render.ModernGraphicsCompat.TryDrawRetainedFullscreenQuad())
-#endif
                 {
                     GL.Begin(PrimitiveType.TriangleStrip);
                     GL.TexCoord3(1f, 1f, 0f); GL.Vertex3(1f, 1f, 0f);
