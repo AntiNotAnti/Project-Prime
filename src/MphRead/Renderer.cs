@@ -1126,8 +1126,10 @@ namespace MphRead
                         textureHeight = texture.Height;
                     }
                     listId = GL.GenLists(1);
+#if !MPHREAD_SERVER
                     if (isRoom)
                         GL.RegisterRoomGeometryList(listId);
+#endif
                     GL.NewList(listId, ListMode.Compile);
                     bool texgen = material.TexgenMode == TexgenMode.Normal;
                     DoDlist(model, mesh, textureWidth, textureHeight, texgen, isRoom);
