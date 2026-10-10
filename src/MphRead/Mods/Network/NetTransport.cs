@@ -698,7 +698,7 @@ namespace MphRead.Mods.Network
                             supersedeState: type is PacketType.SessionState
                                 or PacketType.Roster or PacketType.QueueState
                                 or PacketType.QueueSeatOffer))
-                            connection.Reliable.Fail();
+                            connection.Reliable.Fail($"{type}: admission refused");
                         reliableQueued = true;
                     }
                     else
@@ -919,6 +919,8 @@ namespace MphRead.Mods.Network
                     FlushReliable(endpoint, now);
 
                     bool failed = false;
+                    string? failureReason = null;
+                    NetReliableSnapshot? failureSnapshot = null;
                     bool sendAck = false;
                     Span<byte> ack = stackalloc byte[NetHeader.Size];
                     stamp = EnterConnectionLock();
@@ -930,6 +932,8 @@ namespace MphRead.Mods.Network
                         {
                             connection.FailureReported = true;
                             failed = true;
+                            failureReason = connection.Reliable.FailureReason;
+                            failureSnapshot = connection.Reliable.Capture(now);
                         }
                         if (connection.AckPending)
                         {
@@ -942,7 +946,7 @@ namespace MphRead.Mods.Network
                     if (failed)
                     {
                         Console.Error.WriteLine(
-                            $"[net] reliable control failed for {endpoint}; disconnecting");
+                            $"[net] reliable control failed for {endpoint}; disconnecting; {failureReason}; {failureSnapshot}");
                         _connectionFailures.Enqueue(new ReceivedPacket(endpoint,
                             new byte[] { (byte)PacketType.Bye }, 1));
                         _activity.Set();
