@@ -789,7 +789,7 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
-      - name: build Android Vulkan wgpu-native
+      - name: build transitional Android native runtimes (WebGPU/KTX removal in phase 2)
         run: |
           set -euo pipefail
           ndk="${ANDROID_NDK_LATEST_HOME:-${ANDROID_NDK_ROOT:-${ANDROID_NDK_HOME:-}}}"
@@ -804,18 +804,6 @@ jobs:
           ANDROID_NDK_ROOT="$ndk" tools/wgpu/build-native.sh android-x64
           ANDROID_NDK_ROOT="$ndk" tools/ktx/build-native.sh android-arm64
           ANDROID_NDK_ROOT="$ndk" tools/ktx/build-native.sh android-x64
-
-      - name: Android custom-map package, download and runtime acceptance
-        timeout-minutes: 30
-        run: bash tools/map-multiplayer-check/android-check.sh
-
-      - name: Android map acceptance logs
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: map-acceptance-android
-          path: ${{ runner.temp }}/map-android-*.txt
-          if-no-files-found: warn
 
       # The same check, on the head it was written for: this is the project
       # whose asset list drifted from the desktop's, and the APK builds and
@@ -881,6 +869,25 @@ jobs:
           name: ProjectPrime-android
           path: artifact
           if-no-files-found: error
+
+      # The emulator acceptance is a required CI check, but does not gate
+      # producing and uploading the installable release APK. Put the slow,
+      # separately timed emulator smoke last so an emulator/toolchain problem
+      # cannot hide successful production compilation and packaging.
+      - name: Android custom-map package, download and runtime acceptance
+        timeout-minutes: 25
+        run: bash tools/map-multiplayer-check/android-check.sh
+
+      - name: Android map acceptance logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: map-acceptance-android
+          path: |
+            ${{ runner.temp }}/map-android-*.txt
+            ${{ runner.temp }}/map-android-*.log
+          if-no-files-found: warn
+
 
   # The dedicated server for Windows.
   #
