@@ -1,6 +1,7 @@
 #if !MPHREAD_SERVER && !ANDROID
 using System;
 using OpenTK.Graphics.OpenGL;
+using System.Text.Json;
 using DesktopGL = OpenTK.Graphics.OpenGL.GL;
 
 namespace MphRead.Mods.Render;
@@ -163,6 +164,14 @@ internal static class OpenGlGpuProfiler
                     Console.WriteLine("[glgpu] worldGPU p50/p95/p99="
                         + $"{P(sorted,50):F3}/{P(sorted,95):F3}/{P(sorted,99):F3}ms"
                         + $" queryQueue={_pending}/{Slots} dropped={_dropped}");
+                    Console.WriteLine("[glgpu-json] " + JsonSerializer.Serialize(new
+                    {
+                        schema = 1,
+                        samples = Window,
+                        worldGpuP95Ms = P(sorted, 95),
+                        worldGpuP99Ms = P(sorted, 99),
+                        droppedQueries = _dropped
+                    }));
                     _sampleCount = 0;
                     _dropped = 0;
                 }
