@@ -24,15 +24,18 @@ namespace MphRead.Mods.Network
         public readonly ulong ConnectionId;
         public readonly uint Sequence;
         internal readonly NetWireTelemetry? Wire;
+        internal readonly long WireArrivedAt;
 
         public ReceivedPacket(IPEndPoint sender, byte[] data, int length, long arrivedAt = 0,
-            bool pooled = false, ulong connectionId = 0, uint sequence = 0, NetWireTelemetry? wire = null)
+            bool pooled = false, ulong connectionId = 0, uint sequence = 0, NetWireTelemetry? wire = null,
+            long wireArrivedAt = 0)
         {
             Sender = sender;
             Data = data;
             Length = length;
             ArrivedAt = arrivedAt == 0 ? Stopwatch.GetTimestamp() : arrivedAt;
             Pooled = pooled; ConnectionId = connectionId; Sequence = sequence; Wire = wire;
+            WireArrivedAt = wireArrivedAt == 0 ? ArrivedAt : wireArrivedAt;
         }
 
         public PacketType Type => Length > 0 ? (PacketType)Data[0] : default;
@@ -472,8 +475,11 @@ namespace MphRead.Mods.Network
                 return false;
             }
             _connections.TryGetValue(sender, out var connection);
-            var packet = new ReceivedPacket(sender, data, length, arrivedAt, pooled: true,
-                connectionId: header.ConnectionId, sequence: header.Sequence, wire: connection?.Wire);
+            // Preserve application arrival semantics (including countdown timing).
+            // The diagnostic timestamp alone includes the injected receive hold.
+            var packet = new ReceivedPacket(sender, data, length, pooled: true,
+                connectionId: header.ConnectionId, sequence: header.Sequence, wire: connection?.Wire,
+                wireArrivedAt: arrivedAt);
             if (TryCoalesceRealtimeState(packet))
             {
                 _activity.Set();

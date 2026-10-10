@@ -45,8 +45,8 @@ public sealed partial class NetTransport
 
     private void RecordDequeued(in ReceivedPacket packet, long now)
     {
-        Wire.Dequeued(packet.Type, packet.ArrivedAt, now);
-        packet.Wire?.Dequeued(packet.Type, packet.ArrivedAt, now);
+        Wire.Dequeued(packet.Type, packet.WireArrivedAt, now);
+        packet.Wire?.Dequeued(packet.Type, packet.WireArrivedAt, now);
     }
 
     public NetTransportBudgetSnapshot CaptureBudget()

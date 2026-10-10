@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using MphRead.Mods.Network;
 
@@ -58,6 +59,7 @@ internal static class WireTelemetryTests
             Check(NetWireTelemetry.Classify(new byte[NetConfig.MaxPacketSize + 1]) == NetTrafficKind.Invalid, "oversize datagram");
             InputAge();
             UdpIntegration();
+            LagArrival();
             Console.WriteLine("Wire telemetry tests passed.");
             return 0;
         }
@@ -79,6 +81,44 @@ internal static class WireTelemetryTests
         Check(sample.Samples == 0 && sample.Unavailable == 0 && sample.TotalFrames == 0
             && sample.MaximumFrames == 0, "input age reset");
         foreach (long count in sample.Histogram) Check(count == 0, "input histogram reset");
+    }
+    private static void LagArrival()
+    {
+        NetLag.Configure("100:0"); NetLag.ConfigureLoss("0");
+        NetLag.ConfigureReorder("0"); NetLag.ConfigureDuplicate("0");
+        try
+        {
+            using var receiver = new NetTransport(0);
+            // Fault queues are captured at construction; only this receiver is delayed.
+            NetLag.Configure("0");
+            using var sender = new UdpClient(0);
+            var address = new IPEndPoint(IPAddress.Loopback, receiver.LocalPort);
+            byte[] bytes = { (byte)PacketType.StatusQuery };
+            sender.Send(bytes, address);
+            bool delivered = false;
+            double applicationAge = 0;
+            Check(SpinWait.SpinUntil(() =>
+            {
+                foreach (var packet in receiver.Drain())
+                {
+                    if (packet.Type != PacketType.StatusQuery) continue;
+                    delivered = true;
+                    applicationAge = (Stopwatch.GetTimestamp() - packet.ArrivedAt) * 1000.0 / Stopwatch.Frequency;
+                }
+                return delivered;
+            }, 2000), "lagged discovery datagram admitted");
+            var sample = Category(receiver.Wire.Capture(), NetTrafficKind.Discovery);
+            Check(sample.RxPackets == 1 && sample.RxBytes == 1 && sample.DequeuedPackets == 1,
+                "injected receive hold counts socket datagram only once");
+            Check(sample.TotalQueueAgeMilliseconds >= 40
+                && sample.TotalQueueAgeMilliseconds - applicationAge >= 35,
+                "wire queue age includes receive hold while gameplay arrival starts at admission");
+        }
+        finally
+        {
+            NetLag.Configure("0"); NetLag.ConfigureLoss("0");
+            NetLag.ConfigureReorder("0"); NetLag.ConfigureDuplicate("0");
+        }
     }
     private static NetWireCategorySnapshot Category(NetWireSnapshot snapshot, NetTrafficKind kind)
         => snapshot.Categories[(int)kind];
