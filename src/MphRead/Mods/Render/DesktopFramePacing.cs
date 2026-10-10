@@ -19,8 +19,16 @@ internal static class DesktopFramePacing
 
     internal static bool LinuxVSyncIgnored(bool isLinux, int cap, double refreshRate,
         double measuredFrameRate, bool alreadyLatched)
+        => DisplayVSyncIgnored(isLinux, cap, refreshRate, measuredFrameRate, alreadyLatched);
+
+    internal static bool MacVSyncIgnored(bool isMac, int cap, double refreshRate,
+        double measuredFrameRate, bool alreadyLatched)
+        => DisplayVSyncIgnored(isMac, cap, refreshRate, measuredFrameRate, alreadyLatched);
+
+    private static bool DisplayVSyncIgnored(bool enabled, int cap, double refreshRate,
+        double measuredFrameRate, bool alreadyLatched)
     {
-        if (!isLinux || refreshRate <= 0 || !UseDisplayPacing(cap, refreshRate))
+        if (!enabled || refreshRate <= 0 || !UseDisplayPacing(cap, refreshRate))
         {
             return false;
         }

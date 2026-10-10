@@ -277,6 +277,7 @@ sealed class CheckWindow : RenderWindow
         double P(double percentile) => _intervals.Count == 0 ? 0
             : _intervals.Order().ElementAt(Math.Clamp((int)Math.Ceiling(_intervals.Count * percentile / 100) - 1, 0, _intervals.Count - 1));
         return new { schema = 1, room = _room, cap = _cap, shadows = _shadows.ToString(),
+            effectiveCap = FrameTiming.FrameRateCap, softwareFrequency = UpdateFrequency, vsync = VSync.ToString(),
             assemblyMvid = typeof(Scene).Module.ModuleVersionId, framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y },
             wallSeconds = _wall.Elapsed.TotalSeconds, measurementSeconds = Stopwatch.GetElapsedTime(_measureStarted).TotalSeconds,
             simulationFrames = Scene.FrameCount, samples = _intervals.Count,

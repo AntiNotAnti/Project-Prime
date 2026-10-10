@@ -53,6 +53,12 @@ namespace MphRead.Mods.Render
                 GLFW.InitHint(InitHintBool.CocoaChdirResources, false);
         }
 
+        internal static void RequirePrimaryDisplay(IntPtr monitor)
+        {
+            if (monitor == IntPtr.Zero)
+                throw new InvalidOperationException("No active primary display is available. Wake or connect a display and retry OpenGL initialization.");
+        }
+
         public static NativeWindowSettings Settings(bool background = false)
         {
             GraphicsBackendPolicy.LoadPreference();
@@ -66,6 +72,10 @@ namespace MphRead.Mods.Render
                 GLFW.InitHint(InitHintBool.CocoaMenubar, false);
             Mods.DebugLog.Checkpoint("render", $"initializing GLFW for {GraphicsBackendPolicy.Resolved}");
             GLFWProvider.EnsureInitialized();
+            // NativeWindowSettings queries the primary monitor's video mode.
+            // Bundled Cocoa GLFW dereferences a null monitor before it can
+            // report an error when macOS exposes no active display.
+            unsafe { RequirePrimaryDisplay((IntPtr)GLFW.GetPrimaryMonitor()); }
             // GLFW hints survive window destruction. In particular a previous
             // NoAPI/core window must not leave ForwardCompat set on GL 2.1.
             GLFW.DefaultWindowHints();

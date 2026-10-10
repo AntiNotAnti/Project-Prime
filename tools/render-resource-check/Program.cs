@@ -12,18 +12,19 @@ using GLFWBindingsContext = OpenTK.Windowing.GraphicsLibraryFramework.GLFWBindin
 // Exercise the real cel target allocator and scene teardown in one persistent
 // GL context. Disable runtime initialization to avoid music/game data while
 // preserving the constructor-owned registries that real scene teardown uses.
-using var window = new NativeWindow(new NativeWindowSettings
-{
-    ClientSize = new Vector2i(32, 32),
-    StartVisible = false,
-    StartFocused = false,
-    Flags = ContextFlags.Default,
-    Profile = OperatingSystem.IsMacOS() ? ContextProfile.Any : ContextProfile.Compatability,
-    APIVersion = OperatingSystem.IsMacOS() ? new Version(2, 1) : new Version(3, 2)
-});
+int failures = 0;
+Type contextPolicy = typeof(Scene).Assembly.GetType("MphRead.Mods.Render.DesktopGlContext")!;
+MethodInfo? monitorGuard = contextPolicy.GetMethod("RequirePrimaryDisplay", BindingFlags.Static | BindingFlags.NonPublic);
+bool missingDisplayRejected = false;
+try { monitorGuard?.Invoke(null, new object[] { IntPtr.Zero }); }
+catch (TargetInvocationException error) when (error.InnerException is InvalidOperationException inner)
+{ missingDisplayRejected = inner.Message.Contains("Wake or connect a display"); }
+Check(missingDisplayRejected, "missing primary monitor fails in managed code before native video-mode query");
+var settings = (NativeWindowSettings)contextPolicy.GetMethod("Settings")!.Invoke(null, new object[] { true })!;
+settings.ClientSize = new Vector2i(32, 32); settings.StartVisible = false; settings.StartFocused = false;
+using var window = new NativeWindow(settings);
 window.Context.MakeCurrent();
 GL.LoadBindings(new GLFWBindingsContext());
-int failures = 0;
 for (int cycle = 0; cycle < 3; cycle++)
 {
     var scene = new Scene(new Vector2i(32, 32), SyntheticInput.CreateKeyboard(),

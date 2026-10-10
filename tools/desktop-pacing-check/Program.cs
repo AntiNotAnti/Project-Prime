@@ -36,6 +36,21 @@ Check(!DesktopFramePacing.LinuxVSyncIgnored(true, -1, 144, 300, false),
 Check(DesktopFramePacing.LinuxVSyncIgnored(true, 144, 144, 180, false),
     "native explicit caps inherit the Linux ignored-VSync fallback");
 
+Check(DesktopFramePacing.MacVSyncIgnored(true, 120, 120, 189, false),
+    "macOS native 120 cap detects the measured ignored swap interval");
+Check(DesktopFramePacing.MacVSyncIgnored(true, 0, 120, 189, false),
+    "macOS display cap detects ignored swap interval");
+Check(DesktopFramePacing.MacVSyncIgnored(true, 120, 120, 120, true),
+    "macOS display fallback stays latched after software pacing recovers");
+Check(!DesktopFramePacing.MacVSyncIgnored(true, 120, 120, 120.8, false),
+    "normal macOS jitter keeps a single display pacing clock");
+Check(!DesktopFramePacing.MacVSyncIgnored(true, 144, 120, 189, false),
+    "macOS non-native numeric caps keep their existing software pacing");
+Check(!DesktopFramePacing.MacVSyncIgnored(true, -1, 120, 189, false),
+    "macOS unlimited remains uncapped");
+Check(!DesktopFramePacing.MacVSyncIgnored(false, 120, 120, 189, false),
+    "macOS fallback does not change Windows presentation policy");
+
 Check(DesktopFramePacing.SoftwareFrequency(120, 144,
         displayPaced: false, modernPresentationBlocks: false,
         linuxVSyncFallback: false) == 120,

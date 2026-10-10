@@ -8795,6 +8795,7 @@ localCenter *= _profileHudScale;
                 MonitorInfo monitor = Monitors.GetMonitorFromWindow(window);
                 OpenTK.Windowing.GraphicsLibraryFramework.Monitor* handle =
                     monitor.Handle.ToUnsafePtr<OpenTK.Windowing.GraphicsLibraryFramework.Monitor>();
+                if (handle == null) return 0;
                 var video = GLFW.GetVideoMode(handle);
                 return video == null ? 0 : video->RefreshRate;
             }
@@ -8810,7 +8811,7 @@ localCenter *= _profileHudScale;
         /// Apply exactly one presentation clock. Display mode and an explicit
         /// cap matching the active monitor use the monitor/compositor clock.
         /// Other numeric caps use OpenTK only when presentation is genuinely
-        /// non-blocking. Linux additionally detects drivers that ignore swap
+        /// non-blocking. Linux and macOS detect drivers that ignore swap
         /// interval and latches a software display-rate fallback.
         /// </summary>
         private void ApplyFrameRateSettings()
@@ -8827,11 +8828,14 @@ localCenter *= _profileHudScale;
 
             bool linuxFallback = Mods.Render.DesktopFramePacing.LinuxVSyncIgnored(
                 OperatingSystem.IsLinux(), cap, refreshRate,
-                Mods.Render.FrameTiming.MeasuredFrameHz, _linuxVSyncFallback);
+                Mods.Render.FrameTiming.MeasuredFrameHz, _linuxVSyncFallback)
+                || Mods.Render.DesktopFramePacing.MacVSyncIgnored(
+                    OperatingSystem.IsMacOS(), cap, refreshRate,
+                    Mods.Render.FrameTiming.MeasuredFrameHz, _linuxVSyncFallback);
             if (linuxFallback && !_linuxVSyncFallback)
             {
                 Mods.DebugLog.Line("frametiming",
-                    $"Linux swap interval is not pacing the window "
+                    $"Display swap interval is not pacing the window "
                     + $"({Mods.Render.FrameTiming.MeasuredFrameHz:0.#} Hz on "
                     + $"{refreshRate:0.#} Hz); switching to software display pacing.");
             }
