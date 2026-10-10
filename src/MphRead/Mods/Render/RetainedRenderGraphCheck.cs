@@ -22,6 +22,11 @@ namespace MphRead.Mods.Render
 
             Check(WorldRenderGraph.Validate(out string error),
                 "six-pass graph validates" + (error.Length == 0 ? "" : ": " + error));
+            Check(OpenGlSubmissionProfiler.PercentileIndex(100, 50) == 49
+                && OpenGlSubmissionProfiler.PercentileIndex(100, 95) == 94
+                && OpenGlSubmissionProfiler.PercentileIndex(100, 99) == 98
+                && OpenGlSubmissionProfiler.PercentileIndex(1, 99) == 0,
+                "bounded GL CPU percentile sampling uses nearest rank");
             Check(WorldRenderGraph.CanReuseOpaqueDepth(0, 0)
                 && !WorldRenderGraph.CanReuseOpaqueDepth(1, 0)
                 && !WorldRenderGraph.CanReuseOpaqueDepth(0, 1)

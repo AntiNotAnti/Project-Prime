@@ -34,7 +34,11 @@ namespace MphRead.Mods.Render
 #endif
         }
 
-        public static void Begin(PrimitiveType mode) { DesktopGL.Begin(mode); }
+        public static void Begin(PrimitiveType mode)
+        {
+            OpenGlSubmissionProfiler.NoteImmediateBegin();
+            DesktopGL.Begin(mode);
+        }
         public static void End() { DesktopGL.End(); }
         public static void Vertex2(float x, float y) { DesktopGL.Vertex2(x, y); }
         public static void Vertex3(float x, float y, float z) { DesktopGL.Vertex3(x, y, z); }
@@ -51,13 +55,21 @@ namespace MphRead.Mods.Render
         public static int GenLists(int range) => DesktopGL.GenLists(range);
         public static void NewList(int list, ListMode mode) { DesktopGL.NewList(list, mode); }
         public static void EndList() { DesktopGL.EndList(); }
-        public static void CallList(int list) { DesktopGL.CallList(list); }
+        public static void CallList(int list)
+        {
+            OpenGlSubmissionProfiler.NoteDisplayList();
+            DesktopGL.CallList(list);
+        }
         public static void DeleteLists(int list, int range) { DesktopGL.DeleteLists(list, range); }
 
         public static int GenTexture() => DesktopGL.GenTexture();
         public static void DeleteTexture(int texture) { DesktopGL.DeleteTexture(texture); }
         public static bool IsTexture(int texture) => DesktopGL.IsTexture(texture);
-        public static void BindTexture(TextureTarget target, int texture) { DesktopGL.BindTexture(target, texture); }
+        public static void BindTexture(TextureTarget target, int texture)
+        {
+            OpenGlSubmissionProfiler.NoteTextureBind();
+            DesktopGL.BindTexture(target, texture);
+        }
         public static void ActiveTexture(TextureUnit unit) { DesktopGL.ActiveTexture(unit); }
         public static void TexParameter(TextureTarget target, TextureParameterName name, int value)
         { DesktopGL.TexParameter(target, name, value); }
@@ -128,6 +140,7 @@ namespace MphRead.Mods.Render
         public static void UseProgram(int program)
         {
             {
+                OpenGlSubmissionProfiler.NoteProgramBind();
                 DesktopGL.UseProgram(program);
 #if !ANDROID
                 _legacyUniforms.UseProgram(program);
@@ -253,7 +266,11 @@ namespace MphRead.Mods.Render
 
         public static int GenFramebuffer() => DesktopGL.GenFramebuffer();
         public static void DeleteFramebuffer(int framebuffer) { DesktopGL.DeleteFramebuffer(framebuffer); }
-        public static void BindFramebuffer(FramebufferTarget target, int framebuffer) { DesktopGL.BindFramebuffer(target, framebuffer); }
+        public static void BindFramebuffer(FramebufferTarget target, int framebuffer)
+        {
+            OpenGlSubmissionProfiler.NoteFramebufferBind();
+            DesktopGL.BindFramebuffer(target, framebuffer);
+        }
         public static bool IsFramebuffer(int framebuffer) => DesktopGL.IsFramebuffer(framebuffer);
         public static void FramebufferTexture2D(FramebufferTarget target, FramebufferAttachment attachment,
             TextureTarget textureTarget, int texture, int level)
@@ -279,8 +296,16 @@ namespace MphRead.Mods.Render
                 destinationX0, destinationY0, destinationX1, destinationY1, mask, filter);
         }
 
-        public static void Enable(EnableCap cap) { DesktopGL.Enable(cap); }
-        public static void Disable(EnableCap cap) { DesktopGL.Disable(cap); }
+        public static void Enable(EnableCap cap)
+        {
+            OpenGlSubmissionProfiler.NoteStateRequest();
+            DesktopGL.Enable(cap);
+        }
+        public static void Disable(EnableCap cap)
+        {
+            OpenGlSubmissionProfiler.NoteStateRequest();
+            DesktopGL.Disable(cap);
+        }
         public static bool IsEnabled(EnableCap cap) => DesktopGL.IsEnabled(cap);
         public static void AlphaFunc(AlphaFunction function, float reference) { DesktopGL.AlphaFunc(function, reference); }
         public static void PolygonMode(TriangleFace face, OpenTK.Graphics.OpenGL.PolygonMode mode)
@@ -296,7 +321,11 @@ namespace MphRead.Mods.Render
         public static void CullFace(TriangleFace face) { DesktopGL.CullFace(face); }
         public static void BlendFunc(BlendingFactor source, BlendingFactor destination) { DesktopGL.BlendFunc(source, destination); }
         public static void BlendEquation(BlendEquationMode mode) { DesktopGL.BlendEquation(mode); }
-        public static void StencilFunc(StencilFunction function, int reference, int mask) { DesktopGL.StencilFunc(function, reference, mask); }
+        public static void StencilFunc(StencilFunction function, int reference, int mask)
+        {
+            OpenGlSubmissionProfiler.NoteStencilFunc();
+            DesktopGL.StencilFunc(function, reference, mask);
+        }
         public static void StencilOp(StencilOp fail, StencilOp zfail, StencilOp zpass) { DesktopGL.StencilOp(fail, zfail, zpass); }
         public static void StencilMask(int mask) { DesktopGL.StencilMask(mask); }
         public static void PolygonOffset(float factor, float units) { DesktopGL.PolygonOffset(factor, units); }

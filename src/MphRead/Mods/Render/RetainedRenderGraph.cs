@@ -641,6 +641,9 @@ namespace MphRead
         {
             bool reuseOpaqueDepth = Mods.Render.WorldRenderGraph.CanReuseOpaqueDepth(
                 _retainedRenderWorld.Decals.Count, _retainedRenderWorld.Translucent.Count);
+            bool profile = Mods.Render.OpenGlSubmissionProfiler.BeginWorldGraph();
+            try
+            {
             foreach (Mods.Render.WorldRenderGraphPass pass in _worldRenderGraph.Passes)
             {
                 switch (pass.Kind)
@@ -721,6 +724,14 @@ namespace MphRead
             GL.Disable(EnableCap.StencilTest);
             GL.PolygonMode(TriangleFace.FrontAndBack,
                 OpenTK.Graphics.OpenGL.PolygonMode.Fill);
+            }
+            finally
+            {
+                if (profile)
+                    Mods.Render.OpenGlSubmissionProfiler.EndWorldGraph(
+                        _retainedRenderWorld.PacketCount, _retainedRenderWorld.BatchCount,
+                        reuseOpaqueDepth ? _retainedRenderWorld.Opaque.Count : 0);
+            }
         }
     }
 }
