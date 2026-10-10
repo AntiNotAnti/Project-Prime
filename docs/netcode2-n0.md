@@ -74,8 +74,10 @@ python3 tools/nettest/run-net2.py --build tools/nettest/bin/Release/net10.0 \
   --scenario missile --rendered --record
 ```
 
-The existing rig assigns even slots to shoot and odd slots to the target role;
-the third process supplies another independent view. These are simulation shot
+The existing rig assigns the first slot to shoot and the second to the target
+role; the third process requests spectator mode for an independent observer view.
+Rig runs report local evidence readiness, then require the offline cross-process
+verdict. They do not run unrelated feature-tour jump/morph assertions. These are simulation shot
 commits and captured rendered frames, **not a proven same-projectile visibility
 metric**. `renderedProjectileAgreement` stays `NOT_RUN` until footage has been
 independently paired and checked. A recording file alone is not a playback pass.

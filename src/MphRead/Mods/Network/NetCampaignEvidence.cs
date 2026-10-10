@@ -32,6 +32,9 @@ internal static class NetCampaignEvidence
     private static string? _lastError;
     private static double _lastStopCheck;
     private static readonly long AllocatedAtStart = GC.GetTotalAllocatedBytes();
+    internal static bool RigHasEvidence => _frames >= 60 && States.Count > 0
+        && (SpectatorMode.IsSpectating || !HitRig.IsSniper
+            || Offered.Any(key => key.ShooterSlot == NetSession.LocalSlot));
     private sealed record Shot(string Stage, ShotKey Key, uint SourceFrame, uint ObservedFrame,
         byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase);
     private sealed record Health(ulong Epoch, ushort Match, uint Frame, byte Slot, ushort Generation,

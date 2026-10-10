@@ -145,9 +145,12 @@ def run(args):
                 extra += ["-shots", str(shots)]
             if args.scenario != "tour":
                 extra += ["-hitrig", args.scenario]
+            observer = args.players == 3 and args.rendered and slot == 2
+            if observer:
+                extra += ["-spectate", "0"]
             if args.soak and slot == args.players - 2:
                 extra += ["-spectate", "90", "-rejoin", "150"]
-            expects = args.soak or args.scenario in ("tour", "duel", "shockcoil-all") or slot % 2 == 0
+            expects = not observer and (args.soak or args.scenario in ("tour", "duel", "shockcoil-all") or slot % 2 == 0)
             p, record = launch(name, extra, seconds, expects)
             clients.append((p, record, time.monotonic() + seconds + 120))
 
