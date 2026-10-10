@@ -120,7 +120,7 @@ internal sealed class NetIncomingFireHistory
                 { Overflows++; return false; }
         }
         _seen = true; _latestFrame = frame; _latestId = newest;
-        for (int i = 0; i < Capacity; i++)
+        for (int i = 0; Pending > 0 && i < Capacity; i++)
             if (_entries[i].Present && !_entries[i].Consumed
                 && unchecked(frame - _entries[i].Fire.SourceFrame) > RecoveryFrames)
             { _entries[i].Consumed = true; Pending--; ExpiredPending++; }
@@ -135,7 +135,9 @@ internal sealed class NetIncomingFireHistory
     }
     internal bool TryPeek(out FireEvent fire)
     {
-        fire = default; bool found = false;
+        fire = default;
+        if (Pending == 0) return false;
+        bool found = false;
         for (int i = 0; i < Capacity; i++)
         {
             ref var entry = ref _entries[i];
