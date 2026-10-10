@@ -38,6 +38,10 @@ namespace MphRead.Mods.Render
             capabilityCache.CallList(12);
             Check(!capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, false),
                 "known geometry-only display list preserves inferred world capability");
+            capabilityCache.DeleteLists(12, 1);
+            capabilityCache.CallList(12);
+            Check(capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, false),
+                "reclaimed display list IDs cannot inherit stale state purity");
             capabilityCache.BeginList(13, OpenTK.Graphics.OpenGL.ListMode.Compile);
             capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, true);
             capabilityCache.EndList();

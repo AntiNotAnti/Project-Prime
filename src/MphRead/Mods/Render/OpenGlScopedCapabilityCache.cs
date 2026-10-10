@@ -90,7 +90,7 @@ internal sealed class OpenGlScopedCapabilityCache
         // OpenGL compiles arbitrary state into display lists. If a list was
         // not created through the facade, or compiled a capability change,
         // no previously inferred state is trustworthy after it executes.
-        if (!_geometryOnlyLists.Contains(list))
+        if (Active && !_geometryOnlyLists.Contains(list))
             Invalidate();
         if (_compilingList != 0)
             _compilingListHasState = true;

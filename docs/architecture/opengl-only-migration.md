@@ -95,7 +95,7 @@ GL2.1 shader linking and existing regressions, but real device screenshot
 parity and p95/p99 frametime measurements are still required before
 performance claims.
 
-### Slice C: retained OpenGL submission and measurement (draft PR)
+### Slice C: retained OpenGL submission and measurement (merged PR #437)
 
 - When a captured world has **zero decals and zero translucent packets**,
   preserve the initial opaque depth instead of clearing it and submitting
@@ -112,6 +112,26 @@ performance claims.
   For a same-binary A/B comparison, add `-gllegacydepth` or set
   `PROJECT_PRIME_GL_FORCE_DEPTH_REPLAY=1` to force the original depth-replay
   path. Keep map, resolution, effects, cap and capture conditions identical.
+
+### Slice D: scoped GL capability state reuse (staging)
+
+- During each **retained world-graph execution only**, elide identical
+  `glEnable`/`glDisable` capability requests for depth/stencil, culling,
+  blending, alpha test, scissor and polygon offset. All first and unknown
+  state requests still reach the driver; cache scope ends before the HUD,
+  Studio overlays or another window can affect the context.
+- Native display lists may change GL state. Only those observed being compiled
+  through the facade with geometry-only commands are trusted to preserve the
+  inferred capability state. Unknown, state-changing or deleted lists
+  invalidate the scope cache, as do attribute-stack changes and context loss.
+- The existing `-glprofile` output adds average state requests actually
+  skipped. Compare the identical binary with `-gllegacystate` or
+  `PROJECT_PRIME_GL_FORCE_STATE_REQUESTS=1` to force every original call.
+  Neither switch changes fixed-tick simulation or geometry sorting.
+- CPU world-graph wall time and average skipped calls are instrumented;
+  real GPU utilization and total-frame p95/p99 still require device capture.
+  This slice does **not** enable a desktop VBO replacement or alter the six
+  world-graph pass order.
 
 ### Next slices
 
