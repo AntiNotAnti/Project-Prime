@@ -3081,7 +3081,7 @@ namespace MphRead.Entities
                 }
             }
             if (beam != null && (_health < combatHealthBefore || (Halfturret?.Health ?? 0) < combatTurretBefore))
-                Mods.Network.NetShotProof.Physical(this, beam, damage, flags, direction ?? Vector3.Zero);
+                Mods.Network.NetShotProof.Physical(this, beam, damage, flags, direction ?? Vector3.Zero, combatHealthBefore);
             if (combatSequence != combatSequenceBefore && beam?.EnhancedMicroSeeker != true)
                 Mods.Network.NetHitClaims.CompleteAuthorityHit(this, attacker, combatHealthBefore, flags, combatSequence, beam?.ModLaunchFrame ?? 0, beam?.Beam ?? BeamType.None);
             if (attacker != null && _health < combatHealthBefore && !Mods.Network.NetDamage.ApplyingClaim)

@@ -18,6 +18,7 @@ internal static class ShotProofTests
     private static ushort _claimId;
     private static ShotKey _physicalShot;
     private static uint _physicalComponent;
+    private static CombatAckEntry _lastAck;
     private static void Check(bool ok, string label)
     { _checks++; if (!ok) throw new InvalidOperationException(label); Console.WriteLine($"PROOF PASS {label}"); }
     private static void Frame(uint frame)
@@ -101,9 +102,9 @@ internal static class ShotProofTests
     }
     private static byte Receive(in HitClaimPacket claim)
     {
-        byte result = 255; ushort claimId = claim.ClaimId; var saved = NetHitClaims.CombatAckSink;
+        byte result = 255; _lastAck = default; ushort claimId = claim.ClaimId; var saved = NetHitClaims.CombatAckSink;
         NetHitClaims.CombatAckSink = (slot, entries) =>
-        { foreach (var entry in entries) if (slot == 0 && entry.ClaimId == claimId) result = entry.Result; };
+        { foreach (var entry in entries) if (slot == 0 && entry.ClaimId == claimId) { result = entry.Result; _lastAck = entry; } };
         try
         {
             byte[] packet = new byte[1 + HitClaimPacket.Size]; packet[0] = 1; claim.Write(packet.AsSpan(1));
@@ -267,6 +268,9 @@ internal static class ShotProofTests
     {
         NetShotProof.Mode = ShotProofMode.Shadow; Prepare(); var beam = Emit(BeamType.Missile); Collide(beam);
         var original = Claim(beam); int health = _victim.Health; ushort sequence = NetDamage.Sequence(1);
+        Check(NetShotProof.TryPhysicalOutcome(0, original, out var witnessed) && witnessed.DamageApplied > original.Damage
+            && witnessed.HealthAfter == health && witnessed.DamageSequence == sequence,
+            "actual physical witness captures larger native damage and final health/sequence");
         _shooter.Spawn(_shooter.Position, Vector3.UnitZ, Vector3.UnitY, _shooter.NodeRef, respawn: true);
         Check(NetPlayerLifecycle.Get(0) != original.ShooterLifeId, "actual shooter respawn advances claim source life");
         NetShotProof.Mode = ShotProofMode.Enforce;
@@ -285,6 +289,11 @@ internal static class ShotProofTests
         Check(Receive(original) == HitVerdictPacket.ResultDuplicate && _victim.Health == health
             && NetHitClaims.DuplicateHere == duplicates + 1,
             "strict old-life exact physical component acknowledges prior result without damage");
+        Check(_lastAck.ShotId == original.ShotId && _lastAck.VictimSlot == original.VictimSlot
+            && _lastAck.VictimGeneration == original.VictimGeneration && _lastAck.VictimLife == original.VictimLifeId
+            && _lastAck.DamageSequence == sequence && _lastAck.HealthAfter == health
+            && _lastAck.DamageApplied == witnessed.DamageApplied && _lastAck.Flags == witnessed.Flags,
+            "strict old-life acknowledgement preserves immutable actual shot/victim/damage/health/sequence outcome");
         duplicates = NetHitClaims.DuplicateHere;
         Check(Receive(original) == HitVerdictPacket.ResultDuplicate && _victim.Health == health
             && NetHitClaims.DuplicateHere == duplicates,

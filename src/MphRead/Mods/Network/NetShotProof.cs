@@ -63,7 +63,7 @@ public static class NetShotProof
         public ShotProofFamily Family;
     }
     private struct Payment
-    { public bool Live, Physical, Claimed; public ShotPaymentKey Key; public uint Frame; public int Damage; public bool Head; public byte Effects; public Vector3 Impulse; }
+    { public bool Live, Physical, Claimed; public ShotPaymentKey Key; public uint Frame; public int Damage; public bool Head; public byte Effects; public Vector3 Impulse; public CombatAckEntry Outcome; }
     private static readonly Shot[,] _shots = new Shot[8, ShotsPerSlot];
     private static readonly Source[,] _sources = new Source[8, 8];
     private static readonly Pose[,] _poses = new Pose[8, 128];
@@ -272,12 +272,15 @@ public static class NetShotProof
     }
     // Old-life acknowledgements need exact physical identity, not a new damage
     // admission using the shooter's present-life input or inventory.
-    internal static bool HasPhysicalIdentity(int slot, in HitClaimPacket claim)
+    internal static bool TryPhysicalOutcome(int slot, in HitClaimPacket claim, out CombatAckEntry outcome)
     {
+        outcome = default;
         if (!FindComponent(Key(slot, claim), claim.ComponentId, out var component)
             || component.Weapon != claim.Beam) return false;
         int at = FindPayment(PaymentKey(slot, claim));
-        return at >= 0 && _payments[slot, at].Physical;
+        if (at < 0 || !_payments[slot, at].Physical) return false;
+        outcome = _payments[slot, at].Outcome;
+        return true;
     }
 
     private static int FindPayment(in ShotPaymentKey key)
@@ -300,7 +303,7 @@ public static class NetShotProof
         }
         CapacityRefused++;return -1;
     }
-    internal static void Physical(PlayerEntity victim, BeamProjectileEntity beam, uint damage, DamageFlags flags, Vector3 impulse)
+    internal static void Physical(PlayerEntity victim, BeamProjectileEntity beam, uint damage, DamageFlags flags, Vector3 impulse, int healthBefore)
     {
         if(!Active || NetDamage.ApplyingClaim || beam.ModComponentId==0 || damage==0
             || (uint)beam.ModLaunchKey.ShooterSlot>=8 || (uint)victim.SlotIndex>=8)return;
@@ -312,6 +315,10 @@ public static class NetShotProof
         if(p.Physical){PhysicalDuplicates++;return;}
         p.Physical=true;p.Damage=(int)damage;p.Head=flags.TestFlag(DamageFlags.Headshot);
         p.Effects=flags.TestFlag(DamageFlags.Halfturret)?(byte)0:NetHitClaims.AfflictionClaimFlags(beam.Afflictions);p.Impulse=impulse;
+        p.Outcome = NetHitClaims.CaptureOutcome(victim, Math.Max(0, healthBefore-victim.Health),
+            (flags.TestFlag(DamageFlags.Headshot) ? CombatAckFlags.Headshot : 0)
+            | (flags.TestFlag(DamageFlags.Halfturret) ? CombatAckFlags.HalfturretAffected : 0));
+        p.Outcome.ShotId = beam.ModShotId;
     }
     internal static bool MarkClaim(int slot,in HitClaimPacket claim)
     {
@@ -422,11 +429,19 @@ public static class NetShotProof
         }
         if(NetCampaignEvidence.Enabled)
         {
+            object? witness = null;
+            int paid = FindPayment(PaymentKey(slot, claim));
+            if (paid >= 0 && _payments[slot, paid].Physical)
+            {
+                var p = _payments[slot, paid];
+                witness = new { p.Damage, p.Head, p.Effects, ImpulseX=p.Impulse.X, ImpulseY=p.Impulse.Y, ImpulseZ=p.Impulse.Z };
+            }
             if(_evidence.Count<16384)_evidence.Add(new { Stage=stage,Key=Key(slot,claim),claim.ClaimId,claim.ComponentId,
                 claim.VictimSlot,claim.VictimGeneration,claim.VictimLifeId,claim.Beam,claim.Flags,claim.Damage,
                 claim.AckFrame,claim.LaunchFrame,AuthorityFrame=NetSession.NetFrame,
                 Legacy=legacy,Status=d.Status.ToString(),Reason=d.Reason.ToString(),Family=d.Family.ToString(),
-                Source=d.Source.ToString(),Geometry=d.Geometry.ToString(),d.PhysicalMatch,BodyOffset=offset });
+                Source=d.Source.ToString(),Geometry=d.Geometry.ToString(),d.PhysicalMatch,BodyOffset=offset,
+                ClaimImpulseX=claim.Direction.X,ClaimImpulseY=claim.Direction.Y,ClaimImpulseZ=claim.Direction.Z,Witness=witness });
             else EvidenceOverflow++;
         }
         return d;

@@ -1289,6 +1289,7 @@ namespace MphRead.Mods.Network
                     var outcome = new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot,
                         VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId };
                     int seenAt = claim.ClaimId % SeenCapacity;
+                    CombatAckEntry physicalOutcome = default;
                     if (claim.ClaimId != 0 && _seenIds[shooterSlot, seenAt] == claim.ClaimId
                         && _seenKeys[shooterSlot, seenAt] == key
                         && _seenResults[shooterSlot, seenAt] == HitVerdictPacket.ResultDuplicate
@@ -1304,9 +1305,10 @@ namespace MphRead.Mods.Network
                             remember: false, outcome: _seenOutcomes[shooterSlot, seenAt]);
                     }
                     else if (claim.ClaimId != 0 && claim.ShotId != 0
-                        && (NetShotProof.Mode != ShotProofMode.Enforce || NetShotProof.HasPhysicalIdentity(shooterSlot, claim))
-                        && TakeLedger(shooterSlot, claim.VictimSlot, claim.AckFrame, claim.LaunchFrame,
-                            NetSession.NetFrame, MaxGraceFrames, out _, claim.ShotId, key, claim.ComponentId, NetShotProof.Kind(claim.Flags)))
+                        && (NetShotProof.Mode == ShotProofMode.Enforce
+                            ? NetShotProof.TryPhysicalOutcome(shooterSlot, claim, out physicalOutcome)
+                            : TakeLedger(shooterSlot, claim.VictimSlot, claim.AckFrame, claim.LaunchFrame,
+                                NetSession.NetFrame, MaxGraceFrames, out _, claim.ShotId, key, claim.ComponentId, NetShotProof.Kind(claim.Flags))))
                     {
                         DuplicateHere++;
                         // Do not replace a present-life claim's answer when an
@@ -1321,7 +1323,7 @@ namespace MphRead.Mods.Network
                         }
                         ushort currentNewest = _newestId[shooterSlot];
                         Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate,
-                            remember: cache, outcome: _takenOutcome);
+                            remember: cache, outcome: NetShotProof.Mode == ShotProofMode.Enforce ? physicalOutcome : _takenOutcome);
                         _newestId[shooterSlot] = currentNewest;
                     }
                     else
