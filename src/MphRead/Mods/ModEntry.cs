@@ -1397,7 +1397,8 @@ namespace MphRead.Mods
                 Environment.ExitCode = Render.RespawnRenderCheck.Run(
                     ValueAfter(args, "respawnrendercheck"),
                     HasFlag(args, "cycles") ? ValueAfter(args, "cycles") ?? "" : null,
-                    HasFlag(args, "timeout") ? ValueAfter(args, "timeout") ?? "" : null);
+                    HasFlag(args, "timeout") ? ValueAfter(args, "timeout") ?? "" : null,
+                    HasFlag(args, "stabilityseconds") ? ValueAfter(args, "stabilityseconds") ?? "" : null);
                 return true;
             }
 

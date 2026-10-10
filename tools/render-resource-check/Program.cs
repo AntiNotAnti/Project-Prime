@@ -1,7 +1,7 @@
 using System;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using MphRead;
+using MphRead.Mods.Input;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -9,8 +9,8 @@ using OpenTK.Windowing.Desktop;
 using GLFWBindingsContext = OpenTK.Windowing.GraphicsLibraryFramework.GLFWBindingsContext;
 
 // Exercise the real cel target allocator and scene teardown in one persistent
-// GL context. No Scene constructor: that loads music/game data. Only the empty
-// texture registry and the synthetic color attachment are needed for teardown.
+// GL context. Disable runtime initialization to avoid music/game data while
+// preserving the constructor-owned registries that real scene teardown uses.
 using var window = new NativeWindow(new NativeWindowSettings
 {
     ClientSize = new Vector2i(32, 32),
@@ -25,9 +25,8 @@ GL.LoadBindings(new GLFWBindingsContext());
 int failures = 0;
 for (int cycle = 0; cycle < 3; cycle++)
 {
-    var scene = (Scene)RuntimeHelpers.GetUninitializedObject(typeof(Scene));
-    FieldInfo registry = Field("_texPalMap");
-    registry.SetValue(scene, Activator.CreateInstance(registry.FieldType));
+    var scene = new Scene(new Vector2i(32, 32), SyntheticInput.CreateKeyboard(),
+        SyntheticInput.CreateMouse(), _ => { }, () => { }, initializeRuntime: false);
     int texture = GL.GenTexture();
     GL.BindTexture(TextureTarget.Texture2D, texture);
     GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb,

@@ -18,7 +18,7 @@ namespace MphRead.Mods.Render
     /// <summary>A bounded, real-GL death/respawn check, one room per process.</summary>
     public static class RespawnRenderCheck
     {
-        public static int Run(string? room, string? cyclesText, string? timeoutText)
+        public static int Run(string? room, string? cyclesText, string? timeoutText, string? stabilitySecondsText = null)
         {
 #if ANDROID || MPHREAD_SERVER
             Console.WriteLine("RESPAWNRENDER unsupported: this harness needs a desktop GL window.");
@@ -26,11 +26,15 @@ namespace MphRead.Mods.Render
 #else
             int cycles = 100;
             int timeout = 1800;
+            int stabilitySeconds = 0;
             if (String.IsNullOrWhiteSpace(room) || room.StartsWith('-')
                 || cyclesText != null && (!Int32.TryParse(cyclesText, out cycles) || cycles < 1 || cycles > 5000)
-                || timeoutText != null && (!Int32.TryParse(timeoutText, out timeout) || timeout < 1 || timeout > 86400))
+                || timeoutText != null && (!Int32.TryParse(timeoutText, out timeout) || timeout < 1 || timeout > 86400)
+                || stabilitySecondsText != null && (!Int32.TryParse(stabilitySecondsText, out stabilitySeconds)
+                    || stabilitySeconds < 0 || stabilitySeconds > 7200 || stabilitySeconds >= timeout))
             {
                 Console.WriteLine("Usage: -respawnrendercheck ROOM [-cycles 1..5000] [-timeout 1..86400]"
+                    + " [-stabilityseconds 0..7200, less than timeout]"
                     + " (defaults: 100 cycles, 1800 wall seconds)");
                 return 2;
             }
@@ -46,6 +50,7 @@ namespace MphRead.Mods.Render
                 try
                 {
                     window.Initialize(room, cycles, timeout);
+                    window.MinimumWallSeconds = stabilitySeconds;
                     window.Run();
                     return window.Report();
                 }
@@ -91,6 +96,7 @@ namespace MphRead.Mods.Render
             private int _requested;
             private int _timeout;
             private readonly Stopwatch _wall = Stopwatch.StartNew();
+            internal int MinimumWallSeconds { get; set; }
             private bool _advanced;
             private int _advancedFrames;
             private Phase _phase;
@@ -412,8 +418,13 @@ namespace MphRead.Mods.Render
                     {
                         Console.WriteLine($"RESPAWNRENDER progress {_completed}/{_requested}"
                             + $" frames={_frames} simulated={_frames / 60.0:F1}s wall={_wall.Elapsed.TotalSeconds:F1}s"
+                            + $" managedBytes={GC.GetTotalMemory(false)} workingSetBytes={Environment.WorkingSet}"
                             + $" failures={_failures}");
                     }
+                    // An explicitly requested soak must run for real wall time,
+                    // even when accelerated simulation finishes the cycle target.
+                    if (_completed == _requested && _wall.Elapsed.TotalSeconds < MinimumWallSeconds)
+                        _requested++;
                     _phase = _completed == _requested ? Phase.Done : Phase.Prepare;
                     _age = 0;
                 }
