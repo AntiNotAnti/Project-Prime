@@ -18,10 +18,29 @@ namespace MphRead.Mods.Render
     /// </summary>
     internal static class GraphicsApi
     {
+        [ThreadStatic] private static OpenGlScopedCapabilityCache? _capabilityCache;
+        private static OpenGlScopedCapabilityCache CapabilityCache =>
+            _capabilityCache ??= new OpenGlScopedCapabilityCache();
+
+        internal static void BeginScopedWorldStateElision()
+        {
+            if (!OpenGlSubmissionProfiler.ForceLegacyStateRequests)
+                CapabilityCache.Begin();
+        }
+
+        internal static void EndScopedWorldStateElision() => _capabilityCache?.End();
+
+        internal static void ResetStateElisionForContext() =>
+            _capabilityCache?.ResetContext();
+
 #if !ANDROID
         private static readonly LegacyGlUniformCache _legacyUniforms = new();
 
-        internal static void ResetLegacyState() => _legacyUniforms.ResetContext();
+        internal static void ResetLegacyState()
+        {
+            _legacyUniforms.ResetContext();
+            ResetStateElisionForContext();
+        }
         internal static void BeginLegacyUniformSample() => _legacyUniforms.BeginSample();
         internal static LegacyUniformSample EndLegacyUniformSample() => _legacyUniforms.EndSample();
 #endif
@@ -32,6 +51,7 @@ namespace MphRead.Mods.Render
             DesktopGL.LoadBindings(context);
             _legacyUniforms.ResetContext();
 #endif
+            ResetStateElisionForContext();
         }
 
         public static void Begin(PrimitiveType mode)
@@ -53,14 +73,27 @@ namespace MphRead.Mods.Render
         public static void MultiTexCoord2(TextureUnit unit, float s, float t) { DesktopGL.MultiTexCoord2(unit, s, t); }
 
         public static int GenLists(int range) => DesktopGL.GenLists(range);
-        public static void NewList(int list, ListMode mode) { DesktopGL.NewList(list, mode); }
-        public static void EndList() { DesktopGL.EndList(); }
+        public static void NewList(int list, ListMode mode)
+        {
+            CapabilityCache.BeginList(list, mode);
+            DesktopGL.NewList(list, mode);
+        }
+        public static void EndList()
+        {
+            DesktopGL.EndList();
+            CapabilityCache.EndList();
+        }
         public static void CallList(int list)
         {
             OpenGlSubmissionProfiler.NoteDisplayList();
+            _capabilityCache?.CallList(list);
             DesktopGL.CallList(list);
         }
-        public static void DeleteLists(int list, int range) { DesktopGL.DeleteLists(list, range); }
+        public static void DeleteLists(int list, int range)
+        {
+            DesktopGL.DeleteLists(list, range);
+            _capabilityCache?.DeleteLists(list, range);
+        }
 
         public static int GenTexture() => DesktopGL.GenTexture();
         public static void DeleteTexture(int texture) { DesktopGL.DeleteTexture(texture); }
@@ -299,11 +332,21 @@ namespace MphRead.Mods.Render
         public static void Enable(EnableCap cap)
         {
             OpenGlSubmissionProfiler.NoteStateRequest();
+            if (_capabilityCache != null && !_capabilityCache.ShouldSubmit(cap, true))
+            {
+                OpenGlSubmissionProfiler.NoteStateRequestSkipped();
+                return;
+            }
             DesktopGL.Enable(cap);
         }
         public static void Disable(EnableCap cap)
         {
             OpenGlSubmissionProfiler.NoteStateRequest();
+            if (_capabilityCache != null && !_capabilityCache.ShouldSubmit(cap, false))
+            {
+                OpenGlSubmissionProfiler.NoteStateRequestSkipped();
+                return;
+            }
             DesktopGL.Disable(cap);
         }
         public static bool IsEnabled(EnableCap cap) => DesktopGL.IsEnabled(cap);
@@ -355,8 +398,16 @@ namespace MphRead.Mods.Render
         public static void PushMatrix() { DesktopGL.PushMatrix(); }
         public static void PopMatrix() { DesktopGL.PopMatrix(); }
         public static void LoadIdentity() { DesktopGL.LoadIdentity(); }
-        public static void PushAttrib(AttribMask mask) { DesktopGL.PushAttrib(mask); }
-        public static void PopAttrib() { DesktopGL.PopAttrib(); }
+        public static void PushAttrib(AttribMask mask)
+        {
+            _capabilityCache?.Invalidate();
+            DesktopGL.PushAttrib(mask);
+        }
+        public static void PopAttrib()
+        {
+            DesktopGL.PopAttrib();
+            _capabilityCache?.Invalidate();
+        }
     }
 }
 #endif

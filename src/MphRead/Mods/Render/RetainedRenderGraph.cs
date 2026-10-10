@@ -644,6 +644,9 @@ namespace MphRead
                 _retainedRenderWorld.Decals.Count, _retainedRenderWorld.Translucent.Count,
                 Mods.Render.OpenGlSubmissionProfiler.ForceLegacyDepthReplay);
             bool profile = Mods.Render.OpenGlSubmissionProfiler.BeginWorldGraph();
+#if !MPHREAD_SERVER
+            GL.BeginScopedWorldStateElision();
+#endif
             try
             {
             foreach (Mods.Render.WorldRenderGraphPass pass in _worldRenderGraph.Passes)
@@ -729,6 +732,9 @@ namespace MphRead
             }
             finally
             {
+#if !MPHREAD_SERVER
+                GL.EndScopedWorldStateElision();
+#endif
                 if (profile)
                     Mods.Render.OpenGlSubmissionProfiler.EndWorldGraph(
                         _retainedRenderWorld.PacketCount, _retainedRenderWorld.BatchCount,
