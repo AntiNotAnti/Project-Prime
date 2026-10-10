@@ -6,7 +6,8 @@ import re
 
 FATAL = re.compile(r"semantic history overrun|reliable (?:channel |control )?(?:failed|gap)|"
                    r"timed out|\btimeout\b|\[sim\] step failed|could not (?:join|load|spectate)|"
-                   r"connection lost|\bcrashed:|unhandled exception|RESULT: FAIL", re.I)
+                   r"connection lost|no word from the server|re-announcing|"
+                   r"invalid resurrection=[1-9]\d*|\bcrashed:|unhandled exception|RESULT: FAIL", re.I)
 
 
 def shot_key(row):
@@ -50,6 +51,17 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
             if report["Transport"] and (report["Transport"]["QueueDrops"] or report["Transport"]["SocketErrors"]):
                 failures.append(f"{name}: transport queue drop/socket error")
             shots = report["Shots"]
+            # Validate every row before cross-process joins, including offered-only
+            # rows. Truncated or mixed-version evidence cannot bypass adjudication.
+            for row in shots:
+                shot_key(row)
+                for field in ("Stage", "Weapon", "Charge", "Kind", "ObservedFrame"):
+                    row[field]
+            for row in report["States"]:
+                state_key(row), health_value(row)
+            for row in report["Facts"]:
+                for field in ("Type", "Payload", "Epoch", "Match", "Id", "Tick", "Baseline", "Award", "AwardFrontier"):
+                    row[field]
             committed = Counter(shot_key(s) for s in shots if s["Stage"] == "committed")
             if any(n > 1 for n in committed.values()):
                 failures.append(f"{name}: duplicate committed logical shots")
@@ -77,7 +89,9 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
             failures.append("server: simulation step failures")
         states = {state_key(s): health_value(s) for s in authority["States"]}
         committed = {shot_key(s): (s["Weapon"], s["Charge"], s["Kind"]) for s in authority["Shots"] if s["Stage"] == "committed"}
+        authority_shots = {shot_key(s): s for s in authority["Shots"] if s["Stage"] == "committed"}
         accepted = {shot_key(s) for s in authority["Shots"] if s["Stage"] == "accepted"}
+        all_offered = {shot_key(s) for r in reports.values() for s in r["Shots"] if s["Stage"] == "offered"}
         facts = {(f["Type"], f["Payload"]) for f in authority["Facts"]}
         for name, report in reports.items():
             if name == "server":
@@ -118,12 +132,32 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 incomplete.append(f"{name}: no comparable authority semantic facts")
             if not semantic_expected:
                 incomplete.append(f"{name}: semantic completeness interval unexercised")
+            received_commits = {shot_key(s) for s in report["Shots"] if s["Stage"] == "committed"}
+            expected_commits = set()
+            intervals = {}
+            for state, _ in common:
+                identity = state["Epoch"], state["Match"]
+                first, last = intervals.get(identity, (state["Frame"], state["Frame"]))
+                intervals[identity] = min(first, state["Frame"]), max(last, state["Frame"])
+            for key, shot in authority_shots.items():
+                if key not in all_offered:
+                    continue
+                first, last = intervals.get(key[:2], (1, 0))
+                if first + 30 <= shot["ObservedFrame"] <= last - 30:
+                    expected_commits.add(key)
+            unobserved = expected_commits - received_commits
+            if unobserved:
+                failures.append(f"{name}: {len(unobserved)} authority shots not committed in this view")
+            if not expected_commits:
+                incomplete.append(f"{name}: no comparable shooter/observer shot interval")
             parity[name] = {"healthSamplesCompared": len(common), "healthMismatches": mismatch,
                 "offeredShots": len(offered), "acceptedShots": len(offered.keys() & accepted),
                 "committedShots": len(offered.keys() & committed.keys()), "wrongWeaponChargeKind": wrong,
                 "unacceptedKeys": [list(k) for k in sorted(missing_accepted)[:32]],
                 "uncommittedKeys": [list(k) for k in sorted(missing_committed)[:32]],
                 "matchingSemanticFacts": matching_facts,
+                "viewExpectedCommits": len(expected_commits), "viewMissingCommits": len(unobserved),
+                "viewTailExcludedFrames": 30,
                 "semanticExpected": semantic_expected, "semanticMissing": semantic_missing,
                 "semanticConflicts": semantic_conflicts, "semanticTailExcludedFrames": 60,
                 "semanticCompleteness": "FAIL" if semantic_missing or semantic_conflicts else "PASS" if semantic_expected else "INCOMPLETE",

@@ -17,10 +17,10 @@ class EvidenceTests(unittest.TestCase):
         key = dict(AuthorityEpoch=111, MatchId=2, ShooterSlot=0, Generation=3, LifeId=4, ShotId=5)
         state = dict(Epoch=111, Match=2, Frame=180, Slot=0, Generation=3, Life=4,
                      Hp=99, TurretHp=0, Kills=0, Deaths=0, DamageEvent=2)
-        shot = dict(Stage="committed", Key=key, Weapon=2, Charge=0, Kind=0)
+        shot = dict(Stage="committed", Key=key, Weapon=2, Charge=0, Kind=0, ObservedFrame=90)
         fact = dict(Type=101, Epoch=111, Match=2, Id=1, Tick=60, Baseline=False,
                     Award=False, AwardFrontier=0, Payload="CAFE")
-        self.report = dict(Schema=1, Protocol=41, Frames=180, Windows=[{}], States=[state],
+        self.report = dict(Schema=1, Protocol=41, Frames=180, Windows=[{}], States=[dict(state, Frame=6), state],
             Transport=dict(QueueDrops=0, SocketErrors=0), AliveFrames=[180] + [0] * 7,
             Overflow=0, ConnectionLost=False, SemanticOverrun=False, SemanticDisconnects=0, LastError=None,
             OfferedCarriers=180, AcceptedCarriers=180, AllocatedBytes=10, HeapBytes=10, WorkingSet=10,
@@ -56,6 +56,19 @@ class EvidenceTests(unittest.TestCase):
     def test_killed_participant(self):
         self.processes[-1]["timedOut"] = True
         self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_silent_reconnect_is_a_failure(self):
+        (self.out / "shooter.log").write_text("[net] no word from the server; re-announcing (#1)\nRESULT: PASS")
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_invalid_resurrection_is_a_failure(self):
+        (self.out / "shooter.log").write_text("life: invalid resurrection=1")
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_malformed_offered_only_row(self):
+        del self.client["Shots"][1]["Weapon"]
+        self.write()
+        self.assertEqual(self.result()["status"], "INCOMPLETE")
 
     def test_missing_report(self):
         (self.out / "shooter.json").unlink()
@@ -101,9 +114,17 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(self.result()["status"], "FAIL")
 
     def test_health_different_life_is_not_compared(self):
-        self.client["States"][0]["Life"] = 99
+        for row in self.client["States"]: row["Life"] = 99
         self.write()
         self.assertEqual(self.result()["status"], "INCOMPLETE")
+
+    def test_delivery_to_server_does_not_prove_observer_commit(self):
+        observer = copy.deepcopy(self.client)
+        observer["Shots"] = []
+        (self.out / "observer.json").write_text(json.dumps(observer))
+        (self.out / "observer.log").write_text("RESULT: PASS")
+        self.processes.append(dict(name="observer", exit=0, timedOut=False, expectsShots=False))
+        self.assertEqual(self.result()["status"], "FAIL")
 
     def test_one_matching_fact_does_not_hide_semantic_gap(self):
         self.server["Facts"].append(dict(self.server["Facts"][0], Id=2, Payload="DEAD"))

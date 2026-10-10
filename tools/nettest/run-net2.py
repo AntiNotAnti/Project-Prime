@@ -77,6 +77,7 @@ def run(args):
     manifest = {"source": args.source, "platform": platform.platform(), "python": platform.python_version(),
         "dotnetInfo": subprocess.check_output([dotnet, "--info"], text=True),
         "assemblySha256": digest(assembly), "assetManifestSha256": digest(args.out / "assets.json"),
+        "harnessSha256": {name: digest(Path(__file__).with_name(name)) for name in ("run-net2.py", "net2_evidence.py")},
         "settings": {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
         "commands": [], "startedUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     save(args.out / "manifest.json", manifest)
@@ -143,7 +144,7 @@ def run(args):
                 extra += ["-hitrig", args.scenario]
             if args.soak and slot == args.players - 2:
                 extra += ["-spectate", "90", "-rejoin", "150"]
-            expects = args.scenario in ("tour", "duel", "shockcoil-all") or slot == 0
+            expects = args.soak or args.scenario in ("tour", "duel", "shockcoil-all") or slot % 2 == 0
             p, record = launch(name, extra, seconds, expects)
             clients.append((p, record, time.monotonic() + seconds + 120))
 
@@ -202,8 +203,26 @@ def run(args):
         if len(records) < args.players + 1 or manifest.get("runnerError") or manifest["assemblyAfterSha256"] != manifest["assemblySha256"]:
             summary["status"] = "FAIL"
             summary["failures"].append(manifest.get("runnerError", "missing participants or modified running assembly"))
-        summary["coverage"] = {"renderedProjectileAgreement": "NOT_RUN", "botFills": "NOT_RUN",
-            "sustained20Minutes": "PASS" if args.soak and args.seconds >= 1200 and manifest["elapsedSeconds"] >= 1200 else "NOT_RUN"}
+        evidence = {}
+        for record in records:
+            try:
+                evidence[record["name"]] = json.loads((args.out / (record["name"] + ".json")).read_text())
+            except (OSError, ValueError):
+                pass
+        windows = [w for report in evidence.values() for w in report.get("Windows", [])]
+        sustained = args.soak and all(
+            evidence.get(record["name"], {}).get("Frames", 0) >= record["requestedSeconds"] * 60 * .9
+            and max((w.get("Seconds", 0) for w in evidence.get(record["name"], {}).get("Windows", [])), default=0) >= record["requestedSeconds"] - 2
+            for record in records if record["name"] != "server")
+        summary["coverage"] = {"renderedProjectileAgreement": "NOT_RUN",
+            "botFills": "PASS" if any(w.get("BotMask", 0) for w in windows) else "NOT_RUN",
+            "spectator": "PASS" if any(w.get("Spectating") for w in windows) else "NOT_RUN",
+            "mapRotation": "PASS" if len({w["Room"] for w in windows if w.get("Room")}) > 1 else "NOT_RUN",
+            "shockCoilDrainKillParity": "NOT_RUN", "imperialistSpawnTrapCoverage": "NOT_RUN",
+            "sustained20Minutes": "PASS" if sustained else "INCOMPLETE" if args.soak else "NOT_RUN"}
+        if args.soak and (not sustained or any(summary["coverage"][k] != "PASS" for k in ("botFills", "spectator", "mapRotation"))):
+            summary["incomplete"].append("soak duration, load, bot, spectator or map-rotation coverage missing")
+            if summary["status"] == "PASS": summary["status"] = "INCOMPLETE"
         save(args.out / "summary.json", summary)
         print(json.dumps({"status": summary["status"], "out": str(args.out), "failures": summary["failures"], "incomplete": summary["incomplete"]}), flush=True)
     return 0 if summary["status"] == "PASS" else 1
