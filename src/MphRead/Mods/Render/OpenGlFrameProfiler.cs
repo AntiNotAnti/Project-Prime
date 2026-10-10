@@ -2,6 +2,7 @@
 using System;
 using System.Diagnostics;
 using System.Text.Json;
+using OpenTK.Graphics.OpenGL;
 
 namespace MphRead.Mods.Render;
 
@@ -25,15 +26,17 @@ internal static class OpenGlFrameProfiler
     private static long _renderStart, _presentStart, _previousPresentEnd;
     private static double _renderElapsed;
     private static bool _renderActive, _presentActive;
+    private static MphRead.Scene? _measuredScene;
 
     internal static bool Enabled => _enabled;
 
     internal static double OnePercentLowFromP99Milliseconds(double p99Ms)
         => p99Ms > 0 && double.IsFinite(p99Ms) ? 1000.0 / p99Ms : 0.0;
 
-    internal static void BeginRender()
+    internal static void BeginRender(MphRead.Scene scene)
     {
         if (!_enabled) return;
+        _measuredScene = scene;
         _renderStart = Stopwatch.GetTimestamp();
         _renderActive = true;
         _presentActive = false;
@@ -104,7 +107,19 @@ internal static class OpenGlFrameProfiler
                     droppedSimulationSteps = FrameTiming.DroppedSteps,
                     stalls = FrameTiming.Stalls,
                     vbo = DesktopRetainedGeometry.Enabled,
-                    bindingCache = OpenGlScopedBindingCache.Enabled
+                    bindingCache = OpenGlScopedBindingCache.Enabled,
+                    context = new
+                    {
+                        room = _measuredScene?.Room?.Meta.Name ?? "",
+                        width = _measuredScene?.Size.X ?? 0,
+                        height = _measuredScene?.Size.Y ?? 0,
+                        shadows = RenderOptions.Shadows.ToString(),
+                        renderScale = RenderOptions.ResolutionScale,
+                        cap = FrameTiming.FrameRateCap,
+                        renderer = GraphicsApi.GetString(StringName.Renderer) ?? "",
+                        glVersion = GraphicsApi.GetString(StringName.Version) ?? "",
+                        assemblyMvid = typeof(MphRead.Scene).Module.ModuleVersionId.ToString("D")
+                    }
                 }));
                 _count = 0;
             }
