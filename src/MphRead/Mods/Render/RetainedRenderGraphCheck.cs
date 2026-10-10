@@ -28,6 +28,19 @@ namespace MphRead.Mods.Render
                 && !DesktopRetainedGeometry.CanUseClientArrays(12, 12, 12, 10),
                 "desktop VBO promotion accepts only homogeneous fixed-function attribute streams");
 #endif
+            Matrix4 translatedAway = Matrix4.CreateTranslation(600f, 0f, 0f);
+            Check(MphRead.Entities.RoomEntity.ShadowCasterOverlapsLightXY(
+                    new Vector3(-.5f), new Vector3(.5f), Matrix4.Identity)
+                && !MphRead.Entities.RoomEntity.ShadowCasterOverlapsLightXY(
+                    new Vector3(100f), new Vector3(110f), Matrix4.Identity)
+                && MphRead.Entities.RoomEntity.ShadowCasterOverlapsLightXY(
+                    new Vector3(-.5f), new Vector3(.5f), translatedAway.Inverted()),
+                "light-space XY bounds reject distant nodes without using the camera frustum");
+            Check(MphRead.Entities.ItemInstanceEntity.FullyOccludedBySamples(
+                    true, true, true, true, true)
+                && !MphRead.Entities.ItemInstanceEntity.FullyOccludedBySamples(
+                    true, true, false, true, true),
+                "pickup visual culling requires all five blocked samples");
             Check(WorldRenderGraph.Validate(out string error),
                 "six-pass graph validates" + (error.Length == 0 ? "" : ": " + error));
             Check(MphRead.Entities.RoomEntity.RefreshRoomVisibilityOnDraw(

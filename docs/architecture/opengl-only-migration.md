@@ -208,3 +208,22 @@ and assets, render scale, FPS cap, and vsync:
 **All E–G features remain off by default** until build matrix, device
 screenshot parity and measured benefit are confirmed. CPU submission counts
 alone do not establish a performance gain.
+
+### Phase 4A: shadow caster and pickup occlusion correctness
+
+- Shadow-map static room casters are now selected independently in the light
+  projection, instead of relying exclusively on the camera-visible retained
+  graph. Conservative XY overlap tests retain casters behind the viewpoint,
+  while dynamic camera-visible objects continue using their established path.
+  Room shadow items are separate from live world packets and are never
+  submitted to the gameplay or replay render queues.
+- Pickups use bounded, cached native player-blocking collision probes against
+  center + four offsets to cull fully obscured visuals. Any clear edge
+  sample preserves the pickup, and the artifact-key aura receives the same
+  visibility decision. No pickup/authority or simulation behavior changes.
+- Same-build visual fallback: `-gllegacyitemvis` or
+  `PROJECT_PRIME_GL_LEGACY_ITEM_VIS=1` leaves only room-node visibility
+  controlling pickup drawing.
+- CI content-free tests cover light-space XY rejection and five-sample culling
+  policy. Actual Ice Hive capture, alpha glass/door/force field behavior,
+  and shadow distance still require live native GPU acceptance.

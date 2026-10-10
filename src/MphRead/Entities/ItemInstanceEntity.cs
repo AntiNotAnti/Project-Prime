@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using MphRead.Effects;
 using MphRead.Formats;
 using MphRead.Formats.Culling;
+using MphRead.Formats.Collision;
 using OpenTK.Mathematics;
 
 namespace MphRead.Entities
@@ -34,6 +35,16 @@ namespace MphRead.Entities
         public int ParentId { get; set; } = -1;
         private EntityBase? _parent = null;
         private Vector3 _invPos;
+        private ulong _occlusionFrame = ulong.MaxValue;
+        private Vector3 _occlusionCamera, _occlusionPosition;
+        private bool _occlusionVisible = true;
+
+        // Explicit escape hatch while Ice Hive and authored transparent
+        // collision surfaces receive real-device visual acceptance.
+        private static readonly bool _legacyItemVisibility =
+            Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_LEGACY_ITEM_VIS") == "1"
+            || Array.Exists(Environment.GetCommandLineArgs(), a =>
+                a.Equals("-gllegacyitemvis", StringComparison.OrdinalIgnoreCase));
 
         public int DespawnTimer { get; set; } = -1;
         public ItemSpawnEntity? Owner { get; set; }
@@ -185,12 +196,64 @@ namespace MphRead.Entities
             }
         }
 
+        internal static bool FullyOccludedBySamples(
+            bool center, bool left, bool right, bool top, bool bottom)
+            => center && left && right && top && bottom;
+
+        private bool PickupSampleBlocked(Vector3 camera, Vector3 sample)
+        {
+            float length = (sample - camera).Length;
+            if (length < .25f)
+                return false;
+            CollisionResult hit = default;
+            return CollisionDetection.CheckBetweenPoints(
+                camera, sample, TestFlags.Players, _scene, ref hit)
+                && hit.Distance < 1f - MathF.Min(.1f / length, .25f);
+        }
+
+        private bool IsPickupVisuallyVisible()
+        {
+            if (_legacyItemVisibility || _scene.Room == null
+                || (_scene.CameraMode != CameraMode.Player
+                    && !_scene.Services.IsReplica))
+                return true;
+            Vector3 camera = _scene.CameraPosition;
+            Vector3 toPickup = Position - camera;
+            if (toPickup.LengthSquared <= .25f)
+                return true;
+
+            // Cache across render-only frames, not across large camera/item
+            // movements or more than 3 fixed simulation steps.
+            const float motionSquared = .01f;
+            ulong frame = _scene.FrameCount;
+            if (_occlusionFrame != ulong.MaxValue && frame >= _occlusionFrame
+                && frame - _occlusionFrame < 3
+                && (camera - _occlusionCamera).LengthSquared < motionSquared
+                && (Position - _occlusionPosition).LengthSquared < motionSquared)
+                return _occlusionVisible;
+            _occlusionFrame = frame;
+            _occlusionCamera = camera;
+            _occlusionPosition = Position;
+            Vector3 right = Vector3.Cross(toPickup, Vector3.UnitY);
+            right = right.LengthSquared > .0001f ? right.Normalized() : Vector3.UnitX;
+            const float radius = .27f;
+            _occlusionVisible = !FullyOccludedBySamples(
+                PickupSampleBlocked(camera, Position),
+                PickupSampleBlocked(camera, Position + right * radius),
+                PickupSampleBlocked(camera, Position - right * radius),
+                PickupSampleBlocked(camera, Position + Vector3.UnitY * radius),
+                PickupSampleBlocked(camera, Position - Vector3.UnitY * radius));
+            return _occlusionVisible;
+        }
+
         public override void GetDrawInfo()
         {
-            if (IsVisible(NodeRef))
-            {
+            bool visible = IsVisible(NodeRef) && IsPickupVisuallyVisible();
+            // Effects are drawn from a separate queue; keep the artifact
+            // aura's visibility coherent with the physical pickup.
+            _effectEntry?.SetDrawEnabled(visible);
+            if (visible)
                 base.GetDrawInfo();
-            }
         }
 
         public override void Destroy()
