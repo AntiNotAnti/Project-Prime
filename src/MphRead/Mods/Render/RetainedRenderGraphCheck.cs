@@ -26,14 +26,15 @@ namespace MphRead.Mods.Render
                 "top-level frame render graph validates"
                     + (frameError.Length == 0 ? "" : ": " + frameError));
             var frameGraph = new FrameRenderGraph();
-            Check(frameGraph.Passes.Count > 4
-                && frameGraph.Passes[1].Kind == FrameRenderPassKind.GpuVisibility
-                && (frameGraph.Passes[1].Reads & FrameRenderResource.HiZ) != 0
-                && (frameGraph.Passes[1].Writes & FrameRenderResource.Visibility) != 0
-                && frameGraph.Passes[4].Kind == FrameRenderPassKind.GpuHiZBuild
-                && (frameGraph.Passes[4].Reads & FrameRenderResource.SceneDepth) != 0
-                && (frameGraph.Passes[4].Writes & FrameRenderResource.HiZ) != 0,
-                "GPU visibility consumes prior Hi-Z before clear and rebuilds it after World");
+            Check(frameGraph.Passes.Count == 8
+                && frameGraph.Passes[0].Kind == FrameRenderPassKind.Shadow
+                && frameGraph.Passes[1].Kind == FrameRenderPassKind.WorldSetup
+                && frameGraph.Passes[2].Kind == FrameRenderPassKind.World
+                && (frameGraph.Passes[2].Reads & FrameRenderResource.SceneDepth) != 0
+                && frameGraph.Passes[3].Kind == FrameRenderPassKind.Outlines
+                && frameGraph.Passes[^1].Kind == FrameRenderPassKind.Composite
+                && (frameGraph.Passes[^1].Writes & FrameRenderResource.Output) != 0,
+                "OpenGL frame graph excludes retired GPU visibility and Hi-Z passes");
             var opaqueA = new RenderItem
             {
                 Type = RenderItemType.Mesh, ListId = 11,

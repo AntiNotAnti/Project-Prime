@@ -1,7 +1,7 @@
 # OpenGL-only architecture migration
 
 **Baseline:** published `v0.1.47`, commit `0351ef6f707ab0369c95d8d4185869f6e02622f8`.
-**Status:** phase 1 (runtime retirement). This is an intentionally staged removal.
+**Status:** Phase 1 OpenGL-only runtime policy plus Phase 2 physical source/package cleanup are implemented on separate stacked pull requests. Full CI and real hardware acceptance are not yet confirmed.
 
 ## Phase 1: OpenGL is the only launchable game renderer
 
@@ -12,7 +12,7 @@
   load. The retired renderer startup-recovery marker is cleared.
 - Explicit `-renderer dx12`, `vulkan`, `metal` and their aliases fail with a
   descriptive error. The old enum values remain solely to diagnose historic
-  requests while the WebGPU assembly references still compile.
+  requests for compatibility with saved settings and clear CLI errors.
 - The renderer selector is removed from the settings view. There is no longer a
   modern-device startup or NoAPI window path for desktop auxiliary windows.
 - The mandatory renderer-policy test now rejects modern selections on every
@@ -30,7 +30,7 @@ them in the first cut would obscure compile/runtime failures in a very large
 changeset. Release packaging may still contain unused native renderer
 dependencies until phase 2. The runtime policy refuses to select them.
 
-## Phase 2: physical removal (next changeset)
+## Phase 2: physical removal (PR #434, stacked on #433)
 
 1. Replace all `ModernGraphicsCompat.Active` dual-path call sites with the
    direct desktop OpenGL / Android GLES implementation.
