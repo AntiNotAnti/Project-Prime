@@ -88,8 +88,20 @@ internal static class NetcodePerformanceTests
         intent.FireEvents[1] = new(6, 101, 100, 240, FireEventKind.ReleaseFire, 2, 90, 0);
         byte[] wire = new byte[IntentPacket.FullSize]; intent.Write(wire);
         var read = IntentPacket.Read(wire);
-        Check(read.HasFireEvents && NetFireEvents.Validate(read) && read.FireEvents[0] == intent.FireEvents[0]
-            && read.FireEvents[1] == intent.FireEvents[1], "lost press/release fire history round trip independently of carrier ACK");
+        // View/reticle are quantized for the wire. Record equality here
+        // incorrectly fails on a valid packet; check event identity and
+        // metadata, then check precision/tolerances separately below.
+        Check(read.HasFireEvents && NetFireEvents.Validate(read)
+            && read.FireEvents[0].ShotId == intent.FireEvents[0].ShotId
+            && read.FireEvents[0].Kind == FireEventKind.PressFire
+            && read.FireEvents[0].SourceFrame == intent.FireEvents[0].SourceFrame
+            && read.FireEvents[0].AckFrame == intent.FireEvents[0].AckFrame
+            && read.FireEvents[0].AckSubFrame == intent.FireEvents[0].AckSubFrame
+            && read.FireEvents[1].ShotId == intent.FireEvents[1].ShotId
+            && read.FireEvents[1].Kind == FireEventKind.ReleaseFire
+            && read.FireEvents[1].Weapon == intent.FireEvents[1].Weapon
+            && read.FireEvents[1].Charge == intent.FireEvents[1].Charge,
+            "lost press/release fire history round trip independently of carrier ACK");
         Check(!IntentPacket.Read(wire.AsSpan(0, IntentPacket.LegacyFullSize)).HasFireEvents, "legacy offline intent is explicit");
         Check(read.FireEvents[0].HasPose && read.FireEvents[0].HasReticle
             && read.FireEvents[0].Origin == intent.FireEvents[0].Origin

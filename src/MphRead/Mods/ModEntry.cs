@@ -89,7 +89,13 @@ namespace MphRead.Mods
 #if !MPHREAD_SERVER
             if (ValueAfter(args, "renderer") is string renderer)
             {
-                Render.GraphicsBackendPolicy.Configure(renderer);
+                try { Render.GraphicsBackendPolicy.Configure(renderer); }
+                catch (Exception ex) when (ex is ArgumentException or PlatformNotSupportedException)
+                {
+                    Console.Error.WriteLine("[render] " + ex.Message);
+                    Environment.ExitCode = 2;
+                    return true;
+                }
             }
 #endif
             if (HasFlag(args, "renderbackendcheck"))

@@ -109,7 +109,6 @@ namespace MphRead.Mods.Launcher.Gui
         private bool _showAdvancedSettings;
         private PrimeMotionHandle? _sectionMotion;
         private int _activeSectionIndex;
-        private int _openedRendererIndex;
         private static readonly HashSet<string> AdvancedSettingSections =
             new(StringComparer.OrdinalIgnoreCase) { "System", "Maintenance" };
 
@@ -144,8 +143,6 @@ namespace MphRead.Mods.Launcher.Gui
         private ChoiceRow _textureUpscaleRow = null!;
         private ChoiceRow _textureQualityRow = null!;
         private ChoiceRow _graphicsPresetRow = null!;
-        private ChoiceRow _rendererRow = null!;
-        private readonly GraphicsBackend[] _rendererChoices = GraphicsBackendPolicy.RendererChoices();
         private ChoiceRow _antiAliasingRow = null!;
         private SliderRow _sharpenRow = null!;
         private ToggleRow _bloomRow = null!;
@@ -548,7 +545,6 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Control? controlsScope = SectionPage("Controls");
                 _draft = new SettingsDraft(_pages, controlsScope);
-                _openedRendererIndex = _rendererRow.Index;
                 WireSettingsUx();
                 SetAdvancedSettings(false);
                 UpdateDraftStatus();
@@ -1005,19 +1001,11 @@ namespace MphRead.Mods.Launcher.Gui
             if (!_shell || _draftStatus == null) return;
 
             bool dirty = IsDirty;
-            bool rendererRestart = _rendererRow != null && _rendererRow.Index != _openedRendererIndex;
             bool archiveRestart = Settings.SettingsPersistence.RestartRequired;
 
             if (archiveRestart)
             {
                 _draftStatus.Text = "RESTART REQUIRED  //  SAVED SETTINGS PENDING";
-                _draftStatus.Foreground = PrimeTheme.WarningBrush;
-            }
-            else if (rendererRestart)
-            {
-                _draftStatus.Text = dirty
-                    ? "UNSAVED CHANGES  //  RENDERER REQUIRES RESTART"
-                    : "RESTART REQUIRED  //  RENDERER";
                 _draftStatus.Foreground = PrimeTheme.WarningBrush;
             }
             else if (dirty)
@@ -1062,7 +1050,6 @@ namespace MphRead.Mods.Launcher.Gui
         {
             return label switch
             {
-                "Renderer" => "Select the graphics backend. A renderer change activates after restarting Project Prime.",
                 "Render scale" => "Controls internal 3D resolution. Above 100% supersamples the scene for a cleaner image at higher GPU cost.",
                 "FPS limit" => "Caps presentation rate without changing the 60 Hz gameplay simulation.",
                 "Field of view" => "Changes the first-person camera view. The preview updates while you adjust it.",
@@ -1580,16 +1567,9 @@ namespace MphRead.Mods.Launcher.Gui
         private void BuildGraphics(StackPanel page)
         {
             Heading(page, "Renderer");
-            GraphicsBackendPolicy.TryParse(_settings.Renderer, out var selectedRenderer);
-            if (GraphicsBackendPolicy.StartupFallbackActive)
-                selectedRenderer = GraphicsBackend.OpenGL;
-            _rendererRow = Add(page, new ChoiceRow("Renderer", _rendererChoices.Select(backend =>
-                backend == GraphicsBackend.OpenGL && OperatingSystem.IsAndroid() ? "OpenGL ES"
-                : GraphicsBackendPolicy.DisplayName(backend)).ToArray(),
-                Math.Max(0, Array.IndexOf(_rendererChoices, selectedRenderer))));
-            Explain(page, GraphicsBackendPolicy.StartupFallbackActive
-                ? "OpenGL recovery is active because the previous modern renderer did not finish startup. Choose a renderer here to clear the recovery fence and retry on the next restart."
-                : "Renderer changes take effect after restarting Project Prime. Modern backends are experimental; OpenGL remains the compatibility default.");
+            Explain(page, OperatingSystem.IsAndroid()
+                ? "Project Prime uses OpenGL ES 3.0 exclusively on Android."
+                : "Project Prime uses OpenGL exclusively. The DX12, Vulkan and Metal backends have been retired.");
             Heading(page, "Quality preset");
             _graphicsPresetRow = Add(page, new ChoiceRow("Preset",
                 new[] { "Original", "Performance", "Enhanced", "Ultra", "Extreme", "Custom" },
@@ -2969,11 +2949,7 @@ namespace MphRead.Mods.Launcher.Gui
                 .ToString(CultureInfo.InvariantCulture);
             _settings.CelEdge = Math.Clamp(_celEdgeRow.Value, 0, 100)
                 .ToString(CultureInfo.InvariantCulture);
-            string renderer = _rendererChoices[Math.Clamp(_rendererRow.Index, 0, _rendererChoices.Length - 1)].ToString();
-            if (GraphicsBackendPolicy.StartupFallbackActive
-                || !String.Equals(_settings.Renderer, renderer, StringComparison.OrdinalIgnoreCase))
-                GraphicsBackendPolicy.ClearStartupGuardForRendererChange();
-            _settings.Renderer = renderer;
+            _settings.Renderer = "OpenGL";
             _settings.GraphicsPreset = ((GraphicsPreset)Math.Clamp(_graphicsPresetRow.Index, 0, 5))
                 .ToString().ToLowerInvariant();
             _settings.AntiAliasing = ((AntiAliasingMode)Math.Clamp(_antiAliasingRow.Index, 0, 4))

@@ -190,21 +190,54 @@ internal sealed class HostedMapRequests : IDisposable
             }
             else
             {
-                using var lookup = new MapCommunityClient(address);
-                CommunityMap? metadata = await lookup.GetPackageAsync(
-                    entry.PackageHash.ToString(), token).ConfigureAwait(false);
-                if (metadata == null)
-                    throw new InvalidDataException("A rotation map is no longer available from Community: " + entry.RoomKey);
-                if (!StringComparer.OrdinalIgnoreCase.Equals(metadata.Name, entry.RoomKey)
-                    || metadata.Hash != entry.PackageHash.ToString())
+                // Rotation entries address exact immutable packages. Reuse a
+                // fully verified cached archive before any Community request.
+                // Never trust the filename alone: validate its manifest,
+                // protocol requirement, room name and actual package hash.
+                MapContentIdentity? cachedIdentity = null;
+                string cachedPath = Path.Combine(directory, entry.PackageHash + ".ppmap");
+                if (File.Exists(cachedPath))
                 {
-                    throw new InvalidDataException("Community metadata does not match rotation map " + entry.RoomKey + ".");
+                    try
+                    {
+                        using var cachedPackage = new MapPackageReader(cachedPath);
+                        MapPackageManifest? manifest = cachedPackage.Manifest;
+                        if (manifest != null && manifest.MinimumProtocol <= NetConfig.ProtocolVersion
+                            && StringComparer.OrdinalIgnoreCase.Equals(manifest.Name, entry.RoomKey)
+                            && MapHash256.HashFile(cachedPath) == entry.PackageHash)
+                        {
+                            cachedIdentity = new MapContentIdentity(
+                                manifest.MapId, manifest.Name, MapHash256.Parse(manifest.ContentHash),
+                                entry.PackageHash, true);
+                        }
+                    }
+                    catch (InvalidDataException)
+                    {
+                        // Corrupt cache is not trusted and must be fetched again.
+                    }
                 }
-                if (metadata.MinimumProtocol > NetConfig.ProtocolVersion)
-                    throw new InvalidDataException("A rotation map requires a newer Project Prime protocol: " + entry.RoomKey);
-                identity = new MapContentIdentity(metadata.MapId, metadata.Name,
-                    MapHash256.Parse(metadata.ContentHash),
-                    MapHash256.Parse(metadata.Hash), true);
+                if (cachedIdentity is { } exact)
+                {
+                    identity = exact;
+                }
+                else
+                {
+                    using var lookup = new MapCommunityClient(address);
+                    CommunityMap? metadata = await lookup.GetPackageAsync(
+                        entry.PackageHash.ToString(), token).ConfigureAwait(false);
+                    if (metadata == null)
+                        throw new InvalidDataException("A rotation map is no longer available from Community: " + entry.RoomKey);
+                    if (!StringComparer.OrdinalIgnoreCase.Equals(metadata.Name, entry.RoomKey)
+                        || metadata.Hash != entry.PackageHash.ToString())
+                    {
+                        throw new InvalidDataException("Community metadata does not match rotation map " + entry.RoomKey + ".");
+                    }
+                    if (metadata.MinimumProtocol > NetConfig.ProtocolVersion)
+                        throw new InvalidDataException("A rotation map requires a newer Project Prime protocol: " + entry.RoomKey);
+                    identity = new MapContentIdentity(metadata.MapId, metadata.Name,
+                        MapHash256.Parse(metadata.ContentHash),
+                        MapHash256.Parse(metadata.Hash), true);
+                }
             }
 
             string? installed = i == 0 && firstInstalledOverride != null

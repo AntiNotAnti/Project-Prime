@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace MphRead.Mods.Render
 {
+    // The retired values stay temporarily so old diagnostics and persisted
+    // preferences can be recognized while the WebGPU implementation is removed.
+    // They are not supported or launchable renderers.
     public enum GraphicsBackend
     {
         Auto,
@@ -22,20 +26,23 @@ namespace MphRead.Mods.Render
     }
 
     /// <summary>
-    /// One source of truth for renderer/backend availability. This is kept
-    /// independent of the native API so it can be regression-tested on any
-    /// runner without pretending that the runner is another operating system.
+    /// OpenGL-only runtime policy. Desktop runs compatibility OpenGL; Android
+    /// uses the shared renderer through OpenGL ES 3.0.
+    ///
+    /// Deprecated WebGPU types remain in this migration slice for compilation
+    /// only. No preference, command-line value, or Auto alias can select them.
     /// </summary>
     public static class GraphicsBackendPolicy
     {
-        private static readonly GraphicsBackend[] _windows = { GraphicsBackend.DirectX12, GraphicsBackend.Vulkan };
-        private static readonly GraphicsBackend[] _macOS = { GraphicsBackend.Metal, GraphicsBackend.Vulkan };
-        private static readonly GraphicsBackend[] _linux = { GraphicsBackend.Vulkan };
-        private static readonly GraphicsBackend[] _android = { GraphicsBackend.Vulkan };
-        private static readonly GraphicsBackend[] _none = Array.Empty<GraphicsBackend>();
+        private static readonly GraphicsBackend[] _choices = { GraphicsBackend.OpenGL };
+        private static readonly GraphicsBackend[] _noModernBackends = Array.Empty<GraphicsBackend>();
+        private static readonly string StartupGuardPath = Path.Combine("Savedata", "renderer-startup.pending");
+        private static bool _preferenceRead;
 
-        public static GraphicsBackend Requested { get; private set; } = GraphicsBackend.Auto;
+        public static GraphicsBackend Requested { get; private set; } = GraphicsBackend.OpenGL;
         public static bool Configured { get; private set; }
+        internal static bool StartupFallbackActive => false;
+        internal static string? StartupFallbackReason => null;
 
         public static GraphicsPlatform CurrentPlatform
         {
@@ -49,233 +56,91 @@ namespace MphRead.Mods.Render
             }
         }
 
-        public static GraphicsBackend[] RendererChoices()
-        {
-            var modern = ModernBackendsFor(CurrentPlatform);
-            var choices = new GraphicsBackend[modern.Count + 2];
-            choices[0] = GraphicsBackend.Auto;
-            for (int i = 0; i < modern.Count; i++) choices[i + 1] = modern[i];
-            choices[^1] = GraphicsBackend.OpenGL;
-            return choices;
-        }
+        public static GraphicsBackend[] RendererChoices() => (GraphicsBackend[])_choices.Clone();
 
-        private static bool _preferenceRead;
-        private static bool _preferenceDriven;
-        private static string? _startupFallbackReason;
-        private static string StartupGuardPath => System.IO.Path.Combine("Savedata", "renderer-startup.pending");
-
-        internal static bool StartupFallbackActive => _startupFallbackReason != null;
-        internal static string? StartupFallbackReason => _startupFallbackReason;
-
+        /// <summary>
+        /// Ignore persisted modern renderer selections before creating a window.
+        /// SettingsMigration rewrites the stored value to OpenGL on normal load.
+        /// </summary>
         public static void LoadPreference()
         {
             if (Configured || _preferenceRead) return;
             _preferenceRead = true;
-            try
-            {
-                string path = System.IO.Path.Combine("Savedata", "settings.json");
-                if (!System.IO.File.Exists(path)) return;
-                using var document = System.Text.Json.JsonDocument.Parse(System.IO.File.ReadAllText(path));
-                if (document.RootElement.TryGetProperty("MenuSettings", out var menu)
-                    && menu.TryGetProperty("Renderer", out var renderer)
-                    && renderer.ValueKind == System.Text.Json.JsonValueKind.String)
-                {
-                    Configure(renderer.GetString());
-                    _preferenceDriven = true;
-                    ApplyPendingStartupGuard();
-                }
-            }
-            catch (Exception ex) when (ex is System.IO.IOException or System.Text.Json.JsonException
-                or ArgumentException or PlatformNotSupportedException)
-            {
-                Console.Error.WriteLine($"[render] Ignoring renderer preference: {ex.Message}");
-                Configure("opengl");
-            }
+            Configure("opengl");
+            ClearStartupGuardForRendererChange();
         }
 
         public static void UseCompatibilityFallback(string reason)
         {
-            Console.Error.WriteLine($"[render] {DisplayName(Resolved)} failed; using OpenGL compatibility: {reason}");
-            _startupFallbackReason = reason;
+            Console.Error.WriteLine($"[render] OpenGL compatibility: {reason}");
             Requested = GraphicsBackend.OpenGL;
             Configured = true;
         }
 
-        /// <summary>
-        /// Arm before the first native modern-renderer window/device call. If the
-        /// process dies in a driver/native frame, the file survives and the next
-        /// preference-driven launch uses OpenGL instead of crash-looping.
-        /// Explicit diagnostic/command-line renderer selections never arm it.
-        /// </summary>
-        internal static void BeginStartupAttempt(GraphicsBackend backend)
-        {
-            if (!_preferenceDriven || !IsModern(backend)) return;
-            try
-            {
-                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(StartupGuardPath)!);
-                System.IO.File.WriteAllText(StartupGuardPath, backend.ToString());
-                Mods.DebugLog.Checkpoint("render", $"armed {DisplayName(backend)} startup recovery");
-            }
-            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
-            {
-                Console.Error.WriteLine("[render] Could not arm renderer startup recovery: " + ex.Message);
-            }
-        }
-
-        internal static void CompleteStartupAttempt(GraphicsBackend backend)
-        {
-            if (!_preferenceDriven || !IsModern(backend)) return;
-            try
-            {
-                if (System.IO.File.Exists(StartupGuardPath)) System.IO.File.Delete(StartupGuardPath);
-                Mods.DebugLog.Checkpoint("render", $"{DisplayName(backend)} startup recovery cleared");
-            }
-            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
-            {
-                Console.Error.WriteLine("[render] Could not clear renderer startup recovery: " + ex.Message);
-            }
-        }
+        // Migration shims. These methods are referenced by the yet-to-be-deleted
+        // modern renderer code. A retired backend cannot arm a startup guard.
+        internal static void BeginStartupAttempt(GraphicsBackend backend) { }
+        internal static void CompleteStartupAttempt(GraphicsBackend backend) { }
+        internal static bool StartupGuardMatches(string value, GraphicsBackend backend) => false;
 
         internal static void ClearStartupGuardForRendererChange()
         {
-            _startupFallbackReason = null;
             try
             {
-                if (System.IO.File.Exists(StartupGuardPath)) System.IO.File.Delete(StartupGuardPath);
+                if (File.Exists(StartupGuardPath)) File.Delete(StartupGuardPath);
             }
-            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                Console.Error.WriteLine("[render] Could not clear previous renderer failure: " + ex.Message);
+                Console.Error.WriteLine("[render] Could not clear retired renderer guard: " + ex.Message);
             }
         }
 
-        private static void ApplyPendingStartupGuard()
-        {
-            if (!IsModern(Resolved) || !System.IO.File.Exists(StartupGuardPath)) return;
-            try
-            {
-                string value = System.IO.File.ReadAllText(StartupGuardPath).Trim();
-                if (!TryParse(value, out GraphicsBackend failed) || !IsModern(failed))
-                {
-                    UseCompatibilityFallback("the previous modern renderer startup did not complete");
-                    return;
-                }
-                if (failed == Resolved)
-                {
-                    UseCompatibilityFallback(
-                        $"the previous {DisplayName(failed)} startup did not complete; choose it again in Settings to retry");
-                    return;
-                }
-                // The user changed renderer after the failure. The old fence no
-                // longer applies to this selection.
-                System.IO.File.Delete(StartupGuardPath);
-            }
-            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
-            {
-                UseCompatibilityFallback("renderer startup recovery could not be read: " + ex.Message);
-            }
-        }
-
-        internal static bool StartupGuardMatches(string value, GraphicsBackend backend)
-            => TryParse(value, out GraphicsBackend failed) && IsModern(failed) && failed == backend;
-
-        public static GraphicsBackend Resolved => Resolve(CurrentPlatform, Requested);
-
-        /// <summary>
-        /// True only when the user/diagnostic explicitly selected a modern backend.
-        /// Until the compatibility renderer reaches full scene parity, an omitted
-        /// renderer option deliberately keeps the proven OpenGL path.
-        /// </summary>
-        public static bool ModernGameplayRequested => Configured && IsModern(Resolved);
+        public static GraphicsBackend Resolved => GraphicsBackend.OpenGL;
+        public static bool ModernGameplayRequested => false;
 
         public static void Configure(string? value)
         {
-            // An explicit selection (command line/diagnostic) is independent
-            // from a crash fence created by the persisted launcher preference.
-            _preferenceDriven = false;
-            _startupFallbackReason = null;
-            Configured = true;
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                Requested = GraphicsBackend.Auto;
-                return;
-            }
-            if (!TryParse(value, out GraphicsBackend backend))
-            {
+            if (!TryParse(value ?? "opengl", out GraphicsBackend backend))
                 throw new ArgumentException(
-                    $"Unknown renderer '{value}'. Expected auto, opengl, dx12, vulkan, or metal.");
-            }
-            if (backend != GraphicsBackend.Auto && !IsSupported(CurrentPlatform, backend))
-            {
+                    $"Unknown renderer '{value}'. Project Prime supports only OpenGL.");
+
+            if (!IsSupported(CurrentPlatform, backend))
                 throw new PlatformNotSupportedException(
-                    $"{DisplayName(backend)} is not a supported Project Prime renderer on {CurrentPlatform}. "
-                    + $"Available: {Describe(CurrentPlatform)}.");
-            }
-            Requested = backend;
+                    $"{DisplayName(backend)} has been retired. Project Prime now supports only {Describe(CurrentPlatform)}.");
+
+            // Auto remains a compatible spelling, but never enables a modern
+            // renderer. The stored and reported runtime choice is always OpenGL.
+            Requested = GraphicsBackend.OpenGL;
+            Configured = true;
         }
 
         public static GraphicsBackend Resolve(GraphicsPlatform platform, GraphicsBackend requested)
         {
-            if (requested == GraphicsBackend.Auto)
-            {
-                return DefaultFor(platform);
-            }
-            if (!IsSupported(platform, requested))
-            {
-                throw new PlatformNotSupportedException(
-                    $"{DisplayName(requested)} is not supported on {platform}. Available: {Describe(platform)}.");
-            }
-            return requested;
+            if (requested is GraphicsBackend.Auto or GraphicsBackend.OpenGL)
+                return GraphicsBackend.OpenGL;
+            throw new PlatformNotSupportedException(
+                $"{DisplayName(requested)} has been retired. Project Prime now supports only {Describe(platform)}.");
         }
 
-        public static GraphicsBackend DefaultFor(GraphicsPlatform platform)
-        {
-            return platform switch
-            {
-                GraphicsPlatform.Windows => GraphicsBackend.DirectX12,
-                GraphicsPlatform.MacOS => GraphicsBackend.Metal,
-                GraphicsPlatform.Linux => GraphicsBackend.Vulkan,
-                GraphicsPlatform.Android => GraphicsBackend.Vulkan,
-                _ => GraphicsBackend.OpenGL
-            };
-        }
+        public static GraphicsBackend DefaultFor(GraphicsPlatform platform) => GraphicsBackend.OpenGL;
 
+        // Preserved for callers in the WebGPU code until the follow-up deletion.
         public static IReadOnlyList<GraphicsBackend> ModernBackendsFor(GraphicsPlatform platform)
-        {
-            return platform switch
-            {
-                GraphicsPlatform.Windows => _windows,
-                GraphicsPlatform.MacOS => _macOS,
-                GraphicsPlatform.Linux => _linux,
-                GraphicsPlatform.Android => _android,
-                _ => _none
-            };
-        }
+            => _noModernBackends;
 
         public static bool IsSupported(GraphicsPlatform platform, GraphicsBackend backend)
-        {
-            if (backend == GraphicsBackend.Auto || backend == GraphicsBackend.OpenGL)
-            {
-                return true;
-            }
-            foreach (GraphicsBackend candidate in ModernBackendsFor(platform))
-            {
-                if (candidate == backend) return true;
-            }
-            return false;
-        }
+            => backend is GraphicsBackend.Auto or GraphicsBackend.OpenGL;
 
         public static bool IsModern(GraphicsBackend backend)
-        {
-            return backend == GraphicsBackend.DirectX12
-                || backend == GraphicsBackend.Vulkan
-                || backend == GraphicsBackend.Metal;
-        }
+            => backend is GraphicsBackend.DirectX12 or GraphicsBackend.Vulkan or GraphicsBackend.Metal;
 
+        // Recognize retired spellings to produce a useful error rather than
+        // silently treating a modern renderer request as OpenGL.
         public static bool TryParse(string value, out GraphicsBackend backend)
         {
             switch (value.Trim().ToLowerInvariant())
             {
+                case "":
                 case "auto":
                 case "default":
                     backend = GraphicsBackend.Auto;
@@ -283,6 +148,7 @@ namespace MphRead.Mods.Render
                 case "gl":
                 case "opengl":
                 case "legacy":
+                case "gles":
                     backend = GraphicsBackend.OpenGL;
                     return true;
                 case "dx12":
@@ -305,34 +171,17 @@ namespace MphRead.Mods.Render
             }
         }
 
-        public static string DisplayName(GraphicsBackend backend)
+        public static string DisplayName(GraphicsBackend backend) => backend switch
         {
-            return backend switch
-            {
-                GraphicsBackend.Auto => "Auto",
-                GraphicsBackend.OpenGL => CurrentPlatform == GraphicsPlatform.Android ? "OpenGL ES" : "OpenGL",
-                GraphicsBackend.DirectX12 => "DirectX 12",
-                GraphicsBackend.Vulkan when CurrentPlatform == GraphicsPlatform.MacOS => "Vulkan (MoltenVK)",
-                GraphicsBackend.Vulkan => "Vulkan",
-                GraphicsBackend.Metal => "Metal",
-                _ => backend.ToString()
-            };
-        }
+            GraphicsBackend.Auto => "Auto",
+            GraphicsBackend.OpenGL => CurrentPlatform == GraphicsPlatform.Android ? "OpenGL ES" : "OpenGL",
+            GraphicsBackend.DirectX12 => "DirectX 12",
+            GraphicsBackend.Vulkan => "Vulkan",
+            GraphicsBackend.Metal => "Metal",
+            _ => backend.ToString()
+        };
 
         public static string Describe(GraphicsPlatform platform)
-        {
-            IReadOnlyList<GraphicsBackend> modern = ModernBackendsFor(platform);
-            if (modern.Count == 0) return "OpenGL";
-            string[] names = new string[modern.Count + 1];
-            for (int i = 0; i < modern.Count; i++)
-            {
-                GraphicsBackend backend = modern[i];
-                names[i] = backend == GraphicsBackend.Vulkan && platform == GraphicsPlatform.MacOS
-                    ? "Vulkan (MoltenVK)"
-                    : backend == GraphicsBackend.DirectX12 ? "DirectX 12" : backend.ToString();
-            }
-            names[^1] = platform == GraphicsPlatform.Android ? "OpenGL ES (fallback)" : "OpenGL (fallback)";
-            return string.Join(", ", names);
-        }
+            => platform == GraphicsPlatform.Android ? "OpenGL ES" : "OpenGL";
     }
 }

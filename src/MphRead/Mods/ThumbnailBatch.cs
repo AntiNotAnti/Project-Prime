@@ -189,6 +189,14 @@ namespace MphRead.Mods
 
         private static void StopWorker(Process proc)
         {
+            // ProcessExit and the normal worker monitor can race to clean up
+            // the same Process. Claim it once under the registry lock before
+            // touching the process or Dispose. Double Process.Dispose can
+            // crash in native handle cleanup while the app is exiting.
+            lock (_processLock)
+            {
+                if (!_activeWorkers.Remove(proc)) return;
+            }
             try
             {
                 if (!proc.HasExited) proc.Kill(entireProcessTree: true);
@@ -203,7 +211,6 @@ namespace MphRead.Mods
             }
             finally
             {
-                lock (_processLock) _activeWorkers.Remove(proc);
                 proc.Dispose();
             }
         }

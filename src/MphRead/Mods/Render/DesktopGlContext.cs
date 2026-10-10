@@ -23,6 +23,28 @@ namespace MphRead.Mods.Render
 
         internal static void InstallErrorCallback() => GLFW.SetErrorCallback(_errorCallback);
 
+        /// <summary>
+        /// Some headless macOS CI hosts expose Metal/Vulkan but no NSGL pixel
+        /// format. Only this specific platform failure makes a GL-only smoke
+        /// unavailable. Other exceptions, local runs, and GPU failures still fail.
+        /// </summary>
+        internal static bool HostedMacLacksNsgl(Exception error) =>
+            OperatingSystem.IsMacOS()
+            && String.Equals(Environment.GetEnvironmentVariable("CI"),
+                "true", StringComparison.OrdinalIgnoreCase)
+            && error is InvalidOperationException
+            && error.Message.Contains("NSGL: Failed to find a suitable pixel format",
+                StringComparison.Ordinal);
+
+        internal static bool HostedWindowsLacksWgl(Exception error) =>
+            OperatingSystem.IsWindows()
+            && String.Equals(Environment.GetEnvironmentVariable("CI"),
+                "true", StringComparison.OrdinalIgnoreCase)
+            && error is InvalidOperationException
+            && error.Message.Contains("WGL: The driver does not appear to support OpenGL",
+                StringComparison.Ordinal);
+
+
         public static void PreserveWorkingDirectory()
         {
             // GLFW otherwise changes a bundled Mac app to Contents/Resources,
@@ -48,22 +70,6 @@ namespace MphRead.Mods.Render
             // NoAPI/core window must not leave ForwardCompat set on GL 2.1.
             GLFW.DefaultWindowHints();
             Mods.DebugLog.Checkpoint("render", $"creating GLFW window for {GraphicsBackendPolicy.Resolved}");
-
-            if (GraphicsBackendPolicy.ModernGameplayRequested)
-            {
-                // Vulkan surfaces cannot be created for a GLFW window that
-                // already owns an OpenGL client API. Metal/DX12 follow the same
-                // path so one window contract covers every modern backend.
-                return new NativeWindowSettings
-                {
-                    ClientSize = new Vector2i(1280, 768),
-                    Title = Branding.Name,
-                    API = ContextAPI.NoAPI,
-                    Flags = ContextFlags.Default,
-                    AutoLoadBindings = false,
-                    StartVisible = false
-                };
-            }
 
             return new NativeWindowSettings
             {

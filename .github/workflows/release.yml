@@ -723,8 +723,10 @@ jobs:
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
             --self-contained true -p:PublishSingleFile=true -o "publish/$RID"
           chmod +x "publish/$RID/ProjectPrime"
-          "publish/$RID/ProjectPrime" -renderbackendprobe -renderer metal
-          tools/check-macos-modern-vulkan.sh "publish/$RID/ProjectPrime"
+          "publish/$RID/ProjectPrime" -renderbackendcheck
+          if [ "$RID" = "osx-x64" ]; then
+            "publish/$RID/ProjectPrime" -textureupdatecheck -renderer opengl
+          fi
           tools/sign-macos.sh "publish/$RID"
           tools/check-macos-build.sh "publish/$RID" "$RID"
           tools/run-macos-smoke.sh "publish/$RID" "$RID"

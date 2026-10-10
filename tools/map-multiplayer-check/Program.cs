@@ -83,26 +83,56 @@ try
     byte[] archive=File.ReadAllBytes(v1);string truncated=Path.Combine(root,"truncated.ppmap");File.WriteAllBytes(truncated,archive[..(archive.Length/2)]);
     bool invalid=false;try{using var prepared=await MapPackageInstaller.PrepareAsync(truncated,required);}catch(Exception ex)when(ex is InvalidDataException or IOException){invalid=true;}Check(invalid,"truncated archive rejected");
     using(var cancelled=new CancellationTokenSource()){cancelled.Cancel();bool stopped=false;try{using var prepared=await client.PrepareExactAsync(required,cancelled.Token);}catch(OperationCanceledException){stopped=true;}Check(stopped,"pre-cancelled download cannot install");}
-    // A real HTTP peer sends partial or substituted archive bytes to the production downloader.
+    // A fake broken HTTP peer must continue accepting requests. Production
+    // downloads retry truncated streams and mismatched checksums; a one-accept
+    // listener strands those retries against an unserviced TCP endpoint for
+    // the HttpClient's ten-minute timeout, hiding the real acceptance result.
     foreach(string fault in new[]{"truncated HTTP body","mid-stream cancellation","substituted version"})
     {
         using var listener=new TcpListener(IPAddress.Loopback,0);listener.Start();
         string endpoint="http://127.0.0.1:"+((IPEndPoint)listener.LocalEndpoint).Port+"/";
-        using var cancellation=new CancellationTokenSource();
+        using var cancellation=new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        using var peerLifetime=new CancellationTokenSource(TimeSpan.FromSeconds(25));
         byte[] body=fault=="substituted version"?File.ReadAllBytes(v2):archive;
+        int requests=0;
         var peer=Task.Run(async()=>
         {
-            using var connection=await listener.AcceptTcpClientAsync();await using var stream=connection.GetStream();
-            using var reader=new StreamReader(stream,Encoding.ASCII,false,1024,true);
-            while(await reader.ReadLineAsync() is {Length:>0}){}
-            await stream.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Length: "+body.Length+"\r\nConnection: close\r\n\r\n"));
-            await stream.WriteAsync(body.AsMemory(0,fault=="substituted version"?body.Length:body.Length/2));await stream.FlushAsync();
-            if(fault=="mid-stream cancellation")await Task.Delay(300);
+            try
+            {
+                while(!peerLifetime.IsCancellationRequested)
+                {
+                    using var connection=await listener.AcceptTcpClientAsync(peerLifetime.Token);
+                    Interlocked.Increment(ref requests);
+                    await using var stream=connection.GetStream();
+                    using var reader=new StreamReader(stream,Encoding.ASCII,false,1024,true);
+                    while(await reader.ReadLineAsync() is {Length:>0}){}
+                    await stream.WriteAsync(Encoding.ASCII.GetBytes(
+                        "HTTP/1.1 200 OK\r\nContent-Length: "+body.Length+"\r\nConnection: close\r\n\r\n"));
+                    await stream.WriteAsync(body.AsMemory(0,
+                        fault=="substituted version"?body.Length:body.Length/2));
+                    await stream.FlushAsync();
+                    if(fault=="mid-stream cancellation")await Task.Delay(300,peerLifetime.Token);
+                }
+            }
+            catch(OperationCanceledException) when(peerLifetime.IsCancellationRequested){}
+            catch(IOException) when(peerLifetime.IsCancellationRequested || cancellation.IsCancellationRequested){}
         });
         using var faulty=new MapCommunityClient(endpoint);bool rejected=false;
-        try{using var prepared=await faulty.PrepareExactAsync(required,cancellation.Token,progress:_=>{if(fault=="mid-stream cancellation")cancellation.Cancel();});}
-        catch(Exception ex)when(ex is HttpRequestException or InvalidDataException or IOException or OperationCanceledException){rejected=true;}
-        await peer.WaitAsync(TimeSpan.FromSeconds(10));Check(rejected,fault+" cannot publish a package");
+        try
+        {
+            using var prepared=await faulty.PrepareExactAsync(required,cancellation.Token,
+                progress:_=>{if(fault=="mid-stream cancellation")cancellation.Cancel();});
+        }
+        catch(Exception ex)when(ex is HttpRequestException or InvalidDataException or IOException or OperationCanceledException)
+        {rejected=true;}
+        finally
+        {
+            peerLifetime.Cancel();
+            await peer.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        int expectedRequests=fault=="mid-stream cancellation"?1:2;
+        Check(rejected && Volatile.Read(ref requests)>=expectedRequests,
+            fault+" rejected with retries served instead of a stalled socket");
     }
     var concurrent=await Task.WhenAll(client.PrepareExactAsync(required,default),client.PrepareExactAsync(required,default));foreach(var prepared in concurrent){Check(prepared.Identity.Matches(required),"duplicate concurrent download preserves identity");prepared.Dispose();}
     File.WriteAllText(Path.Combine(root,"community.stop"),"");await Finished(community,"Community");File.Delete(Path.Combine(root,"community.stop"));community=Spawn("community",root,hub);
