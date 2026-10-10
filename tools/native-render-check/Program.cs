@@ -150,7 +150,7 @@ sealed class CheckWindow : RenderWindow
             }
             _captures.Add(new { index = _capture, simulationFrame = Scene.FrameCount,
                 camera = Scene.CameraPosition.ToString(), width = Scene.Size.X, height = Scene.Size.Y,
-                shadow = ShadowSnapshot(_capture == 0) });
+                shadow = ShadowSnapshot(_capture == 0), pickups = PickupSnapshot() });
             _capture++;
         }
         if (GL.GetError() is var error && error != ErrorCode.NoError)
@@ -158,6 +158,24 @@ sealed class CheckWindow : RenderWindow
         if (Scene.FrameCount >= (ulong)(_seconds * 60)) { Complete = true; Close(); }
         if (_wall.Elapsed.TotalSeconds > (_shots == null ? _seconds + 45 : _seconds * 5 + 45))
             throw new TimeoutException("Native renderer did not finish its fixed-step workload.");
+    }
+
+    private object[] PickupSnapshot()
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var visible = typeof(ItemInstanceEntity).GetMethod("IsPickupVisuallyVisible", flags);
+        var blocked = typeof(ItemInstanceEntity).GetMethod("PickupSampleBlocked", flags);
+        return Scene.Entities.OfType<ItemInstanceEntity>().Select(item =>
+        {
+            Vector3 right = Vector3.Cross(item.Position - Scene.CameraPosition, Vector3.UnitY);
+            right = right.LengthSquared > .0001f ? right.Normalized() : Vector3.UnitX;
+            Vector3[] samples = { item.Position, item.Position + right * .27f, item.Position - right * .27f,
+                item.Position + Vector3.UnitY * .27f, item.Position - Vector3.UnitY * .27f };
+            bool[]? obstruction = blocked == null ? null : samples.Select(p =>
+                (bool)blocked.Invoke(item, new object[] { Scene.CameraPosition, p })!).ToArray();
+            return (object)new { type = item.ItemType.ToString(), position = item.Position.ToString(),
+                visibleByPickupRule = visible?.Invoke(item, null), blockedSamples = obstruction };
+        }).ToArray();
     }
 
     private object ShadowSnapshot(bool saveDepth)
