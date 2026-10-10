@@ -34,7 +34,8 @@ namespace MphRead.Mods.Render
                 && !MphRead.Entities.RoomEntity.ShadowCasterOverlapsLightXY(
                     new Vector3(100f), new Vector3(110f), Matrix4.Identity)
                 && MphRead.Entities.RoomEntity.ShadowCasterOverlapsLightXY(
-                    new Vector3(-.5f), new Vector3(.5f), translatedAway.Inverted()),
+                    new Vector3(599.5f, -.5f, -.5f),
+                    new Vector3(600.5f, .5f, .5f), translatedAway.Inverted()),
                 "light-space XY bounds reject distant nodes without using the camera frustum");
             Check(MphRead.Entities.ItemInstanceEntity.FullyOccludedBySamples(
                     true, true, true, true, true)
