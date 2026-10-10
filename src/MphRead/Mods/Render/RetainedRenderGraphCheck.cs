@@ -33,8 +33,8 @@ namespace MphRead.Mods.Render
                 "world scoped capability cache removes only same-value requests");
             capabilityCache.BeginList(12, OpenTK.Graphics.OpenGL.ListMode.Compile);
             capabilityCache.EndList();
-            Check(!capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, false),
-                "pure mesh compilation does not mutate a graph's saved capability");
+            Check(capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, false),
+                "compiling GL lists invalidates prior inferred capability state");
             capabilityCache.CallList(12);
             Check(!capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, false),
                 "known geometry-only display list preserves inferred world capability");
