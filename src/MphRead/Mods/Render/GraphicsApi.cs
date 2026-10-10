@@ -49,6 +49,9 @@ namespace MphRead.Mods.Render
         {
             _capabilityCache?.ResetContext();
             _bindingCache?.ResetContext();
+#if !ANDROID
+            OpenGlGpuProfiler.ResetContext();
+#endif
         }
 
 #if !ANDROID

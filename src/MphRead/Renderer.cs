@@ -9072,9 +9072,15 @@ localCenter *= _profileHudScale;
 
             Mods.Render.LowLatencyController.Mark(
                 latencyFrame, Mods.Render.LowLatencyMarker.RenderSubmitStart);
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.BeginRender();
+#endif
             Scene.OnDrawFrame();
             if (!Scene.OnRenderFrame())
             {
+#if !MPHREAD_SERVER && !ANDROID
+                Mods.Render.OpenGlFrameProfiler.CancelFrame();
+#endif
                 Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
                 return;
             }
@@ -9093,11 +9099,20 @@ localCenter *= _profileHudScale;
             // Before the swap, for the reason the sceneless branch gives.
             Mods.Launcher.Gui.Shell.AfterDraw(this);
 #endif
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.EndRender();
+#endif
             Mods.Render.LowLatencyController.Mark(
                 latencyFrame, Mods.Render.LowLatencyMarker.RenderSubmitEnd);
             Mods.Render.LowLatencyController.Mark(
                 latencyFrame, Mods.Render.LowLatencyMarker.PresentStart);
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.BeginPresent();
+            try { PresentFrame(); }
+            finally { Mods.Render.OpenGlFrameProfiler.EndPresent(); }
+#else
             PresentFrame();
+#endif
             Mods.Render.LowLatencyController.Mark(
                 latencyFrame, Mods.Render.LowLatencyMarker.PresentEnd);
             Reveal();
