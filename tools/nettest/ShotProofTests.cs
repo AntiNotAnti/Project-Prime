@@ -62,8 +62,9 @@ internal static class ShotProofTests
         Check(NetFireEvents.Accept(0, packet), "actual carrier admitted");
         NetFireEvents.DrainAccepted(_shooter);
         var key = ShotKey.For(0, fire.ShotId);
-        Check(NetFireEvents.CaptureLedger(0).TryGet(key, out _, out var disposition, out _)
-            && disposition == ShotDisposition.Fired, "actual accepted event emitted once");
+        bool found = NetFireEvents.CaptureLedger(0).TryGet(key, out _, out var disposition, out var dispositionReason);
+        Check(found && disposition == ShotDisposition.Fired,
+            $"actual accepted event emitted once found={found} disposition={disposition} reason={dispositionReason}");
         var beam = _shooter.EquipInfo.Beams.FirstOrDefault(b => b.ModLaunchKey == key && b.ModComponentId != 0);
         Check(beam != null, "production projectile has shot and component identity");
         return beam!;
@@ -157,7 +158,7 @@ internal static class ShotProofTests
             "late older event inside newer fired shot cooldown");
         int missileCost = _shooter.OwningScene.WeaponRules[(int)BeamType.Missile].AmmoCost;
         Prepare(Source(ammo1: missileCost)); Emit(BeamType.Missile);
-        beam = Emit(BeamType.Missile, preserve: true, sourceFrame: _frame - 100);
+        beam = Emit(BeamType.Missile, preserve: true, sourceFrame: _frame - 50);
         Decision(Claim(beam), ShotProofStatus.Rejected, ShotProofReason.Ammunition,
             "well-separated late older event cannot overspend already fired newer ammo");
         Prepare(Source(supported: false)); beam = Emit();
