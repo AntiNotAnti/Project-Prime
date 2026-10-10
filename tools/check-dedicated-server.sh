@@ -27,7 +27,7 @@ DIR="${1:-publish/linux-x64}"
 # The server binary first: on Windows the dedicated server is its own
 # console binary, and a publish directory may hold both. The old MphRead
 # names are still accepted so this can check a build from before the rename.
-BIN=""
+BIN=()
 for candidate in ProjectPrimeServer.exe ProjectPrimeServer ProjectPrime.exe ProjectPrime \
                  MphReadServer.exe MphReadServer MphRead.exe MphRead; do
   if [ -f "$DIR/$candidate" ]; then
@@ -40,14 +40,14 @@ for candidate in ProjectPrimeServer.exe ProjectPrimeServer ProjectPrime.exe Proj
       *) chmod +x "$DIR/$candidate" 2>/dev/null || true ;;
     esac
     if [ -x "$DIR/$candidate" ] || [[ "$candidate" == *.exe ]]; then
-      BIN="$DIR/$candidate"
+      BIN=("$DIR/$candidate")
       break
     fi
   fi
 done
-if [ -z "$BIN" ]; then
+if [ "${#BIN[@]}" -eq 0 ]; then
   if [ -f "$DIR/ProjectPrime.dll" ]; then
-    BIN="dotnet $DIR/ProjectPrime.dll"
+    BIN=(dotnet "$DIR/ProjectPrime.dll")
   else
     echo "FAIL: no runnable Project Prime server binary found in $DIR"
     exit 1
@@ -85,11 +85,11 @@ pass() { echo "ok:   $*"; }
 
 echo "checking the dedicated server in $DIR"
 
-$BIN -masterserver -port "$MASTER_PORT" >"$WORK/master.log" 2>&1 &
+"${BIN[@]}" -masterserver -port "$MASTER_PORT" >"$WORK/master.log" 2>&1 &
 MASTER_PID=$!
 SERVER_EXIT_MARKER="$WORK/server.exit"
 (
-  $BIN -server -port "$SERVER_PORT" -players 8 \
+  "${BIN[@]}" -server -port "$SERVER_PORT" -players 8 \
        -servername "CI smoke test" \
        -server_replays=true -server_replay_storage_gb=7 \
        -server_replay_retention_days=3 -server_replay_keep_last=9 \
