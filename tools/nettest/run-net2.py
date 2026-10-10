@@ -88,7 +88,10 @@ def run(args):
     def launch(name, extra, duration, expects_shots=True):
         profile = args.out / name
         profile.mkdir()
-        (profile / "paths.txt").write_text(profile_text, encoding="utf-8")
+        exports = profile / "exports"
+        exports.mkdir()
+        isolated_paths = [line for line in profile_text.splitlines() if not line.startswith("Export=")]
+        (profile / "paths.txt").write_text("\n".join([*isolated_paths, f"Export={exports}", ""]), encoding="utf-8")
         maps = profile / "empty-maps"
         maps.mkdir()
         env = dict(os.environ, PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS="null",
