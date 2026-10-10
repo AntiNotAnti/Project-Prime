@@ -45,7 +45,15 @@ namespace MphRead
             if (_graphicsPipelineRefused
                 || !ShouldCompositeDirectionalShadow(
                     RenderOptions.Shadows, ShadowMapReady, _depthTexture != 0))
+            {
+                // The scene's original backbuffer is composited directly.
+                // Delete the optional shadow color target when shadows are
+                // switched off, without holding a large GPU allocation until
+                // this scene is unloaded.
+                if (_graphicsOutputTexture != 0)
+                    ReleaseGraphicsOutputTarget();
                 return;
+            }
 
             try
             {
@@ -170,33 +178,54 @@ namespace MphRead
             if (_graphicsOutputFramebuffer == 0)
                 _graphicsOutputFramebuffer = GL.GenFramebuffer();
 
-            if (_graphicsOutputTexture == 0 || _graphicsOutputSize != target)
+            if (_graphicsOutputTexture == 0)
             {
-                ReleaseFrameTransientFramebufferTexture(
-                    ref _graphicsOutputTexture, _graphicsOutputFramebuffer, _frameBuffer);
-                _graphicsOutputTexture = AcquireFrameTransientTexture(
-                    target, PixelInternalFormat.Rgba8,
-                    TextureMinFilter.Linear, TextureMagFilter.Linear);
+                _graphicsOutputTexture = GL.GenTexture();
+                GL.BindTexture(TextureTarget.Texture2D, _graphicsOutputTexture);
+                GL.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                GL.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+                GL.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+                GL.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+                GL.BindTexture(TextureTarget.Texture2D, 0);
+            }
+            if (_graphicsOutputSize != target)
+            {
+                // Reuse the same texture/FBO across frames. Old transient
+                // leasing detached and reattached this target every frame.
+                GL.BindTexture(TextureTarget.Texture2D, _graphicsOutputTexture);
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+                    target.X, target.Y, 0, PixelFormat.Rgba,
+                    PixelType.UnsignedByte, IntPtr.Zero);
+                GL.BindTexture(TextureTarget.Texture2D, 0);
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer, _graphicsOutputFramebuffer);
                 GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                     FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
                     _graphicsOutputTexture, 0);
                 ValidateFramebuffer("Directional shadow output");
+                _graphicsOutputSize = target;
             }
-            _graphicsOutputSize = target;
         }
 
-        private void DisposeGraphicsPipeline()
+        private void ReleaseGraphicsOutputTarget()
         {
             _graphicsOutputReady = false;
-            _graphicsPipelineRefused = false;
-            _graphicsOutputSize = default;
             if (_graphicsOutputFramebuffer != 0)
             {
                 GL.DeleteFramebuffer(_graphicsOutputFramebuffer);
                 _graphicsOutputFramebuffer = 0;
             }
-            ReleaseFrameTransientTexture(ref _graphicsOutputTexture);
+            DeleteTexture(ref _graphicsOutputTexture);
+            _graphicsOutputSize = default;
+        }
+
+        private void DisposeGraphicsPipeline()
+        {
+            ReleaseGraphicsOutputTarget();
+            _graphicsPipelineRefused = false;
             DeleteProgram(ref _graphicsProgram);
         }
 
@@ -245,7 +274,8 @@ void main() {
         public static string FragmentSource { get; } =
             "#version 300 es\nprecision highp float;\n"
             + "in vec2 texcoord;\nout vec4 frag_color;\n"
-            + "#define SAMPLE texture\n#define OUTPUT frag_color\n" + ShadowBody;
+            + "#define SAMPLE texture\n#define OUTPUT frag_color\n"
+            + "#define DEPTH_PRECISION highp\n" + ShadowBody;
 #else
         public static string VertexSource { get; } = @"#version 120
 varying vec2 texcoord;
@@ -256,7 +286,8 @@ void main() {
 ";
         public static string FragmentSource { get; } =
             "#version 120\nvarying vec2 texcoord;\n"
-            + "#define SAMPLE texture2D\n#define OUTPUT gl_FragColor\n" + ShadowBody;
+            + "#define SAMPLE texture2D\n#define OUTPUT gl_FragColor\n"
+            + "#define DEPTH_PRECISION\n" + ShadowBody;
 #endif
 
         // Preserve the validated depth reconstruction, normal-bias, and
@@ -264,8 +295,8 @@ void main() {
         // Retired HDR/temporal/PBR/reflection/grade code no longer compiles.
         private const string ShadowBody = @"
 uniform sampler2D tex;
-uniform sampler2D depth_tex;
-uniform sampler2D shadow_tex;
+uniform DEPTH_PRECISION sampler2D depth_tex;
+uniform DEPTH_PRECISION sampler2D shadow_tex;
 uniform vec2 texel;
 uniform mat4 inv_projection;
 uniform mat4 inv_view;

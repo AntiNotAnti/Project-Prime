@@ -199,11 +199,9 @@ namespace MphRead
                         GL.End();
                     }
                     GL.BindTexture(TextureTarget.Texture2D, 0);
-                    if (_graphicsOutputReady)
-                        ReleaseFrameTransientFramebufferTexture(
-                            ref _graphicsOutputTexture,
-                            _graphicsOutputFramebuffer,
-                            ReplayOutputFramebuffer());
+                    // The shadow-only output now stays attached to a single
+                    // framebuffer until resized or disabled, avoiding a
+                    // GL attach/detach and texture lease on every frame.
                     break;
                 }
             }
