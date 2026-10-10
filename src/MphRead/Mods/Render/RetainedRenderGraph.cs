@@ -388,8 +388,9 @@ namespace MphRead.Mods.Render
         // Opaque-only rendering has no intervening decal depth writes or
         // translucent surfaces requiring a front/behind depth rebuild.
         // Never reuse the initial depth if either class is nonempty.
-        internal static bool CanReuseOpaqueDepth(int decalCount, int translucentCount)
-            => decalCount == 0 && translucentCount == 0;
+        internal static bool CanReuseOpaqueDepth(
+            int decalCount, int translucentCount, bool forceLegacy = false)
+            => !forceLegacy && decalCount == 0 && translucentCount == 0;
 
         private static readonly WorldRenderGraphPass[] _passes =
         {
@@ -640,7 +641,8 @@ namespace MphRead
         private void ExecuteWorldRenderGraph()
         {
             bool reuseOpaqueDepth = Mods.Render.WorldRenderGraph.CanReuseOpaqueDepth(
-                _retainedRenderWorld.Decals.Count, _retainedRenderWorld.Translucent.Count);
+                _retainedRenderWorld.Decals.Count, _retainedRenderWorld.Translucent.Count,
+                Mods.Render.OpenGlSubmissionProfiler.ForceLegacyDepthReplay);
             bool profile = Mods.Render.OpenGlSubmissionProfiler.BeginWorldGraph();
             try
             {

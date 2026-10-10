@@ -109,6 +109,9 @@ performance claims.
   CPU world-graph wall time, OpenGL facade submissions, texture/program/
   framebuffer binds, stencil and enable/disable requests, plus omitted
   RenderItem submissions. These are CPU/facade counters, **not GPU timings**.
+  For a same-binary A/B comparison, add `-gllegacydepth` or set
+  `PROJECT_PRIME_GL_FORCE_DEPTH_REPLAY=1` to force the original depth-replay
+  path. Keep map, resolution, effects, cap and capture conditions identical.
 
 ### Next slices
 

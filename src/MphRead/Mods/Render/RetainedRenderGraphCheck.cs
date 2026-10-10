@@ -30,8 +30,9 @@ namespace MphRead.Mods.Render
             Check(WorldRenderGraph.CanReuseOpaqueDepth(0, 0)
                 && !WorldRenderGraph.CanReuseOpaqueDepth(1, 0)
                 && !WorldRenderGraph.CanReuseOpaqueDepth(0, 1)
-                && !WorldRenderGraph.CanReuseOpaqueDepth(1, 1),
-                "opaque-depth replay only omitted with no decal or translucent packets");
+                && !WorldRenderGraph.CanReuseOpaqueDepth(1, 1)
+                && !WorldRenderGraph.CanReuseOpaqueDepth(0, 0, forceLegacy: true),
+                "opaque-depth elision excludes decals/translucency and has A/B fallback");
             Check(FrameRenderGraph.Validate(out string frameError),
                 "top-level frame render graph validates"
                     + (frameError.Length == 0 ? "" : ": " + frameError));

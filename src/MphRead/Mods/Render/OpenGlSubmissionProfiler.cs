@@ -41,6 +41,14 @@ internal static class OpenGlSubmissionProfiler
     [ThreadStatic] private static long _sumBatches;
     [ThreadStatic] private static long _sumSavedReplaySubmissions;
 
+    // Reproducible before/after CPU + screenshot comparisons without switching
+    // code versions. A mismatch can be diagnosed by forcing the original
+    // opaque depth clear/replay within the same executable.
+    internal static bool ForceLegacyDepthReplay { get; } =
+        Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_FORCE_DEPTH_REPLAY") == "1"
+        || Array.Exists(Environment.GetCommandLineArgs(), arg =>
+            arg.Equals("-gllegacydepth", StringComparison.OrdinalIgnoreCase));
+
     internal static bool Enabled => _enabled;
 
     internal static bool BeginWorldGraph()
@@ -93,7 +101,8 @@ internal static class OpenGlSubmissionProfiler
             Array.Sort(sorted);
             double tickMs = 1000.0 / Stopwatch.Frequency;
             Console.WriteLine(
-                $"[glprofile] world CPU p50={sorted[PercentileIndex(Window, 50)] * tickMs:F3}ms"
+                $"[glprofile] depth-mode={(ForceLegacyDepthReplay ? "original" : "optimized")}"
+                + $" world CPU p50={sorted[PercentileIndex(Window, 50)] * tickMs:F3}ms"
                 + $" p95={sorted[PercentileIndex(Window, 95)] * tickMs:F3}ms"
                 + $" p99={sorted[PercentileIndex(Window, 99)] * tickMs:F3}ms"
                 + $" avg-list={_sumLists / (double)Window:F1}"
