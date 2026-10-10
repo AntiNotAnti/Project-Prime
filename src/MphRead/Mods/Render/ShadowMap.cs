@@ -22,6 +22,9 @@ namespace MphRead
         private Matrix4 _shadowProjection = Matrix4.Identity;
         private long _retainedDirectShadowDraws;
         private long _retainedCompatibilityShadowDraws;
+        private long _lightSpaceRoomShadowDraws;
+        private readonly List<RenderItem> _lightSpaceRoomShadowCasters = new(512);
+        internal long LightSpaceRoomShadowDraws => _lightSpaceRoomShadowDraws;
 
         internal long RetainedDirectShadowDraws => _retainedDirectShadowDraws;
         internal long RetainedCompatibilityShadowDraws =>
@@ -110,6 +113,12 @@ namespace MphRead
                 GL.Uniform1(_shaderLocations.UseFog, 0);
                 GL.Uniform1(_shaderLocations.CelBands, 0);
 
+                // The camera-visible graph is NOT the set of geometry that
+                // casts shadows onto the view. Offscreen walls, arches and
+                // ceilings must be evaluated in the light's projection too.
+                bool separateRoomCasters = _room != null
+                    && _room.CollectLightSpaceShadowCasters(
+                        _shadowView, _shadowProjection, _lightSpaceRoomShadowCasters);
                 IReadOnlyList<Mods.Render.RetainedDrawPacket> shadowPackets =
                     _retainedRenderWorld.Opaque;
                 for (int i = 0; i < shadowPackets.Count; i++)
@@ -117,13 +126,23 @@ namespace MphRead
                     Mods.Render.RetainedDrawPacket packet = shadowPackets[i];
                     RenderItem item = packet.Item;
                     if (item.ViewModel || item.Alpha < .999f
-                        || item.RenderMode == RenderMode.Translucent)
+                        || item.RenderMode == RenderMode.Translucent
+                        || item.RenderMode == RenderMode.Decal
+                        || (separateRoomCasters && item.RetainedRoomOwned))
                     {
                         continue;
                     }
 
                     _retainedCompatibilityShadowDraws++;
                     RenderItem(item);
+                }
+                if (separateRoomCasters)
+                {
+                    foreach (RenderItem roomCaster in _lightSpaceRoomShadowCasters)
+                    {
+                        _lightSpaceRoomShadowDraws++;
+                        RenderItem(roomCaster);
+                    }
                 }
 
                 _shadowReady = true;

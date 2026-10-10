@@ -4838,7 +4838,7 @@ namespace MphRead
             IReadOnlyList<float> matrixStack, SelectionType selectionType,
             BillboardMode billboardMode, bool retainedGpuVisibilityEligible,
             Vector3 retainedBoundsMin, Vector3 retainedBoundsMax,
-            float emissiveIntensity = 1f)
+            float emissiveIntensity = 1f, bool submit = true)
         {
             Debug.Assert(!_collectingPreview && !_collectingViewModelItems);
             item.Type = RenderItemType.Mesh;
@@ -4897,7 +4897,8 @@ namespace MphRead
                     item.OverrideColor = selection;
             }
 
-            SubmitRenderItem(item, pooled: false, setViewModel: false);
+            if (submit)
+                SubmitRenderItem(item, pooled: false, setViewModel: false);
         }
 
         // for volumes/planes

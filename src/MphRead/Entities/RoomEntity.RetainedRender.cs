@@ -20,6 +20,9 @@ namespace MphRead.Entities
             internal int MaterialId { get; }
             internal int ListId { get; }
             internal RenderItem Item { get; }
+            // Independent from the camera's RenderItem: preparing a caster
+            // must never overwrite an already-captured world packet.
+            internal RenderItem ShadowItem { get; }
 
             internal RetainedRoomMeshTemplate(Mesh mesh, Material material)
             {
@@ -28,6 +31,7 @@ namespace MphRead.Entities
                 MaterialId = mesh.MaterialId;
                 ListId = mesh.ListId;
                 Item = new RenderItem();
+                ShadowItem = new RenderItem();
             }
         }
 
@@ -153,6 +157,121 @@ namespace MphRead.Entities
             _retainedRoomPartTemplates.Add(first, built);
             _retainedRoomClusterBuilds++;
             return built.Clusters;
+        }
+
+
+        // Shadow selection is light-space rather than portal/camera visible.
+        // Check only light X/Y to conservatively retain casters beyond the
+        // camera frustum or shadow depth slab. A little margin covers slopes.
+        internal static bool ShadowCasterOverlapsLightXY(
+            Vector3 min, Vector3 max, Matrix4 lightViewProjection)
+        {
+            if (!float.IsFinite(min.X) || !float.IsFinite(min.Y)
+                || !float.IsFinite(min.Z) || !float.IsFinite(max.X)
+                || !float.IsFinite(max.Y) || !float.IsFinite(max.Z)
+                || min.X > max.X || min.Y > max.Y || min.Z > max.Z)
+                return true; // Unknown bounds must never lose casters.
+
+            min -= new Vector3(2f);
+            max += new Vector3(2f);
+            bool left = true, right = true, below = true, above = true;
+            for (int i = 0; i < 8; i++)
+            {
+                float x = (i & 1) == 0 ? min.X : max.X;
+                float y = (i & 2) == 0 ? min.Y : max.Y;
+                float z = (i & 4) == 0 ? min.Z : max.Z;
+                float cx = x * lightViewProjection.M11 + y * lightViewProjection.M21
+                    + z * lightViewProjection.M31 + lightViewProjection.M41;
+                float cy = x * lightViewProjection.M12 + y * lightViewProjection.M22
+                    + z * lightViewProjection.M32 + lightViewProjection.M42;
+                float cw = x * lightViewProjection.M14 + y * lightViewProjection.M24
+                    + z * lightViewProjection.M34 + lightViewProjection.M44;
+                if (!float.IsFinite(cx) || !float.IsFinite(cy)
+                    || !float.IsFinite(cw) || cw <= 0)
+                    return true;
+                left &= cx < -cw;
+                right &= cx > cw;
+                below &= cy < -cw;
+                above &= cy > cw;
+            }
+            return !(left || right || below || above);
+        }
+
+        /// <summary>
+        /// Rebuild the static-room shadow caster set independently of the
+        /// camera portal list. Scene.OnDrawFrame has already refreshed model
+        /// animation/material state. ShadowItems belong to each room mesh
+        /// template and never enter the ordinary frame draw/packet pool.
+        /// </summary>
+        internal bool CollectLightSpaceShadowCasters(Matrix4 lightView,
+            Matrix4 lightProjection, List<RenderItem> output)
+        {
+            output.Clear();
+            if (Hidden || _models.Count == 0 || _scene.GameState.InRoomTransition)
+                return false;
+
+            Matrix4 lightViewProjection = lightView * lightProjection;
+            ModelInstance main = _models[0];
+            if (main.Active)
+                CollectModelShadowCasters(main, Vector3.Zero,
+                    Matrix4.Identity, lightViewProjection, cull: true, output);
+            for (int index = 0; index < _connectorModels.Count; index++)
+            {
+                ModelInstance connector = _connectorModels[index];
+                if (!connector.Active || index + 1 >= _roomCollision.Count)
+                    continue;
+                Vector3 offset = _roomCollision[index + 1].Translation;
+                Matrix4 transform = Matrix4.CreateScale(connector.Model.Scale);
+                transform.Row3.Xyz = offset;
+                // Connector bounds may be authored in a different model scale.
+                // Include conservatively until all connector packs are checked.
+                CollectModelShadowCasters(connector, offset, transform,
+                    lightViewProjection, cull: false, output);
+            }
+            return true;
+        }
+
+        private void CollectModelShadowCasters(ModelInstance instance,
+            Vector3 offset, Matrix4 connectorTransform,
+            Matrix4 lightViewProjection, bool cull, List<RenderItem> output)
+        {
+            Model model = instance.Model;
+            LightInfo lightInfo = GetLightInfo();
+            int matrixStackCount = model.NodeMatrixIds.Count;
+            IReadOnlyList<float> matrixStack = model.MatrixStackValues;
+            for (int i = 0; i < model.Nodes.Count; i++)
+            {
+                Node node = model.Nodes[i];
+                if (!node.Enabled || node.MeshCount <= 0)
+                    continue;
+                if (cull && !ShadowCasterOverlapsLightXY(
+                        node.MinBounds, node.MaxBounds, lightViewProjection))
+                    continue;
+                Matrix4 transform = cull ? node.Animation : connectorTransform;
+                ReadOnlySpan<RetainedRoomMeshTemplate> templates =
+                    RetainedMeshes(model, node);
+                for (int k = 0; k < templates.Length; k++)
+                {
+                    ref readonly RetainedRoomMeshTemplate template = ref templates[k];
+                    Material material = template.Material;
+                    if (!template.Mesh.Visible
+                        || material.RenderMode == RenderMode.Decal
+                        || material.RenderMode == RenderMode.Translucent
+                        || material.CurrentAlpha < .999f)
+                        continue;
+                    Matrix4 texcoordMatrix = GetTexcoordMatrix(instance,
+                        material, template.MaterialId, node);
+                    _scene.AddRetainedRoomRenderItem(
+                        template.ShadowItem, material, polygonId: 0,
+                        alphaScale: 1f, emission: Vector3.Zero, lightInfo,
+                        texcoordMatrix, transform, template.ListId,
+                        matrixStackCount, matrixStack, SelectionType.None,
+                        node.BillboardMode, retainedGpuVisibilityEligible: false,
+                        node.MinBounds + offset, node.MaxBounds + offset,
+                        submit: false);
+                    output.Add(template.ShadowItem);
+                }
+            }
         }
 
         private bool RetainedClusterVisible(
