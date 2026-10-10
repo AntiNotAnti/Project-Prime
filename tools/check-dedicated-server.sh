@@ -68,6 +68,8 @@ topath() {
 }
 
 WORK="$(mktemp -d)"
+mkdir -p "$WORK/user-data"
+TEST_USER_DATA="$(topath "$WORK/user-data")"
 SERVER_PORT=27888
 MASTER_PORT=27889
 FAILED=0
@@ -85,16 +87,22 @@ pass() { echo "ok:   $*"; }
 
 echo "checking the dedicated server in $DIR"
 
-"${BIN[@]}" -masterserver -port "$MASTER_PORT" >"$WORK/master.log" 2>&1 &
+PROJECT_PRIME_USER_DATA="$TEST_USER_DATA" "${BIN[@]}" -masterserver -port "$MASTER_PORT" >"$WORK/master.log" 2>&1 &
 MASTER_PID=$!
 SERVER_EXIT_MARKER="$WORK/server.exit"
 (
-  "${BIN[@]}" -server -port "$SERVER_PORT" -players 8 \
+  PROJECT_PRIME_USER_DATA="$TEST_USER_DATA" "${BIN[@]}" -server -port "$SERVER_PORT" -players 8 \
        -servername "CI smoke test" \
        -server_replays=true -server_replay_storage_gb=7 \
        -server_replay_retention_days=3 -server_replay_keep_last=9 \
        -master 127.0.0.1 -masterport "$MASTER_PORT" \
-       -rotation "$(topath "$WORK/maprotation.txt")" >"$WORK/server.log" 2>&1
+       -rotation "$(topath "$WORK/maprotation.txt")" >"$WORK/server.log" 2>&1 &
+  child=$!
+  # A failing fixture must not orphan a game-data-enabled server when the
+  # wrapper is terminated at the deadline. The isolated profile above also
+  # makes the intended missing-assets prerequisite explicit on developer Macs.
+  trap 'kill "$child" 2>/dev/null; wait "$child" 2>/dev/null; exit 143' TERM INT
+  wait "$child"
   status=$?
   printf '%s\n' "$status" >"$SERVER_EXIT_MARKER.tmp"
   mv "$SERVER_EXIT_MARKER.tmp" "$SERVER_EXIT_MARKER"
