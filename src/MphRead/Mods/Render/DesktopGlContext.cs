@@ -36,6 +36,14 @@ namespace MphRead.Mods.Render
             && error.Message.Contains("NSGL: Failed to find a suitable pixel format",
                 StringComparison.Ordinal);
 
+        internal static bool HostedWindowsLacksWgl(Exception error) =>
+            OperatingSystem.IsWindows()
+            && String.Equals(Environment.GetEnvironmentVariable("CI"),
+                "true", StringComparison.OrdinalIgnoreCase)
+            && error is InvalidOperationException
+            && error.Message.Contains("WGL: The driver does not appear to support OpenGL",
+                StringComparison.Ordinal);
+
 
         public static void PreserveWorkingDirectory()
         {

@@ -327,9 +327,18 @@ jobs:
           sudo apt-get install -y xvfb libgl1 libglx-mesa0
           xvfb-run -a --server-args="-screen 0 3840x2160x24" dotnet src/MphRead/bin/Release/net10.0/ProjectPrime.dll -mapviewportcheck "$RUNNER_TEMP/mapviewportcheck"
 
-      - name: Windows and macOS viewport with real GL
+      - name: Windows and macOS viewport with real GL when available
         if: runner.os != 'Linux'
         run: dotnet src/MphRead/bin/Release/net10.0/ProjectPrime.dll -mapviewportcheck "${{ runner.temp }}/mapviewportcheck"
+
+      - name: report hosted GPU limitations, do not count them as hardware acceptance
+        if: always() && runner.os != 'Linux'
+        shell: bash
+        run: |
+          marker="${RUNNER_TEMP}/mapviewportcheck/mapviewport-skip.txt"
+          if [ -f "$marker" ]; then
+            echo "::warning title=Map Studio OpenGL hardware test skipped::$(head -n 1 "$marker")"
+          fi
 
       - name: map acceptance logs and viewport captures
         if: always()

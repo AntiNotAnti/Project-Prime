@@ -28,13 +28,19 @@ internal static class MapViewportCheck
         {
             return RunCore(directory, projectPath);
         }
-        catch (Exception ex) when (DesktopGlContext.HostedMacLacksNsgl(ex))
+        catch (Exception ex) when (DesktopGlContext.HostedMacLacksNsgl(ex)
+            || DesktopGlContext.HostedWindowsLacksWgl(ex))
         {
-            // Some hosted macOS runners have no NSGL pixel format at all.
-            // The Intel OpenGL texture fixture and Linux Mesa GPU acceptance
-            // remain separate. This is a reported hardware skip, not a pass.
-            Console.WriteLine("MAPVIEWPORT SKIP: hosted macOS has no NSGL pixel format.");
-            File.WriteAllText(Path.Combine(directory, "mapviewport-skip.txt"), ex.ToString());
+            // GitHub-hosted macOS/Windows runners can expose no OpenGL context.
+            // Preserve the exact driver error as a reported hardware SKIP,
+            // never as real-device OpenGL rendering acceptance. Linux Mesa
+            // exercises the pixels; Windows/macOS need a GPU-capable host.
+            string reason = OperatingSystem.IsWindows()
+                ? "hosted Windows runner has no WGL OpenGL driver"
+                : "hosted macOS runner has no NSGL pixel format";
+            Console.WriteLine("MAPVIEWPORT SKIP: " + reason);
+            File.WriteAllText(Path.Combine(directory, "mapviewport-skip.txt"),
+                "SKIP: " + reason + Environment.NewLine + ex);
             return 0;
         }
         catch (Exception ex)
@@ -239,8 +245,14 @@ internal static class MapViewportCheck
             surface.Show(libraryRoot); surface.Resize(window.FramebufferSize.X,window.FramebufferSize.Y);
             typeof(MapStudioScreen).GetMethod("ShowLibrary",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(libraryStudio,null);
             for(int i=0;i<5;i++){System.Threading.Thread.Sleep(20);surface.Invalidate();surface.Tick();}
-            var libraryFrame=(Border)overlays.Children.Single();
-            Check(libraryFrame.Bounds.Height<550 && libraryFrame.Bounds.Height>460,"map library fits its content instead of stretching to window height");
+            // PrimeOverlayHost always contains a scrim plus the active modal
+            // frame. Identify the actual Map Library modal, not an arbitrary
+            // count of overlay children (which also includes animated frames).
+            var libraryFrame = overlays.Children.OfType<Border>().Single(frame =>
+                frame.Child is Grid grid && grid.Children.OfType<TextBlock>()
+                    .Any(label => label.Text == "MAP LIBRARY"));
+            Check(libraryFrame.Bounds.Height < 550 && libraryFrame.Bounds.Height > 460,
+                "map library fits its content instead of stretching to window height");
             GL.Clear(ClearBufferMask.ColorBufferBit|ClearBufferMask.DepthBufferBit);
             surface.PrepareMapRenderer();surface.DrawMapViewport(window.FramebufferSize.X,window.FramebufferSize.Y);UiOverlay.Draw(window.FramebufferSize.X,window.FramebufferSize.Y);
             Check(ScreenCapture.SaveWindow(window.FramebufferSize.X,window.FramebufferSize.Y,Path.Combine(directory,"map-library-scaled.png")),"scaled map library capture");
