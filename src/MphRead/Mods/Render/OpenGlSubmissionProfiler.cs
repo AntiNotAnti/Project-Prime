@@ -33,10 +33,13 @@ internal static class OpenGlSubmissionProfiler
     [ThreadStatic] private static long _sumLists;
     [ThreadStatic] private static long _sumImmediate;
     [ThreadStatic] private static long _sumTextureBinds;
+    [ThreadStatic] private static long _sumProgramBinds;
+    [ThreadStatic] private static long _sumFramebufferBinds;
+    [ThreadStatic] private static long _sumStencilRequests;
     [ThreadStatic] private static long _sumStateRequests;
     [ThreadStatic] private static long _sumPackets;
     [ThreadStatic] private static long _sumBatches;
-    [ThreadStatic] private static long _sumSavedReplayLists;
+    [ThreadStatic] private static long _sumSavedReplaySubmissions;
 
     internal static bool Enabled => _enabled;
 
@@ -60,7 +63,7 @@ internal static class OpenGlSubmissionProfiler
     internal static void NoteStencilFunc() { if (_active) _stencilRequests++; }
 
     internal static OpenGlWorldSubmissionSample EndWorldGraph(
-        int packets, int batches, int savedOpaqueReplayLists)
+        int packets, int batches, int savedOpaqueReplaySubmissions)
     {
         // Stop timing before constructing/printing statistics.
         long elapsed = Math.Max(0, Stopwatch.GetTimestamp() - _start);
@@ -69,16 +72,19 @@ internal static class OpenGlSubmissionProfiler
             elapsed * 1000.0 / Stopwatch.Frequency, _lists, _immediate,
             _textureBinds, _programBinds, _framebufferBinds,
             _stateRequests, _stencilRequests, packets, batches,
-            savedOpaqueReplayLists);
+            savedOpaqueReplaySubmissions);
         _windowTicks ??= new long[Window];
         _windowTicks[_windowCount++] = elapsed;
         _sumLists += _lists;
         _sumImmediate += _immediate;
         _sumTextureBinds += _textureBinds;
+        _sumProgramBinds += _programBinds;
+        _sumFramebufferBinds += _framebufferBinds;
+        _sumStencilRequests += _stencilRequests;
         _sumStateRequests += _stateRequests;
         _sumPackets += packets;
         _sumBatches += batches;
-        _sumSavedReplayLists += savedOpaqueReplayLists;
+        _sumSavedReplaySubmissions += savedOpaqueReplaySubmissions;
 
         if (_windowCount == Window)
         {
@@ -93,13 +99,17 @@ internal static class OpenGlSubmissionProfiler
                 + $" avg-list={_sumLists / (double)Window:F1}"
                 + $" avg-immediate={_sumImmediate / (double)Window:F1}"
                 + $" avg-texbind={_sumTextureBinds / (double)Window:F1}"
-                + $" avg-state={_sumStateRequests / (double)Window:F1}"
+                + $" avg-program={_sumProgramBinds / (double)Window:F1}"
+                + $" avg-fbo={_sumFramebufferBinds / (double)Window:F1}"
+                + $" avg-stencil={_sumStencilRequests / (double)Window:F1}"
+                + $" avg-enableDisable={_sumStateRequests / (double)Window:F1}"
                 + $" avg-packets={_sumPackets / (double)Window:F1}"
                 + $" avg-batches={_sumBatches / (double)Window:F1}"
-                + $" depth-replay-list-calls-saved={_sumSavedReplayLists}");
+                + $" depth-replay-item-submissions-saved={_sumSavedReplaySubmissions}");
             _windowCount = 0;
             _sumLists = _sumImmediate = _sumTextureBinds = 0;
-            _sumStateRequests = _sumPackets = _sumBatches = _sumSavedReplayLists = 0;
+            _sumProgramBinds = _sumFramebufferBinds = _sumStencilRequests = 0;
+            _sumStateRequests = _sumPackets = _sumBatches = _sumSavedReplaySubmissions = 0;
         }
         return sample;
     }
@@ -117,4 +127,4 @@ internal readonly record struct OpenGlWorldSubmissionSample(
     double CpuMilliseconds, int DisplayListCalls, int ImmediateBegins,
     int TextureBindRequests, int ProgramBindRequests, int FramebufferBindRequests,
     int StateRequests, int StencilFuncRequests, int CapturedPackets,
-    int MaterialBatches, int AvoidedOpaqueReplayCalls);
+    int MaterialBatches, int AvoidedOpaqueReplaySubmissions);

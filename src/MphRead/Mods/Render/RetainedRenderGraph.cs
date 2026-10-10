@@ -523,9 +523,9 @@ namespace MphRead
             _retainedCompatibilityWorldDraws;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
         private long _retainedDepthReplaySkips;
-        private long _retainedOpaqueReplayCallsSaved;
+        private long _retainedOpaqueReplaySubmissionsSaved;
         internal long RetainedDepthReplaySkips => _retainedDepthReplaySkips;
-        internal long RetainedOpaqueReplayCallsSaved => _retainedOpaqueReplayCallsSaved;
+        internal long RetainedOpaqueReplaySubmissionsSaved => _retainedOpaqueReplaySubmissionsSaved;
 
         private void CaptureRetainedRenderWorld()
         {
@@ -693,7 +693,7 @@ namespace MphRead
                     if (reuseOpaqueDepth)
                     {
                         _retainedDepthReplaySkips++;
-                        _retainedOpaqueReplayCallsSaved += _retainedRenderWorld.Opaque.Count;
+                        _retainedOpaqueReplaySubmissionsSaved += _retainedRenderWorld.Opaque.Count;
                     }
                     else
                     {

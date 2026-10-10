@@ -104,7 +104,11 @@ performance claims.
 - Avoid unnecessary glEnable/glDisable pairs for uncullable room batches.
 - Add opt-in GL submission counters and CPU frametime statistics to establish
   a before/after baseline for later desktop VBO/IBO migration. Android already
-  uses VBO/IBO for retained display lists.
+  uses VBO/IBO for retained display lists. Launch with `-glprofile` or
+  `PROJECT_PRIME_GL_PROFILE=1`; every 240 world renders it prints p50/p95/p99
+  CPU world-graph wall time, OpenGL facade submissions, texture/program/
+  framebuffer binds, stencil and enable/disable requests, plus omitted
+  RenderItem submissions. These are CPU/facade counters, **not GPU timings**.
 
 ### Next slices
 
