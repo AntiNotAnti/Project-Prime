@@ -3,19 +3,21 @@ using System;
 namespace MphRead.Mods.Render;
 
 /// <summary>
-/// Pure desktop presentation policy. Window/GLFW/WebGPU ownership stays with
+/// Pure desktop presentation policy. Window/GLFW ownership stays with
 /// RenderWindow; this class only decides which clock should pace presentation.
 /// </summary>
 internal static class DesktopFramePacing
 {
     internal const double NativeRefreshToleranceHz = 0.75;
 
-    internal static bool NativeRefreshMatches(int cap, double refreshRate) =>
-        cap > 0 && refreshRate > 0
-        && Math.Abs(cap - refreshRate) <= NativeRefreshToleranceHz;
-
+    /// <summary>
+    /// Only the explicit Display/VSync setting relies on the monitor clock.
+    /// Every positive numeric cap needs its own software deadline, including
+    /// a 240 FPS cap on a 240 Hz monitor: the driver's swap interval may be
+    /// ignored or overridden, and must not silently disable the FPS limit.
+    /// </summary>
     internal static bool UseDisplayPacing(int cap, double refreshRate) =>
-        cap == 0 || NativeRefreshMatches(cap, refreshRate);
+        cap == FrameTiming.DisplayRate;
 
     internal static bool LinuxVSyncIgnored(bool isLinux, int cap, double refreshRate,
         double measuredFrameRate, bool alreadyLatched)
