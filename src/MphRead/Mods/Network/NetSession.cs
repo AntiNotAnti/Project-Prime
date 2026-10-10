@@ -504,7 +504,8 @@ namespace MphRead.Mods.Network
             // A separate additive packet keeps old Identify/name parsing intact.
             // Acquisition is asynchronous: the existing identity retry starts
             // it, then a later pass sends the cached short-lived ticket.
-            if (Launcher.HunterLicenseClient.TryGetCareerTicket(ClientId, out string careerTicket))
+            if (!NetCampaignEvidence.Enabled
+                && Launcher.HunterLicenseClient.TryGetCareerTicket(ClientId, out string careerTicket))
             {
                 int bytes = Math.Min(careerTicket.Length, 768);
                 System.Text.Encoding.ASCII.GetBytes(careerTicket.AsSpan(0, bytes),

@@ -162,6 +162,33 @@ class EvidenceTests(unittest.TestCase):
         self.processes.append(dict(name="observer", exit=0, timedOut=False, expectsShots=False))
         self.assertEqual(self.result()["status"], "FAIL")
 
+    def test_phase_skip_explains_but_does_not_waive_authority_gap(self):
+        self.server["Shots"][0]["Stage"] = "phase-skipped"
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "FAIL")
+        context = result["parity"]["shooter"]["authorityGapContext"]
+        self.assertEqual(context["recordedPhaseSkips"], 1)
+        self.assertEqual(context["arrivedOrLocallyOffered"], 1)
+
+    def test_arrived_view_shot_at_death_still_fails(self):
+        self.client["Shots"][0]["Stage"] = "accepted"
+        self.server["States"].append(dict(self.server["States"][0], Frame=96, Hp=0))
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "FAIL")
+        context = result["parity"]["shooter"]["viewGapContext"]
+        self.assertEqual(context["arrivedOrLocallyOffered"], 1)
+        self.assertEqual(context["nearAuthorityDeathWithin12Frames"], 1)
+
+    def test_death_context_keeps_full_actor_identity(self):
+        self.client["Shots"][0]["Stage"] = "accepted"
+        self.server["States"].append(dict(self.server["States"][0], Frame=96, Hp=0, Life=7))
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "FAIL")
+        self.assertEqual(result["parity"]["shooter"]["viewGapContext"]["nearAuthorityDeathWithin12Frames"], 0)
+
     def test_one_matching_fact_does_not_hide_semantic_gap(self):
         self.server["Facts"].append(dict(self.server["Facts"][0], Id=2, Payload="DEAD"))
         self.write()

@@ -23,6 +23,34 @@ def health_value(row):
     return tuple(row[k] for k in ("Hp", "TurretHp", "Kills", "Deaths", "DamageEvent"))
 
 
+def shot_gap_context(missing, authority_shots, report, death_frames):
+    """Diagnostic context only. Phase skips and death proximity never waive gaps.
+
+    View frames are local clocks; only authority commit/death frames are compared.
+    Health is sampled every six frames, so proximity is an association, not proof
+    of client-side death/intent ordering or visible projectile absence.
+    """
+    arrived = {shot_key(s) for s in report["Shots"] if s["Stage"] in ("accepted", "offered")}
+    skipped = {shot_key(s) for s in report["Shots"] if s["Stage"] == "phase-skipped"}
+    near_death = set()
+    for key in missing:
+        shot = authority_shots.get(key)
+        death = death_frames.get(key[:5])
+        if shot and death is not None and abs(death - shot["ObservedFrame"]) <= 12:
+            near_death.add(key)
+    return {"arrivedOrLocallyOffered": len(missing & arrived),
+            "noArrivalEvidence": len(missing - arrived),
+            "recordedPhaseSkips": len(missing & skipped),
+            "nearAuthorityDeathWithin12Frames": len(near_death),
+            "weaponKindCounts": dict(Counter(f"{authority_shots[k]['Weapon']}:{authority_shots[k]['Kind']}"
+                for k in missing if k in authority_shots)),
+            "examples": [{"key": list(k), "arrivalRecorded": k in arrived,
+                "phaseSkipRecorded": k in skipped,
+                "authorityObservationStage": authority_shots.get(k, {}).get("Stage"),
+                "authorityObservedFrame": authority_shots.get(k, {}).get("ObservedFrame"),
+                "authorityFirstDeadFrame": death_frames.get(k[:5])} for k in sorted(missing)[:32]]}
+
+
 def adjudicate(out, processes, expected_protocol=41, require_shots=True):
     """FAIL outranks missing evidence. No process count/exit-code-only green path."""
     out = Path(out)
@@ -108,7 +136,13 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
         states = {state_key(s): health_value(s) for s in authority["States"]}
         committed = {shot_key(s): (s["Weapon"], s["Charge"], s["Kind"]) for s in authority["Shots"] if s["Stage"] == "committed"}
         authority_shots = {shot_key(s): s for s in authority["Shots"] if s["Stage"] == "committed"}
-        accepted = {shot_key(s) for s in authority["Shots"] if s["Stage"] == "accepted"}
+        authority_accepted = {shot_key(s): s for s in authority["Shots"] if s["Stage"] == "accepted"}
+        accepted = authority_accepted.keys()
+        death_frames = {}
+        for state in authority["States"]:
+            if state["Hp"] == 0:
+                identity = tuple(state[k] for k in ("Epoch", "Match", "Slot", "Generation", "Life"))
+                death_frames[identity] = min(death_frames.get(identity, state["Frame"]), state["Frame"])
         all_offered = {shot_key(s) for r in reports.values() for s in r["Shots"] if s["Stage"] == "offered"}
         facts = {(f["Type"], f["Payload"]) for f in authority["Facts"]}
         for name, report in reports.items():
@@ -173,6 +207,8 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 "committedShots": len(offered.keys() & committed.keys()), "wrongWeaponChargeKind": wrong,
                 "unacceptedKeys": [list(k) for k in sorted(missing_accepted)[:32]],
                 "uncommittedKeys": [list(k) for k in sorted(missing_committed)[:32]],
+                "authorityGapContext": shot_gap_context(missing_committed, authority_accepted, authority, {}),
+                "viewGapContext": shot_gap_context(unobserved, authority_shots, report, death_frames),
                 "matchingSemanticFacts": matching_facts,
                 "viewExpectedCommits": len(expected_commits), "viewMissingCommits": len(unobserved),
                 "viewMissingKeys": [list(key) for key in sorted(unobserved)[:32]],

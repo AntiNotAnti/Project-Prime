@@ -34,6 +34,10 @@ internal static class NetCheckSimulation
             if (now < next) { Thread.Sleep(1); continue; }
             if (now - next > 0.25) next = now;
             next += 1.0 / 60;
+            // There is no HUD in -nographics. Consume presentation-only camera
+            // requests here: spectator rejoin would otherwise switch Roam to
+            // Player and run an uninitialized reticle during authority respawn.
+            SpectatorMode.TakeCameraRequest();
             scene.OnSimulationFrame();
             if (!spectated && spectateAt >= 0 && now >= spectateAt)
             {
