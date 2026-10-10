@@ -29,6 +29,9 @@ string? shots = args.Contains("-shots") ? Path.GetFullPath(Value("-shots", "nati
 int cap = int.Parse(Value("-hz", "60"));
 int seconds = int.Parse(Value("-seconds", "24"));
 int players = int.Parse(Value("-players", "8"));
+bool diagnoseSolo = args.Contains("-diagnose-solo");
+if (diagnoseSolo && shots == null)
+    throw new ArgumentException("-diagnose-solo needs -shots; diagnostic readbacks must never run during a benchmark.");
 if (players < 1 || players > 8) throw new ArgumentOutOfRangeException("Use -players 1..8.");
 if ((cap != -1 && cap < 30) || cap > 500 || seconds < 8 || seconds > 120)
     throw new ArgumentOutOfRangeException("Use -hz -1 or 30..500, -seconds 8..120.");
@@ -44,7 +47,8 @@ typeof(Scene).Assembly.GetType("MphRead.ConsoleSetup")!.GetMethod("Run")!.Invoke
 GraphicsBackendPolicy.LoadPreference();
 Paths.UpdatePaths(); Paths.ChooseMphPath(); Paths.ChooseFhPath();
 MphRead.Mods.MapGen.CustomRooms.GenerateMissing(room);
-using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"));
+using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players,
+    args.Contains("-idle"), args.Contains("-windowcycle"), diagnoseSolo);
 try
 {
     window.Run();
@@ -76,14 +80,17 @@ sealed class CheckWindow : RenderWindow
     private readonly string _room;
     private readonly List<object> _captures = new();
     private readonly bool _windowCycle;
+    private readonly bool _diagnoseSolo;
     private readonly Vector2i _requestedPixels;
     private readonly List<object> _windowEvents = new();
     private int _windowStage;
     public bool Complete { get; private set; }
 
-    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle)
+    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots,
+        Vector2i pixels, int players, bool idle, bool windowCycle, bool diagnoseSolo)
     {
         _room = room; _seconds = seconds; _cap = cap; _shadows = shadows; _shots = shots;
+        _diagnoseSolo = diagnoseSolo;
         _windowCycle = windowCycle; _requestedPixels = pixels;
         MinimumSize = new Vector2i(160, 90);
         double sx = FramebufferSize.X / (double)ClientSize.X, sy = FramebufferSize.Y / (double)ClientSize.Y;
@@ -181,9 +188,14 @@ sealed class CheckWindow : RenderWindow
                 if (!ScreenCapture.Save(Scene, Path.Combine(_shots, "frame-0-world-repeat.png")))
                     throw new InvalidDataException("Repeated native readback failed.");
             }
+            // All diagnostic samples are taken after the same complete world/
+            // outline/HUD path. Only -diagnose-solo performs extra GL readback,
+            // and ordinary performance runs are not affected.
+            object? solo = _diagnoseSolo ? SoloDiagnosticSnapshot() : null;
             _captures.Add(new { index = _capture, simulationFrame = Scene.FrameCount,
                 camera = Scene.CameraPosition.ToString(), width = Scene.Size.X, height = Scene.Size.Y,
-                shadow = ShadowSnapshot(_capture == 0), pickups = PickupSnapshot() });
+                shadow = ShadowSnapshot(_capture == 0), pickups = PickupSnapshot(),
+                soloDiagnostic = solo });
             _capture++;
         }
         if (GL.GetError() is var error && error != ErrorCode.NoError)
@@ -202,6 +214,141 @@ sealed class CheckWindow : RenderWindow
     {
         base.OnFocusedChanged(e);
         if (_windowCycle) _windowEvents.Add(new { focusChanged = e.IsFocused, wallSeconds = _wall.Elapsed.TotalSeconds });
+    }
+
+
+    private object SoloDiagnosticSnapshot()
+    {
+        const BindingFlags instance = BindingFlags.Instance
+            | BindingFlags.Public | BindingFlags.NonPublic;
+        object? SceneField(string name) => typeof(Scene).GetField(name, instance)?.GetValue(Scene);
+        var room = Scene.Room ?? throw new InvalidOperationException("Solo diagnostic requires a loaded room.");
+        object? RoomField(string name) => room.GetType().GetField(name, instance)?.GetValue(room);
+        var current = Scene.Players.Main.CameraInfo.NodeRef;
+        bool[] activeParts = (bool[]?)RoomField("_activeRoomParts") ?? Array.Empty<bool>();
+        bool fallbackAllParts = RoomField("_partVisInfoHead") == null || Scene.ShowAllNodes;
+        var opaque = (IReadOnlyList<RenderItem>?)SceneField("_nonDecalItems")
+            ?? Array.Empty<RenderItem>();
+        var decals = (IReadOnlyList<RenderItem>?)SceneField("_decalItems")
+            ?? Array.Empty<RenderItem>();
+        var translucent = (IReadOnlyList<RenderItem>?)SceneField("_translucentItems")
+            ?? Array.Empty<RenderItem>();
+        var camera = Scene.CameraPosition;
+        // This is intentional evidence: 1 and 2 players should share the
+        // Battle-mode room layer and LOD. If not, compare the actual setup
+        // before making conclusions about GL state.
+        int count = Scene.Players.PlayerCount;
+        int nodeLayer = SceneSetup.GetNodeLayer(Scene.GameState.Mode, room.Meta.NodeLayer,
+            count);
+        int entityLayer = SceneSetup.GetMultiplayerEntityLayer(
+            Scene.GameState.Mode, count, MphRead.Mods.Multiplayer.MatchWorldProfile.Resolve(count).Resources);
+        int bots = Scene.Players.Items.Count(player => player.IsBot
+            && player.LoadFlags.TestFlag(LoadFlags.Active));
+
+        object LightingVector(Vector3 value) => new[] { value.X, value.Y, value.Z };
+        object GetLightSnapshot() => new
+        {
+            light1Direction = LightingVector(Scene.Light1Vector),
+            light1Color = LightingVector(Scene.Light1Color),
+            light2Direction = LightingVector(Scene.Light2Vector),
+            light2Color = LightingVector(Scene.Light2Color)
+        };
+
+        return new
+        {
+            schema = 1,
+            room = room.Meta.Name,
+            mode = Scene.GameState.Mode.ToString(),
+            matchState = Scene.GameState.MatchState.ToString(),
+            playerCount = count,
+            activeBots = bots,
+            nodeLayer,
+            entityLayer,
+            cameraMode = Scene.CameraMode.ToString(),
+            camera = new[] { camera.X, camera.Y, camera.Z },
+            cameraNode = new
+            {
+                room = current.RoomName,
+                part = current.PartIndex,
+                node = current.NodeIndex,
+                model = current.ModelIndex
+            },
+            cullingFallbackAllParts = fallbackAllParts,
+            visiblePartCount = activeParts.Count(enabled => enabled),
+            roomOwnedOpaquePackets = opaque.Count(item => item.RetainedRoomOwned),
+            opaquePackets = opaque.Count,
+            decalPackets = decals.Count,
+            translucentPackets = translucent.Count,
+            outlinedPackets = opaque.Count(item => item.PlayerOutlineColor.HasValue)
+                + translucent.Count(item => item.PlayerOutlineColor.HasValue),
+            lighting = GetLightSnapshot(),
+            depth = WorldDepthSnapshot(),
+            gl = new
+            {
+                framebuffer = GL.GetInteger(GetPName.FramebufferBinding),
+                program = GL.GetInteger(GetPName.CurrentProgram),
+                depthTest = GL.IsEnabled(EnableCap.DepthTest),
+                depthWrite = GL.GetInteger(GetPName.DepthWritemask) != 0,
+                stencilTest = GL.IsEnabled(EnableCap.StencilTest),
+                alphaTest = GL.IsEnabled(EnableCap.AlphaTest),
+                blend = GL.IsEnabled(EnableCap.Blend)
+            }
+        };
+    }
+
+    private object WorldDepthSnapshot()
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        int target = (int)(typeof(Scene).GetField("_frameBuffer", flags)?.GetValue(Scene) ?? 0);
+        Vector2i size = (Vector2i)(typeof(Scene).GetField("_targetSize", flags)?.GetValue(Scene)
+            ?? Vector2i.Zero);
+        if (target == 0 || size.X < 32 || size.Y < 32)
+            throw new InvalidOperationException("Scene depth attachment missing during solo diagnostics.");
+
+        // Sample bounded regions on the actual world depth attachment.
+        // This is deliberately readback-only, and captures do not count as
+        // performance samples. The GL read framebuffer must be restored.
+        int previousRead = GL.GetInteger(GetPName.ReadFramebufferBinding);
+        int[] centersX = { size.X / 4, size.X / 2, size.X * 3 / 4 };
+        int[] centersY = { size.Y / 4, size.Y / 2, size.Y * 3 / 4 };
+        float[] patch = new float[32 * 32];
+        int near = 0, far = 0;
+        float min = 1f, max = 0f;
+        try
+        {
+            GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, target);
+            for (int y = 0; y < centersY.Length; y++)
+            {
+                for (int x = 0; x < centersX.Length; x++)
+                {
+                    GL.ReadPixels(centersX[x] - 16, centersY[y] - 16,
+                        32, 32, PixelFormat.DepthComponent, PixelType.Float, patch);
+                    foreach (float value in patch)
+                    {
+                        if (!float.IsFinite(value) || value < 0 || value > 1)
+                            throw new InvalidOperationException("Invalid depth sample from scene framebuffer");
+                        if (value >= 0.999999f) far++;
+                        else near++;
+                        min = Math.Min(min, value);
+                        max = Math.Max(max, value);
+                    }
+                }
+            }
+        }
+        finally
+        {
+            GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, previousRead);
+        }
+        return new
+        {
+            nearSamples = near,
+            farSamples = far,
+            nearFraction = near / (double)Math.Max(1, near + far),
+            minimum = min,
+            maximum = max,
+            targetWidth = size.X,
+            targetHeight = size.Y
+        };
     }
 
     private object[] PickupSnapshot()
