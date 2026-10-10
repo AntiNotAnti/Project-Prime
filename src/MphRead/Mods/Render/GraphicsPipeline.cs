@@ -56,18 +56,29 @@ namespace MphRead
         private readonly record struct DynamicLightCandidate(float Distance, Vector3 Position,
             Vector3 Color, float Radius, float Intensity);
 
+        /// <summary>
+        /// No full-screen post pass is needed when the shadow map is disabled,
+        /// refused by the driver or lacks a valid scene depth attachment.
+        /// Keeping this decision testable without a GL context protects the
+        /// no-effects fast path and avoids allocating an identity framebuffer.
+        /// </summary>
+        internal static bool ShouldCompositeDirectionalShadow(
+            ShadowQuality quality, bool shadowReady, bool depthReady)
+            => quality != ShadowQuality.Off && shadowReady && depthReady;
+
         private void ApplyGraphicsPostProcess()
         {
-            // Only directional shadow composition remains supported by the
-            // experimental presentation pipeline. Never let a legacy setting
-            // or diagnostic activate HDR/TAA/PBR passes after migration.
-            RenderOptions.RetireExperimentalPostEffects();
             _graphicsOutputReady = false;
-            if (!RenderOptions.PostProcessingEnabled || _graphicsPipelineRefused)
+            if (_graphicsPipelineRefused || !ShouldCompositeDirectionalShadow(
+                RenderOptions.Shadows, ShadowMapReady, _depthTexture != 0))
             {
                 _graphicsHistoryValid = false;
                 return;
             }
+
+            // Keep the native shadow shader independent of retired graphics
+            // settings even when diagnostics mutate options during a match.
+            RenderOptions.RetireExperimentalPostEffects();
             try
             {
                 bool pbrAvailable = RenderOptions.DeferredPbr && DeferredPbrReady;

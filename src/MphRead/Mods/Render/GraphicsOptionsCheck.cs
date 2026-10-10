@@ -99,6 +99,15 @@ namespace MphRead.Mods.Render
                 RenderOptions.Shadows = ShadowQuality.High;
                 Check(RenderOptions.PostProcessingEnabled && RenderOptions.NeedsReadableDepth,
                     "directional shadow is independently permitted to request readable depth");
+                Check(!MphRead.Scene.ShouldCompositeDirectionalShadow(
+                            ShadowQuality.Off, shadowReady: true, depthReady: true)
+                    && !MphRead.Scene.ShouldCompositeDirectionalShadow(
+                            ShadowQuality.High, shadowReady: false, depthReady: true)
+                    && !MphRead.Scene.ShouldCompositeDirectionalShadow(
+                            ShadowQuality.High, shadowReady: true, depthReady: false)
+                    && MphRead.Scene.ShouldCompositeDirectionalShadow(
+                            ShadowQuality.High, shadowReady: true, depthReady: true),
+                    "GPU composite runs only when directional shadow and depth are ready");
                 RenderOptions.RetireExperimentalPostEffects();
                 Check(RenderOptions.Shadows == ShadowQuality.High
                     && RenderOptions.AdvancedMaterials
