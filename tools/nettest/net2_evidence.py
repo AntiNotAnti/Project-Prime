@@ -29,9 +29,11 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
     failures, incomplete, reports, observations = [], [], {}, {}
     if len(processes) < 2 or not any(p["name"] == "server" for p in processes):
         incomplete.append("no server/client campaign")
+    settings = {}
     if (out / "manifest.json").exists():
         try:
             manifest = json.loads((out / "manifest.json").read_text())
+            settings = manifest["settings"]
             expected = manifest["settings"]["players"] + 1 + bool(manifest["settings"].get("soak"))
             if len(processes) != expected:
                 incomplete.append(f"expected {expected} processes, received {len(processes)}")
@@ -41,6 +43,8 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 failures.append("running assembly changed")
         except (OSError, ValueError, KeyError, TypeError) as error:
             incomplete.append(f"missing/malformed run manifest ({error})")
+    else:
+        incomplete.append("missing run manifest and assembly identity")
     for process in processes:
         name = process["name"]
         if process.get("timedOut") or process.get("unexpectedExit") or process.get("exit") != 0:
@@ -177,6 +181,23 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 "semanticConflicts": semantic_conflicts, "semanticTailExcludedFrames": 60,
                 "semanticCompleteness": "FAIL" if semantic_missing or semantic_conflicts else "PASS" if semantic_expected else "INCOMPLETE",
                 "renderedProjectileAgreement": "NOT_RUN"}
-    return {"status": "FAIL" if failures else "INCOMPLETE" if incomplete else "PASS",
+    # Keep coverage in the offline adjudicator so re-reading raw evidence cannot
+    # turn a short or frozen soak into a pass by losing the runner's final checks.
+    windows = [w for report in reports.values() for w in report["Windows"]]
+    soak = settings.get("soak", False)
+    sustained = soak and settings.get("players") == 8 and 1200 <= settings.get("seconds", 0) <= 1800 and all(
+        record.get("requestedSeconds", 0) > 0
+        and reports.get(record["name"], {}).get("Frames", 0) >= record["requestedSeconds"] * 60 * .9
+        and max((w.get("Seconds", 0) for w in reports.get(record["name"], {}).get("Windows", [])), default=0) >= record["requestedSeconds"] - 2
+        for record in processes if record["name"] != "server")
+    coverage = {"renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "PASS" if any(w.get("BotMask", 0) for w in windows) else "NOT_RUN",
+        "spectator": "PASS" if any(w.get("Spectating") for w in windows) else "NOT_RUN",
+        "mapRotation": "PASS" if len({w["Room"] for w in windows if w.get("Room")}) > 1 else "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN", "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "PASS" if sustained else "INCOMPLETE" if soak else "NOT_RUN"}
+    if soak and (not sustained or any(coverage[k] != "PASS" for k in ("botFills", "spectator", "mapRotation"))):
+        incomplete.append("soak duration, load, bot, spectator or map-rotation coverage missing")
+    return {"status": "FAIL" if failures else "INCOMPLETE" if incomplete else "PASS", "coverage": coverage,
             "failures": failures, "incomplete": incomplete, "processes": processes,
             "observations": observations, "parity": parity}

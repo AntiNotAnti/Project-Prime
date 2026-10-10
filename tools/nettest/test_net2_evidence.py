@@ -30,6 +30,8 @@ class EvidenceTests(unittest.TestCase):
         self.client = copy.deepcopy(self.report)
         self.client["Shots"].append(dict(shot, Stage="offered"))
         self.client["Facts"].insert(0, dict(fact, Id=0, Tick=0, Baseline=True, Payload="BEEF"))
+        self.manifest = dict(settings=dict(players=1, seconds=3), assemblySha256="same", assemblyAfterSha256="same")
+        (self.out / "manifest.json").write_text(json.dumps(self.manifest))
         self.write()
 
     def write(self):
@@ -42,6 +44,26 @@ class EvidenceTests(unittest.TestCase):
 
     def test_complete_matching_run(self):
         self.assertEqual(self.result()["status"], "PASS")
+
+    def test_missing_identity_manifest_is_incomplete(self):
+        (self.out / "manifest.json").unlink()
+        self.assertEqual(self.result()["status"], "INCOMPLETE")
+
+    def test_soak_coverage_survives_readjudication(self):
+        self.manifest["settings"].update(players=8, seconds=1200, soak=True)
+        (self.out / "manifest.json").write_text(json.dumps(self.manifest))
+        self.processes[-1]["requestedSeconds"] = 1200
+        result = self.result()
+        self.assertEqual(result["coverage"]["sustained20Minutes"], "INCOMPLETE")
+        self.assertIn("soak duration, load, bot, spectator or map-rotation coverage missing", result["incomplete"])
+
+    def test_short_soak_cannot_satisfy_twenty_minutes(self):
+        self.manifest["settings"].update(players=8, seconds=3, soak=True)
+        (self.out / "manifest.json").write_text(json.dumps(self.manifest))
+        self.processes[-1]["requestedSeconds"] = 3
+        self.client["Windows"] = [dict(Seconds=3)]
+        self.write()
+        self.assertEqual(self.result()["coverage"]["sustained20Minutes"], "INCOMPLETE")
 
     def test_success_exit_cannot_hide_timeout(self):
         (self.out / "shooter.log").write_text("RESULT: PASS\npeer timed out\n")
