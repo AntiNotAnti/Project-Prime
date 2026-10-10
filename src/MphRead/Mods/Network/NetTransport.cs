@@ -23,15 +23,19 @@ namespace MphRead.Mods.Network
         internal readonly bool Pooled;
         public readonly ulong ConnectionId;
         public readonly uint Sequence;
+        internal readonly NetWireTelemetry? Wire;
+        internal readonly long WireArrivedAt;
 
         public ReceivedPacket(IPEndPoint sender, byte[] data, int length, long arrivedAt = 0,
-            bool pooled = false, ulong connectionId = 0, uint sequence = 0)
+            bool pooled = false, ulong connectionId = 0, uint sequence = 0, NetWireTelemetry? wire = null,
+            long wireArrivedAt = 0)
         {
             Sender = sender;
             Data = data;
             Length = length;
             ArrivedAt = arrivedAt == 0 ? Stopwatch.GetTimestamp() : arrivedAt;
-            Pooled = pooled; ConnectionId = connectionId; Sequence = sequence;
+            Pooled = pooled; ConnectionId = connectionId; Sequence = sequence; Wire = wire;
+            WireArrivedAt = wireArrivedAt == 0 ? ArrivedAt : wireArrivedAt;
         }
 
         public PacketType Type => Length > 0 ? (PacketType)Data[0] : default;
@@ -56,9 +60,10 @@ namespace MphRead.Mods.Network
     /// frame hitch. Bounded, because an unbounded queue converts a flood
     /// into unbounded memory growth instead of dropped packets.
     /// </summary>
-    public sealed class NetTransport : IDisposable
+    public sealed partial class NetTransport : IDisposable
     {
         public NetTransportTelemetry Telemetry { get; } = new();
+        public NetWireTelemetry Wire { get; } = new();
         // Connection state belongs to this transport. The socket worker and
         // simulation sender serialize access, including sequence allocation.
         private readonly object _connectionLock = new();
@@ -404,6 +409,8 @@ namespace MphRead.Mods.Network
                         int length = socket.ReceiveFrom(data, 0,
                             NetConfig.MaxPacketSize + 1, SocketFlags.None, ref remote);
                         Telemetry.Received(length);
+                        long arrivedAt = Stopwatch.GetTimestamp();
+                        RecordWireReceived(remote as IPEndPoint, data.AsSpan(0, length));
                         if (length == 0 || length > NetConfig.MaxPacketSize
                             || remote is not IPEndPoint sender)
                         {
@@ -416,12 +423,12 @@ namespace MphRead.Mods.Network
                             // processing. Duplicate entries share only immutable bytes.
                             byte[] heldCopy = data.AsSpan(0, length).ToArray();
                             lock (_heldLock) _heldIn.Enqueue(NowMilliseconds,
-                                new ReceivedPacket(sender, heldCopy, heldCopy.Length),
+                                new ReceivedPacket(sender, heldCopy, heldCopy.Length, arrivedAt),
                                 lossOverride: NetLag.LossPercent / 100);
                             _activity.Set();
                             continue;
                         }
-                        handedOff = AcceptDatagram(sender, data, length);
+                        handedOff = AcceptDatagram(sender, data, length, arrivedAt);
                     }
                     finally
                     {
@@ -441,7 +448,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private bool AcceptDatagram(IPEndPoint sender, byte[] data, int length)
+        private bool AcceptDatagram(IPEndPoint sender, byte[] data, int length, long arrivedAt)
         {
             // Admission and reliable acknowledgement are one transaction. A concurrent
             // socket/lag arrival must not consume the preflighted inbox slot.
@@ -449,7 +456,7 @@ namespace MphRead.Mods.Network
             bool accepted;
             int unwrappedLength = length;
             long stamp = EnterConnectionLock();
-            try { accepted = AcceptDatagramLocked(sender, data, ref unwrappedLength, out autoPong); }
+            try { accepted = AcceptDatagramLocked(sender, data, ref unwrappedLength, arrivedAt, out autoPong); }
             finally { ExitConnectionLock(stamp); }
             // Never enter Socket.SendTo while the connection monitor is owned.
             if (autoPong) Send(sender, PacketType.Pong,
@@ -457,7 +464,7 @@ namespace MphRead.Mods.Network
             return accepted;
         }
 
-        private bool AcceptDatagramLocked(IPEndPoint sender, byte[] data, ref int length,
+        private bool AcceptDatagramLocked(IPEndPoint sender, byte[] data, ref int length, long arrivedAt,
             out bool autoPong)
         {
             autoPong = false;
@@ -467,8 +474,12 @@ namespace MphRead.Mods.Network
                 autoPong = true;
                 return false;
             }
+            _connections.TryGetValue(sender, out var connection);
+            // Preserve application arrival semantics (including countdown timing).
+            // The diagnostic timestamp alone includes the injected receive hold.
             var packet = new ReceivedPacket(sender, data, length, pooled: true,
-                connectionId: header.ConnectionId, sequence: header.Sequence);
+                connectionId: header.ConnectionId, sequence: header.Sequence, wire: connection?.Wire,
+                wireArrivedAt: arrivedAt);
             if (TryCoalesceRealtimeState(packet))
             {
                 _activity.Set();
@@ -506,6 +517,7 @@ namespace MphRead.Mods.Network
                 {
                     Telemetry.Queue(_liveInbox.Count);
                     long started = Stopwatch.GetTimestamp();
+                    RecordDequeued(packet, started);
                     try { yield return packet; }
                     finally { Telemetry.Processed(Stopwatch.GetTimestamp() - started); packet.Release(); }
                 }
@@ -524,6 +536,7 @@ namespace MphRead.Mods.Network
                     if (latest.HasValue)
                     {
                         ReceivedPacket value = latest.Value;
+                        RecordDequeued(value, Stopwatch.GetTimestamp());
                         try { yield return value; }
                         finally { value.Release(); }
                     }
@@ -538,6 +551,7 @@ namespace MphRead.Mods.Network
                 if (snapshot.HasValue)
                 {
                     ReceivedPacket value = snapshot.Value;
+                    RecordDequeued(value, Stopwatch.GetTimestamp());
                     try { yield return value; }
                     finally { value.Release(); }
                 }
@@ -556,7 +570,7 @@ namespace MphRead.Mods.Network
                 try
                 {
                     packet.Data.AsSpan(0, packet.Length).CopyTo(copy);
-                    owned = AcceptDatagram(packet.Sender, copy, packet.Length);
+                    owned = AcceptDatagram(packet.Sender, copy, packet.Length, packet.ArrivedAt);
                 }
                 finally { if (!owned) ArrayPool<byte>.Shared.Return(copy); }
             }
@@ -969,11 +983,22 @@ namespace MphRead.Mods.Network
             try
             {
                 SocketAddress address;
+                NetWireTelemetry? peerWire;
                 long lockStamp = EnterConnectionLock();
-                try { address = _connections.TryGetValue(target, out var connection) ? connection.SendAddress : target.Serialize(); }
+                try
+                {
+                    _connections.TryGetValue(target, out var connection);
+                    address = connection?.SendAddress ?? target.Serialize();
+                    // A fault-delayed datagram can outlive an incarnation.
+                    // Never attribute its bytes to a replacement at this address.
+                    peerWire = connection != null && NetHeader.TryRead(datagram, out var header)
+                        && connection.Accepts(target, header) ? connection.Wire : null;
+                }
                 finally { ExitConnectionLock(lockStamp); }
                 socket.SendTo(datagram, SocketFlags.None, address);
                 Telemetry.Sent(datagram.Length);
+                Wire.Sent(datagram);
+                peerWire?.Sent(datagram);
                 Interlocked.Increment(ref TotalPacketsSent);
             }
             catch (SocketException)

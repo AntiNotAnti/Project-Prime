@@ -529,6 +529,7 @@ namespace MphRead.Mods.Network
                     if (now - lastStateBroadcast >= 1.0)
                     {
                         lastStateBroadcast = now;
+                        NetCampaignEvidence.Transport(_transport);
                         if (Telemetry.ProductionTelemetry.Enabled)
                         {
                             var sample = _transport.Telemetry.Capture();
@@ -773,6 +774,7 @@ namespace MphRead.Mods.Network
         private void Shutdown(ushort listenPort)
         {
             if (_sim != null) NetCampaignEvidence.ServerSegment(_sim, NetSession.ServerMatch?.RoomKey ?? "");
+            NetCampaignEvidence.Transport(_transport);
             NetCampaignEvidence.Write("server", _transport?.Telemetry.Capture(), _semanticSlowPeerDisconnects);
             foreach (var queued in _queuePeers.Values) _transport?.Send(queued.Endpoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
             _waitlist?.Clear();

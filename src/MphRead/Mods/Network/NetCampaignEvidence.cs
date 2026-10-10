@@ -27,6 +27,8 @@ internal static class NetCampaignEvidence
     private static readonly List<Fact> Facts = new();
     private static readonly List<Window> Windows = new();
     private static readonly List<object> ServerSegments = new();
+    private static readonly List<NetTransportBudgetSnapshot> TransportWindows = new();
+    private static readonly List<object> Readiness = new();
     private static readonly HashSet<ShotKey> Offered = new();
     private static readonly HashSet<ShotKey> Accepted = new();
     private static readonly long[] AliveFrames = new long[8];
@@ -46,6 +48,7 @@ internal static class NetCampaignEvidence
         bool Baseline, bool Award, uint AwardFrontier, string Payload);
     private sealed record Window(double Seconds, ulong Epoch, ushort Match, uint Frame, int LocalSlot,
         long Frames, long[] AliveFrames, NetTelemetrySnapshot Network, NetIntentSnapshot[] Intents,
+        NetInputAgeSnapshot[] InputAges,
         uint SemanticLatest, uint SemanticPresented, uint AwardLatest, uint AwardPresented,
         string Lifecycle, string Room, int BotMask, bool Spectating);
 
@@ -128,15 +131,36 @@ internal static class NetCampaignEvidence
 
     private static void CaptureWindow(long now)
     {
+        Transport(NetSession.EvidenceTransport);
         var semantic = NetSession.SemanticReceived;
         Add(Windows, new(Stopwatch.GetElapsedTime(_start, now).TotalSeconds,
             NetSession.AuthorityEpoch, NetSession.CurrentMatchId, NetSession.NetFrame,
             NetSession.LocalSlot, _frames, (long[])AliveFrames.Clone(), NetSession.CaptureTelemetry(),
             NetTelemetry.Session.Select(peer => peer.Capture()).ToArray(),
+            NetTelemetry.Session.Select(peer => peer.CaptureInputAge()).ToArray(),
             semantic.LatestEvent, semantic.PresentedEvent, semantic.LatestAward, semantic.PresentedAward,
             NetPlayerLifecycle.Describe(), NetSession.ServerMatch?.RoomKey ?? "",
             Enumerable.Range(0, 8).Aggregate(0, (mask, slot) => mask | (NetSession.SlotIsBot[slot] ? 1 << slot : 0)),
             SpectatorMode.IsSpectating));
+    }
+
+    internal static void Transport(NetTransport? transport)
+    {
+        if (!Enabled || transport == null) return;
+        // One report/second; supports the existing 30-minute maximum campaign.
+        // No per-packet history and no file I/O until process shutdown.
+        if (TransportWindows.Count < 2048) TransportWindows.Add(transport.CaptureBudget());
+        else _overflow++;
+    }
+
+    internal static void Ready(int slot, ushort generation, bool rejoining, bool lateJoin,
+        bool admitted, double admissionMs, double loadMs, double bootstrapMs)
+    {
+        if (!Enabled) return;
+        Add(Readiness, new { NetSession.AuthorityEpoch, NetSession.CurrentMatchId, Slot = slot,
+            Generation = generation, Rejoining = rejoining, LateJoin = lateJoin,
+            InitialAdmission = !admitted, AdmissionMilliseconds = admitted ? (double?)null : admissionMs,
+            LoadMilliseconds = loadMs, BootstrapMilliseconds = bootstrapMs < 0 ? (double?)null : bootstrapMs });
     }
 
     internal static void ServerSegment(ServerSim sim, string room)
@@ -177,7 +201,8 @@ internal static class NetCampaignEvidence
                 AllocatedBytes = GC.GetTotalAllocatedBytes() - AllocatedAtStart,
                 HeapBytes = GC.GetTotalMemory(false), WorkingSet = Environment.WorkingSet,
                 Transport = transport ?? NetSession.CaptureTelemetry().Transport,
-                Windows, ServerSegments, Shots, States, Facts };
+                AdmissionBudgets = NetTransport.AdmissionBudgets,
+                TransportWindows, Readiness, Windows, ServerSegments, Shots, States, Facts };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             JsonSerializer.Serialize(file, report);
             Console.WriteLine("[net2] evidence completed");

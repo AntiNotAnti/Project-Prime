@@ -10,6 +10,9 @@ internal static class QueueBudgetTests
     {
         try
         {
+            TransportBoundaryTests.Run();
+            NetArchitectureTests.Check(WireTelemetryTests.Run() == 0, "wire accounting and allocation checks");
+            ResultRecoveryTests.Run();
             var endpoint = new IPEndPoint(IPAddress.Loopback, 42);
             var queue = new NetPacketQueue();
             byte[] intent = { (byte)PacketType.Intent }, loaded = { (byte)PacketType.MatchLoaded }, chat = { (byte)PacketType.Chat };
