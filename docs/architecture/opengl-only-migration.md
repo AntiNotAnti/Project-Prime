@@ -64,6 +64,9 @@ dependencies until phase 2. The runtime policy refuses to select them.
   remaining directional-shadow composition keeps the gameplay scene and
   HUD compositor intact while no longer filling temporal history or binding
   deferred PBR textures. HDR tone-map shaders are not compiled for that path.
+- The shadow-only composite skips GPU work when the map/depth is unavailable.
+  Turning shadows off deletes the shadow framebuffer and up-to-4K depth/color
+  attachments rather than keeping their allocations for the rest of the match.
 - Existing retired effect storage/code remains only as compatibility scaffolding
   for a later physical-delete slice; its runtime processing is disabled.
 - This is a correctness and pass-count reduction, **not** a measured FPS gain.

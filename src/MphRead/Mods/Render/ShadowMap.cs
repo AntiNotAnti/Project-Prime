@@ -40,11 +40,22 @@ namespace MphRead
         private void RenderShadowMap()
         {
             _shadowReady = false;
-            if (Mods.RenderOptions.Shadows == Mods.ShadowQuality.Off || _shadowRefused
-                || _nonDecalItems.Count == 0)
+            if (Mods.RenderOptions.Shadows == Mods.ShadowQuality.Off)
             {
+                // Shadow quality is hot-reloadable from the in-game graphics
+                // page. Do not keep the previous 1024/2048/4096 depth and
+                // color attachments resident for the rest of the match after
+                // switching back to the native unshadowed renderer.
+                if (_shadowFramebuffer != 0 || _shadowDepthTexture != 0
+                    || _shadowColorTexture != 0)
+                    DisposeShadowMap();
+                // The user can explicitly retry an unsupported quality by
+                // turning shadows off and selecting a lower quality later.
+                _shadowRefused = false;
                 return;
             }
+            if (_shadowRefused || _nonDecalItems.Count == 0)
+                return;
 
             try
             {
