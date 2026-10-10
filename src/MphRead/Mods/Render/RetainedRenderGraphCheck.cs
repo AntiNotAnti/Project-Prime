@@ -22,6 +22,38 @@ namespace MphRead.Mods.Render
 
             Check(WorldRenderGraph.Validate(out string error),
                 "six-pass graph validates" + (error.Length == 0 ? "" : ": " + error));
+            var capabilityCache = new OpenGlScopedCapabilityCache();
+            Check(capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, true),
+                "outside-world GL state requests are always forwarded");
+            capabilityCache.Begin();
+            Check(capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, true)
+                && !capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, true)
+                && capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, false)
+                && !capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, false),
+                "world scoped capability cache removes only same-value requests");
+            capabilityCache.BeginList(12, OpenTK.Graphics.OpenGL.ListMode.Compile);
+            capabilityCache.EndList();
+            Check(!capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, false),
+                "pure mesh compilation does not mutate a graph's saved capability");
+            capabilityCache.CallList(12);
+            Check(!capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, false),
+                "known geometry-only display list preserves inferred world capability");
+            capabilityCache.BeginList(13, OpenTK.Graphics.OpenGL.ListMode.Compile);
+            capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, true);
+            capabilityCache.EndList();
+            capabilityCache.CallList(13);
+            Check(capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, false),
+                "capability-changing display list invalidates inferred state");
+            capabilityCache.CallList(99999);
+            Check(capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, false),
+                "untracked GL display list triggers conservative state invalidation");
+            capabilityCache.End();
+            capabilityCache.Begin();
+            Check(capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, false),
+                "new world graph starts with unknown driver capability state");
+            capabilityCache.End();
+            capabilityCache.ResetContext();
+
             Check(OpenGlSubmissionProfiler.PercentileIndex(100, 50) == 49
                 && OpenGlSubmissionProfiler.PercentileIndex(100, 95) == 94
                 && OpenGlSubmissionProfiler.PercentileIndex(100, 99) == 98

@@ -27,6 +27,7 @@ internal static class OpenGlSubmissionProfiler
     [ThreadStatic] private static int _programBinds;
     [ThreadStatic] private static int _framebufferBinds;
     [ThreadStatic] private static int _stateRequests;
+    [ThreadStatic] private static int _stateRequestsSkipped;
     [ThreadStatic] private static int _stencilRequests;
     [ThreadStatic] private static long[]? _windowTicks;
     [ThreadStatic] private static int _windowCount;
@@ -37,6 +38,7 @@ internal static class OpenGlSubmissionProfiler
     [ThreadStatic] private static long _sumFramebufferBinds;
     [ThreadStatic] private static long _sumStencilRequests;
     [ThreadStatic] private static long _sumStateRequests;
+    [ThreadStatic] private static long _sumStateRequestsSkipped;
     [ThreadStatic] private static long _sumPackets;
     [ThreadStatic] private static long _sumBatches;
     [ThreadStatic] private static long _sumSavedReplaySubmissions;
@@ -49,6 +51,13 @@ internal static class OpenGlSubmissionProfiler
         || Array.Exists(Environment.GetCommandLineArgs(), arg =>
             arg.Equals("-gllegacydepth", StringComparison.OrdinalIgnoreCase));
 
+    // Same build A/B: `-gllegacystate` or the environment setting disables
+    // scoped capability elision without disabling capture, sorting or telemetry.
+    internal static bool ForceLegacyStateRequests { get; } =
+        Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_FORCE_STATE_REQUESTS") == "1"
+        || Array.Exists(Environment.GetCommandLineArgs(), arg =>
+            arg.Equals("-gllegacystate", StringComparison.OrdinalIgnoreCase));
+
     internal static bool Enabled => _enabled;
 
     internal static bool BeginWorldGraph()
@@ -56,7 +65,7 @@ internal static class OpenGlSubmissionProfiler
         if (!_enabled || _active)
             return false;
         _lists = _immediate = _textureBinds = _programBinds = 0;
-        _framebufferBinds = _stateRequests = _stencilRequests = 0;
+        _framebufferBinds = _stateRequests = _stateRequestsSkipped = _stencilRequests = 0;
         _start = Stopwatch.GetTimestamp();
         _active = true;
         return true;
@@ -68,6 +77,7 @@ internal static class OpenGlSubmissionProfiler
     internal static void NoteProgramBind() { if (_active) _programBinds++; }
     internal static void NoteFramebufferBind() { if (_active) _framebufferBinds++; }
     internal static void NoteStateRequest() { if (_active) _stateRequests++; }
+    internal static void NoteStateRequestSkipped() { if (_active) _stateRequestsSkipped++; }
     internal static void NoteStencilFunc() { if (_active) _stencilRequests++; }
 
     internal static OpenGlWorldSubmissionSample EndWorldGraph(
@@ -90,6 +100,7 @@ internal static class OpenGlSubmissionProfiler
         _sumFramebufferBinds += _framebufferBinds;
         _sumStencilRequests += _stencilRequests;
         _sumStateRequests += _stateRequests;
+        _sumStateRequestsSkipped += _stateRequestsSkipped;
         _sumPackets += packets;
         _sumBatches += batches;
         _sumSavedReplaySubmissions += savedOpaqueReplaySubmissions;
@@ -102,6 +113,7 @@ internal static class OpenGlSubmissionProfiler
             double tickMs = 1000.0 / Stopwatch.Frequency;
             Console.WriteLine(
                 $"[glprofile] depth-mode={(ForceLegacyDepthReplay ? "original" : "optimized")}"
+                + $" state-mode={(ForceLegacyStateRequests ? "legacy" : "scoped")}"
                 + $" world CPU p50={sorted[PercentileIndex(Window, 50)] * tickMs:F3}ms"
                 + $" p95={sorted[PercentileIndex(Window, 95)] * tickMs:F3}ms"
                 + $" p99={sorted[PercentileIndex(Window, 99)] * tickMs:F3}ms"
@@ -112,13 +124,15 @@ internal static class OpenGlSubmissionProfiler
                 + $" avg-fbo={_sumFramebufferBinds / (double)Window:F1}"
                 + $" avg-stencil={_sumStencilRequests / (double)Window:F1}"
                 + $" avg-enableDisable={_sumStateRequests / (double)Window:F1}"
+                + $" avg-stateElided={_sumStateRequestsSkipped / (double)Window:F1}"
                 + $" avg-packets={_sumPackets / (double)Window:F1}"
                 + $" avg-batches={_sumBatches / (double)Window:F1}"
                 + $" depth-replay-item-submissions-saved={_sumSavedReplaySubmissions}");
             _windowCount = 0;
             _sumLists = _sumImmediate = _sumTextureBinds = 0;
             _sumProgramBinds = _sumFramebufferBinds = _sumStencilRequests = 0;
-            _sumStateRequests = _sumPackets = _sumBatches = _sumSavedReplaySubmissions = 0;
+            _sumStateRequests = _sumStateRequestsSkipped = _sumPackets
+                = _sumBatches = _sumSavedReplaySubmissions = 0;
         }
         return sample;
     }

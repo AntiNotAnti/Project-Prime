@@ -96,6 +96,7 @@ namespace MphRead.Mods.Render
         /// <summary>Drop every GL object this class owns. For a lost context.</summary>
         public static void Reset()
         {
+            GraphicsApi.ResetStateElisionForContext();
             _lists.Clear();
             _textures.Clear();
             _programLocs.Clear();
