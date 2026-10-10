@@ -73,6 +73,28 @@ dependencies until phase 2. The runtime policy refuses to select them.
   Validate map shadows, player/cel outlines, HUD, beams and focus/fullscreen,
   and compare p95/p99 frametimes before claiming an improvement.
 
+### Slice B: physical shader and GPU target retirement (PR #436)
+
+- Replaced the optional fullscreen post-FX shader with a dedicated
+  directional-shadow compositor. Existing light-space depth reconstruction,
+  3x3 PCF taps and native GL2.1/Android GLES3 shader variants remain.
+- Deleted the unused deferred-PBR scene, half-float HDR/tone-map program,
+  history/TAA and old AO/bloom/reflection/fog/grade shader definitions.
+- Eliminated stale PBR graph inputs and the obsolete cosmetic glow collector.
+  Gameplay beam visual effects and authored player cosmetics are unchanged.
+- Kept the shadow-only RGBA8 compositor framebuffer and texture attached
+  across frames. It resizes only when the presentation size changes, rather
+  than detaching/reacquiring pooled textures on each shadowed frame.
+- The compositor texture is deleted when shadows are disabled; the unshadowed
+  path goes directly through the original scene/HUD composite.
+- Added an OpenGL-only source guard and regression assertions for the
+  required shadow uniforms and absence of retired post-FX symbols.
+
+This slice is source/driver-state reduction only. CI validates compilation,
+GL2.1 shader linking and existing regressions, but real device screenshot
+parity and p95/p99 frametime measurements are still required before
+performance claims.
+
 ### Next slices
 
 

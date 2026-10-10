@@ -82,15 +82,9 @@ namespace MphRead.Mods.Diagnostics
         private static void CompileRendererShaders()
         {
             CompileProgram("world", Shaders.VertexShader, Shaders.FragmentShader);
-            CompileProgram("graphics post-process",
+            CompileProgram("directional shadow composite",
                 Render.GraphicsPipelineShader.VertexSource,
                 Render.GraphicsPipelineShader.FragmentSource);
-            CompileProgram("graphics HDR tone map",
-                Render.GraphicsToneMapShader.VertexSource,
-                Render.GraphicsToneMapShader.FragmentSource);
-            CompileProgram("deferred PBR G-buffer",
-                Render.DeferredPbrShader.VertexSource,
-                Render.DeferredPbrShader.FragmentSource);
         }
 
         private static void CompileProgram(string label, string vertexSource, string fragmentSource)

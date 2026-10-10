@@ -809,7 +809,6 @@ namespace MphRead
                     // Publish only after all attachments agree on the new size.
                     _targetSize = target;
                     _sceneColorFormat = SceneColorFormat;
-                    _graphicsHistoryValid = false;
                 }
                 finally
                 {
@@ -5494,7 +5493,6 @@ namespace MphRead
             if (Services?.IsReplica != true) Read.ClearCache();
             DisposePlayerOutlines();
             DisposeGraphicsPipeline();
-            DisposeDeferredPbr();
             DisposeShadowMap();
             DisposeFrameTransientTextures();
             // The cel target also owns a reference to _screenTexture. Release
