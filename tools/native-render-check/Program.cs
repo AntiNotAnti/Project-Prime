@@ -37,6 +37,7 @@ typeof(Scene).Assembly.GetType("MphRead.ConsoleSetup")!.GetMethod("Run")!.Invoke
 // child command assumes ProjectPrime's entry point, not this tool's entry point.
 GraphicsBackendPolicy.LoadPreference();
 Paths.UpdatePaths(); Paths.ChooseMphPath(); Paths.ChooseFhPath();
+MphRead.Mods.MapGen.CustomRooms.GenerateMissing(room);
 using var window = new CheckWindow(room, seconds, cap, shadows, shots, size);
 try
 {
