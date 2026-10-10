@@ -5620,7 +5620,8 @@ namespace MphRead
         }
 
         private void RenderItem(RenderItem item, bool applySharedState,
-            Mods.Render.RetainedMeshDescriptor? retainedMesh = null)
+            Mods.Render.RetainedMeshDescriptor? retainedMesh = null,
+            bool drawGeometry = true)
         {
             SetViewModelRenderState(item.ViewModel);
             UseLight1(item.LightInfo.Light1Vector, item.LightInfo.Light1Color);
@@ -5660,7 +5661,8 @@ namespace MphRead
                 ApplyRenderItemSharedState(item);
 
             GL.Color3(item.Diffuse);
-            DrawRenderItemGeometry(item, retainedMesh);
+            if (drawGeometry)
+                DrawRenderItemGeometry(item, retainedMesh);
         }
 
         private void ApplyRenderItemSharedState(RenderItem item)

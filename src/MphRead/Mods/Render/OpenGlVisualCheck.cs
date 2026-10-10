@@ -127,6 +127,20 @@ internal static class OpenGlVisualCheck
         return pixels;
     }
 
+    private static void CompileColorQuad(int id, float left, float right,
+        float red, float green)
+    {
+        GraphicsApi.RegisterRoomGeometryList(id);
+        GraphicsApi.NewList(id, ListMode.Compile);
+        try
+        {
+            GraphicsApi.Color3(red, green, 0f);
+            GraphicsApi.TexCoord3(0f, 0f, 0f);
+            DrawQuad(left, -.6f, right, .6f, 0f, red, green, 0f);
+        }
+        finally { GraphicsApi.EndList(); }
+    }
+
     private static void Render(string output)
     {
         int framebuffer = GraphicsApi.GenFramebuffer();
@@ -211,6 +225,42 @@ internal static class OpenGlVisualCheck
                 "stencil-masked pickup leaked through center");
             PixelIs(stencil, 20, 32, (r,g,b) => g > 245 && r < 10,
                 "stencil geometry outside mask must stay visible");
+
+            // The same geometry is drawn through native display lists in
+            // baseline mode, and a single merged indexed draw with
+            // -glvbo -glbatch. The A/B fixture comparator is pixel-exact.
+            ResetPass();
+            int firstList = GraphicsApi.GenLists(2);
+            try
+            {
+                CompileColorQuad(firstList, -.8f, 0f, 1f, 0f);
+                CompileColorQuad(firstList + 1, 0f, .8f, 0f, 1f);
+                if (DesktopRetainedGeometry.BatchEnabled)
+                {
+                    GraphicsApi.BeginScopedWorldStateElision();
+                    try
+                    {
+                        Require(GraphicsApi.TryDrawRetainedBatch(
+                            new[] { firstList, firstList + 1 }, 2),
+                            "static opaque geometry failed indexed batch promotion");
+                    }
+                    finally { GraphicsApi.EndScopedWorldStateElision(); }
+                }
+                else
+                {
+                    GraphicsApi.CallList(firstList);
+                    GraphicsApi.CallList(firstList + 1);
+                }
+                byte[] combined = Snapshot(output, "combined-opaque");
+                PixelIs(combined, 16, 32, (r,g,b) => r > 240 && g < 10,
+                    "left merged draw lost vertex color");
+                PixelIs(combined, 48, 32, (r,g,b) => g > 240 && r < 10,
+                    "right merged draw lost vertex color");
+            }
+            finally
+            {
+                GraphicsApi.DeleteLists(firstList, 2);
+            }
         }
         finally
         {

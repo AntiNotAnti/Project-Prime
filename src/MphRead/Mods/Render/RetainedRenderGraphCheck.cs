@@ -291,6 +291,22 @@ namespace MphRead.Mods.Render
                 && world.OpaqueSortRunCount == 1
                 && world.OpaqueReorderedPacketCount == 2,
                 "room-owned opaque safe run sorts by retained state");
+            sortableB.TextureBindingId = sortableA.TextureBindingId;
+            world.Capture(new List<RenderItem> { sortableA, sortableB },
+                Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+            Check(RetainedOpaqueBatchPolicy.CanMerge(world.Opaque[0], world.Opaque[1]),
+                "uniform-identical static opaque room packets qualify for one indexed draw");
+            sortableB.Transform = Matrix4.CreateTranslation(3f, 0f, 0f);
+            world.Capture(new List<RenderItem> { sortableA, sortableB },
+                Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+            Check(!RetainedOpaqueBatchPolicy.CanMerge(world.Opaque[0], world.Opaque[1]),
+                "different world transforms prevent combined opaque geometry");
+            sortableB.Transform = sortableA.Transform;
+            sortableB.RenderMode = RenderMode.Translucent;
+            world.Capture(new List<RenderItem> { sortableA, sortableB },
+                Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+            Check(!RetainedOpaqueBatchPolicy.CanMerge(world.Opaque[0], world.Opaque[1]),
+                "translucent/stencil packets are never combined");
 
             var opaqueBarrier = new RenderItem
             {
