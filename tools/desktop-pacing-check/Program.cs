@@ -53,23 +53,23 @@ Check(!DesktopFramePacing.MacVSyncIgnored(false, 120, 120, 189, false),
 
 Check(DesktopFramePacing.SoftwareFrequency(120, 144,
         displayPaced: false, modernPresentationBlocks: false,
-        linuxVSyncFallback: false) == 120,
+        displayVSyncFallback: false) == 120,
     "non-native cap uses software pacing when modern present is nonblocking");
 Check(DesktopFramePacing.SoftwareFrequency(-1, 144,
         displayPaced: false, modernPresentationBlocks: false,
-        linuxVSyncFallback: false) == 0,
+        displayVSyncFallback: false) == 0,
     "Unlimited leaves the OpenTK frame loop genuinely uncapped");
 Check(DesktopFramePacing.SoftwareFrequency(120, 144,
         displayPaced: false, modernPresentationBlocks: true,
-        linuxVSyncFallback: false) == 0,
+        displayVSyncFallback: false) == 0,
     "FIFO fallback never stacks a software cap on blocking presentation");
 Check(DesktopFramePacing.SoftwareFrequency(144, 144,
         displayPaced: true, modernPresentationBlocks: true,
-        linuxVSyncFallback: false) == 0,
+        displayVSyncFallback: false) == 0,
     "native cap has exactly one display pacing clock");
 Check(Math.Abs(DesktopFramePacing.SoftwareFrequency(0, 144,
         displayPaced: false, modernPresentationBlocks: false,
-        linuxVSyncFallback: true) - 144) < 0.001,
+        displayVSyncFallback: true) - 144) < 0.001,
     "Linux ignored-VSync fallback paces at monitor refresh");
 
 return failures == 0 ? 0 : 1;

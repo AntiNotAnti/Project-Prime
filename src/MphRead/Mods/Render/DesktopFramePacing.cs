@@ -45,9 +45,9 @@ internal static class DesktopFramePacing
     }
 
     internal static double SoftwareFrequency(int cap, double refreshRate,
-        bool displayPaced, bool modernPresentationBlocks, bool linuxVSyncFallback)
+        bool displayPaced, bool modernPresentationBlocks, bool displayVSyncFallback)
     {
-        if (linuxVSyncFallback)
+        if (displayVSyncFallback)
         {
             return refreshRate > 0 ? refreshRate : 0;
         }

@@ -41,5 +41,6 @@ against a baseline implementation into a separate output directory.
 
 For a quiet offline scene use `-players 1 -idle`. Add `-windowcycle` for a
 separate lifecycle run: fullscreen, restored window size, hide/show and focus
-recovery. This uses native window APIs and records focus events. It does not
+request. This uses native window APIs and records focus events. Actual focus
+loss and recovery require observed callbacks, beyond a successful hide/show. It does not
 prove OS keyboard Alt-Tab behavior and must not be included in benchmarks.

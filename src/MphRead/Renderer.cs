@@ -8784,8 +8784,8 @@ localCenter *= _profileHudScale;
 
         private int _appliedFrameRateCap = -1;
         private double _appliedMonitorRefreshRate = -1;
-        private bool _linuxVSyncFallback;
-        private bool _appliedLinuxVSyncFallback;
+        private bool _displayVSyncFallback;
+        private bool _appliedDisplayVSyncFallback;
         private long _presentationInputRevision = Mods.Input.GamepadContexts.Revision;
 
         private static unsafe double MonitorRefreshRate(NativeWindow window)
@@ -8823,34 +8823,34 @@ localCenter *= _profileHudScale;
                     > Mods.Render.DesktopFramePacing.NativeRefreshToleranceHz;
             if (sourceChanged)
             {
-                _linuxVSyncFallback = false;
+                _displayVSyncFallback = false;
             }
 
-            bool linuxFallback = Mods.Render.DesktopFramePacing.LinuxVSyncIgnored(
+            bool displayFallback = Mods.Render.DesktopFramePacing.LinuxVSyncIgnored(
                 OperatingSystem.IsLinux(), cap, refreshRate,
-                Mods.Render.FrameTiming.MeasuredFrameHz, _linuxVSyncFallback)
+                Mods.Render.FrameTiming.MeasuredFrameHz, _displayVSyncFallback)
                 || Mods.Render.DesktopFramePacing.MacVSyncIgnored(
                     OperatingSystem.IsMacOS(), cap, refreshRate,
-                    Mods.Render.FrameTiming.MeasuredFrameHz, _linuxVSyncFallback);
-            if (linuxFallback && !_linuxVSyncFallback)
+                    Mods.Render.FrameTiming.MeasuredFrameHz, _displayVSyncFallback);
+            if (displayFallback && !_displayVSyncFallback)
             {
                 Mods.DebugLog.Line("frametiming",
                     $"Display swap interval is not pacing the window "
                     + $"({Mods.Render.FrameTiming.MeasuredFrameHz:0.#} Hz on "
                     + $"{refreshRate:0.#} Hz); switching to software display pacing.");
             }
-            _linuxVSyncFallback = linuxFallback;
+            _displayVSyncFallback = displayFallback;
 
-            if (!sourceChanged && linuxFallback == _appliedLinuxVSyncFallback)
+            if (!sourceChanged && displayFallback == _appliedDisplayVSyncFallback)
             {
                 return;
             }
             _appliedFrameRateCap = cap;
             _appliedMonitorRefreshRate = refreshRate;
-            _appliedLinuxVSyncFallback = linuxFallback;
+            _appliedDisplayVSyncFallback = displayFallback;
 
             bool displayPaced = Mods.Render.DesktopFramePacing.UseDisplayPacing(cap, refreshRate);
-            if (linuxFallback)
+            if (displayFallback)
             {
                 // The two-second measurement proved swap interval ineffective.
                 // Stop asking the driver to pace and let one software deadline
@@ -8858,7 +8858,7 @@ localCenter *= _profileHudScale;
                 VSync = VSyncMode.Off;
                 UpdateFrequency = Mods.Render.DesktopFramePacing.SoftwareFrequency(
                     cap, refreshRate, displayPaced: false,
-                    modernPresentationBlocks: false, linuxVSyncFallback: true);
+                    modernPresentationBlocks: false, displayVSyncFallback: true);
             }
             else if (displayPaced)
             {
@@ -8870,7 +8870,7 @@ localCenter *= _profileHudScale;
                 VSync = VSyncMode.Off;
                 UpdateFrequency = Mods.Render.DesktopFramePacing.SoftwareFrequency(
                     cap, refreshRate, displayPaced: false,
-                    modernPresentationBlocks: false, linuxVSyncFallback: false);
+                    modernPresentationBlocks: false, displayVSyncFallback: false);
             }
         }
 
