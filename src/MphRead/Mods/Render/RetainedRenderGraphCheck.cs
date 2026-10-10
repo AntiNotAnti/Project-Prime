@@ -49,6 +49,37 @@ namespace MphRead.Mods.Render
                     processFrame: true, hidden: true, inRoomTransition: false,
                     legacy: false),
                 "per-render portal visibility refresh preserves tick-only audio and transition fallback");
+            var bindingCache = new OpenGlScopedBindingCache();
+            Check(bindingCache.ShouldActivateTexture(OpenTK.Graphics.OpenGL.TextureUnit.Texture0)
+                && bindingCache.ShouldBindTexture(
+                    OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, 19),
+                "binding cache forwards every request outside a world graph");
+            bindingCache.Begin();
+            Check(bindingCache.ShouldBindTexture(
+                    OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, 19)
+                && bindingCache.ShouldActivateTexture(OpenTK.Graphics.OpenGL.TextureUnit.Texture0)
+                && !bindingCache.ShouldActivateTexture(OpenTK.Graphics.OpenGL.TextureUnit.Texture0)
+                && bindingCache.ShouldBindTexture(
+                    OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, 19)
+                && !bindingCache.ShouldBindTexture(
+                    OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, 19)
+                && bindingCache.ShouldActivateTexture(OpenTK.Graphics.OpenGL.TextureUnit.Texture1)
+                && bindingCache.ShouldBindTexture(
+                    OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, 19),
+                "per-unit texture cache preserves unknown first binds and independent units");
+            Check(bindingCache.ShouldCullFace(OpenTK.Graphics.OpenGL.TriangleFace.Back)
+                && !bindingCache.ShouldCullFace(OpenTK.Graphics.OpenGL.TriangleFace.Back)
+                && bindingCache.ShouldLineWidth(1)
+                && !bindingCache.ShouldLineWidth(1),
+                "raster state cache elides only exact redundant values");
+            bindingCache.Invalidate();
+            Check(bindingCache.ShouldActivateTexture(OpenTK.Graphics.OpenGL.TextureUnit.Texture1)
+                && bindingCache.ShouldBindTexture(
+                    OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, 19),
+                "unknown display-list/attribute state invalidates texture inference");
+            bindingCache.End();
+            Check(bindingCache.ShouldCullFace(OpenTK.Graphics.OpenGL.TriangleFace.Back),
+                "binding state cache does not escape the world graph");
             var capabilityCache = new OpenGlScopedCapabilityCache();
             Check(capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, true),
                 "outside-world GL state requests are always forwarded");

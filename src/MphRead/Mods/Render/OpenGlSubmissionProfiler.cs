@@ -25,6 +25,9 @@ internal static class OpenGlSubmissionProfiler
     [ThreadStatic] private static int _vboDraws;
     [ThreadStatic] private static int _immediate;
     [ThreadStatic] private static int _textureBinds;
+    [ThreadStatic] private static int _textureBindsElided;
+    [ThreadStatic] private static int _textureUnitsElided;
+    [ThreadStatic] private static int _rasterStatesElided;
     [ThreadStatic] private static int _programBinds;
     [ThreadStatic] private static int _framebufferBinds;
     [ThreadStatic] private static int _stateRequests;
@@ -36,6 +39,9 @@ internal static class OpenGlSubmissionProfiler
     [ThreadStatic] private static long _sumVboDraws;
     [ThreadStatic] private static long _sumImmediate;
     [ThreadStatic] private static long _sumTextureBinds;
+    [ThreadStatic] private static long _sumTextureBindsElided;
+    [ThreadStatic] private static long _sumTextureUnitsElided;
+    [ThreadStatic] private static long _sumRasterStatesElided;
     [ThreadStatic] private static long _sumProgramBinds;
     [ThreadStatic] private static long _sumFramebufferBinds;
     [ThreadStatic] private static long _sumStencilRequests;
@@ -67,6 +73,7 @@ internal static class OpenGlSubmissionProfiler
         if (!_enabled || _active)
             return false;
         _lists = _vboDraws = _immediate = _textureBinds = _programBinds = 0;
+        _textureBindsElided = _textureUnitsElided = _rasterStatesElided = 0;
         _framebufferBinds = _stateRequests = _stateRequestsSkipped = _stencilRequests = 0;
         _start = Stopwatch.GetTimestamp();
         _active = true;
@@ -77,6 +84,9 @@ internal static class OpenGlSubmissionProfiler
     internal static void NoteVboDraw() { if (_active) _vboDraws++; }
     internal static void NoteImmediateBegin() { if (_active) _immediate++; }
     internal static void NoteTextureBind() { if (_active) _textureBinds++; }
+    internal static void NoteTextureBindElided() { if (_active) _textureBindsElided++; }
+    internal static void NoteTextureUnitElided() { if (_active) _textureUnitsElided++; }
+    internal static void NoteRasterStateElided() { if (_active) _rasterStatesElided++; }
     internal static void NoteProgramBind() { if (_active) _programBinds++; }
     internal static void NoteFramebufferBind() { if (_active) _framebufferBinds++; }
     internal static void NoteStateRequest() { if (_active) _stateRequests++; }
@@ -100,6 +110,9 @@ internal static class OpenGlSubmissionProfiler
         _sumVboDraws += _vboDraws;
         _sumImmediate += _immediate;
         _sumTextureBinds += _textureBinds;
+        _sumTextureBindsElided += _textureBindsElided;
+        _sumTextureUnitsElided += _textureUnitsElided;
+        _sumRasterStatesElided += _rasterStatesElided;
         _sumProgramBinds += _programBinds;
         _sumFramebufferBinds += _framebufferBinds;
         _sumStencilRequests += _stencilRequests;
@@ -125,6 +138,9 @@ internal static class OpenGlSubmissionProfiler
                 + $" avg-vboDraws={_sumVboDraws / (double)Window:F1}"
                 + $" avg-immediate={_sumImmediate / (double)Window:F1}"
                 + $" avg-texbind={_sumTextureBinds / (double)Window:F1}"
+                + $" avg-texbindElided={_sumTextureBindsElided / (double)Window:F1}"
+                + $" avg-texUnitElided={_sumTextureUnitsElided / (double)Window:F1}"
+                + $" avg-rasterElided={_sumRasterStatesElided / (double)Window:F1}"
                 + $" avg-program={_sumProgramBinds / (double)Window:F1}"
                 + $" avg-fbo={_sumFramebufferBinds / (double)Window:F1}"
                 + $" avg-stencil={_sumStencilRequests / (double)Window:F1}"
@@ -135,6 +151,8 @@ internal static class OpenGlSubmissionProfiler
                 + $" depth-replay-item-submissions-saved={_sumSavedReplaySubmissions}");
             _windowCount = 0;
             _sumLists = _sumVboDraws = _sumImmediate = _sumTextureBinds = 0;
+            _sumTextureBindsElided = _sumTextureUnitsElided
+                = _sumRasterStatesElided = 0;
             _sumProgramBinds = _sumFramebufferBinds = _sumStencilRequests = 0;
             _sumStateRequests = _sumStateRequestsSkipped = _sumPackets
                 = _sumBatches = _sumSavedReplaySubmissions = 0;

@@ -19,13 +19,18 @@ namespace MphRead.Mods.Render
     internal static class GraphicsApi
     {
         [ThreadStatic] private static OpenGlScopedCapabilityCache? _capabilityCache;
+        [ThreadStatic] private static OpenGlScopedBindingCache? _bindingCache;
         private static OpenGlScopedCapabilityCache CapabilityCache =>
             _capabilityCache ??= new OpenGlScopedCapabilityCache();
+        private static OpenGlScopedBindingCache BindingCache =>
+            _bindingCache ??= new OpenGlScopedBindingCache();
 
         internal static void BeginScopedWorldStateElision()
         {
             if (!OpenGlSubmissionProfiler.ForceLegacyStateRequests)
                 CapabilityCache.Begin();
+            if (OpenGlScopedBindingCache.Enabled)
+                BindingCache.Begin();
 #if !ANDROID
             DesktopRetainedGeometry.BeginWorldScope();
 #endif
@@ -34,13 +39,17 @@ namespace MphRead.Mods.Render
         internal static void EndScopedWorldStateElision()
         {
             _capabilityCache?.End();
+            _bindingCache?.End();
 #if !ANDROID
             DesktopRetainedGeometry.EndWorldScope();
 #endif
         }
 
-        internal static void ResetStateElisionForContext() =>
+        internal static void ResetStateElisionForContext()
+        {
             _capabilityCache?.ResetContext();
+            _bindingCache?.ResetContext();
+        }
 
 #if !ANDROID
         private static readonly LegacyGlUniformCache _legacyUniforms = new();
@@ -170,6 +179,7 @@ namespace MphRead.Mods.Render
         }
         public static void NewList(int list, ListMode mode)
         {
+            _bindingCache?.Invalidate();
             CapabilityCache.BeginList(list, mode);
 #if !ANDROID
             DesktopRetainedGeometry.NewList(list, mode);
@@ -179,6 +189,7 @@ namespace MphRead.Mods.Render
         public static void EndList()
         {
             DesktopGL.EndList();
+            _bindingCache?.Invalidate();
 #if !ANDROID
             DesktopRetainedGeometry.EndList();
 #endif
@@ -186,6 +197,10 @@ namespace MphRead.Mods.Render
         }
         public static void CallList(int list)
         {
+            if (_bindingCache != null && _bindingCache.Active
+                && (_capabilityCache == null
+                    || !_capabilityCache.IsGeometryOnlyList(list)))
+                _bindingCache.Invalidate();
             _capabilityCache?.CallList(list);
 #if !ANDROID
             if (DesktopRetainedGeometry.TryDraw(list))
@@ -199,6 +214,7 @@ namespace MphRead.Mods.Render
         }
         public static void DeleteLists(int list, int range)
         {
+            _bindingCache?.Invalidate();
             DesktopGL.DeleteLists(list, range);
 #if !ANDROID
             DesktopRetainedGeometry.DeleteLists(list, range);
@@ -207,14 +223,31 @@ namespace MphRead.Mods.Render
         }
 
         public static int GenTexture() => DesktopGL.GenTexture();
-        public static void DeleteTexture(int texture) { DesktopGL.DeleteTexture(texture); }
+        public static void DeleteTexture(int texture)
+        {
+            _bindingCache?.DeleteTexture(texture);
+            DesktopGL.DeleteTexture(texture);
+        }
         public static bool IsTexture(int texture) => DesktopGL.IsTexture(texture);
         public static void BindTexture(TextureTarget target, int texture)
         {
             OpenGlSubmissionProfiler.NoteTextureBind();
+            if (_bindingCache != null && !_bindingCache.ShouldBindTexture(target, texture))
+            {
+                OpenGlSubmissionProfiler.NoteTextureBindElided();
+                return;
+            }
             DesktopGL.BindTexture(target, texture);
         }
-        public static void ActiveTexture(TextureUnit unit) { DesktopGL.ActiveTexture(unit); }
+        public static void ActiveTexture(TextureUnit unit)
+        {
+            if (_bindingCache != null && !_bindingCache.ShouldActivateTexture(unit))
+            {
+                OpenGlSubmissionProfiler.NoteTextureUnitElided();
+                return;
+            }
+            DesktopGL.ActiveTexture(unit);
+        }
         public static void TexParameter(TextureTarget target, TextureParameterName name, int value)
         { DesktopGL.TexParameter(target, name, value); }
         public static void TexEnv(TextureEnvTarget target, TextureEnvParameter name, int value)
@@ -463,8 +496,23 @@ namespace MphRead.Mods.Render
         public static bool IsEnabled(EnableCap cap) => DesktopGL.IsEnabled(cap);
         public static void AlphaFunc(AlphaFunction function, float reference) { DesktopGL.AlphaFunc(function, reference); }
         public static void PolygonMode(TriangleFace face, OpenTK.Graphics.OpenGL.PolygonMode mode)
-        { DesktopGL.PolygonMode(face, mode); }
-        public static void LineWidth(float width) { DesktopGL.LineWidth(width); }
+        {
+            if (_bindingCache != null && !_bindingCache.ShouldPolygonMode(face, mode))
+            {
+                OpenGlSubmissionProfiler.NoteRasterStateElided();
+                return;
+            }
+            DesktopGL.PolygonMode(face, mode);
+        }
+        public static void LineWidth(float width)
+        {
+            if (_bindingCache != null && !_bindingCache.ShouldLineWidth(width))
+            {
+                OpenGlSubmissionProfiler.NoteRasterStateElided();
+                return;
+            }
+            DesktopGL.LineWidth(width);
+        }
         public static void Clear(ClearBufferMask mask) { DesktopGL.Clear(mask); }
         public static void ClearColor(Color4 color) { DesktopGL.ClearColor(color); }
         public static void ClearColor(float red, float green, float blue, float alpha) { DesktopGL.ClearColor(red, green, blue, alpha); }
@@ -472,7 +520,15 @@ namespace MphRead.Mods.Render
         public static void ColorMask(bool red, bool green, bool blue, bool alpha) { DesktopGL.ColorMask(red, green, blue, alpha); }
         public static void DepthMask(bool enabled) { DesktopGL.DepthMask(enabled); }
         public static void DepthFunc(DepthFunction function) { DesktopGL.DepthFunc(function); }
-        public static void CullFace(TriangleFace face) { DesktopGL.CullFace(face); }
+        public static void CullFace(TriangleFace face)
+        {
+            if (_bindingCache != null && !_bindingCache.ShouldCullFace(face))
+            {
+                OpenGlSubmissionProfiler.NoteRasterStateElided();
+                return;
+            }
+            DesktopGL.CullFace(face);
+        }
         public static void BlendFunc(BlendingFactor source, BlendingFactor destination) { DesktopGL.BlendFunc(source, destination); }
         public static void BlendEquation(BlendEquationMode mode) { DesktopGL.BlendEquation(mode); }
         public static void StencilFunc(StencilFunction function, int reference, int mask)
@@ -512,12 +568,14 @@ namespace MphRead.Mods.Render
         public static void PushAttrib(AttribMask mask)
         {
             _capabilityCache?.Invalidate();
+            _bindingCache?.Invalidate();
             DesktopGL.PushAttrib(mask);
         }
         public static void PopAttrib()
         {
             DesktopGL.PopAttrib();
             _capabilityCache?.Invalidate();
+            _bindingCache?.Invalidate();
         }
     }
 }

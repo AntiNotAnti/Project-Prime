@@ -18,6 +18,7 @@ internal sealed class OpenGlScopedCapabilityCache
     private int _compilingList;
     private bool _compilingListHasState;
     internal bool Active { get; private set; }
+    internal bool IsGeometryOnlyList(int list) => _geometryOnlyLists.Contains(list);
 
     internal void Begin()
     {
