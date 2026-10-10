@@ -12,9 +12,6 @@ namespace MphRead.Mods.Render
         SceneDepth = 2,
         SceneStencil = 4,
         ShadowDepth = 8,
-        PbrAlbedo = 16,
-        PbrNormal = 32,
-        PbrMaterial = 64,
         ProcessedScene = 128,
         Output = 256
     }
@@ -67,10 +64,7 @@ namespace MphRead.Mods.Render
             new(FrameRenderPassKind.PostProcess, "frame.post",
                 FrameRenderResource.SceneColor
                     | FrameRenderResource.SceneDepth
-                    | FrameRenderResource.ShadowDepth
-                    | FrameRenderResource.PbrAlbedo
-                    | FrameRenderResource.PbrNormal
-                    | FrameRenderResource.PbrMaterial,
+                    | FrameRenderResource.ShadowDepth,
                 FrameRenderResource.ProcessedScene),
             new(FrameRenderPassKind.Composite, "frame.composite",
                 FrameRenderResource.SceneColor | FrameRenderResource.ProcessedScene,

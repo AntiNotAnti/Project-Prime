@@ -5494,7 +5494,6 @@ namespace MphRead
             if (Services?.IsReplica != true) Read.ClearCache();
             DisposePlayerOutlines();
             DisposeGraphicsPipeline();
-            DisposeDeferredPbr();
             DisposeShadowMap();
             DisposeFrameTransientTextures();
             // The cel target also owns a reference to _screenTexture. Release
