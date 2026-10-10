@@ -93,3 +93,27 @@ queries, and **independent real-game visual acceptance** to become
 *eligible for review*. Default enablement is **not automatic**, and GL2.1
 without timer query remains unverified until alternative GPU evidence is
 provided. Run the asset-free gate's unit tests in CI.
+
+## Phase 4D: actual static room draw-call reduction (opt-in)
+
+`-glvbo -glbatch` (or `PROJECT_PRIME_GL_VBO=1` and
+`PROJECT_PRIME_GL_BATCH=1`) combines **only adjacent safe opaque
+room packets with identical frame-local shader/material state** into
+one indexed draw. This is more than a material-state cache:
+CPU vertex/index arrays from eligible room display-list compilation are
+assembled once into a bounded (64 MiB) per-GL-context combined buffer,
+and subsequent frames use a single `glDrawElements`.
+
+Hard exclusions: decals, alpha/translucency, stencil-sensitive geometry,
+players/viewmodels, billboards, other dynamic packets, material overrides,
+mixed vertex attribute layouts, differing transforms, lights, matrix
+palettes or emissive intensities. Any unsupported/failed atlas build
+falls back to the original ordered packets without altering their state.
+List deletion, map unload, and context reset invalidate combined buffers.
+
+`-gllegacylist` restores native display lists even when `-glbatch` is
+requested. `-glprofile` reports actual combined draws and avoided
+per-mesh submissions; those counts alone do **not** prove lower frame
+latency. Validate lifetime, VRAM high water, GL2.1 client-state restore,
+3D texture coordinates, RGB/alpha, stencil parity and actual p95/p99
+before turning on E/F/D by default. Batched submission is OFF by default.
