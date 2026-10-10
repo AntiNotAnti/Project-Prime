@@ -22,14 +22,35 @@ internal static class OpenGlGpuProfiler
                 a.Equals("-glgpu", StringComparison.OrdinalIgnoreCase)));
 
     [ThreadStatic] private static QueryRing? _ring;
+    [ThreadStatic] private static bool _failed;
 
-    internal static void ResetContext() => _ring = null;
+    internal static void ResetContext()
+    {
+        _ring = null;
+        _failed = false;
+    }
     internal static void BeginWorld()
     {
-        if (!_requested) return;
-        (_ring ??= new QueryRing()).Begin();
+        if (!_requested || _failed) return;
+        try { (_ring ??= new QueryRing()).Begin(); }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            _failed = true;
+            Console.WriteLine("[glgpu] query polling failed, disabling timing: "
+                + ex.GetType().Name);
+        }
     }
-    internal static void EndWorld() => _ring?.End();
+    internal static void EndWorld()
+    {
+        if (_failed) return;
+        try { _ring?.End(); }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            _failed = true;
+            Console.WriteLine("[glgpu] query completion failed, disabling timing: "
+                + ex.GetType().Name);
+        }
+    }
 
     private sealed class QueryRing
     {
@@ -37,7 +58,6 @@ internal static class OpenGlGpuProfiler
         private readonly double[] _samples = new double[Window];
         private int _read, _write, _pending, _sampleCount, _dropped;
         private bool _probed, _supported, _active;
-        private long _lastWarningFrame;
 
         private static bool HasTimerExtension()
         {
