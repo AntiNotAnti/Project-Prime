@@ -3,7 +3,8 @@
 N0 follows the October 10 implementation plan against main
 `468bbbf027148ce94901dfa8bf138d16a4498c03`. That commit descends from the restored
 v0.1.47 baseline `0351ef6f707ab0369c95d8d4185869f6e02622f8`. No code from PRs
-#410–#423 is incorporated. N0 adds evidence and test drivers; protocol remains
+#410–#423 is incorporated. N0 adds evidence, test drivers and the bounded delivery fixes described in the
+[follow-up validation](netcode2-n0-reliability-fix.md); protocol remains
 **41**, with unchanged live packet and replay encodings, combat authority,
 movement authority, renderer, and settings UI.
 
@@ -39,7 +40,8 @@ accepted by the simulation, not every UDP datagram received. CPU percentiles
 come from the existing server histogram (0.01 ms bins, overflow reported using
 the observed worst value). They include startup and transitions in each segment.
 
-Each evidence stream and its dedup set is capped at 262,144 rows. An overflow is
+Each evidence stream and its dedup set is capped at 262,144 rows (1,048,576
+when the soak flag is also set). An overflow is
 reported and **fails** adjudication. No file writes occur in the simulation
 hooks. The report is written once at shutdown; a crash or interrupted write is
 missing/incomplete evidence. The opt-in test server can stop gracefully when
@@ -134,16 +136,18 @@ invalid life; rejections are not automatically treated as gameplay corruption.
 | Existing source | N0 observation/test addition |
 | --- | --- |
 | `NetSession.SendIntent` / `AcceptSlotIntent` | Offered/accepted canonical fire-event identities |
-| `NetFireEvents.Commit` | Successful logical commit in each live simulation |
+| `NetFireEvents.Commit` / `Prepare` | Successful logical commit and explicit continuous-phase skip in each live simulation |
 | `ReplayCapture.AcceptedState` | Raw authoritative health/event sample with authority frame |
 | `DedicatedServerSemantic` / `NetSessionSemantic` | Published/accepted exact semantic facts |
 | `ReplayCapture.AfterSimulation` | Bounded time windows and persistent error observations |
 | `ServerSim.Stop` / dedicated shutdown | Per-map step distributions and final process evidence |
-| Existing `HitRig`, lobby commands, spectator controls | Explicitly opt-in sustained workload |
+| Existing `HitRig`, authority bot lifecycle, spectator controls | Explicitly opt-in sustained workload |
+| `NetDatagram` / `NetTransport` | Bounded server-fact admission and pending close ACK retention |
 | `tools/nettest/run-net2.py` / `net2_evidence.py` | Isolated independent processes and offline adjudication |
 
-Rollback is to leave both `PRIME_NET2_*` environment variables unset, or revert
-the N0 commits. There is no wire migration or saved-profile migration. Preserve
+Leaving both `PRIME_NET2_*` environment variables unset disables the evidence
+and test drivers. The production delivery repair is enabled independently;
+revert `4e38efe2` to roll back that behavior, or revert the N0 slice as a whole. There is no wire migration or saved-profile migration. Preserve
 all original attempts before any subsequent fixes. N1 and later dependent slices
 remain blocked until the baseline defects and unresolved acceptance gates in the
 evidence ledger are reviewed.
