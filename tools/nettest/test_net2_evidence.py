@@ -57,6 +57,20 @@ class EvidenceTests(unittest.TestCase):
         self.processes[-1]["timedOut"] = True
         self.assertEqual(self.result()["status"], "FAIL")
 
+    def test_successful_but_unexpected_server_exit(self):
+        self.processes[0]["unexpectedExit"] = True
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_missing_expected_participants(self):
+        (self.out / "manifest.json").write_text(json.dumps(dict(settings=dict(players=8),
+            assemblySha256="same", assemblyAfterSha256="same")))
+        self.assertEqual(self.result()["status"], "INCOMPLETE")
+
+    def test_runner_failure_survives_readjudication(self):
+        (self.out / "manifest.json").write_text(json.dumps(dict(settings=dict(players=1),
+            assemblySha256="same", assemblyAfterSha256="same", runnerError="startup failed")))
+        self.assertEqual(self.result()["status"], "FAIL")
+
     def test_silent_reconnect_is_a_failure(self):
         (self.out / "shooter.log").write_text("[net] no word from the server; re-announcing (#1)\nRESULT: PASS")
         self.assertEqual(self.result()["status"], "FAIL")

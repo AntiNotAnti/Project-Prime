@@ -27,9 +27,23 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
     """FAIL outranks missing evidence. No process count/exit-code-only green path."""
     out = Path(out)
     failures, incomplete, reports, observations = [], [], {}, {}
+    if len(processes) < 2 or not any(p["name"] == "server" for p in processes):
+        incomplete.append("no server/client campaign")
+    if (out / "manifest.json").exists():
+        try:
+            manifest = json.loads((out / "manifest.json").read_text())
+            expected = manifest["settings"]["players"] + 1 + bool(manifest["settings"].get("soak"))
+            if len(processes) != expected:
+                incomplete.append(f"expected {expected} processes, received {len(processes)}")
+            if manifest.get("runnerError"):
+                failures.append("runner: " + manifest["runnerError"])
+            if manifest["assemblySha256"] != manifest["assemblyAfterSha256"]:
+                failures.append("running assembly changed")
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            incomplete.append(f"missing/malformed run manifest ({error})")
     for process in processes:
         name = process["name"]
-        if process.get("timedOut") or process.get("exit") != 0:
+        if process.get("timedOut") or process.get("unexpectedExit") or process.get("exit") != 0:
             failures.append(f"{name}: exit={process.get('exit')} timeout={process.get('timedOut')}")
         logs = [out / f"{name}.log", *(out / name).glob("**/*.txt")]
         for log in logs:
@@ -157,6 +171,7 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 "uncommittedKeys": [list(k) for k in sorted(missing_committed)[:32]],
                 "matchingSemanticFacts": matching_facts,
                 "viewExpectedCommits": len(expected_commits), "viewMissingCommits": len(unobserved),
+                "viewMissingKeys": [list(key) for key in sorted(unobserved)[:32]],
                 "viewTailExcludedFrames": 30,
                 "semanticExpected": semantic_expected, "semanticMissing": semantic_missing,
                 "semanticConflicts": semantic_conflicts, "semanticTailExcludedFrames": 60,
