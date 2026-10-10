@@ -1,0 +1,5449 @@
+{
+  "date": "2026-10-10",
+  "status": "BLOCKED",
+  "controlSource": "468bbbf027148ce94901dfa8bf138d16a4498c03",
+  "finalCsharpSource": "2c62508161a9328eae756e130a13a9d4ce068685",
+  "finalPythonSource": "41ce03959fc312ae392e3588f80bad4ef11608e4",
+  "protocol": 41,
+  "testHosts": [
+    "macOS 27 arm64 .NET 10.0.12 SDK 10.0.401 Python 3.9",
+    "Windows 10.0.26200 x64 .NET 10.0.12 SDK 10.0.400 Python 3.14.2"
+  ],
+  "harnessTests": {
+    "Mac": 30,
+    "Windows": 30
+  },
+  "ci": "NOT_RUN: Mac/Windows-only request",
+  "cases": [
+    {
+      "attempt": "mac-control-8-shock",
+      "source": "468bbbf027148ce94901dfa8bf138d16a4498c03",
+      "settings": {
+        "source": "468bbbf0",
+        "players": 8,
+        "seconds": 60.0,
+        "port": 27993,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "shockcoil-all",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "engineSha256": "288de6d894b207fa220fd6ee21a20201286845a603baa44bf7d658f7e00db602",
+      "engineAfterSha256": "288de6d894b207fa220fd6ee21a20201286845a603baa44bf7d658f7e00db602",
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "harnessSha256": {
+        "run-net2.py": "62cdc544957fe8fc3cef46a581d55f8ce49085e9faa79fbd49291c57dbdde267",
+        "net2_evidence.py": "0abfe79c81980412e6e11b0791562cba902cc3aaedb37250cb77ae83011604b6"
+      },
+      "elapsedSeconds": 86.258926958,
+      "status": "FAIL",
+      "failures": [
+        "server: exit=0 timeout=True",
+        "server: reliable control failed in server/logs/ProjectPrime-20261010-140550-17302-native.txt",
+        "peer-0: no word from the server in peer-0.log",
+        "peer-0: re-announcing in peer-0/netlog-peer_0.txt",
+        "peer-1: no word from the server in peer-1.log",
+        "peer-1: timeout in peer-1/netlog-peer_1.txt",
+        "peer-2: no word from the server in peer-2.log",
+        "peer-2: timeout in peer-2/netlog-peer_2.txt",
+        "peer-3: no word from the server in peer-3.log",
+        "peer-3: re-announcing in peer-3/netlog-peer_3.txt",
+        "peer-4: no word from the server in peer-4.log",
+        "peer-4: timeout in peer-4/netlog-peer_4.txt",
+        "peer-5: no word from the server in peer-5.log",
+        "peer-5: re-announcing in peer-5/netlog-peer_5.txt",
+        "peer-6: no word from the server in peer-6.log",
+        "peer-6: re-announcing in peer-6/netlog-peer_6.txt",
+        "peer-7: no word from the server in peer-7.log",
+        "peer-7: timeout in peer-7/netlog-peer_7.txt"
+      ],
+      "incomplete": [
+        "server: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/mac-control-8-shock/server.json')",
+        "peer-0: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/mac-control-8-shock/peer-0.json')",
+        "peer-1: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/mac-control-8-shock/peer-1.json')",
+        "peer-2: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/mac-control-8-shock/peer-2.json')",
+        "peer-3: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/mac-control-8-shock/peer-3.json')",
+        "peer-4: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/mac-control-8-shock/peer-4.json')",
+        "peer-5: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/mac-control-8-shock/peer-5.json')",
+        "peer-6: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/mac-control-8-shock/peer-6.json')",
+        "peer-7: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/mac-control-8-shock/peer-7.json')",
+        "not every independent process supplied valid evidence"
+      ],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN"
+      },
+      "totals": {
+        "offeredShots": 0,
+        "acceptedShots": 0,
+        "committedShots": 0,
+        "healthSamplesCompared": 0,
+        "healthMismatches": 0,
+        "viewMissingCommits": 0,
+        "semanticMissing": 0
+      },
+      "parity": {},
+      "observations": {},
+      "rawFiles": {
+        "summary.json": {
+          "sha256": "0f80b56ba3a7a9cfcb2b9ce3de20226405c3d3eeed7a7f982a514cea92279a45",
+          "bytes": 5484
+        },
+        "manifest.json": {
+          "sha256": "1559bd73a1f0e94cf6623402fa91c9a6a422f1a51f66e4f22b615b2aeb9b4318",
+          "bytes": 15171
+        },
+        "adjudicated-final.json": {
+          "sha256": "7e3791608402c84a71d2fb59e1f242df3dcf100ab3b0a5a899cacecb9557eb9f",
+          "bytes": 4745
+        }
+      }
+    },
+    {
+      "attempt": "mac-candidate-2-missile",
+      "source": "2c62508161a9328eae756e130a13a9d4ce068685",
+      "settings": {
+        "source": "2c625081",
+        "players": 2,
+        "seconds": 60.0,
+        "port": 27993,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "engineSha256": "2a43c936057cc9aac380e1d0fc47b9c6a766af4a84d5eaee742d20dc1f6c15c9",
+      "engineAfterSha256": "2a43c936057cc9aac380e1d0fc47b9c6a766af4a84d5eaee742d20dc1f6c15c9",
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "harnessSha256": {
+        "run-net2.py": "62cdc544957fe8fc3cef46a581d55f8ce49085e9faa79fbd49291c57dbdde267",
+        "net2_evidence.py": "0abfe79c81980412e6e11b0791562cba902cc3aaedb37250cb77ae83011604b6"
+      },
+      "elapsedSeconds": 65.885029375,
+      "status": "FAIL",
+      "failures": [
+        "peer-0: timeout in peer-0/netlog-peer_0.txt",
+        "peer-1: timeout in peer-1/netlog-peer_1.txt"
+      ],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN"
+      },
+      "totals": {
+        "offeredShots": 66,
+        "acceptedShots": 66,
+        "committedShots": 66,
+        "healthSamplesCompared": 2393,
+        "healthMismatches": 0,
+        "viewMissingCommits": 0,
+        "semanticMissing": 0
+      },
+      "parity": {
+        "peer-0": {
+          "healthSamplesCompared": 1196,
+          "healthMismatches": 0,
+          "offeredShots": 66,
+          "acceptedShots": 66,
+          "committedShots": 66,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 75,
+          "viewExpectedCommits": 65,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 74,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": []
+        },
+        "peer-1": {
+          "healthSamplesCompared": 1197,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 75,
+          "viewExpectedCommits": 65,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 74,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": []
+        }
+      },
+      "observations": {
+        "server": {
+          "Frames": 3630,
+          "AliveFrames": [
+            3081,
+            3450,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 0,
+          "AcceptedCarriers": 7197,
+          "AllocatedBytes": 4262246112,
+          "HeapBytes": 46505088,
+          "WorkingSet": 250380288,
+          "Transport": {
+            "PacketsReceived": 7736,
+            "PacketsSent": 18205,
+            "BytesReceived": 8645523,
+            "BytesSent": 12195453,
+            "Invalid": 8,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 5,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 7580,
+            "ProcessingMilliseconds": 797.386125,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639272560389742360,
+              "CurrentMatchId": 2,
+              "Frames": 3630,
+              "StepFailures": 0,
+              "DroppedSteps": 5,
+              "Stalls": 1,
+              "StepAllocatedBytes": 35292056,
+              "MeanMs": 0.3325317355371901,
+              "P50Ms": 0.25,
+              "P95Ms": 0.56,
+              "P99Ms": 1.35,
+              "P999Ms": 6.92,
+              "WorstMs": 175.52100000000002
+            }
+          ],
+          "shotCounts": {
+            "accepted": 66,
+            "committed": 66
+          }
+        },
+        "peer-0": {
+          "Frames": 3598,
+          "AliveFrames": [
+            3055,
+            3418,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3598,
+          "AcceptedCarriers": 3579,
+          "AllocatedBytes": 41724864,
+          "HeapBytes": 52296208,
+          "WorkingSet": 240484352,
+          "Transport": {
+            "PacketsReceived": 9089,
+            "PacketsSent": 3825,
+            "BytesReceived": 6087615,
+            "BytesSent": 4321350,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 1,
+            "QueueHighWater": 13,
+            "QueueDrops": 0,
+            "Coalesced": 35,
+            "Processed": 1819,
+            "ProcessingMilliseconds": 85.874428,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "committed": 66,
+            "offered": 66
+          }
+        },
+        "peer-1": {
+          "Frames": 3599,
+          "AliveFrames": [
+            3054,
+            3419,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3599,
+          "AcceptedCarriers": 3579,
+          "AllocatedBytes": 33745216,
+          "HeapBytes": 52603392,
+          "WorkingSet": 240795648,
+          "Transport": {
+            "PacketsReceived": 9107,
+            "PacketsSent": 3901,
+            "BytesReceived": 6101788,
+            "BytesSent": 4323893,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 15,
+            "QueueDrops": 0,
+            "Coalesced": 53,
+            "Processed": 1818,
+            "ProcessingMilliseconds": 77.410005,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 66,
+            "committed": 66
+          }
+        }
+      },
+      "rawFiles": {
+        "summary.json": {
+          "sha256": "b39d7a8aff739875a8705496cd42e2ab2926a7f86baa7665545da2cdcd70864f",
+          "bytes": 5387
+        },
+        "peer-0.json": {
+          "sha256": "857c9d348829c0681da91bb0aa3d322567e34380fffa16e32cd843dc5b687e8c",
+          "bytes": 422888
+        },
+        "peer-1.json": {
+          "sha256": "0eee1c62cad23f19358ed5823140cb3e2817219b62a8031e54b5f05b5fc7328a",
+          "bytes": 423039
+        },
+        "server.json": {
+          "sha256": "ff06a5e4c6369041519ceef41dc04cf3040be407c2ac8620ca6216b54e798842",
+          "bytes": 412361
+        },
+        "manifest.json": {
+          "sha256": "f73d6a0f6ab2ce39ad1776f031f15f9a74e92712454189b6234b49548414e8c3",
+          "bytes": 6806
+        },
+        "adjudicated-final.json": {
+          "sha256": "3f91bfdaed5bce3e7f1c242d396df5fd6be612bfa644b3e38e2dcded3cace3cb",
+          "bytes": 5444
+        }
+      }
+    },
+    {
+      "attempt": "mac-candidate-4-tour",
+      "source": "2c62508161a9328eae756e130a13a9d4ce068685",
+      "settings": {
+        "source": "2c625081",
+        "players": 4,
+        "seconds": 60.0,
+        "port": 27993,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "tour",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "engineSha256": "2a43c936057cc9aac380e1d0fc47b9c6a766af4a84d5eaee742d20dc1f6c15c9",
+      "engineAfterSha256": "2a43c936057cc9aac380e1d0fc47b9c6a766af4a84d5eaee742d20dc1f6c15c9",
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "harnessSha256": {
+        "run-net2.py": "62cdc544957fe8fc3cef46a581d55f8ce49085e9faa79fbd49291c57dbdde267",
+        "net2_evidence.py": "0abfe79c81980412e6e11b0791562cba902cc3aaedb37250cb77ae83011604b6"
+      },
+      "elapsedSeconds": 65.896603584,
+      "status": "FAIL",
+      "failures": [
+        "peer-0: timeout in peer-0/netlog-peer_0.txt",
+        "peer-1: timeout in peer-1/netlog-peer_1.txt",
+        "peer-2: timeout in peer-2/netlog-peer_2.txt",
+        "peer-3: timeout in peer-3/netlog-peer_3.txt",
+        "peer-0: 1 authority shots not committed in this view",
+        "peer-1: 1 authority shots not committed in this view",
+        "peer-2: unexplained shot tail/loss: 0 unaccepted, 1 uncommitted",
+        "peer-2: 1 authority shots not committed in this view",
+        "peer-3: 1 authority shots not committed in this view"
+      ],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN"
+      },
+      "totals": {
+        "offeredShots": 588,
+        "acceptedShots": 588,
+        "committedShots": 587,
+        "healthSamplesCompared": 9306,
+        "healthMismatches": 0,
+        "viewMissingCommits": 4,
+        "semanticMissing": 0
+      },
+      "parity": {
+        "peer-0": {
+          "healthSamplesCompared": 2392,
+          "healthMismatches": 0,
+          "offeredShots": 65,
+          "acceptedShots": 65,
+          "committedShots": 65,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 618,
+          "viewExpectedCommits": 553,
+          "viewMissingCommits": 1,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 555,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": [
+            [
+              639272561056376350,
+              2,
+              2,
+              1,
+              3,
+              3
+            ]
+          ]
+        },
+        "peer-1": {
+          "healthSamplesCompared": 2375,
+          "healthMismatches": 0,
+          "offeredShots": 58,
+          "acceptedShots": 58,
+          "committedShots": 58,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 621,
+          "viewExpectedCommits": 565,
+          "viewMissingCommits": 1,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 567,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": [
+            [
+              639272561056376350,
+              2,
+              2,
+              1,
+              3,
+              3
+            ]
+          ]
+        },
+        "peer-2": {
+          "healthSamplesCompared": 2150,
+          "healthMismatches": 0,
+          "offeredShots": 65,
+          "acceptedShots": 65,
+          "committedShots": 64,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 621,
+          "viewExpectedCommits": 572,
+          "viewMissingCommits": 1,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 574,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [
+            [
+              639272561056376350,
+              2,
+              2,
+              1,
+              2,
+              30
+            ]
+          ],
+          "viewMissingKeysExamples": [
+            [
+              639272561056376350,
+              2,
+              1,
+              1,
+              2,
+              58
+            ]
+          ]
+        },
+        "peer-3": {
+          "healthSamplesCompared": 2389,
+          "healthMismatches": 0,
+          "offeredShots": 400,
+          "acceptedShots": 400,
+          "committedShots": 400,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 621,
+          "viewExpectedCommits": 572,
+          "viewMissingCommits": 1,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 574,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": [
+            [
+              639272561056376350,
+              2,
+              2,
+              1,
+              3,
+              3
+            ]
+          ]
+        }
+      },
+      "observations": {
+        "server": {
+          "Frames": 3637,
+          "AliveFrames": [
+            3440,
+            3597,
+            3273,
+            3446,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 0,
+          "AcceptedCarriers": 14391,
+          "AllocatedBytes": 6627378632,
+          "HeapBytes": 51022672,
+          "WorkingSet": 249528320,
+          "Transport": {
+            "PacketsReceived": 16065,
+            "PacketsSent": 67623,
+            "BytesReceived": 17309228,
+            "BytesSent": 63208122,
+            "Invalid": 16,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 6,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 15264,
+            "ProcessingMilliseconds": 1400.669697,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639272561056376350,
+              "CurrentMatchId": 2,
+              "Frames": 3637,
+              "StepFailures": 0,
+              "DroppedSteps": 5,
+              "Stalls": 1,
+              "StepAllocatedBytes": 54293536,
+              "MeanMs": 0.38458416277151464,
+              "P50Ms": 0.25,
+              "P95Ms": 0.71,
+              "P99Ms": 1.41,
+              "P999Ms": 9.46,
+              "WorstMs": 168.91049999999998
+            }
+          ],
+          "shotCounts": {
+            "accepted": 588,
+            "committed": 587
+          }
+        },
+        "peer-0": {
+          "Frames": 3598,
+          "AliveFrames": [
+            3418,
+            3578,
+            3239,
+            3420,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3598,
+          "AcceptedCarriers": 10678,
+          "AllocatedBytes": 65769848,
+          "HeapBytes": 55066248,
+          "WorkingSet": 243531776,
+          "Transport": {
+            "PacketsReceived": 16848,
+            "PacketsSent": 4058,
+            "BytesReceived": 15762969,
+            "BytesSent": 4326818,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 3,
+            "QueueHighWater": 25,
+            "QueueDrops": 0,
+            "Coalesced": 104,
+            "Processed": 2408,
+            "ProcessingMilliseconds": 108.864604,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "committed": 584,
+            "offered": 65,
+            "accepted": 520
+          }
+        },
+        "peer-1": {
+          "Frames": 3598,
+          "AliveFrames": [
+            3411,
+            3567,
+            3239,
+            3420,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3598,
+          "AcceptedCarriers": 10304,
+          "AllocatedBytes": 57880656,
+          "HeapBytes": 57870280,
+          "WorkingSet": 243007488,
+          "Transport": {
+            "PacketsReceived": 16921,
+            "PacketsSent": 3888,
+            "BytesReceived": 15805378,
+            "BytesSent": 4324930,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 20,
+            "QueueDrops": 0,
+            "Coalesced": 523,
+            "Processed": 2445,
+            "ProcessingMilliseconds": 98.311656,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 530,
+            "committed": 586,
+            "offered": 58
+          }
+        },
+        "peer-2": {
+          "Frames": 3598,
+          "AliveFrames": [
+            3408,
+            3564,
+            3239,
+            3419,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3598,
+          "AcceptedCarriers": 10746,
+          "AllocatedBytes": 49691648,
+          "HeapBytes": 55373056,
+          "WorkingSet": 242499584,
+          "Transport": {
+            "PacketsReceived": 16923,
+            "PacketsSent": 3938,
+            "BytesReceived": 15813076,
+            "BytesSent": 4325902,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 19,
+            "QueueDrops": 0,
+            "Coalesced": 378,
+            "Processed": 2437,
+            "ProcessingMilliseconds": 92.510565,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 523,
+            "committed": 587,
+            "offered": 65
+          }
+        },
+        "peer-3": {
+          "Frames": 3598,
+          "AliveFrames": [
+            3403,
+            3561,
+            3238,
+            3420,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3598,
+          "AcceptedCarriers": 10731,
+          "AllocatedBytes": 42393464,
+          "HeapBytes": 56075688,
+          "WorkingSet": 248725504,
+          "Transport": {
+            "PacketsReceived": 16908,
+            "PacketsSent": 4158,
+            "BytesReceived": 15807866,
+            "BytesSent": 4330946,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 15,
+            "QueueDrops": 0,
+            "Coalesced": 92,
+            "Processed": 2427,
+            "ProcessingMilliseconds": 89.346627,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "committed": 587,
+            "offered": 400,
+            "accepted": 188
+          }
+        }
+      },
+      "rawFiles": {
+        "summary.json": {
+          "sha256": "781489706bdd5a38d9d7eb8fae0d137bfcf1c586064e122fd156e7e4cd61ce4d",
+          "bytes": 9458
+        },
+        "peer-0.json": {
+          "sha256": "00feecab23201e66aec8ad4d1c668802b2a58f8e688066d8810f12d075bcec61",
+          "bytes": 953560
+        },
+        "peer-1.json": {
+          "sha256": "940b9ea4bcdc8728db9562e87f9ea4ec33ef849a0e67cca64bec08b3235388bb",
+          "bytes": 953084
+        },
+        "server.json": {
+          "sha256": "f11b935f6764bbaf000ef8c04e7ee54a90cd9b8022efbb12b2f40965225045e5",
+          "bytes": 952074
+        },
+        "manifest.json": {
+          "sha256": "760cbd4db1cb895e14eda18ccc0d0cfdbe3b8c8a3f1dc87637766d14a0ea8761",
+          "bytes": 9407
+        },
+        "adjudicated-final.json": {
+          "sha256": "f721580d498666ff5c4f23ede6051c2935265c1be97d27086d8227a551af5a59",
+          "bytes": 10058
+        },
+        "peer-2.json": {
+          "sha256": "ad6494f751d70012654d2cc79f8884ae437e8151faf2743068f7a42b6fd69c5a",
+          "bytes": 920771
+        },
+        "peer-3.json": {
+          "sha256": "73ffb3b0de3cd932fa9f470b324cb8bdc93499c17df6fca4484a10d840897d3f",
+          "bytes": 953734
+        }
+      }
+    },
+    {
+      "attempt": "mac-candidate-3-rendered",
+      "source": "2c62508161a9328eae756e130a13a9d4ce068685",
+      "settings": {
+        "source": "2c625081",
+        "players": 3,
+        "seconds": 60.0,
+        "port": 27993,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": true,
+        "record": true,
+        "soak": false
+      },
+      "engineSha256": "2a43c936057cc9aac380e1d0fc47b9c6a766af4a84d5eaee742d20dc1f6c15c9",
+      "engineAfterSha256": "2a43c936057cc9aac380e1d0fc47b9c6a766af4a84d5eaee742d20dc1f6c15c9",
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "harnessSha256": {
+        "run-net2.py": "6fa27df87b9c9d093909e222c61010e0e251d80edb467df74d5430c02119103c",
+        "net2_evidence.py": "0abfe79c81980412e6e11b0791562cba902cc3aaedb37250cb77ae83011604b6"
+      },
+      "elapsedSeconds": 68.899113667,
+      "status": "FAIL",
+      "failures": [
+        "peer-0: timeout in peer-0/netlog-peer_0.txt",
+        "peer-1: timeout in peer-1/netlog-peer_1.txt",
+        "peer-2: timeout in peer-2/netlog-peer_2.txt"
+      ],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "PASS",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN"
+      },
+      "totals": {
+        "offeredShots": 79,
+        "acceptedShots": 79,
+        "committedShots": 79,
+        "healthSamplesCompared": 5388,
+        "healthMismatches": 0,
+        "viewMissingCommits": 0,
+        "semanticMissing": 0
+      },
+      "parity": {
+        "peer-0": {
+          "healthSamplesCompared": 1791,
+          "healthMismatches": 0,
+          "offeredShots": 79,
+          "acceptedShots": 79,
+          "committedShots": 79,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 82,
+          "viewExpectedCommits": 78,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 81,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": []
+        },
+        "peer-1": {
+          "healthSamplesCompared": 1788,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 82,
+          "viewExpectedCommits": 79,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 81,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": []
+        },
+        "peer-2": {
+          "healthSamplesCompared": 1809,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 82,
+          "viewExpectedCommits": 79,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 81,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": []
+        }
+      },
+      "observations": {
+        "server": {
+          "Frames": 3793,
+          "AliveFrames": [
+            3779,
+            3613,
+            77,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 0,
+          "AcceptedCarriers": 10797,
+          "AllocatedBytes": 11625945584,
+          "HeapBytes": 50327032,
+          "WorkingSet": 249724928,
+          "Transport": {
+            "PacketsReceived": 11711,
+            "PacketsSent": 38833,
+            "BytesReceived": 12979169,
+            "BytesSent": 33118719,
+            "Invalid": 12,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 6,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 11425,
+            "ProcessingMilliseconds": 797.984657,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639272561728507870,
+              "CurrentMatchId": 2,
+              "Frames": 3793,
+              "StepFailures": 0,
+              "DroppedSteps": 5,
+              "Stalls": 1,
+              "StepAllocatedBytes": 44547504,
+              "MeanMs": 0.21856158713419432,
+              "P50Ms": 0.13,
+              "P95Ms": 0.29,
+              "P99Ms": 0.53,
+              "P999Ms": 7.77,
+              "WorstMs": 171.8894
+            }
+          ],
+          "shotCounts": {
+            "accepted": 79,
+            "committed": 79
+          }
+        },
+        "peer-0": {
+          "Frames": 3599,
+          "AliveFrames": [
+            3599,
+            3423,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3599,
+          "AcceptedCarriers": 7048,
+          "AllocatedBytes": 445710256,
+          "HeapBytes": 301163088,
+          "WorkingSet": 529055744,
+          "Transport": {
+            "PacketsReceived": 12933,
+            "PacketsSent": 3892,
+            "BytesReceived": 11029907,
+            "BytesSent": 4324472,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 5,
+            "QueueHighWater": 48,
+            "QueueDrops": 0,
+            "Coalesced": 314,
+            "Processed": 1899,
+            "ProcessingMilliseconds": 136.916588,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "committed": 79,
+            "offered": 79
+          }
+        },
+        "peer-1": {
+          "Frames": 3599,
+          "AliveFrames": [
+            3590,
+            3449,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3599,
+          "AcceptedCarriers": 7019,
+          "AllocatedBytes": 518074048,
+          "HeapBytes": 294239336,
+          "WorkingSet": 549453824,
+          "Transport": {
+            "PacketsReceived": 12965,
+            "PacketsSent": 3917,
+            "BytesReceived": 11051227,
+            "BytesSent": 4330382,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 40,
+            "QueueDrops": 0,
+            "Coalesced": 373,
+            "Processed": 1909,
+            "ProcessingMilliseconds": 109.77188,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 79,
+            "committed": 79
+          }
+        },
+        "peer-2": {
+          "Frames": 3599,
+          "AliveFrames": [
+            3599,
+            3423,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3599,
+          "AcceptedCarriers": 7039,
+          "AllocatedBytes": 354236824,
+          "HeapBytes": 278572976,
+          "WorkingSet": 514719744,
+          "Transport": {
+            "PacketsReceived": 12919,
+            "PacketsSent": 3886,
+            "BytesReceived": 11028591,
+            "BytesSent": 4323871,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 6,
+            "QueueHighWater": 38,
+            "QueueDrops": 0,
+            "Coalesced": 328,
+            "Processed": 1880,
+            "ProcessingMilliseconds": 86.023306,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 79,
+            "committed": 79
+          }
+        }
+      },
+      "rawFiles": {
+        "summary.json": {
+          "sha256": "fd446d0be2cda1ee82283de857245069a533f2c6040104a7b0d0a17441aeb8b7",
+          "bytes": 7118
+        },
+        "peer-0.json": {
+          "sha256": "ce49b877d3bdd6e4f188f1097c45d707993d91eab98747b8e78659922484ec5d",
+          "bytes": 523296
+        },
+        "peer-1.json": {
+          "sha256": "29451b065c1daa330a8c5bd13aec824c362fedc6ea07a43e1252d0cc7a77f169",
+          "bytes": 522978
+        },
+        "server.json": {
+          "sha256": "a8b10aa0d6f4967874826069073b509b5d188d68cd12612f7a13411abae853f9",
+          "bytes": 529203
+        },
+        "manifest.json": {
+          "sha256": "205145d21f5436e78ec8ec5980b258a8e032ed128b17bf7566ec77f474c8ca0a",
+          "bytes": 9092
+        },
+        "adjudicated-final.json": {
+          "sha256": "00855af42c346dde318c67add2d578703b36835be62ec65c8d7a94bae6e9ddce",
+          "bytes": 7204
+        },
+        "peer-2.json": {
+          "sha256": "f2faa1367b33062d6c9b2eaa418b2f16f07568ed187bc87ba87a1bf234faea9b",
+          "bytes": 525779
+        }
+      }
+    },
+    {
+      "attempt": "mac-soak-8-attempt1",
+      "source": "aeff23065758cfa276384bd2f1196fce992f42e2",
+      "settings": {
+        "source": "aeff2306",
+        "players": 8,
+        "seconds": 1200.0,
+        "port": 27994,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "tour",
+        "rooms": "MP1 SANCTORUS,MP3 PROVING GROUND,UNIT1_RM1",
+        "round_minutes": 4.0,
+        "rendered": false,
+        "record": false,
+        "soak": true
+      },
+      "engineSha256": "0e7875c6b46ebaf1d9d69829f7094b2b09cc8ede3e3fb93e071f70522fa9737e",
+      "engineAfterSha256": "0e7875c6b46ebaf1d9d69829f7094b2b09cc8ede3e3fb93e071f70522fa9737e",
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "harnessSha256": null,
+      "elapsedSeconds": 1206.675388334,
+      "status": "FAIL",
+      "failures": [
+        "server: timeout in server.log",
+        "server: reliable control failed in server/logs/ProjectPrime-20261010-134540-16005-native.txt",
+        "peer-0: no word from the server in peer-0.log",
+        "peer-0: re-announcing in peer-0/netlog-peer_0.txt",
+        "peer-0: ConnectionLost=True",
+        "peer-0: transport queue drop/socket error",
+        "peer-1: no word from the server in peer-1.log",
+        "peer-1: re-announcing in peer-1/netlog-peer_1.txt",
+        "peer-1: ConnectionLost=True",
+        "peer-1: transport queue drop/socket error",
+        "peer-2: no word from the server in peer-2.log",
+        "peer-2: re-announcing in peer-2/netlog-peer_2.txt",
+        "peer-2: ConnectionLost=True",
+        "peer-2: transport queue drop/socket error",
+        "peer-3: no word from the server in peer-3.log",
+        "peer-3: timeout in peer-3/netlog-peer_3.txt",
+        "peer-3: ConnectionLost=True",
+        "peer-3: transport queue drop/socket error",
+        "peer-4: no word from the server in peer-4.log",
+        "peer-4: re-announcing in peer-4/netlog-peer_4.txt",
+        "peer-4: ConnectionLost=True",
+        "peer-4: transport queue drop/socket error",
+        "peer-5: no word from the server in peer-5.log",
+        "peer-5: re-announcing in peer-5/netlog-peer_5.txt",
+        "peer-5: ConnectionLost=True",
+        "peer-5: transport queue drop/socket error",
+        "peer-6: no word from the server in peer-6.log",
+        "peer-6: re-announcing in peer-6/netlog-peer_6.txt",
+        "peer-6: ConnectionLost=True",
+        "peer-6: transport queue drop/socket error",
+        "peer-reconnect: exit=1 timeout=False",
+        "peer-reconnect: no word from the server in peer-reconnect.log",
+        "peer-reconnect: timeout in peer-reconnect/netlog-peer_reconnect.txt",
+        "peer-0: unexplained shot tail/loss: 162 unaccepted, 164 uncommitted",
+        "peer-0: semantic gap/conflict: 663 missing, 0 different",
+        "peer-0: 18 authority shots not committed in this view",
+        "peer-1: unexplained shot tail/loss: 174 unaccepted, 178 uncommitted",
+        "peer-1: semantic gap/conflict: 352 missing, 0 different",
+        "peer-1: 18 authority shots not committed in this view",
+        "peer-2: unexplained shot tail/loss: 184 unaccepted, 186 uncommitted",
+        "peer-2: semantic gap/conflict: 359 missing, 0 different",
+        "peer-2: 54 authority shots not committed in this view",
+        "peer-3: unexplained shot tail/loss: 206 unaccepted, 208 uncommitted",
+        "peer-3: semantic gap/conflict: 358 missing, 0 different",
+        "peer-3: 23 authority shots not committed in this view",
+        "peer-4: unexplained shot tail/loss: 0 unaccepted, 2 uncommitted",
+        "peer-4: semantic gap/conflict: 357 missing, 0 different",
+        "peer-4: 17 authority shots not committed in this view",
+        "peer-5: unexplained shot tail/loss: 167 unaccepted, 170 uncommitted",
+        "peer-5: semantic gap/conflict: 331 missing, 0 different",
+        "peer-6: unexplained shot tail/loss: 193 unaccepted, 209 uncommitted",
+        "peer-6: semantic gap/conflict: 585 missing, 0 different",
+        "peer-late: unexplained shot tail/loss: 0 unaccepted, 12 uncommitted",
+        "peer-reconnect: unexplained shot tail/loss: 0 unaccepted, 5 uncommitted"
+      ],
+      "incomplete": [
+        "soak duration, load, bot, spectator or map-rotation coverage missing"
+      ],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "PASS",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "INCOMPLETE"
+      },
+      "totals": {
+        "offeredShots": 6234,
+        "acceptedShots": 5148,
+        "committedShots": 5100,
+        "healthSamplesCompared": 17988,
+        "healthMismatches": 0,
+        "viewMissingCommits": 130,
+        "semanticMissing": 3005
+      },
+      "parity": {
+        "peer-0": {
+          "healthSamplesCompared": 227,
+          "healthMismatches": 0,
+          "offeredShots": 387,
+          "acceptedShots": 225,
+          "committedShots": 223,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 371,
+          "viewExpectedCommits": 1003,
+          "viewMissingCommits": 18,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 1034,
+          "semanticMissing": 663,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "FAIL",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              0,
+              1,
+              1,
+              226
+            ],
+            [
+              639272547403893600,
+              2,
+              0,
+              1,
+              1,
+              227
+            ],
+            [
+              639272547403893600,
+              2,
+              0,
+              1,
+              1,
+              228
+            ]
+          ],
+          "uncommittedKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              0,
+              1,
+              1,
+              150
+            ],
+            [
+              639272547403893600,
+              2,
+              0,
+              1,
+              1,
+              225
+            ],
+            [
+              639272547403893600,
+              2,
+              0,
+              1,
+              1,
+              226
+            ]
+          ],
+          "viewMissingKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              1,
+              1,
+              2,
+              146
+            ],
+            [
+              639272547403893600,
+              2,
+              6,
+              1,
+              1,
+              7
+            ],
+            [
+              639272547403893600,
+              2,
+              6,
+              1,
+              1,
+              11
+            ]
+          ]
+        },
+        "peer-1": {
+          "healthSamplesCompared": 207,
+          "healthMismatches": 0,
+          "offeredShots": 321,
+          "acceptedShots": 147,
+          "committedShots": 143,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 332,
+          "viewExpectedCommits": 787,
+          "viewMissingCommits": 18,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 684,
+          "semanticMissing": 352,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "FAIL",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              1,
+              1,
+              2,
+              148
+            ],
+            [
+              639272547403893600,
+              2,
+              1,
+              1,
+              2,
+              149
+            ],
+            [
+              639272547403893600,
+              2,
+              1,
+              1,
+              2,
+              150
+            ]
+          ],
+          "uncommittedKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              1,
+              1,
+              2,
+              1
+            ],
+            [
+              639272547403893600,
+              2,
+              1,
+              1,
+              2,
+              2
+            ],
+            [
+              639272547403893600,
+              2,
+              1,
+              1,
+              2,
+              116
+            ]
+          ],
+          "viewMissingKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              6,
+              1,
+              1,
+              5
+            ],
+            [
+              639272547403893600,
+              2,
+              6,
+              1,
+              1,
+              8
+            ],
+            [
+              639272547403893600,
+              2,
+              6,
+              1,
+              1,
+              14
+            ]
+          ]
+        },
+        "peer-2": {
+          "healthSamplesCompared": 207,
+          "healthMismatches": 0,
+          "offeredShots": 363,
+          "acceptedShots": 179,
+          "committedShots": 177,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 325,
+          "viewExpectedCommits": 805,
+          "viewMissingCommits": 54,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 684,
+          "semanticMissing": 359,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "FAIL",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              2,
+              1,
+              2,
+              180
+            ],
+            [
+              639272547403893600,
+              2,
+              2,
+              1,
+              2,
+              181
+            ],
+            [
+              639272547403893600,
+              2,
+              2,
+              1,
+              2,
+              182
+            ]
+          ],
+          "uncommittedKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              2,
+              1,
+              2,
+              148
+            ],
+            [
+              639272547403893600,
+              2,
+              2,
+              1,
+              2,
+              179
+            ],
+            [
+              639272547403893600,
+              2,
+              2,
+              1,
+              2,
+              180
+            ]
+          ],
+          "viewMissingKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              0,
+              1,
+              1,
+              19
+            ],
+            [
+              639272547403893600,
+              2,
+              0,
+              1,
+              1,
+              27
+            ],
+            [
+              639272547403893600,
+              2,
+              0,
+              1,
+              1,
+              50
+            ]
+          ]
+        },
+        "peer-3": {
+          "healthSamplesCompared": 207,
+          "healthMismatches": 0,
+          "offeredShots": 381,
+          "acceptedShots": 175,
+          "committedShots": 173,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 326,
+          "viewExpectedCommits": 787,
+          "viewMissingCommits": 23,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 684,
+          "semanticMissing": 358,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "FAIL",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              3,
+              1,
+              2,
+              176
+            ],
+            [
+              639272547403893600,
+              2,
+              3,
+              1,
+              2,
+              177
+            ],
+            [
+              639272547403893600,
+              2,
+              3,
+              1,
+              2,
+              178
+            ]
+          ],
+          "uncommittedKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              3,
+              1,
+              2,
+              144
+            ],
+            [
+              639272547403893600,
+              2,
+              3,
+              1,
+              2,
+              175
+            ],
+            [
+              639272547403893600,
+              2,
+              3,
+              1,
+              2,
+              176
+            ]
+          ],
+          "viewMissingKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              0,
+              1,
+              1,
+              57
+            ],
+            [
+              639272547403893600,
+              2,
+              1,
+              1,
+              2,
+              100
+            ],
+            [
+              639272547403893600,
+              2,
+              2,
+              1,
+              2,
+              47
+            ]
+          ]
+        },
+        "peer-4": {
+          "healthSamplesCompared": 195,
+          "healthMismatches": 0,
+          "offeredShots": 96,
+          "acceptedShots": 96,
+          "committedShots": 94,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 294,
+          "viewExpectedCommits": 718,
+          "viewMissingCommits": 17,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 651,
+          "semanticMissing": 357,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "FAIL",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              4,
+              1,
+              2,
+              95
+            ],
+            [
+              639272547403893600,
+              2,
+              4,
+              1,
+              2,
+              96
+            ]
+          ],
+          "viewMissingKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              0,
+              1,
+              1,
+              116
+            ],
+            [
+              639272547403893600,
+              2,
+              1,
+              1,
+              2,
+              12
+            ],
+            [
+              639272547403893600,
+              2,
+              1,
+              1,
+              2,
+              37
+            ]
+          ]
+        },
+        "peer-5": {
+          "healthSamplesCompared": 175,
+          "healthMismatches": 0,
+          "offeredShots": 311,
+          "acceptedShots": 144,
+          "committedShots": 141,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 276,
+          "viewExpectedCommits": 577,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 607,
+          "semanticMissing": 331,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "FAIL",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              5,
+              1,
+              2,
+              145
+            ],
+            [
+              639272547403893600,
+              2,
+              5,
+              1,
+              2,
+              146
+            ],
+            [
+              639272547403893600,
+              2,
+              5,
+              1,
+              2,
+              147
+            ]
+          ],
+          "uncommittedKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              5,
+              1,
+              2,
+              112
+            ],
+            [
+              639272547403893600,
+              2,
+              5,
+              1,
+              2,
+              113
+            ],
+            [
+              639272547403893600,
+              2,
+              5,
+              1,
+              2,
+              144
+            ]
+          ],
+          "viewMissingKeysExamples": []
+        },
+        "peer-6": {
+          "healthSamplesCompared": 170,
+          "healthMismatches": 0,
+          "offeredShots": 380,
+          "acceptedShots": 187,
+          "committedShots": 171,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 314,
+          "viewExpectedCommits": 709,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 899,
+          "semanticMissing": 585,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "FAIL",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              6,
+              1,
+              1,
+              188
+            ],
+            [
+              639272547403893600,
+              2,
+              6,
+              1,
+              1,
+              189
+            ],
+            [
+              639272547403893600,
+              2,
+              6,
+              1,
+              1,
+              190
+            ]
+          ],
+          "uncommittedKeysExamples": [
+            [
+              639272547403893600,
+              2,
+              6,
+              1,
+              1,
+              98
+            ],
+            [
+              639272547403893600,
+              2,
+              6,
+              1,
+              1,
+              138
+            ],
+            [
+              639272547403893600,
+              2,
+              6,
+              1,
+              1,
+              145
+            ]
+          ],
+          "viewMissingKeysExamples": []
+        },
+        "peer-late": {
+          "healthSamplesCompared": 14384,
+          "healthMismatches": 0,
+          "offeredShots": 3606,
+          "acceptedShots": 3606,
+          "committedShots": 3594,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 3594,
+          "viewExpectedCommits": 3543,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 3532,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [
+            [
+              639272547403893600,
+              3,
+              7,
+              1,
+              1,
+              1
+            ],
+            [
+              639272547403893600,
+              3,
+              7,
+              1,
+              1,
+              2
+            ],
+            [
+              639272547403893600,
+              3,
+              7,
+              1,
+              1,
+              42
+            ]
+          ],
+          "viewMissingKeysExamples": []
+        },
+        "peer-reconnect": {
+          "healthSamplesCompared": 2216,
+          "healthMismatches": 0,
+          "offeredShots": 389,
+          "acceptedShots": 389,
+          "committedShots": 384,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 385,
+          "viewExpectedCommits": 372,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 385,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [
+            [
+              639272547403893600,
+              3,
+              7,
+              2,
+              1,
+              1
+            ],
+            [
+              639272547403893600,
+              3,
+              7,
+              2,
+              1,
+              44
+            ],
+            [
+              639272547403893600,
+              3,
+              7,
+              2,
+              1,
+              92
+            ]
+          ],
+          "viewMissingKeysExamples": []
+        }
+      },
+      "observations": {
+        "server": {
+          "Frames": 60260,
+          "AliveFrames": [
+            60139,
+            60095,
+            60080,
+            60006,
+            60090,
+            60092,
+            56464,
+            56649
+          ],
+          "OfferedCarriers": 0,
+          "AcceptedCarriers": 13869,
+          "AllocatedBytes": 628384693552,
+          "HeapBytes": 64895600,
+          "WorkingSet": 179879936,
+          "Transport": {
+            "PacketsReceived": 70085,
+            "PacketsSent": 821360,
+            "BytesReceived": 21537139,
+            "BytesSent": 747528616,
+            "Invalid": 659,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 16,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 53021,
+            "ProcessingMilliseconds": 3441.971496,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639272547403893600,
+              "CurrentMatchId": 2,
+              "Frames": 295,
+              "StepFailures": 0,
+              "DroppedSteps": 5,
+              "Stalls": 1,
+              "StepAllocatedBytes": 64615440,
+              "MeanMs": 1.6587084745762706,
+              "P50Ms": 0.7,
+              "P95Ms": 3.17,
+              "P99Ms": 15.59,
+              "P999Ms": 180.65,
+              "WorstMs": 180.65449999999998
+            },
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639272547403893600,
+              "CurrentMatchId": 3,
+              "Frames": 15663,
+              "StepFailures": 0,
+              "DroppedSteps": 4,
+              "Stalls": 0,
+              "StepAllocatedBytes": 51739256,
+              "MeanMs": 0.506066277213816,
+              "P50Ms": 0.46,
+              "P95Ms": 0.96,
+              "P99Ms": 1.78,
+              "P999Ms": 2.78,
+              "WorstMs": 9.8945
+            },
+            {
+              "Room": "MP3 PROVING GROUND",
+              "AuthorityEpoch": 639272547403893600,
+              "CurrentMatchId": 5,
+              "Frames": 15663,
+              "StepFailures": 0,
+              "DroppedSteps": 2,
+              "Stalls": 0,
+              "StepAllocatedBytes": 19640312,
+              "MeanMs": 0.4262896826916934,
+              "P50Ms": 0.41,
+              "P95Ms": 0.75,
+              "P99Ms": 0.97,
+              "P999Ms": 1.35,
+              "WorstMs": 4.3964
+            },
+            {
+              "Room": "UNIT1_RM1",
+              "AuthorityEpoch": 639272547403893600,
+              "CurrentMatchId": 7,
+              "Frames": 15663,
+              "StepFailures": 0,
+              "DroppedSteps": 2,
+              "Stalls": 0,
+              "StepAllocatedBytes": 19363184,
+              "MeanMs": 0.5040678222562732,
+              "P50Ms": 0.47,
+              "P95Ms": 0.89,
+              "P99Ms": 1.13,
+              "P999Ms": 2.1,
+              "WorstMs": 9.018699999999999
+            },
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639272547403893600,
+              "CurrentMatchId": 9,
+              "Frames": 12976,
+              "StepFailures": 0,
+              "DroppedSteps": 3,
+              "Stalls": 0,
+              "StepAllocatedBytes": 16738816,
+              "MeanMs": 0.4798946901972889,
+              "P50Ms": 0.45,
+              "P95Ms": 0.84,
+              "P99Ms": 1.09,
+              "P999Ms": 3.07,
+              "WorstMs": 8.0795
+            }
+          ],
+          "shotCounts": {
+            "accepted": 5148,
+            "committed": 5100
+          }
+        },
+        "peer-0": {
+          "Frames": 424,
+          "AliveFrames": [
+            424,
+            202,
+            202,
+            202,
+            154,
+            189,
+            394,
+            0
+          ],
+          "OfferedCarriers": 424,
+          "AcceptedCarriers": 1066,
+          "AllocatedBytes": 207026784,
+          "HeapBytes": 44614760,
+          "WorkingSet": 108134400,
+          "Transport": {
+            "PacketsReceived": 104905,
+            "PacketsSent": 6900,
+            "BytesReceived": 96065269,
+            "BytesSent": 921882,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 26,
+            "QueueDrops": 341,
+            "Coalesced": 2212,
+            "Processed": 29620,
+            "ProcessingMilliseconds": 737.869216,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 925,
+            "committed": 1285,
+            "offered": 387
+          }
+        },
+        "peer-1": {
+          "Frames": 376,
+          "AliveFrames": [
+            376,
+            376,
+            376,
+            376,
+            154,
+            363,
+            346,
+            0
+          ],
+          "OfferedCarriers": 376,
+          "AcceptedCarriers": 1007,
+          "AllocatedBytes": 205842824,
+          "HeapBytes": 43315488,
+          "WorkingSet": 106790912,
+          "Transport": {
+            "PacketsReceived": 104595,
+            "PacketsSent": 6734,
+            "BytesReceived": 95955242,
+            "BytesSent": 855488,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 25,
+            "QueueDrops": 313,
+            "Coalesced": 1745,
+            "Processed": 29440,
+            "ProcessingMilliseconds": 723.130969,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "committed": 1197,
+            "offered": 321,
+            "accepted": 903
+          }
+        },
+        "peer-2": {
+          "Frames": 390,
+          "AliveFrames": [
+            390,
+            390,
+            390,
+            390,
+            152,
+            378,
+            361,
+            0
+          ],
+          "OfferedCarriers": 390,
+          "AcceptedCarriers": 940,
+          "AllocatedBytes": 197307416,
+          "HeapBytes": 54291120,
+          "WorkingSet": 90685440,
+          "Transport": {
+            "PacketsReceived": 104512,
+            "PacketsSent": 6767,
+            "BytesReceived": 95939420,
+            "BytesSent": 873806,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 29,
+            "QueueDrops": 274,
+            "Coalesced": 1997,
+            "Processed": 29416,
+            "ProcessingMilliseconds": 790.839131,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 871,
+            "committed": 1162,
+            "offered": 363
+          }
+        },
+        "peer-3": {
+          "Frames": 399,
+          "AliveFrames": [
+            399,
+            399,
+            399,
+            399,
+            144,
+            398,
+            378,
+            0
+          ],
+          "OfferedCarriers": 399,
+          "AcceptedCarriers": 964,
+          "AllocatedBytes": 190347920,
+          "HeapBytes": 55753096,
+          "WorkingSet": 92389376,
+          "Transport": {
+            "PacketsReceived": 104448,
+            "PacketsSent": 7032,
+            "BytesReceived": 95863771,
+            "BytesSent": 928303,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 2,
+            "QueueHighWater": 22,
+            "QueueDrops": 272,
+            "Coalesced": 954,
+            "Processed": 29418,
+            "ProcessingMilliseconds": 751.581427,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 875,
+            "committed": 1197,
+            "offered": 381
+          }
+        },
+        "peer-4": {
+          "Frames": 345,
+          "AliveFrames": [
+            345,
+            345,
+            345,
+            345,
+            129,
+            345,
+            344,
+            0
+          ],
+          "OfferedCarriers": 345,
+          "AcceptedCarriers": 934,
+          "AllocatedBytes": 182172688,
+          "HeapBytes": 58496816,
+          "WorkingSet": 94633984,
+          "Transport": {
+            "PacketsReceived": 104695,
+            "PacketsSent": 6785,
+            "BytesReceived": 96027733,
+            "BytesSent": 825718,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 1,
+            "QueueHighWater": 35,
+            "QueueDrops": 245,
+            "Coalesced": 6686,
+            "Processed": 29539,
+            "ProcessingMilliseconds": 710.380983,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 954,
+            "committed": 957,
+            "offered": 96
+          }
+        },
+        "peer-5": {
+          "Frames": 339,
+          "AliveFrames": [
+            339,
+            339,
+            339,
+            339,
+            115,
+            339,
+            339,
+            0
+          ],
+          "OfferedCarriers": 339,
+          "AcceptedCarriers": 907,
+          "AllocatedBytes": 175365488,
+          "HeapBytes": 57294720,
+          "WorkingSet": 92946432,
+          "Transport": {
+            "PacketsReceived": 104501,
+            "PacketsSent": 6734,
+            "BytesReceived": 95942751,
+            "BytesSent": 813570,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 1,
+            "QueueHighWater": 38,
+            "QueueDrops": 262,
+            "Coalesced": 654,
+            "Processed": 29405,
+            "ProcessingMilliseconds": 752.584966,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 882,
+            "committed": 1103,
+            "offered": 311
+          }
+        },
+        "peer-6": {
+          "Frames": 401,
+          "AliveFrames": [
+            401,
+            148,
+            148,
+            148,
+            100,
+            148,
+            401,
+            0
+          ],
+          "OfferedCarriers": 401,
+          "AcceptedCarriers": 897,
+          "AllocatedBytes": 167895336,
+          "HeapBytes": 60859960,
+          "WorkingSet": 96223232,
+          "Transport": {
+            "PacketsReceived": 104458,
+            "PacketsSent": 6756,
+            "BytesReceived": 95875424,
+            "BytesSent": 885207,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 1,
+            "QueueHighWater": 40,
+            "QueueDrops": 290,
+            "Coalesced": 309,
+            "Processed": 29361,
+            "ProcessingMilliseconds": 719.216095,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 888,
+            "committed": 1169,
+            "offered": 380
+          }
+        },
+        "peer-late": {
+          "Frames": 10799,
+          "AliveFrames": [
+            10799,
+            10799,
+            10799,
+            10799,
+            10799,
+            10799,
+            7199,
+            10799
+          ],
+          "OfferedCarriers": 10799,
+          "AcceptedCarriers": 0,
+          "AllocatedBytes": 77828504,
+          "HeapBytes": 52155488,
+          "WorkingSet": 243679232,
+          "Transport": {
+            "PacketsReceived": 19667,
+            "PacketsSent": 15203,
+            "BytesReceived": 14656339,
+            "BytesSent": 13090997,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 1,
+            "QueueHighWater": 18,
+            "QueueDrops": 0,
+            "Coalesced": 33,
+            "Processed": 8662,
+            "ProcessingMilliseconds": 175.986094,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "committed": 3606,
+            "offered": 3606
+          }
+        },
+        "peer-reconnect": {
+          "Frames": 1663,
+          "AliveFrames": [
+            1663,
+            1663,
+            1663,
+            1663,
+            1663,
+            1663,
+            1663,
+            1663
+          ],
+          "OfferedCarriers": 1663,
+          "AcceptedCarriers": 0,
+          "AllocatedBytes": 163741904,
+          "HeapBytes": 82867480,
+          "WorkingSet": 125452288,
+          "Transport": {
+            "PacketsReceived": 69528,
+            "PacketsSent": 7142,
+            "BytesReceived": 61178538,
+            "BytesSent": 2341283,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 1,
+            "QueueHighWater": 14,
+            "QueueDrops": 0,
+            "Coalesced": 386,
+            "Processed": 22755,
+            "ProcessingMilliseconds": 578.99279,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "committed": 389,
+            "offered": 389
+          }
+        }
+      },
+      "rawFiles": {
+        "peer-reconnect.json": {
+          "sha256": "75f6f447852fae6bef627df86ccb2f1fa46d827901993a4405fe82221fa51f3b",
+          "bytes": 676894
+        },
+        "summary.json": {
+          "sha256": "4bb5dbbf0c3582d89fd079f28868bd9cafcbb52900b514bc2c1038e32a636447",
+          "bytes": 67975
+        },
+        "peer-0.json": {
+          "sha256": "61fd87a6f3a5a710805339124f289e436d27b416f6d6e7d746dd81c4a0cf9bb6",
+          "bytes": 716758
+        },
+        "peer-1.json": {
+          "sha256": "3cfa1d9da971338910eeeec7192ad95e3dd8de960b4fe63fa13749fff1f57f08",
+          "bytes": 666012
+        },
+        "server.json": {
+          "sha256": "573a2809486e4f1981da20614e85985aa628157b2718e53d0a68f5988f1e95c6",
+          "bytes": 18054909
+        },
+        "peer-6.json": {
+          "sha256": "4c2b8b03f4998a0d5d96e191e58d30d56eb8e3d632b7172c04b5c45ee9822571",
+          "bytes": 659979
+        },
+        "peer-late.json": {
+          "sha256": "60593b7a08362f5c000969cd5afcbf20249cd53299000b7abbbd90f623c72518",
+          "bytes": 5122077
+        },
+        "peer-4.json": {
+          "sha256": "cb7d5316f2699dcd073f861799af7f9b0dce95906b3ba9870b034987d5fd90fe",
+          "bytes": 560113
+        },
+        "manifest.json": {
+          "sha256": "7fa227e2aee5c24096165b5ab2ff3aeb2b060fbe139df6d2e2f6dd61ebfdf146",
+          "bytes": 15972
+        },
+        "peer-5.json": {
+          "sha256": "98ec2b39ea44b63353722778203348b5be8577bbf67f62c67835434cefaa3d0a",
+          "bytes": 617299
+        },
+        "adjudicated-final.json": {
+          "sha256": "5587bfedac326c7e0545bf6f3bd761f70542cd74df3c6fba993e9e0afb8e194b",
+          "bytes": 82661
+        },
+        "peer-2.json": {
+          "sha256": "21f576f03ff17416d746eb1c4b5b5e23cea2f38a51cce6ac69930507aac34695",
+          "bytes": 658721
+        },
+        "peer-3.json": {
+          "sha256": "c47f37f3f1b5b2342a3d2ec433e33f0f0cf842c68c95906c8eba3cd6a3c8b5e3",
+          "bytes": 671457
+        }
+      }
+    },
+    {
+      "attempt": "windows/ProjectPrime-net2-n0-candidate-aeff2306/artifacts/control-8-shock",
+      "source": "468bbbf027148ce94901dfa8bf138d16a4498c03",
+      "settings": {
+        "source": "468bbbf0",
+        "players": 8,
+        "seconds": 60.0,
+        "port": 27995,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "shockcoil-all",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "engineSha256": "e3e66bfb8899b1b43857552e09f11403eb0eb6ac4366a9ac59cf5197b2084c63",
+      "engineAfterSha256": "e3e66bfb8899b1b43857552e09f11403eb0eb6ac4366a9ac59cf5197b2084c63",
+      "assetManifestSha256": "deb29243b7ecf7451a66e24ab3655656b6feaa05e5950eca5d452dda47328a8b",
+      "harnessSha256": null,
+      "elapsedSeconds": 88.95322490000399,
+      "status": "FAIL",
+      "failures": [
+        "server: exit=1 timeout=True",
+        "peer-1: timeout in peer-1/netlog-peer_1.txt",
+        "peer-3: timeout in peer-3/netlog-peer_3.txt",
+        "peer-5: timeout in peer-5/netlog-peer_5.txt",
+        "peer-6: timeout in peer-6/netlog-peer_6.txt",
+        "peer-7: timeout in peer-7/netlog-peer_7.txt"
+      ],
+      "incomplete": [
+        "server: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/windows/ProjectPrime-net2-n0-candidate-aeff2306/artifacts/control-8-shock/server.json')",
+        "peer-0: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/windows/ProjectPrime-net2-n0-candidate-aeff2306/artifacts/control-8-shock/peer-0.json')",
+        "peer-1: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/windows/ProjectPrime-net2-n0-candidate-aeff2306/artifacts/control-8-shock/peer-1.json')",
+        "peer-2: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/windows/ProjectPrime-net2-n0-candidate-aeff2306/artifacts/control-8-shock/peer-2.json')",
+        "peer-3: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/windows/ProjectPrime-net2-n0-candidate-aeff2306/artifacts/control-8-shock/peer-3.json')",
+        "peer-4: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/windows/ProjectPrime-net2-n0-candidate-aeff2306/artifacts/control-8-shock/peer-4.json')",
+        "peer-5: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/windows/ProjectPrime-net2-n0-candidate-aeff2306/artifacts/control-8-shock/peer-5.json')",
+        "peer-6: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/windows/ProjectPrime-net2-n0-candidate-aeff2306/artifacts/control-8-shock/peer-6.json')",
+        "peer-7: missing/malformed evidence ([Errno 2] No such file or directory: 'artifacts/net2-n0/windows/ProjectPrime-net2-n0-candidate-aeff2306/artifacts/control-8-shock/peer-7.json')",
+        "not every independent process supplied valid evidence"
+      ],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN"
+      },
+      "totals": {
+        "offeredShots": 0,
+        "acceptedShots": 0,
+        "committedShots": 0,
+        "healthSamplesCompared": 0,
+        "healthMismatches": 0,
+        "viewMissingCommits": 0,
+        "semanticMissing": 0
+      },
+      "parity": {},
+      "observations": {},
+      "rawFiles": {
+        "summary.json": {
+          "sha256": "87573d46d8413171f4b859f39e2f993b4c01040c796b37f3e66993fcb9becdc3",
+          "bytes": 5032
+        },
+        "manifest.json": {
+          "sha256": "beb89e52ba7f0c5465ae12db001f61c2ff42b4014f98403e6d31e0ee7ee39fbf",
+          "bytes": 15317
+        },
+        "adjudicated-final.json": {
+          "sha256": "370ee641b5805490987c3220efa48fc33446f478886ced44fbf031596283f830",
+          "bytes": 4568
+        }
+      }
+    },
+    {
+      "attempt": "windows/ProjectPrime-net2-n0-candidate-aeff2306/artifacts/candidate-2-missile",
+      "source": "aeff23065758cfa276384bd2f1196fce992f42e2",
+      "settings": {
+        "source": "aeff2306",
+        "players": 2,
+        "seconds": 60.0,
+        "port": 27995,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "engineSha256": "63ea41a769e2042ce5d23f934e5e33ce7aa069a156f45eaa97dab1304adb4cd8",
+      "engineAfterSha256": "63ea41a769e2042ce5d23f934e5e33ce7aa069a156f45eaa97dab1304adb4cd8",
+      "assetManifestSha256": "deb29243b7ecf7451a66e24ab3655656b6feaa05e5950eca5d452dda47328a8b",
+      "harnessSha256": null,
+      "elapsedSeconds": 67.69473700004164,
+      "status": "FAIL",
+      "failures": [
+        "peer-0: timeout in peer-0/netlog-peer_0.txt",
+        "peer-1: timeout in peer-1/netlog-peer_1.txt"
+      ],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN"
+      },
+      "totals": {
+        "offeredShots": 75,
+        "acceptedShots": 75,
+        "committedShots": 75,
+        "healthSamplesCompared": 2084,
+        "healthMismatches": 0,
+        "viewMissingCommits": 0,
+        "semanticMissing": 0
+      },
+      "parity": {
+        "peer-0": {
+          "healthSamplesCompared": 990,
+          "healthMismatches": 0,
+          "offeredShots": 75,
+          "acceptedShots": 75,
+          "committedShots": 75,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 79,
+          "viewExpectedCommits": 74,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 78,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": []
+        },
+        "peer-1": {
+          "healthSamplesCompared": 1094,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 80,
+          "viewExpectedCommits": 74,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 78,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": []
+        }
+      },
+      "observations": {
+        "server": {
+          "Frames": 3658,
+          "AliveFrames": [
+            3657,
+            3298,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 0,
+          "AcceptedCarriers": 7138,
+          "AllocatedBytes": 430553496,
+          "HeapBytes": 22905328,
+          "WorkingSet": 117075968,
+          "Transport": {
+            "PacketsReceived": 7943,
+            "PacketsSent": 18254,
+            "BytesReceived": 8605988,
+            "BytesSent": 12168615,
+            "Invalid": 8,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 7,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 7653,
+            "ProcessingMilliseconds": 4171.825,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639272550183584915,
+              "CurrentMatchId": 2,
+              "Frames": 3658,
+              "StepFailures": 0,
+              "DroppedSteps": 0,
+              "Stalls": 2,
+              "StepAllocatedBytes": 35022632,
+              "MeanMs": 1.190614516129035,
+              "P50Ms": 0.87,
+              "P95Ms": 2.09,
+              "P99Ms": 3.05,
+              "P999Ms": 24.24,
+              "WorstMs": 465.3992
+            }
+          ],
+          "shotCounts": {
+            "accepted": 75,
+            "committed": 75
+          }
+        },
+        "peer-0": {
+          "Frames": 3570,
+          "AliveFrames": [
+            3570,
+            3210,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3570,
+          "AcceptedCarriers": 2838,
+          "AllocatedBytes": 33279432,
+          "HeapBytes": 25097144,
+          "WorkingSet": 126078976,
+          "Transport": {
+            "PacketsReceived": 9120,
+            "PacketsSent": 3977,
+            "BytesReceived": 6078644,
+            "BytesSent": 4303529,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 3,
+            "QueueHighWater": 22,
+            "QueueDrops": 0,
+            "Coalesced": 1287,
+            "Processed": 1836,
+            "ProcessingMilliseconds": 258.9796,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "committed": 75,
+            "offered": 75
+          }
+        },
+        "peer-1": {
+          "Frames": 3570,
+          "AliveFrames": [
+            3570,
+            3209,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3570,
+          "AcceptedCarriers": 2910,
+          "AllocatedBytes": 33364200,
+          "HeapBytes": 25140776,
+          "WorkingSet": 127860736,
+          "Transport": {
+            "PacketsReceived": 9108,
+            "PacketsSent": 3955,
+            "BytesReceived": 6080330,
+            "BytesSent": 4302155,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 22,
+            "QueueDrops": 0,
+            "Coalesced": 992,
+            "Processed": 1823,
+            "ProcessingMilliseconds": 263.6309,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 75,
+            "committed": 75
+          }
+        }
+      },
+      "rawFiles": {
+        "summary.json": {
+          "sha256": "bdea712c93c4207e9244011cf698064e12d290293f76fe19fc13f9b01037a3cb",
+          "bytes": 5405
+        },
+        "peer-0.json": {
+          "sha256": "8f71cd33f8026cc3a0cdf948b4949eed5c0b686b6ba021015cd66e09fd019e82",
+          "bytes": 397372
+        },
+        "peer-1.json": {
+          "sha256": "070301b878123d9799aff16b8f010615bed20b4ea1340f09eca3a5ae57d5d45e",
+          "bytes": 412494
+        },
+        "server.json": {
+          "sha256": "c966633c8acbdc6af6cf8baea2faa696a529e9da73f273ebea446d4c5d01fe04",
+          "bytes": 423403
+        },
+        "manifest.json": {
+          "sha256": "4df5102446afa8ff774d4e85a0173c44329da5c7e770870c26ff1250286fcbf8",
+          "bytes": 7064
+        },
+        "adjudicated-final.json": {
+          "sha256": "2327063051fbff1bd25f43ba74e50afd713f293e7add149383225f47fdeae0d9",
+          "bytes": 5443
+        }
+      }
+    },
+    {
+      "attempt": "windows/ProjectPrime-net2-n0-candidate-aeff2306/artifacts/candidate-4-tour",
+      "source": "aeff23065758cfa276384bd2f1196fce992f42e2",
+      "settings": {
+        "source": "aeff2306",
+        "players": 4,
+        "seconds": 60.0,
+        "port": 27995,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "tour",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "engineSha256": "63ea41a769e2042ce5d23f934e5e33ce7aa069a156f45eaa97dab1304adb4cd8",
+      "engineAfterSha256": "63ea41a769e2042ce5d23f934e5e33ce7aa069a156f45eaa97dab1304adb4cd8",
+      "assetManifestSha256": "deb29243b7ecf7451a66e24ab3655656b6feaa05e5950eca5d452dda47328a8b",
+      "harnessSha256": null,
+      "elapsedSeconds": 67.74749460001476,
+      "status": "FAIL",
+      "failures": [
+        "peer-2: timeout in peer-2/netlog-peer_2.txt",
+        "peer-0: 9 authority shots not committed in this view",
+        "peer-1: 3 authority shots not committed in this view",
+        "peer-2: 9 authority shots not committed in this view",
+        "peer-3: unexplained shot tail/loss: 0 unaccepted, 92 uncommitted"
+      ],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN"
+      },
+      "totals": {
+        "offeredShots": 577,
+        "acceptedShots": 577,
+        "committedShots": 485,
+        "healthSamplesCompared": 7792,
+        "healthMismatches": 0,
+        "viewMissingCommits": 21,
+        "semanticMissing": 0
+      },
+      "parity": {
+        "peer-0": {
+          "healthSamplesCompared": 1940,
+          "healthMismatches": 0,
+          "offeredShots": 52,
+          "acceptedShots": 52,
+          "committedShots": 52,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 510,
+          "viewExpectedCommits": 458,
+          "viewMissingCommits": 9,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 474,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": [
+            [
+              639272550950654833,
+              2,
+              3,
+              1,
+              2,
+              50
+            ],
+            [
+              639272550950654833,
+              2,
+              3,
+              1,
+              2,
+              111
+            ],
+            [
+              639272550950654833,
+              2,
+              3,
+              1,
+              2,
+              139
+            ]
+          ]
+        },
+        "peer-1": {
+          "healthSamplesCompared": 2132,
+          "healthMismatches": 0,
+          "offeredShots": 79,
+          "acceptedShots": 79,
+          "committedShots": 79,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 511,
+          "viewExpectedCommits": 458,
+          "viewMissingCommits": 3,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 474,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": [
+            [
+              639272550950654833,
+              2,
+              3,
+              1,
+              3,
+              37
+            ],
+            [
+              639272550950654833,
+              2,
+              3,
+              1,
+              3,
+              103
+            ],
+            [
+              639272550950654833,
+              2,
+              3,
+              1,
+              3,
+              157
+            ]
+          ]
+        },
+        "peer-2": {
+          "healthSamplesCompared": 1888,
+          "healthMismatches": 0,
+          "offeredShots": 55,
+          "acceptedShots": 55,
+          "committedShots": 55,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 511,
+          "viewExpectedCommits": 458,
+          "viewMissingCommits": 9,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 474,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": [
+            [
+              639272550950654833,
+              2,
+              3,
+              1,
+              2,
+              56
+            ],
+            [
+              639272550950654833,
+              2,
+              3,
+              1,
+              2,
+              72
+            ],
+            [
+              639272550950654833,
+              2,
+              3,
+              1,
+              2,
+              88
+            ]
+          ]
+        },
+        "peer-3": {
+          "healthSamplesCompared": 1832,
+          "healthMismatches": 0,
+          "offeredShots": 391,
+          "acceptedShots": 391,
+          "committedShots": 299,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 516,
+          "viewExpectedCommits": 465,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 481,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [
+            [
+              639272550950654833,
+              2,
+              3,
+              1,
+              2,
+              41
+            ],
+            [
+              639272550950654833,
+              2,
+              3,
+              1,
+              2,
+              46
+            ],
+            [
+              639272550950654833,
+              2,
+              3,
+              1,
+              2,
+              48
+            ]
+          ],
+          "viewMissingKeysExamples": []
+        }
+      },
+      "observations": {
+        "server": {
+          "Frames": 3678,
+          "AliveFrames": [
+            3489,
+            3489,
+            3397,
+            3498,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 0,
+          "AcceptedCarriers": 14261,
+          "AllocatedBytes": 541229608,
+          "HeapBytes": 27530552,
+          "WorkingSet": 129208320,
+          "Transport": {
+            "PacketsReceived": 16934,
+            "PacketsSent": 66973,
+            "BytesReceived": 17216018,
+            "BytesSent": 62899536,
+            "Invalid": 4,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 14,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 15301,
+            "ProcessingMilliseconds": 13189.3844,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639272550950654833,
+              "CurrentMatchId": 2,
+              "Frames": 3678,
+              "StepFailures": 0,
+              "DroppedSteps": 0,
+              "Stalls": 2,
+              "StepAllocatedBytes": 53112392,
+              "MeanMs": 1.9381692224034797,
+              "P50Ms": 1.62,
+              "P95Ms": 3.15,
+              "P99Ms": 4.44,
+              "P999Ms": 30.38,
+              "WorstMs": 499.45689999999996
+            }
+          ],
+          "shotCounts": {
+            "accepted": 577,
+            "committed": 485
+          }
+        },
+        "peer-0": {
+          "Frames": 3564,
+          "AliveFrames": [
+            3383,
+            3384,
+            3304,
+            3386,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3564,
+          "AcceptedCarriers": 7987,
+          "AllocatedBytes": 47982080,
+          "HeapBytes": 26188600,
+          "WorkingSet": 132444160,
+          "Transport": {
+            "PacketsReceived": 16715,
+            "PacketsSent": 4239,
+            "BytesReceived": 15709425,
+            "BytesSent": 4302367,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 1,
+            "QueueHighWater": 29,
+            "QueueDrops": 0,
+            "Coalesced": 3408,
+            "Processed": 2299,
+            "ProcessingMilliseconds": 319.6855,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "committed": 476,
+            "offered": 52,
+            "accepted": 517
+          }
+        },
+        "peer-1": {
+          "Frames": 3564,
+          "AliveFrames": [
+            3383,
+            3383,
+            3303,
+            3386,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3564,
+          "AcceptedCarriers": 8237,
+          "AllocatedBytes": 48201960,
+          "HeapBytes": 26346024,
+          "WorkingSet": 131448832,
+          "Transport": {
+            "PacketsReceived": 16723,
+            "PacketsSent": 4238,
+            "BytesReceived": 15711008,
+            "BytesSent": 4302914,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 3,
+            "QueueHighWater": 29,
+            "QueueDrops": 0,
+            "Coalesced": 2902,
+            "Processed": 2302,
+            "ProcessingMilliseconds": 300.9681,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "committed": 479,
+            "offered": 79,
+            "accepted": 492
+          }
+        },
+        "peer-2": {
+          "Frames": 3566,
+          "AliveFrames": [
+            3386,
+            3386,
+            3303,
+            3388,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3566,
+          "AcceptedCarriers": 7587,
+          "AllocatedBytes": 47955992,
+          "HeapBytes": 26105216,
+          "WorkingSet": 129511424,
+          "Transport": {
+            "PacketsReceived": 16703,
+            "PacketsSent": 4221,
+            "BytesReceived": 15703268,
+            "BytesSent": 4304263,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 29,
+            "QueueDrops": 0,
+            "Coalesced": 3925,
+            "Processed": 2291,
+            "ProcessingMilliseconds": 339.4568,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "committed": 473,
+            "offered": 55,
+            "accepted": 516
+          }
+        },
+        "peer-3": {
+          "Frames": 3567,
+          "AliveFrames": [
+            3387,
+            3387,
+            3297,
+            3389,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3567,
+          "AcceptedCarriers": 7547,
+          "AllocatedBytes": 41048832,
+          "HeapBytes": 27600560,
+          "WorkingSet": 128983040,
+          "Transport": {
+            "PacketsReceived": 16714,
+            "PacketsSent": 4209,
+            "BytesReceived": 15712483,
+            "BytesSent": 4305794,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 34,
+            "QueueDrops": 0,
+            "Coalesced": 3939,
+            "Processed": 2285,
+            "ProcessingMilliseconds": 296.033,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 186,
+            "committed": 577,
+            "offered": 391
+          }
+        }
+      },
+      "rawFiles": {
+        "summary.json": {
+          "sha256": "ca4d9377665b8388a9f3cc6fa5e59b7a0fed664ea614f098360edcfe86d83c67",
+          "bytes": 12913
+        },
+        "peer-0.json": {
+          "sha256": "5abc1bb8c9b8e45b59f0f8a2975b4a479560be1ba25065972eb5f349aae287c1",
+          "bytes": 834904
+        },
+        "peer-1.json": {
+          "sha256": "088858c1485d016608457eb245b91e1929b552f1cdae3092ec7abcaf27c1e14e",
+          "bytes": 863626
+        },
+        "server.json": {
+          "sha256": "ea6ca908c5175e402b53d271b7f02baa8438546009cf1b3804ca504de2e8be1c",
+          "bytes": 905472
+        },
+        "manifest.json": {
+          "sha256": "a77c5bab098a84b036053a56fa75fe59fbea2d86f1fa9f263a3bbba480f53281",
+          "bytes": 9619
+        },
+        "adjudicated-final.json": {
+          "sha256": "757455bab05834073d5a80fff7e88c721287a20639139ab7a82d2155c030c876",
+          "bytes": 15470
+        },
+        "peer-2.json": {
+          "sha256": "4242dc2e9e6f8c235f40937f7aa1e8fca40e5175e0d8528a22a0bdb774f546a7",
+          "bytes": 827473
+        },
+        "peer-3.json": {
+          "sha256": "10f5db327f6c634c85ad8ee3e4b8ea97df912a66263e28c9982771f6a36b0d33",
+          "bytes": 844181
+        }
+      }
+    },
+    {
+      "attempt": "windows/ProjectPrime-net2-n0-candidate-aeff2306/artifacts/candidate-8-shock",
+      "source": "aeff23065758cfa276384bd2f1196fce992f42e2",
+      "settings": {
+        "source": "aeff2306",
+        "players": 8,
+        "seconds": 60.0,
+        "port": 27995,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "shockcoil-all",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "engineSha256": "63ea41a769e2042ce5d23f934e5e33ce7aa069a156f45eaa97dab1304adb4cd8",
+      "engineAfterSha256": "63ea41a769e2042ce5d23f934e5e33ce7aa069a156f45eaa97dab1304adb4cd8",
+      "assetManifestSha256": "deb29243b7ecf7451a66e24ab3655656b6feaa05e5950eca5d452dda47328a8b",
+      "harnessSha256": null,
+      "elapsedSeconds": 68.35218759998679,
+      "status": "FAIL",
+      "failures": [
+        "peer-1: timeout in peer-1/netlog-peer_1.txt",
+        "peer-3: timeout in peer-3/netlog-peer_3.txt",
+        "peer-4: timeout in peer-4/netlog-peer_4.txt",
+        "peer-5: timeout in peer-5/netlog-peer_5.txt",
+        "peer-5: transport queue drop/socket error",
+        "peer-6: timeout in peer-6/netlog-peer_6.txt",
+        "peer-6: transport queue drop/socket error",
+        "peer-7: timeout in peer-7/netlog-peer_7.txt",
+        "peer-7: transport queue drop/socket error",
+        "peer-0: unexplained shot tail/loss: 0 unaccepted, 3466 uncommitted",
+        "peer-1: unexplained shot tail/loss: 0 unaccepted, 3274 uncommitted",
+        "peer-2: unexplained shot tail/loss: 0 unaccepted, 3487 uncommitted",
+        "peer-3: unexplained shot tail/loss: 0 unaccepted, 3329 uncommitted",
+        "peer-3: 1 authority shots not committed in this view",
+        "peer-4: unexplained shot tail/loss: 0 unaccepted, 3483 uncommitted",
+        "peer-4: 1 authority shots not committed in this view",
+        "peer-5: unexplained shot tail/loss: 0 unaccepted, 3476 uncommitted",
+        "peer-5: 1 authority shots not committed in this view",
+        "peer-6: unexplained shot tail/loss: 0 unaccepted, 3375 uncommitted",
+        "peer-7: unexplained shot tail/loss: 0 unaccepted, 3420 uncommitted"
+      ],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN"
+      },
+      "totals": {
+        "offeredShots": 27448,
+        "acceptedShots": 27448,
+        "committedShots": 138,
+        "healthSamplesCompared": 602,
+        "healthMismatches": 0,
+        "viewMissingCommits": 3,
+        "semanticMissing": 0
+      },
+      "parity": {
+        "peer-0": {
+          "healthSamplesCompared": 96,
+          "healthMismatches": 0,
+          "offeredShots": 3483,
+          "acceptedShots": 3483,
+          "committedShots": 17,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 114,
+          "viewExpectedCommits": 54,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 4,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [
+            [
+              639272551724839160,
+              2,
+              0,
+              1,
+              1,
+              1
+            ],
+            [
+              639272551724839160,
+              2,
+              0,
+              1,
+              1,
+              2
+            ],
+            [
+              639272551724839160,
+              2,
+              0,
+              1,
+              1,
+              3
+            ]
+          ],
+          "viewMissingKeysExamples": []
+        },
+        "peer-1": {
+          "healthSamplesCompared": 64,
+          "healthMismatches": 0,
+          "offeredShots": 3289,
+          "acceptedShots": 3289,
+          "committedShots": 15,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 114,
+          "viewExpectedCommits": 23,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 4,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [
+            [
+              639272551724839160,
+              2,
+              1,
+              1,
+              2,
+              1
+            ],
+            [
+              639272551724839160,
+              2,
+              1,
+              1,
+              2,
+              2
+            ],
+            [
+              639272551724839160,
+              2,
+              1,
+              1,
+              2,
+              3
+            ]
+          ],
+          "viewMissingKeysExamples": []
+        },
+        "peer-2": {
+          "healthSamplesCompared": 80,
+          "healthMismatches": 0,
+          "offeredShots": 3505,
+          "acceptedShots": 3505,
+          "committedShots": 18,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 114,
+          "viewExpectedCommits": 45,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 4,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [
+            [
+              639272551724839160,
+              2,
+              2,
+              1,
+              2,
+              1
+            ],
+            [
+              639272551724839160,
+              2,
+              2,
+              1,
+              2,
+              2
+            ],
+            [
+              639272551724839160,
+              2,
+              2,
+              1,
+              2,
+              3
+            ]
+          ],
+          "viewMissingKeysExamples": []
+        },
+        "peer-3": {
+          "healthSamplesCompared": 64,
+          "healthMismatches": 0,
+          "offeredShots": 3342,
+          "acceptedShots": 3342,
+          "committedShots": 13,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 122,
+          "viewExpectedCommits": 54,
+          "viewMissingCommits": 1,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 4,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [
+            [
+              639272551724839160,
+              2,
+              3,
+              1,
+              2,
+              1
+            ],
+            [
+              639272551724839160,
+              2,
+              3,
+              1,
+              2,
+              2
+            ],
+            [
+              639272551724839160,
+              2,
+              3,
+              1,
+              2,
+              3
+            ]
+          ],
+          "viewMissingKeysExamples": [
+            [
+              639272551724839160,
+              2,
+              2,
+              1,
+              2,
+              8
+            ]
+          ]
+        },
+        "peer-4": {
+          "healthSamplesCompared": 80,
+          "healthMismatches": 0,
+          "offeredShots": 3500,
+          "acceptedShots": 3500,
+          "committedShots": 17,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 114,
+          "viewExpectedCommits": 54,
+          "viewMissingCommits": 1,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 4,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [
+            [
+              639272551724839160,
+              2,
+              4,
+              1,
+              2,
+              1
+            ],
+            [
+              639272551724839160,
+              2,
+              4,
+              1,
+              2,
+              2
+            ],
+            [
+              639272551724839160,
+              2,
+              4,
+              1,
+              2,
+              3
+            ]
+          ],
+          "viewMissingKeysExamples": [
+            [
+              639272551724839160,
+              2,
+              2,
+              1,
+              2,
+              8
+            ]
+          ]
+        },
+        "peer-5": {
+          "healthSamplesCompared": 80,
+          "healthMismatches": 0,
+          "offeredShots": 3494,
+          "acceptedShots": 3494,
+          "committedShots": 18,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 127,
+          "viewExpectedCommits": 54,
+          "viewMissingCommits": 1,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 4,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [
+            [
+              639272551724839160,
+              2,
+              5,
+              1,
+              2,
+              1
+            ],
+            [
+              639272551724839160,
+              2,
+              5,
+              1,
+              2,
+              2
+            ],
+            [
+              639272551724839160,
+              2,
+              5,
+              1,
+              2,
+              3
+            ]
+          ],
+          "viewMissingKeysExamples": [
+            [
+              639272551724839160,
+              2,
+              2,
+              1,
+              2,
+              8
+            ]
+          ]
+        },
+        "peer-6": {
+          "healthSamplesCompared": 70,
+          "healthMismatches": 0,
+          "offeredShots": 3401,
+          "acceptedShots": 3401,
+          "committedShots": 26,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 136,
+          "viewExpectedCommits": 60,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 54,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [
+            [
+              639272551724839160,
+              2,
+              6,
+              1,
+              2,
+              1
+            ],
+            [
+              639272551724839160,
+              2,
+              6,
+              1,
+              2,
+              2
+            ],
+            [
+              639272551724839160,
+              2,
+              6,
+              1,
+              2,
+              3
+            ]
+          ],
+          "viewMissingKeysExamples": []
+        },
+        "peer-7": {
+          "healthSamplesCompared": 68,
+          "healthMismatches": 0,
+          "offeredShots": 3434,
+          "acceptedShots": 3434,
+          "committedShots": 14,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 136,
+          "viewExpectedCommits": 68,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 97,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [
+            [
+              639272551724839160,
+              2,
+              7,
+              1,
+              1,
+              1
+            ],
+            [
+              639272551724839160,
+              2,
+              7,
+              1,
+              1,
+              2
+            ],
+            [
+              639272551724839160,
+              2,
+              7,
+              1,
+              1,
+              3
+            ]
+          ],
+          "viewMissingKeysExamples": []
+        }
+      },
+      "observations": {
+        "server": {
+          "Frames": 291,
+          "AliveFrames": [
+            221,
+            221,
+            221,
+            230,
+            225,
+            245,
+            236,
+            166
+          ],
+          "OfferedCarriers": 0,
+          "AcceptedCarriers": 28389,
+          "AllocatedBytes": 166862968,
+          "HeapBytes": 31484624,
+          "WorkingSet": 136183808,
+          "Transport": {
+            "PacketsReceived": 36532,
+            "PacketsSent": 210176,
+            "BytesReceived": 34728133,
+            "BytesSent": 241323772,
+            "Invalid": 4,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 885,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 35456,
+            "ProcessingMilliseconds": 57847.1905,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639272551724839160,
+              "CurrentMatchId": 2,
+              "Frames": 291,
+              "StepFailures": 0,
+              "DroppedSteps": 74,
+              "Stalls": 134,
+              "StepAllocatedBytes": 68526208,
+              "MeanMs": 8.519616494845355,
+              "P50Ms": 4.23,
+              "P95Ms": 19.61,
+              "P99Ms": 82.54,
+              "P999Ms": 515.4043,
+              "WorstMs": 515.4043
+            }
+          ],
+          "shotCounts": {
+            "accepted": 27448,
+            "committed": 138
+          }
+        },
+        "peer-0": {
+          "Frames": 3543,
+          "AliveFrames": [
+            3543,
+            3543,
+            3543,
+            3543,
+            3543,
+            3543,
+            3543,
+            3543
+          ],
+          "OfferedCarriers": 3543,
+          "AcceptedCarriers": 17811,
+          "AllocatedBytes": 148808552,
+          "HeapBytes": 27270976,
+          "WorkingSet": 133083136,
+          "Transport": {
+            "PacketsReceived": 25398,
+            "PacketsSent": 3889,
+            "BytesReceived": 29891998,
+            "BytesSent": 4269020,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 64,
+            "QueueDrops": 0,
+            "Coalesced": 6945,
+            "Processed": 535,
+            "ProcessingMilliseconds": 436.3583,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 23764,
+            "committed": 20710,
+            "offered": 3483
+          }
+        },
+        "peer-1": {
+          "Frames": 3539,
+          "AliveFrames": [
+            3539,
+            3539,
+            3539,
+            3539,
+            3539,
+            3539,
+            3539,
+            3539
+          ],
+          "OfferedCarriers": 3539,
+          "AcceptedCarriers": 17711,
+          "AllocatedBytes": 151698088,
+          "HeapBytes": 29871504,
+          "WorkingSet": 132800512,
+          "Transport": {
+            "PacketsReceived": 26962,
+            "PacketsSent": 5523,
+            "BytesReceived": 30051395,
+            "BytesSent": 4428055,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 1,
+            "QueueHighWater": 65,
+            "QueueDrops": 0,
+            "Coalesced": 7114,
+            "Processed": 2044,
+            "ProcessingMilliseconds": 605.431,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 24012,
+            "committed": 20588,
+            "offered": 3289
+          }
+        },
+        "peer-2": {
+          "Frames": 3548,
+          "AliveFrames": [
+            3548,
+            3548,
+            3548,
+            3548,
+            3548,
+            3548,
+            3548,
+            3548
+          ],
+          "OfferedCarriers": 3548,
+          "AcceptedCarriers": 17695,
+          "AllocatedBytes": 148189832,
+          "HeapBytes": 26671496,
+          "WorkingSet": 130015232,
+          "Transport": {
+            "PacketsReceived": 25401,
+            "PacketsSent": 3908,
+            "BytesReceived": 29906370,
+            "BytesSent": 4275285,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 60,
+            "QueueDrops": 0,
+            "Coalesced": 7079,
+            "Processed": 522,
+            "ProcessingMilliseconds": 436.6092,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "committed": 20634,
+            "offered": 3505,
+            "accepted": 23768
+          }
+        },
+        "peer-3": {
+          "Frames": 3547,
+          "AliveFrames": [
+            3547,
+            3547,
+            3547,
+            3547,
+            3547,
+            3547,
+            3547,
+            3547
+          ],
+          "OfferedCarriers": 3547,
+          "AcceptedCarriers": 17859,
+          "AllocatedBytes": 142825960,
+          "HeapBytes": 29577896,
+          "WorkingSet": 129847296,
+          "Transport": {
+            "PacketsReceived": 25854,
+            "PacketsSent": 4407,
+            "BytesReceived": 30061082,
+            "BytesSent": 4322594,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 1,
+            "QueueHighWater": 71,
+            "QueueDrops": 0,
+            "Coalesced": 7046,
+            "Processed": 859,
+            "ProcessingMilliseconds": 455.7027,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 24047,
+            "committed": 20760,
+            "offered": 3342
+          }
+        },
+        "peer-4": {
+          "Frames": 3553,
+          "AliveFrames": [
+            3553,
+            3553,
+            3553,
+            3553,
+            3553,
+            3553,
+            3553,
+            3553
+          ],
+          "OfferedCarriers": 3553,
+          "AcceptedCarriers": 17781,
+          "AllocatedBytes": 137352712,
+          "HeapBytes": 31547176,
+          "WorkingSet": 129372160,
+          "Transport": {
+            "PacketsReceived": 27337,
+            "PacketsSent": 5618,
+            "BytesReceived": 30122222,
+            "BytesSent": 4459273,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 65,
+            "QueueDrops": 0,
+            "Coalesced": 7094,
+            "Processed": 2369,
+            "ProcessingMilliseconds": 468.0274,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 23871,
+            "committed": 20717,
+            "offered": 3500
+          }
+        },
+        "peer-5": {
+          "Frames": 3553,
+          "AliveFrames": [
+            3544,
+            3544,
+            3544,
+            3553,
+            3553,
+            3553,
+            3553,
+            3538
+          ],
+          "OfferedCarriers": 3553,
+          "AcceptedCarriers": 17615,
+          "AllocatedBytes": 127565648,
+          "HeapBytes": 29908712,
+          "WorkingSet": 128958464,
+          "Transport": {
+            "PacketsReceived": 25965,
+            "PacketsSent": 4424,
+            "BytesReceived": 30130544,
+            "BytesSent": 4330806,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 4,
+            "QueueHighWater": 67,
+            "QueueDrops": 4,
+            "Coalesced": 7339,
+            "Processed": 910,
+            "ProcessingMilliseconds": 368.1367,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 23932,
+            "committed": 20601,
+            "offered": 3494
+          }
+        },
+        "peer-6": {
+          "Frames": 3556,
+          "AliveFrames": [
+            3528,
+            3528,
+            3528,
+            3542,
+            3537,
+            3556,
+            3556,
+            3522
+          ],
+          "OfferedCarriers": 3556,
+          "AcceptedCarriers": 17669,
+          "AllocatedBytes": 119810856,
+          "HeapBytes": 31451472,
+          "WorkingSet": 133410816,
+          "Transport": {
+            "PacketsReceived": 25947,
+            "PacketsSent": 4311,
+            "BytesReceived": 30166721,
+            "BytesSent": 4322362,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 4,
+            "QueueHighWater": 57,
+            "QueueDrops": 51,
+            "Coalesced": 7312,
+            "Processed": 806,
+            "ProcessingMilliseconds": 313.394,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 24024,
+            "committed": 20636,
+            "offered": 3401
+          }
+        },
+        "peer-7": {
+          "Frames": 3550,
+          "AliveFrames": [
+            3500,
+            3501,
+            3501,
+            3514,
+            3509,
+            3530,
+            3549,
+            3494
+          ],
+          "OfferedCarriers": 3550,
+          "AcceptedCarriers": 17527,
+          "AllocatedBytes": 119485672,
+          "HeapBytes": 31070160,
+          "WorkingSet": 129724416,
+          "Transport": {
+            "PacketsReceived": 26128,
+            "PacketsSent": 4342,
+            "BytesReceived": 30201051,
+            "BytesSent": 4318047,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 3,
+            "QueueHighWater": 58,
+            "QueueDrops": 92,
+            "Coalesced": 7470,
+            "Processed": 916,
+            "ProcessingMilliseconds": 388.2291,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 23914,
+            "committed": 20487,
+            "offered": 3434
+          }
+        }
+      },
+      "rawFiles": {
+        "summary.json": {
+          "sha256": "13809e0623ccedf5b38d8e6efc9c7a339a9db6f9d3e4340ab95be1f0ad448ea3",
+          "bytes": 48520
+        },
+        "peer-0.json": {
+          "sha256": "2ca984fc24ae37b8635640be1bf62743bfa1c0345e717f8e24962cf303d97408",
+          "bytes": 11085616
+        },
+        "peer-1.json": {
+          "sha256": "46a3c52a256da66ca733bfa2efa0209ed13c5eb7bf88d82bff8ea42fa581429a",
+          "bytes": 11065785
+        },
+        "server.json": {
+          "sha256": "6705b24c5e66d12096d0d35e630f7afd412226414dd1113d57428e245760c580",
+          "bytes": 6332900
+        },
+        "peer-6.json": {
+          "sha256": "c2d0d84b8c1e376f2bf178e1692430268c15f457ef81903b0e44a51c4e978b4c",
+          "bytes": 11109153
+        },
+        "peer-7.json": {
+          "sha256": "31a13e83295690a4d223925dc442c11a4b9d9462bf07c9fb6654368550932c7b",
+          "bytes": 11058290
+        },
+        "peer-4.json": {
+          "sha256": "95fc4ecd2510955347f16dc117da02a9c3a5d0960f6c4ee0f6e3524a5c4d1e8c",
+          "bytes": 11112284
+        },
+        "manifest.json": {
+          "sha256": "ef77e811f30259db3fb46dcf3e69f1bce089de492d2da1a466fd4115b301e811",
+          "bytes": 15395
+        },
+        "peer-5.json": {
+          "sha256": "25a32270ee6a348706b21b514a60417666d68f15f2ce13ec843692a31b06a94a",
+          "bytes": 11104390
+        },
+        "adjudicated-final.json": {
+          "sha256": "d96b517bc6c5bacb038db7bb289b67551293da028be4337f3c4149f9bd2fc5ba",
+          "bytes": 47402
+        },
+        "peer-2.json": {
+          "sha256": "731492866b72192961c826df3d2de39199476b8267ba1f50189a1e961efc3a5d",
+          "bytes": 11071460
+        },
+        "peer-3.json": {
+          "sha256": "234ea4178557278df34b3cbc61e19fe24af5ffb7e98e94d60ac960e452d406ff",
+          "bytes": 11126036
+        }
+      }
+    },
+    {
+      "attempt": "windows-rendered-final",
+      "source": "2c62508161a9328eae756e130a13a9d4ce068685",
+      "settings": {
+        "source": "2c625081",
+        "players": 3,
+        "seconds": 60.0,
+        "port": 27995,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": true,
+        "record": true,
+        "soak": false
+      },
+      "engineSha256": "f92c3c9e54a238a1b421be6d944a04cb72772eb824c75f79b40162e456cd495e",
+      "engineAfterSha256": "f92c3c9e54a238a1b421be6d944a04cb72772eb824c75f79b40162e456cd495e",
+      "assetManifestSha256": "deb29243b7ecf7451a66e24ab3655656b6feaa05e5950eca5d452dda47328a8b",
+      "harnessSha256": {
+        "run-net2.py": "62cdc544957fe8fc3cef46a581d55f8ce49085e9faa79fbd49291c57dbdde267",
+        "net2_evidence.py": "0abfe79c81980412e6e11b0791562cba902cc3aaedb37250cb77ae83011604b6"
+      },
+      "elapsedSeconds": 98.68833070003893,
+      "status": "FAIL",
+      "failures": [
+        "peer-1: 1 authority shots not committed in this view",
+        "peer-2: 1 authority shots not committed in this view"
+      ],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "PASS",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN"
+      },
+      "totals": {
+        "offeredShots": 74,
+        "acceptedShots": 74,
+        "committedShots": 74,
+        "healthSamplesCompared": 4921,
+        "healthMismatches": 0,
+        "viewMissingCommits": 2,
+        "semanticMissing": 0
+      },
+      "parity": {
+        "peer-0": {
+          "healthSamplesCompared": 1588,
+          "healthMismatches": 0,
+          "offeredShots": 74,
+          "acceptedShots": 74,
+          "committedShots": 74,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 81,
+          "viewExpectedCommits": 73,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 80,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": []
+        },
+        "peer-1": {
+          "healthSamplesCompared": 1554,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 81,
+          "viewExpectedCommits": 74,
+          "viewMissingCommits": 1,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 80,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": [
+            [
+              639272560644630077,
+              2,
+              0,
+              1,
+              1,
+              14
+            ]
+          ]
+        },
+        "peer-2": {
+          "healthSamplesCompared": 1779,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "matchingSemanticFacts": 55,
+          "viewExpectedCommits": 47,
+          "viewMissingCommits": 1,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 53,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN",
+          "unacceptedKeysExamples": [],
+          "uncommittedKeysExamples": [],
+          "viewMissingKeysExamples": [
+            [
+              639272560644630077,
+              2,
+              0,
+              1,
+              1,
+              14
+            ]
+          ]
+        }
+      },
+      "observations": {
+        "server": {
+          "Frames": 5567,
+          "AliveFrames": [
+            5366,
+            5207,
+            328,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 0,
+          "AcceptedCarriers": 10796,
+          "AllocatedBytes": 734892368,
+          "HeapBytes": 45132608,
+          "WorkingSet": 160374784,
+          "Transport": {
+            "PacketsReceived": 12074,
+            "PacketsSent": 42714,
+            "BytesReceived": 12998510,
+            "BytesSent": 32677677,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 8,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 11637,
+            "ProcessingMilliseconds": 8458.276,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639272560644630077,
+              "CurrentMatchId": 2,
+              "Frames": 5567,
+              "StepFailures": 0,
+              "DroppedSteps": 0,
+              "Stalls": 2,
+              "StepAllocatedBytes": 47207672,
+              "MeanMs": 1.5426387461828597,
+              "P50Ms": 1.23,
+              "P95Ms": 2.54,
+              "P99Ms": 3.47,
+              "P999Ms": 18.97,
+              "WorstMs": 498.7878
+            }
+          ],
+          "shotCounts": {
+            "accepted": 74,
+            "committed": 74
+          }
+        },
+        "peer-0": {
+          "Frames": 3599,
+          "AliveFrames": [
+            3459,
+            3360,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3599,
+          "AcceptedCarriers": 5340,
+          "AllocatedBytes": 378235752,
+          "HeapBytes": 169897088,
+          "WorkingSet": 393924608,
+          "Transport": {
+            "PacketsReceived": 15580,
+            "PacketsSent": 4125,
+            "BytesReceived": 11988994,
+            "BytesSent": 4345939,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 5,
+            "QueueHighWater": 268,
+            "QueueDrops": 0,
+            "Coalesced": 3843,
+            "Processed": 2753,
+            "ProcessingMilliseconds": 1001.1909,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "committed": 74,
+            "offered": 74
+          }
+        },
+        "peer-1": {
+          "Frames": 3599,
+          "AliveFrames": [
+            3458,
+            3365,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3599,
+          "AcceptedCarriers": 5316,
+          "AllocatedBytes": 480278080,
+          "HeapBytes": 168663544,
+          "WorkingSet": 423174144,
+          "Transport": {
+            "PacketsReceived": 15604,
+            "PacketsSent": 4021,
+            "BytesReceived": 12003686,
+            "BytesSent": 4327551,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 9,
+            "QueueHighWater": 273,
+            "QueueDrops": 0,
+            "Coalesced": 3916,
+            "Processed": 2750,
+            "ProcessingMilliseconds": 1055.2433,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 74,
+            "committed": 73
+          }
+        },
+        "peer-2": {
+          "Frames": 3599,
+          "AliveFrames": [
+            3434,
+            3270,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "OfferedCarriers": 3599,
+          "AcceptedCarriers": 4366,
+          "AllocatedBytes": 350827440,
+          "HeapBytes": 182947312,
+          "WorkingSet": 391467008,
+          "Transport": {
+            "PacketsReceived": 11444,
+            "PacketsSent": 3922,
+            "BytesReceived": 8649343,
+            "BytesSent": 4324863,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 3,
+            "QueueHighWater": 138,
+            "QueueDrops": 0,
+            "Coalesced": 1420,
+            "Processed": 2126,
+            "ProcessingMilliseconds": 399.3947,
+            "SocketErrors": 0
+          },
+          "ServerSegments": [],
+          "shotCounts": {
+            "accepted": 48,
+            "committed": 47
+          }
+        }
+      },
+      "rawFiles": {
+        "summary.json": {
+          "sha256": "427957cb74f5295713f1b878b5cf1130593e0d1a1c48719ee78a068d64ee304c",
+          "bytes": 7411
+        },
+        "peer-0.json": {
+          "sha256": "ff2598406b2a7277807a25148f851327c6c4ea8b9962fbdf6fa7cad176cd445d",
+          "bytes": 545417
+        },
+        "peer-1.json": {
+          "sha256": "117f06e45015d5aeaf501591c2c093e6d067ab507f4dcd59c6722e856b226275",
+          "bytes": 540412
+        },
+        "server.json": {
+          "sha256": "2a879454f1f0e371baddd3bf5d49c06d728cfd7c89cf4f97b462e3fb0b21fe15",
+          "bytes": 718989
+        },
+        "manifest.json": {
+          "sha256": "bdcfdb8e6725d4a4dd7e844a6a481d36e792498c5997935a6dfe7a35d4e95cfa",
+          "bytes": 9370
+        },
+        "adjudicated-final.json": {
+          "sha256": "ec798525d31728139c63de9fae19bad289f491a2fcfee74056063f96df082d79",
+          "bytes": 7450
+        },
+        "peer-2.json": {
+          "sha256": "21665d45c70f8138347fbff43e037e351372e0a4e4d848d5cac9fc2634e9f945",
+          "bytes": 513481
+        }
+      }
+    }
+  ],
+  "keyExamplesLimit": 3,
+  "suiteRuns": {
+    "Mac": [
+      {
+        "name": "control-8-shock",
+        "exit": 1
+      },
+      {
+        "name": "candidate-2-missile",
+        "exit": 1
+      },
+      {
+        "name": "candidate-4-tour",
+        "exit": 1
+      },
+      {
+        "name": "candidate-3-rendered",
+        "exit": 1
+      },
+      {
+        "name": "replayvalidate-exports",
+        "exit": 0
+      },
+      {
+        "name": "replayvalidate-exports",
+        "exit": 0
+      },
+      {
+        "name": "replayvalidate-exports",
+        "exit": 0
+      },
+      {
+        "name": "control-gamemodecheck",
+        "exit": 0
+      },
+      {
+        "name": "control-enhanced-hunters",
+        "exit": 0
+      },
+      {
+        "name": "control-advanced-rules",
+        "exit": 0
+      },
+      {
+        "name": "control-player-names-chat",
+        "exit": 0
+      },
+      {
+        "name": "control-protocol19",
+        "exit": 0
+      },
+      {
+        "name": "control-alt-hits",
+        "exit": 0
+      },
+      {
+        "name": "control-continuous-targets",
+        "exit": 0
+      },
+      {
+        "name": "control-netcode-performance",
+        "exit": 0
+      },
+      {
+        "name": "control-dynamic-geometry",
+        "exit": 0
+      },
+      {
+        "name": "control-input-edges",
+        "exit": 0
+      },
+      {
+        "name": "control-protocol18",
+        "exit": 0
+      },
+      {
+        "name": "control-claim-stress",
+        "exit": 0
+      },
+      {
+        "name": "control-health-shots",
+        "exit": 0
+      },
+      {
+        "name": "control-lifecycle",
+        "exit": 0
+      },
+      {
+        "name": "control-bot-ai",
+        "exit": 0
+      },
+      {
+        "name": "control-bots",
+        "exit": 0
+      },
+      {
+        "name": "control-waitlist",
+        "exit": 0
+      },
+      {
+        "name": "control-lobby",
+        "exit": 0
+      },
+      {
+        "name": "control-architecture",
+        "exit": 0
+      },
+      {
+        "name": "control-allocations",
+        "exit": 0
+      },
+      {
+        "name": "control-protocol17",
+        "exit": 0
+      },
+      {
+        "name": "control-reliable",
+        "exit": 0
+      },
+      {
+        "name": "control-queue-budget",
+        "exit": 0
+      },
+      {
+        "name": "control-load-lifecycle",
+        "exit": 0
+      },
+      {
+        "name": "control-lagcomp-shadow",
+        "exit": 0
+      },
+      {
+        "name": "control-weapon-policy",
+        "exit": 0
+      },
+      {
+        "name": "control-transport-stress",
+        "exit": 0
+      },
+      {
+        "name": "control-network-benchmark",
+        "exit": 0
+      },
+      {
+        "name": "candidate-gamemodecheck",
+        "exit": 0
+      },
+      {
+        "name": "candidate-enhanced-hunters",
+        "exit": 0
+      },
+      {
+        "name": "candidate-advanced-rules",
+        "exit": 0
+      },
+      {
+        "name": "candidate-player-names-chat",
+        "exit": 0
+      },
+      {
+        "name": "candidate-protocol19",
+        "exit": 0
+      },
+      {
+        "name": "candidate-alt-hits",
+        "exit": 0
+      },
+      {
+        "name": "candidate-continuous-targets",
+        "exit": 0
+      },
+      {
+        "name": "candidate-netcode-performance",
+        "exit": 0
+      },
+      {
+        "name": "candidate-dynamic-geometry",
+        "exit": 0
+      },
+      {
+        "name": "candidate-input-edges",
+        "exit": 0
+      },
+      {
+        "name": "candidate-protocol18",
+        "exit": 0
+      },
+      {
+        "name": "candidate-claim-stress",
+        "exit": 0
+      },
+      {
+        "name": "candidate-health-shots",
+        "exit": 0
+      },
+      {
+        "name": "candidate-lifecycle",
+        "exit": 0
+      },
+      {
+        "name": "candidate-bot-ai",
+        "exit": 0
+      },
+      {
+        "name": "candidate-bots",
+        "exit": 0
+      },
+      {
+        "name": "candidate-waitlist",
+        "exit": 0
+      },
+      {
+        "name": "candidate-lobby",
+        "exit": 0
+      },
+      {
+        "name": "candidate-architecture",
+        "exit": 0
+      },
+      {
+        "name": "candidate-allocations",
+        "exit": 0
+      },
+      {
+        "name": "candidate-protocol17",
+        "exit": 0
+      },
+      {
+        "name": "candidate-reliable",
+        "exit": 0
+      },
+      {
+        "name": "candidate-queue-budget",
+        "exit": 0
+      },
+      {
+        "name": "candidate-load-lifecycle",
+        "exit": 0
+      },
+      {
+        "name": "candidate-lagcomp-shadow",
+        "exit": 0
+      },
+      {
+        "name": "candidate-weapon-policy",
+        "exit": 0
+      },
+      {
+        "name": "candidate-transport-stress",
+        "exit": 0
+      },
+      {
+        "name": "candidate-combat-scene",
+        "exit": 1
+      },
+      {
+        "name": "candidate-claim-load-scene",
+        "exit": 0
+      },
+      {
+        "name": "candidate-geometry-scene",
+        "exit": 0
+      },
+      {
+        "name": "candidate-bootstrap-scene",
+        "exit": 0
+      },
+      {
+        "name": "candidate-continuous-scene",
+        "exit": 1
+      },
+      {
+        "name": "candidate-bots-online",
+        "exit": 0
+      },
+      {
+        "name": "candidate-network-benchmark",
+        "exit": 0
+      },
+      {
+        "name": "control-serverperf-2",
+        "exit": 0
+      },
+      {
+        "name": "candidate-serverperf-2",
+        "exit": 0
+      },
+      {
+        "name": "control-serverperf-4",
+        "exit": 0
+      },
+      {
+        "name": "candidate-serverperf-4",
+        "exit": 0
+      },
+      {
+        "name": "control-serverperf-8",
+        "exit": 0
+      },
+      {
+        "name": "candidate-serverperf-8",
+        "exit": 0
+      }
+    ],
+    "Windows-control": [
+      {
+        "name": "architecture",
+        "exit": 0
+      },
+      {
+        "name": "lifecycle",
+        "exit": 0
+      },
+      {
+        "name": "health-shots",
+        "exit": 0
+      },
+      {
+        "name": "claim-stress",
+        "exit": 0
+      },
+      {
+        "name": "input-edges",
+        "exit": 0
+      },
+      {
+        "name": "continuous-targets",
+        "exit": 0
+      },
+      {
+        "name": "dynamic-geometry",
+        "exit": 0
+      },
+      {
+        "name": "reliable",
+        "exit": 0
+      },
+      {
+        "name": "queue-budget",
+        "exit": 0
+      },
+      {
+        "name": "transport-stress",
+        "exit": 0
+      },
+      {
+        "name": "combat-scene",
+        "exit": 1
+      },
+      {
+        "name": "claim-load-scene",
+        "exit": 0
+      },
+      {
+        "name": "geometry-scene",
+        "exit": 0
+      },
+      {
+        "name": "bootstrap-scene",
+        "exit": 0
+      },
+      {
+        "name": "continuous-scene",
+        "exit": 1
+      },
+      {
+        "name": "network-benchmark",
+        "exit": "TIMEOUT"
+      }
+    ],
+    "Windows-candidate": [
+      {
+        "name": "build",
+        "exit": 0
+      },
+      {
+        "name": "harness-tests",
+        "exit": 0
+      },
+      {
+        "name": "architecture",
+        "exit": 0
+      },
+      {
+        "name": "lifecycle",
+        "exit": 0
+      },
+      {
+        "name": "health-shots",
+        "exit": 0
+      },
+      {
+        "name": "claim-stress",
+        "exit": 0
+      },
+      {
+        "name": "input-edges",
+        "exit": 0
+      },
+      {
+        "name": "continuous-targets",
+        "exit": 0
+      },
+      {
+        "name": "dynamic-geometry",
+        "exit": 0
+      },
+      {
+        "name": "reliable",
+        "exit": 0
+      },
+      {
+        "name": "queue-budget",
+        "exit": 0
+      },
+      {
+        "name": "transport-stress",
+        "exit": 0
+      },
+      {
+        "name": "combat-scene",
+        "exit": 1
+      },
+      {
+        "name": "claim-load-scene",
+        "exit": 0
+      },
+      {
+        "name": "geometry-scene",
+        "exit": 0
+      },
+      {
+        "name": "bootstrap-scene",
+        "exit": 0
+      },
+      {
+        "name": "continuous-scene",
+        "exit": 1
+      },
+      {
+        "name": "bots-online",
+        "exit": 0
+      },
+      {
+        "name": "network-benchmark",
+        "exit": 0
+      }
+    ]
+  },
+  "replayValidation": {
+    "Mac": [
+      {
+        "recording": "peer-0",
+        "exit": 0
+      },
+      {
+        "recording": "peer-1",
+        "exit": 0
+      },
+      {
+        "recording": "peer-2",
+        "exit": 0
+      }
+    ],
+    "Windows": [
+      {
+        "recording": "MP1 SANCTORUS_2026-10-10_14-07-48-957_c6ae5a2b0ddd4d3a9967f377056ba1f4.ppdemo",
+        "exit": 0
+      },
+      {
+        "recording": "MP1 SANCTORUS_2026-10-10_14-07-48-956_0f0614ec5dde46f0858410cb218a3f86.ppdemo",
+        "exit": 0
+      },
+      {
+        "recording": "MP1 SANCTORUS_2026-10-10_14-07-48-961_f902bdf622334bc3963f4a6341a7fa32.ppdemo",
+        "exit": 0
+      }
+    ]
+  },
+  "builds": {
+    "mac-control": {
+      "sourceSha": "468bbbf027148ce94901dfa8bf138d16a4498c03",
+      "protocol": 41,
+      "engineSha256": "288de6d894b207fa220fd6ee21a20201286845a603baa44bf7d658f7e00db602",
+      "testSha256": "b76a5d06541ae9ff8bd7343f557bff094935f2cdaf86ca51d16974c0b9eae00c"
+    },
+    "windows-control": {
+      "source": "468bbbf027148ce94901dfa8bf138d16a4498c03",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "protocol": 41,
+      "assemblySha256": "e3e66bfb8899b1b43857552e09f11403eb0eb6ac4366a9ac59cf5197b2084c63",
+      "assetManifestSha256": "f494814325d22dc5f14608517606888047b4f4a5ad777784c1c871e346afe46e"
+    },
+    "windows-candidate-suites": {
+      "source": "2a1bba72fd8d379a2e8405ac70ca74d8a2909c5f",
+      "archiveSha256": "f632e627c7f2e1678192fac776c9cfd549debe2d09b6b69363a5549725f205a3",
+      "engineSha256": "f4b4ff09894def822ab7ccbec97cb56bccf3de9fd212cbe062376f36ee5e4655",
+      "testSha256": "1f48c12602bc9da630a9fbd99558d48207de830ca6f4a4635ad56fab1789b0a1"
+    },
+    "windows-final": {
+      "csharpSource": "2c625081",
+      "pythonSource": "41ce0395",
+      "harnessTestsExit": 0,
+      "archiveSha256": "b2c9994ad602dc4c1e1ba5938291b4bff002152e9a95184a3098bb97a0ed96f1",
+      "engineSha256": "f92c3c9e54a238a1b421be6d944a04cb72772eb824c75f79b40162e456cd495e",
+      "testSha256": "bf0e2b5401c04af612ca33f06c3358c073b17f9b599002e490a190b3c749637e",
+      "pythonSha256": {
+        "run-net2.py": "78b02cb617e1934fea0d6e4324b3392bb27ca3a826a26b5fc012c49d34d29eb3",
+        "net2_evidence.py": "f4f2de9e5b79437f7334b14941992d1d7d8b8913ac2e69f4575a1b921be1da1b",
+        "test_net2_evidence.py": "781412dcc0833279f9eb05578fec352d7a45783666e8219fbb2755f607ec6f24"
+      }
+    }
+  },
+  "virtualComparisons": {
+    "Mac": {
+      "controlCases": 2016,
+      "candidateCases": 2016,
+      "comparedFields": [
+        "packetsSent",
+        "packetsReceived",
+        "bytesSent",
+        "bytesReceived",
+        "maxPacketBytes",
+        "intentPackets",
+        "snapshotPackets",
+        "slowPackets",
+        "worldPackets",
+        "injectedDrops",
+        "transportDrops",
+        "coalescedPackets",
+        "schedulerTicksDue",
+        "schedulerTicksCompleted",
+        "schedulerTicksDropped"
+      ],
+      "differentCases": 0,
+      "examples": [],
+      "totalControlBytesSent": 11876094720,
+      "totalCandidateBytesSent": 11876094720,
+      "maxPacketBytes": 1199,
+      "scope": "virtual-time production codec and impairment queue; timings are machine dependent",
+      "fileSha256": {
+        "control": "0bc9e5d79f301f539aa4ec89d16c70a4d5dae0f1558cfa3271cebfb178a842e4",
+        "candidate": "e38743ee62f12a736a3715765b38220733c139dd9f864e3c9c136cbc805d9f13"
+      }
+    },
+    "Windows": {
+      "controlCases": 16,
+      "candidateCases": 16,
+      "comparedFields": [
+        "packetsSent",
+        "packetsReceived",
+        "bytesSent",
+        "bytesReceived",
+        "maxPacketBytes",
+        "intentPackets",
+        "snapshotPackets",
+        "slowPackets",
+        "worldPackets",
+        "injectedDrops",
+        "transportDrops",
+        "coalescedPackets",
+        "schedulerTicksDue",
+        "schedulerTicksCompleted",
+        "schedulerTicksDropped"
+      ],
+      "differentCases": 0,
+      "examples": [],
+      "totalControlBytesSent": 99803320,
+      "totalCandidateBytesSent": 99803320,
+      "maxPacketBytes": 1199,
+      "scope": "virtual-time production codec and impairment queue; timings are machine dependent",
+      "fileSha256": {
+        "control": "93ab4f5732ac098e25dc3021693fe886d50a2ea8e08427dc1fe2e40d12cb7263",
+        "candidate": "507923f33183cd22373f6a49aa47888c5b1accd6b41bdaf892a2b28a36930b0b"
+      }
+    }
+  },
+  "syntheticPerformance": {
+    "candidate-serverperf-4": {
+      "commit": "2c625081",
+      "protocol": 41,
+      "runtime": ".NET 10.0.12",
+      "environment": {
+        "machine": "Jarretts-MBP",
+        "cpu": "Apple M4 Pro",
+        "processors": 12,
+        "os": "macOS 27.0.0",
+        "architecture": "Arm64"
+      },
+      "scenario": {
+        "players": 4,
+        "room": "MP1 SANCTORUS",
+        "steps": 1800,
+        "warmupSteps": 300,
+        "kind": "asset-backed synthetic-intent server simulation; no transport"
+      },
+      "mean": 0.11311627777777788,
+      "p50": 0.0992,
+      "p95": 0.2177,
+      "p99": 0.2852,
+      "worst": 8.4164,
+      "unit": "milliseconds",
+      "allocations": 2996352,
+      "allocationsPerStep": 1664.64,
+      "gen0": 0,
+      "gen1": 0,
+      "gen2": 0,
+      "overruns": 0,
+      "dropped": 0,
+      "stalls": 0,
+      "failures": 0,
+      "lag": {
+        "compensated": 420,
+        "rewind": 2520,
+        "maxRewind": 6,
+        "catchupSteps": 1566,
+        "shadowEligible": 420,
+        "shadowSampled": 26,
+        "shadowSteps": 162,
+        "shadowTicks": 5270248
+      },
+      "geometry": {
+        "considered": 0,
+        "applied": 0,
+        "historyMisses": 0,
+        "interpolations": 0,
+        "skipped": 0
+      },
+      "historicalCollision": {
+        "queries": 12059,
+        "hits": 1176,
+        "misses": 10883,
+        "buildTicks": 683211
+      },
+      "arbitration": {
+        "pending": 0,
+        "resolved": 1,
+        "rescued": 0,
+        "probes": 1
+      },
+      "unavailable": [
+        "network impairment",
+        "transport lock contention (no transport in this workload)"
+      ]
+    },
+    "candidate-serverperf-8": {
+      "commit": "2c625081",
+      "protocol": 41,
+      "runtime": ".NET 10.0.12",
+      "environment": {
+        "machine": "Jarretts-MBP",
+        "cpu": "Apple M4 Pro",
+        "processors": 12,
+        "os": "macOS 27.0.0",
+        "architecture": "Arm64"
+      },
+      "scenario": {
+        "players": 8,
+        "room": "MP1 SANCTORUS",
+        "steps": 1800,
+        "warmupSteps": 300,
+        "kind": "asset-backed synthetic-intent server simulation; no transport"
+      },
+      "mean": 0.24283461111111126,
+      "p50": 0.2115,
+      "p95": 0.5325,
+      "p99": 0.7604,
+      "worst": 8.8757,
+      "unit": "milliseconds",
+      "allocations": 3677728,
+      "allocationsPerStep": 2043.1822222222222,
+      "gen0": 1,
+      "gen1": 0,
+      "gen2": 0,
+      "overruns": 0,
+      "dropped": 0,
+      "stalls": 0,
+      "failures": 0,
+      "lag": {
+        "compensated": 840,
+        "rewind": 5040,
+        "maxRewind": 6,
+        "catchupSteps": 3303,
+        "shadowEligible": 840,
+        "shadowSampled": 59,
+        "shadowSteps": 460,
+        "shadowTicks": 7363585
+      },
+      "geometry": {
+        "considered": 0,
+        "applied": 0,
+        "historyMisses": 0,
+        "interpolations": 0,
+        "skipped": 0
+      },
+      "historicalCollision": {
+        "queries": 59223,
+        "hits": 8066,
+        "misses": 51157,
+        "buildTicks": 1988800
+      },
+      "arbitration": {
+        "pending": 0,
+        "resolved": 7,
+        "rescued": 0,
+        "probes": 7
+      },
+      "unavailable": [
+        "network impairment",
+        "transport lock contention (no transport in this workload)"
+      ]
+    },
+    "candidate-serverperf-2": {
+      "commit": "2c625081",
+      "protocol": 41,
+      "runtime": ".NET 10.0.12",
+      "environment": {
+        "machine": "Jarretts-MBP",
+        "cpu": "Apple M4 Pro",
+        "processors": 12,
+        "os": "macOS 27.0.0",
+        "architecture": "Arm64"
+      },
+      "scenario": {
+        "players": 2,
+        "room": "MP1 SANCTORUS",
+        "steps": 1800,
+        "warmupSteps": 300,
+        "kind": "asset-backed synthetic-intent server simulation; no transport"
+      },
+      "mean": 0.07175900000000009,
+      "p50": 0.0632,
+      "p95": 0.1083,
+      "p99": 0.1523,
+      "worst": 8.266,
+      "unit": "milliseconds",
+      "allocations": 2659264,
+      "allocationsPerStep": 1477.368888888889,
+      "gen0": 0,
+      "gen1": 0,
+      "gen2": 0,
+      "overruns": 0,
+      "dropped": 0,
+      "stalls": 0,
+      "failures": 0,
+      "lag": {
+        "compensated": 210,
+        "rewind": 1260,
+        "maxRewind": 6,
+        "catchupSteps": 797,
+        "shadowEligible": 210,
+        "shadowSampled": 13,
+        "shadowSteps": 82,
+        "shadowTicks": 4830042
+      },
+      "geometry": {
+        "considered": 0,
+        "applied": 0,
+        "historyMisses": 0,
+        "interpolations": 0,
+        "skipped": 0
+      },
+      "historicalCollision": {
+        "queries": 2499,
+        "hits": 202,
+        "misses": 2297,
+        "buildTicks": 434847
+      },
+      "arbitration": {
+        "pending": 0,
+        "resolved": 1,
+        "rescued": 0,
+        "probes": 1
+      },
+      "unavailable": [
+        "network impairment",
+        "transport lock contention (no transport in this workload)"
+      ]
+    },
+    "control-serverperf-2": {
+      "commit": "468bbbf0",
+      "protocol": 41,
+      "runtime": ".NET 10.0.12",
+      "environment": {
+        "machine": "Jarretts-MBP",
+        "cpu": "Apple M4 Pro",
+        "processors": 12,
+        "os": "macOS 27.0.0",
+        "architecture": "Arm64"
+      },
+      "scenario": {
+        "players": 2,
+        "room": "MP1 SANCTORUS",
+        "steps": 1800,
+        "warmupSteps": 300,
+        "kind": "asset-backed synthetic-intent server simulation; no transport"
+      },
+      "mean": 0.07276338888888886,
+      "p50": 0.0623,
+      "p95": 0.1133,
+      "p99": 0.1552,
+      "worst": 10.0561,
+      "unit": "milliseconds",
+      "allocations": 2659264,
+      "allocationsPerStep": 1477.368888888889,
+      "gen0": 0,
+      "gen1": 0,
+      "gen2": 0,
+      "overruns": 0,
+      "dropped": 0,
+      "stalls": 0,
+      "failures": 0,
+      "lag": {
+        "compensated": 210,
+        "rewind": 1260,
+        "maxRewind": 6,
+        "catchupSteps": 797,
+        "shadowEligible": 210,
+        "shadowSampled": 13,
+        "shadowSteps": 82,
+        "shadowTicks": 4971707
+      },
+      "geometry": {
+        "considered": 0,
+        "applied": 0,
+        "historyMisses": 0,
+        "interpolations": 0,
+        "skipped": 0
+      },
+      "historicalCollision": {
+        "queries": 2499,
+        "hits": 202,
+        "misses": 2297,
+        "buildTicks": 436993
+      },
+      "arbitration": {
+        "pending": 0,
+        "resolved": 1,
+        "rescued": 0,
+        "probes": 1
+      },
+      "unavailable": [
+        "network impairment",
+        "transport lock contention (no transport in this workload)"
+      ]
+    },
+    "control-serverperf-4": {
+      "commit": "468bbbf0",
+      "protocol": 41,
+      "runtime": ".NET 10.0.12",
+      "environment": {
+        "machine": "Jarretts-MBP",
+        "cpu": "Apple M4 Pro",
+        "processors": 12,
+        "os": "macOS 27.0.0",
+        "architecture": "Arm64"
+      },
+      "scenario": {
+        "players": 4,
+        "room": "MP1 SANCTORUS",
+        "steps": 1800,
+        "warmupSteps": 300,
+        "kind": "asset-backed synthetic-intent server simulation; no transport"
+      },
+      "mean": 0.1142792777777779,
+      "p50": 0.0995,
+      "p95": 0.2198,
+      "p99": 0.2993,
+      "worst": 8.8161,
+      "unit": "milliseconds",
+      "allocations": 2996352,
+      "allocationsPerStep": 1664.64,
+      "gen0": 0,
+      "gen1": 0,
+      "gen2": 0,
+      "overruns": 0,
+      "dropped": 0,
+      "stalls": 0,
+      "failures": 0,
+      "lag": {
+        "compensated": 420,
+        "rewind": 2520,
+        "maxRewind": 6,
+        "catchupSteps": 1566,
+        "shadowEligible": 420,
+        "shadowSampled": 26,
+        "shadowSteps": 162,
+        "shadowTicks": 5298375
+      },
+      "geometry": {
+        "considered": 0,
+        "applied": 0,
+        "historyMisses": 0,
+        "interpolations": 0,
+        "skipped": 0
+      },
+      "historicalCollision": {
+        "queries": 12059,
+        "hits": 1176,
+        "misses": 10883,
+        "buildTicks": 694332
+      },
+      "arbitration": {
+        "pending": 0,
+        "resolved": 1,
+        "rescued": 0,
+        "probes": 1
+      },
+      "unavailable": [
+        "network impairment",
+        "transport lock contention (no transport in this workload)"
+      ]
+    },
+    "control-serverperf-8": {
+      "commit": "468bbbf0",
+      "protocol": 41,
+      "runtime": ".NET 10.0.12",
+      "environment": {
+        "machine": "Jarretts-MBP",
+        "cpu": "Apple M4 Pro",
+        "processors": 12,
+        "os": "macOS 27.0.0",
+        "architecture": "Arm64"
+      },
+      "scenario": {
+        "players": 8,
+        "room": "MP1 SANCTORUS",
+        "steps": 1800,
+        "warmupSteps": 300,
+        "kind": "asset-backed synthetic-intent server simulation; no transport"
+      },
+      "mean": 0.24419494444444403,
+      "p50": 0.2079,
+      "p95": 0.5452,
+      "p99": 0.7819,
+      "worst": 9.3055,
+      "unit": "milliseconds",
+      "allocations": 3677728,
+      "allocationsPerStep": 2043.1822222222222,
+      "gen0": 1,
+      "gen1": 0,
+      "gen2": 0,
+      "overruns": 0,
+      "dropped": 0,
+      "stalls": 0,
+      "failures": 0,
+      "lag": {
+        "compensated": 840,
+        "rewind": 5040,
+        "maxRewind": 6,
+        "catchupSteps": 3303,
+        "shadowEligible": 840,
+        "shadowSampled": 59,
+        "shadowSteps": 460,
+        "shadowTicks": 7811622
+      },
+      "geometry": {
+        "considered": 0,
+        "applied": 0,
+        "historyMisses": 0,
+        "interpolations": 0,
+        "skipped": 0
+      },
+      "historicalCollision": {
+        "queries": 59223,
+        "hits": 8066,
+        "misses": 51157,
+        "buildTicks": 1979363
+      },
+      "arbitration": {
+        "pending": 0,
+        "resolved": 7,
+        "rescued": 0,
+        "probes": 7
+      },
+      "unavailable": [
+        "network impairment",
+        "transport lock contention (no transport in this workload)"
+      ]
+    }
+  },
+  "performanceAcceptance": "NOT_RUN: synthetic legacy intents and failed real-UDP campaigns do not provide matched canonical-combat A/B load",
+  "rawEvidence": {
+    "archive": "artifacts/net2-n0/net2-n0-evidence.tar.gz",
+    "bytes": 85511822,
+    "sha256": "389a1a4a1ea1364fdb2bafcb227f97f9ad7c8661550d14bb6e341f1911605ce4",
+    "index": "artifacts/net2-n0/evidence-index.json",
+    "indexSha256": "cf3e416d5efa65113c2019885b594dcf99a00e1d8025892fefea41cf0df752f0",
+    "indexedFiles": 1104
+  },
+  "additionalChecks": {
+    "Mac-semantic-domain": {
+      "checks": 47,
+      "status": "PASS"
+    },
+    "Mac-asset-publication-guard": "PASS",
+    "Mac-OpenGL-source-guard": "PASS"
+  }
+}

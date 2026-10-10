@@ -7,6 +7,10 @@ v0.1.47 baseline `0351ef6f707ab0369c95d8d4185869f6e02622f8`. No code from PRs
 **41**, with unchanged live packet and replay encodings, combat authority,
 movement authority, renderer, and settings UI.
 
+The first Mac/Windows campaign is **blocked**. See the
+[validation and defect ledger](netcode2-n0-validation.md) for preserved failures,
+assembly identities, measured results and unresolved acceptance gates.
+
 ## What is measured
 
 `PRIME_NET2_EVIDENCE=/absolute/path/to/participant.json` enables a process-owned,
@@ -61,6 +65,9 @@ python3 tools/nettest/run-net2.py --build tools/nettest/bin/Release/net10.0 \
 ```
 
 On Windows use `python` and Windows paths. Repeat with `--players 4` and `8`.
+Launch rendered runs from a terminal in the active Windows desktop session;
+an SSH service session does not provide the primary display needed by OpenTK.
+Headless independent-process campaigns can run through SSH.
 Profiles are `lan`, `moderate` (100±20 ms, 1% loss), `poor` (250±40 ms, 2% loss),
 and `extreme` (400±80 ms, 5% loss, 3% reorder, 1% duplicate), with recorded seeds.
 These are simulated impairments on real UDP sockets and independent processes.
