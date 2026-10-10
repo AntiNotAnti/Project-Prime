@@ -22,6 +22,25 @@ namespace MphRead.Mods.Render
 
             Check(WorldRenderGraph.Validate(out string error),
                 "six-pass graph validates" + (error.Length == 0 ? "" : ": " + error));
+            Check(MphRead.Entities.RoomEntity.RefreshRoomVisibilityOnDraw(
+                    processFrame: false, hidden: false, inRoomTransition: false,
+                    legacy: false)
+                && MphRead.Entities.RoomEntity.RefreshRoomVisibilityOnDraw(
+                    processFrame: true, hidden: false, inRoomTransition: false,
+                    legacy: false)
+                && !MphRead.Entities.RoomEntity.RefreshRoomVisibilityOnDraw(
+                    processFrame: false, hidden: false, inRoomTransition: false,
+                    legacy: true)
+                && !MphRead.Entities.RoomEntity.RefreshRoomVisibilityOnDraw(
+                    processFrame: false, hidden: false, inRoomTransition: true,
+                    legacy: false)
+                && !MphRead.Entities.RoomEntity.RefreshRoomVisibilityOnDraw(
+                    processFrame: false, hidden: true, inRoomTransition: false,
+                    legacy: false)
+                && MphRead.Entities.RoomEntity.RefreshRoomVisibilityOnDraw(
+                    processFrame: true, hidden: true, inRoomTransition: false,
+                    legacy: false),
+                "per-render portal visibility refresh preserves tick-only audio and transition fallback");
             var capabilityCache = new OpenGlScopedCapabilityCache();
             Check(capabilityCache.ShouldSubmit(OpenTK.Graphics.OpenGL.EnableCap.CullFace, true),
                 "outside-world GL state requests are always forwarded");

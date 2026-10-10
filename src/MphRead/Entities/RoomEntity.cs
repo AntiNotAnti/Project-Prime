@@ -904,16 +904,20 @@ namespace MphRead.Entities
             return _roomFrustumItems[_roomFrustumIndex];
         }
 
-        private void ClearRoomPartState()
+        private void ClearRoomPartState(bool refreshAudible = true)
         {
             for (int i = 0; i < _roomPartMax; i++)
             {
                 _activeRoomParts[i] = false;
                 _roomFrustumLinks[i] = null;
-                _audibleRoomParts[i] = false;
+                // Render-only frames rebuild the camera's portal frustums,
+                // but must not advance the fixed-tick audio visibility mask.
+                if (refreshAudible)
+                    _audibleRoomParts[i] = false;
             }
             _visNodeRefRecursionDepth = 0;
-            _audNodeRefRecursionDepth = 0;
+            if (refreshAudible)
+                _audNodeRefRecursionDepth = 0;
             _roomFrustumIndex = 0;
             _partVisInfoHead = null;
         }
@@ -1032,7 +1036,7 @@ namespace MphRead.Entities
             Mods.Network.NetLog.Event(message);
         }
 
-        private void UpdateRoomParts()
+        private void UpdateRoomParts(bool refreshAudible = true)
         {
             NodeRef curNodeRef = _scene.Players.Main.CameraInfo.NodeRef;
             if (_scene.CameraMode != CameraMode.Player || curNodeRef.PartIndex == -1)
@@ -1107,7 +1111,8 @@ namespace MphRead.Entities
             curRoomFrustum.Next = link;
             _roomFrustumLinks[curNodeRef.PartIndex] = curRoomFrustum;
             FindVisibleRoomParts(curRoomFrustum, curNodeRef);
-            FindAudibleRoomParts(curNodeRef, curNodeRef);
+            if (refreshAudible)
+                FindAudibleRoomParts(curNodeRef, curNodeRef);
         }
 
         private static readonly Vector3[] _startPointList = new Vector3[14];
@@ -1647,8 +1652,32 @@ namespace MphRead.Entities
 
         private readonly HashSet<NodeData3> _drawnNodeData = [];
 
+        // Debug/A-B switch: compare against the original 60 Hz room visibility
+        // update without changing the 60 Hz simulation or audio updates.
+        private static readonly bool _legacyRenderRoomVisibility =
+            Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_LEGACY_ROOM_VIS") == "1"
+            || Array.Exists(Environment.GetCommandLineArgs(), arg =>
+                arg.Equals("-gllegacyroomvis", StringComparison.OrdinalIgnoreCase));
+
+        internal static bool RefreshRoomVisibilityOnDraw(
+            bool processFrame, bool hidden, bool inRoomTransition, bool legacy)
+            => hidden ? processFrame
+                : !inRoomTransition && (processFrame || !legacy);
+
         public override void GetDrawInfo()
         {
+            // The scene renders independently of fixed 60 Hz simulation ticks.
+            // Reusing the previous tick's portal/frustum masks can cull walls
+            // using a different camera pose, exposing pickups behind them and
+            // producing geometry popping at 120/144/240 Hz. Rebuild before
+            // connector or room submissions so both consume this draw's camera.
+            // Audio reachability remains authoritative at the simulation tick.
+            if (RefreshRoomVisibilityOnDraw(_scene.ProcessFrame, Hidden,
+                _scene.GameState.InRoomTransition, _legacyRenderRoomVisibility))
+            {
+                ClearRoomPartState(refreshAudible: _scene.ProcessFrame);
+                UpdateRoomParts(refreshAudible: _scene.ProcessFrame);
+            }
             if (!Hidden)
             {
                 for (int i = 0; i < _connectorModels.Count; i++)
@@ -1675,11 +1704,6 @@ namespace MphRead.Entities
                 {
                     ModelInstance inst = _models[0];
                     UpdateTransforms(inst, 0);
-                    if (_scene.ProcessFrame)
-                    {
-                        ClearRoomPartState();
-                        UpdateRoomParts();
-                    }
                     if (_partVisInfoHead == null || _scene.ShowAllNodes)
                     {
                         DrawAllNodes(inst);
@@ -1689,11 +1713,6 @@ namespace MphRead.Entities
                         DrawRoomParts(inst);
                     }
                 }
-            }
-            else if (_scene.ProcessFrame) // skdebug
-            {
-                ClearRoomPartState();
-                UpdateRoomParts();
             }
             if (_scene.ShowCollision && (_scene.ColEntDisplay == EntityType.All || _scene.ColEntDisplay == Type))
             {
