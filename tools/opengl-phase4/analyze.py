@@ -26,6 +26,8 @@ CATEGORIES = {
 }
 REQUIRED_VISUAL = {"ice-hive-walls", "ice-hive-shadows",
                    "glass-and-portals", "studio-and-hud", "android-gles"}
+CONTEXT_KEYS = ("room", "width", "height", "shadows", "renderScale",
+                "cap", "renderer", "glVersion", "assemblyMvid")
 
 
 def median(data, key):
@@ -50,6 +52,9 @@ def read_samples(path: Path, wanted: tuple[bool, bool]):
     if len(samples["frame"]) < 3 or len(samples["submission"]) < 3:
         raise ValueError(f"{path}: insufficient warmed 240-frame windows")
     for sample in samples["frame"]:
+        if not isinstance(sample.get("context"), dict) or not all(
+                sample["context"].get(k) not in (None, "") for k in CONTEXT_KEYS):
+            raise ValueError(f"{path}: incomplete game/map/driver comparison context")
         if (sample.get("vbo"), sample.get("bindingCache")) != wanted:
             raise ValueError(f"{path}: claimed optimization flags do not match actual runtime")
         for key in ("renderCpuP95Ms", "renderCpuP99Ms", "presentWallP99Ms",
@@ -82,6 +87,12 @@ def evaluate(logs, visual):
                    and visual.get("passed") is True
                    and REQUIRED_VISUAL <= screenshots)
     inputs = {name: read_samples(path, ARMS[name]) for name, path in logs.items()}
+    fingerprints = {
+        tuple(sample["context"][key] for key in CONTEXT_KEYS)
+        for arm in inputs.values() for sample in arm["frame"]
+    }
+    if len(fingerprints) != 1:
+        raise ValueError("mixed game build, GPU, map, resolution, cap or graphics settings")
     origin = inputs["baseline"]
     base_frame = origin["frame"]
     base_gpu = origin["gpu"]
