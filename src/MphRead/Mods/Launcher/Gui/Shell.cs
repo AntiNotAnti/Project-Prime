@@ -124,13 +124,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         public static bool Run()
         {
-            bool result = RunSession();
-#if !MPHREAD_SERVER
-            if (GraphicsBackendPolicy.Requested == GraphicsBackend.Auto
-                && ModernGraphicsCompat.RecoveryFailure is Exception failure)
-                return RendererCompatibilityRestart.Start(failure.Message);
-#endif
-            return result;
+            return RunSession();
         }
 
         private static bool RunSession()
@@ -228,9 +222,7 @@ namespace MphRead.Mods.Launcher.Gui
                 if (window != null)
                 {
                     window.FileDrop -= OnFilesDropped;
-                    if (!Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
-                    {
-                        window.Context.MakeCurrent();
+                    window.Context.MakeCurrent();
                         // Program names are context-local. Any desktop
                         // compatibility-context handoff invalidates the legacy
                         // uniform cache before GL work resumes on this window.
@@ -238,18 +230,11 @@ namespace MphRead.Mods.Launcher.Gui
                         Mods.Render.GraphicsApi.ResetLegacyState();
 #endif
                         UiSurface.Current?.ReleaseMapRenderer();
-                    }
                 }
                 _front?.Dispose();
                 _front = null;
                 Mods.DebugLog.Line("shutdown", "disposing native window");
-                try { window?.Dispose(); }
-                finally
-                {
-#if !MPHREAD_SERVER
-                    ModernGraphicsCompat.Shutdown();
-#endif
-                }
+                window?.Dispose();
                 Mods.DebugLog.Line("shutdown", "native window disposed");
                 if (processEnding) LifecycleTiming.Shutdown("native window disposed");
             }
@@ -1255,9 +1240,7 @@ namespace MphRead.Mods.Launcher.Gui
         };
 
         private static Action<RenderWindow>[]? _lifecycleTail;
-        private static ModernGraphicsCompat.ResourceCounts? _lifecycleResources;
         private static uint _lifecycleSeekTarget;
-        private static int _lifecycleDeviceGeneration;
 
         // Optional content-backed acceptance extension. Ordinary shell captures
         // keep their existing sequence; this path requires a validated recording.
@@ -1286,28 +1269,10 @@ namespace MphRead.Mods.Launcher.Gui
                 steps.Add(w =>
                 {
                     RequireLifecycle(w.HasScene, "match started");
-                    if (advanced && ModernGraphicsCompat.Active)
-                        RequireLifecycle(w.Scene.ValidateModernAdvancedRendering(), "advanced scene targets and temporal history");
-                    if (pass == 1 && ModernGraphicsCompat.Active)
-                    {
-                        _lifecycleDeviceGeneration = ModernGraphicsCompat.DeviceGeneration;
-                        ModernGraphicsCompat.DestroyDeviceForCheck();
-                    }
                     Wait(10);
                 });
                 steps.Add(w =>
                 {
-                    if (pass == 1 && _lifecycleDeviceGeneration != 0)
-                    {
-                        RequireLifecycle(ModernGraphicsCompat.Active
-                            && ModernGraphicsCompat.DeviceGeneration == _lifecycleDeviceGeneration + 1,
-                            "actual scene recovered its modern device without fallback");
-                        RequireLifecycle(FinalCompositeCapture.Read(w.FramebufferSize.X, w.FramebufferSize.Y).Any(b => b > 3),
-                            "recovered scene is not fully black");
-                        if (advanced) RequireLifecycle(w.Scene.ValidateModernAdvancedRendering(),
-                            "advanced targets and temporal history restored after device loss");
-                        Shot(w, "lifecycle-device-recovery");
-                    }
                     SpectatorMode.Start(); Wait(30);
                 });
                 steps.Add(w =>
@@ -1370,22 +1335,6 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     RequireLifecycle(!w.HasScene && !DemoPlayback.IsActive, "replay teardown");
                     Shot(w, $"lifecycle-{pass}-return");
-                    if (ModernGraphicsCompat.Active)
-                    {
-                        var now = ModernGraphicsCompat.LiveResources;
-                        RequireLifecycle(now.BindGroups == 0, "no retained bind groups at lifecycle boundary");
-                        if (_lifecycleResources is { } before)
-                            RequireLifecycle(now.Textures <= before.Textures && now.Renderbuffers <= before.Renderbuffers
-                                && now.Programs <= before.Programs && now.Lists <= before.Lists
-                                && now.Views <= before.Views && now.Samplers <= before.Samplers
-                                && now.Geometry <= before.Geometry && now.Surfaces == before.Surfaces
-                                && now.ShaderModules <= before.ShaderModules,
-                                $"retained resources grew: before={before}, after={now}");
-                        // Uniform/transient buffers and pipelines are retained high-water caches.
-                        // Log them rather than treating different bot draw loads as identical workloads.
-                        _lifecycleResources = now;
-                        Console.WriteLine($"[shelllifecycle] pass={pass} resources={now}");
-                    }
                     Console.WriteLine($"[shelllifecycle] PASS cycle={pass} spectator/rejoin/Forge/replay/seek/return");
                     Wait(10);
                 });
