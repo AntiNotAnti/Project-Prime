@@ -22,6 +22,17 @@ namespace MphRead.Mods.Render
 
             Check(WorldRenderGraph.Validate(out string error),
                 "six-pass graph validates" + (error.Length == 0 ? "" : ": " + error));
+            Check(OpenGlSubmissionProfiler.PercentileIndex(100, 50) == 49
+                && OpenGlSubmissionProfiler.PercentileIndex(100, 95) == 94
+                && OpenGlSubmissionProfiler.PercentileIndex(100, 99) == 98
+                && OpenGlSubmissionProfiler.PercentileIndex(1, 99) == 0,
+                "bounded GL CPU percentile sampling uses nearest rank");
+            Check(WorldRenderGraph.CanReuseOpaqueDepth(0, 0)
+                && !WorldRenderGraph.CanReuseOpaqueDepth(1, 0)
+                && !WorldRenderGraph.CanReuseOpaqueDepth(0, 1)
+                && !WorldRenderGraph.CanReuseOpaqueDepth(1, 1)
+                && !WorldRenderGraph.CanReuseOpaqueDepth(0, 0, forceLegacy: true),
+                "opaque-depth elision excludes decals/translucency and has A/B fallback");
             Check(FrameRenderGraph.Validate(out string frameError),
                 "top-level frame render graph validates"
                     + (frameError.Length == 0 ? "" : ": " + frameError));
@@ -80,6 +91,9 @@ namespace MphRead.Mods.Render
 
             Check(world.Opaque.Count == 4 && world.Decals.Count == 1
                 && world.Translucent.Count == 1, "packet classes preserve membership");
+            Check(!WorldRenderGraph.CanReuseOpaqueDepth(
+                    world.Decals.Count, world.Translucent.Count),
+                "captured decal/translucent packets force normal depth rebuild");
             Check(ReferenceEquals(world.Opaque[0].Item, opaqueA)
                 && ReferenceEquals(world.Opaque[1].Item, opaqueB),
                 "capture preserves submission order");
@@ -119,6 +133,9 @@ namespace MphRead.Mods.Render
             Check(world.FrameRevision == 2, "frame revision advances");
             Check(world.Opaque[0].StateKey == firstKey, "state key is deterministic");
             Check(world.PacketCount == 2, "capture reuses and clears packet lists");
+            Check(WorldRenderGraph.CanReuseOpaqueDepth(
+                    world.Decals.Count, world.Translucent.Count),
+                "opaque-only retained frame can reuse its depth attachment");
             Check(world.OpaqueBatches.Count == 1 && world.OpaqueBatches[0].Count == 2,
                 "compatible packets remain one adjacent batch next frame");
             Check(world.MeshDescriptorCount == descriptorCount,

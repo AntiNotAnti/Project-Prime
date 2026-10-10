@@ -385,6 +385,13 @@ namespace MphRead.Mods.Render
     /// </summary>
     internal sealed class WorldRenderGraph
     {
+        // Opaque-only rendering has no intervening decal depth writes or
+        // translucent surfaces requiring a front/behind depth rebuild.
+        // Never reuse the initial depth if either class is nonempty.
+        internal static bool CanReuseOpaqueDepth(
+            int decalCount, int translucentCount, bool forceLegacy = false)
+            => !forceLegacy && decalCount == 0 && translucentCount == 0;
+
         private static readonly WorldRenderGraphPass[] _passes =
         {
             new(WorldRenderPassKind.Opaque, "world.opaque",
@@ -516,6 +523,10 @@ namespace MphRead
         internal long RetainedCompatibilityWorldDraws =>
             _retainedCompatibilityWorldDraws;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
+        private long _retainedDepthReplaySkips;
+        private long _retainedOpaqueReplaySubmissionsSaved;
+        internal long RetainedDepthReplaySkips => _retainedDepthReplaySkips;
+        internal long RetainedOpaqueReplaySubmissionsSaved => _retainedOpaqueReplaySubmissionsSaved;
 
         private void CaptureRetainedRenderWorld()
         {
@@ -629,6 +640,12 @@ namespace MphRead
         /// </summary>
         private void ExecuteWorldRenderGraph()
         {
+            bool reuseOpaqueDepth = Mods.Render.WorldRenderGraph.CanReuseOpaqueDepth(
+                _retainedRenderWorld.Decals.Count, _retainedRenderWorld.Translucent.Count,
+                Mods.Render.OpenGlSubmissionProfiler.ForceLegacyDepthReplay);
+            bool profile = Mods.Render.OpenGlSubmissionProfiler.BeginWorldGraph();
+            try
+            {
             foreach (Mods.Render.WorldRenderGraphPass pass in _worldRenderGraph.Passes)
             {
                 switch (pass.Kind)
@@ -669,12 +686,21 @@ namespace MphRead
                     break;
 
                 case Mods.Render.WorldRenderPassKind.RebuildDepth:
-                    GL.Clear(ClearBufferMask.DepthBufferBit);
+                    if (!reuseOpaqueDepth)
+                        GL.Clear(ClearBufferMask.DepthBufferBit);
                     GL.StencilOp(StencilOp.Keep, StencilOp.Keep,
                         StencilOp.Keep);
                     GL.StencilFunc(StencilFunction.Always, 0, 0xFF);
                     GL.AlphaFunc(AlphaFunction.Equal, 1.0f);
-                    DrawRenderGraphPackets(pass.Kind);
+                    if (reuseOpaqueDepth)
+                    {
+                        _retainedDepthReplaySkips++;
+                        _retainedOpaqueReplaySubmissionsSaved += _retainedRenderWorld.Opaque.Count;
+                    }
+                    else
+                    {
+                        DrawRenderGraphPackets(pass.Kind);
+                    }
                     break;
 
                 case Mods.Render.WorldRenderPassKind.TranslucentBehind:
@@ -700,6 +726,14 @@ namespace MphRead
             GL.Disable(EnableCap.StencilTest);
             GL.PolygonMode(TriangleFace.FrontAndBack,
                 OpenTK.Graphics.OpenGL.PolygonMode.Fill);
+            }
+            finally
+            {
+                if (profile)
+                    Mods.Render.OpenGlSubmissionProfiler.EndWorldGraph(
+                        _retainedRenderWorld.PacketCount, _retainedRenderWorld.BatchCount,
+                        reuseOpaqueDepth ? _retainedRenderWorld.Opaque.Count : 0);
+            }
         }
     }
 }

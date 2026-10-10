@@ -5664,13 +5664,18 @@ namespace MphRead
             DoTexture(item);
             if (_faceCulling)
             {
-                GL.Enable(EnableCap.CullFace);
+                // Avoid an enable/disable pair on uncullable material batches.
+                // The previous code enabled culling then disabled it again.
                 if (item.CullingMode == CullingMode.Neither)
                     GL.Disable(EnableCap.CullFace);
-                else if (item.CullingMode == CullingMode.Back)
-                    GL.CullFace(TriangleFace.Back);
-                else if (item.CullingMode == CullingMode.Front)
-                    GL.CullFace(TriangleFace.Front);
+                else
+                {
+                    GL.Enable(EnableCap.CullFace);
+                    if (item.CullingMode == CullingMode.Back)
+                        GL.CullFace(TriangleFace.Back);
+                    else if (item.CullingMode == CullingMode.Front)
+                        GL.CullFace(TriangleFace.Front);
+                }
             }
 
             bool wireframe = _wireframeLevel > 0 || item.Wireframe;
