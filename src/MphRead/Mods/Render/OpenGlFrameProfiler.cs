@@ -37,7 +37,17 @@ internal static class OpenGlFrameProfiler
     {
         if (!_enabled) return;
         _measuredScene = scene;
-        _renderStart = Stopwatch.GetTimestamp();
+        // Scene/window transitions may leave long idle intervals between
+        // real gameplay presentations. Never include that idle time in the
+        // next 240-frame percentile window.
+        long now = Stopwatch.GetTimestamp();
+        if (_previousPresentEnd != 0
+            && now - _previousPresentEnd > Stopwatch.Frequency / 2)
+        {
+            _previousPresentEnd = 0;
+            _count = 0;
+        }
+        _renderStart = now;
         _renderActive = true;
         _presentActive = false;
     }
@@ -46,6 +56,7 @@ internal static class OpenGlFrameProfiler
     {
         _renderActive = false;
         _presentActive = false;
+        _measuredScene = null;
     }
 
     internal static void EndRender()
@@ -125,6 +136,9 @@ internal static class OpenGlFrameProfiler
             }
         }
         _previousPresentEnd = end;
+        // Profiler must not extend the lifetime of a scene after returning
+        // to launcher/Studio or switching maps.
+        _measuredScene = null;
     }
 
     private static double ElapsedMs(long begin, long end)
