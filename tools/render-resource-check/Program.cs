@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using MphRead;
 using MphRead.Mods.Input;
+using MphRead.Mods;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -51,6 +52,24 @@ for (int cycle = 0; cycle < 3; cycle++)
     Check(GL.GetError() == ErrorCode.NoError, "repeated unload is harmless");
     // Clean up the negative-control leak too, so a failing run is bounded.
     if (GL.IsFramebuffer(framebuffer)) GL.DeleteFramebuffer(framebuffer);
+    foreach ((ShadowQuality quality, int size) in new[] {
+        (ShadowQuality.Low, 1024), (ShadowQuality.High, 2048), (ShadowQuality.Ultra, 4096) })
+    {
+        RenderOptions.Shadows = quality;
+        typeof(Scene).GetMethod("EnsureShadowTarget", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(scene, null);
+        int shadowFbo = (int)Field("_shadowFramebuffer").GetValue(scene)!;
+        int depth = (int)Field("_shadowDepthTexture").GetValue(scene)!;
+        Check(GL.IsFramebuffer(shadowFbo) && GL.IsTexture(depth), $"{quality} shadow targets allocated");
+        Check((int)Field("_shadowTargetSize").GetValue(scene)! == size
+            && GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer) == FramebufferErrorCode.FramebufferComplete,
+            $"{quality} shadow dimensions and framebuffer complete");
+        RenderOptions.Shadows = ShadowQuality.Off;
+        typeof(Scene).GetMethod("RenderShadowMap", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(scene, null);
+        Check(!GL.IsFramebuffer(shadowFbo) && !GL.IsTexture(depth)
+            && (int)Field("_shadowTargetSize").GetValue(scene)! == 0, $"{quality} shadow off releases attachments");
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+        Check(GL.GetError() == ErrorCode.NoError, $"{quality} shadow lifecycle has no GL errors");
+    }
 }
 Console.WriteLine($"RENDERRESOURCES failures={failures}");
 return failures == 0 ? 0 : 1;
