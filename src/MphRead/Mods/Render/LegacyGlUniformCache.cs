@@ -72,6 +72,14 @@ internal sealed class LegacyGlUniformCache
         _submitted++;
     }
 
+    // Array uploads overwrite values which may previously have been submitted
+    // through a cached single-value overload (notably mtx_stack[0]). Uniform
+    // locations are driver-owned; invalidate the matching value type rather
+    // than guessing the locations occupied by an array. Other types stay hot.
+    internal void InvalidateFloatArray() => _floats.Clear();
+    internal void InvalidateVector3Array() => _vec3.Clear();
+    internal void InvalidateMatrix4Array() => _mat4.Clear();
+
     internal bool Submit(int location, int value) =>
         SubmitValue(_ints, location, value);
 

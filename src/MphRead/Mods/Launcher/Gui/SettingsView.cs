@@ -1548,10 +1548,6 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void BuildGraphics(StackPanel page)
         {
-            Heading(page, "Renderer");
-            Explain(page, OperatingSystem.IsAndroid()
-                ? "Project Prime uses OpenGL ES 3.0 exclusively on Android."
-                : "Project Prime uses OpenGL exclusively. The DX12, Vulkan and Metal backends have been retired.");
             Heading(page, "Quality preset");
             _graphicsPresetRow = Add(page, new ChoiceRow("Preset",
                 new[] { "Original", "Performance", "Enhanced", "Ultra", "Extreme", "Custom" },
@@ -1607,21 +1603,6 @@ namespace MphRead.Mods.Launcher.Gui
 
             Heading(page, "Atmosphere");
             _fogRow = Add(page, new ToggleRow("Original fog", RenderOptions.Fog));
-
-            var maxQuality = new HubNavButton("APPLY EXTREME PRESET",
-                "2x supersampling, stable HD sampling and native lighting", primary: true)
-            {
-                MinHeight = 50,
-                Margin = new Thickness(0, 10, 0, 4)
-            };
-            ControllerNav.Identify(maxQuality, "settings.graphics.max");
-            maxQuality.Click += (_, _) =>
-            {
-                _graphicsPresetRow.Index = (int)GraphicsPreset.Extreme;
-                ApplyGraphicsPresetDraft(GraphicsPreset.Extreme);
-            };
-            page.Children.Add(maxQuality);
-            Explain(page, "Ultra uses 150% render scale, while Extreme uses 200%. Both preserve original colors and only adjust native resolution and texture sampling. Enable directional shadows separately if desired.");
 
             Heading(page, "Cosmetics");
             _showCosmeticsRow = Add(page, new ToggleRow("Show custom cosmetics", RenderOptions.ShowCustomCosmetics));

@@ -115,6 +115,64 @@ internal static class OpenGlVisualCheck
             | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
     }
 
+    private static void CheckMatrixArrayRestore()
+    {
+        ResetPass();
+        int vertex = GraphicsApi.CreateShader(ShaderType.VertexShader);
+        int fragment = GraphicsApi.CreateShader(ShaderType.FragmentShader);
+        int program = GraphicsApi.CreateProgram();
+        try
+        {
+            GraphicsApi.ShaderSource(vertex, "#version 120\nuniform mat4 bones[2]; uniform int bone; void main(){gl_Position=bones[bone]*gl_Vertex;}");
+            GraphicsApi.ShaderSource(fragment, "#version 120\nvoid main(){gl_FragColor=vec4(0,1,0,1);}");
+            GraphicsApi.CompileShader(vertex);
+            GraphicsApi.CompileShader(fragment);
+            GraphicsApi.AttachShader(program, vertex);
+            GraphicsApi.AttachShader(program, fragment);
+            GraphicsApi.LinkProgram(program);
+            GraphicsApi.GetProgram(program, GetProgramParameterName.LinkStatus, out int linked);
+            Require(linked != 0, "matrix palette regression shader must link");
+            GraphicsApi.UseProgram(program);
+            int location = GraphicsApi.GetUniformLocation(program, "bones[0]");
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(program, "bone"), 0);
+            Matrix4 identity = Matrix4.Identity;
+            GraphicsApi.UniformMatrix4(location, false, ref identity);
+            // A skinned model/HUD uploads a palette after a static room has
+            // cached identity. Restoring that same identity must reach GL.
+            float[] palette = {
+                1,0,0,0, 0,1,0,0, 0,0,1,0, 3,0,0,1,
+                1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
+            };
+            GraphicsApi.UniformMatrix4(location, 2, false, palette);
+            GraphicsApi.UniformMatrix4(location, false, ref identity);
+            DrawQuad(-.5f, -.5f, .5f, .5f, 0, 0, 1, 0);
+            byte[] pixels = new byte[Width * Height * 4];
+            GraphicsApi.ReadPixels(0, 0, Width, Height, PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+            PixelIs(pixels, 32, 32, (r,g,b) => g > 245 && r < 10,
+                "room transform must be restored after an animated matrix palette");
+
+            // The restored room must also write depth at its real position.
+            // Translucent jump-pad geometry behind it must remain occluded.
+            GraphicsApi.UseProgram(0);
+            GraphicsApi.Enable(EnableCap.Blend);
+            GraphicsApi.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+            GraphicsApi.DepthMask(false);
+            DrawQuad(-.8f, -.8f, .8f, .8f, .5f, 1, 0, 0, .5f);
+            GraphicsApi.ReadPixels(0, 0, Width, Height, PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+            PixelIs(pixels, 32, 32, (r,g,b) => g > 245 && r < 10,
+                "restored room depth must occlude translucent effects");
+            PixelIs(pixels, 8, 32, (r,g,b) => r > 100 && g < 10,
+                "translucent effect must remain visible outside the wall");
+        }
+        finally
+        {
+            GraphicsApi.UseProgram(0);
+            GraphicsApi.DeleteProgram(program);
+            GraphicsApi.DeleteShader(vertex);
+            GraphicsApi.DeleteShader(fragment);
+        }
+    }
+
     private static byte[] Snapshot(string output, string name)
     {
         byte[] pixels = new byte[Width * Height * 4];
@@ -169,6 +227,8 @@ internal static class OpenGlVisualCheck
             Require(GraphicsApi.CheckFramebufferStatus(FramebufferTarget.Framebuffer)
                 == FramebufferErrorCode.FramebufferComplete,
                 "depth/stencil framebuffer incomplete");
+
+            CheckMatrixArrayRestore();
 
             // A red wall in front of a green pickup. Only portions of the
             // green geometry peeking around wall edges may reach the image.

@@ -263,6 +263,17 @@ namespace MphRead.Mods.Render
                 ref failures);
 
             cache.UseProgram(8);
+            cache.Submit(9, 1f);
+            cache.Submit3(10, OpenTK.Mathematics.Vector3.One);
+            cache.SubmitMatrix4(11, false, in identity);
+            cache.InvalidateFloatArray();
+            cache.InvalidateVector3Array();
+            cache.InvalidateMatrix4Array();
+            Check(cache.Submit(9, 1f)
+                && cache.Submit3(10, OpenTK.Mathematics.Vector3.One)
+                && cache.SubmitMatrix4(11, false, in identity),
+                "array uploads invalidate overlapping cached single uniform values",
+                ref failures);
             bool otherProgram = cache.Submit(3, 12);
             cache.UseProgram(7);
             bool originalStillCached = !cache.Submit(3, 12);
