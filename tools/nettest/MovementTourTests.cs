@@ -64,8 +64,6 @@ internal static class MovementTourTests
             NetSession.ApplyRoster(roster);
             NetMovementValidationShadow.Reset();
             NetMovementValidationShadow.Enabled = true;
-            Session(nameof(NetSession.Role), NetRole.Host);
-            Session(nameof(NetSession.LocalSlot), 0);
             var scene = (Scene)typeof(ServerSim).GetField("_scene", Private)!.GetValue(sim)!;
             scene.Players.MainPlayerIndex = 0;
             // Dedicated ServerSim deliberately suppresses keyboard input. Select
@@ -74,7 +72,11 @@ internal static class MovementTourTests
             var inputMode = typeof(Scene).GetField("_inputMode", Private)!;
             inputMode.SetValue(scene, Enum.Parse(inputMode.FieldType, "All"));
             scene.GameState.MatchTime = -1; scene.GameState.PointGoal = 10000;
+            // Resolve the authored hunter under the normal remote-slot roster
+            // policy before changing this fixture slot into the input owner.
             NetSlotManager.Sync();
+            Session(nameof(NetSession.Role), NetRole.Host);
+            Session(nameof(NetSession.LocalSlot), 0);
             var player = scene.Players.Items[0];
             Require(!player.IsBot && player.Hunter == hunter, "native local hunter identity");
             var keyboard = (KeyboardState)typeof(Scene).GetField("_keyboardState", Private)!.GetValue(scene)!;
@@ -193,11 +195,12 @@ internal static class MovementTourTests
             MovementValidationCounts alt = report.Hunters[(int)hunter * 2 + 1];
             Require(report.HardRejections == 0, "no native hard rejection");
             Require(report.Invalid == 0 && report.Overflow == 0, "bounded valid movement evidence");
-            Require(biped.Evaluated > 0 && alt.Unsupported > 0 && samples > 0 && testedDisabled,
+            Require(biped.Evaluated > 0 && biped.MaximumHorizontal > 0 && alt.Unsupported > 0 && samples > 0 && testedDisabled,
                 "nonzero biped and deliberately unsupported stable-alt coverage");
             Console.WriteLine($"MOVEMENT TOUR {hunter}: native activation PASS, frames={sim.Frames}, samples={samples}, "
                 + $"hardRejections={report.HardRejections}, wouldRefuseCandidates={biped.WouldRefuse + alt.WouldRefuse}, "
-                + $"evaluatedBiped={biped.Evaluated}, unsupportedAlt={alt.Unsupported}, "
+                + $"evaluatedBiped={biped.Evaluated}, maximumBipedHorizontal={biped.MaximumHorizontal}, maximumBipedUpward={biped.MaximumUpward}, "
+                + $"unsupportedAlt={alt.Unsupported}, "
                 + $"exempt={biped.Exempt + alt.Exempt}, inputAbsentWhileMoving={biped.InputAbsentWhileMoving}");
             // Primitive row/count fields only; avoids serializing Vector3 swizzle properties.
             Console.WriteLine("MOVEMENT REPORT " + JsonSerializer.Serialize(report));
