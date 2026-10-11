@@ -2117,6 +2117,25 @@ namespace MphRead.Mods.Network
                             entry.Damage, paidOutcome.DamageApplied);
                         continue;
                     }
+                    // A client hit cannot create damage for an accepted turret
+                    // source that the authority has not emitted. Its native
+                    // cooldown/target recovery may outlast the normal claim grace.
+                    // Wait within the existing bounded arbitration horizon, without
+                    // holding unrelated claims behind a source that cannot fire.
+                    var sourceKey = new ShotKey(entry.AuthorityEpoch, entry.MatchId,
+                        entry.ShooterSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId);
+                    bool retiredTurret = NetFireEvents.IsRetiredUnemittedTurret(sourceKey);
+                    bool pendingTurret = !retiredTurret && NetFireEvents.IsPendingTurret(sourceKey);
+                    if (retiredTurret || pendingTurret)
+                    {
+                        if (retiredTurret || unchecked(now - entry.Arrived) >= 2 * MaxGraceFrames)
+                        {
+                            RefusedHere++;
+                            Answer(entry.ShooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch);
+                            DeactivatePending(ref entry);
+                        }
+                        continue;
+                    }
                     int resolved;
                     if (entry.ContinuousPhase != 0
                         ? TakeLegacyContinuousLedger(entry.ShooterSlot, entry.VictimSlot, entry.ContinuousPhase, entry.ShotId, out resolved)
@@ -2265,7 +2284,8 @@ namespace MphRead.Mods.Network
             if (AnswerPaidPending(ref entry)) return;
             var terminalKey = new ShotKey(entry.AuthorityEpoch, entry.MatchId, shooterSlot,
                 entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId);
-            if (NetFireEvents.IsRetiredUnemittedTurret(terminalKey))
+            if (NetFireEvents.IsRetiredUnemittedTurret(terminalKey)
+                || NetFireEvents.IsPendingTurret(terminalKey))
             {
                 RefusedHere++;
                 Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch);
