@@ -42,7 +42,7 @@ is evidence for its recorded source and workload, not for a later gameplay slice
 | 2-client LAN duel, 30 s action | Legacy PASS; two authoritative component payments; full G0 INCOMPLETE |
 | 8-client LAN tour, 30 s action | FAIL: final 22 peer-3 shots unaccepted/uncommitted, bounded drain failed, all eight clients exited 1; 15 component payments were observed |
 | New protocol-51 recording seek/hash check | FAIL at frame 901: gameplay hashes equal, presentation hashes differ; no successful hash file emitted |
-| Full main CI | See timestamped ledger; local passes do not imply all GitHub jobs completed |
+| Full main CI | PASS on `ed51bc90`; all 25 build jobs and the separate semantic workflow completed successfully. G0 draft PR checks are separate and were queued at capture. |
 
 The eight-client failure is more specific than a slow network tail: all 22
 missing events are slot 3/life 2 Shock Coil `ContinuousTick` events with

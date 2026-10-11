@@ -24,8 +24,8 @@
   "ci": {
     "sourceSha": "ed51bc90abb9d29b019620ce70146c8833d590d1",
     "build": {
-      "status": "in_progress",
-      "conclusion": "",
+      "status": "completed",
+      "conclusion": "success",
       "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38182652992",
       "jobs": [
         {
@@ -140,8 +140,8 @@
         },
         {
           "name": "macOS osx-x64",
-          "status": "in_progress",
-          "conclusion": ""
+          "status": "completed",
+          "conclusion": "success"
         },
         {
           "name": "linux-x64",
@@ -150,8 +150,8 @@
         },
         {
           "name": "macOS osx-arm64",
-          "status": "in_progress",
-          "conclusion": ""
+          "status": "completed",
+          "conclusion": "success"
         }
       ]
     },
@@ -159,7 +159,8 @@
       "conclusion": "success",
       "status": "completed",
       "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38182653006"
-    }
+    },
+    "capturedUtc": "2026-10-11T23:12:54.511624+00:00"
   },
   "python": {
     "command": "python3 -m unittest discover -s tools/nettest -p 'test_*.py'",
@@ -3058,7 +3059,6 @@
   "blockers": [
     "Eight-client LAN final shot frontier failed bounded drain; 22 peer-3 shots not admitted, all clients exit 1.",
     "Current recorded replay diverged in presentation at frame 901, gameplay hash matched.",
-    "Full main CI not complete at capture.",
     "G0 requested workload/fault coverage and separate pickup/grant/freeze/touch/contact/loss/death instrumentation remain incomplete."
   ],
   "exclusions": [
@@ -3078,7 +3078,7 @@
   "evidenceFiles": [
     {
       "path": "artifacts/net21-g0/baseline-ci.json",
-      "sha256": "f5a92c2f506ec1fee6b5e0df8a20f34d5439804c5cc12f2fce7222af61a33b96"
+      "sha256": "dbb938f0fee08e9fc88e3a53aa8b192a3aed0661c466f37065a18d73b154d53d"
     },
     {
       "path": "artifacts/net21-g0/build.log",
@@ -3543,5 +3543,11 @@
       "queueDrops": 0,
       "interpretation": "Compact codec refuses zero phases; not evidence of insufficient drain timeout. Native phase-capture reproduction required before gameplay patch."
     }
+  },
+  "candidatePullRequest": {
+    "url": "https://github.com/AntiNotAnti/Project-Prime/pull/468",
+    "draft": true,
+    "checks": "QUEUED_AT_CAPTURE",
+    "gameplayAdvancement": "BLOCKED_BY_RETAINED_BASELINE_FAILURES"
   }
 }
