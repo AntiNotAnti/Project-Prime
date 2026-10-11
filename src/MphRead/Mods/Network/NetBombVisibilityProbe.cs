@@ -32,7 +32,10 @@ internal static class NetBombVisibilityProbe
         internal required Scene Scene;
         internal required ShotKey Key;
         internal BombEvent? Birth, Terminal;
-        internal long BirthDrawIndex = -1, TerminalDrawIndex = -1;
+        internal long BirthDrawIndex = -1, TerminalDrawIndex = -1, RetirementDrawIndex = -1;
+        internal uint? RetirementSnapshotFrame;
+        internal ulong? RetirementSnapshotFrontier;
+        internal bool RetirementSnapshotKeyAbsent;
         internal int BodyDrawOpportunities, BodyAttempts;
         internal bool ExpectedAlive, MissingExpectedGhost;
     }
@@ -61,13 +64,25 @@ internal static class NetBombVisibilityProbe
         Lifetimes.Add(key, life);
         return life;
     }
-    internal static void AppliedSnapshot(Scene scene, uint frame, System.Collections.Generic.IReadOnlyList<BombState> states)
+    internal static void AppliedSnapshot(Scene scene, uint frame, ulong frontier, System.Collections.Generic.IReadOnlyList<BombState> states)
     {
         if (!Enabled(scene)) return;
         var keys = states.Select(s => s.Key).ToHashSet();
         foreach (var life in Lifetimes.Values.Where(l => l.Scene == scene))
             if (!keys.Contains(life.Key) && !(life.Birth is { } birth && NetLifecycleTracker.Newer(birth.Frame, frame)))
+            {
+                // Retain the first canonical retirement before any presentation,
+                // rather than infer a vanished body from a delayed terminal fact.
+                if (life.Birth != null && life.ExpectedAlive && life.RetirementSnapshotFrame == null
+                    && life.BodyDrawOpportunities == 0 && life.BodyAttempts == 0)
+                {
+                    life.RetirementSnapshotFrame = frame;
+                    life.RetirementSnapshotFrontier = frontier;
+                    life.RetirementSnapshotKeyAbsent = true;
+                    life.RetirementDrawIndex = DrawIndex;
+                }
                 life.ExpectedAlive = false;
+            }
         foreach (var state in states)
             if (GetLife(scene, state.Key) is { } life && life.Terminal == null) life.ExpectedAlive = true;
     }
@@ -253,8 +268,13 @@ internal static class NetBombVisibilityProbe
     {
         var life = visual.Life;
         if (life.Birth is not { } birth || life.Terminal is not { Kind: BombEventKind.Detonated } terminal
-            || life.BodyDrawOpportunities != 0 || life.BodyAttempts != 0 || life.MissingExpectedGhost
-            || life.BirthDrawIndex != life.TerminalDrawIndex) return;
+            || life.BodyDrawOpportunities != 0 || life.BodyAttempts != 0 || life.MissingExpectedGhost) return;
+        bool sameDraw = life.BirthDrawIndex == life.TerminalDrawIndex;
+        bool retiredBeforeDraw = life.RetirementSnapshotKeyAbsent
+            && life.RetirementDrawIndex == life.BirthDrawIndex
+            && life.RetirementSnapshotFrame is { } retiredFrame && retiredFrame >= terminal.Frame
+            && life.RetirementSnapshotFrontier is { } retiredFrontier && retiredFrontier >= terminal.Sequence;
+        if (!sameDraw && !retiredBeforeDraw) return;
         string id = life.Key + "/terminal";
         if (Finished.Contains(id)) return;
         if (!Rows.ContainsKey(id) && Rows.Count >= Capacity) { Finished.Add(id); Overflow++; return; }
@@ -274,7 +294,11 @@ internal static class NetBombVisibilityProbe
                 ["EffectId"] = visual.EffectId, ["EffectPosition"] = V(visual.Transform.Row3.Xyz),
                 ["BodyDrawOpportunities"] = life.BodyDrawOpportunities, ["BodyAttempts"] = life.BodyAttempts,
                 ["MissingExpectedGhost"] = life.MissingExpectedGhost,
-                ["Classification"] = "BirthTerminalBeforeBodyDraw",
+                ["Classification"] = sameDraw ? "BirthTerminalBeforeBodyDraw" : "ExpiredBeforeFirstBodyDraw",
+                ["RetirementSnapshotFrame"] = life.RetirementSnapshotFrame,
+                ["RetirementSnapshotFrontier"] = life.RetirementSnapshotFrontier,
+                ["RetirementSnapshotKeyAbsent"] = life.RetirementSnapshotKeyAbsent,
+                ["RetirementDrawIndex"] = life.RetirementDrawIndex,
                 ["AppliedBirthDrawIndex"] = life.BirthDrawIndex, ["AppliedTerminalDrawIndex"] = life.TerminalDrawIndex,
                 ["CaptureDrawIndex"] = DrawIndex, ["Frame"] = NetSession.NetFrame, ["SceneFrame"] = frame,
                 ["SnapshotFrame"] = (uint)typeof(NetBombWorld).GetField("_snapshotFrame", Private)!.GetValue(scene.Bombs)!,
@@ -396,7 +420,9 @@ internal static class NetBombVisibilityProbe
                 BirthSequence = l.Birth?.Sequence, BirthFrame = l.Birth?.Frame,
                 TerminalSequence = l.Terminal?.Sequence, TerminalFrame = l.Terminal?.Frame,
                 AppliedBirthDrawIndex = l.BirthDrawIndex, AppliedTerminalDrawIndex = l.TerminalDrawIndex,
-                l.BodyDrawOpportunities, l.BodyAttempts, l.MissingExpectedGhost }).ToArray() };
+                l.BodyDrawOpportunities, l.BodyAttempts, l.MissingExpectedGhost,
+                l.RetirementSnapshotFrame, l.RetirementSnapshotFrontier,
+                l.RetirementSnapshotKeyAbsent, l.RetirementDrawIndex }).ToArray() };
         File.WriteAllText(Output!, JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true }) + "\n");
     }
 }
