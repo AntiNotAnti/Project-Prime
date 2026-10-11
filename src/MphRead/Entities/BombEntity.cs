@@ -15,6 +15,7 @@ namespace MphRead.Entities
     {
         public BombFlags Flags { get; private set; }
         public PlayerEntity Owner { get; private set; } = null!;
+        internal MphRead.Mods.Network.ShotKey ModOwnerKey;
         public BombType BombType { get; private set; }
         public int BombIndex { get; set; }
 
@@ -710,6 +711,7 @@ namespace MphRead.Entities
             }
             Effect = null;
             Owner = null!;
+            ModOwnerKey = default;
             _scene.UnlinkBomb(this);
             base.Destroy();
         }
@@ -740,6 +742,7 @@ namespace MphRead.Entities
                 return null;
             }
             bomb.Owner = owner;
+            bomb.ModOwnerKey = MphRead.Mods.Network.ShotKey.For(owner.SlotIndex, 0);
             bomb.BombType = type;
             // Bomb entities are pooled; a new placement starts a new visual clock.
             bomb._lockjawVisualTick = 0;

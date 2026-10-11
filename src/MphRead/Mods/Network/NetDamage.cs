@@ -353,6 +353,8 @@ namespace MphRead.Mods.Network
             _direction[slot] = Vector3.Zero;
             _lastSeen[slot] = 0;
             _everSeen[slot] = false;
+            for (int i = 0; i < SelfFeedback.Length; i++)
+                if (SelfFeedback[i].State.SlotIndex == slot) SelfFeedback[i] = default;
             Resolved[slot] = 0;
             Replayed[slot] = 0;
         }
@@ -543,6 +545,8 @@ namespace MphRead.Mods.Network
                 beam = _claimedBeam;
             }
             if (ApplyingClaim) launchFrame = NetHitClaims.CurrentClaimLaunch;
+            if (NetBurnSource.Current is { } burn)
+            { beam = burn.Weapon; launchFrame = burn.LaunchFrame; launchKey = burn.Key; componentId = burn.Component; }
             if (!NetSession.Active || Replaying || NetHitPrediction.Predicting)
             {
                 // A predicted hit is not a resolution. Letting it through here
@@ -605,7 +609,8 @@ namespace MphRead.Mods.Network
             // arbitration: two players who killed each other are separated by
             // which of them pulled the trigger in the earlier world, and this
             // is where that stamp is taken. NetHitClaims.
-            if (!enhancedChild && !Mods.EnhancedHunters.EnhancedHunters.ApplyingBonus) NetHitClaims.NoteAuthorityHit(
+            if (flags.TestFlag(DamageFlags.Burn)) NetHitClaims.NoteAuthorityBurn(slot);
+            else if (!enhancedChild && !Mods.EnhancedHunters.EnhancedHunters.ApplyingBonus) NetHitClaims.NoteAuthorityHit(
                 attacker != null ? attacker.SlotIndex : -1, slot, launchFrame, (int)amount, continuousPhase, ApplyingClaim ? NetHitClaims.CurrentClaimShotId : launchKey?.ShotId ?? 0, launchKey, componentId, damageKind);
             _attacker[slot] = attacker != null && attacker.SlotIndex >= 0 && attacker.SlotIndex < Slots
                 ? (byte)attacker.SlotIndex
@@ -821,12 +826,47 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private static void ReplayEvent(PlayerEntity player, in PlayerState state, ushort eventId)
+        private struct DeferredSelf
+        {
+            internal bool Live;
+            internal PlayerState State;
+            internal ushort Event;
+            internal uint Frame;
+        }
+        private static readonly DeferredSelf[] SelfFeedback = new DeferredSelf[128];
+        private static void DeferSelf(in PlayerState state, ushort eventId)
+        {
+            int empty = -1;
+            for (int i = 0; i < SelfFeedback.Length; i++)
+            {
+                if (SelfFeedback[i].Live && SelfFeedback[i].Event == eventId
+                    && SelfFeedback[i].State.LifeId == state.LifeId
+                    && SelfFeedback[i].State.SlotGeneration == state.SlotGeneration) return;
+                if (!SelfFeedback[i].Live && empty < 0) empty = i;
+            }
+            if (empty >= 0) SelfFeedback[empty] = new() { Live = true, State = state, Event = eventId, Frame = NetSession.NetFrame };
+        }
+        internal static void FlushSelfFeedback()
+        {
+            for (int i = 0; i < SelfFeedback.Length; i++)
+            {
+                var entry = SelfFeedback[i];
+                if (!entry.Live) continue;
+                int slot = entry.State.SlotIndex;
+                if (!NetSession.Active || !NetPlayerLifecycle.Matches(slot, entry.State.SlotGeneration, entry.State.LifeId))
+                { SelfFeedback[i] = default; continue; }
+                if (!NetHitPrediction.HasEventReceipt(slot, entry.Event) && NetHitPrediction.HasSelfClaims(entry.State.DamageBeam)
+                    && NetSession.NetFrame - entry.Frame < 240) continue;
+                SelfFeedback[i] = default;
+                if ((uint)slot < PlayerEntity.Players.Count)
+                    ReplayEvent(PlayerEntity.Players[slot], entry.State, entry.Event, feedbackOnly: true);
+            }
+        }
+
+        private static void ReplayEvent(PlayerEntity player, in PlayerState state, ushort eventId, bool feedbackOnly = false)
         {
             int slot = player.SlotIndex;
             const int landed = 1;
-            Replayed[slot]++;
-            ReplayedSession[slot]++;
             bool lethal = state.Health == 0;
             // Consumed before the "already down" return below, not after it.
             //
@@ -851,10 +891,20 @@ namespace MphRead.Mods.Network
             // head" -- the two are the same confirmation to everything else
             // here, and on the Imperialist they are a kill and half a kill.
             bool authorityHeadshot = ((DamageFlags)state.DamageFlags).TestFlag(DamageFlags.Headshot);
-            bool predicted = mine && (slot == NetHooks.LocalSlot
-                ? NetHitPrediction.Confirm(slot, landed, authorityHeadshot)
+            bool self = mine && slot == NetHooks.LocalSlot && !((DamageFlags)state.DamageFlags).TestFlag(DamageFlags.Burn);
+            bool predicted = mine && (self
+                ? NetHitPrediction.ConfirmSelfEvent(slot, state.SlotGeneration, state.LifeId, eventId, state.HitDirection)
+                    || !NetHitPrediction.HasSelfClaims(state.DamageBeam) && NetHitPrediction.Confirm(slot, landed, authorityHeadshot)
                 : NetHitPrediction.ConfirmEvent(slot, state.SlotGeneration, state.LifeId, eventId));
+            bool waitingSelf = self && !predicted && NetHitPrediction.HasSelfClaims(state.DamageBeam);
+            if (waitingSelf && !lethal && !feedbackOnly)
+            {
+                // The snapshot proves a hit, but cannot identify which local
+                // prediction. Wait for the exact claim receipt before feedback.
+                DeferSelf(state, eventId); return;
+            }
 
+            Replayed[slot]++; ReplayedSession[slot]++;
             if (player.Health <= 0)
             {
                 return; // already down here; the respawn is what matters next
@@ -893,7 +943,7 @@ namespace MphRead.Mods.Network
             // Never let the replay decide the outcome: the authority already
             // has. A non-fatal hit is clamped so local rounding cannot kill,
             // and a fatal one carries the Death flag so it cannot fail to.
-            int amount = Math.Max(1, player.Health - state.Health);
+            int amount = feedbackOnly ? 1 : Math.Max(1, player.Health - state.Health);
             if (!lethal)
             {
                 amount = Math.Min(amount, Math.Max(0, player.Health - 1));
@@ -906,14 +956,16 @@ namespace MphRead.Mods.Network
             // Clamped again on arrival: what a peer sends is not something
             // this machine controls, and one bad impulse is the difference
             // between a hit and a player outside the level.
-            Vector3 impulse = ClampImpulse(state.HitDirection);
+            Vector3 impulse = predicted || waitingSelf ? Vector3.Zero : ClampImpulse(state.HitDirection);
             Vector3? direction = impulse == Vector3.Zero ? null : impulse;
             Replaying = true;
             ReplayBeam = state.DamageBeam == NoBeam ? BeamType.None : (BeamType)state.DamageBeam;
             SaveScores();
+            int savedHealth = player.Health;
             try
             {
                 player.TakeDamage((uint)amount, flags, direction, attacker);
+                if (feedbackOnly) player.Health = savedHealth;
             }
             finally
             {

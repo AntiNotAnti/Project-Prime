@@ -92,7 +92,7 @@ namespace MphRead.Mods.Network
             /// totals can simply be subtracted. <c>-hitrig missile</c>,
             /// <c>-hitrig magmaul</c>, <c>-hitrig judicator</c>.
             /// </summary>
-            Volley, AltStatic, AltLateral, AltMorph, AltContact, AltCrossing
+            Volley, SelfMoving, SelfWall, AltStatic, AltLateral, AltMorph, AltContact, AltCrossing
         }
 
         /// <summary>The weapon a <see cref="RigMode.Volley"/> run empties.</summary>
@@ -116,6 +116,8 @@ namespace MphRead.Mods.Network
             _mixedNextTap = _mixedTapUntil = 0;
             switch (value?.Trim().ToLowerInvariant())
             {
+                case "self-moving": Mode = RigMode.SelfMoving; VolleyWeapon = BeamType.Missile; return true;
+                case "self-wall": Mode = RigMode.SelfWall; VolleyWeapon = BeamType.Missile; return true;
                 case "alt-static": Mode = RigMode.AltStatic; return true;
                 case "alt":
                 case "alt-lateral": Mode = RigMode.AltLateral; return true;
@@ -302,7 +304,12 @@ namespace MphRead.Mods.Network
                 return;
             }
             PlayerEntity? other = Opponent(player);
-            if (Mode == RigMode.AltContact || Mode == RigMode.AltCrossing)
+            if (Mode == RigMode.SelfMoving || Mode == RigMode.SelfWall)
+            {
+                if (IsSniper) DriveSelf(player, c);
+                else AimAt(player, other, headHeight: 0);
+            }
+            else if (Mode == RigMode.AltContact || Mode == RigMode.AltCrossing)
             {
                 bool attacking = IsSniper || Mode == RigMode.AltCrossing;
                 AimAt(player, other, headHeight: 0);
@@ -391,6 +398,54 @@ namespace MphRead.Mods.Network
         /// <summary>
         /// The sniper: one weapon, one range, one aim point.
         /// </summary>
+        // These scenarios use real weapon/input and world collisions. Native
+        // self damage, protection, deaths and respawns remain the measured result.
+        private static void DriveSelf(PlayerEntity player, PlayerControls c)
+        {
+            if (player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing)
+            { c.Morph.IsDown = _frame % 20 == 0; return; }
+            if (player.CurrentWeapon != BeamType.Missile) player.ModArmWeapon(BeamType.Missile);
+            player.ModSetAmmo(Int32.MaxValue, Int32.MaxValue);
+            Vector3 origin = player.ModAimTarget;
+            Vector3 forward = player.FacingVector; forward.Y = 0;
+            if (forward.LengthSquared < .001f) forward = Vector3.UnitZ;
+            else forward.Normalize();
+            // An almost vertical aim stays inside the native pitch limit and
+            // puts the floor impact close enough to exercise rocket jumping.
+            Vector3 point = origin + forward * .4f - Vector3.UnitY * 2f;
+            if (Mode == RigMode.SelfMoving)
+            {
+                c.MoveUp.IsDown = _frame / 120 % 2 == 0;
+                c.MoveDown.IsDown = !c.MoveUp.IsDown;
+                c.MoveLeft.IsDown = _frame / 70 % 2 == 0;
+                c.MoveRight.IsDown = !c.MoveLeft.IsDown;
+            }
+            else
+            {
+                float nearest = 12f;
+                foreach (var direction in new[] { Vector3.UnitX, -Vector3.UnitX, Vector3.UnitZ, -Vector3.UnitZ })
+                {
+                    CollisionResult wall = default;
+                    Vector3 end = origin + direction * 12f;
+                    if (CollisionDetection.CheckBetweenPoints(origin, end, TestFlags.Beams, player.OwningScene, ref wall))
+                    {
+                        float distance = (wall.Position - origin).Length;
+                        if (distance > .15f && distance < nearest)
+                        { nearest = distance; point = wall.Position; }
+                    }
+                }
+                c.MoveUp.IsDown = nearest > 1.1f && nearest < 12f;
+            }
+            (float x, float y) = player.ModAimDeltaTowards(point);
+            AimDeltaX = Math.Clamp(x, -TurnRate, TurnRate);
+            AimDeltaY = Math.Clamp(y, -TurnRate, TurnRate);
+            bool aligned = float.IsFinite(x) && float.IsFinite(y) && MathF.Abs(x) < FiringCone && MathF.Abs(y) < FiringCone;
+            if (aligned) FramesOnTarget++;
+            int cadence = Weapons.Current[(int)BeamType.Missile].ShotCooldown * 2 + 3;
+            c.Shoot.IsDown = aligned && _frame % cadence < 2;
+            if (c.Shoot.IsDown && _frame % cadence == 0) Triggers++;
+        }
+
         private static void DriveSniper(PlayerEntity player, PlayerControls c, PlayerEntity? other)
         {
             bool mixedSniper = _continuousMixed && player.SlotIndex % 2 != 0;

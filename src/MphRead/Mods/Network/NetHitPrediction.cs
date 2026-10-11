@@ -175,6 +175,8 @@ namespace MphRead.Mods.Network
         private static readonly ushort[,] _receiptSequence = new ushort[Slots, ReceiptCapacity];
         private static readonly uint[,] _receiptFrame = new uint[Slots, ReceiptCapacity];
         private static readonly int[] _receiptNext = new int[Slots];
+        private static readonly Vector3[,] _pendingImpulse = new Vector3[Slots, PendingCapacity];
+        private static readonly Vector3[,] _receiptImpulse = new Vector3[Slots, ReceiptCapacity];
 
         /// <summary>
         /// Whether that entry has already been answered by name -- a verdict
@@ -488,7 +490,22 @@ namespace MphRead.Mods.Network
                 return count;
             }
         }
+        internal static int SelfOutstanding
+        {
+            get
+            {
+                int count = 0;
+                for (int slot = 0; slot < Slots; slot++)
+                    for (int i = 0; i < _pendingCount[slot]; i++)
+                    {
+                        int at = (_pendingHead[slot] + i) % PendingCapacity;
+                        if (_pendingSelf[slot, at] && !_pendingSpent[slot, at] && _pendingClaim[slot, at] != 0) count++;
+                    }
+                return count;
+            }
+        }
         internal static object Capture() => new { Predicted, Confirmed, Denied, Outstanding,
+            SelfPredicted, SelfConfirmed, SelfDeathsPredicted, SelfOutstanding, SelfPendingClaims = SelfOutstanding,
             CombatAcks, LethalHeld, LethalConfirmed, LethalDenied, HealthDisagreed,
             DrainPredicted, DrainConfirmed, DrainRejected, DrainExpired, DrainCurrentPoints };
 
@@ -612,7 +629,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static bool Predicts(PlayerEntity victim, EntityBase? source, DamageFlags flags)
         {
-            if (!Enabled || victim.Health <= 0)
+            if (!Enabled || victim.Health <= 0 || flags.TestFlag(DamageFlags.Burn))
             {
                 return false;
             }
@@ -621,25 +638,8 @@ namespace MphRead.Mods.Network
             {
                 return false;
             }
-            if (source == null)
-            {
-                // Nothing fired this: the void under the map, a kill plane, a
-                // crusher, a room telling a player to die. It is dealt to
-                // whoever is standing there, on whatever machine is standing
-                // them there, so the only copy of it worth resolving early is
-                // this machine's own player -- a remote player's fall is the
-                // authority's to report, exactly as it always was.
-                //
-                // Only the lethal ones. DamageFlags.Death kills whatever the
-                // number is, which is what a fall into the void is, and it is
-                // the one case a player is actually waiting on: falling for a
-                // quarter of a second after you have already left the map is
-                // the same complaint as a rocket jump that starts late. The
-                // chip damage from standing in lava carries no such flag and
-                // stays with the authority, where a rate that depends on frame
-                // parity cannot make two machines disagree about a health bar.
-                return victim.SlotIndex == local && flags.TestFlag(DamageFlags.Death);
-            }
+            // Environment and damage-over-time are exclusively authority resolved.
+            if (source == null) return false;
             // Whose shot it is, and nothing about who it lands on.
             //
             // This used to refuse a hit whose victim was this machine's own
@@ -772,7 +772,8 @@ namespace MphRead.Mods.Network
                 if (attacker != null && NetLog.Enabled) NetShotDiagnostics.Trace("prediction",
                     ShotKey.For(attacker.SlotIndex, shotId), beam, $"victim={victim.SlotIndex} damage={damage}");
                 bool claimedLethal = lethal;
-                if (lethal && !self)
+                bool exactSelf = self && attacker != null && NetSelfSplash.Claimable(beam, flags, direct, shotId, componentId);
+                if (lethal && (!self || exactSelf))
                 {
                     damage = (uint)Math.Max(0, victim.Health - 1);
                     flags &= ~DamageFlags.Death;
@@ -797,7 +798,14 @@ namespace MphRead.Mods.Network
                     lethal, headshot, beam, self);
                 if (at >= 0)
                 {
-                    _pendingHeld[victim.SlotIndex, at] = claimedLethal && !self;
+                    _pendingHeld[victim.SlotIndex, at] = claimedLethal && (!self || exactSelf);
+                    _pendingImpulse[victim.SlotIndex, at] = direction ?? Vector3.Zero;
+                    if (self)
+                    {
+                        _shownHealth[victim.SlotIndex] = Math.Max(1, victim.Health - (int)damage);
+                        if (_lastAuthorityHealth[victim.SlotIndex] == 0)
+                            _lastAuthorityHealth[victim.SlotIndex] = NetSession.RemoteStates[victim.SlotIndex].Health;
+                    }
                 }
                 // And tell the authority, which may not find this hit itself:
                 // its rewind has a ceiling, its copy of the trigger pull may
@@ -812,7 +820,7 @@ namespace MphRead.Mods.Network
                 // filed, because the verdict for that claim is the only exact
                 // answer this machine ever gets about this particular hit.
                 // See _pendingClaim.
-                if (!self && attacker != null)
+                if (attacker != null)
                 {
                     ushort claimId = NetHitClaims.Declare(victim, attacker, beam, flags.TestFlag(DamageFlags.Halfturret) ? unsplitDamage : claimedDamage,
                         flags, claimedLethal, victim.Position, launchFrame,
@@ -877,6 +885,9 @@ namespace MphRead.Mods.Network
             // Legacy self-damage has no outgoing claim identity. Remote hits
             // require their own ACK; an event count cannot retire a prediction.
             if (slot != NetHooks.LocalSlot || _pendingCount[slot] == 0) return false;
+            // Claimed self hits must wait for their exact receipt. A snapshot
+            // counter cannot consume the next pending rocket jump by accident.
+            if (_pendingClaim[slot, _pendingHead[slot]] != 0) return false;
             bool self = true;
             int take = Math.Clamp(landed, 1, _pendingCount[slot]);
             for (int i = 0; i < take; i++)
@@ -937,13 +948,52 @@ namespace MphRead.Mods.Network
             return false;
         }
 
-        private static void RememberEvent(in CombatAckEntry ack)
+        internal static bool HasSelfClaims(byte beam = 255)
+        {
+            int slot = NetHooks.LocalSlot;
+            if ((uint)slot >= Slots) return false;
+            for (int i = 0; i < _pendingCount[slot]; i++)
+            {
+                int at = (_pendingHead[slot] + i) % PendingCapacity;
+                if (_pendingSelf[slot, at] && _pendingClaim[slot, at] != 0
+                    && !_pendingSpent[slot, at] && (beam == 255 || _pendingBeam[slot, at] == Bucket((BeamType)beam))) return true;
+            }
+            return false;
+        }
+        internal static bool HasEventReceipt(int slot, ushort eventId)
+        {
+            if ((uint)slot >= Slots) return false;
+            for (int i = 0; i < ReceiptCapacity; i++)
+                if (_receiptSequence[slot, i] == eventId && eventId != 0
+                    && NetSession.NetFrame - _receiptFrame[slot, i] < PendingFrames) return true;
+            return false;
+        }
+        internal static bool ConfirmSelfEvent(int slot, ushort generation, ushort life, ushort eventId, Vector3 impulse)
+        {
+            if ((uint)slot >= Slots || !NetPlayerLifecycle.Matches(slot, generation, life)) return false;
+            for (int i = 0; i < ReceiptCapacity; i++)
+                if (_receiptSequence[slot, i] == eventId && eventId != 0
+                    && NetSession.NetFrame - _receiptFrame[slot, i] < PendingFrames)
+                {
+                    _receiptSequence[slot, i] = 0;
+                    if (PlayerEntity._players[slot] is { Health: > 0 } player)
+                    {
+                        var before = player.Speed;
+                        player.Speed += impulse - _receiptImpulse[slot, i];
+                        NetSelfSplash.RecordFeedback(slot, generation, life, eventId, _receiptImpulse[slot, i], impulse, before, player.Speed);
+                    }
+                    return true;
+                }
+            return false;
+        }
+        private static void RememberEvent(in CombatAckEntry ack, Vector3 predictedImpulse)
         {
             if (!ack.Accepted || (ack.Flags & CombatAckFlags.OutcomePresent) == 0 || ack.DamageSequence == 0) return;
             int slot = ack.VictimSlot;
             int at = _receiptNext[slot]++ % ReceiptCapacity;
             _receiptSequence[slot, at] = (ushort)ack.DamageSequence;
             _receiptFrame[slot, at] = NetSession.NetFrame;
+            _receiptImpulse[slot, at] = predictedImpulse;
         }
 
         /// <summary>
@@ -1230,8 +1280,11 @@ namespace MphRead.Mods.Network
                 _authorityDrop[slot] += _lastAuthorityHealth[slot] - authorityHealth;
             }
             _lastAuthorityHealth[slot] = authorityHealth;
+            // Local health is already reduced by its predicted impact. Until
+            // the exact receipt arrives, take the lower presentation/authority
+            // value instead of subtracting that impact from a paid snapshot again.
             int debit = Debit(slot);
-            int health = debit > 0 && authorityHealth > 1
+            int health = slot != NetHooks.LocalSlot && debit > 0 && authorityHealth > 1
                 ? Math.Max(1, authorityHealth - debit)
                 : authorityHealth;
             int owed = health;
@@ -1361,15 +1414,7 @@ namespace MphRead.Mods.Network
                 return authorityHealth;
             }
             int credit = DrainCurrentPoints;
-            // And less your own splash, held the same way a victim's is. The
-            // debit is the mirror of the credit and has to be here, not in
-            // HealthFor: nothing calls HealthFor for the local slot, and
-            // without this a rocket jump would take the health off for one
-            // frame and the next snapshot would hand it straight back until
-            // the authority caught up -- the same one-frame prediction the
-            // hold exists to stop, on the one player who is looking at the
-            // number.
-            credit -= Debit(NetHooks.LocalSlot);
+            authorityHealth = HealthFor(player.SlotIndex, authorityHealth);
             // A self-kill this machine has already died is not undone by a
             // snapshot that has not heard about it. The branch in ApplyState
             // that spawns a player normally returns before this line while
@@ -1441,6 +1486,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void Tick()
         {
+            NetDamage.FlushSelfFeedback();
             if (_markerTimer > 0)
             {
                 _markerTimer--;
@@ -1595,14 +1641,17 @@ namespace MphRead.Mods.Network
                     else if (head) HeadshotsDowngraded++;
                     else if (authorityHeadshot) HeadshotsUpgraded++;
                 }
+                bool wasSelf = _pendingSelf[slot, at];
+                int selfFloor = _shownHealth[slot];
                 ResolveHeld(slot, at, ack.Accepted && (ack.Flags & CombatAckFlags.Lethal) != 0);
-                RememberEvent(ack);
+                RememberEvent(ack, _pendingSelf[slot, at] ? _pendingImpulse[slot, at] : Vector3.Zero);
                 Settle(slot, ack.ClaimId, ack.Accepted);
                 // Exact acknowledgement retires this debit immediately. Other
                 // outstanding claims retain their own independent debits.
                 _pendingDamage[slot, at] = 0;
                 _pendingLethal[slot, at] = _pendingHeadshot[slot, at] = false;
-                _shownHealth[slot] = 0;
+                _shownHealth[slot] = wasSelf && HasSelfClaims() && selfFloor > 0
+                    ? Math.Max(1, selfFloor + predicted - (ack.Accepted ? ack.DamageApplied : 0)) : 0;
                 if (ack.Accepted && (ack.Flags & CombatAckFlags.OutcomePresent) != 0)
                 {
                     ushort sequence = (ushort)ack.DamageSequence;
@@ -1669,7 +1718,8 @@ namespace MphRead.Mods.Network
                 }
                 if (confirmed)
                 {
-                    Confirmed++;
+                    if (_pendingSelf[slot, at]) SelfConfirmed++;
+                    else Confirmed++;
                 }
                 else
                 {

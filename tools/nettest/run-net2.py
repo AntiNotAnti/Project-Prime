@@ -325,7 +325,7 @@ if __name__ == "__main__":
     p.add_argument("--source", required=True, help="Exact source SHA plus dirty diff hash if applicable")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--dotnet", default="dotnet")
-    p.add_argument("--protocol", type=int, default=46, help="Expected evidence protocol (historical campaigns may specify 41)")
+    p.add_argument("--protocol", type=int, default=47, help="Expected evidence protocol (historical campaigns may specify 41)")
     p.add_argument("--shot-proof", choices=("off", "shadow", "enforce"), default="shadow",
                    help="Record and apply the explicit N4 admission mode")
     p.add_argument("--players", type=int, choices=(2, 3, 4, 8), default=2)
@@ -335,7 +335,7 @@ if __name__ == "__main__":
     p.add_argument("--port", type=int, default=27991)
     p.add_argument("--seed", type=int, default=8128)
     p.add_argument("--profile", choices=PROFILES, default="lan")
-    p.add_argument("--scenario", choices=("tour", "duel", "shockcoil", "shockcoil-all", "shockcoil-mixed", "missile"), default="tour")
+    p.add_argument("--scenario", choices=("tour", "duel", "shockcoil", "shockcoil-all", "shockcoil-mixed", "missile", "self-moving", "self-wall"), default="tour")
     p.add_argument("--rooms", default="MP1 SANCTORUS")
     p.add_argument("--round-minutes", type=float, default=30)
     p.add_argument("--rendered", action="store_true")

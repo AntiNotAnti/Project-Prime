@@ -61,6 +61,7 @@ internal static class NetCombatPayments
             if (entry.Key != _key || entry.Paid) return;
             outcome.ShotId = _key.Shot.ShotId;
             entry.Outcome = outcome; entry.Paid = true; Payments++; LifetimePayments++;
+            NetSelfSplash.RecordPayment(_key, outcome);
         }
         public void Dispose()
         {

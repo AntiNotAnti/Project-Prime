@@ -339,9 +339,8 @@ namespace MphRead.Mods.Network
         ///
         /// Called from <see cref="NetHitPrediction.NoteHit"/>, which is the
         /// one point at which the damage is final and the victim is known. A
-        /// hit on this machine's own player is not claimed: it is either the
-        /// player's own splash, which the authority computes identically from
-        /// the same inputs, or somebody else's shot, which is theirs to claim.
+        /// Owner projectile hits use the constrained self policy. Environment
+        /// damage and unadmitted bomb placement never create self claims.
         /// </summary>
         /// <returns>
         /// The id this claim was filed under, or zero when nothing was
@@ -362,7 +361,7 @@ namespace MphRead.Mods.Network
             BeamType beam, uint damage, DamageFlags flags, bool lethal, Vector3 hitPoint,
             uint launchFrame, Vector3 direction, Affliction afflictions = Affliction.None, uint? predictedBodyDamage = null, uint continuousPhase = 0, bool direct = false, uint shotId = 0, ShotKey? shotKey = null, uint componentId = 0)
         {
-            if (!Claiming || victim == attacker || damage == 0
+            if (!Claiming || victim == attacker && !NetSelfSplash.Claimable(beam, flags, direct, shotId, componentId) || damage == 0
                 || NetPlayerLifecycle.Get(victim.SlotIndex) == 0 || NetPlayerLifecycle.Get(attacker.SlotIndex) == 0)
             {
                 return 0;
@@ -617,6 +616,10 @@ namespace MphRead.Mods.Network
                     }
                     if (ack.VictimSlot != 255 && (ack.VictimSlot != entry.VictimSlot
                         || ack.VictimGeneration != entry.VictimGeneration || ack.VictimLife != entry.VictimLifeId)) continue;
+                    NetSelfSplash.RecordReceipt(new ShotPaymentKey(new ShotKey(entry.AuthorityEpoch, entry.MatchId,
+                        NetSession.LocalSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId),
+                        entry.VictimSlot, entry.VictimGeneration, entry.VictimLifeId, entry.ComponentId,
+                        NetShotProof.Kind(entry.Flags)), ack);
                     entry.Live = false;
                     if (entry.Beam == (byte)BeamType.ShockCoil) NetHitPrediction.SettleDrain(entry.Id, ack.Accepted);
                     if (entry.PredictionReleased || !NetHitPrediction.ApplyCombatAck(ack, entry.Age))
@@ -1223,6 +1226,15 @@ namespace MphRead.Mods.Network
                 | (victim.ModDisrupted ? CombatAckFlags.Disrupted : 0)
         };
 
+        // DOT has its own authority time, not the old projectile's launch world.
+        // It must not replace the reusable component receipt from that impact.
+        internal static void NoteAuthorityBurn(int victim)
+        {
+            if ((uint)victim >= Slots || !Arbitrating) return;
+            _lastHitFire[victim] = NetSession.NetFrame;
+            _completingLedger[victim] = -1;
+        }
+
         public static void CompleteAuthorityHit(PlayerEntity victim, PlayerEntity? attacker, int before, DamageFlags flags, ushort sequence, uint launchFrame = 0, BeamType beam = BeamType.None)
         {
             if (Mods.EnhancedHunters.EnhancedHunters.ApplyingBonus || !Arbitrating || sequence == 0 || sequence != NetDamage.Sequence(victim.SlotIndex)) return;
@@ -1235,8 +1247,8 @@ namespace MphRead.Mods.Network
                 Player: (byte)(attacker?.SlotIndex ?? 255), Victim: (byte)slot, Weapon: (byte)beam, Generation: outcome.VictimGeneration,
                 Life: outcome.VictimLife, Id: outcome.DamageSequence, Flags: (int)outcome.Flags,
                 A: outcome.DamageApplied, B: outcome.HealthAfter, C: outcome.HalfturretHealthAfter,
-                ShotId: ApplyingClaim ? ApplyingClaimShotId : attacker != null && _completingLedger[slot] >= 0
-                    ? _authorityKeys[attacker.SlotIndex, slot, _completingLedger[slot]].ShotId : 0));
+                ShotId: NetBurnSource.Current?.Key.ShotId ?? (ApplyingClaim ? ApplyingClaimShotId : attacker != null && _completingLedger[slot] >= 0
+                    ? _authorityKeys[attacker.SlotIndex, slot, _completingLedger[slot]].ShotId : 0)));
             if (attacker == null) return;
             int owner = attacker.SlotIndex;
             int at = _completingLedger[slot];
@@ -1437,7 +1449,7 @@ namespace MphRead.Mods.Network
                 }
                 if (NetShotProof.Mode == ShotProofMode.Enforce && AnswerPhysicalOutcome(shooterSlot, claim))
                     continue;
-                if (NetShotProof.Mode == ShotProofMode.Enforce && proof.Status == ShotProofStatus.Rejected)
+                if (claim.VictimSlot != shooterSlot && NetShotProof.Mode == ShotProofMode.Enforce && proof.Status == ShotProofStatus.Rejected)
                     immediate = HitVerdictPacket.ResultRefused;
                 if (immediate != HitVerdictPacket.ResultApplied)
                 {
@@ -1485,10 +1497,8 @@ namespace MphRead.Mods.Network
         /// Five tests, in the order that costs least:
         ///
         /// <list type="number">
-        /// <item>the slots are real, and a shooter does not claim on itself --
-        /// a hit on your own player is either your own splash, which the
-        /// authority computes identically from the same inputs, or somebody
-        /// else's shot, which is theirs to claim;</item>
+        /// <item>the slots are real; self hits must have an eligible exact
+        /// owner projectile identity and use their separate witness policy;</item>
         /// <item>the frame it names is inside the history, so there is
         /// something to check it against;</item>
         /// <item>the damage is no more than that weapon can possibly deal,
@@ -1511,7 +1521,8 @@ namespace MphRead.Mods.Network
                 LagCompensationPolicy.Study(shooterSlot, victimSlot, NetShotDiagnostics.Bucket((BeamType)claim.Beam),
                     LagCompensationPolicy.Evaluate(shooterSlot, NetSession.NetFrame, claim.AckFrame, 0, 0), -1);
             if (shooterSlot < 0 || shooterSlot >= Slots || shooterSlot >= PlayerEntity.Players.Count
-                || victimSlot < 0 || victimSlot >= Slots || victimSlot == shooterSlot
+                || victimSlot < 0 || victimSlot >= Slots
+                || victimSlot == shooterSlot && !NetSelfSplash.Shape(shooterSlot, claim)
                 || victimSlot >= PlayerEntity.Players.Count)
             {
                 RefusedHere++;
@@ -1554,7 +1565,7 @@ namespace MphRead.Mods.Network
             // A continuous claim may precede its retained source/native pulse.
             // Wait for that payment first; unpaid rescue checks its hit point in
             // the same captured fractional world as target selection and LOS.
-            if (!IsContinuous(claim))
+            if (!IsContinuous(claim) && victimSlot != shooterSlot)
             {
                 bool turretClaim = (claim.Flags & HitClaimPacket.FlagHalfturret) != 0;
                 bool historicalAvailable = turretClaim
@@ -2261,13 +2272,13 @@ namespace MphRead.Mods.Network
             }
             var proofClaim = ProofClaim(entry);
             var proof = NetShotProof.Observe(shooterSlot, proofClaim, HitVerdictPacket.ResultApplied, "settlement", final: true);
-            if (NetShotProof.Mode == ShotProofMode.Enforce && proof.Status != ShotProofStatus.Verified)
+            if (victimSlot != shooterSlot && NetShotProof.Mode == ShotProofMode.Enforce && proof.Status != ShotProofStatus.Verified)
             {
                 RefusedHere++;
                 Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultRefused);
                 return;
             }
-            if (NetShotProof.Mode == ShotProofMode.Enforce)
+            if (victimSlot != shooterSlot && NetShotProof.Mode == ShotProofMode.Enforce)
             {
                 // A physical witness authorizes acknowledgement of that existing
                 // resolution, never another payment after the legacy match ring expires.
@@ -2279,6 +2290,13 @@ namespace MphRead.Mods.Network
                 }
                 if (!NetShotProof.MarkClaim(shooterSlot, proofClaim))
                 { Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultClaimCapacity); return; }
+            }
+            if (victimSlot == shooterSlot)
+            {
+                if (!NetSelfSplash.Validate(shooterSlot, proofClaim, out var self))
+                { RefusedHere++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch); return; }
+                entry.Damage = self.Damage; entry.Direction = self.Impulse;
+                entry.Flags = (byte)((entry.Flags & HitClaimPacket.FlagLethal) | self.Effects);
             }
             bool continuous = IsContinuous(proofClaim);
             bool lifeDrain = false;
@@ -2379,7 +2397,11 @@ namespace MphRead.Mods.Network
                 }
                 if ((entry.Flags & HitClaimPacket.FlagBurning) != 0)
                 {
-                    victim.ModSetBurning(true);
+                    if (NetShotProof.TryBurnSource(shooterSlot, proofClaim, out var burn))
+                    {
+                        if ((entry.Flags & HitClaimPacket.FlagHalfturret) != 0) victim.Halfturret.OnSetOnFire(burn);
+                        else victim.ModStartBurn(burn);
+                    }
                 }
                 if ((entry.Flags & HitClaimPacket.FlagDisrupted) != 0)
                 {
@@ -2560,6 +2582,7 @@ namespace MphRead.Mods.Network
             Array.Clear(_verdictCount);
             _rescueIndex.Reset();
             NetCombatPayments.Reset();
+            NetSelfSplash.Reset(); NetBurnSource.Reset();
             NetContinuousPayments.Reset(); NetContinuousAdmission.Reset(); NetContinuousPresentation.Reset();
             _nextId = 1;
             ClaimsCapacityRefused = ResolvedLedgerExpiredUnused = ResolvedLedgerOverwrittenUnused = ResolvedLedgerCapacityRefused = 0;
@@ -2655,6 +2678,7 @@ namespace MphRead.Mods.Network
             Array.Clear(_verdictCount);
             _rescueIndex.Reset();
             NetCombatPayments.Reset();
+            NetSelfSplash.Reset(); NetBurnSource.Reset();
             NetContinuousPayments.Reset(); NetContinuousAdmission.Reset(); NetContinuousPresentation.Reset();
             Array.Clear(_outbox);
             Array.Clear(_pending); _claimsPendingCurrent = 0;

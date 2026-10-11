@@ -2502,7 +2502,9 @@ namespace MphRead.Mods.Network
         // Protocol 46 adds personalized continuous payment receipts, confirmed
         // endpoint sidecars, and bounded batches of reliable authority facts.
         // Canonical player, individual semantic and replay record widths stay unchanged.
-        public const int ProtocolVersion = 46;
+        // Protocol 47 adds constrained owner projectile claims, exact self receipts
+        // and immutable burn ownership. Packet widths and replay records are unchanged.
+        public const int ProtocolVersion = 47;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
