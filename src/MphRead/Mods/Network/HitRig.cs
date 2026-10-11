@@ -215,7 +215,7 @@ namespace MphRead.Mods.Network
         /// <summary>How close the aim must be before the trigger is pulled.</summary>
         private const float FiringCone = 2.5f;
 
-        private static float _selfAimX, _selfAimY, _selfPitch;
+        private static float _selfAimX, _selfAimY, _selfPitch, _selfWallDistance;
         private static int _frame;
         private static int _stuckFrames;
         private static bool _stuckDirection;
@@ -244,7 +244,7 @@ namespace MphRead.Mods.Network
 
         public static void Reset()
         {
-            _frame = 0; _selfAimX = _selfAimY = _selfPitch = 0;
+            _frame = 0; _selfAimX = _selfAimY = _selfPitch = _selfWallDistance = 0;
             _stuckFrames = 0;
             _lastPosition = Vector3.Zero;
             AimDeltaX = 0;
@@ -435,6 +435,10 @@ namespace MphRead.Mods.Network
                         { nearest = distance; point = wall.Position; }
                     }
                 }
+                _selfWallDistance = nearest;
+                // A spawn can put the wall inside the muzzle offset. Back
+                // away until the emitted projectile starts on the near side.
+                c.MoveDown.IsDown = nearest < .9f;
                 c.MoveUp.IsDown = nearest > 1.1f && nearest < 12f;
             }
             // Close self points feed muzzle convergence back into the requested
@@ -766,7 +770,7 @@ namespace MphRead.Mods.Network
                 return $"hit rig: {Mode} as {role}, {Triggers} triggers, "
                     + $"{FramesOnTarget} frames on target, mean range {range:F1} units"
                     + (Mode == RigMode.SelfMoving || Mode == RigMode.SelfWall
-                        ? $", self aim residual {_selfAimX:F2}/{_selfAimY:F2}deg desired pitch {_selfPitch:F2}deg" : "");
+                        ? $", self aim residual {_selfAimX:F2}/{_selfAimY:F2}deg desired pitch {_selfPitch:F2}deg wall distance {_selfWallDistance:F2}" : "");
             }
             double rise = VerticalSpeedSamples > 0
                 ? VerticalSpeedSum / VerticalSpeedSamples

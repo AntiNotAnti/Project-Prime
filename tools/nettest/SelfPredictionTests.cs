@@ -137,7 +137,7 @@ internal static class SelfPredictionTests
                 HealthShotTests.Field(owner, "_spawnInvulnTimer", (ushort)0);
                 HealthShotTests.Field(owner, "_damageInvulnTimer", (ushort)0);
                 ushort generation = NetPlayerLifecycle.Generation(owner.SlotIndex), life = NetPlayerLifecycle.Get(owner.SlotIndex);
-                var baseline = HealthShotTests.State(life); baseline.SlotIndex = owner.SlotIndex;
+                var baseline = HealthShotTests.State(life); baseline.SlotIndex = (byte)owner.SlotIndex;
                 baseline.SlotGeneration = generation; baseline.AttackerSlot = (byte)owner.SlotIndex;
                 NetSession.RemoteStates[owner.SlotIndex] = baseline; NetSession.RemoteStateValid[owner.SlotIndex] = true;
                 NetDamage.BeginLife(owner.SlotIndex, baseline);
@@ -149,7 +149,8 @@ internal static class SelfPredictionTests
                     Damage = 20, Direction = hit.HitDirection, Flags = hit.DamageFlags };
                 if (order == "event-before-prediction")
                 {
-                    NetDamage.Replay(owner, hit); NetSession.RemoteStates[owner.SlotIndex] = hit; owner.Health = 79;
+                    NetDamage.Replay(owner, hit); NetSession.RemoteStates[owner.SlotIndex] = hit;
+                    Check(owner.Health == 79, "event-first actual Replay applies authority health once");
                     Check(NetDamage.HasUnclaimedSelfEvent((byte)BeamType.Missile),
                         "actual Replay retains self event arriving before any local prediction");
                     Check(Vector3.Distance(owner.Speed, hit.HitDirection) < .000001f,
