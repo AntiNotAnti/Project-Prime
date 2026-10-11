@@ -219,8 +219,12 @@ namespace MphRead.Mods.Network
             }
             Compare(expected.Scene.GameState, actual.Scene.GameState, "gameState", 0);
             Compare(expected.Scene.Random, actual.Scene.Random, "random", 0);
-            var leftEntities = expected.Scene.Entities.ToArray();
-            var rightEntities = actual.Scene.Entities.ToArray();
+            var leftList = new List<EntityBase>();
+            foreach (EntityBase entity in expected.Scene.Entities) leftList.Add(entity);
+            var rightList = new List<EntityBase>();
+            foreach (EntityBase entity in actual.Scene.Entities) rightList.Add(entity);
+            var leftEntities = leftList.ToArray();
+            var rightEntities = rightList.ToArray();
             if (leftEntities.Length != rightEntities.Length) text.Append($"entityCount {leftEntities.Length} -> {rightEntities.Length}; ");
             for (int i = 0; i < Math.Min(leftEntities.Length, rightEntities.Length) && differences < 24; i++)
             {
