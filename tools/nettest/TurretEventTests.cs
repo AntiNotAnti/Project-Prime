@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
 using System.Reflection;
 using MphRead;
 using MphRead.Entities;
@@ -119,6 +120,8 @@ internal static class TurretEventTests
             NetFireEvents.Prepare(owner, carrier);
             Check(!NetFireEvents.CanFireTurret(owner), "old-life pending turret cannot reselect after respawn");
             AcceptedAfterUnmorph(owner);
+            RetiredTurretClaims(owner);
+            RetiredRegistryBounds(owner);
             Check(sim.StepFailures == 0, "turret fixture has no engine step failures");
             Console.WriteLine($"PASS: {_checks} turret event assertions"); return 0;
         }
@@ -237,6 +240,208 @@ internal static class TurretEventTests
             Session(nameof(NetSession.Role), role); Session(nameof(NetSession.IsAuthority), authority);
             Session(nameof(NetSession.LocalSlot), local);
         }
+    }
+
+    // Client authoring and authority playback are isolated fixture worlds. Actual native
+    // turret Spawn supplies the offer; only the authoring-world projectile is discarded.
+    // Damage assertions enter Receive/Tick, native ExitAltForm/DrainAccepted and turret.Process.
+    private static void RetiredTurretClaims(PlayerEntity owner)
+    {
+        var victim = PlayerEntity.Players[1]; var scene = owner.OwningScene;
+        var savedMode = NetShotProof.Mode; var savedSink = NetHitClaims.CombatAckSink;
+        var answers = new Dictionary<ushort, CombatAckEntry>();
+        ushort nextClaim = 100;
+        void Frame(uint frame) => typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, frame);
+        void Record() { NetUnlagged.Record(NetSession.NetFrame); NetDynamicGeometryHistory.RecordWorld(NetSession.NetFrame); }
+        HitClaimPacket Claim(in IntentPacket carrier, uint component = 1) => new()
+        {
+            MatchId = carrier.MatchId, AuthorityEpoch = carrier.AuthorityEpoch,
+            ShooterGeneration = carrier.SlotGeneration, ShooterLifeId = carrier.LifeId,
+            VictimSlot = (byte)victim.SlotIndex, VictimGeneration = NetPlayerLifecycle.Generation(victim.SlotIndex),
+            VictimLifeId = NetPlayerLifecycle.Get(victim.SlotIndex), ClaimId = ++nextClaim,
+            ShotId = carrier.FireEvents[0].ShotId, ComponentId = component,
+            Frame = NetSession.NetFrame, AckFrame = NetSession.NetFrame, LaunchFrame = carrier.FireEvents[0].AckFrame,
+            Beam = (byte)BeamType.Battlehammer, Damage = 1, Flags = HitClaimPacket.FlagDirect,
+            HitPoint = victim.Position, Direction = Vector3.Zero
+        };
+        void Receive(in HitClaimPacket claim)
+        {
+            var packet = new byte[1 + HitClaimPacket.Size]; packet[0] = 1;
+            claim.Write(packet.AsSpan(1)); NetHitClaims.Receive(owner.SlotIndex, packet); NetHitClaims.Tick();
+        }
+        IntentPacket Offer()
+        {
+            foreach (var beam in owner.EquipInfo.Beams) beam.Lifespan = 0;
+            if (owner.IsAltForm || owner.Flags2.TestFlag(PlayerFlags2.Halfturret)) owner.ExitAltForm();
+            owner.ModForceForm(false); scene.RemoveEntity(owner.Halfturret);
+            NetSession.RemoteIntentValid[owner.SlotIndex] = false; NetFireEvents.Reset(); NetHitClaims.Reset(); answers.Clear();
+            Frame(NetSession.NetFrame + 300);
+            owner.Health = 199; victim.Health = 999;
+            foreach (var player in new[] { owner, victim })
+            {
+                player.ModReleaseSpawnProtection(); player.Controls.ClearAll();
+                typeof(PlayerEntity).GetField("_spawnInvulnTimer", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(player, (ushort)0);
+                typeof(PlayerEntity).GetField("_damageInvulnTimer", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(player, (ushort)0);
+            }
+            owner.ModStartFormSwitch(); owner.ModForceForm(true);
+            var turret = owner.Halfturret;
+            Check(owner.IsAltForm && turret.Health > 0 && ContainsEntity(scene, turret), "retirement regression starts with actual native turret");
+            NetRole role = NetSession.Role; bool authority = NetSession.IsAuthority; int local = NetSession.LocalSlot;
+            void Session(string property, object value) => typeof(NetSession).GetProperty(property)!.SetValue(null, value);
+            FireEvent fire;
+            try
+            {
+                Session(nameof(NetSession.Role), NetRole.Client); Session(nameof(NetSession.IsAuthority), false);
+                Session(nameof(NetSession.LocalSlot), owner.SlotIndex);
+                Check(BeamProjectileEntity.Spawn(turret, turret.EquipInfo, turret.Position + Vector3.UnitY * .4f,
+                    Vector3.UnitY, BeamSpawnFlags.NoMuzzle, owner.NodeRef, scene) != BeamResultFlags.NoSpawn,
+                    "actual client native turret authors the offered projectile");
+                var outgoing = new IntentPacket { Frame = NetSession.NetFrame }; NetFireEvents.Fill(ref outgoing, owner.SlotIndex);
+                Check(outgoing.FireEventCount == 1 && outgoing.FireEvents[0].Kind == FireEventKind.TurretFire,
+                    "actual client launch supplies exact turret offer");
+                fire = outgoing.FireEvents[0];
+            }
+            finally { Session(nameof(NetSession.Role), role); Session(nameof(NetSession.IsAuthority), authority); Session(nameof(NetSession.LocalSlot), local); }
+            foreach (var beam in owner.EquipInfo.Beams) beam.Lifespan = 0;
+            NetFireEvents.Reset(); NetHitClaims.Reset(); NetFireEvents.AcceptedPlaybackEnabled = true;
+            var carrier = new IntentPacket { MatchId = NetSession.CurrentMatchId, AuthorityEpoch = NetSession.AuthorityEpoch,
+                SlotGeneration = NetPlayerLifecycle.Generation(owner.SlotIndex), LifeId = NetPlayerLifecycle.Get(owner.SlotIndex),
+                Frame = NetSession.NetFrame, AckFrame = NetSession.NetFrame, HasFireEvents = true, FireEventCount = 1 };
+            carrier.FireEvents[0] = fire;
+            NetSession.RemoteIntents[owner.SlotIndex] = carrier; NetSession.RemoteIntentValid[owner.SlotIndex] = true;
+            Check(NetFireEvents.Accept(owner.SlotIndex, carrier), "exact authored offer enters authority native turret queue");
+            Record(); return carrier;
+        }
+        void Retire()
+        {
+            Frame(NetSession.NetFrame + 13);
+            owner.ExitAltForm(); owner.ModForceForm(false); NetFireEvents.DrainAccepted(owner);
+            scene.RemoveEntity(owner.Halfturret);
+        }
+        try
+        {
+            NetShotProof.Mode = ShotProofMode.Shadow;
+            NetHitClaims.CombatAckSink = (slot, entries) => { if (slot == owner.SlotIndex) foreach (var ack in entries) answers[ack.ClaimId] = ack; };
+            var carrier = Offer(); var parked = Claim(carrier);
+            int health = victim.Health; ushort sequence = NetDamage.Sequence(victim.SlotIndex);
+            Receive(parked);
+            Check(NetHitClaims.ClaimsPendingCurrent == 1 && !answers.ContainsKey(parked.ClaimId),
+                "valid historical Shadow claim parks before turret retirement");
+            Retire();
+            var key = NetShotProof.Key(owner.SlotIndex, parked);
+            Check(NetFireEvents.IsRetiredUnemittedTurret(key) && owner.EquipInfo.Beams.All(beam => beam.Lifespan <= 0),
+                "native unmorph drains un-emitted exact offer into terminal refusal");
+            Frame(NetSession.NetFrame + 2 * NetHitClaims.MaxGraceFrames + 1); NetHitClaims.Tick();
+            Check(answers.TryGetValue(parked.ClaimId, out var ack) && ack.Result == HitVerdictPacket.ResultInvalidLaunch
+                && ack.DamageApplied == 0 && NetHitClaims.ClaimsPendingCurrent == 0,
+                "parked retired offer receives InvalidLaunch after grace");
+            Check(victim.Health == health && NetDamage.Sequence(victim.SlotIndex) == sequence
+                && NetHitClaims.AppliedHere == 0 && NetHitClaims.RescuedDamage == 0 && NetHitClaims.RescuedLedgerCurrent == 0
+                && !NetShotProof.TryPhysicalOutcome(owner.SlotIndex, parked, out _),
+                "parked un-emitted retired key creates no health damage sequence rescue or physical payment");
+            foreach (var mode in new[] { ShotProofMode.Off, ShotProofMode.Shadow, ShotProofMode.Enforce })
+            {
+                NetShotProof.Mode = mode; Record(); var late = Claim(carrier); Receive(late);
+                Check(answers.TryGetValue(late.ClaimId, out ack) && ack.Result == HitVerdictPacket.ResultInvalidLaunch
+                    && ack.DamageApplied == 0 && victim.Health == health && NetDamage.Sequence(victim.SlotIndex) == sequence,
+                    $"claim arriving after retirement cannot pay in {mode}");
+            }
+            NetShotProof.Mode = ShotProofMode.Shadow;
+            // Evidence is an immutable process option. Execute this fixture once per
+            // environment; no reflection mutates readonly production evidence state.
+            {
+                bool evidence = NetCampaignEvidence.Enabled;
+                carrier = Offer(); key = ShotKey.For(owner.SlotIndex, carrier.FireEvents[0].ShotId);
+                Frame(NetSession.NetFrame + NetIncomingFireHistory.RecoveryFrames + 1);
+                var empty = carrier; empty.Frame = NetSession.NetFrame; empty.FireEventCount = 0;
+                Check(NetFireEvents.Accept(owner.SlotIndex, empty) && NetFireEvents.IsRetiredUnemittedTurret(key),
+                    $"unconsumed native turret offer expiry veto is identical with evidence={evidence}");
+                Record(); var expired = Claim(carrier); health = victim.Health; sequence = NetDamage.Sequence(victim.SlotIndex); Receive(expired);
+                Check(answers.TryGetValue(expired.ClaimId, out ack) && ack.Result == HitVerdictPacket.ResultInvalidLaunch
+                    && ack.DamageApplied == 0 && victim.Health == health && NetDamage.Sequence(victim.SlotIndex) == sequence,
+                    $"expired un-emitted offer cannot pay with evidence={evidence}");
+            }
+            carrier = Offer(); key = ShotKey.For(owner.SlotIndex, carrier.FireEvents[0].ShotId);
+            owner.TakeDamage(0, DamageFlags.Death | DamageFlags.IgnoreInvuln, null, victim);
+            scene.RemoveEntity(owner.Halfturret); owner.ModForceForm(false);
+            owner.Spawn(owner.Position, Vector3.UnitZ, Vector3.UnitY, owner.NodeRef, respawn: true);
+            Check(NetPlayerLifecycle.Get(owner.SlotIndex) != key.LifeId && NetFireEvents.IsRetiredUnemittedTurret(key),
+                "native death and respawn cancel pending old-life offer without recursive queue transition");
+            Check(!NetFireEvents.IsRetiredUnemittedTurret(ShotKey.For(owner.SlotIndex, key.ShotId)),
+                "same numeric shot ID in actual new life is isolated from canceled old offer");
+            carrier = Offer();
+            var source = owner.Halfturret.Position + Vector3.UnitY * .4f;
+            Vector3 direction = Vector3.Zero;
+            foreach (var ray in new[] { Vector3.UnitX, -Vector3.UnitX, Vector3.UnitZ, -Vector3.UnitZ })
+                if (NetDynamicGeometryHistory.TryTraceDistanceAtFrame(scene, source, source + ray * 3, NetSession.NetFrame, out float wall) && wall == 1)
+                { direction = ray; break; }
+            Check(direction.LengthSquared == 1, "native turret regression finds clear asset collision lane");
+            victim.ModPlaceAt(source + direction * 3 - Vector3.UnitY * .5f); Record();
+            owner.TimeSinceShot = 1000; NetFireEvents.Prepare(owner, carrier);
+            Check(NetFireEvents.CanFireTurret(owner), "native authority selects committed-flight control offer");
+            owner.Halfturret.Process();
+            key = ShotKey.For(owner.SlotIndex, carrier.FireEvents[0].ShotId);
+            var emitted = owner.EquipInfo.Beams.Where(beam => beam.Lifespan > 0 && beam.ModLaunchKey == key).ToArray();
+            Check(emitted.Length == 1 && ReferenceEquals(emitted[0].Owner, owner.Halfturret)
+                && emitted[0].ModComponentId != 0 && !NetFireEvents.CanFireTurret(owner),
+                "actual native target and cooldown path commits exact turret component once");
+            Retire();
+            Check(!NetFireEvents.IsRetiredUnemittedTurret(key) && NetPlayerLifecycle.CurrentProjectile(emitted[0]),
+                "unmorph preserves genuinely committed old turret flight");
+            health = victim.Health;
+            for (int i = 0; i < 60 && victim.Health == health && emitted[0].Lifespan > 0; i++) emitted[0].Process();
+            Check(victim.Health < health, "committed old turret flight actually collides after native unmorph");
+            var committed = Claim(carrier, emitted[0].ModComponentId); Record();
+            Check(NetShotProof.TryPhysicalOutcome(owner.SlotIndex, committed, out var physical) && physical.DamageApplied > 0,
+                "native old flight has exact component physical payment");
+            health = victim.Health; sequence = NetDamage.Sequence(victim.SlotIndex); Receive(committed);
+            Check(answers.TryGetValue(committed.ClaimId, out ack) && ack.Result == HitVerdictPacket.ResultDuplicate
+                && ack.ShotId == committed.ShotId && ack.DamageSequence == physical.DamageSequence
+                && ack.HealthAfter == physical.HealthAfter && ack.DamageApplied == physical.DamageApplied
+                && victim.Health == health && NetDamage.Sequence(victim.SlotIndex) == sequence,
+                "committed old flight ACK preserves native payment without another damage application");
+            Receive(committed);
+            Check(answers[committed.ClaimId].Result == HitVerdictPacket.ResultDuplicate && victim.Health == health
+                && NetDamage.Sequence(victim.SlotIndex) == sequence, "committed native payment receipt remains idempotent");
+        }
+        finally { NetHitClaims.CombatAckSink = savedSink; NetShotProof.Mode = savedMode;
+            foreach (var beam in owner.EquipInfo.Beams) beam.Lifespan = 0; NetHitClaims.Reset(); NetFireEvents.Reset(); }
+    }
+
+    // Registry-only bounds are separate from the native payment regression above.
+    private static void RetiredRegistryBounds(PlayerEntity owner)
+    {
+        uint frame = NetSession.NetFrame;
+        void Frame(uint value) => typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, value);
+        try
+        {
+            NetFireEvents.Reset(); var key = ShotKey.For(owner.SlotIndex, 20000);
+            NetFireEvents.RememberRetiredUnemittedTurret(key);
+            Check(NetFireEvents.IsRetiredUnemittedTurret(key), "terminal registry preserves exact full key");
+            foreach (var wrong in new[] { key with { AuthorityEpoch = key.AuthorityEpoch + 1 }, key with { MatchId = (ushort)(key.MatchId + 1) },
+                key with { ShooterSlot = 1 }, key with { Generation = (ushort)(key.Generation + 1) },
+                key with { LifeId = (ushort)(key.LifeId + 1) }, key with { ShotId = key.ShotId + 1 } })
+                Check(!NetFireEvents.IsRetiredUnemittedTurret(wrong), "terminal registry cannot alias another full shot identity");
+            owner.Spawn(owner.Position, Vector3.UnitZ, Vector3.UnitY, owner.NodeRef, respawn: true);
+            Check(NetPlayerLifecycle.Get(owner.SlotIndex) != key.LifeId && NetFireEvents.IsRetiredUnemittedTurret(key),
+                "actual native respawn retains terminal identity across life boundary");
+            NetFireEvents.Reset(); Frame(uint.MaxValue - 15); key = ShotKey.For(owner.SlotIndex, 21000);
+            NetFireEvents.RememberRetiredUnemittedTurret(key);
+            Frame(unchecked(uint.MaxValue - 15 + (uint)NetFireEvents.TurretTerminalRetentionFrames));
+            Check(NetFireEvents.IsRetiredUnemittedTurret(key), "terminal retention survives authority-frame wrap through exact horizon");
+            Frame(unchecked(NetSession.NetFrame + 1));
+            Check(!NetFireEvents.IsRetiredUnemittedTurret(key), "terminal retention expires only after authority horizon");
+            NetFireEvents.Reset(); Frame(frame);
+            for (uint i = 1; i <= 257; i++) NetFireEvents.RememberRetiredUnemittedTurret(ShotKey.For(owner.SlotIndex, i));
+            key = ShotKey.For(owner.SlotIndex, 99999);
+            Check(NetFireEvents.IsRetiredUnemittedTurret(key), "bounded registry exhaustion fails closed for unreceipted same-incarnation keys");
+            foreach (var wrong in new[] { key with { AuthorityEpoch = key.AuthorityEpoch + 1 }, key with { MatchId = (ushort)(key.MatchId + 1) },
+                key with { ShooterSlot = 1 }, key with { Generation = (ushort)(key.Generation + 1) } })
+                Check(!NetFireEvents.IsRetiredUnemittedTurret(wrong), "capacity closure cannot poison another stream occupant or slot");
+            Frame(frame + (uint)NetFireEvents.TurretTerminalRetentionFrames + 1);
+            Check(!NetFireEvents.IsRetiredUnemittedTurret(key), "capacity closure expires at bounded authority horizon");
+        }
+        finally { Frame(frame); NetFireEvents.Reset(); }
     }
 
     private static bool ContainsEntity(Scene scene, EntityBase entity)
