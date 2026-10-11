@@ -7,7 +7,7 @@ namespace MphRead.Mods.Network;
 internal sealed partial class ReplayRecorder
 {
     internal bool HasMatch => _match.HasValue;
-    public RollingReplayTimeline Timeline { get; } = new();
+    public RollingReplayTimeline Timeline { get; } = new(presentationProtocolVersion: NetConfig.ProtocolVersion);
     internal bool ProducesWorldCheckpoints { get; set; }
     internal event Action<ReplayTimelineRecord>? Accepted;
     internal event Action? Resetting;

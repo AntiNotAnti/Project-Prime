@@ -18,6 +18,9 @@ public sealed class RollingReplayTimeline : IReplayTimeline
     private readonly LinkedList<Segment> _segments = new();
     private uint _historyFrames;
     private readonly long _maximumBytes;
+    // Live recorder passes the current protocol explicitly; isolated timelines
+    // have unknown capabilities until an author supplies a source protocol.
+    private readonly int _presentationProtocolVersion;
     private uint? _frontier;
     public long PayloadBytes { get; private set; }
     public int RecordCount { get; private set; }
@@ -31,11 +34,15 @@ public sealed class RollingReplayTimeline : IReplayTimeline
     public uint? LastServerTick { get; private set; }
     public bool NeedsRestorePoint => _segments.Count == 0;
 
-    public RollingReplayTimeline(uint historyFrames = DefaultHistoryFrames, long maximumBytes = DefaultMaximumBytes)
+    public RollingReplayTimeline(uint historyFrames = DefaultHistoryFrames, long maximumBytes = DefaultMaximumBytes,
+        int presentationProtocolVersion = 0)
     {
         if (historyFrames == 0) throw new ArgumentOutOfRangeException(nameof(historyFrames));
         if (maximumBytes < 1 || maximumBytes > DefaultMaximumBytes) throw new ArgumentOutOfRangeException(nameof(maximumBytes));
+        if (presentationProtocolVersion < 0 || presentationProtocolVersion > byte.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(presentationProtocolVersion));
         _historyFrames = historyFrames; _maximumBytes = maximumBytes;
+        _presentationProtocolVersion = presentationProtocolVersion;
     }
 
     internal void SetHistoryFrames(uint frames)
@@ -127,7 +134,8 @@ public sealed class RollingReplayTimeline : IReplayTimeline
                 if (!inBaseline) records.Add(record);
             }
         }
-        clip = new ReplayTimelineClip(restore, records.ToArray(), startFrame, endFrame);
+        clip = new ReplayTimelineClip(restore, records.ToArray(), startFrame, endFrame,
+            _presentationProtocolVersion);
         return true;
     }
 

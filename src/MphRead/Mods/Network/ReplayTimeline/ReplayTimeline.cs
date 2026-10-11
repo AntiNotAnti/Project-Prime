@@ -97,7 +97,7 @@ public sealed class ReplayTimelineClip : IDisposable
     // keep that recording's firing/presentation semantics.
     internal int PresentationProtocolVersion { get; }
     internal ReplayTimelineClip(ReplayRestorePoint restore, ReplayTimelineRecord[] records, uint start, uint end,
-        int presentationProtocolVersion = NetConfig.ProtocolVersion)
+        int presentationProtocolVersion)
     {
         RestorePoint = new(restore.RecordingFrame, restore.ServerTick, restore.Kind, restore.Records);
         foreach (var record in records) record.Retain();

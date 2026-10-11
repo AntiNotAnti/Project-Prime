@@ -9,6 +9,9 @@ namespace MphRead.Mods.Render;
 internal static class DesktopFramePacing
 {
     internal const double NativeRefreshToleranceHz = 0.75;
+    // Keep this pure policy compilable by the standalone pacing check.
+    // FrameTiming.DisplayRate is also zero; numeric FPS caps are always positive.
+    internal const int DisplayRateCap = 0;
 
     /// <summary>
     /// Only the explicit Display/VSync setting relies on the monitor clock.
@@ -17,7 +20,7 @@ internal static class DesktopFramePacing
     /// ignored or overridden, and must not silently disable the FPS limit.
     /// </summary>
     internal static bool UseDisplayPacing(int cap, double refreshRate) =>
-        cap == FrameTiming.DisplayRate;
+        cap == DisplayRateCap;
 
     internal static bool LinuxVSyncIgnored(bool isLinux, int cap, double refreshRate,
         double measuredFrameRate, bool alreadyLatched)
