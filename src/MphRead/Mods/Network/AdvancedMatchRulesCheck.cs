@@ -711,9 +711,10 @@ namespace MphRead.Mods.Network
             // Build actual protocol-27 bytes; changing only the version label would
             // leave protocol-29 player extensions in the historical fixture.
             var historicalBytes = historicalCheckpoint.ToList();
-            // Schemas 5/6 add empty semantic-history counts/frontiers and require protocol 35.
+            // Schemas 5/6 add 16 bytes of empty semantic counts/frontiers;
+            // schema 8 adds the empty four-byte bomb-history count.
             // This fixture represents schema 4/protocol 27, not a relabelled current schema.
-            historicalBytes.RemoveRange(historicalBytes.Count - 16, 16);
+            historicalBytes.RemoveRange(historicalBytes.Count - 20, 20);
             historicalBytes[4] = 4; historicalBytes[5] = 0;
             const int matchStart = 46;
             int rosterStart = matchStart + MatchStatePacket.Size + 1;
@@ -726,7 +727,7 @@ namespace MphRead.Mods.Network
                 historicalBytes.RemoveRange(intentStart + IntentPacket.LegacyFullSize,
                     IntentPacket.FullSize - IntentPacket.LegacyFullSize);
                 historicalBytes.RemoveRange(firstPlayer + slot * stride + 7 + PlayerState.LegacySize,
-                    Mods.EnhancedHunters.EnhancedHunterNetState.Size);
+                    PlayerState.Size - PlayerState.LegacySize);
             }
             // Protocol 33 added one handicap byte to every fixed roster entry.
             // A protocol-27 checkpoint genuinely predates those bytes, so remove

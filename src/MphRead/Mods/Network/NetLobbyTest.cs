@@ -227,6 +227,22 @@ namespace MphRead.Mods.Network
                 config.Match = config.Match with { RoomKey = room };
                 rig.Expect(owner, owner.Command(LobbyCommandType.UpdateMatch, config: config), LobbyResultCode.Ok);
                 rig.ReadyAll();
+                if (owner.State!.Value.Match.MapIdentity.IsCustom)
+                {
+                    NetworkMapIdentity installed = NetworkMapIdentity.ForRoom(room);
+                    Check(installed == owner.State.Value.Match.MapIdentity,
+                        "native fixture has the exact announced custom map installed");
+                    foreach (Client client in rig.Clients)
+                    {
+                        var state = client.State!.Value;
+                        byte[] ready = new byte[MapAvailabilityPacket.Size];
+                        new MapAvailabilityPacket(state.MatchId, state.AuthorityEpoch, installed,
+                            MapAvailabilityState.Ready, state.MapGeneration, 1).Write(ready);
+                        client.Send(PacketType.MapAvailability, ready);
+                    }
+                    rig.Wait(() => rig.Clients.All(client => client.State?.MapAvailability?[client.Slot]
+                        == MapAvailabilityState.Ready), "exact custom map ready for every peer");
+                }
                 rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.Ok);
                 Check(rig.Server.Simulating, "real authority loaded custom room");
                 foreach (Client client in rig.Clients) client.Loaded();
