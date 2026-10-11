@@ -1280,8 +1280,19 @@ namespace MphRead.Mods.Network
         /// authority's own answer to the same shot goes into
         /// <see cref="_pending"/> and is settled by <see cref="Tick"/>.
         /// </summary>
-        // Live protocol 30 requires explicit beam identity. Legacy offline fixtures
-        // may still enter Receive directly; no network ingress bypasses this check.
+        // A coil tick cannot fall back to generic rescue: native coil payment is
+        // fenced by its authored phase, not the generic projectile component.
+        // This wire invariant applies even when optional shot proof is off/shadow.
+        internal static bool ValidContinuousClaimShape(in HitClaimPacket claim)
+        {
+            bool continuous = (claim.Flags & HitClaimPacket.FlagContinuousTick) != 0;
+            if (claim.Beam != (byte)BeamType.ShockCoil) return !continuous;
+            return continuous && claim.ShotId != 0 && claim.Frame != 0 && (claim.Frame & 1) == 0
+                && (claim.Flags & (HitClaimPacket.FlagDirect | HitClaimPacket.FlagHeadshot)) == HitClaimPacket.FlagDirect;
+        }
+
+        // Live claims require explicit beam identity. Direct fixture callers
+        // also pass the continuous shape guard below, before any paid receipt.
         internal static bool ValidateWireClaims(ReadOnlySpan<byte> payload)
         {
             if (payload.Length < 1 || payload[0] > HitClaimPacket.MaxPerPacket
@@ -1290,6 +1301,7 @@ namespace MphRead.Mods.Network
             {
                 var claim = HitClaimPacket.Read(payload[(1 + i * HitClaimPacket.Size)..]);
                 if (claim.Beam != HitClaimPacket.NoBeam && claim.ShotId == 0) return false;
+                if (!ValidContinuousClaimShape(claim)) return false;
             }
             return true;
         }
@@ -1315,6 +1327,12 @@ namespace MphRead.Mods.Network
                     || claim.ShooterGeneration == 0 || claim.ShooterGeneration != NetPlayerLifecycle.Generation(shooterSlot))
                 {
                     NetPlayerLifecycle.OldLifeClaims++;
+                    continue;
+                }
+                if (!ValidContinuousClaimShape(claim))
+                {
+                    RefusedHere++;
+                    Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultInvalidLaunch, remember: false);
                     continue;
                 }
                 // A terminal receipt describes its original lives. Retry it
@@ -1546,6 +1564,8 @@ namespace MphRead.Mods.Network
 
         private static byte JudgeCore(int shooterSlot, in HitClaimPacket claim)
         {
+            if (!ValidContinuousClaimShape(claim))
+            { RefusedHere++; return HitVerdictPacket.ResultInvalidLaunch; }
             int victimSlot = claim.VictimSlot;
             if (Telemetry.ProductionTelemetry.Enabled)
                 LagCompensationPolicy.Study(shooterSlot, victimSlot, NetShotDiagnostics.Bucket((BeamType)claim.Beam),
