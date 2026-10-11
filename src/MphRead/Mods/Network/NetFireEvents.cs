@@ -380,7 +380,8 @@ public static class NetFireEvents
                 && !NetLifecycleTracker.Newer(retired.SourceFrame, state.TurretRetiredThrough)
                 && !player.IsAltForm && !player.IsMorphing))
         {
-            var key = ShotKey.For(player.SlotIndex, retired.ShotId) with { LifeId = retired.SourceLife };
+            var key = ShotKey.For(player.SlotIndex, retired.ShotId) with
+            { LifeId = retired.SourceLife != 0 ? retired.SourceLife : state.CurrentLife };
             RememberRetiredUnemittedTurret(state, key);
             NetCampaignEvidence.TurretUnavailable(player, key, retired);
             state.Incoming.Consume(retired.ShotId);
