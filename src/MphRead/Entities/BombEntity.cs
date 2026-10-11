@@ -123,6 +123,7 @@ namespace MphRead.Entities
             }
             if (ModReplica)
             {
+                ModEnsurePlacementEffect();
                 _soundSource.Update(Position, rangeIndex: 5);
                 UpdateNodeRefVolume();
                 Effect?.Transform(Position, Transform);
