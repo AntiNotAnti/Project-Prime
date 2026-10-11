@@ -1280,8 +1280,19 @@ namespace MphRead.Mods.Network
         /// authority's own answer to the same shot goes into
         /// <see cref="_pending"/> and is settled by <see cref="Tick"/>.
         /// </summary>
-        // Live protocol 30 requires explicit beam identity. Legacy offline fixtures
-        // may still enter Receive directly; no network ingress bypasses this check.
+        // A coil tick cannot fall back to generic rescue: native coil payment is
+        // fenced by its authored phase, not the generic projectile component.
+        // This wire invariant applies even when optional shot proof is off/shadow.
+        internal static bool ValidContinuousClaimShape(in HitClaimPacket claim)
+        {
+            bool continuous = (claim.Flags & HitClaimPacket.FlagContinuousTick) != 0;
+            if (claim.Beam != (byte)BeamType.ShockCoil) return !continuous;
+            return continuous && claim.ShotId != 0 && claim.Frame != 0 && (claim.Frame & 1) == 0
+                && (claim.Flags & (HitClaimPacket.FlagDirect | HitClaimPacket.FlagHeadshot)) == HitClaimPacket.FlagDirect;
+        }
+
+        // Live claims require explicit beam identity. Direct fixture callers
+        // also pass the continuous shape guard below, before any paid receipt.
         internal static bool ValidateWireClaims(ReadOnlySpan<byte> payload)
         {
             if (payload.Length < 1 || payload[0] > HitClaimPacket.MaxPerPacket
@@ -1290,6 +1301,7 @@ namespace MphRead.Mods.Network
             {
                 var claim = HitClaimPacket.Read(payload[(1 + i * HitClaimPacket.Size)..]);
                 if (claim.Beam != HitClaimPacket.NoBeam && claim.ShotId == 0) return false;
+                if (!ValidContinuousClaimShape(claim)) return false;
             }
             return true;
         }
@@ -1315,6 +1327,12 @@ namespace MphRead.Mods.Network
                     || claim.ShooterGeneration == 0 || claim.ShooterGeneration != NetPlayerLifecycle.Generation(shooterSlot))
                 {
                     NetPlayerLifecycle.OldLifeClaims++;
+                    continue;
+                }
+                if (!ValidContinuousClaimShape(claim))
+                {
+                    RefusedHere++;
+                    Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultInvalidLaunch, remember: false);
                     continue;
                 }
                 // A terminal receipt describes its original lives. Retry it
@@ -1537,6 +1555,17 @@ namespace MphRead.Mods.Network
         /// </summary>
         private static byte Judge(int shooterSlot, in HitClaimPacket claim)
         {
+            if (!NetPerformanceEvidence.Enabled) return JudgeCore(shooterSlot, claim);
+            long start = NetPerformanceEvidence.Start();
+            int result = -1;
+            try { result = JudgeCore(shooterSlot, claim); return (byte)result; }
+            finally { NetPerformanceEvidence.End(NetPerformanceEvidence.Operation.Eligibility, start, result); }
+        }
+
+        private static byte JudgeCore(int shooterSlot, in HitClaimPacket claim)
+        {
+            if (!ValidContinuousClaimShape(claim))
+            { RefusedHere++; return HitVerdictPacket.ResultInvalidLaunch; }
             int victimSlot = claim.VictimSlot;
             if (Telemetry.ProductionTelemetry.Enabled)
                 LagCompensationPolicy.Study(shooterSlot, victimSlot, NetShotDiagnostics.Bucket((BeamType)claim.Beam),
@@ -2272,6 +2301,20 @@ namespace MphRead.Mods.Network
         /// </summary>
         private static void ApplyOne(ref Pending entry)
         {
+            if (!NetPerformanceEvidence.Enabled) { ApplyOneCore(ref entry); return; }
+            long start = NetPerformanceEvidence.Start();
+            int previous = NetPerformanceEvidence.TerminalResult;
+            NetPerformanceEvidence.TerminalResult = -1;
+            try { ApplyOneCore(ref entry); }
+            finally
+            {
+                NetPerformanceEvidence.End(NetPerformanceEvidence.Operation.Settlement, start, NetPerformanceEvidence.TerminalResult);
+                NetPerformanceEvidence.TerminalResult = previous;
+            }
+        }
+
+        private static void ApplyOneCore(ref Pending entry)
+        {
             int victimSlot = entry.VictimSlot;
             int shooterSlot = entry.ShooterSlot;
             if (!NetSession.MatchesStream(entry.MatchId, entry.AuthorityEpoch)
@@ -2580,6 +2623,7 @@ namespace MphRead.Mods.Network
             // must repeat the verdict, never park the already applied hit again.
             CombatAckEntry answer = outcome ?? (_seenIds[slot, at] == id ? _seenOutcomes[slot, at] : new CombatAckEntry { VictimSlot = 255 });
             answer.ClaimId = id; answer.Result = result;
+            if (NetPerformanceEvidence.Enabled) NetPerformanceEvidence.TerminalResult = answer.Result;
             // Native outcomes carry victim state, not the claimant's correlation
             // identity. The first answer must identify the claim just as a retry does.
             if (answer.ShotId == 0 && _seenIds[slot, at] == id) answer.ShotId = _seenKeys[slot, at].ShotId;

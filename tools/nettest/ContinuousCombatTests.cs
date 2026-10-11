@@ -285,6 +285,73 @@ internal static class ContinuousCombatTests
         Check(Receive(claim) == HitVerdictPacket.ResultDuplicate && Receipt(_ack).SequenceEqual(terminal),
             "native-first continuous acknowledgement retry is byte-identical");
     }
+    private static void MalformedContinuousShape()
+    {
+        var savedMode = NetShotProof.Mode;
+        // Include reservations and receipt IDs: refusal must neither allocate
+        // ledger storage nor poison the valid claim with the same ID.
+        object[] ArrayState(Type type, string field) => ((Array)type.GetField(field,
+            BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!).Cast<object>().ToArray();
+        void Refused(in HitClaimPacket malformed, string label)
+        {
+            int victim = _victim.Health, owner = _owner.Health;
+            ushort sequence = NetDamage.Sequence(1); Vector3 speed = _victim.Speed;
+            long payments = NetContinuousPayments.LifetimePayments;
+            var counts = (NetHitClaims.ClaimsPendingCurrent, NetHitClaims.ResolvedLedgerCurrent, NetHitClaims.RescuedLedgerCurrent);
+            var entries = ArrayState(typeof(NetContinuousPayments), "Entries");
+            var windows = ArrayState(typeof(NetContinuousPayments), "Windows");
+            var receipts = ArrayState(typeof(NetHitClaims), "_seenIds");
+            byte[] packet = new byte[1 + HitClaimPacket.Size]; packet[0] = 1; malformed.Write(packet.AsSpan(1));
+            Check(!NetHitClaims.ValidateWireClaims(packet), label + " wire rejects malformed continuous shape");
+            Check(Receive(malformed) == HitVerdictPacket.ResultInvalidLaunch,
+                label + " direct Receive refuses before paid or terminal receipt");
+            Check(_victim.Health == victim && _owner.Health == owner && _victim.Speed == speed
+                && NetDamage.Sequence(1) == sequence && NetContinuousPayments.LifetimePayments == payments,
+                label + " refusal cannot damage, heal, impulse or advance damage sequence");
+            Check(counts == (NetHitClaims.ClaimsPendingCurrent, NetHitClaims.ResolvedLedgerCurrent, NetHitClaims.RescuedLedgerCurrent)
+                && entries.SequenceEqual(ArrayState(typeof(NetContinuousPayments), "Entries"))
+                && windows.SequenceEqual(ArrayState(typeof(NetContinuousPayments), "Windows"))
+                && receipts.SequenceEqual(ArrayState(typeof(NetHitClaims), "_seenIds")),
+                label + " refusal allocates no payment, pending, resolved, rescue or receipt slot");
+            NetHitClaims.ValidateLedgerCounters();
+        }
+        string[] variants = { "missing continuous flag", "zero frame", "odd frame", "missing direct flag",
+            "headshot", "non-Shock continuous flag", "zero shot" };
+        try
+        {
+            foreach (var mode in new[] { ShotProofMode.Off, ShotProofMode.Shadow, ShotProofMode.Enforce })
+                for (int variant = 0; variant < variants.Length; variant++)
+                {
+                    NetShotProof.Mode = mode; Prepare(); _owner.Hunter = Hunter.Sylux;
+                    var beam = Beam(); var valid = JournalClaim(beam); var malformed = valid;
+                    switch (variant)
+                    {
+                        case 0: malformed.Flags = (byte)(malformed.Flags & ~HitClaimPacket.FlagContinuousTick); break;
+                        case 1: malformed.Frame = 0; break;
+                        case 2: malformed.Frame |= 1; break;
+                        case 3: malformed.Flags = (byte)(malformed.Flags & ~HitClaimPacket.FlagDirect); break;
+                        case 4: malformed.Flags |= HitClaimPacket.FlagHeadshot; break;
+                        case 5: malformed.Beam = (byte)BeamType.PowerBeam; break;
+                        case 6: malformed.ShotId = 0; break;
+                    }
+                    string label = mode + " " + variants[variant];
+                    Refused(malformed, label + " before native payment");
+                    Native(beam, 1);
+                    Check(_victim.Health == 98 && _owner.Health == 51
+                        && NetContinuousPayments.TryGet(Key(beam, _victim), out var paid, out _, out _)
+                        && paid.DamageApplied == 1, label + " actual native tick remains eligible after malformed same-ID arrival");
+                    Refused(malformed, label + " after native payment");
+                    Check(Receive(valid) == HitVerdictPacket.ResultDuplicate && _ack.ShotId == valid.ShotId
+                        && _ack.DamageApplied == 1 && _victim.Health == 98 && _owner.Health == 51,
+                        label + " valid same-ID claim returns original native outcome");
+                    byte[] receipt = Receipt(_ack);
+                    Refused(malformed, label + " after valid terminal receipt");
+                    Check(Receive(valid) == HitVerdictPacket.ResultDuplicate && Receipt(_ack).SequenceEqual(receipt),
+                        label + " malformed same-ID retry cannot poison byte-identical valid terminal retry");
+                }
+        }
+        finally { NetShotProof.Mode = savedMode; }
+    }
     private static void LocalAuthoredClock()
     {
         Prepare(); _owner.Hunter = Hunter.Sylux; _owner.ModArmWeapon(BeamType.ShockCoil);
@@ -630,7 +697,7 @@ internal static class ContinuousCombatTests
                     _base + direction * 4 + Vector3.UnitY * .5f, _frame, out float wall) && wall == 1)
                 { _direction = direction; break; }
             Check(_direction.LengthSquared == 1, "asset fixture provides clear continuous collision lane");
-            NativePaymentOnce(); SelectedTargetFence(); DeclinedAndCapped(); SplitAndBalanced(); ActualCollision(); ReservationAndLifetime(); ClaimAndNativeOrdering(); LocalAuthoredClock(); TerminalDeathOrdering(false); TerminalDeathOrdering(true); RampAfterFractionalDither(); FractionalHistoricalTarget(); PendingSourceSettlement(); DeferredContinuousHitRadius(); RefusedSources(); ExpiryCallback(); RetainedCarrierEvent(); RetainedCarrierEvent(latest: true); RetainedCarrierEvent(latest: true, dead: true);
+            NativePaymentOnce(); SelectedTargetFence(); DeclinedAndCapped(); SplitAndBalanced(); ActualCollision(); ReservationAndLifetime(); ClaimAndNativeOrdering(); MalformedContinuousShape(); LocalAuthoredClock(); TerminalDeathOrdering(false); TerminalDeathOrdering(true); RampAfterFractionalDither(); FractionalHistoricalTarget(); PendingSourceSettlement(); DeferredContinuousHitRadius(); RefusedSources(); ExpiryCallback(); RetainedCarrierEvent(); RetainedCarrierEvent(latest: true); RetainedCarrierEvent(latest: true, dead: true);
             Check(sim.StepFailures == 0, "continuous asset simulation has no step failures");
             Console.WriteLine($"PASS: {_checks} continuous combat asset assertions ({profile})"); return 0;
         }

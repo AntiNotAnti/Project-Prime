@@ -330,6 +330,7 @@ namespace MphRead.Mods.Network
                 NetLog.Event($"server simulation step failed: {ex}");
             }
             double elapsed = Stopwatch.GetElapsedTime(start).TotalSeconds;
+            NetPerformanceEvidence.End(NetPerformanceEvidence.Operation.Step, NetPerformanceEvidence.Enabled ? start : 0);
             long allocatedBytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
             Telemetry.ProductionTelemetry.RecordServerStep(NetSession.NetFrame, elapsed * 1000,
                 allocatedBytes, DroppedSteps, Stalls, failed);
