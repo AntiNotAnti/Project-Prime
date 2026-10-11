@@ -134,6 +134,15 @@ internal sealed class NetIncomingFireHistory
         }
         return true;
     }
+    internal bool TryGetPending(uint id, out FireEvent fire)
+    {
+        fire = default;
+        if (id == 0) return false;
+        ref var entry = ref _entries[id % Capacity];
+        if (!entry.Present || entry.Consumed || entry.Fire.ShotId != id) return false;
+        fire = entry.Fire;
+        return true;
+    }
     internal bool TryPeek(out FireEvent fire)
     {
         fire = default;

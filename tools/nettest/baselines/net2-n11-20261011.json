@@ -1,0 +1,1950 @@
+{
+  "milestone": "N11",
+  "date": "2026-10-11",
+  "status": "VERIFIED_READY_FOR_PR_AND_MERGE",
+  "protocol": 50,
+  "platform": "macOS arm64",
+  "diagnosticSource": "b8a2df821eea8ef5b71486edbf7505f62f9ba41a",
+  "auditorWrapCommit": "b7838eb3",
+  "finalSource": "dc65318098d67e92024f7672ca9f98d70f8a486a",
+  "finalEngineSha256": "59eb3fcc8bdc87b3f2c6ea3fb51c01463be6b67333a5ff0677741645f2c1e290",
+  "finalCampaigns": {
+    "lan": {
+      "status": "PASS",
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "PASS",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "formAudit": {
+        "status": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "metrics": {
+          "peers": {
+            "peer-0": {
+              "sourceJoins": 449,
+              "targetPhases": [
+                "Alt",
+                "Biped",
+                "Morphing",
+                "Unmorphing"
+              ],
+              "completeCycle": true,
+              "activeSamples": 91,
+              "independentAnchorWitnesses": 65,
+              "initialTarget": {
+                "frame": 26,
+                "started": 0,
+                "phase": "Biped",
+                "anchor": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "active": false,
+                "hp": 0,
+                "damage": 0,
+                "body_hp": 99
+              },
+              "lateInitialAnchorCoverage": "NOT_RUN"
+            },
+            "peer-1": {
+              "sourceJoins": 449,
+              "targetPhases": [
+                "Alt",
+                "Biped",
+                "Morphing",
+                "Unmorphing"
+              ],
+              "completeCycle": true,
+              "activeSamples": 91,
+              "independentAnchorWitnesses": 65,
+              "initialTarget": {
+                "frame": 26,
+                "started": 0,
+                "phase": "Biped",
+                "anchor": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "active": false,
+                "hp": 0,
+                "damage": 0,
+                "body_hp": 99
+              },
+              "lateInitialAnchorCoverage": "NOT_RUN"
+            },
+            "peer-2": {
+              "sourceJoins": 449,
+              "targetPhases": [
+                "Alt",
+                "Biped",
+                "Morphing",
+                "Unmorphing"
+              ],
+              "completeCycle": true,
+              "activeSamples": 91,
+              "independentAnchorWitnesses": 65,
+              "initialTarget": {
+                "frame": 26,
+                "started": 0,
+                "phase": "Biped",
+                "anchor": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "active": false,
+                "hp": 0,
+                "damage": 0,
+                "body_hp": 99
+              },
+              "lateInitialAnchorCoverage": "NOT_RUN"
+            }
+          },
+          "authoritySamples": 4426,
+          "independentAnchorWitnesses": 195,
+          "healthDisagreements": [],
+          "ownerPhaseDifferences": 11,
+          "newerHealthJoins": 0,
+          "predictionDebitJoins": 0,
+          "inactiveAnchorNotLocationProofSamples": 1074,
+          "lethalAckFloorJoins": []
+        },
+        "scope": "exact accepted form-source identity, observer phase and turret anchor/presence/health; owner animation phase may lead; exact pending remote body debit may explain predicted health; inactive turret anchors are not location proof; exact lethal ACK may hold body1 until a death snapshot; initial late-observer active/inactive form is reported separately (active bootstrap tested by asset-backed form-scene fixture); existing base health/score/drain gates retained"
+      },
+      "summaryPath": "artifacts/net2-n11/attempt-05/mac-movement-lan/summary.json"
+    },
+    "extreme": {
+      "status": "PASS",
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "PASS",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "formAudit": {
+        "status": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "metrics": {
+          "peers": {
+            "peer-0": {
+              "sourceJoins": 407,
+              "targetPhases": [
+                "Alt",
+                "Biped",
+                "Morphing",
+                "Unmorphing"
+              ],
+              "completeCycle": true,
+              "activeSamples": 72,
+              "independentAnchorWitnesses": 48,
+              "initialTarget": {
+                "frame": 81,
+                "started": 0,
+                "phase": "Biped",
+                "anchor": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "active": false,
+                "hp": 0,
+                "damage": 0,
+                "body_hp": 99
+              },
+              "lateInitialAnchorCoverage": "NOT_RUN"
+            },
+            "peer-1": {
+              "sourceJoins": 353,
+              "targetPhases": [
+                "Alt",
+                "Biped",
+                "Morphing",
+                "Unmorphing"
+              ],
+              "completeCycle": true,
+              "activeSamples": 48,
+              "independentAnchorWitnesses": 25,
+              "initialTarget": {
+                "frame": 74,
+                "started": 0,
+                "phase": "Biped",
+                "anchor": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "active": false,
+                "hp": 0,
+                "damage": 0,
+                "body_hp": 99
+              },
+              "lateInitialAnchorCoverage": "NOT_RUN"
+            },
+            "peer-2": {
+              "sourceJoins": 401,
+              "targetPhases": [
+                "Alt",
+                "Biped",
+                "Morphing",
+                "Unmorphing"
+              ],
+              "completeCycle": true,
+              "activeSamples": 73,
+              "independentAnchorWitnesses": 50,
+              "initialTarget": {
+                "frame": 93,
+                "started": 0,
+                "phase": "Biped",
+                "anchor": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "active": false,
+                "hp": 0,
+                "damage": 0,
+                "body_hp": 99
+              },
+              "lateInitialAnchorCoverage": "NOT_RUN"
+            }
+          },
+          "authoritySamples": 4627,
+          "independentAnchorWitnesses": 123,
+          "healthDisagreements": [],
+          "ownerPhaseDifferences": 39,
+          "newerHealthJoins": 0,
+          "predictionDebitJoins": 10,
+          "inactiveAnchorNotLocationProofSamples": 968,
+          "lethalAckFloorJoins": []
+        },
+        "scope": "exact accepted form-source identity, observer phase and turret anchor/presence/health; owner animation phase may lead; exact pending remote body debit may explain predicted health; inactive turret anchors are not location proof; exact lethal ACK may hold body1 until a death snapshot; initial late-observer active/inactive form is reported separately (active bootstrap tested by asset-backed form-scene fixture); existing base health/score/drain gates retained"
+      },
+      "summaryPath": "artifacts/net2-n11/attempt-05/mac-movement-extreme/summary.json"
+    }
+  },
+  "pythonTests": 303,
+  "evidence": [
+    {
+      "path": "artifacts/net2-n11/attempt-02/lan-drain-frontier-diagnostic.json",
+      "sha256": "45fae23b37cd827d0332f6bc7d6c70ff523e53a72bf218622b934f7c8fe4d986"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-03/campaign-run-manifest.json",
+      "sha256": "a6ab295ea0344fecc21b11387da1d12af9d6397aad10c80a757b6bae9e495624"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-03/extreme-form-wrap-reaudit.json",
+      "sha256": "e7d68cede13b39d076cf7ceddaf9187a96e714eb08943cd83cfb9e74fb182bf6"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-03/focused/manifest.json",
+      "sha256": "84f6904c320d84f33aa1d24bb225d0617306383e1898e45b404b70344b8b9459"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-03/form-wrap-reaudit-manifest.json",
+      "sha256": "fd5140b3a4a0a495b2891ab2c12a92c7931d7ff85232ba4fd2535408d584fdc6"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-03/input-age-summary-corrected.json",
+      "sha256": "70da104fc21c2bb4960e667bf82d4facfbcc1e22ff309427ccae46e8cf0394c0"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-03/lan-form-wrap-reaudit.json",
+      "sha256": "63ec97a455b4d083c4d36cf4ea26163ea88938cd0ec5ae416895dcbc5785562f"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-03/movement-diagnostic-summary.json",
+      "sha256": "91a5db263062a664d5adac517196622c606e8940c5f6ec47466b09dbda68fa56"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-03/python-form-clock-wrap.log",
+      "sha256": "9de138ca2614b2983363dea86c7b62469bb0a6e166b86a836c3943aa4fba0044"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-04/native-discontinuities/run.log",
+      "sha256": "619d9626df2fe3cb959a02a522db67542f7b4a723c0c3c936a516181dac9212c"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/build-manifest.json",
+      "sha256": "2a5305f3a4347805a690960c9e66866e6d0cd195cc6e1a80af1cbd81fc19f864"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/build.log",
+      "sha256": "5ed443136809dd160d71f1591cebc36a2762ddccce140dcfbeef77c747e8303d"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/campaign-run-manifest.json",
+      "sha256": "55f42ba61780cfee5a856de716105e58c8e55012210dc8468dc61e84f5935946"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/combat-arbitration-focused/manifest.json",
+      "sha256": "bc7e853877a96aab2e9ffc227295e4a8528096fd54b5e614398b5898139c9599"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/combat-arbitration-focused/profile/map-catalog-v2.json",
+      "sha256": "570ca7fbc6962cacf23606c3321fd28dcb848aec2ef18d16fba337209ad390bf"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/combat-arbitration-focused/profile/paths.txt",
+      "sha256": "0a84ac0557869492f7eefbe3610ca9daf7e5cfaa388504f3e780641e7f9c729c"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/combat-arbitration-focused/run.log",
+      "sha256": "735d4e3f45772a053464b1fe4a2d57e41b11e05430a7c6302701c43dfb6b18bd"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/extreme-form-audit.json",
+      "sha256": "911b6f06aba8bae687522dee524e517c488c7cfcf24c3935382b66c4c6a3c582"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/focused-agent/lifecycle/map-catalog-v2.json",
+      "sha256": "570ca7fbc6962cacf23606c3321fd28dcb848aec2ef18d16fba337209ad390bf"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/focused-agent/lifecycle/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/focused-agent/lifecycle/stdout.log",
+      "sha256": "57c6da24bee22848fac59582932420db30bd5fb42b924a9d34ef4a3ac9bb5a25"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/focused-agent/manifest.json",
+      "sha256": "9781b26f31339475c08a897be24e3019aa0f51da3719d90b86d50c2465809b6a"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/focused-agent/turret-evidence-off/map-catalog-v2.json",
+      "sha256": "570ca7fbc6962cacf23606c3321fd28dcb848aec2ef18d16fba337209ad390bf"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/focused-agent/turret-evidence-off/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/focused-agent/turret-evidence-off/stdout.log",
+      "sha256": "2a41ab2ab377a61dec6cefe7cfaa1f2622de76ef7ec226dfeba29bf1e7533fa1"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/focused-agent/turret-evidence-on/map-catalog-v2.json",
+      "sha256": "570ca7fbc6962cacf23606c3321fd28dcb848aec2ef18d16fba337209ad390bf"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/focused-agent/turret-evidence-on/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/focused-agent/turret-evidence-on/stdout.log",
+      "sha256": "672530c306f3d8f19a4f3159cc1fd53d1b8706b56d03120e12dae8bbda1e2538"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/lan-form-audit.json",
+      "sha256": "e6cf70b0b483b003d99fccec2b59e8dece78bfd0be4d347e8319b102f6e1a9e3"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme-runner.log",
+      "sha256": "c71a9868cb40ede1375e50a5cfa1711596c74a7c123b9357a04b67849983c0c6"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/drain.release.json",
+      "sha256": "a8bb4e4adb53c0625e3bb556370a8d3ee1063e7c89da1eb656b885bcca417be5"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/drain.server-release.json",
+      "sha256": "a8bb4e4adb53c0625e3bb556370a8d3ee1063e7c89da1eb656b885bcca417be5"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/manifest.json",
+      "sha256": "1fbc34d76965da30a9d6f2f811844b178f5c1fc416124eef39ebbd2546213a3c"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-0.drain.json",
+      "sha256": "71088b7d9e26d14374153db49732d587558694a3025228e555a6ec003591ed6c"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-0.json",
+      "sha256": "9185cc69c0b114967c4c0d4f03f21ac2b8a983998dba4ad5bfabbe78a104cb7e"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-0.log",
+      "sha256": "7473ce7e7ca7a261680346ae7132034fba50cfffbd324e7661270469ef43f799"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-0/logs/ProjectPrime-20261011-073100-15811-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-0/logs/ProjectPrime-20261011-073100-15811.log",
+      "sha256": "0a4e5dd75fd58256388c822a8bbcbd1b83a182cfa8998cc5ab597faff4663b35"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-0/logs/platform-startup.log",
+      "sha256": "1654c5d52545498369d542a2845a31234de44ee0bab59481a61f01ca13b94c1e"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-0/netlog-peer_0.txt",
+      "sha256": "52cb1dc91d85cdbc4c04edb07f0becca36f0922bc3d82b0c1ee734fa8acbd0b8"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-0/paths.txt",
+      "sha256": "2e35694f9644012a9c27a7475b2c264a62666ddaf9b8c3e5c4112b66bbbb555e"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-1.drain.json",
+      "sha256": "e7224bcee188f28eee24ad8d2bf48d505e0ffbc3211847c61307b792b432aa2d"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-1.json",
+      "sha256": "aa863f9b40182e9b07ed0a73bbe634a1bcd185191eb2c423dfd90682ceef922e"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-1.log",
+      "sha256": "f93b192346eb04c74a16902a8aca9c8810164b4458c3acc3c3b97bc6939c080c"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-1/logs/ProjectPrime-20261011-073100-15812-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-1/logs/ProjectPrime-20261011-073100-15812.log",
+      "sha256": "8d2097822f2e549f5cc367e8c59fae4d95efeb9e9800a102bb54ce53a5f99c0d"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-1/logs/platform-startup.log",
+      "sha256": "3df963295a5c0f8c7c508cfe560b0c517b5985755dac9dc059fc03c5460a0a13"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-1/netlog-peer_1.txt",
+      "sha256": "986436854513b053e267f3fde5eb9af48f1cf15d7140dbdcc0149bd836bc2142"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-1/paths.txt",
+      "sha256": "396ce18a5ec3ccde2c78f540f4cf88136ec0729b835b6538210a086e2cc9fea8"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-2.drain.json",
+      "sha256": "f20b413a7986db0826ec2b4574923fc53daa5057e62a6fe171b0f7ce41a1d5b7"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-2.json",
+      "sha256": "8b64f94f0b837e7778e191923d96a500d379796aefae17ec0e44c606114f0c0e"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-2.log",
+      "sha256": "23b6227adf809dfb125bf87022c8c9d4946124532201bd470a94b10b5a5703ec"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-2/logs/ProjectPrime-20261011-073100-15813-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-2/logs/ProjectPrime-20261011-073100-15813.log",
+      "sha256": "4c17757cc06790b50c3402d3d8247c32908abe7d0f5b10137e8fa793485da113"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-2/logs/platform-startup.log",
+      "sha256": "0a7450286fafb27036c757f1e3940b9ec81ace3a0c612431f8177117322d35c0"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-2/netlog-peer_2.txt",
+      "sha256": "b2af470aa542575971d262c208a0990f523322162d4e5bed5adfaab9cf14f50d"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-2/paths.txt",
+      "sha256": "fd7236817d3829f3933951efeeae9d2ad0c416560abbc4066ada8c93c4502b08"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/rotation.txt",
+      "sha256": "9a02ba75282497013dc1c3871f3273a7ccb1ba7991824d857f575b11747ed543"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/server.drain.json",
+      "sha256": "721cf6d4fb98aeda450455e2cc1d24cb5938f7fcff36e82edb778301af0f69b6"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/server.json",
+      "sha256": "5a3d8812caa450cb40bab174a1832e1072024462d3498a097c459add3c9d6f15"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/server.log",
+      "sha256": "0fbc52483a3d5c962b7117f9dfd484960a13ce0f768c29fec2e030c9325d53a7"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/server/logs/ProjectPrime-20261011-073058-15805-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/server/logs/ProjectPrime-20261011-073058-15805.log",
+      "sha256": "37325858cc7e018c759e1b1bf0b0d8f2dc4aa2b6f542071c4ef492e4c618c6c5"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/server/netlog-server.txt",
+      "sha256": "d104d9c1e96ef390abfb03fb7ecab4473d462f2213c492c76b615bde6585abc0"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/server/paths.txt",
+      "sha256": "539a8bbe4f26097f2aac5073480bac42183f2e0512452524f3af00e07215aca3"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/server/telemetry/2026-10-11/match-1908c231b9a9424ebfa55659b954afdc.summary.json",
+      "sha256": "ef8c45c39b53481e24182388cda06700d0913cb686e212fa8364bdf41c569b80"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-extreme/summary.json",
+      "sha256": "c336545f5d71e43173bdc55893cc50c5550c1a08e477d237e5ffd67e81c9c150"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan-runner.log",
+      "sha256": "3129ecaafc7d5641dace626a430ec37daa7a4a1a79d95684106d9fd7bee35bb4"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/drain.release.json",
+      "sha256": "be14e104dd4b70f30e8197e554d14710bc8fdb77fff123f17cf8843e5b931bbf"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/drain.server-release.json",
+      "sha256": "be14e104dd4b70f30e8197e554d14710bc8fdb77fff123f17cf8843e5b931bbf"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/manifest.json",
+      "sha256": "e9116a06604cbf644d89260d76c60a47b627441715eab96317978968f5b2db73"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-0.drain.json",
+      "sha256": "fd437229fefed62090a86d24fb0728cba462b05525cac3ec74a3108392629fff"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-0.json",
+      "sha256": "3dd59c205b32b001eba3f54dc0de6c2d4c811c83cf32d4d1298889ec062c0caa"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-0.log",
+      "sha256": "56fff01a42c5dc3838c914168e160433aa613b34307b9b2b05b97283217e19e8"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-0/logs/ProjectPrime-20261011-073030-15765-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-0/logs/ProjectPrime-20261011-073030-15765.log",
+      "sha256": "ba1ec493b67b1afb1e0a3bc78adf6fe0f28ee9361a1db1cb95036041671e4ea8"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-0/logs/platform-startup.log",
+      "sha256": "92201f32fe9b48bf75b803f5229963d118ca76edef06075b28b07b8f2d28dfc8"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-0/netlog-peer_0.txt",
+      "sha256": "27c9f7b01e7e9090790debdf187a1cdb17b83af246d01f4553054718df2dd263"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-0/paths.txt",
+      "sha256": "8f9077282e5075e19be1ff9d8b7031eb6703d40d08f96af99940ab0c52954655"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-1.drain.json",
+      "sha256": "f411b730f2884e8f139760af822b0e16e26cf91565a21af7cd4e9b212a8be68e"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-1.json",
+      "sha256": "571d36cedcdd5da999ffb044fbcb9349d4af854fd0c7257b460aafbd1357df01"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-1.log",
+      "sha256": "44db1b59897fd6788893ad46be61d02f16a66f25cfb4b60a0c6298b128ee0fd6"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-1/logs/ProjectPrime-20261011-073031-15766-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-1/logs/ProjectPrime-20261011-073031-15766.log",
+      "sha256": "a5b0869603a5cd77900bc1b9f6be9358e9c555b5454770a1b03ca32dbf5019f2"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-1/logs/platform-startup.log",
+      "sha256": "e7c434aefde2c2dd7cb2e865b7f445b8dc25a46f3356a8352cc5571ca07b702f"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-1/netlog-peer_1.txt",
+      "sha256": "e21c178a38458522111352a4bb038639f5c401ad7aff208f4b8ca4faa3648da9"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-1/paths.txt",
+      "sha256": "42aa8e0fd3f635893f9ea085ddaf5b161cd213fd733f085025218b263988457a"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-2.drain.json",
+      "sha256": "3b657c9e208bf14562cea94aa1c5df190106e9fbd94c9d4d6fd71e298421b370"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-2.json",
+      "sha256": "71dc74181b92398f7e8180c55d17df6041077e71c32ff3087e67b51bb52e2e5e"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-2.log",
+      "sha256": "e523bda415c0106134b56fca822ab1bf633a048cc68a9253c15a7cca181ace0c"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-2/logs/ProjectPrime-20261011-073031-15767-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-2/logs/ProjectPrime-20261011-073031-15767.log",
+      "sha256": "dd763cd0246299212eeb6c0a38dda8b4f51ff0163e72aed1d883abfe070c67cb"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-2/logs/platform-startup.log",
+      "sha256": "6d8f2d51a583c2accda1831e5c6de25cd63b5d54122561a20a6972095d1be2c5"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-2/netlog-peer_2.txt",
+      "sha256": "91b38eed225c3c6e0d25ead62af94bd3e6ed5f986277fa6148342459045fcb24"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-2/paths.txt",
+      "sha256": "ae80025bfb839410855fe73ccd3b41be8bd5d21861cf6d0ecde18426bdd70812"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/rotation.txt",
+      "sha256": "9a02ba75282497013dc1c3871f3273a7ccb1ba7991824d857f575b11747ed543"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/server.drain.json",
+      "sha256": "78ed5a8936ce1a1f65bc1daf71df58e79859ef5b5c830d649c3878b79fe1cfb5"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/server.json",
+      "sha256": "05a2fd491a640dbc1c97760a16b9130953bf08b205210488a2ef8953531b1100"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/server.log",
+      "sha256": "43ade348f8f7a393f609161660d1d1f7e4954d3ea4d9d94fba3af31ef8645ac5"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/server/logs/ProjectPrime-20261011-073028-15764-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/server/logs/ProjectPrime-20261011-073028-15764.log",
+      "sha256": "8051a9ee342467e5d9353485f6f6ebc16bf07dc56d862041472b3173db814cc7"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/server/netlog-server.txt",
+      "sha256": "5489f6fb7c69a6222041d1771798ef57e4b5d2ec4b34673fa368b19311d512d9"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/server/paths.txt",
+      "sha256": "679a530d3bbde11ba2db3c0de1a3a118928aa7fb247e7693a99f4d67e32db954"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/server/telemetry/2026-10-11/match-a797791703614640a34d3c69db8d088d.summary.json",
+      "sha256": "42b66845cd94a84dc2f307b9d2e94c5eb2253191459003d13cb56aef269fbba1"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/mac-movement-lan/summary.json",
+      "sha256": "4e3e13c85a4b432aef7855cff0f0f352d1682ba7ebf6c6bde3099e73ed510359"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/movement-evidence-summary.json",
+      "sha256": "f1b76674cccc80b9a2e4e00cc5860d4e72df4f72e4f94f80664b9f38b879bd71"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/native-discontinuities-06/manifest.json",
+      "sha256": "63823bbdd35dc30f49c163e4e20e41a040d949bd82b4ebff004169bdec1a5235"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/native-discontinuities-06/profile/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/native-discontinuities-06/run.log",
+      "sha256": "c6e927a475ccc503b41eaca36a7eb5e8c5c31ce86e6d5bb08f831769204b3ce8"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/native-discontinuities/manifest.json",
+      "sha256": "4ad4870c1ef968a357772fa4eed558a511c431be492fa8fa47e25bc9856fdc08"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/native-discontinuities/profile/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/native-discontinuities/run.log",
+      "sha256": "678bf45d7f71eecce862417327d2a125a12198cc443a6e177cf10f8c21f57185"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/native-tool-06-build-retry.log",
+      "sha256": "1d0087f53703bfa0bc1384d1aa9fb95f8641a203bbc161de0862b92f91d3a4a0"
+    },
+    {
+      "path": "artifacts/net2-n11/attempt-05/native-tool-06-build.log",
+      "sha256": "e9757da9738f70e3952d39adc4263875f16e126bd5fd777d5c71b6489c9ca263"
+    }
+  ],
+  "retainedFailures": [
+    "Attempt01 lifecycle fixture was missing rostered slot2; corrected fixture retained separately.",
+    "Attempt02 LAN release preceded native respawn; final barrier now counts PendingRespawns.",
+    "Attempt02 extreme generic expired turret events remain failures; no historical expiry waiver.",
+    "Attempt03 extreme rejected pre-emission turret life5/shot13 still received generic Shadow claim payment; strict audit FAIL retained; corrected exact source rejection/pending settlement passes final native and strict campaign checks; original failure retained.",
+    "Attempt04 native fixture match setup reset roster; corrected after retained failure.",
+    "Attempt05 native fixture observer Role was changed without IsAuthority; corrected test-only against unchanged engine.",
+    "Attempt04 lifecycle frame-zero fixture delivered without advancing receiver clock; corrected fixture preserves modular-arrival regression.",
+    "Attempt04 native old-flight positive turret fixture missed due authored ray/lane; corrected native authored ray control passes with evidence disabled and enabled."
+  ],
+  "coverage": [
+    {
+      "area": "teleport",
+      "status": "PASS_NATIVE_ENDPOINT_SCOPE",
+      "scope": "Asset-backed native endpoint through actual snapshot/history and observer smoothing; map traversal, rendered camera and physical projectile contact not claimed."
+    },
+    {
+      "area": "jump-pad",
+      "status": "PASS_NATIVE_ENDPOINT_SCOPE",
+      "scope": "Asset-backed native endpoint through actual snapshot/history and observer smoothing; map traversal, rendered camera and physical projectile contact not claimed."
+    },
+    {
+      "area": "moving-platform",
+      "status": "GAP",
+      "scope": "DynamicGeometryTests.cs validates rewind transforms/collision restoration; no native platform rider observer presentation."
+    },
+    {
+      "area": "grapple",
+      "status": "GAP",
+      "scope": "No corresponding nettest fixture located."
+    },
+    {
+      "area": "boost",
+      "status": "PARTIAL",
+      "scope": "AltContactLagTests.cs validates Boost contact sweep eligibility; no native boost observer interpolation fixture."
+    },
+    {
+      "area": "knockback",
+      "status": "PASS_NATIVE_ENDPOINT_SCOPE",
+      "scope": "Asset-backed native endpoint through actual snapshot/history and observer smoothing; map traversal, rendered camera and physical projectile contact not claimed."
+    },
+    {
+      "area": "morph",
+      "status": "PASS_SCOPE",
+      "scope": "LifecycleTests.cs form-boundary hold plus live alt-morph movement/form exposure and asset-backed form-scene. Weavel scope, not all hunters."
+    },
+    {
+      "area": "death",
+      "status": "PARTIAL",
+      "scope": "LifecycleTests.cs life fences plus live death/respawn and quiescent drain. Headless campaigns cannot establish rendered death-camera behavior."
+    },
+    {
+      "area": "spectator",
+      "status": "PASS_SCOPE",
+      "scope": "Three-client real UDP spectator coverage plus per-slot presentation diagnostics. No rendered spectator camera smoothness measurement."
+    },
+    {
+      "area": "high-refresh",
+      "status": "PASS_SCOPE",
+      "scope": "LifecycleTests.cs PresentationWrapAndCadence tests 60/120/144/240/360 presentation calls preserve simulation-step count and ACK/world identity. Not physical-display frame pacing."
+    },
+    {
+      "area": "owner input-to-camera",
+      "status": "GAP",
+      "scope": "Immediate native camera/local-motion policy retained; no timed input-to-camera latency measurement in headless UDP campaigns."
+    },
+    {
+      "area": "authority accepted owner-pose age",
+      "status": "UNAVAILABLE",
+      "scope": "Actual authority InputAges sampled, but receiver-local accepted arrival\u2192consumption is not owner-source pose transit age."
+    }
+  ],
+  "measurementScope": "Per-life ObserverPoses use highest cumulative sample row, never sum windows. Authority and client InputAges use highest cumulative sampled per-slot row before disconnect reset and measure receiver-local accepted intent arrival\u2192consumption, not owner source pose age. Owner-to-authority accepted source pose age remains unavailable. Ages are not one-way latency; stationary held presentation is not a network failure. Short campaign numbers do not justify tuning.",
+  "nativeDiscontinuities": {
+    "status": "PASS",
+    "checks": 278,
+    "productionSource": "dc65318098d67e92024f7672ca9f98d70f8a486a",
+    "testOnlyRepairCommit": "eb87fd82",
+    "engineSha256": "59eb3fcc8bdc87b3f2c6ea3fb51c01463be6b67333a5ff0677741645f2c1e290",
+    "scope": "Native fixture-placed teleporter/pad, directed native damage endpoint, Weavel form; actual authority snapshot bytes, same-frame rewind and observer smoothing; no GPU/UDP/map traversal/physical projectile claim"
+  },
+  "source": "dc65318098d67e92024f7672ca9f98d70f8a486a",
+  "engineSha256": "59eb3fcc8bdc87b3f2c6ea3fb51c01463be6b67333a5ff0677741645f2c1e290",
+  "focused": {
+    "turretEvidenceOff": {
+      "status": "PASS",
+      "checks": 120
+    },
+    "turretEvidenceOn": {
+      "status": "PASS",
+      "checks": 120
+    },
+    "lifecycle": {
+      "status": "PASS",
+      "checks": 3735
+    },
+    "ordinaryBipedRescue": {
+      "status": "PASS",
+      "checks": 94
+    }
+  },
+  "pendingKnownTurretClaimFrames": 144,
+  "retiredTurretTerminalRetentionFrames": 624,
+  "retiredTurretTerminalCapacityPerSlot": 256,
+  "movementMetrics": {
+    "Scope": "InputAges are receiver-local accepted intent arrival to consumption, not owner source pose age/transit. Select highest cumulative Samples per slot per epoch/match before disconnect reset; do not sum windows. ObserverPoses select highest Samples by exact identity.",
+    "Campaigns": {
+      "lan": {
+        "Status": "PASS",
+        "Failures": [],
+        "Incomplete": [],
+        "Coverage": {
+          "renderedProjectileAgreement": "NOT_RUN",
+          "botFills": "NOT_RUN",
+          "spectator": "PASS",
+          "mapRotation": "NOT_RUN",
+          "shockCoilDrainKillParity": "NOT_RUN",
+          "imperialistSpawnTrapCoverage": "NOT_RUN",
+          "sustained20Minutes": "NOT_RUN",
+          "boundedHeadlessDrain": "PASS"
+        },
+        "Processes": {
+          "server": {
+            "EvidencePath": "artifacts/net2-n11/attempt-05/mac-movement-lan/server.json",
+            "EvidenceSha256": "05a2fd491a640dbc1c97760a16b9130953bf08b205210488a2ef8953531b1100",
+            "InputAges": [
+              {
+                "Samples": 1421,
+                "Unavailable": 0,
+                "TotalFrames": 1425,
+                "MaximumFrames": 3,
+                "Histogram": [
+                  0,
+                  1418,
+                  2,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 0,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 1.0028149190710767
+              },
+              {
+                "Samples": 1421,
+                "Unavailable": 0,
+                "TotalFrames": 1425,
+                "MaximumFrames": 3,
+                "Histogram": [
+                  0,
+                  1418,
+                  2,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 1,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 1.0028149190710767
+              }
+            ],
+            "ObserverPoses": []
+          },
+          "peer-0": {
+            "EvidencePath": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-0.json",
+            "EvidenceSha256": "3dd59c205b32b001eba3f54dc0de6c2d4c811c83cf32d4d1298889ec062c0caa",
+            "InputAges": [
+              {
+                "Samples": 1438,
+                "Unavailable": 2,
+                "TotalFrames": 32,
+                "MaximumFrames": 5,
+                "Histogram": [
+                  1417,
+                  16,
+                  2,
+                  2,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 1,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 0.022253129346314324
+              },
+              {
+                "Samples": 1440,
+                "Unavailable": 0,
+                "TotalFrames": 48,
+                "MaximumFrames": 8,
+                "Histogram": [
+                  1420,
+                  13,
+                  1,
+                  2,
+                  4,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 2,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 0.03333333333333333
+              }
+            ],
+            "ObserverPoses": [
+              {
+                "Slot": 1,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 2,
+                "Samples": 444,
+                "Interpolated": 427,
+                "Held": 7,
+                "Unavailable": 10,
+                "Starved": 12,
+                "LongestStarvation": 9,
+                "AgeSamples": 434,
+                "AgeTotalFrames": 3059,
+                "MaxAgeFrames": 10,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  433,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 444,
+                "CorrectionDistance": 332.0654800720513,
+                "MaxCorrectionDistance": 2.395395,
+                "WindowIndex": 7,
+                "MeanAgeFrames": 7.048387096774194
+              },
+              {
+                "Slot": 1,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 3,
+                "Samples": 451,
+                "Interpolated": 439,
+                "Held": 6,
+                "Unavailable": 6,
+                "Starved": 6,
+                "LongestStarvation": 6,
+                "AgeSamples": 445,
+                "AgeTotalFrames": 2375,
+                "MaxAgeFrames": 6,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  0,
+                  25,
+                  420,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 450,
+                "CorrectionDistance": 235.19939788803458,
+                "MaxCorrectionDistance": 1.4466486,
+                "WindowIndex": 17,
+                "MeanAgeFrames": 5.337078651685394
+              },
+              {
+                "Slot": 1,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 4,
+                "Samples": 191,
+                "Interpolated": 187,
+                "Held": 0,
+                "Unavailable": 4,
+                "Starved": 4,
+                "LongestStarvation": 4,
+                "AgeSamples": 187,
+                "AgeTotalFrames": 590,
+                "MaxAgeFrames": 4,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  0,
+                  187,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 190,
+                "CorrectionDistance": 1.045673429965973,
+                "MaxCorrectionDistance": 0.1309216,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 3.1550802139037435
+              }
+            ]
+          },
+          "peer-1": {
+            "EvidencePath": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-1.json",
+            "EvidenceSha256": "571d36cedcdd5da999ffb044fbcb9349d4af854fd0c7257b460aafbd1357df01",
+            "InputAges": [
+              {
+                "Samples": 1437,
+                "Unavailable": 0,
+                "TotalFrames": 189,
+                "MaximumFrames": 4,
+                "Histogram": [
+                  1254,
+                  180,
+                  1,
+                  2,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 0,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 0.1315240083507307
+              },
+              {
+                "Samples": 1437,
+                "Unavailable": 0,
+                "TotalFrames": 71,
+                "MaximumFrames": 8,
+                "Histogram": [
+                  1394,
+                  36,
+                  1,
+                  2,
+                  4,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 2,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 0.049408489909533754
+              }
+            ],
+            "ObserverPoses": [
+              {
+                "Slot": 0,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 1,
+                "Samples": 1438,
+                "Interpolated": 1424,
+                "Held": 3,
+                "Unavailable": 11,
+                "Starved": 14,
+                "LongestStarvation": 9,
+                "AgeSamples": 1427,
+                "AgeTotalFrames": 7952,
+                "MaxAgeFrames": 10,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  0,
+                  390,
+                  1036,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 1438,
+                "CorrectionDistance": 434.2567813657224,
+                "MaxCorrectionDistance": 0.789501,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 5.572529782761037
+              }
+            ]
+          },
+          "peer-2": {
+            "EvidencePath": "artifacts/net2-n11/attempt-05/mac-movement-lan/peer-2.json",
+            "EvidenceSha256": "71dc74181b92398f7e8180c55d17df6041077e71c32ff3087e67b51bb52e2e5e",
+            "InputAges": [
+              {
+                "Samples": 1439,
+                "Unavailable": 0,
+                "TotalFrames": 190,
+                "MaximumFrames": 7,
+                "Histogram": [
+                  1270,
+                  163,
+                  1,
+                  2,
+                  3,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 0,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 0.1320361362056984
+              },
+              {
+                "Samples": 1437,
+                "Unavailable": 2,
+                "TotalFrames": 55,
+                "MaximumFrames": 7,
+                "Histogram": [
+                  1403,
+                  28,
+                  1,
+                  2,
+                  3,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 1,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 0.038274182324286705
+              }
+            ],
+            "ObserverPoses": [
+              {
+                "Slot": 0,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 1,
+                "Samples": 1440,
+                "Interpolated": 1426,
+                "Held": 3,
+                "Unavailable": 11,
+                "Starved": 14,
+                "LongestStarvation": 9,
+                "AgeSamples": 1429,
+                "AgeTotalFrames": 7957,
+                "MaxAgeFrames": 10,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  0,
+                  393,
+                  1035,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 1440,
+                "CorrectionDistance": 434.28729620575905,
+                "MaxCorrectionDistance": 0.789501,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 5.568229531140658
+              },
+              {
+                "Slot": 1,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 2,
+                "Samples": 444,
+                "Interpolated": 427,
+                "Held": 7,
+                "Unavailable": 10,
+                "Starved": 12,
+                "LongestStarvation": 9,
+                "AgeSamples": 434,
+                "AgeTotalFrames": 3059,
+                "MaxAgeFrames": 10,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  433,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 444,
+                "CorrectionDistance": 332.1085314154625,
+                "MaxCorrectionDistance": 2.3957882,
+                "WindowIndex": 7,
+                "MeanAgeFrames": 7.048387096774194
+              },
+              {
+                "Slot": 1,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 3,
+                "Samples": 451,
+                "Interpolated": 439,
+                "Held": 6,
+                "Unavailable": 6,
+                "Starved": 6,
+                "LongestStarvation": 6,
+                "AgeSamples": 445,
+                "AgeTotalFrames": 2376,
+                "MaxAgeFrames": 6,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  0,
+                  25,
+                  420,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 450,
+                "CorrectionDistance": 235.24801963567734,
+                "MaxCorrectionDistance": 1.4466573,
+                "WindowIndex": 17,
+                "MeanAgeFrames": 5.3393258426966295
+              },
+              {
+                "Slot": 1,
+                "Epoch": 639273186288730860,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 4,
+                "Samples": 190,
+                "Interpolated": 186,
+                "Held": 0,
+                "Unavailable": 4,
+                "Starved": 4,
+                "LongestStarvation": 4,
+                "AgeSamples": 186,
+                "AgeTotalFrames": 587,
+                "MaxAgeFrames": 4,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  0,
+                  186,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 189,
+                "CorrectionDistance": 1.0455576181411743,
+                "MaxCorrectionDistance": 0.13090497,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 3.1559139784946235
+              }
+            ]
+          }
+        },
+        "ServerSegments": [
+          {
+            "Room": "MP3 PROVING GROUND",
+            "AuthorityEpoch": 639273186288730860,
+            "CurrentMatchId": 2,
+            "Frames": 1476,
+            "StepFailures": 0,
+            "DroppedSteps": 6,
+            "Stalls": 1,
+            "StepAllocatedBytes": 56355304,
+            "MeanMs": 0.5910410569105684,
+            "P50Ms": 0.28,
+            "P95Ms": 1.13,
+            "P99Ms": 2.24,
+            "P999Ms": 17.02,
+            "WorstMs": 197.1225
+          }
+        ]
+      },
+      "extreme": {
+        "Status": "PASS",
+        "Failures": [],
+        "Incomplete": [],
+        "Coverage": {
+          "renderedProjectileAgreement": "NOT_RUN",
+          "botFills": "NOT_RUN",
+          "spectator": "PASS",
+          "mapRotation": "NOT_RUN",
+          "shockCoilDrainKillParity": "NOT_RUN",
+          "imperialistSpawnTrapCoverage": "NOT_RUN",
+          "sustained20Minutes": "NOT_RUN",
+          "boundedHeadlessDrain": "PASS"
+        },
+        "Processes": {
+          "server": {
+            "EvidencePath": "artifacts/net2-n11/attempt-05/mac-movement-extreme/server.json",
+            "EvidenceSha256": "5a3d8812caa450cb40bab174a1832e1072024462d3498a097c459add3c9d6f15",
+            "InputAges": [
+              {
+                "Samples": 1342,
+                "Unavailable": 0,
+                "TotalFrames": 2421,
+                "MaximumFrames": 6,
+                "Histogram": [
+                  0,
+                  644,
+                  416,
+                  267,
+                  15,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 1,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "WindowIndex": 24,
+                "MeanAgeFrames": 1.8040238450074515
+              },
+              {
+                "Samples": 1343,
+                "Unavailable": 0,
+                "TotalFrames": 2407,
+                "MaximumFrames": 5,
+                "Histogram": [
+                  0,
+                  660,
+                  396,
+                  276,
+                  11,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 0,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "WindowIndex": 24,
+                "MeanAgeFrames": 1.7922561429635144
+              }
+            ],
+            "ObserverPoses": []
+          },
+          "peer-0": {
+            "EvidencePath": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-0.json",
+            "EvidenceSha256": "9185cc69c0b114967c4c0d4f03f21ac2b8a983998dba4ad5bfabbe78a104cb7e",
+            "InputAges": [
+              {
+                "Samples": 1330,
+                "Unavailable": 63,
+                "TotalFrames": 1203,
+                "MaximumFrames": 5,
+                "Histogram": [
+                  615,
+                  388,
+                  208,
+                  112,
+                  7,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 1,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 0.9045112781954887
+              },
+              {
+                "Samples": 1375,
+                "Unavailable": 0,
+                "TotalFrames": 1263,
+                "MaximumFrames": 6,
+                "Histogram": [
+                  620,
+                  409,
+                  221,
+                  119,
+                  6,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 2,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 0.9185454545454546
+              }
+            ],
+            "ObserverPoses": [
+              {
+                "Slot": 1,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 2,
+                "Samples": 412,
+                "Interpolated": 359,
+                "Held": 26,
+                "Unavailable": 27,
+                "Starved": 49,
+                "LongestStarvation": 4,
+                "AgeSamples": 385,
+                "AgeTotalFrames": 3214,
+                "MaxAgeFrames": 11,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  5,
+                  16,
+                  113,
+                  251,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 412,
+                "CorrectionDistance": 332.0210769921541,
+                "MaxCorrectionDistance": 2.6926606,
+                "WindowIndex": 6,
+                "MeanAgeFrames": 8.348051948051948
+              },
+              {
+                "Slot": 2,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 4,
+                "Samples": 16,
+                "Interpolated": 12,
+                "Held": 1,
+                "Unavailable": 3,
+                "Starved": 4,
+                "LongestStarvation": 2,
+                "AgeSamples": 13,
+                "AgeTotalFrames": 63,
+                "MaxAgeFrames": 10,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  2,
+                  5,
+                  5,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 16,
+                "CorrectionDistance": 1.1148309707641602,
+                "MaxCorrectionDistance": 0.31829596,
+                "WindowIndex": 0,
+                "MeanAgeFrames": 4.846153846153846
+              },
+              {
+                "Slot": 1,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 3,
+                "Samples": 451,
+                "Interpolated": 376,
+                "Held": 33,
+                "Unavailable": 42,
+                "Starved": 72,
+                "LongestStarvation": 9,
+                "AgeSamples": 409,
+                "AgeTotalFrames": 3832,
+                "MaxAgeFrames": 11,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  19,
+                  390,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 450,
+                "CorrectionDistance": 501.5020623784512,
+                "MaxCorrectionDistance": 4.774943,
+                "WindowIndex": 17,
+                "MeanAgeFrames": 9.36919315403423
+              },
+              {
+                "Slot": 1,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 4,
+                "Samples": 203,
+                "Interpolated": 167,
+                "Held": 13,
+                "Unavailable": 23,
+                "Starved": 36,
+                "LongestStarvation": 10,
+                "AgeSamples": 180,
+                "AgeTotalFrames": 1690,
+                "MaxAgeFrames": 11,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  7,
+                  173,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 202,
+                "CorrectionDistance": 11.070305049419403,
+                "MaxCorrectionDistance": 0.5,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 9.38888888888889
+              }
+            ]
+          },
+          "peer-1": {
+            "EvidencePath": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-1.json",
+            "EvidenceSha256": "aa863f9b40182e9b07ed0a73bbe634a1bcd185191eb2c423dfd90682ceef922e",
+            "InputAges": [
+              {
+                "Samples": 1371,
+                "Unavailable": 0,
+                "TotalFrames": 1199,
+                "MaximumFrames": 5,
+                "Histogram": [
+                  643,
+                  409,
+                  202,
+                  112,
+                  5,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 2,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 0.8745441283734501
+              },
+              {
+                "Samples": 1335,
+                "Unavailable": 0,
+                "TotalFrames": 1146,
+                "MaximumFrames": 5,
+                "Histogram": [
+                  631,
+                  396,
+                  206,
+                  96,
+                  6,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 0,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 0.8584269662921349
+              }
+            ],
+            "ObserverPoses": [
+              {
+                "Slot": 0,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 1,
+                "Samples": 1433,
+                "Interpolated": 1217,
+                "Held": 101,
+                "Unavailable": 115,
+                "Starved": 215,
+                "LongestStarvation": 6,
+                "AgeSamples": 1318,
+                "AgeTotalFrames": 11845,
+                "MaxAgeFrames": 11,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  5,
+                  31,
+                  139,
+                  1143,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 1433,
+                "CorrectionDistance": 901.471967450876,
+                "MaxCorrectionDistance": 6.7029085,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 8.98710166919575
+              },
+              {
+                "Slot": 2,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 4,
+                "Samples": 23,
+                "Interpolated": 21,
+                "Held": 0,
+                "Unavailable": 2,
+                "Starved": 2,
+                "LongestStarvation": 2,
+                "AgeSamples": 21,
+                "AgeTotalFrames": 99,
+                "MaxAgeFrames": 10,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  4,
+                  6,
+                  9,
+                  2,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 23,
+                "CorrectionDistance": 2.0302939414978027,
+                "MaxCorrectionDistance": 0.25695753,
+                "WindowIndex": 0,
+                "MeanAgeFrames": 4.714285714285714
+              }
+            ]
+          },
+          "peer-2": {
+            "EvidencePath": "artifacts/net2-n11/attempt-05/mac-movement-extreme/peer-2.json",
+            "EvidenceSha256": "8b64f94f0b837e7778e191923d96a500d379796aefae17ec0e44c606114f0c0e",
+            "InputAges": [
+              {
+                "Samples": 1338,
+                "Unavailable": 63,
+                "TotalFrames": 1282,
+                "MaximumFrames": 5,
+                "Histogram": [
+                  592,
+                  398,
+                  210,
+                  129,
+                  9,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 1,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 0.9581464872944694
+              },
+              {
+                "Samples": 1338,
+                "Unavailable": 0,
+                "TotalFrames": 1259,
+                "MaximumFrames": 8,
+                "Histogram": [
+                  610,
+                  383,
+                  218,
+                  117,
+                  10,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Slot": 0,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 0.9409566517189836
+              }
+            ],
+            "ObserverPoses": [
+              {
+                "Slot": 0,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 1,
+                "Samples": 1415,
+                "Interpolated": 1182,
+                "Held": 111,
+                "Unavailable": 122,
+                "Starved": 231,
+                "LongestStarvation": 10,
+                "AgeSamples": 1293,
+                "AgeTotalFrames": 11731,
+                "MaxAgeFrames": 12,
+                "AgeHistogram": [
+                  0,
+                  2,
+                  2,
+                  8,
+                  177,
+                  1104,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 1415,
+                "CorrectionDistance": 922.3886305318861,
+                "MaxCorrectionDistance": 6.8086514,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 9.072699149265274
+              },
+              {
+                "Slot": 1,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 2,
+                "Samples": 397,
+                "Interpolated": 329,
+                "Held": 32,
+                "Unavailable": 36,
+                "Starved": 63,
+                "LongestStarvation": 6,
+                "AgeSamples": 361,
+                "AgeTotalFrames": 3168,
+                "MaxAgeFrames": 11,
+                "AgeHistogram": [
+                  0,
+                  2,
+                  2,
+                  8,
+                  65,
+                  284,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 397,
+                "CorrectionDistance": 345.39249385148287,
+                "MaxCorrectionDistance": 2.2607768,
+                "WindowIndex": 6,
+                "MeanAgeFrames": 8.77562326869806
+              },
+              {
+                "Slot": 1,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 3,
+                "Samples": 452,
+                "Interpolated": 359,
+                "Held": 43,
+                "Unavailable": 50,
+                "Starved": 88,
+                "LongestStarvation": 10,
+                "AgeSamples": 402,
+                "AgeTotalFrames": 3690,
+                "MaxAgeFrames": 11,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  48,
+                  354,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 451,
+                "CorrectionDistance": 501.99254414696316,
+                "MaxCorrectionDistance": 4.774943,
+                "WindowIndex": 16,
+                "MeanAgeFrames": 9.17910447761194
+              },
+              {
+                "Slot": 1,
+                "Epoch": 639273186582161920,
+                "Match": 2,
+                "Generation": 1,
+                "Life": 4,
+                "Samples": 209,
+                "Interpolated": 162,
+                "Held": 19,
+                "Unavailable": 28,
+                "Starved": 47,
+                "LongestStarvation": 10,
+                "AgeSamples": 181,
+                "AgeTotalFrames": 1674,
+                "MaxAgeFrames": 12,
+                "AgeHistogram": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  22,
+                  159,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                "Corrections": 208,
+                "CorrectionDistance": 10.64872819185257,
+                "MaxCorrectionDistance": 0.5,
+                "WindowIndex": 23,
+                "MeanAgeFrames": 9.248618784530386
+              }
+            ]
+          }
+        },
+        "ServerSegments": [
+          {
+            "Room": "MP3 PROVING GROUND",
+            "AuthorityEpoch": 639273186582161920,
+            "CurrentMatchId": 2,
+            "Frames": 1544,
+            "StepFailures": 0,
+            "DroppedSteps": 5,
+            "Stalls": 1,
+            "StepAllocatedBytes": 57261560,
+            "MeanMs": 0.475468393782383,
+            "P50Ms": 0.23,
+            "P95Ms": 0.85,
+            "P99Ms": 1.73,
+            "P999Ms": 11.36,
+            "WorstMs": 176.3834
+          }
+        ]
+      }
+    }
+  },
+  "scopeLimitations": [
+    "Mac only, headless UDP campaigns",
+    "Owner-source-to-authority pose transit age unavailable; receiver-local arrival-to-consumption measured",
+    "No rendered death/spectator camera or input-to-camera timing measurement",
+    "No native moving-platform rider or grapple/boost presentation fixture",
+    "No all-hunter/map, Windows, long-soak or performance threshold claim"
+  ]
+}

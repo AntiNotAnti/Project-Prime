@@ -34,6 +34,33 @@ class DrainTests(unittest.TestCase):
     def test_default_off_preserves_legacy_adjudication(self):
         self.assertEqual(drain_coverage({}, {}), ("NOT_RUN", []))
 
+    def test_native_pending_respawn_blocks_release_and_restarts_full_grace(self):
+        stable = DrainStability()
+        peers = {"peer": self.peer}
+        self.assertEqual(stable.observe(self.server, peers, 10)[2], 0)
+        self.server["PendingRespawns"] = 1
+        self.assertIsNone(stable.observe(self.server, peers, 13)[0])
+        for empty in (False, True):
+            self.assertIsNone(drain_barrier(self.server, [self.peer], require_empty=empty)[0])
+        self.assertFalse(drain_prepared(self.server, self.release)[0])
+        self.assertEqual(drain_coverage(self.manifest, self.reports)[0], "FAIL")
+        self.server["PendingRespawns"] = 0
+        self.assertEqual(stable.observe(self.server, peers, 14)[2], 0)
+        self.assertLess(stable.observe(self.server, peers, 16)[2], self.server["ClaimGraceSeconds"])
+        self.assertGreaterEqual(stable.observe(self.server, peers, 17)[2], self.server["ClaimGraceSeconds"])
+        self.assertEqual(drain_barrier(self.server, [self.peer]), (self.release, None))
+        self.assertEqual(drain_prepared(self.server, self.release), (True, None))
+
+    def test_pending_respawn_malformed_counts_fail_closed_legacy_absence_passes(self):
+        for value in (-1, True, None, "0", 0.0):
+            with self.subTest(value=value):
+                self.server["PendingRespawns"] = value
+                self.assertIsNone(drain_barrier(self.server, [self.peer])[0])
+                self.assertFalse(drain_prepared(self.server, self.release)[0])
+        del self.server["PendingRespawns"]
+        self.assertEqual(drain_barrier(self.server, [self.peer]), (self.release, None))
+        self.assertEqual(drain_prepared(self.server, self.release), (True, None))
+
     def test_authority_must_acknowledge_preparation_before_peer_release(self):
         self.assertEqual(drain_prepared(self.server, self.release), (True, None))
         self.server["Release"] = None

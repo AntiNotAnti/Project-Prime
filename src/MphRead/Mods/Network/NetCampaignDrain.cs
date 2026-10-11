@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using MphRead.Entities;
 
 namespace MphRead.Mods.Network;
 
@@ -23,7 +24,7 @@ internal static class NetCampaignDrain
     private static ulong _epoch;
     private static ushort _match;
     private static uint _semantic, _award;
-    private static int _projectiles, _bombs;
+    private static int _projectiles, _bombs, _pendingRespawns;
     private static string? _error;
     private static Release? _release;
     private static QuiesceRequest? _quiesceRequest;
@@ -65,7 +66,21 @@ internal static class NetCampaignDrain
         long now = Stopwatch.GetTimestamp();
         if (_lastPublish != 0 && Stopwatch.GetElapsedTime(_lastPublish, now).TotalSeconds < .2) return;
         _lastPublish = now;
-        _projectiles = _bombs = 0;
+        _projectiles = _bombs = _pendingRespawns = 0;
+        if (Server && scene.GameState.MatchState == MatchState.InProgress)
+        {
+            foreach (var player in scene.Players.Items)
+            {
+                int slot = player.SlotIndex;
+                bool eliminated = (scene.GameState.Mode is GameMode.Survival or GameMode.SurvivalTeams or GameMode.OneInTheChamber)
+                    && scene.GameState.TeamDeaths[slot] > scene.GameState.PointGoal;
+                // Death-to-spawn native timers can outlive the claim grace.
+                // Keep simulating until their next lifecycle fact has converged.
+                if (player.LoadFlags.TestFlag(LoadFlags.Active) && player.Health == 0
+                    && NetPlayerLifecycle.Get(slot) != 0 && !NetHooks.SuppressSpawn(player) && !eliminated)
+                    _pendingRespawns++;
+            }
+        }
         foreach (var beam in scene.GetBeamProjectileEntities()) if (beam.Lifespan > 0) _projectiles++;
         foreach (var bomb in scene.GetBombEntities()) if (bomb.Countdown > 0) _bombs++;
         if (Server)
@@ -154,6 +169,7 @@ internal static class NetCampaignDrain
             BombPendingRequests = NetBombs.PendingCount,
             BombPendingEvents = (NetBombs.LiveScene?.Bombs.PendingEvents ?? 0) + NetSession.PendingBombPackets,
             BombFaulted = NetBombs.LiveScene?.Bombs.Faulted ?? false,
+            PendingRespawns = _pendingRespawns,
             ActiveProjectiles = _projectiles, ActiveBombs = _bombs, ClaimsPending = Server ? NetHitClaims.ClaimsPendingCurrent : NetHitClaims.OutgoingReceipts,
             ClaimGraceSeconds = 2.0 * NetHitClaims.MaxGraceFrames / 60,
             OfferedShotKeys = Offered.OrderBy(key => key).ToArray(), AcceptedShotKeys = Accepted.OrderBy(key => key).ToArray(),

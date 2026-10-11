@@ -93,9 +93,15 @@ namespace MphRead.Mods.Network
         public static uint SnapshotArrived { get; private set; }
 
         /// <summary>Frames since the newest snapshot, or a large number before the first.</summary>
-        public static uint SnapshotAge => SnapshotArrived == 0
-            ? UInt32.MaxValue
-            : NetFrame >= SnapshotArrived ? NetFrame - SnapshotArrived : 0;
+        public static uint SnapshotAge
+        {
+            get
+            {
+                if (!_hasSnapshot) return UInt32.MaxValue;
+                int age = unchecked((int)(NetFrame - SnapshotArrived));
+                return age >= 0 ? (uint)age : 0;
+            }
+        }
         public static string? LastError { get; private set; }
 
         /// <summary>Latest authoritative state per slot, applied by clients.</summary>
@@ -129,13 +135,15 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static uint RemoteIntentAge(int slot)
         {
-            if (slot < 0 || slot >= RemoteIntentArrived.Length || RemoteIntentArrived[slot] == 0)
+            if (slot < 0 || slot >= RemoteIntentArrived.Length || !RemoteIntentValid[slot]
+                || RemoteIntents[slot].MatchId != CurrentMatchId
+                || RemoteIntents[slot].AuthorityEpoch != AuthorityEpoch
+                || !NetPlayerLifecycle.Matches(slot, RemoteIntents[slot].SlotGeneration, RemoteIntents[slot].LifeId))
             {
                 return UInt32.MaxValue;
             }
-            return NetFrame >= RemoteIntentArrived[slot]
-                ? NetFrame - RemoteIntentArrived[slot]
-                : 0;
+            int age = unchecked((int)(NetFrame - RemoteIntentArrived[slot]));
+            return age >= 0 ? (uint)age : 0;
         }
 
         /// <summary>
@@ -1280,7 +1288,7 @@ namespace MphRead.Mods.Network
             peer.LastSeenTime = time;
             RemoteIntents[peer.SlotIndex] = intent;
             RemoteIntentValid[peer.SlotIndex] = true;
-            RemoteIntentArrived[peer.SlotIndex] = Math.Max(NetFrame, 1);
+            RemoteIntentArrived[peer.SlotIndex] = NetFrame;
         }
 
         /// <summary>
@@ -1348,7 +1356,7 @@ namespace MphRead.Mods.Network
             _lastSlotIntentFrame[slot] = intent.Frame;
             RemoteIntents[slot] = intent;
             RemoteIntentValid[slot] = true;
-            RemoteIntentArrived[slot] = Math.Max(NetFrame, 1);
+            RemoteIntentArrived[slot] = NetFrame;
             IntentsReceived++;
             if (NetLog.Enabled && intent.Buttons.HasFlag(IntentButtons.Shoot))
                 NetShotDiagnostics.Trace("intent", ShotKey.For(slot, intent.AckFrame), (BeamType)intent.WeaponSelect,
@@ -1767,7 +1775,7 @@ namespace MphRead.Mods.Network
             }
             _hasSnapshot = true;
             _lastSnapshotFrame = header.Frame;
-            SnapshotArrived = Math.Max(NetFrame, 1);
+            SnapshotArrived = NetFrame;
             if (direct) ReplayCapture.ObserveSnapshot(header, decoded[..header.PlayerCount], timeState, worldState);
             else ReplayCapture.Observe(packet.Data.AsSpan(0, packet.Length));
             SnapshotsReceived++;

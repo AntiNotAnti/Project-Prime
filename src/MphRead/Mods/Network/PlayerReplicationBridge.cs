@@ -1170,7 +1170,7 @@ namespace MphRead.Mods.Network
             }
             if (_host.SamplePosition(player.SlotIndex, presentation: true,
                     out Vector3 presented, out bool presentedAlt)
-                && Sane(presented) && presented != Vector3.Zero)
+                && Sane(presented))
             {
                 Move(player, InForm(player, presented, presentedAlt));
                 return;
@@ -1191,12 +1191,12 @@ namespace MphRead.Mods.Network
             // exactly this world and nothing is given up for it.
             // NetSmoothing.
             if (_host.SamplePosition(player.SlotIndex, presentation: false, out Vector3 smoothed, out bool smoothedAlt)
-                && Sane(smoothed) && smoothed != Vector3.Zero)
+                && Sane(smoothed))
             {
                 Move(player, InForm(player, smoothed, smoothedAlt));
                 return;
             }
-            if (!Sane(state.Position) || state.Position == Vector3.Zero)
+            if (!Sane(state.Position))
             {
                 return;
             }
@@ -1246,12 +1246,12 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            if (_reportSeen[slot] && frame > _lastReportFrame[slot])
+            if (_reportSeen[slot] && NetLifecycleTracker.Newer(frame, _lastReportFrame[slot]))
             {
                 // Capped: a report that follows a long silence describes a
                 // gap, not a frame of movement, and dividing by two hundred
                 // is as wrong as dividing by one.
-                uint elapsed = Math.Min(frame - _lastReportFrame[slot], 8);
+                uint elapsed = Math.Min(unchecked(frame - _lastReportFrame[slot]), 8);
                 Vector3 travelled = reported - _lastReportPosition[slot];
                 float step = travelled.Length;
                 if (!Sane(travelled) || step > SnapDistance)
@@ -1281,7 +1281,7 @@ namespace MphRead.Mods.Network
                     player.Speed = speed;
                 }
             }
-            if (!_reportSeen[slot] || frame > _lastReportFrame[slot])
+            if (!_reportSeen[slot] || NetLifecycleTracker.Newer(frame, _lastReportFrame[slot]))
             {
                 _reportSeen[slot] = true;
                 _lastReportFrame[slot] = frame;
