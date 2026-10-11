@@ -333,7 +333,7 @@ internal static class CombatArbitrationTests
                     _base + Vector3.UnitY * .5f, _base + direction * 4 + Vector3.UnitY * .5f, _frame, out float wall) && wall == 1)
                 { _direction = direction; break; }
             Check(_direction.LengthSquared == 1, "asset fixture provides clear production collision lane");
-            
+
             RescueFirst(); PendingSeenCollision(); PhysicalOnce(); ImperialistCorrectionOnce(); TerminalRetries(); PosthumousFlight(); NativeSameFrameTrade();
             long lifetimePayments = NetCombatPayments.LifetimePayments;
             long lifetimeSuppressed = NetCombatPayments.LifetimeSuppressed;
