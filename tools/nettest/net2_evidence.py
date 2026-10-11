@@ -95,8 +95,15 @@ def slow_lane_parity(authority, peer):
             errors.append("no matched terminal fast state for slow-lane stream " + str(stream))
             continue
         end = max(row["Frame"] for row in fast)
-        references = [row for row in server if row["key"][:2] == stream and row["frame"] <= end]
         receipts = [row for row in client if row["key"][:2] == stream]
+        latest = receipts[-1] if receipts else None
+        emitted = indexed.get(latest["key"]) if latest else None
+        # A validated slow receipt can describe membership after the final fast
+        # sample (for example a graceful disconnect). Join its authority emission
+        # clock, never its client-local receive clock. Older receipts cannot move
+        # the terminal comparison backwards and hide a missed score update.
+        anchor = max(end, emitted["frame"]) if emitted and emitted["payload"] == latest["payload"] else end
+        references = [row for row in server if row["key"][:2] == stream and row["frame"] <= anchor]
         if not references or not receipts:
             errors.append("missing terminal slow-lane stream " + str(stream))
             continue
@@ -104,9 +111,9 @@ def slow_lane_parity(authority, peer):
         # context. The last recorded cache assignment, not the highest revision,
         # determines the terminal scores actually available to that client.
         reference = max(enumerate(references), key=lambda pair: (pair[1]["frame"], pair[0]))[1]
-        latest = receipts[-1]
-        active = {(row["Slot"], row["Generation"]) for row in peer["States"]
-                  if (row["Epoch"], row["Match"]) == stream and row["Frame"] == end}
+        active = (set(reference["scores"]) if anchor > end else
+                  {(row["Slot"], row["Generation"]) for row in peer["States"]
+                   if (row["Epoch"], row["Match"]) == stream and row["Frame"] == end})
         if any(identity not in reference["scores"] or identity not in latest["scores"]
                or reference["scores"][identity] != latest["scores"][identity] for identity in active):
             errors.append("stale/missing terminal slow-lane scores " + str(stream) + " at " + str(end))

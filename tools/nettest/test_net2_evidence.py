@@ -434,6 +434,32 @@ class EvidenceTests(unittest.TestCase):
         self.write()
         self.assertEqual(self.result()["status"], "PASS")
 
+    def test_schema2_validated_later_membership_removal_uses_authority_clock(self):
+        self.lanes()
+        removal = self.slow(3, 181, kills=1)
+        payload = bytearray.fromhex(removal["Payload"])
+        # Replace the one slot with slot 1; slot 0 left after the final fast state.
+        payload[15] = 1
+        removal["Payload"] = payload.hex()
+        self.server["SlowStates"].append(copy.deepcopy(removal))
+        removal["Frame"] = 12  # Deliberately unrelated client reception clock.
+        self.client["SlowStates"].append(removal)
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["parity"]["shooter"]["finalScoreConvergence"], "PASS")
+
+    def test_schema2_later_slow_receipt_does_not_hide_same_frame_changed_score(self):
+        self.lanes()
+        later = self.slow(3, 181, kills=1)
+        self.server["SlowStates"] += [later, self.slow(4, 181, kills=2)]
+        self.client["SlowStates"].append(copy.deepcopy(later))
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "FAIL")
+        self.assertEqual(result["parity"]["shooter"]["slowLaneCompleteness"], "PASS")
+        self.assertEqual(result["parity"]["shooter"]["finalScoreConvergence"], "FAIL")
+
     def test_schema2_terminal_generation_must_be_present_in_slow_lane(self):
         self.lanes()
         for report in (self.server, self.client):

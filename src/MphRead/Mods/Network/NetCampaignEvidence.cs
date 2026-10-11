@@ -243,6 +243,8 @@ internal static class NetCampaignEvidence
                 AdmissionBudgets = NetTransport.AdmissionBudgets,
                 IntentHistory = NetFireEvents.CaptureHistory(),
                 ShotProof = NetShotProof.Capture(),
+                CombatReconciliation = NetHitPrediction.Capture(),
+                CombatPayments = NetCombatPayments.Capture(),
                 Drain = NetCampaignDrain.Capture(),
                 TransportWindows, Readiness, Windows, ServerSegments, Shots, States, SlowStates, Facts };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);

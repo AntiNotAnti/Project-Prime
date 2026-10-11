@@ -459,7 +459,7 @@ namespace MphRead.Mods.Network
                         ?? (rescued.Owner as HalfturretEntity)?.Owner;
                     if (owner != null && rescued.Beam == BeamType.ShockCoil && rescued.ModHasSharedContinuousPhase
                         && NetHitClaims.ContinuousAlreadyResolved(owner.SlotIndex, victim.SlotIndex, (uint)rescued.ModContinuousPhase)) return true;
-                    if (owner != null && NetHitClaims.AlreadyRescued(
+                    if (owner != null && rescued.ModComponentId == 0 && NetHitClaims.AlreadyRescued(
                         owner.SlotIndex, victim.SlotIndex, rescued.ModShotId, rescued.ModLaunchKey))
                     {
                         return true;
@@ -818,11 +818,11 @@ namespace MphRead.Mods.Network
                 feedback.Health = hit.EventId == state.DamageEventId ? state.Health
                     : (ushort)Math.Max(1, player.Health - hit.Damage);
                 if (NetLog.Enabled) NetLog.Event($"[damage-replay] epoch={NetSession.AuthorityEpoch} match={NetSession.CurrentMatchId} victim={slot}/{state.SlotGeneration}/{state.LifeId} event={hit.EventId} shooter={hit.AttackerSlot}/{hit.AttackerGeneration}");
-                ReplayEvent(player, feedback);
+                ReplayEvent(player, feedback, hit.EventId);
             }
         }
 
-        private static void ReplayEvent(PlayerEntity player, in PlayerState state)
+        private static void ReplayEvent(PlayerEntity player, in PlayerState state, ushort eventId)
         {
             int slot = player.SlotIndex;
             const int landed = 1;
@@ -852,7 +852,9 @@ namespace MphRead.Mods.Network
             // head" -- the two are the same confirmation to everything else
             // here, and on the Imperialist they are a kill and half a kill.
             bool authorityHeadshot = ((DamageFlags)state.DamageFlags).TestFlag(DamageFlags.Headshot);
-            bool predicted = mine && NetHitPrediction.Confirm(slot, landed, authorityHeadshot);
+            bool predicted = mine && (slot == NetHooks.LocalSlot
+                ? NetHitPrediction.Confirm(slot, landed, authorityHeadshot)
+                : NetHitPrediction.ConfirmEvent(slot, state.SlotGeneration, state.LifeId, eventId));
 
             if (player.Health <= 0)
             {

@@ -287,12 +287,41 @@ internal static class ClaimStressTests
             typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, false);
         }
     }
+    private static void ResolvedLedgerMetadataDoesNotLeak()
+    {
+        HealthShotTests.Session(); NetHitClaims.Reset(); Frame(100);
+        var components = (uint[,,])typeof(NetHitClaims).GetField("_authorityComponents",
+            BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+        var kinds = (byte[,,])typeof(NetHitClaims).GetField("_authorityKinds",
+            BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+        // Native resolution adds component metadata after allocating the cell.
+        // Consume every cell so the next legacy resolution reuses cell zero.
+        for (uint shot = 1; shot <= NetHitClaims.LedgerDepth; shot++)
+            Call("NoteLedger", 0, 1, 100u, shot, 20, true);
+        components[0, 1, 0] = 37; kinds[0, 1, 0] = 2;
+        Call("NoteLedger", 0, 1, 100u, 1000u, 12, false);
+        NetArchitectureTests.Check(components[0, 1, 0] == 0 && kinds[0, 1, 0] == 0,
+            "reused resolution cell cannot inherit component or damage kind");
+        object[] exact = { 0, 1, 100u, 1000u, 100u, 72, 0 };
+        NetArchitectureTests.Check((bool)Call("TakeLedger", exact)! && (int)exact[6] == 12,
+            "reused component-free resolution remains matchable by its own exact identity");
+        components[0, 1, 0] = 41; kinds[0, 1, 0] = 5;
+        NetHitClaims.Reset();
+        NetArchitectureTests.Check(components[0, 1, 0] == 0 && kinds[0, 1, 0] == 0,
+            "ledger reset clears component and damage kind from the previous session");
+        Call("NoteLedger", 0, 1, 100u, 1001u, 7, false);
+        object[] afterReset = { 0, 1, 100u, 1001u, 100u, 72, 0 };
+        NetArchitectureTests.Check((bool)Call("TakeLedger", afterReset)! && (int)afterReset[6] == 7,
+            "fresh session resolution does not retain previous native metadata");
+    }
+
     public static int Run()
     {
         try
         {
             NativeOutcomeFirstAck();
             RetrySchedule();
+            ResolvedLedgerMetadataDoesNotLeak();
             HealthShotTests.Session(); NetHitClaims.Reset();
             // 36 unconsumed Shock Coil resolutions survive a full 72-frame grace.
             for (uint frame = 1; frame <= 71; frame += 2)

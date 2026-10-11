@@ -37,6 +37,13 @@ namespace MphRead.NetTest
                     + "  --shot-proof-scene <assets> [room] Test shot proof with real scene assets.");
                 return 0;
             }
+            if (args.Length > 0 && args[0] == "--combat-reconciliation") return CombatReconciliationTests.Run();
+            if (args.Length > 1 && args[0] == "--combat-arbitration-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return CombatArbitrationTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
             if (args.Length > 0 && args[0] == "--shot-source-journal") return ShotSourceJournalTests.Run();
             if (args.Length > 0 && args[0] == "--shot-inputs") return ShotInputTests.Run();
             if (args.Length > 1 && args[0] == "--turret-events")

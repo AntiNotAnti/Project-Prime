@@ -1810,6 +1810,8 @@ namespace MphRead.Entities
             {
                 return;
             }
+            using var combatPayment = Mods.Network.NetCombatPayments.Begin(this, source, flags);
+            if (!combatPayment.Allowed) return;
             bool precisionLethalHit = false;
             if (_scene.GameState.InstaGib || _scene.GameState.OneInTheChamber)
             {
@@ -3080,8 +3082,14 @@ namespace MphRead.Entities
                         replayImpact));
                 }
             }
-            if (beam != null && (_health < combatHealthBefore || (Halfturret?.Health ?? 0) < combatTurretBefore))
-                Mods.Network.NetShotProof.Physical(this, beam, damage, flags, direction ?? Vector3.Zero, combatHealthBefore);
+            if (_health < combatHealthBefore || (Halfturret?.Health ?? 0) < combatTurretBefore)
+            {
+                combatPayment.Commit(Mods.Network.NetHitClaims.CaptureOutcome(this, Math.Max(0, combatHealthBefore - _health),
+                    (flags.TestFlag(DamageFlags.Headshot) ? Mods.Network.CombatAckFlags.Headshot : 0)
+                    | (flags.TestFlag(DamageFlags.Halfturret) ? Mods.Network.CombatAckFlags.HalfturretAffected : 0)));
+                if (beam != null)
+                    Mods.Network.NetShotProof.Physical(this, beam, damage, flags, direction ?? Vector3.Zero, combatHealthBefore);
+            }
             if (combatSequence != combatSequenceBefore && beam?.EnhancedMicroSeeker != true)
                 Mods.Network.NetHitClaims.CompleteAuthorityHit(this, attacker, combatHealthBefore, flags, combatSequence, beam?.ModLaunchFrame ?? 0, beam?.Beam ?? BeamType.None);
             if (attacker != null && _health < combatHealthBefore && !Mods.Network.NetDamage.ApplyingClaim)

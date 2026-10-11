@@ -1,0 +1,1455 @@
+{
+  "milestone": "N5 deterministic hit resolution and prediction reconciliation",
+  "status": "PASS for scoped discrete-component correctness; review and merge pending",
+  "dateLocal": "2026-10-10",
+  "provenance": {
+    "base": "9a1bf3f83a37364363c9ab2b05bc23624852a953",
+    "finalSource": "f1ccc01f9ca1c97aa91ca1b5b52d09d6bdeaab21",
+    "udpGameplaySource": "472c6614eb9f0930f635e61a0ef04095300517ac",
+    "protocol": 45,
+    "branch": "codex/net2-05-hit-reconciliation",
+    "createdUtc": "2026-10-11T02:27:22.931911+00:00",
+    "binaries": {
+      "baseline": {
+        "sourceCommit": "9a1bf3f83a37364363c9ab2b05bc23624852a953",
+        "sourceNote": "Committed candidate",
+        "binaries": {
+          "ProjectPrime.dll": "89a7534fe04990ea3d550f274d1ec177d9f14e0e607c77a6f145d250e3786537",
+          "nettest.dll": "98f4cc60d88537b8952f14a0f0c0ddfe4a6aff5ae41ebbdc11ee73291d813e6e",
+          "nettest.pdb": "67b0e1d552950c3b4561b9733d2f9e38d194107a97415cff89ae482ad5659a25"
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-01": {
+        "sourceCommit": null,
+        "sourceNote": "Immutable development binary; no exact committed candidate",
+        "binaries": {
+          "ProjectPrime.dll": "43268366ff96f30a34799354284f11f23ff47a56f32cbd1499e9e7d4be72321f",
+          "nettest.dll": "42f1d1dc8b006d3f8437b3b0d4cbb17469c7601fc059ea0cd7f1c008ba4ebd5c",
+          "nettest.pdb": "724ca7c96d2310ecd31a98d58934e757eff74b7d2ae10e08fab782f058d4b6af"
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-02": {
+        "sourceCommit": null,
+        "sourceNote": "Immutable development binary; no exact committed candidate",
+        "binaries": {
+          "ProjectPrime.dll": "19a8b10ccffbf4219a61a4da01433776d225f54ac1253c1fb5d7e02744e33ba4",
+          "nettest.dll": "2ddd03a8105bcc4929b89c07dc39d245134e489e05158c7dd212c8e0940e5c4e",
+          "nettest.pdb": "8ae95cb9c2e9a8e90ad610a059ddf45b6a12903f32e136dfe457d02b7fd0e5d2"
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-03": {
+        "sourceCommit": "fb3751235d77c4cc409edd55e57ed65e03a98cd5",
+        "sourceNote": "Committed candidate",
+        "binaries": {
+          "ProjectPrime.dll": "ca29b2e770fccadd3d106c32f1e33f394ae35404c44150e24cb3e74d27094598",
+          "nettest.dll": "91366c4c735b27b1e6cddbb0f4dffd2709f7d1af3763d5f0a67710aab7e37bc0",
+          "nettest.pdb": "20f2bdad517204ece93fb88185cf4ef2816eb383d828570fbef2e49b49c7b093"
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-04": {
+        "sourceCommit": "472c6614eb9f0930f635e61a0ef04095300517ac",
+        "sourceNote": "Committed candidate",
+        "binaries": {
+          "ProjectPrime.dll": "7277716163b7827d4d79414272d5e340afd2a4be232f807e2eed61c5d02e51d5",
+          "nettest.dll": "244ef5eac87d55c891f517b298a8b22127d59f9d4b6878620b8e48742b8ac6ab",
+          "nettest.pdb": "712c17574b7da7adf79014c36c198cd30e832be8e16e888811c5c542b118dc33"
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-05": {
+        "sourceCommit": "f1ccc01f9ca1c97aa91ca1b5b52d09d6bdeaab21",
+        "sourceNote": "Committed candidate",
+        "binaries": {
+          "ProjectPrime.dll": "0079252287214f5e3d42787b21dcf30c89e426fd5ee0b9dd9c60f5d596b37f69",
+          "nettest.dll": "19e02c2a8c87834fac712526b390c220c16ba9c565a69df5a679fb94d01874d0",
+          "nettest.pdb": "45431d9ae4b2786a20437204d6f7f5c348382aea7bc2c844f2f899d74b72e354"
+        },
+        "ProjectPrime.pdb": "absent"
+      }
+    },
+    "archiveDeduplication": "Identical files retained as tar hardlinks; original files untouched. SHA-256 index describes every original byte sequence.",
+    "sourceEquivalence": "Final production delta is lifetime evidence counters and capture only. Python audit and tests also changed. Gameplay UDP controls were not repeated for this evidence-only delta."
+  },
+  "environment": {
+    "platform": "Mac arm64/macOS 27.0",
+    "sdk": "10.0.401",
+    "runtime": "10.0.12",
+    "assetRoom": "MP1 SANCTORUS",
+    "build": "Release, 41 existing warnings, zero errors"
+  },
+  "unchangedPolicy": {
+    "protocol": 45,
+    "earlySettlement": false,
+    "predictedKills": false,
+    "shotProof": "shadow",
+    "graceFrames": [
+      24,
+      72
+    ]
+  },
+  "focusedTests": {
+    "combatReconciliation": {
+      "assertions": 50,
+      "attempt": "03"
+    },
+    "healthShots": {
+      "assertions": 3338739,
+      "faultProfiles": 7776,
+      "attempt": "03"
+    },
+    "claimStress": {
+      "status": "PASS",
+      "attempt": "04"
+    },
+    "architecture": {
+      "status": "PASS",
+      "attempt": "04"
+    },
+    "combatArbitrationScene": {
+      "assertions": 94,
+      "attempt": "05"
+    },
+    "shotProofScene": {
+      "assertions": 324,
+      "attempt": "04"
+    },
+    "combatScene": {
+      "assertions": 204,
+      "attempt": "04"
+    },
+    "pythonEvidenceDrain": {
+      "tests": 110,
+      "attempt": "05"
+    },
+    "reuseRationale": "Attempt04 changes claim receipt cache/tests; attempt05 changes evidence counters/auditor/tests. Unchanged prediction and shot matrix paths passed at attempt03; affected paths rerun as listed."
+  },
+  "testAttempts": [
+    {
+      "name": "attempt-01/payment-checks/combat-arbitration-scene.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-01/payment-checks/combat-arbitration-scene.json",
+        "bytes": 596,
+        "sha256": "5b37d3f23195e6a59173d7022db6d5b415c731a692fc8a0d7f8e163a22c56c14"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-01/payment-checks/combat-arbitration-scene.log",
+        "bytes": 4099,
+        "sha256": "03d8ce63474fab30f7b56e088289e524fefd16ad4d855359c63925903fb3c5f6"
+      }
+    },
+    {
+      "name": "attempt-01/payment-checks/combat-scene.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-01/payment-checks/combat-scene.json",
+        "bytes": 584,
+        "sha256": "38504495b40aedd0cf55653943356d0d41e6f91f132f46563991994a58d9a2c9"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-01/payment-checks/combat-scene.log",
+        "bytes": 9700,
+        "sha256": "d8a22976c60e8997bc5bb1a60ea8fae473c563823575114c3a5e4ff6c3b6ebc5"
+      }
+    },
+    {
+      "name": "attempt-01/payment-checks/shot-proof-scene.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-01/payment-checks/shot-proof-scene.json",
+        "bytes": 588,
+        "sha256": "16ac69fb8c2b969c1f5cfc050d64d51c08ee7ac50f642233613b4223b3f336f6"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-01/payment-checks/shot-proof-scene.log",
+        "bytes": 23614,
+        "sha256": "34f9db6ef1d20d1153d33ed40ad3d730eb81a26988f0cf9f41ebc54b522d246f"
+      }
+    },
+    {
+      "name": "attempt-01/prediction-checks/architecture.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-01/prediction-checks/architecture.json",
+        "bytes": 565,
+        "sha256": "27a60096e8465d2aa5a438e2ef309d8a92f264febcc49af0e209305120c20cd6"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-01/prediction-checks/architecture.log",
+        "bytes": 108,
+        "sha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+      }
+    },
+    {
+      "name": "attempt-01/prediction-checks/claim-stress.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-01/prediction-checks/claim-stress.json",
+        "bytes": 565,
+        "sha256": "0939d9d338adea6a764e17c4f64b27c4d8e9a42ed85276ef87549212fba37887"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-01/prediction-checks/claim-stress.log",
+        "bytes": 729,
+        "sha256": "00ea7274da5bf9f63ffe11e8f10dcb567004fd1c5c48d3493736b9de2e1ca1fe"
+      }
+    },
+    {
+      "name": "attempt-01/prediction-checks/combat-reconciliation.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-01/prediction-checks/combat-reconciliation.json",
+        "bytes": 574,
+        "sha256": "aa6885ec5394a40440a749e24d4928f25976f13e74ad8ade512af919d8e68f78"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-01/prediction-checks/combat-reconciliation.log",
+        "bytes": 366,
+        "sha256": "f06eead9cf93706d602eff4220854d893387bd981a88ec1edf2167b4d6e3868c"
+      }
+    },
+    {
+      "name": "attempt-01/prediction-checks/health-shots.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-01/prediction-checks/health-shots.json",
+        "bytes": 565,
+        "sha256": "28d07784a2e28cb23cbd97136a9a4ebf52d7e02a30549004d1afaef4510fd00b"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-01/prediction-checks/health-shots.log",
+        "bytes": 1208,
+        "sha256": "aecf7d32ccee8535cfdd3e2fcf28def20c188908fc2af9d0e7482aa2d06e982a"
+      }
+    },
+    {
+      "name": "attempt-02/payment-checks/combat-arbitration-scene.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-02/payment-checks/combat-arbitration-scene.json",
+        "bytes": 596,
+        "sha256": "f88521956756b51690c790c5f99286a012606fd656b72e39a4affa8240e0c917"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-02/payment-checks/combat-arbitration-scene.log",
+        "bytes": 5683,
+        "sha256": "f94973923902886f3f29c2867805c3d2747e90ecde392d1b0c44ff669b792f81"
+      }
+    },
+    {
+      "name": "attempt-02/payment-checks/combat-scene.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-02/payment-checks/combat-scene.json",
+        "bytes": 584,
+        "sha256": "a9c4cde8a2d8730706a3d91a14167ee32fe3776cb1a6686a8ce52ec4f6fc38db"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-02/payment-checks/combat-scene.log",
+        "bytes": 12527,
+        "sha256": "f460cddec1b7c6dfb37ddac6b0dddbeb56ca03ccb3c74a2b6af8aaf7dc4126d3"
+      }
+    },
+    {
+      "name": "attempt-02/payment-checks/shot-proof-scene.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-02/payment-checks/shot-proof-scene.json",
+        "bytes": 588,
+        "sha256": "31f8f303e827d37760f4e728fb86b33b5cc6187126a9930aad4ec9f51e9a465c"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-02/payment-checks/shot-proof-scene.log",
+        "bytes": 31543,
+        "sha256": "aab59910e1e27ad7925c7da19ffb604421a49c1600d75f1e7ff4e59ebfc63298"
+      }
+    },
+    {
+      "name": "attempt-02/prediction-checks/architecture.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-02/prediction-checks/architecture.json",
+        "bytes": 565,
+        "sha256": "8801570c546c5c554ccaec24f233195faedb13dee416b08ff290a3aa3fb1fb17"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-02/prediction-checks/architecture.log",
+        "bytes": 108,
+        "sha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+      }
+    },
+    {
+      "name": "attempt-02/prediction-checks/claim-stress.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-02/prediction-checks/claim-stress.json",
+        "bytes": 565,
+        "sha256": "a3e6237d80db901366e9db2fdb67b1ea07b905e3ea2b0cc8b218d2b36ca7f8d1"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-02/prediction-checks/claim-stress.log",
+        "bytes": 416,
+        "sha256": "9dd8c7ee9a2841d6e2dd1049d238ddaa6836ba36ac7ecd6d9c11a89f56c17e1e"
+      }
+    },
+    {
+      "name": "attempt-02/prediction-checks/combat-reconciliation.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-02/prediction-checks/combat-reconciliation.json",
+        "bytes": 574,
+        "sha256": "d11050bd0ef82040751ba2ab511046309969c149c6572f8ce8f470a9a12ce320"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-02/prediction-checks/combat-reconciliation.log",
+        "bytes": 366,
+        "sha256": "f06eead9cf93706d602eff4220854d893387bd981a88ec1edf2167b4d6e3868c"
+      }
+    },
+    {
+      "name": "attempt-02/prediction-checks/health-shots.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-02/prediction-checks/health-shots.json",
+        "bytes": 565,
+        "sha256": "82f2dcf73973c217b366a01d28291c1885c0ad9b10320efb12b01649862020bf"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-02/prediction-checks/health-shots.log",
+        "bytes": 1208,
+        "sha256": "aecf7d32ccee8535cfdd3e2fcf28def20c188908fc2af9d0e7482aa2d06e982a"
+      }
+    },
+    {
+      "name": "attempt-03/payment-checks/combat-arbitration-scene.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-03/payment-checks/combat-arbitration-scene.json",
+        "bytes": 596,
+        "sha256": "d95277913f8e71393ea451d1cb85bad1303312537bca3dab787f2402ef80d121"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-03/payment-checks/combat-arbitration-scene.log",
+        "bytes": 6536,
+        "sha256": "57f66a74e00bda26d5beca0a531b5832e153840c8e39efef83689c90462d12b1"
+      }
+    },
+    {
+      "name": "attempt-03/payment-checks/combat-scene.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-03/payment-checks/combat-scene.json",
+        "bytes": 584,
+        "sha256": "8787f26804866b19b94f412a39608750382c792301f625ad14f9e8411720c68e"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-03/payment-checks/combat-scene.log",
+        "bytes": 16418,
+        "sha256": "b93b601c8782cbd8f9cbc3b1f79e5e0127e8ed31b53901cdd1f687c6fe5c8266"
+      }
+    },
+    {
+      "name": "attempt-03/payment-checks/shot-proof-scene.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-03/payment-checks/shot-proof-scene.json",
+        "bytes": 588,
+        "sha256": "2a19d459b5452117761a8c734e13d279378c2fc895f4bfd36fd3d4ef3550c493"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-03/payment-checks/shot-proof-scene.log",
+        "bytes": 31543,
+        "sha256": "aab59910e1e27ad7925c7da19ffb604421a49c1600d75f1e7ff4e59ebfc63298"
+      }
+    },
+    {
+      "name": "attempt-03/prediction-checks/architecture.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-03/prediction-checks/architecture.json",
+        "bytes": 565,
+        "sha256": "130cd3a2f4e8c136a4ea7994d6f223c8e9d4f9b9e11fb39a198ddb87ccdb1727"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-03/prediction-checks/architecture.log",
+        "bytes": 108,
+        "sha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+      }
+    },
+    {
+      "name": "attempt-03/prediction-checks/claim-stress.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-03/prediction-checks/claim-stress.json",
+        "bytes": 565,
+        "sha256": "ed0df577f0752d83d9ab2a4c7312a83040e964c64b5d260cbc4789db1058d477"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-03/prediction-checks/claim-stress.log",
+        "bytes": 416,
+        "sha256": "9dd8c7ee9a2841d6e2dd1049d238ddaa6836ba36ac7ecd6d9c11a89f56c17e1e"
+      }
+    },
+    {
+      "name": "attempt-03/prediction-checks/combat-reconciliation.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-03/prediction-checks/combat-reconciliation.json",
+        "bytes": 574,
+        "sha256": "369be2aa61bed7dcccae0582ee1a4bb83644cc5875a4513ac75a74f8f3ff2b3a"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-03/prediction-checks/combat-reconciliation.log",
+        "bytes": 474,
+        "sha256": "89ea2a9e0397d729055702c82e9a612da8e5f2bc4b23297e4d1631706a3aa8e9"
+      }
+    },
+    {
+      "name": "attempt-03/prediction-checks/health-shots.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-03/prediction-checks/health-shots.json",
+        "bytes": 565,
+        "sha256": "5c71e0efc00f578f8c886db55fa0dbeb29eb9308d6918cab2df461773074d3bf"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-03/prediction-checks/health-shots.log",
+        "bytes": 1208,
+        "sha256": "aecf7d32ccee8535cfdd3e2fcf28def20c188908fc2af9d0e7482aa2d06e982a"
+      }
+    },
+    {
+      "name": "attempt-04/payment-checks/combat-arbitration-scene.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-04/payment-checks/combat-arbitration-scene.json",
+        "bytes": 697,
+        "sha256": "a16351a07ec77142dc23a3c18ac52cda418bace7e136c789e74a3066f69edc7d"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-04/payment-checks/combat-arbitration-scene.log",
+        "bytes": 7096,
+        "sha256": "e38a519ccc557179ab67fb77e003cc95d497b3e14c6706dc32cdbdf1a5010ec7"
+      }
+    },
+    {
+      "name": "attempt-04/payment-checks/combat-scene.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-04/payment-checks/combat-scene.json",
+        "bytes": 685,
+        "sha256": "4770bf2e1ba8ec9b298e4bd62159d4a001db5a802e68d9815f3dd67f0ce89d14"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-04/payment-checks/combat-scene.log",
+        "bytes": 16418,
+        "sha256": "b93b601c8782cbd8f9cbc3b1f79e5e0127e8ed31b53901cdd1f687c6fe5c8266"
+      }
+    },
+    {
+      "name": "attempt-04/payment-checks/shot-proof-scene.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-04/payment-checks/shot-proof-scene.json",
+        "bytes": 689,
+        "sha256": "b70e32c0f6f49a7b8dd929c1db5cec94ca0e78df6813b05452d761cd6004429b"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-04/payment-checks/shot-proof-scene.log",
+        "bytes": 31543,
+        "sha256": "aab59910e1e27ad7925c7da19ffb604421a49c1600d75f1e7ff4e59ebfc63298"
+      }
+    },
+    {
+      "name": "attempt-04/prediction-checks/architecture.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-04/prediction-checks/architecture.json",
+        "bytes": 565,
+        "sha256": "82ac6686715c0e77601c83566f30f6b276f430a4b32e42f8a35e76c19da3b3c8"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-04/prediction-checks/architecture.log",
+        "bytes": 108,
+        "sha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+      }
+    },
+    {
+      "name": "attempt-04/prediction-checks/claim-stress.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-04/prediction-checks/claim-stress.json",
+        "bytes": 565,
+        "sha256": "83eb8fb9000aa9c9c117a3a10736a3e1f42df7efd1d3a489dbd8467be2418a7b"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-04/prediction-checks/claim-stress.log",
+        "bytes": 416,
+        "sha256": "9dd8c7ee9a2841d6e2dd1049d238ddaa6836ba36ac7ecd6d9c11a89f56c17e1e"
+      }
+    },
+    {
+      "name": "attempt-04/prediction-checks/python-evidence-drain.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-04/prediction-checks/python-evidence-drain.json",
+        "bytes": 521,
+        "sha256": "bfec7d55649a566c06465aad72205f238694591fb6063d1c1daf8f31a03b956c"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-04/prediction-checks/python-evidence-drain.log",
+        "bytes": 208,
+        "sha256": "0d0ba56d0d6920c8af571d58458be9dedfecfe47b7223daa620161d1b4ca21ce"
+      }
+    },
+    {
+      "name": "attempt-05/final-checks/combat-arbitration-scene.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-05/final-checks/combat-arbitration-scene.json",
+        "bytes": 724,
+        "sha256": "20deb414d448a9a26996e70da1a2e0c705d4157963fc58a04f6c092cfe3e60ef"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-05/final-checks/combat-arbitration-scene.log",
+        "bytes": 7259,
+        "sha256": "6195b3300491db3dfd6f4f67ba33983340eeb24f10e300ed020260aef399ab24"
+      }
+    },
+    {
+      "name": "attempt-05/final-checks/python-evidence-drain.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n5/attempt-05/final-checks/python-evidence-drain.json",
+        "bytes": 521,
+        "sha256": "0a5500df769195d1511e9cb699f29ac25a9da1c4b8a3aa58b52909deaf1ede99"
+      },
+      "log": {
+        "path": "artifacts/net2-n5/attempt-05/final-checks/python-evidence-drain.log",
+        "bytes": 210,
+        "sha256": "86268c6993848c21c2a8bb27d33c60a7ad2c6e4748432d878de6ef2402d32012"
+      }
+    }
+  ],
+  "negativeControls": [
+    {
+      "name": "negative-prediction",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "result": {
+        "path": "artifacts/net2-n5/negative-prediction/combat-reconciliation.json",
+        "bytes": 978,
+        "sha256": "f13bed961dc0820488409e682c70ec8ec30e41350ad063432db6a55189805b22"
+      }
+    },
+    {
+      "name": "negative-payment",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "result": {
+        "path": "artifacts/net2-n5/negative-payment/result.json",
+        "bytes": 653,
+        "sha256": "2444ef6c61fa62856d3ee33bc68d8243433ecf1b7c5bd425b9f777224bc07a56"
+      }
+    },
+    {
+      "name": "negative-receipt",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "result": {
+        "path": "artifacts/net2-n5/negative-receipt/result.json",
+        "bytes": 775,
+        "sha256": "9c5b4005d4b7be17a41bc9d51f0a4287fbf24483beed288a11bddb526402401c"
+      }
+    }
+  ],
+  "failureDispositions": [
+    {
+      "attempt": "01/claim-stress",
+      "cause": "Reused and reset legacy native ledger cells retained stale component/kind; clear metadata on insertion/reset."
+    },
+    {
+      "attempt": "01/arbitration and proof scenes",
+      "cause": "Lifecycle cancellation answered inactive pending entries and filled verdict queue; answer only live entries."
+    },
+    {
+      "attempt": "01-02/combat scene",
+      "cause": "Two older real-beam claim fixtures omitted component/kind now required for exact native matching; corrected fixtures."
+    },
+    {
+      "attempt": "01/prediction setup",
+      "cause": "ProjectPrime.pdb is absent in Release output; recorded absence rather than require nonexistent symbols."
+    },
+    {
+      "attempt": "mac-2-lan-duel",
+      "cause": "Original score auditor compared a later valid post-disconnect slow roster with an earlier fast frame. Corrected source-time alignment passes same raw run, without rerun; old auditor also fails new missed-score false-pass counterexample."
+    }
+  ],
+  "campaigns": [
+    {
+      "campaign": "mac-2-lan-duel",
+      "source": "472c6614",
+      "assemblySha256": "7277716163b7827d4d79414272d5e340afd2a4be232f807e2eed61c5d02e51d5",
+      "settings": {
+        "players": 2,
+        "seconds": 20.0,
+        "profile": "lan",
+        "scenario": "duel",
+        "shot_proof": "shadow"
+      },
+      "originalStatus": "FAIL",
+      "alignedStatus": "PASS",
+      "alignedFailures": [],
+      "drain": {
+        "status": "PASS",
+        "stableSeconds": 2.69098125,
+        "requiredGraceSeconds": 2.4
+      },
+      "claimEventDenominator": 2,
+      "claimResultCounts": {
+        "1": 2
+      },
+      "claimFieldUnits": {
+        "id": "claim ID",
+        "a": "damage applied",
+        "b": "health after",
+        "frame": "authority answer frame"
+      },
+      "claimDetails": [
+        {
+          "frame": 65,
+          "player": 0,
+          "victim": 1,
+          "shotId": 1,
+          "id": 1,
+          "result": 1,
+          "a": 99,
+          "b": 0,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 65,
+              "id": 1,
+              "a": 99,
+              "b": 0
+            }
+          ]
+        },
+        {
+          "frame": 65,
+          "player": 1,
+          "victim": 0,
+          "shotId": 1,
+          "id": 1,
+          "result": 1,
+          "a": 99,
+          "b": 0,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 65,
+              "id": 1,
+              "a": 99,
+              "b": 0
+            }
+          ]
+        }
+      ],
+      "nativeResultDenominator": 2,
+      "nativeFieldUnits": {
+        "id": "damage sequence",
+        "a": "damage applied",
+        "b": "health after"
+      },
+      "peerVerdictLogDenominator": 2,
+      "telemetryCombatAckDenominator": 2,
+      "telemetryAckLatency": {
+        "count": 2,
+        "mean": 50,
+        "p50": 50,
+        "p95": 50,
+        "p99": 50,
+        "maximum": 50
+      },
+      "lateAckAbove60FrameLifetime": [],
+      "lateAckFieldUnits": {
+        "a": "milliseconds latency",
+        "c": "health correction"
+      },
+      "peerReconciliation": {
+        "peer-0": {
+          "Predicted": 1,
+          "Confirmed": 1,
+          "Denied": 0,
+          "Outstanding": 0,
+          "CombatAcks": 1,
+          "LethalHeld": 1,
+          "LethalConfirmed": 1,
+          "LethalDenied": 0,
+          "HealthDisagreed": 0
+        },
+        "peer-1": {
+          "Predicted": 1,
+          "Confirmed": 1,
+          "Denied": 0,
+          "Outstanding": 0,
+          "CombatAcks": 1,
+          "LethalHeld": 1,
+          "LethalConfirmed": 1,
+          "LethalDenied": 0,
+          "HealthDisagreed": 0
+        }
+      },
+      "reconciliationTotals": {
+        "Predicted": 2,
+        "Confirmed": 2,
+        "Denied": 0,
+        "Outstanding": 0,
+        "CombatAcks": 2,
+        "LethalHeld": 2,
+        "LethalConfirmed": 2,
+        "LethalDenied": 0,
+        "HealthDisagreed": 0
+      },
+      "finalFullRosterScores": {
+        "authorityFrame": 1409,
+        "revision": 236,
+        "slots": {
+          "0": {
+            "team": 0,
+            "points": 1,
+            "kills": 1,
+            "deaths": 1
+          },
+          "1": {
+            "team": 0,
+            "points": 1,
+            "kills": 1,
+            "deaths": 1
+          }
+        }
+      },
+      "parity": {
+        "peer-0": {
+          "healthSamplesCompared": 456,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 236,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 9,
+          "acceptedShots": 9,
+          "committedShots": 9,
+          "semanticMissing": 0,
+          "semanticConflicts": 0
+        },
+        "peer-1": {
+          "healthSamplesCompared": 458,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 238,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 9,
+          "acceptedShots": 9,
+          "committedShots": 9,
+          "semanticMissing": 0,
+          "semanticConflicts": 0
+        }
+      },
+      "telemetryIntegrity": {
+        "eventsQueued": 283,
+        "eventsWritten": 283,
+        "eventsDropped": 0,
+        "queueHighWater": 15,
+        "writerFailures": 0,
+        "uploadFailures": 0
+      },
+      "limitations": [
+        "Shadow scripted campaigns do not certify strict source-proof enforcement.",
+        "Final current CombatPayments counters were reset during teardown; no zero lifetime-payment claim is made.",
+        "AuthorityResult telemetry lacks component/kind; matching native results establish observed adjudication, not exhaustive per-component suppression.",
+        "ACK telemetry, native peer settlement counters and verdict logs have different populations; all denominators retained.",
+        "Late receipt after 60-frame lifetime plus released/Denied prediction supports telemetry-only settlement; exact no-replay behavior is covered by executable ClaimStressTests."
+      ],
+      "aggregateParity": {
+        "healthSamplesCompared": 914,
+        "healthMismatches": 0,
+        "slowSamplesCompared": 474,
+        "offeredShots": 18,
+        "acceptedShots": 18,
+        "committedShots": 18,
+        "semanticMissing": 0,
+        "semanticConflicts": 0
+      },
+      "sourceScope": "Raw campaign built at 472c6614; later f1ccc01f changes lifetime evidence counters and auditor only according to parent review, not asserted by campaign metadata."
+    },
+    {
+      "campaign": "mac-8-extreme-missile",
+      "source": "472c6614eb9f0930f635e61a0ef04095300517ac",
+      "assemblySha256": "7277716163b7827d4d79414272d5e340afd2a4be232f807e2eed61c5d02e51d5",
+      "settings": {
+        "players": 8,
+        "seconds": 25.0,
+        "profile": "extreme",
+        "scenario": "missile",
+        "shot_proof": "shadow"
+      },
+      "originalStatus": "PASS",
+      "alignedStatus": "PASS",
+      "alignedFailures": [],
+      "drain": {
+        "status": "PASS",
+        "stableSeconds": 5.027582625000001,
+        "requiredGraceSeconds": 2.4
+      },
+      "claimEventDenominator": 12,
+      "claimResultCounts": {
+        "1": 11,
+        "0": 1
+      },
+      "claimFieldUnits": {
+        "id": "claim ID",
+        "a": "damage applied",
+        "b": "health after",
+        "frame": "authority answer frame"
+      },
+      "claimDetails": [
+        {
+          "frame": 184,
+          "player": 0,
+          "victim": 1,
+          "shotId": 1,
+          "id": 1,
+          "result": 1,
+          "a": 32,
+          "b": 67,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 157,
+              "id": 1,
+              "a": 32,
+              "b": 67
+            }
+          ]
+        },
+        {
+          "frame": 517,
+          "player": 0,
+          "victim": 1,
+          "shotId": 5,
+          "id": 2,
+          "result": 0,
+          "a": 24,
+          "b": 43,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 517,
+              "id": 2,
+              "a": 24,
+              "b": 43
+            }
+          ]
+        },
+        {
+          "frame": 721,
+          "player": 6,
+          "victim": 0,
+          "shotId": 11,
+          "id": 1,
+          "result": 1,
+          "a": 32,
+          "b": 67,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 694,
+              "id": 1,
+              "a": 32,
+              "b": 67
+            }
+          ]
+        },
+        {
+          "frame": 826,
+          "player": 6,
+          "victim": 1,
+          "shotId": 13,
+          "id": 2,
+          "result": 1,
+          "a": 32,
+          "b": 11,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 785,
+              "id": 3,
+              "a": 32,
+              "b": 11
+            }
+          ]
+        },
+        {
+          "frame": 891,
+          "player": 6,
+          "victim": 0,
+          "shotId": 15,
+          "id": 3,
+          "result": 1,
+          "a": 32,
+          "b": 35,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 865,
+              "id": 2,
+              "a": 32,
+              "b": 35
+            }
+          ]
+        },
+        {
+          "frame": 1019,
+          "player": 6,
+          "victim": 0,
+          "shotId": 18,
+          "id": 4,
+          "result": 1,
+          "a": 32,
+          "b": 3,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 998,
+              "id": 3,
+              "a": 32,
+              "b": 3
+            }
+          ]
+        },
+        {
+          "frame": 1396,
+          "player": 0,
+          "victim": 6,
+          "shotId": 16,
+          "id": 3,
+          "result": 1,
+          "a": 32,
+          "b": 67,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 1363,
+              "id": 1,
+              "a": 32,
+              "b": 67
+            }
+          ]
+        },
+        {
+          "frame": 1417,
+          "player": 4,
+          "victim": 1,
+          "shotId": 28,
+          "id": 1,
+          "result": 1,
+          "a": 32,
+          "b": 67,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 1395,
+              "id": 1,
+              "a": 32,
+              "b": 67
+            }
+          ]
+        },
+        {
+          "frame": 1516,
+          "player": 0,
+          "victim": 6,
+          "shotId": 19,
+          "id": 4,
+          "result": 1,
+          "a": 32,
+          "b": 35,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 1491,
+              "id": 2,
+              "a": 32,
+              "b": 35
+            }
+          ]
+        },
+        {
+          "frame": 1588,
+          "player": 4,
+          "victim": 1,
+          "shotId": 32,
+          "id": 2,
+          "result": 1,
+          "a": 32,
+          "b": 35,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 1567,
+              "id": 2,
+              "a": 32,
+              "b": 35
+            }
+          ]
+        },
+        {
+          "frame": 1616,
+          "player": 6,
+          "victim": 0,
+          "shotId": 28,
+          "id": 5,
+          "result": 1,
+          "a": 32,
+          "b": 67,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 1599,
+              "id": 1,
+              "a": 32,
+              "b": 67
+            }
+          ]
+        },
+        {
+          "frame": 1666,
+          "player": 6,
+          "victim": 0,
+          "shotId": 29,
+          "id": 6,
+          "result": 1,
+          "a": 32,
+          "b": 35,
+          "authorityResultCount": 1,
+          "authorityResults": [
+            {
+              "frame": 1641,
+              "id": 2,
+              "a": 32,
+              "b": 35
+            }
+          ]
+        }
+      ],
+      "nativeResultDenominator": 22,
+      "nativeFieldUnits": {
+        "id": "damage sequence",
+        "a": "damage applied",
+        "b": "health after"
+      },
+      "peerVerdictLogDenominator": 12,
+      "telemetryCombatAckDenominator": 10,
+      "telemetryAckLatency": {
+        "count": 10,
+        "mean": 659.6,
+        "p50": 533,
+        "p95": 1783,
+        "p99": 1783,
+        "maximum": 1783
+      },
+      "lateAckAbove60FrameLifetime": [
+        {
+          "player": 0,
+          "victim": 1,
+          "shotId": 5,
+          "id": 2,
+          "result": 0,
+          "a": 1783,
+          "c": 0
+        }
+      ],
+      "lateAckFieldUnits": {
+        "a": "milliseconds latency",
+        "c": "health correction"
+      },
+      "peerReconciliation": {
+        "peer-0": {
+          "Predicted": 4,
+          "Confirmed": 3,
+          "Denied": 1,
+          "Outstanding": 0,
+          "CombatAcks": 3,
+          "LethalHeld": 0,
+          "LethalConfirmed": 0,
+          "LethalDenied": 0,
+          "HealthDisagreed": 0
+        },
+        "peer-1": {
+          "Predicted": 0,
+          "Confirmed": 0,
+          "Denied": 0,
+          "Outstanding": 0,
+          "CombatAcks": 0,
+          "LethalHeld": 0,
+          "LethalConfirmed": 0,
+          "LethalDenied": 0,
+          "HealthDisagreed": 0
+        },
+        "peer-2": {
+          "Predicted": 0,
+          "Confirmed": 0,
+          "Denied": 0,
+          "Outstanding": 0,
+          "CombatAcks": 0,
+          "LethalHeld": 0,
+          "LethalConfirmed": 0,
+          "LethalDenied": 0,
+          "HealthDisagreed": 0
+        },
+        "peer-3": {
+          "Predicted": 0,
+          "Confirmed": 0,
+          "Denied": 0,
+          "Outstanding": 0,
+          "CombatAcks": 0,
+          "LethalHeld": 0,
+          "LethalConfirmed": 0,
+          "LethalDenied": 0,
+          "HealthDisagreed": 0
+        },
+        "peer-4": {
+          "Predicted": 2,
+          "Confirmed": 2,
+          "Denied": 0,
+          "Outstanding": 0,
+          "CombatAcks": 2,
+          "LethalHeld": 0,
+          "LethalConfirmed": 0,
+          "LethalDenied": 0,
+          "HealthDisagreed": 0
+        },
+        "peer-5": {
+          "Predicted": 0,
+          "Confirmed": 0,
+          "Denied": 0,
+          "Outstanding": 0,
+          "CombatAcks": 0,
+          "LethalHeld": 0,
+          "LethalConfirmed": 0,
+          "LethalDenied": 0,
+          "HealthDisagreed": 0
+        },
+        "peer-6": {
+          "Predicted": 6,
+          "Confirmed": 6,
+          "Denied": 0,
+          "Outstanding": 0,
+          "CombatAcks": 6,
+          "LethalHeld": 1,
+          "LethalConfirmed": 0,
+          "LethalDenied": 1,
+          "HealthDisagreed": 0
+        },
+        "peer-7": {
+          "Predicted": 0,
+          "Confirmed": 0,
+          "Denied": 0,
+          "Outstanding": 0,
+          "CombatAcks": 0,
+          "LethalHeld": 0,
+          "LethalConfirmed": 0,
+          "LethalDenied": 0,
+          "HealthDisagreed": 0
+        }
+      },
+      "reconciliationTotals": {
+        "Predicted": 12,
+        "Confirmed": 11,
+        "Denied": 1,
+        "Outstanding": 0,
+        "CombatAcks": 11,
+        "LethalHeld": 1,
+        "LethalConfirmed": 0,
+        "LethalDenied": 1,
+        "HealthDisagreed": 0
+      },
+      "finalFullRosterScores": {
+        "authorityFrame": 2070,
+        "revision": 349,
+        "slots": {
+          "0": {
+            "team": 0,
+            "points": -1,
+            "kills": 0,
+            "deaths": 1
+          },
+          "1": {
+            "team": 0,
+            "points": 0,
+            "kills": 0,
+            "deaths": 1
+          },
+          "2": {
+            "team": 0,
+            "points": -1,
+            "kills": 0,
+            "deaths": 1
+          },
+          "3": {
+            "team": 0,
+            "points": 0,
+            "kills": 0,
+            "deaths": 0
+          },
+          "4": {
+            "team": 0,
+            "points": 0,
+            "kills": 0,
+            "deaths": 0
+          },
+          "5": {
+            "team": 0,
+            "points": 0,
+            "kills": 0,
+            "deaths": 0
+          },
+          "6": {
+            "team": 0,
+            "points": 1,
+            "kills": 1,
+            "deaths": 0
+          },
+          "7": {
+            "team": 0,
+            "points": 0,
+            "kills": 0,
+            "deaths": 0
+          }
+        }
+      },
+      "parity": {
+        "peer-0": {
+          "healthSamplesCompared": 2368,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 319,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 20,
+          "acceptedShots": 20,
+          "committedShots": 20,
+          "semanticMissing": 0,
+          "semanticConflicts": 0
+        },
+        "peer-1": {
+          "healthSamplesCompared": 2488,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 318,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "semanticMissing": 0,
+          "semanticConflicts": 0
+        },
+        "peer-2": {
+          "healthSamplesCompared": 2360,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 314,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 27,
+          "acceptedShots": 27,
+          "committedShots": 27,
+          "semanticMissing": 0,
+          "semanticConflicts": 0
+        },
+        "peer-3": {
+          "healthSamplesCompared": 2352,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 311,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "semanticMissing": 0,
+          "semanticConflicts": 0
+        },
+        "peer-4": {
+          "healthSamplesCompared": 2381,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 305,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 33,
+          "acceptedShots": 33,
+          "committedShots": 33,
+          "semanticMissing": 0,
+          "semanticConflicts": 0
+        },
+        "peer-5": {
+          "healthSamplesCompared": 2304,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 306,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "semanticMissing": 0,
+          "semanticConflicts": 0
+        },
+        "peer-6": {
+          "healthSamplesCompared": 2272,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 305,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 29,
+          "acceptedShots": 29,
+          "committedShots": 29,
+          "semanticMissing": 0,
+          "semanticConflicts": 0
+        },
+        "peer-7": {
+          "healthSamplesCompared": 2296,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 303,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "semanticMissing": 0,
+          "semanticConflicts": 0
+        }
+      },
+      "telemetryIntegrity": {
+        "eventsQueued": 1169,
+        "eventsWritten": 1169,
+        "eventsDropped": 0,
+        "queueHighWater": 20,
+        "writerFailures": 0,
+        "uploadFailures": 0
+      },
+      "limitations": [
+        "Shadow scripted campaigns do not certify strict source-proof enforcement.",
+        "Final current CombatPayments counters were reset during teardown; no zero lifetime-payment claim is made.",
+        "AuthorityResult telemetry lacks component/kind; matching native results establish observed adjudication, not exhaustive per-component suppression.",
+        "ACK telemetry, native peer settlement counters and verdict logs have different populations; all denominators retained.",
+        "Late receipt after 60-frame lifetime plus released/Denied prediction supports telemetry-only settlement; exact no-replay behavior is covered by executable ClaimStressTests."
+      ],
+      "aggregateParity": {
+        "healthSamplesCompared": 18821,
+        "healthMismatches": 0,
+        "slowSamplesCompared": 2481,
+        "offeredShots": 109,
+        "acceptedShots": 109,
+        "committedShots": 109,
+        "semanticMissing": 0,
+        "semanticConflicts": 0
+      },
+      "sourceScope": "Raw campaign built at 472c6614; later f1ccc01f changes lifetime evidence counters and auditor only according to parent review, not asserted by campaign metadata."
+    }
+  ],
+  "campaignArtifacts": [
+    {
+      "manifest": {
+        "path": "artifacts/net2-n5/mac-2-lan-duel/manifest.json",
+        "bytes": 18551,
+        "sha256": "b559b4d86be357ac557e35b6355ba3a9b9e54b18f38975a03ced0417654c95ac"
+      },
+      "originalSummary": {
+        "path": "artifacts/net2-n5/mac-2-lan-duel/summary.json",
+        "bytes": 6799,
+        "sha256": "d9d7727fb7fcc196619b11511ef020ac93c45b9dcd5531562ecd1859b3e7d8dd"
+      }
+    },
+    {
+      "manifest": {
+        "path": "artifacts/net2-n5/mac-8-extreme-missile/manifest.json",
+        "bytes": 121059,
+        "sha256": "cc3400d57b5fa04300422cf94a3c18d1dd9f83a1e1d621e5aadfffac78488e1f"
+      },
+      "originalSummary": {
+        "path": "artifacts/net2-n5/mac-8-extreme-missile/summary.json",
+        "bytes": 20985,
+        "sha256": "01e5a422058e892eb0a38a7d8cf0cea2f3e27e66ee5960453f809058a0b15db5"
+      }
+    }
+  ],
+  "auditArtifacts": {
+    "campaign-audit/analysis.json": {
+      "path": "artifacts/net2-n5/campaign-audit/analysis.json",
+      "bytes": 20272,
+      "sha256": "cdd1268fe2591f816ffebc8870175982df3c48ce8b66ca1823f4c64d9e7b2b4b"
+    },
+    "campaign-audit/source-hashes.json": {
+      "path": "artifacts/net2-n5/campaign-audit/source-hashes.json",
+      "bytes": 4462,
+      "sha256": "93f83f7eaa79fbce16e47165a75b7f949c2906dfd22d92b701b472c011180be6"
+    },
+    "slow-lane-audit/aligned-raw-audit.json": {
+      "path": "artifacts/net2-n5/slow-lane-audit/aligned-raw-audit.json",
+      "bytes": 6709,
+      "sha256": "ab679d0ce30ea780bdcd99270ae695dd11924e27be956028ab01fcaec1fe3690"
+    },
+    "slow-lane-audit/old-raw-audit.json": {
+      "path": "artifacts/net2-n5/slow-lane-audit/old-raw-audit.json",
+      "bytes": 6798,
+      "sha256": "33b6517408e7af0b4dfa30580c7a19fd85e531ac79b4a299f016d870b11bf6de"
+    },
+    "slow-lane-audit/evidence.json": {
+      "path": "artifacts/net2-n5/slow-lane-audit/evidence.json",
+      "bytes": 1371,
+      "sha256": "67b637b436057153c359196a44a9b568f7788c7e839c7fbb00a12d7236bc6fad"
+    },
+    "slow-lane-audit/old-engine-tests.log": {
+      "path": "artifacts/net2-n5/slow-lane-audit/old-engine-tests.log",
+      "bytes": 7540,
+      "sha256": "49e972845b9b7fb9b0a2580b61a0593d2ad1592d73609b401c4f452ea3f0dc75"
+    }
+  },
+  "limitations": [
+    "Snapshot-before-ACK can replay presentation feedback because snapshots lack shot/component identity; it does not settle unrelated debit or duplicate authority payment.",
+    "Continuous ticks/healing, self-hit claims, bombs, specialized turret/hunter paths, unidentified legacy effects and enhanced bonus paths remain follow-up scope.",
+    "Shadow proof does not certify strict admission or honest-player false-reject rates.",
+    "UDP authority telemetry lacks component/kind; per-component suppression established by executable asset tests, not exhaustively inferred from campaign logs.",
+    "UDP current payment counters reset at teardown; final source adds tested lifetime counters. Zero raw current counters are not evidence of zero lifetime payments or overflow.",
+    "No rendered presentation or before/after performance claim."
+  ],
+  "notRun": [
+    "Windows: no platform-specific change requiring it",
+    "Linux/Android",
+    "GitHub Actions",
+    "Long soak",
+    "Rendered agreement",
+    "Performance comparison"
+  ],
+  "rawEvidence": {
+    "root": "artifacts/net2-n5",
+    "allAttemptsPreserved": true,
+    "index": {
+      "path": "artifacts/net2-n5/evidence-index.json",
+      "bytes": 481396,
+      "sha256": "f31371ae56964bac275867408255b77945c4ae958e078fd77211961dfd5e520d"
+    },
+    "archive": {
+      "path": "artifacts/net2-n5-evidence.tar.gz",
+      "bytes": 372497050,
+      "sha256": "783c4176f60a747482bd8fc808241a8787d7edac2bf7c1b4c881a249773f2d99"
+    },
+    "verification": {
+      "members": 2332,
+      "method": "Every stored payload rehashed from archive; hardlinks checked against previously verified target",
+      "status": "PASS"
+    },
+    "availability": "Local archive only; raw logs/binaries are ignored by git. Tracked ledger retains results and hashes."
+  }
+}
