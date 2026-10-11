@@ -2436,17 +2436,13 @@ namespace MphRead.Entities
             UpdateCamera();
         }
 
-        private void SpawnBomb()
+        private BombEntity? SpawnBomb()
         {
+            if (!NetBombs.AllowNativePlacement(this)) return null;
             if (!_scene.Services.IsReplica) Mods.Network.NetDamage.BombSpawnCalls++;
             // todo?: wi-fi condition and alternate function for spawning Lockjaw bombs
-            Matrix4 transform = Matrix4.Identity;
-            if (Hunter == Hunter.Kanden)
-            {
-                Matrix4 segMtx = _kandenSegMtx[4];
-                transform = GetTransformMatrix(segMtx.Row2.Xyz, segMtx.Row1.Xyz, _kandenSegPos[4]);
-            }
-            else
+            Matrix4 transform = ModBombTransform();
+            if (Hunter != Hunter.Kanden)
             {
                 if (Hunter == Hunter.Sylux && SyluxBombCount >= 3)
                 {
@@ -2473,12 +2469,11 @@ namespace MphRead.Entities
                     if (detonated)
                     {
                         if (!_scene.Services.IsReplica) Mods.Network.NetDamage.BombSpawnDetonated++;
-                        return;
+                        return null;
                     }
                     if (!_scene.Services.IsReplica) Mods.Network.NetDamage.BombSpawnStaleCount++;
                     SyluxBombCount = 0;
                 }
-                transform = GetTransformMatrix(Vector3.UnitZ, Vector3.UnitY, Position.AddY(Fixed.ToFloat(-1000)));
             }
             var bomb = BombEntity.Spawn(this, transform, _scene);
             if (bomb == null)
@@ -2556,7 +2551,9 @@ namespace MphRead.Entities
                     }
                 }
                 bomb.PlaySpawnSfx();
+                NetBombs.Placed(bomb);
             }
+            return bomb;
         }
 
         private void EndAltAttack()

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace MphRead.Mods.Network;
 
 /// <summary>Single simulation-thread owner for accepted authoritative facts.</summary>
-internal sealed class ReplayRecorder
+internal sealed partial class ReplayRecorder
 {
     internal bool HasMatch => _match.HasValue;
     public RollingReplayTimeline Timeline { get; } = new();
@@ -23,6 +23,7 @@ internal sealed class ReplayRecorder
     public void Reset()
     {
         Resetting?.Invoke();
+        ResetBombFacts();
         _worldWire.Reset();
         _semantic.Begin(0, 0);
         Timeline.Reset();
@@ -194,6 +195,7 @@ internal sealed class ReplayRecorder
         if (_cosmetics is { } cosmetics) accept(cosmetics);
         foreach (var intent in _intents) if (intent is { } record) accept(record);
         VisitSemanticBaseline(_snapshot?.RecordingFrame ?? 0, accept);
+        SeedBombFacts(accept);
     }
 
     private void VisitSemanticBaseline(uint frame, Action<ReplayTimelineRecord> accept)

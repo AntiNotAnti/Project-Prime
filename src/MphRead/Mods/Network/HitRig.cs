@@ -92,7 +92,8 @@ namespace MphRead.Mods.Network
             /// totals can simply be subtracted. <c>-hitrig missile</c>,
             /// <c>-hitrig magmaul</c>, <c>-hitrig judicator</c>.
             /// </summary>
-            Volley, SelfMoving, SelfWall, AltStatic, AltLateral, AltMorph, AltContact, AltCrossing
+            Volley, SelfMoving, SelfWall, AltStatic, AltLateral, AltMorph, AltContact, AltCrossing,
+            BombSamus, BombKanden, BombLockjaw
         }
 
         /// <summary>The weapon a <see cref="RigMode.Volley"/> run empties.</summary>
@@ -118,6 +119,9 @@ namespace MphRead.Mods.Network
             {
                 case "self-moving": Mode = RigMode.SelfMoving; VolleyWeapon = BeamType.Missile; return true;
                 case "self-wall": Mode = RigMode.SelfWall; VolleyWeapon = BeamType.Missile; return true;
+                case "bomb-samus": Mode = RigMode.BombSamus; return true;
+                case "bomb-kanden": Mode = RigMode.BombKanden; return true;
+                case "bomb-lockjaw": Mode = RigMode.BombLockjaw; return true;
                 case "alt-static": Mode = RigMode.AltStatic; return true;
                 case "alt":
                 case "alt-lateral": Mode = RigMode.AltLateral; return true;
@@ -216,7 +220,82 @@ namespace MphRead.Mods.Network
         private const float FiringCone = 2.5f;
 
         private static float _selfAimX, _selfAimY, _selfPitch, _selfWallDistance;
+        private static ushort _triangleFixtureMatch;
+        private static ulong _triangleFixtureEpoch;
+        private static bool _triangleFixtureAuthorityReady, _triangleFixtureClientReady, _triangleFixtureFailed;
+        private static long _triangleFixtureWaitAt;
+        private static readonly bool[] _triangleFixturePoseConfirmed = new bool[2];
+        private static readonly Vector3[] _triangleFixtureInitial = new Vector3[2];
+        private static readonly bool TriangleFixtureEnabled = Environment.GetEnvironmentVariable("PRIME_NET2_TRIANGLE_SETUP") == "1";
+        private static void TriangleFixtureStream()
+        {
+            if (_triangleFixtureMatch == NetSession.CurrentMatchId && _triangleFixtureEpoch == NetSession.AuthorityEpoch) return;
+            _triangleFixtureMatch = NetSession.CurrentMatchId; _triangleFixtureEpoch = NetSession.AuthorityEpoch;
+            _triangleFixtureAuthorityReady = _triangleFixtureClientReady = _triangleFixtureFailed = false;
+            _triangleFixtureWaitAt = Environment.TickCount64;
+            Array.Clear(_triangleFixturePoseConfirmed);
+        }
+        internal static void SetupNetworkTriangleFixtureOnce()
+        {
+            if (!TriangleFixtureEnabled || !(NetSession.IsAuthority || NetSession.IsHost)) return;
+            TriangleFixtureStream();
+            if (_triangleFixtureFailed || _triangleFixtureAuthorityReady || PlayerEntity.Players.Count < 2 || NetBombs.LiveScene is not { } scene
+                || scene.Bombs.LiveCount != 0 || !NetSession.RemoteIntentValid[0] || !NetSession.RemoteIntentValid[1]) return;
+            var owner = PlayerEntity.Players[0]; var victim = PlayerEntity.Players[1];
+            if (owner.Health <= 0 || victim.Health <= 0 || !owner.LoadFlags.TestFlag(LoadFlags.Spawned)
+                || !victim.LoadFlags.TestFlag(LoadFlags.Spawned) || owner.SceneServices.IsReplica) return;
+            if (!TrySetupLockjawTriangleFixture(owner, victim, out Vector3 center))
+            { _triangleFixtureFailed = true; NetLog.Event("triangle fixture FAILED: no collision-verified initial geometry"); return; }
+            _triangleFixtureInitial[0] = owner.Position; _triangleFixtureInitial[1] = victim.Position;
+            _triangleFixtureAuthorityReady = true; _triangleFixtureWaitAt = Environment.TickCount64;
+            NetLog.Event($"triangle fixture authority ready match={_triangleFixtureMatch} epoch={_triangleFixtureEpoch} center={center}");
+        }
+        internal static bool HoldTriangleFixtureRemoteInput(PlayerEntity player)
+        {
+            if (!TriangleFixtureEnabled || !(NetSession.IsAuthority || NetSession.IsHost) || player.SlotIndex is < 0 or > 1) return false;
+            TriangleFixtureStream();
+            int slot = player.SlotIndex;
+            if (_triangleFixtureFailed || !_triangleFixtureAuthorityReady
+                || _triangleFixturePoseConfirmed[0] && _triangleFixturePoseConfirmed[1]) return false;
+            if (Environment.TickCount64 - _triangleFixtureWaitAt > 10000)
+            { _triangleFixtureFailed = true; NetLog.Event("triangle fixture FAILED: initial authority pose confirmation timed out"); return false; }
+            var intent = NetSession.RemoteIntents[slot];
+            bool alt = (intent.Buttons & IntentButtons.AltFormState) != 0;
+            if (!_triangleFixturePoseConfirmed[slot] && NetSession.RemoteIntentValid[slot]
+                && (intent.Position - _triangleFixtureInitial[slot]).LengthSquared < .25f
+                && alt == (slot == 0))
+            { _triangleFixturePoseConfirmed[slot] = true; NetLog.Event($"triangle fixture authority pose confirmed slot={slot}"); }
+            if (_triangleFixturePoseConfirmed[0] && _triangleFixturePoseConfirmed[1]) return false;
+            player.Controls.ClearAll(); return true;
+        }
+        private static bool TriangleFixtureClientObserved(PlayerEntity player)
+        {
+            if (!TriangleFixtureEnabled || Mode != RigMode.BombLockjaw || player.SlotIndex is < 0 or > 1) return true;
+            TriangleFixtureStream();
+            if (_triangleFixtureClientReady) return true;
+            if (_triangleFixtureFailed) return false;
+            if (!NetSession.WorldAdmissionConfirmed) { _triangleFixtureWaitAt = Environment.TickCount64; return false; }
+            if (Environment.TickCount64 - _triangleFixtureWaitAt > 10000)
+            { _triangleFixtureFailed = true; NetLog.Event("triangle fixture FAILED: initial authority snapshot timed out"); return false; }
+            if (!NetSession.RemoteStateValid[0] || !NetSession.RemoteStateValid[1]) return false;
+            var owner = NetSession.RemoteStates[0]; var victim = NetSession.RemoteStates[1];
+            Vector3 difference = owner.Position - victim.Position;
+            if ((owner.Flags & PlayerState.FlagAltForm) == 0 || (victim.Flags & PlayerState.FlagAltForm) != 0
+                || (new Vector2(difference.X - 3, difference.Z)).LengthSquared > .0625f
+                || MathF.Abs(difference.Y + .25f) > .5f) return false;
+            // Local snapshots normally preserve predicted position. This explicit
+            // fixture adopts only its initial authority pose, once per stream.
+            var own = NetSession.RemoteStates[player.SlotIndex];
+            player.ModForceForm((own.Flags & PlayerState.FlagAltForm) != 0);
+            player.ModPlaceAt(own.Position); player.Speed = own.Speed;
+            _triangleFixtureClientReady = true;
+            NetLog.Event($"triangle fixture client ready slot={player.SlotIndex} match={_triangleFixtureMatch} epoch={_triangleFixtureEpoch} pos={player.Position}");
+            return true;
+        }
+
         private static int _frame;
+        private static bool _lockjawWaitingForTerminal;
+        private static ushort _lockjawOwnerLife, _lockjawVictimLife;
         private static int _stuckFrames;
         private static bool _stuckDirection;
         private static Vector3 _lastPosition;
@@ -245,6 +324,7 @@ namespace MphRead.Mods.Network
         public static void Reset()
         {
             _frame = 0; _selfAimX = _selfAimY = _selfPitch = _selfWallDistance = 0;
+            _lockjawWaitingForTerminal = false; _lockjawOwnerLife = _lockjawVictimLife = 0;
             _stuckFrames = 0;
             _lastPosition = Vector3.Zero;
             AimDeltaX = 0;
@@ -276,6 +356,8 @@ namespace MphRead.Mods.Network
             _frame++;
             PlayerControls c = player.Controls;
             ClearControls(c);
+            if (!TriangleFixtureClientObserved(player))
+            { FinishControls(player, c); return; }
             if (player.Health == 0)
             {
                 // Holding fire is what asks for an early respawn -- on a
@@ -305,7 +387,67 @@ namespace MphRead.Mods.Network
                 return;
             }
             PlayerEntity? other = Opponent(player);
-            if (Mode == RigMode.SelfMoving || Mode == RigMode.SelfWall)
+            if (Mode is RigMode.BombSamus or RigMode.BombKanden or RigMode.BombLockjaw)
+            {
+                // Pair the two participants explicitly; a nearby spectator is
+                // never a rendezvous target. Only native controls move them.
+                int pairedSlot = player.SlotIndex == 0 ? 1 : 0;
+                other = pairedSlot < PlayerEntity.Players.Count ? PlayerEntity.Players[pairedSlot] : null;
+                if (other != null && (other.Health == 0 || !other.LoadFlags.TestFlag(LoadFlags.Spawned))) other = null;
+                AimAt(player, other, headHeight: 0);
+                float range = other == null ? Single.MaxValue : Vector3.Distance(player.Position, other.Position);
+                float bombGap = Single.MaxValue;
+                bool facingDestination = false;
+                if (other != null)
+                {
+                    (float turnX, _) = player.ModAimDeltaTowards(other.IsAltForm ? other.Volume.SpherePosition : other.ModAimTarget);
+                    facingDestination = Single.IsFinite(turnX) && MathF.Abs(turnX) < FiringCone;
+                }
+                if (Mode == RigMode.BombLockjaw)
+                {
+                    DriveLockjawTriangle(player, c, other);
+                }
+                else if (player.SlotIndex == 0)
+                {
+                    if (!player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing)
+                        c.Morph.IsDown = _frame % 20 == 0;
+                    c.AltAttack.IsDown = player.IsAltForm && _frame % 20 < 3;
+                    // Hold the rendezvous while the victim enters the actual
+                    // bomb volume. Chasing the victim leaves Kanden's tail
+                    // placements behind and can strand the biped at a ledge.
+                    c.MoveUp.IsDown = other != null && range > 4f && facingDestination;
+                    if (c.AltAttack.IsDown && _frame % 20 == 0) Triggers++;
+                }
+                else if (other != null)
+                {
+                    BombEntity? closest = null;
+                    foreach (var bomb in player.OwningScene.GetBombEntities())
+                    {
+                        if (bomb.ModOwnerKey.ShooterSlot != 0 || bomb.Flags.TestFlag(BombFlags.Exploded)) continue;
+                        float distance = Vector3.Distance(player.Position, bomb.Position);
+                        if (distance < bombGap) { bombGap = distance; closest = bomb; }
+                    }
+                    if (closest != null)
+                    {
+                        (float turnX, float turnY) = player.ModAimDeltaTowards(closest.Position);
+                        if (Single.IsFinite(turnX) && Single.IsFinite(turnY))
+                        {
+                            AimDeltaX = Math.Clamp(turnX, -TurnRate, TurnRate);
+                            AimDeltaY = Math.Clamp(turnY, -TurnRate, TurnRate);
+                            facingDestination = MathF.Abs(turnX) < FiringCone;
+                        }
+                        else facingDestination = false;
+                    }
+                    float destinationGap = closest != null ? bombGap : range;
+                    c.MoveUp.IsDown = destinationGap > .35f && facingDestination;
+                    // Native jump gets the biped over the room's low ledges;
+                    // stop jumping near bombs so contact remains grounded.
+                    c.Jump.IsDown = destinationGap > 2f && facingDestination && _frame % 90 < 3;
+                }
+                if (_frame % 180 == 0)
+                    NetLog.Event($"bomb rig slot={player.SlotIndex} range={range:F2} bombGap={(bombGap == Single.MaxValue ? "none" : bombGap.ToString("F2"))} facing={facingDestination} pos={player.Position}");
+            }
+            else if (Mode == RigMode.SelfMoving || Mode == RigMode.SelfWall)
             {
                 if (IsSniper) DriveSelf(player, c);
                 else AimAt(player, other, headHeight: 0);
@@ -351,6 +493,121 @@ namespace MphRead.Mods.Network
         /// it, and a runner that breaks line of sight only turns that into a
         /// smaller sample.
         /// </summary>
+        /// <summary>
+        /// Explicit initial-geometry setup for the isolated asset fixture only.
+        /// Called only by the isolated asset fixture or explicit network fixture flag. The caller must use
+        /// fresh native players before bomb admission; all later controls,
+        /// placement, snare damage and retirement remain native simulation.
+        /// </summary>
+        internal static bool TrySetupLockjawTriangleFixture(PlayerEntity owner, PlayerEntity victim, out Vector3 center)
+        {
+            center = default;
+            if (owner.OwningScene != victim.OwningScene || owner.Hunter != Hunter.Sylux) return false;
+            var scene = owner.OwningScene;
+            bool Floor(Vector3 horizontal, out float height)
+            {
+                CollisionResult hit = default;
+                bool found = CollisionDetection.CheckBetweenPoints(horizontal.WithY(32), horizontal.WithY(-8),
+                    TestFlags.Players, scene, ref hit);
+                height = hit.Position.Y;
+                return found && hit.Plane.Y > .9f && Single.IsFinite(height);
+            }
+            bool Clear(Vector3 from, Vector3 to)
+            {
+                CollisionResult hit = default;
+                return !CollisionDetection.CheckBetweenPoints(from, to, TestFlags.Players, scene, ref hit);
+            }
+            // Search the actual Combat Hall collision, rather than assuming
+            // a spawn has enough floor around it for the native triangle.
+            for (int z = -12; z <= 12; z += 4)
+                for (int x = -12; x <= 12; x += 4)
+                {
+                    var candidate = new Vector3(x, 0, z);
+                    if (!Floor(candidate, out float floor)) continue;
+                    bool valid = true;
+                    for (int ring = 0; ring < 2 && valid; ring++)
+                        for (int sample = 0; sample < 12 && valid; sample++)
+                        {
+                            float angle = sample * MathF.PI / 6;
+                            float radius = ring == 0 ? 2 : 3.8f;
+                            Vector3 point = candidate + new Vector3(MathF.Cos(angle) * radius, 0, MathF.Sin(angle) * radius);
+                            valid = Floor(point, out float otherFloor) && MathF.Abs(otherFloor - floor) < .1f
+                                && Clear(point.WithY(floor + .1f), point.WithY(floor + 2.5f))
+                                && Clear(candidate.WithY(floor + .3f), point.WithY(floor + .3f));
+                        }
+                    if (!valid || !Clear(candidate.WithY(floor + .1f), candidate.WithY(floor + 2.5f))) continue;
+                    center = candidate.WithY(floor + .5f);
+                    victim.ModForceForm(false); owner.ModForceForm(true);
+                    victim.ModPlaceAt(center);
+                    owner.ModPlaceAt(candidate.WithY(floor + .25f) + Vector3.UnitX * 3);
+                    victim.Speed = owner.Speed = Vector3.Zero;
+                    victim.Controls.ClearAll(); owner.Controls.ClearAll();
+                    _lockjawWaitingForTerminal = false;
+                    _lockjawOwnerLife = _lockjawVictimLife = 0;
+                    NetLog.Event($"explicit native triangle fixture center={center} owner={owner.Position} radius=3 collision=verified");
+                    return true;
+                }
+            return false;
+        }
+
+        private static void DriveLockjawTriangle(PlayerEntity player, PlayerControls c, PlayerEntity? victim)
+        {
+            // The biped stays in the interior while the owner authors all three
+            // placements around it. No health, positions or timers are written.
+            if (player.SlotIndex != 0 || victim == null) return;
+            if (!player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing)
+                c.Morph.IsDown = _frame % 20 == 0;
+            ushort ownerLife = NetPlayerLifecycle.Get(0), victimLife = NetPlayerLifecycle.Get(1);
+            if (_lockjawOwnerLife != ownerLife || _lockjawVictimLife != victimLife)
+            {
+                _lockjawOwnerLife = ownerLife; _lockjawVictimLife = victimLife;
+                _lockjawWaitingForTerminal = false;
+            }
+            int count = 0;
+            foreach (var bomb in player.OwningScene.GetBombEntities())
+                if (bomb.BombType == BombType.Lockjaw && !bomb.Flags.TestFlag(BombFlags.Exploded)
+                    && NetBombs.SameLife(bomb.ModOwnerKey, ShotKey.For(0, 0))) count++;
+            if (count >= 3) _lockjawWaitingForTerminal = true;
+            if (_lockjawWaitingForTerminal && count == 0) _lockjawWaitingForTerminal = false;
+            if (_lockjawWaitingForTerminal) return;
+            // A radius-three equilateral triangle keeps each first/two-bomb
+            // edge 1.5 units from the target: pair contact should not retire it
+            // before the third vertex can author the native snare.
+            Vector3 offset = count switch
+            {
+                0 => new Vector3(3, 0, 0),
+                1 => new Vector3(-1.5f, 0, 2.598076f),
+                _ => new Vector3(-1.5f, 0, -2.598076f)
+            };
+            Vector3 waypoint = victim.Position + offset;
+            Vector3 delta = waypoint - player.Position;
+            float gap = MathF.Sqrt(delta.X * delta.X + delta.Z * delta.Z);
+            (float x, float y) = player.ModAimDeltaTowards(waypoint);
+            bool aligned = Single.IsFinite(x) && Single.IsFinite(y) && MathF.Abs(x) < FiringCone;
+            if (Single.IsFinite(x) && Single.IsFinite(y))
+            { AimDeltaX = Math.Clamp(x, -TurnRate, TurnRate); AimDeltaY = Math.Clamp(y, -TurnRate, TurnRate); }
+            // Locomotion uses the real alt camera basis, not ballistic
+            // muzzle convergence (which can align while rolling elsewhere).
+            // These are the same four native controls read by ProcessAlt.
+            if (gap > .7f)
+            {
+                float forward = (delta.X * player.CameraInfo.Field48 + delta.Z * player.CameraInfo.Field4C) / gap;
+                float left = (delta.X * player.CameraInfo.Field50 + delta.Z * player.CameraInfo.Field54) / gap;
+                if (Single.IsFinite(forward) && Single.IsFinite(left))
+                {
+                    c.MoveUp.IsDown = forward > .25f;
+                    c.MoveDown.IsDown = forward < -.25f;
+                    c.MoveLeft.IsDown = left > .25f;
+                    c.MoveRight.IsDown = left < -.25f;
+                }
+            }
+            float horizontalSpeed = MathF.Sqrt(player.Speed.X * player.Speed.X + player.Speed.Z * player.Speed.Z);
+            c.AltAttack.IsDown = player.IsAltForm && gap <= .7f && horizontalSpeed < .08f && _frame % 20 < 3;
+            if (c.AltAttack.IsDown && _frame % 20 == 0) Triggers++;
+            if (_frame % 180 == 0)
+                NetLog.Event($"lockjaw triangle count={count} vertexGap={gap:F2} aligned={aligned} speed={horizontalSpeed:F3} center={victim.Position}");
+        }
+
         private static void DriveRunner(PlayerEntity player, PlayerControls c, PlayerEntity? other)
         {
             if (_continuousMorph)

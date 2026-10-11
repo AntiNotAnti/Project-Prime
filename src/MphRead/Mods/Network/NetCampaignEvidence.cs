@@ -41,7 +41,9 @@ internal static class NetCampaignEvidence
     private static readonly long AllocatedAtStart = GC.GetTotalAllocatedBytes();
     internal static bool RigHasEvidence => _frames >= 60 && States.Count > 0
         && (SpectatorMode.IsSpectating || !HitRig.IsSniper
-            || Offered.Any(key => key.ShooterSlot == NetSession.LocalSlot));
+            || (HitRig.Mode is HitRig.RigMode.BombSamus or HitRig.RigMode.BombKanden or HitRig.RigMode.BombLockjaw
+                ? NetBombEvidence.RequestsAuthored > 0
+                : Offered.Any(key => key.ShooterSlot == NetSession.LocalSlot)));
     private sealed record Shot(string Stage, ShotKey Key, uint SourceFrame, uint ObservedFrame,
         byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase, string? Reason = null,
         int OwnerHealth = -1, ushort CurrentOwnerLife = 0);
@@ -261,6 +263,7 @@ internal static class NetCampaignEvidence
                 CombatPayments = NetCombatPayments.Capture(),
                 SelfSplash = NetSelfSplash.Capture(),
                 ContinuousPayments = NetContinuousPayments.Capture(),
+                Bombs = NetBombEvidence.Capture(),
                 Drain = NetCampaignDrain.Capture(),
                 TransportWindows, Readiness, Windows, ServerSegments, Shots, States, SlowStates, Facts };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);

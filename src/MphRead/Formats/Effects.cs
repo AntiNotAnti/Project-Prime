@@ -766,6 +766,9 @@ namespace MphRead.Effects
         }
         public Vector3 Acceleration { get; set; }
         public bool Func39Called { get; set; }
+        // Network births can precede the first effect pass by several simulation
+        // steps. Preserve their one-shot emission until that pass consumes it.
+        internal bool ModCanonicalBirthPending;
         public float ParticleAmount { get; set; }
         public bool Expired { get; set; }
         public int ChildEffectId { get; set; }

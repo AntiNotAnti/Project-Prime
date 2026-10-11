@@ -97,7 +97,8 @@ public static class NetBootstrapCheck
                     }
                     return;
                 }
-                var data = lane == 0 ? lanes.Fast.AsSpan(0, lanes.FastLength - SnapshotFast.ReceiptSize) : lane == 1
+                var emptyBombs = BombStatePage.PackSnapshot(stamp.Start.MatchId, stamp.Start.AuthorityEpoch, stamp.AuthorityFrame, 0, Array.Empty<BombState>());
+                var data = lane >= 4 ? emptyBombs[lane - 4].AsSpan() : lane == 0 ? lanes.Fast.AsSpan(0, lanes.FastLength - SnapshotFast.ReceiptSize) : lane == 1
                     ? lanes.Slow.AsSpan(0, lanes.SlowLength) : lanes.World.AsSpan(0, lanes.WorldLength);
                 byte[] wire = new byte[2 + WorldBootstrapIdentity.Size + data.Length + (malformed ? 600 : 0)]; wire[0] = (byte)PacketType.WorldBootstrap;
                 stamp.Write(wire.AsSpan(1)); wire[1 + WorldBootstrapIdentity.Size] = (byte)lane;
@@ -116,6 +117,10 @@ public static class NetBootstrapCheck
             Deliver(1, identity);
             Check(!NetSession.WorldIsReady, "objective baseline is required before releasing gameplay");
             Deliver(3, identity);
+            Check(!NetSession.WorldIsReady, "bomb baseline is required before releasing gameplay");
+            Deliver(6, identity); Deliver(4, identity);
+            Check(!NetSession.WorldIsReady, "partial bomb baseline cannot release gameplay");
+            Deliver(5, identity);
             Check(GameState.PrimeHunter == 1, "Prime ownership applied before readiness");
             Check(NetSession.WorldIsReady && NetSession.FreezeGameplay, "complete baseline applied, countdown still required");
             Check(!NetSession.WorldAdmissionConfirmed, "applied bootstrap alone does not confirm authority admission");
@@ -192,6 +197,7 @@ public static class NetBootstrapCheck
             var readmitted = identity with { Revision = 2, SlotGeneration = 2, AuthorityFrame = nextHeader.Frame,
                 SlowRevision = lanes.SlowRevision, WorldRevision = lanes.WorldRevision };
             Deliver(0, readmitted); Deliver(1, readmitted); Deliver(2, readmitted); Deliver(3, readmitted);
+            Deliver(4, readmitted); Deliver(5, readmitted); Deliver(6, readmitted);
             Check(NetSession.WorldIsReady && !NetSession.FreezeGameplay, "same-match re-admission resumes after its new bootstrap");
             Check(!NetSession.WorldAdmissionConfirmed, "fresh baseline still requires its exact authority confirmation");
             DeliverConfirmation(identity);

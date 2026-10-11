@@ -37,6 +37,14 @@ namespace MphRead.NetTest
                     + "  --shot-proof-scene <assets> [room] Test shot proof with real scene assets.");
                 return 0;
             }
+            if (args.Length > 0 && args[0] == "--bomb-protocol") return BombProtocolTests.Run();
+            if (args.Length > 2 && args[0] == "--bomb-effect-birth-scene")
+            {
+                string replay = System.IO.Path.GetFullPath(args[2]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return BombEffectBirthTests.Run(replay);
+            }
             if (args.Length > 0 && args[0] == "--continuous-healing-prediction") return ContinuousHealingPredictionTests.Run();
             if (args.Length > 0 && args[0] == "--continuous-snapshots") return ContinuousSnapshotTests.Run();
             if (args.Length > 1 && args[0] == "--continuous-combat-scene")
@@ -47,6 +55,12 @@ namespace MphRead.NetTest
             }
             if (args.Length > 0 && args[0] == "--combat-reconciliation") return CombatReconciliationTests.Run();
             if (args.Length > 0 && args[0] == "--self-prediction") return SelfPredictionTests.Run();
+            if (args.Length > 1 && args[0] == "--bomb-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return BombSceneTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
             if (args.Length > 1 && args[0] == "--self-splash-scene")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));

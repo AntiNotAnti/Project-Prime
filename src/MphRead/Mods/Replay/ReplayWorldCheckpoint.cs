@@ -22,7 +22,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     internal const int MaximumBytes = 8 * 1024 * 1024;
     private const int MaximumObjects = 32768;
     private const uint Magic = 0x43575050; // PPWC
-    private const ushort Version = 3;
+    private const ushort Version = 4;
     private readonly ReplayPayload _data;
     internal ReadOnlySpan<byte> Bytes => _data.Span;
     internal ReplayPayload Payload => _data;
@@ -208,6 +208,9 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             long cosmetics = ReplayCheckpointWriter.BeginComponent(writer);
             foreach (var player in replay.Scene.Players.Items) player.CosmeticDeathState.Write(writer);
             ReplayCheckpointWriter.EndComponent(writer, cosmetics);
+            long bombs = ReplayCheckpointWriter.BeginComponent(writer);
+            replay.Scene.Bombs.WriteCheckpoint(writer);
+            ReplayCheckpointWriter.EndComponent(writer, bombs);
             ReplayPerfTelemetry.CheckpointBytes = stream.Length;
             return new(stream.Detach(), frame);
         }
@@ -329,6 +332,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         }
         byte[]? assets = version >= 2 ? ReadBytes(reader, MaximumBytes) : null;
         byte[]? cosmetics = version >= 3 ? ReadBytes(reader, 4096) : null;
+        byte[]? bombs = version >= 4 ? ReadBytes(reader, MaximumBytes) : null;
         if (stream.Position != stream.Length || frame != Frame) throw new InvalidDataException("Invalid replay world capsule length/frame.");
         // Allocate and bind every object before following any link. Only this new
         // replica is modified; its caller disposes it if any validation fails.
@@ -409,6 +413,13 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             using var cosmeticReader = new BinaryReader(cosmeticStream);
             foreach (var player in replay.Scene.Players.Items) player.CosmeticDeathState.Read(cosmeticReader);
             if (cosmeticStream.Position != cosmeticStream.Length) throw new InvalidDataException("Invalid cosmetics appendix.");
+        }
+        if (bombs != null)
+        {
+            using var bombStream = new MemoryStream(bombs, writable: false);
+            using var bombReader = new BinaryReader(bombStream);
+            replay.Scene.Bombs.ReadCheckpoint(bombReader);
+            if (bombStream.Position != bombStream.Length) throw new InvalidDataException("Invalid bomb checkpoint appendix.");
         }
         replay.Scene.Random.SetRng1(rng1); replay.Scene.Random.SetRng2(rng2);
     }

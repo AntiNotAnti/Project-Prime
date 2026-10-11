@@ -80,6 +80,8 @@ namespace MphRead.Mods.Network
             public readonly byte[][] Bootstrap = { new byte[1200], new byte[512], new byte[600] };
             public readonly int[] BootstrapLengths = new int[3];
             public byte[][] BootstrapObjectives = Array.Empty<byte[]>();
+            public byte[][] BootstrapBombs = Array.Empty<byte[]>();
+            public NetRetainedDelivery.Cursor? BombCursor;
             public int BootstrapLength;
             public WorldBootstrapIdentity BootstrapIdentity;
             public double BootstrapSentAt;
@@ -497,6 +499,7 @@ namespace MphRead.Mods.Network
                     PumpCampaignBot(now);
                     PumpSemanticDelivery();
                     PumpReplayShotDelivery();
+                    PumpBombDelivery();
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
                     EnsureCareerMatchStarted(now);
                     foreach (ReceivedPacket packet in _transport.Drain(NetPumpBudget.AfterSimulation)) Handle(packet, now);
@@ -505,6 +508,7 @@ namespace MphRead.Mods.Network
                     // the inbox; consume them before deciding a peer was silent.
                     PumpSemanticDelivery();
                     PumpReplayShotDelivery();
+                    PumpBombDelivery();
                     DropTimedOut(now);
 
                     // The server owns the match clock, not the authority client:
@@ -1060,6 +1064,7 @@ namespace MphRead.Mods.Network
             {
                 foreach (var peer in _peers) _transport?.Send(peer.EndPoint, PacketType.ReplayWorld, payload);
             };
+            ResetBombDelivery();
             NetSession.ReplayShotSink = AppendReplayShotDelivery;
             NetSession.MatchSemanticSink = AppendSemanticDelivery;
             // Keep the bounded one-room prewarm cache for same-map rematches.
@@ -1086,6 +1091,7 @@ namespace MphRead.Mods.Network
             _lastSnapshotLength = payload.Length;
             EnsureCanonicalReplay(payload);
             _replication.Prepare(payload);
+            SendBombState(SnapshotHeader.Read(payload).Frame);
             for (int i = 0; i < _peers.Count; i++)
             {
                 SendLane(_peers[i], PacketType.SnapshotFast, _replication.ForRecipient(_peers[i].SlotIndex));
@@ -1205,6 +1211,8 @@ namespace MphRead.Mods.Network
                 case PacketType.Hello:
                     HandleHello(packet, now);
                     break;
+                case PacketType.BombIntent:
+                    HandleBombIntent(packet, now); break;
                 case PacketType.Intent:
                     HandleIntent(packet, now);
                     break;

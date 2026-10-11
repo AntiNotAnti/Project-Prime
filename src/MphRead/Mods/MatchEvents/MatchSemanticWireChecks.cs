@@ -162,7 +162,7 @@ internal static class MatchSemanticWireChecks
         var replica = new ReplayReplicaState(); replica.RestoreCheckpoint(checkpoint);
         require(replica.SemanticEvents.Events.Single() == fact && replica.SemanticEvents.Awards.Single() == award, "replica checkpoint restores semantic facts and awards");
         require(replica.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes), "semantic decoder checkpoint exact roundtrip");
-        byte[] malformed = checkpoint.Bytes.ToArray(); malformed[^9] = 255;
+        byte[] malformed = checkpoint.Bytes.ToArray(); malformed[^13] = 255;
         bool rejected = false;
         try { replica.RestoreCheckpoint(new(malformed)); } catch (InvalidDataException) { rejected = true; }
         require(rejected && replica.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes), "bad semantic checkpoint is atomic");
@@ -189,10 +189,10 @@ internal static class MatchSemanticWireChecks
             BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(4), schema); result[6] = protocol;
             return result;
         }
-        byte[] schemaFive = HistoricalEmpty(5, 42, IntentPacket.Protocol42FullSize, 8);
+        byte[] schemaFive = HistoricalEmpty(5, 42, IntentPacket.Protocol42FullSize, 12);
         var oldFive = new ReplayReplicaState(); oldFive.RestoreCheckpoint(new(schemaFive));
         require(oldFive.SemanticEvents.Events.Count == 0, "schema 5 checkpoints remain readable without presentation frontier");
-        byte[] legacy = HistoricalEmpty(4, 34, IntentPacket.Protocol38FullSize, 16);
+        byte[] legacy = HistoricalEmpty(4, 34, IntentPacket.Protocol38FullSize, 20);
         replica.RestoreCheckpoint(new(legacy));
         require(replica.Match?.MatchId == 1 && replica.SemanticEvents.Events.Count == 0, "protocol34 version4 checkpoint remains readable");
     }

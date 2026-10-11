@@ -4049,6 +4049,7 @@ namespace MphRead
             entry.OwnTransform = Matrix4.Identity;
             entry.Transform = Matrix4.Identity;
             entry.ParticleAmount = 0;
+            entry.ModCanonicalBirthPending = false;
             entry.Expired = false;
             entry.ChildEffectId = (int)element.ChildEffectId;
             entry.Acceleration = element.Acceleration;
@@ -4067,6 +4068,7 @@ namespace MphRead
 
         private void UnlinkEffectElement(EffectElementEntry element)
         {
+            Mods.Network.NetBombVisibilityProbe.ElementReleased(element);
             if (!_activeElements.Remove(element))
             {
                 Debug.Assert(false, "Effect element was released more than once.");
@@ -4169,7 +4171,16 @@ namespace MphRead
             SpawnEffect(effectId, transform, child, entry: null, entCol);
         }
 
-        private void SpawnEffect(int effectId, Matrix4 transform, bool child, EffectEntry? entry, EntityCollision? entCol)
+        internal void SpawnCanonicalBombEffect(int effectId, Matrix4 transform)
+        {
+            int start = Mods.Network.NetBombVisibilityProbe.CapturingTerminal(this) ? _activeElements.Count : -1;
+            SpawnEffect(effectId, transform, child: false, entry: null, entCol: null, canonicalBirth: true);
+            if (start >= 0)
+                Mods.Network.NetBombVisibilityProbe.RegisterTerminal(this, effectId, transform, _activeElements.Skip(start).ToArray());
+        }
+
+        private void SpawnEffect(int effectId, Matrix4 transform, bool child, EffectEntry? entry, EntityCollision? entCol,
+            bool canonicalBirth = false)
         {
             Effect? effect = Read.GetEffect(effectId);
             if (effect == null)
@@ -4185,6 +4196,7 @@ namespace MphRead
                 {
                     return;
                 }
+                element.ModCanonicalBirthPending = canonicalBirth;
                 if (entry != null)
                 {
                     element.EffectEntry = entry;
@@ -4288,10 +4300,24 @@ namespace MphRead
         }
 
         private void ProcessEffects(ulong effectFrame)
+            => ProcessEffectsCore(effectFrame, canonicalBirthsOnly: false);
+
+        private void ProcessEffectsCore(ulong effectFrame, bool canonicalBirthsOnly)
         {
             for (int i = 0; i < _activeElements.Count; i++)
             {
                 EffectElementEntry element = _activeElements[i];
+                bool canonicalBirth = element.ModCanonicalBirthPending;
+                if (canonicalBirthsOnly && !canonicalBirth) continue;
+                if (canonicalBirth)
+                {
+                    // Catch-up simulation can advance the clock before any effect
+                    // pass runs. Start this replica's visual lifetime now so its
+                    // zero-age emitter cannot be skipped or expire unseen.
+                    element.ExpirationTime += _elapsedTime - element.CreationTime;
+                    element.CreationTime = _elapsedTime;
+                    element.ModCanonicalBirthPending = false;
+                }
                 if (!element.Expired && _elapsedTime > element.ExpirationTime)
                 {
                     if (element.EffectEntry == null && !element.Flags.TestFlag(EffElemFlags.KeepAlive))
@@ -4333,7 +4359,7 @@ namespace MphRead
                         element.Transform = element.OwnTransform;
                     }
                     var times = new TimeValues(_elapsedTime, _elapsedTime - element.CreationTime, element.Lifespan);
-                    if (effectFrame % 2 == (ulong)element.Parity
+                    if ((canonicalBirth || effectFrame % 2 == (ulong)element.Parity)
                         && element.Actions.TryGetValue(FuncAction.IncreaseParticleAmount, out FxFuncInfo? info))
                     {
                         // todo: maybe revisit this frame time hack
@@ -5127,6 +5153,23 @@ namespace MphRead
             }
         }
 
+        private void PrepareEffectDraw()
+        {
+            if (ProcessFrame && this.GameState.MatchState == MatchState.InProgress && !this.GameState.DialogPause)
+            {
+                for (int i = 0; i < _pendingEffectSteps; i++)
+                {
+                    ulong owed = (ulong)(_pendingEffectSteps - 1 - i);
+                    ProcessEffects(_effectFrame >= owed ? _effectFrame - owed : _effectFrame);
+                }
+            }
+            _pendingEffectSteps = 0;
+            // Loading may publish a canonical baseline before any simulation
+            // step is owed. Emit only new canonical visuals on this first draw;
+            // repeated draws do not advance existing or ordinary native effects.
+            ProcessEffectsCore(_effectFrame, canonicalBirthsOnly: true);
+        }
+
         private void GetDrawItems()
         {
             if (this.GameState.MenuPause)
@@ -5194,18 +5237,7 @@ namespace MphRead
                 }
             }
 
-            if (ProcessFrame && this.GameState.MatchState == MatchState.InProgress && !this.GameState.DialogPause)
-            {
-                for (int i = 0; i < _pendingEffectSteps; i++)
-                {
-                    // Oldest owed step first, and each advanced under its own
-                    // effect frame -- so an element spawned during that step
-                    // sees the parity it was created with.
-                    ulong owed = (ulong)(_pendingEffectSteps - 1 - i);
-                    ProcessEffects(_effectFrame >= owed ? _effectFrame - owed : _effectFrame);
-                }
-            }
-            _pendingEffectSteps = 0;
+            PrepareEffectDraw();
 
             for (int i = 0; i < _activeElements.Count; i++)
             {

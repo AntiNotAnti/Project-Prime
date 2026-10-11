@@ -393,6 +393,7 @@ namespace MphRead.Mods.Network
 
         private static void Stop(bool preserveRoomPrewarm)
         {
+            NetBombs.Reset(); BombEventSink = null;
             NetTelemetry.FullSessionReset();
             ResetLobbySession();
             if (!preserveRoomPrewarm) Mods.RoomPrewarm.Clear();
@@ -832,6 +833,9 @@ namespace MphRead.Mods.Network
                 case PacketType.SessionState when Role == NetRole.Client:
                     if (SessionStatePacket.TryRead(packet.Payload, out var session)) ApplySessionState(session);
                     break;
+                case PacketType.BombEvent when Role == NetRole.Client:
+                case PacketType.BombState when Role == NetRole.Client:
+                    HandleBombPacket(packet); break;
                 case PacketType.SnapshotFast:
                 case PacketType.PlayerSlowState:
                 case PacketType.WorldState:
@@ -1579,6 +1583,7 @@ namespace MphRead.Mods.Network
             if (state.Ending && previous?.Ending != true) ReplayCapture.Event(ReplayEventType.MatchEnded);
             if (newMatch || newEpoch)
             {
+                NetBombs.Reset();
                 _hasSnapshot = false;
                 _lastSnapshotFrame = SnapshotArrived = AppliedSnapshotFrame = 0;
                 _hasRoster = false;

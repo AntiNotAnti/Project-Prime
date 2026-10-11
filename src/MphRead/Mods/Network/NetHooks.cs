@@ -226,6 +226,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            if (HitRig.HoldTriangleFixtureRemoteInput(player)) return;
             // A client whose puppets belong to the snapshot puts them back
             // where the snapshot said, not where the owner's intent did.
             // Skipping the restore altogether -- which is what this did on its
@@ -368,6 +369,7 @@ namespace MphRead.Mods.Network
                     NetSession.RemoteStates[slot]);
                 NetTimingDiagnostics.PresentationCorrection(current, player.Position);
             }
+            if (HitRig.HoldTriangleFixtureRemoteInput(player)) return true;
             if (player.LoadFlags.TestFlag(LoadFlags.Active) && NetSession.RemoteIntentValid[slot])
             {
                 if (player.LoadFlags.TestFlag(LoadFlags.Spawned) && player.Health > 0
@@ -511,6 +513,7 @@ namespace MphRead.Mods.Network
             // Peers join and leave mid-match; bring the scene's active slots
             // in line with the server's roster every frame.
             NetSlotManager.Sync();
+            NetSession.ApplyBombPackets();
             // Apply an allocated life before input is stamped or simulation
             // can hit a body still belonging to the previous life.
             if (NetSession.IsClient && !NetSession.IsAuthority && NetRoomChange.GameplayReady)
@@ -609,6 +612,8 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            HitRig.SetupNetworkTriangleFixtureOnce();
+            NetBombs.AfterSimulation();
             NetBotInput.Flush();
             if (_continuousIntentPending)
             {
