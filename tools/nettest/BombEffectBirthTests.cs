@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using MphRead;
 using MphRead.Entities;
+using MphRead.Mods;
 using MphRead.Mods.Network;
 using MphRead.Mods.Replay;
 using OpenTK.Mathematics;

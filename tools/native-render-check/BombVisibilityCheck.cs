@@ -41,11 +41,6 @@ sealed class BombVisibilityCheck
         Add(3, BombType.Lockjaw, 1, 0, _target - Vector3.UnitX * .8f, 0, 0);
         Add(3, BombType.Lockjaw, 2, 1, _target + Vector3.UnitX * .8f, 1, 0);
         Add(3, BombType.Lockjaw, 3, 2, _target + Vector3.UnitZ * 1.4f, 1, 2);
-        // The diagnostic injects after the native draw, whereas gameplay places
-        // bombs before that step's emitter pass. Run that same native pass at
-        // the unchanged birth timestamp; zero-age emitters otherwise never emit.
-        ulong effectFrame = (ulong)typeof(Scene).GetField("_effectFrame", Private)!.GetValue(scene)!;
-        typeof(Scene).GetMethod("ProcessEffects", Private)!.Invoke(scene, new object[] { effectFrame });
         void Add(int slot, BombType kind, uint sequence, byte index, Vector3 position, uint link0, uint link1)
         {
             var state = new BombState(new ShotKey(1, 1, slot, 1, 1, sequence), kind,
@@ -105,7 +100,7 @@ sealed class BombVisibilityCheck
             Check("edge-3-2", 4, 2u);
             if (_scene.FrameCount != frame) failures.Add("simulation advanced during frozen GPU check");
             Evidence = new { schema = 1, scope = "local canonical replica GPU fixture; UDP sequencing audited separately",
-                emitterInitialization = "native ProcessEffects at unchanged birth timestamp after diagnostic injection",
+                emitterInitialization = "production replica Process creates deferred effects before the native effect pass",
                 status = failures.Count == 0 ? "PASS" : "FAIL", simulationFrame = frame,
                 matchState = _scene.GameState.MatchState.ToString(), _scene.GameState.MenuPause, _scene.GameState.DialogPause,
                 processFrame = _scene.ProcessFrame, effectFrame = typeof(Scene).GetField("_effectFrame", Private)!.GetValue(_scene),
