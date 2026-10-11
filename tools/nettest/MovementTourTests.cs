@@ -143,6 +143,7 @@ internal static class MovementTourTests
             // Initialize/spawn in Roam so the headless fixture never initializes
             // GPU HUD resources; then select the real local simulation branches.
             typeof(Scene).GetField("_cameraMode", Private)!.SetValue(scene, CameraMode.Player);
+            inputMode.SetValue(scene, Enum.Parse(inputMode.FieldType, "All"));
             Require(player.IsMainPlayer, "fixture selects actual native local-player path");
             walkStart = player.Position; trackWalk = true;
             Steps(24, Keys.W); Steps(24, Keys.D); Steps(24, Keys.S); Steps(24, Keys.A); Steps(20);
