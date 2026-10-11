@@ -100,7 +100,7 @@ sealed class BombVisibilityCheck
             Check("edge-3-2", 4, 2u);
             if (_scene.FrameCount != frame) failures.Add("simulation advanced during frozen GPU check");
             Evidence = new { schema = 1, scope = "local canonical replica GPU fixture; UDP sequencing audited separately",
-                emitterInitialization = "production replica Process creates deferred effects before the native effect pass",
+                emitterInitialization = "production canonical replica initialization/Process and normal native effect draw pass; no fixture priming",
                 status = failures.Count == 0 ? "PASS" : "FAIL", simulationFrame = frame,
                 matchState = _scene.GameState.MatchState.ToString(), _scene.GameState.MenuPause, _scene.GameState.DialogPause,
                 processFrame = _scene.ProcessFrame, effectFrame = typeof(Scene).GetField("_effectFrame", Private)!.GetValue(_scene),

@@ -50,17 +50,26 @@ internal static class NetBombVisibilityProbe
         foreach (BombEntity bomb in bombs)
         {
             if (!bomb.ModReplica || bomb.Flags.TestFlag(BombFlags.Exploded) || !NetBombs.Current(bomb.ModOwnerKey)) continue;
-            Probe(bomb, null);
+            ProbeFully(bomb, null);
             if (bomb.BombType == BombType.Lockjaw)
                 foreach (uint link in new[] { bomb.ModLink0, bomb.ModLink1 })
                 {
                     if (link == 0) continue;
                     BombEntity? target = bombs.FirstOrDefault(b => b.ModReplica && b.ModOwnerKey == (bomb.ModOwnerKey with { ShotId = link })
                         && !b.Flags.TestFlag(BombFlags.Exploded));
-                    if (target != null) Probe(bomb, target);
+                    if (target != null) ProbeFully(bomb, target);
                 }
         }
         Save();
+
+        void ProbeFully(BombEntity bomb, BombEntity? target)
+        {
+            string id = bomb.ModOwnerKey + (target == null ? "/body" : "/link/" + target.ModOwnerKey);
+            // Retry unsupported geometry in this same world frame: a short-lived
+            // replica may be gone before another render. Definite failures stop.
+            while (!Finished.Contains(id) && (!Attempts.TryGetValue(id, out int count) || count < 8))
+                Probe(bomb, target);
+        }
 
         void Probe(BombEntity bomb, BombEntity? target)
         {
