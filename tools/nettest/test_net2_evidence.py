@@ -769,7 +769,7 @@ class RunnerRoleTests(unittest.TestCase):
 
     def test_alt_morph_headless_late_observer_and_real_shooter_roles(self):
         args = self.args("--scenario", "alt-morph", "--players", "3", "--seconds", "20", "--observer-delay", "6", "--profile", "extreme")
-        self.assertEqual(args.protocol, 49)
+        self.assertEqual(args.protocol, 50)
         self.assertFalse(args.rendered)
         self.assertEqual(self.runner.client_role(args, 0), ("Samus", False, True))
         self.assertEqual(self.runner.client_role(args, 1), ("Weavel", False, False))

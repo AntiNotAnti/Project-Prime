@@ -226,7 +226,9 @@ sealed class NetImpactPresentationCheck
         }
         finally
         {
-            foreach (var beam in spawned) { beam.Destroy(); beam.Lifespan = 0; }
+            // Native recycle pairs destruction with removal: a destroyed trail
+            // has no model and must not enter another draw before Process runs.
+            foreach (var beam in spawned) { beam.Destroy(); _scene.RemoveEntity(beam); }
             foreach (var pair in originalDraw) typeof(EntityBase).GetProperty(nameof(EntityBase.ShouldDraw))!.SetValue(pair.Key, pair.Value);
             victim.Health = oldHealth;
             Array.Copy(oldTrackers, trackers, trackers.Length);

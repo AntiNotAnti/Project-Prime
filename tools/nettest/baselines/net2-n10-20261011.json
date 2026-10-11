@@ -1,0 +1,226 @@
+{
+  "milestone": "N10",
+  "date": "2026-10-11",
+  "status": "VERIFIED_READY_FOR_PR_AND_MERGE",
+  "source": "bd40bbc728511c1ca182dba4d8f58d887603ff67",
+  "productionCampaignSource": "eee7899d0bafab9dbf21ff454300eb0c2660ac11",
+  "protocol": 50,
+  "defaultEnabled": false,
+  "platform": "macOS arm64",
+  "runtime": {
+    "sdk": "10.0.401"
+  },
+  "engineSha256": "082179b1d8d6a7289c3d431342b68b97f30820087097f0724aeed022e1162d57",
+  "evidence": [
+    {
+      "path": "artifacts/net2-n10/attempt-02/focused/manifest.json",
+      "sha256": "88e4512b4d44d7f53bd3dc9b475440569a23f2c00afa70f1f49119e14c75c746"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/focused/confirmed-impacts.log",
+      "sha256": "cb99ccf3a8291690a0255347e375939b6d14b1be544b8fb7fa940fd822582bd1"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/focused/queue-budget.log",
+      "sha256": "15dfab687c9f45705140d159147c19f6276d675c13ca58c02498af7b00f1ee95"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/focused/impact-authority.log",
+      "sha256": "70027ed02b669c38a65337c8ef9302140a00f4da1596fcda90230bd47941d323"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/focused/python-all.log",
+      "sha256": "e137202d4a38a7859dfef8c43d2625d0f7baf686b17cdf657b38984f97474299"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/focused/python-all-protocol50.log",
+      "sha256": "f07b34d3e868fb66633003a49fa0ebd3f67b6f7e5cad9f61a85c3ac622428381"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/replay/manifest.json",
+      "sha256": "8380a787218fbcadfd768a556290b0f92e5dfb2d7b34bc53cd2b1307b87ce554"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/replay/format.log",
+      "sha256": "14b152895db68e8f3d3e983d4e908bd2062af0aa743a215ca1a9d2a168f5e32f"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/replay/control.log",
+      "sha256": "de363a31cb0b2063cbd530daad68e3f6a65c70029a4445e4e9033da0a94bc9bf"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-01/mac-cues-extreme/manifest.json",
+      "sha256": "a454293bd5917d42620852db31bf3883b7b1bb06d67e8b3b4c3e36710db0e8aa"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-01/mac-cues-extreme/summary.json",
+      "sha256": "e665bb6cac49169e07a4370ccf273898dd78186a3c84a0ee62e74e3a4e767544"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-01/impact-audit.json",
+      "sha256": "d6b5074e29acdf7d1db1896b2917a7a514962c58be9838ae361932e514c86d60"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-01/mac-cues-off-lan/manifest.json",
+      "sha256": "3b5704b63d3a507639ed1c0e6f7f05614b0632f5a3049bd7c91756ba1dbb6587"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-01/mac-cues-off-lan/summary.json",
+      "sha256": "2d1bec9a45e19421599de58191769f25d12d657443f8e2b45d1d47725b4741e9"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-01/control-impact-audit.json",
+      "sha256": "9e5d2c7456e00b23f5f40be85fb2a49acabb2d18a8ecc0405dc2fcd1f9684fdd"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/gpu-01/manifest.json",
+      "sha256": "1b80d1eb811f0d161c5615d8e1a6741123c5a38a5f208446c0f008f4586c4b9b"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/gpu-02-display-wake/manifest.json",
+      "sha256": "991e389ec926ec7515a3ef3e14dbed01a6523b39f37a7c91652206cc6a2c72ad"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/gpu-03-sanctorus/manifest.json",
+      "sha256": "0046f1dcfb616502c757fa202e7055d2e6851ac1e27d7b07cfe06b0b692265a2"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/gpu-03-sanctorus/pixel-inspection.json",
+      "sha256": "784dd93d0eb1865a5318b10c62a3a4c175a7c7ee3e3b235321f28666e925dbde"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/gpu-04-cleanup-fixed/manifest.json",
+      "sha256": "1ce604cdc2d1968d6adfe17d7217e868e7c465197eacd74ed2108549285e40c1"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/gpu-04-cleanup-fixed/result.json",
+      "sha256": "ce662a989c92a3da8fde1fb81dc9e4af755afae97d06a567ee9b5b3a043ff2e3"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/gpu-04-cleanup-fixed/shots/impact-presentation/evidence.json",
+      "sha256": "1fe1039026d0964c9d50974f08990dce5487a0907b33f2afa9067431109c7990"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/gpu-04-cleanup-fixed/pixel-verification.json",
+      "sha256": "d9e7ed02225d8f2182b8e6290e41ce56dc483777d1d96d24637b52d2d8518531"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/native-fixture-04/build-manifest.json",
+      "sha256": "17530a29a456c6fdc58765ea9f60324f3803eff287513f25444a428a1ee73419"
+    }
+  ],
+  "checks": {
+    "confirmedImpactAssertions": 11696,
+    "udpSpoofSuite": "PASS (called from confirmed-impact suite)",
+    "queueBudget": "PASS",
+    "nativeAuthorityAssertions": 10,
+    "replayFormatChecks": 3013,
+    "replayControl": "PASS",
+    "pythonTests": 296,
+    "pythonStatus": "PASS after narrow default-protocol fixture correction",
+    "campaigns": [
+      {
+        "path": "artifacts/net2-n10/attempt-01/mac-cues-extreme",
+        "source": "eee7899d",
+        "enabled": true,
+        "base": "PASS",
+        "impactAudit": "PASS",
+        "authorityPublished": 9,
+        "peerAccepted": [
+          8,
+          9,
+          8
+        ],
+        "unreliableMissingDeliveries": [
+          1,
+          0,
+          1
+        ],
+        "rendered": false,
+        "profile": "extreme",
+        "players": 3,
+        "observerDelay": 5.5,
+        "seconds": 20,
+        "drainMaxSeconds": 20
+      },
+      {
+        "path": "artifacts/net2-n10/attempt-01/mac-cues-off-lan",
+        "source": "eee7899d",
+        "enabled": false,
+        "base": "PASS",
+        "impactAudit": "PASS",
+        "authorityPublished": 0,
+        "peerAccepted": [
+          0,
+          0,
+          0
+        ],
+        "rendered": false,
+        "profile": "lan"
+      }
+    ],
+    "gpu": {
+      "status": "PASS",
+      "processExit": 0,
+      "room": "MP1 SANCTORUS",
+      "pixelArms": 13,
+      "pngVerified": 39,
+      "positiveCuePixels": [
+        324,
+        324,
+        324,
+        324,
+        324
+      ],
+      "exactComponentProjectilePixels": 1338,
+      "wallPixels": [
+        0,
+        0
+      ],
+      "unstablePixels": 0,
+      "redrawHz": [
+        60,
+        120,
+        144,
+        240,
+        360
+      ],
+      "authorityNativeHealth": [
+        99,
+        98
+      ],
+      "clientLocalFrame": 1400,
+      "authoritySnapshotFrame": 400,
+      "toolSha256": "f1fd7bae7d24a1948d8a5cbd717356a40c9ecc0aefc4b79bf91813eb2877836d",
+      "testSourceSha256": "aabf86830f3766eeca0c9ac632e235ab54c24480f15895726e7954523dee7a1a",
+      "fixtureChange": "Test-only native Destroy plus scene.RemoveEntity cleanup; immutable engine unchanged",
+      "scope": "Isolated authority-backed native TakePlayerDamageAt endpoint/framebuffer fixture, explicit source identity; no UDP or physical collision replay claim"
+    }
+  },
+  "pending": [],
+  "preservedDiagnostics": [
+    {
+      "path": "artifacts/net2-n10/attempt-02/gpu-01",
+      "result": "FAIL before GL; asleep display"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/gpu-02-display-wake",
+      "result": "FAIL after GL context; no actual clear/wall camera pair, visibility unexercised"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/focused/python-all.log",
+      "result": "295/296 pass; stale fixture expected49 instead of default50; rerun separately retained"
+    },
+    {
+      "path": "artifacts/net2-n10/attempt-02/gpu-03-sanctorus",
+      "result": "Pixel arms PASS but process FAIL at test fixture cleanup; original retained"
+    }
+  ],
+  "scope": [
+    "Independent cosmetic codec/connection ACK and sequence windows/packet and byte budgets/seeded fault queues",
+    "Exact accepted fact authority provenance and full-key deduplication; bounded manager lifecycle and expiry",
+    "Native finalized damage publication and off-control native damage behavior",
+    "Mac only; no Windows, soak, live campaign pixel or performance threshold claim",
+    "Actual isolated framebuffer positive/occluded and exact-component association proof; live UDP provenance tested separately"
+  ]
+}
