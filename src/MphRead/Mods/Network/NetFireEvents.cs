@@ -379,7 +379,8 @@ public static class NetFireEvents
     }
     private static bool CanAuthor(PlayerEntity player) => !NetSession.Active
         || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8
-        || For(player.SlotIndex).Outgoing.CanAdd(NetSession.NetFrame);
+        || (!NetSession.FreezeGameplay && NetSession.WorldAdmissionConfirmed
+            && For(player.SlotIndex).Outgoing.CanAdd(NetSession.NetFrame));
     internal static bool CanFire(PlayerEntity player) => UsesEvents(player) ? HasPending(player) : CanAuthor(player);
     /// <summary>
     /// Scope belongs to the authored Imperialist shot, not necessarily to the
@@ -452,6 +453,7 @@ public static class NetFireEvents
             state.Selected = false;
             return;
         }
+        if (!CanAuthor(player)) { state.Active = default; return; }
         uint id = unchecked(++state.NextId); if (id == 0) id = ++state.NextId;
         var kind = turret ? FireEventKind.TurretFire : player.EquipInfo.Weapon.Flags.TestFlag(WeaponFlags.Continuous)
             ? FireEventKind.ContinuousTick : player.EquipInfo.ChargeLevel >= player.EquipInfo.Weapon.MinCharge * 2

@@ -32,7 +32,7 @@ public readonly record struct WorldBootstrapIdentity(MatchStartIdentity Start, u
 
 public static partial class NetSession
 {
-    private static WorldBootstrapIdentity? _appliedBootstrap, _receivingBootstrap;
+    private static WorldBootstrapIdentity? _appliedBootstrap, _receivingBootstrap, _confirmedBootstrap;
     private static readonly NetReplicationReceiver _bootstrapReceiver = new();
     private static readonly byte[] _bootstrapFast = new byte[1200];
     private static int _bootstrapFastLength;
@@ -45,6 +45,20 @@ public static partial class NetSession
     public static bool WorldIsReady => ServerSession is not { } session || IsAuthority || IsHost || _playback
         || _appliedBootstrap is { } baseline && baseline.Start == StartIdentity(session)
             && baseline.SlotGeneration == NetPlayerLifecycle.Generation(LocalSlot);
+    // Local firing starts only after the authority has opened this exact
+    // admission. Applying the baseline alone precedes WorldReady delivery and
+    // can otherwise spend the entire resend window on discarded intents.
+    internal static bool WorldAdmissionConfirmed => ServerSession is not { } session
+        || IsAuthority || IsHost || _playback
+        || WorldIsReady && _appliedBootstrap is { } baseline
+            && baseline.Start == StartIdentity(session) && _confirmedBootstrap == baseline;
+    private static void HandleWorldReadyConfirmation(ReceivedPacket packet)
+    {
+        if (packet.Payload.Length == WorldBootstrapIdentity.Size
+            && WorldBootstrapIdentity.TryRead(packet.Payload, out var ready)
+            && _appliedBootstrap == ready && WorldIsReady)
+            _confirmedBootstrap = ready;
+    }
     private static void HandleWorldBootstrap(ReceivedPacket packet)
     {
         if (!_hasRoster || ServerSession is not { } session || _loadedStart != StartIdentity(session)
@@ -239,6 +253,9 @@ public sealed partial class DedicatedServer
             D: peer.FirstBootstrapAt < 0 ? -1 : (now - peer.FirstBootstrapAt) * 1000));
         peer.MatchReady = true;
         peer.AdmissionReady = true;
+        // Reliable echo confirms the same revision/incarnation; no new wire
+        // shape is needed and a lost confirmation is retransmitted normally.
+        _transport?.Send(peer.EndPoint, PacketType.WorldReady, packet.Payload);
         if (_phase == SessionPhase.Starting && _start.MarkWorldReady(peer.SlotIndex, ready.Start))
         { TouchLobbyRevision($"slot {peer.SlotIndex} world ready"); CheckLoadBarrier(now); }
     }
