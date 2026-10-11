@@ -226,6 +226,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            if (HitRig.HoldTriangleFixtureRemoteInput(player)) return;
             // A client whose puppets belong to the snapshot puts them back
             // where the snapshot said, not where the owner's intent did.
             // Skipping the restore altogether -- which is what this did on its
