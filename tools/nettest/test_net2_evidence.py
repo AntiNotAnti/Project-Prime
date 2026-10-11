@@ -428,6 +428,26 @@ class EvidenceTests(unittest.TestCase):
                 if row["Key"]["ShotId"]==6:row["SourceFrame"]=40000
         self.write();self.assertEqual(self.result()["status"],"PASS")
 
+    def test_recovery_form_clocks_wrap_and_future_started_forms_fail(self):
+        row=self.unavailable_turret_expiry_fixture()
+        accepted_at=2**32-33;terminal_at=40;started=2**32-100
+        accepted=struct.pack("<IIB3fBHHH",accepted_at,started,3,0.,0.,0.,0,0,2,99).hex()
+        terminal=struct.pack("<IIB3fBHHH",terminal_at,started,3,0.,0.,0.,0,0,2,99).hex()
+        row.update(ObservedFrame=terminal_at,AcceptedObservedFrame=accepted_at,
+                   AcceptedFormSource=accepted,RetiredFormSource=terminal)
+        offered=next(r for r in self.server["Shots"] if r["Stage"]=="accepted" and r["Key"]["ShotId"]==6)
+        offered.update(ObservedFrame=accepted_at,AcceptedObservedFrame=accepted_at,AcceptedFormSource=accepted)
+        self.server["Forms"][0].update(ObservedFrame=terminal_at,Source=terminal)
+        self.server["Forms"][1].update(ObservedFrame=accepted_at,Source=accepted)
+        self.write();self.assertEqual(self.result()["status"],"PASS")
+        future=struct.pack("<IIB3fBHHH",terminal_at,terminal_at+1,3,0.,0.,0.,0,0,2,99).hex()
+        row["RetiredFormSource"]=future;self.server["Forms"][0]["Source"]=future
+        self.write();self.assertEqual(self.result()["status"],"FAIL")
+        row["RetiredFormSource"]=terminal;self.server["Forms"][0]["Source"]=terminal
+        future=struct.pack("<IIB3fBHHH",accepted_at,accepted_at+1,3,0.,0.,0.,0,0,2,99).hex()
+        row["AcceptedFormSource"]=offered["AcceptedFormSource"]=future;self.server["Forms"][1]["Source"]=future
+        self.write();self.assertEqual(self.result()["status"],"FAIL")
+
     def test_exact_newer_owner_life_proves_retired_source_without_sampled_death(self):
         r=self.turret_retirement_fixture();r["CurrentOwnerLife"]=5;self.server["Forms"][0]["Life"]=5
         self.write();self.assertEqual(self.result()["status"],"PASS")

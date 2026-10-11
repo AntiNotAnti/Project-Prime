@@ -95,7 +95,7 @@ def authority_turret_retirements(report, authority_accepted):
             frame, started, phase = struct.unpack_from("<IIB",raw)
             anchor = struct.unpack_from("<3f",raw,9)
             active, turret_hp, damage, body_hp = struct.unpack_from("<BHHH",raw,21)
-            if frame != observed or started > frame or phase not in (1,2,3,4) or active > 1 or any(not math.isfinite(v) or abs(v)>100000 for v in anchor):
+            if frame != observed or 0 < (started-frame) % 2**32 < 2**31 or phase not in (1,2,3,4) or active > 1 or any(not math.isfinite(v) or abs(v)>100000 for v in anchor):
                 raise ValueError("invalid retired form clock/state")
             unavailable_at_expiry = row.get("Reason") == TURRET_UNAVAILABLE_REASON
             if unavailable_at_expiry:
@@ -122,7 +122,7 @@ def authority_turret_retirements(report, authority_accepted):
                 aframe, astarted, aphase = struct.unpack_from("<IIB",accepted_raw)
                 aanchor = struct.unpack_from("<3f",accepted_raw,9)
                 aactive, ahp, adamage, abody = struct.unpack_from("<BHHH",accepted_raw,21)
-                if (aframe != accepted_at or astarted > aframe or aphase not in (1,2,3,4)
+                if (aframe != accepted_at or 0 < (astarted-aframe) % 2**32 < 2**31 or aphase not in (1,2,3,4)
                         or aactive != 0 or ahp != 0
                         or any(not math.isfinite(v) or abs(v)>100000 for v in aanchor)):
                     raise ValueError("accepted turret was available or form clock/state is invalid")
