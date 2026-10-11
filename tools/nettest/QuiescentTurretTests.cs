@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using MphRead;
 using MphRead.Entities;
 using MphRead.Formats;
@@ -21,7 +22,7 @@ internal static class QuiescentTurretTests
     private static void Frame(uint value) => typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, value);
     private static void Session(string name, object value) => typeof(NetSession).GetProperty(name)!.SetValue(null, value);
 
-    internal static int Run(string room)
+    internal static int Run(string room, bool blockedPose = false)
     {
         _checks = 0;
         if (!ServerSim.Available(out string reason)) { Console.Error.WriteLine(reason); return 1; }
@@ -83,6 +84,38 @@ internal static class QuiescentTurretTests
             for (int i = 0; i < 180 && (owner.IsMorphing || !owner.IsAltForm); i++) Step(morph: true);
             Check(owner.IsAltForm && !owner.IsMorphing && owner.Halfturret.Health > 0
                 && owner.Flags2.TestFlag(PlayerFlags2.Halfturret), "ordinary native input creates active autonomous turret");
+            if (blockedPose)
+            {
+                // Diagnostic setup only: exact recorded native body/anchor.
+                // After placement, all contact flags and transitions are native.
+                owner.ModPlaceAt(new Vector3(-10.168701f, 6.5998535f, -21.17309f));
+                owner.Halfturret.Position = new Vector3(-2.4331388f, .45f, -25.836033f);
+                object Gate()
+                {
+                    object? Field(string name) => typeof(PlayerEntity).GetField(name, Private)!.GetValue(owner);
+                    return new { frame = NetSession.NetFrame, x = owner.Position.X, y = owner.Position.Y, z = owner.Position.Z,
+                        speedX = owner.Speed.X, speedY = owner.Speed.Y, speedZ = owner.Speed.Z,
+                        health = owner.Health, alt = owner.IsAltForm, morph = owner.IsMorphing, unmorph = owner.IsUnmorphing,
+                        canOccupyBiped = (bool)typeof(PlayerEntity).GetMethod("CanOccupyCollisionForm", Private)!.Invoke(owner, new object[] { false })!,
+                        noUnmorph = owner.Flags1.TestFlag(PlayerFlags1.NoUnmorph),
+                        noFormSwitch = owner.Flags2.TestFlag(PlayerFlags2.NoFormSwitch), morphCamera = owner.MorphCamera != null,
+                        frozen = Field("_frozenTimer"), field6D0 = Field("_field6D0"), deathalt = Field("_deathaltTimer"),
+                        turretX = owner.Halfturret.Position.X, turretY = owner.Halfturret.Position.Y, turretZ = owner.Halfturret.Position.Z,
+                        turretHealth = owner.Halfturret.Health, flags1 = (uint)owner.Flags1, flags2 = (uint)owner.Flags2 };
+                }
+                Console.WriteLine("BLOCKED SETUP " + JsonSerializer.Serialize(Gate()));
+                Step(); Console.WriteLine("BLOCKED NATIVE CONTACT " + JsonSerializer.Serialize(Gate()));
+                for (int i = 0; i < 180; i++)
+                {
+                    Step(quiesce: true);
+                    if (owner.Controls.Morph.IsPressed) Console.WriteLine("BLOCKED NATIVE PULSE " + JsonSerializer.Serialize(Gate()));
+                }
+                Console.WriteLine("BLOCKED FINAL " + JsonSerializer.Serialize(Gate()));
+                Check(owner.IsAltForm && !owner.IsUnmorphing && owner.Flags1.TestFlag(PlayerFlags1.NoUnmorph),
+                    "recorded pose native overhead contacts prohibit expansion despite ordinary unmorph pulses");
+                Console.WriteLine($"QUIESCENT BLOCKED TURRET: {_checks} checks PASS; exact fixture records native refusal, not successful drain");
+                return 0;
+            }
             // Existing flight is an actual native projectile, not a synthetic
             // lifespan/pose witness. Native physics moves it before quiescence.
             Vector3 origin = owner.Halfturret.Position + Vector3.UnitY * .4f, direction = Vector3.Zero;
