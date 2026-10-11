@@ -33,10 +33,15 @@ internal static class ReplayReplicaSeekChecks
             }
             if (player.Current.Session.CurrentFrame != target)
                 throw new InvalidDataException($"Replica seek target mismatch: requested={requested}, target={target}, actual={player.Current.Session.CurrentFrame}, restore={player.SeekRestoreFrame}, steps={player.SeekSimulationSteps}, rejectedCheckpoints={player.RejectedCheckpoints}.");
-            if (player.RejectedCheckpoints != 0)
-                throw new InvalidDataException($"Replica seek reached target {target}, but rejected {player.RejectedCheckpoints} checkpoints; restore={player.SeekRestoreFrame}, steps={player.SeekSimulationSteps}. Legacy format fallback has not been exempted.");
+            // File capsules may use an older world layout. Their documented
+            // fallback must still reach the exact target with identical state.
+            // A newly captured memory capsule must never require that fallback.
+            if (player.RejectedCheckpoints != player.RejectedDurableCheckpoints)
+                throw new InvalidDataException($"Replica seek rejected a memory checkpoint at target {target}; total={player.RejectedCheckpoints}, durable={player.RejectedDurableCheckpoints}, error={player.LastCheckpointError}.");
             Compare(player.Current); comparisons++;
             Console.WriteLine($"[replayseek] {target} from {player.SeekRestoreFrame}: {player.SeekSimulationSteps} steps, {updates} updates, {player.SeekMilliseconds:F2} ms");
+            if (player.RejectedDurableCheckpoints != 0)
+                Console.WriteLine($"[replayseek] durable fallbacks={player.RejectedDurableCheckpoints}; last error={player.LastCheckpointError}");
         }
         if (player.CheckpointBytes > 64L * 1024 * 1024 || player.CheckpointCount > 128)
             throw new InvalidDataException("Replica checkpoint cache exceeded its bound.");
