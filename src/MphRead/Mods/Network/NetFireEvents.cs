@@ -620,7 +620,10 @@ public static class NetFireEvents
             : player.Controls.Shoot.IsPressed ? FireEventKind.PressFire : FireEventKind.AutomaticFire;
         uint ack = NetUnlagged.LaunchFrameFor(player); byte sub = 0;
         if (NetSmoothing.AckPoint(out uint read, out byte fraction)) { ack = read; sub = fraction; }
-        uint shotState = player.CurrentWeapon == BeamType.Imperialist && player.EquipInfo.Zoomed
+        // A continuous pulse exists even when its muzzle hits a wall before the
+        // homing selector runs. Its phase is the source clock, not a target result.
+        uint shotState = kind == FireEventKind.ContinuousTick ? NetSession.NetFrame
+            : player.CurrentWeapon == BeamType.Imperialist && player.EquipInfo.Zoomed
             ? FireEvent.ScopedStateBit : 0;
         if (kind != FireEventKind.ContinuousTick)
         { if (player.IsPrimeHunter) shotState |= FireEvent.PrimeStateBit;
@@ -673,10 +676,11 @@ public static class NetFireEvents
         { For(player.SlotIndex).Incoming.Consume(For(player.SlotIndex).Active.ShotId); return; }
         var state = For(player.SlotIndex);
         if (state.Active.ShotId == 0) return;
-        uint phaseOrState = state.Active.Kind == FireEventKind.ContinuousTick
-            ? player.ModContinuousFireTick : state.Active.ContinuousPhase;
-        state.Outgoing.Add(state.Active with { ContinuousPhase = phaseOrState,
-            Target = state.Active.Kind == FireEventKind.ContinuousTick ? player.ModContinuousNetworkTarget : state.Active.Target });
+        state.Outgoing.Add(state.Active with {
+            Target = state.Active.Kind == FireEventKind.ContinuousTick
+                ? player.ModContinuousFireTick == state.Active.SourceFrame
+                    ? player.ModContinuousNetworkTarget : NetTargetIdentity.None
+                : state.Active.Target });
         NetShotProof.Fired(ShotKey.For(player.SlotIndex, state.Active.ShotId));
     }
     internal static void Fill(ref IntentPacket intent, int slot)

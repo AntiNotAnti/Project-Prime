@@ -41,12 +41,14 @@ internal static class SyluxMuzzleTests
         throw new InvalidOperationException("No real wall with a clear two-unit lane beyond its muzzle plane.");
     }
 
-    private static void Case(PlayerEntity owner, PlayerEntity victim, CollisionResult wall, bool remote, bool blocked, bool lateral = false)
+    private static void Case(PlayerEntity owner, PlayerEntity victim, CollisionResult wall, bool remote, bool blocked,
+        bool lateral = false, BeamType weapon = BeamType.PowerBeam, bool staleTarget = false)
     {
         NetFireEvents.Reset(); NetHitClaims.Reset();
         // Select the native owner-origin hook for the local case; remote playback
         // keeps the dedicated server sentinel and consumes its authored event.
         typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, remote ? -1 : owner.SlotIndex);
+        typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, remote ? NetRole.Server : NetRole.Host);
         var normal = wall.Plane.Xyz.Normalized(); var direction = -normal;
         // A 0.3-unit muzzle interval crossing the actual plane, or an open control
         // entirely in front of it shooting away from the wall.
@@ -57,13 +59,17 @@ internal static class SyluxMuzzleTests
         {
             foreach (var beam in player.EquipInfo.Beams) beam.Lifespan = 0;
             player.Health = 999; player.ModForceForm(false); player.ModReleaseSpawnProtection();
+            player.TeamIndex = player.SlotIndex;
             player.ModSetFrozen(false); player.Controls.ClearAll();
             Field(player, "_spawnInvulnTimer", (ushort)0);
             Field(player, "_damageInvulnTimer", (ushort)0);
         }
         owner.Hunter = Hunter.Sylux; owner.ModPlaceAt(body - Vector3.UnitY * .5f);
         victim.ModPlaceAt(muzzle + direction * 2 - Vector3.UnitY * .5f);
-        owner.ModArmWeapon(BeamType.PowerBeam); owner.EquipInfo.InfiniteAmmo = true;
+        owner.ModArmWeapon(weapon); owner.EquipInfo.InfiniteAmmo = true;
+        // The real pre-simulation input hook clears the selector result each tick.
+        owner.ModContinuousFireTick = 0;
+        owner.ModContinuousNetworkTarget = NetTargetIdentity.None;
         owner.EquipInfo.ChargeLevel = 0; owner.TimeSinceShot = 1000;
         typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.GunAnimation))!.SetValue(owner, GunAnimation.Idle);
         Field(owner, "_muzzlePos", muzzle);
@@ -71,6 +77,11 @@ internal static class SyluxMuzzleTests
         Field(owner, "_aimPosition", muzzle + direction * 10); Field(owner, "_gunVec1", direction);
         owner.Controls.Shoot.IsDown = true; owner.Controls.Shoot.IsPressed = true;
         uint frame = NetSession.NetFrame;
+        if (staleTarget)
+        {
+            owner.ModContinuousFireTick = unchecked(frame - 1);
+            owner.ModContinuousNetworkTarget = NetTargetIdentity.ForSlot(victim.SlotIndex);
+        }
         NetUnlagged.Record(frame); NetDynamicGeometryHistory.RecordWorld(frame);
         CollisionResult interval = default;
         bool obstruction = CollisionDetection.CheckBetweenPoints(body, muzzle,
@@ -80,13 +91,16 @@ internal static class SyluxMuzzleTests
         if (remote)
         {
             byte slot = (byte)owner.SlotIndex;
-            var fire = new FireEvent(1, frame, frame, 0, FireEventKind.PressFire,
-                (byte)BeamType.PowerBeam, 0, 0, FireEvent.FlagPose,
-                muzzle, direction, direction, direction, SourceLife: NetPlayerLifecycle.Get(slot));
+            bool continuous = weapon == BeamType.ShockCoil;
+            var fire = new FireEvent(1, frame, frame, 0,
+                continuous ? FireEventKind.ContinuousTick : FireEventKind.PressFire,
+                (byte)weapon, 0, continuous ? frame : 0, FireEvent.FlagPose,
+                muzzle, direction, direction, direction, SourceLife: NetPlayerLifecycle.Get(slot),
+                Target: continuous ? NetTargetIdentity.None : default);
             var intent = new IntentPacket { MatchId = NetSession.CurrentMatchId,
                 AuthorityEpoch = NetSession.AuthorityEpoch, SlotGeneration = NetPlayerLifecycle.Generation(slot),
                 LifeId = NetPlayerLifecycle.Get(slot), Frame = frame, AckFrame = frame,
-                Position = owner.Position, Aim = direction, WeaponSelect = (byte)BeamType.PowerBeam,
+                Position = owner.Position, Aim = direction, WeaponSelect = (byte)weapon,
                 Buttons = IntentButtons.InPlayState | IntentButtons.Shoot, HasFireEvents = true, FireEventCount = 1 };
             intent.FireEvents[0] = fire;
             Check(NetFireEvents.Accept(slot, intent), "remote native event accepted in Shadow mode");
@@ -96,6 +110,23 @@ internal static class SyluxMuzzleTests
         {
             bool fired = (bool)typeof(PlayerEntity).GetMethod("TryFireWeapon", Private)!.Invoke(owner, null)!;
             Check(fired, "owner native TryFireWeapon traverses actual spawn path");
+            if (weapon == BeamType.ShockCoil)
+            {
+                var intent = new IntentPacket { Frame = frame, MatchId = NetSession.CurrentMatchId,
+                    AuthorityEpoch = NetSession.AuthorityEpoch, SlotGeneration = NetPlayerLifecycle.Generation(owner.SlotIndex),
+                    LifeId = NetPlayerLifecycle.Get(owner.SlotIndex) };
+                NetFireEvents.Fill(ref intent, owner.SlotIndex);
+                Check(intent.FireEventCount == 1 && intent.FireEvents[0].ContinuousPhase == frame,
+                    $"native Coil retains its source phase: frame={frame} phase={intent.FireEvents[0].ContinuousPhase}");
+                Check(intent.FireEvents[0].Target == (blocked ? NetTargetIdentity.None : NetTargetIdentity.ForSlot(victim.SlotIndex)),
+                    blocked ? "blocked Coil advertises explicit no target, including stale selection"
+                        : "open Coil retains the target captured for its source frame");
+                byte[] bytes = new byte[CompactIntentCodec.Size(intent)];
+                int size = CompactIntentCodec.Write(intent, bytes);
+                Check(CompactIntentCodec.TryRead(bytes.AsSpan(0, size), out var decoded)
+                    && decoded.FireEventCount == 1 && decoded.FireEvents[0].ShotId == intent.FireEvents[0].ShotId,
+                    "native Coil carrier survives production compact decoder");
+            }
         }
         var beams = owner.EquipInfo.Beams.Where(beam => beam.Lifespan > 0).ToArray();
         Check(blocked || beams.Length > 0, $"{(remote ? "remote" : "owner")} open path supplies production projectile");
@@ -158,6 +189,10 @@ internal static class SyluxMuzzleTests
             Case(owner, victim, wall, true, false); Case(owner, victim, wall, true, true);
             Case(owner, victim, wall, false, false, lateral: true);
             Case(owner, victim, wall, true, false, lateral: true);
+            Case(owner, victim, wall, false, true, weapon: BeamType.ShockCoil);
+            Case(owner, victim, wall, false, true, weapon: BeamType.ShockCoil, staleTarget: true);
+            Case(owner, victim, wall, false, false, weapon: BeamType.ShockCoil);
+            Case(owner, victim, wall, true, true, weapon: BeamType.ShockCoil);
             LockjawPlacement(owner, wall);
             Check(sim.StepFailures == 0, "native scene has no step failures");
             Console.WriteLine($"SYLUX {_checks} assertions, {_failures} failures");
