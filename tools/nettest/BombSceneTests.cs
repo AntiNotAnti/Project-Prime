@@ -59,6 +59,9 @@ internal static class BombSceneTests
             "native admitted triad has both exact links before any damage");
         int health = victim.Health; ushort sequence = NetDamage.Sequence(victim.SlotIndex);
         ulong frontier = owner.OwningScene.Bombs.Frontier;
+        triangle.Single(b => b.BombIndex == 0).Process();
+        Check(triangle.All(b => b.Damage == 60 && b.EnemyDamage == 60 && b.Countdown > 0 && b.Countdown <= 44),
+            "native interior snare selects damage60 and shared countdown44 instead of empty-triad expiry");
         // Native processing owns snare targeting, damage60, countdown44 and
         // terminal publication. The fixture never writes any of those values.
         for (int frame = 0; frame < 100 && Native(owner).Length != 0; frame++)
