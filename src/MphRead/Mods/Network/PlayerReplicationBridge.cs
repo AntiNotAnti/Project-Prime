@@ -1170,7 +1170,7 @@ namespace MphRead.Mods.Network
             }
             if (_host.SamplePosition(player.SlotIndex, presentation: true,
                     out Vector3 presented, out bool presentedAlt)
-                && Sane(presented) && presented != Vector3.Zero)
+                && Sane(presented))
             {
                 Move(player, InForm(player, presented, presentedAlt));
                 return;
@@ -1191,12 +1191,12 @@ namespace MphRead.Mods.Network
             // exactly this world and nothing is given up for it.
             // NetSmoothing.
             if (_host.SamplePosition(player.SlotIndex, presentation: false, out Vector3 smoothed, out bool smoothedAlt)
-                && Sane(smoothed) && smoothed != Vector3.Zero)
+                && Sane(smoothed))
             {
                 Move(player, InForm(player, smoothed, smoothedAlt));
                 return;
             }
-            if (!Sane(state.Position) || state.Position == Vector3.Zero)
+            if (!Sane(state.Position))
             {
                 return;
             }

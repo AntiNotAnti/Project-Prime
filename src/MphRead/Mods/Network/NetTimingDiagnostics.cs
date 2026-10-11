@@ -21,9 +21,10 @@ namespace MphRead.Mods.Network
         private static readonly uint[] _positionFrame = new uint[PlayerEntity.SlotCapacity];
         private static readonly bool[] _positionSeen = new bool[PlayerEntity.SlotCapacity];
 
-        public static void Simulation()
+        public static void Simulation() => Simulation(Stopwatch.GetTimestamp());
+        public static void Simulation(long now)
         {
-            long now = Stopwatch.GetTimestamp();
+            if (_simulationAt != 0 && now <= _simulationAt) return;
             if (_simulationAt != 0)
             {
                 SimulationIntervalMs = Stopwatch.GetElapsedTime(_simulationAt, now).TotalMilliseconds;
@@ -34,17 +35,20 @@ namespace MphRead.Mods.Network
         }
         public static void Snapshot(long now)
         {
-            if (_snapshotAt != 0 && now >= _snapshotAt)
+            if (_snapshotAt != 0 && now <= _snapshotAt) return;
+            if (_snapshotAt != 0)
             {
                 SnapshotIntervalMs = Stopwatch.GetElapsedTime(_snapshotAt, now).TotalMilliseconds;
                 WorstSnapshotIntervalMs = Math.Max(WorstSnapshotIntervalMs, SnapshotIntervalMs);
             }
             _snapshotAt = now;
         }
-        public static void Correction()
+        public static void Correction() => Correction(Stopwatch.GetTimestamp());
+        public static void Correction(long now)
         {
             // This is attribution by observed timing, not proof of a network fault.
-            if (_stallAt != 0 && Stopwatch.GetElapsedTime(_stallAt).TotalMilliseconds < 250) CorrectionsAfterLocalStall++;
+            double delta = _stallAt == 0 ? -1 : Stopwatch.GetElapsedTime(_stallAt, now).TotalMilliseconds;
+            if (_stallAt != 0 && delta >= 0 && delta < 250) CorrectionsAfterLocalStall++;
             else CorrectionsWithoutLocalStall++;
         }
 

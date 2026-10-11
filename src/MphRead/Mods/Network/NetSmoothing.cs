@@ -178,6 +178,7 @@ namespace MphRead.Mods.Network
                 _life[slot, i] = 0;
                 _generation[slot, i] = 0;
             }
+            NetPresentationDiagnostics.ResetSlot(slot);
             _sampledSeen[slot] = false;
             _stallRun[slot] = 0;
         }
@@ -187,6 +188,8 @@ namespace MphRead.Mods.Network
         private static readonly bool[,] _live = new bool[Slots, HistoryFrames];
         private static readonly uint[] _stamp = new uint[HistoryFrames];
         private static uint _newest;
+        // Keep local arithmetic continuous across the uint wire clock wrap.
+        private static long _newestAbsolute;
         private static readonly Vector3[] _lastSampled = new Vector3[Slots];
         private static readonly bool[] _sampledSeen = new bool[Slots];
 
@@ -235,7 +238,8 @@ namespace MphRead.Mods.Network
                 }
             }
 
-            NoteArrival(frame, arrivedAt == 0 ? Stopwatch.GetTimestamp() : arrivedAt);
+            _newestAbsolute = _running ? _newestAbsolute + unchecked(frame - _newest) : frame;
+            NoteArrival(_newestAbsolute, arrivedAt == 0 ? Stopwatch.GetTimestamp() : arrivedAt);
             int index = (int)(frame % HistoryFrames);
             _stamp[index] = frame;
             for (int i = 0; i < Slots; i++)
@@ -258,10 +262,7 @@ namespace MphRead.Mods.Network
                 _position[slot, index] = states[i].Position;
                 _altForm[slot, index] = (states[i].Flags & PlayerState.FlagAltForm) != 0;
             }
-            if (!_running || frame > _newest)
-            {
-                _newest = frame;
-            }
+            _newest = frame;
             if (!_running)
             {
                 _running = true;
@@ -271,7 +272,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private static void NoteArrival(uint frame, long arrivedAt)
+        private static void NoteArrival(long frame, long arrivedAt)
         {
             double arrivalFrame = arrivedAt * 60.0 / Stopwatch.Frequency;
             double transit = arrivalFrame - frame;
@@ -299,6 +300,8 @@ namespace MphRead.Mods.Network
             Array.Clear(_sampledSeen);
             Array.Clear(_stallRun);
             _newest = 0;
+            _newestAbsolute = 0;
+            NetPresentationDiagnostics.Reset();
             _previousReadFrame = 0;
             _presentationReadFrame = 0;
             _presentationValid = false;
@@ -330,7 +333,7 @@ namespace MphRead.Mods.Network
             double change = desired - Delay;
             Delay += Math.Clamp(change, -DelayShrinkPerFrame, DelayGrowPerFrame);
 
-            double target = Math.Max(1.0, (double)_newest - Delay);
+            double target = Math.Max(1.0, (double)_newestAbsolute - Delay);
             double error = target - _readFrame;
             if (Math.Abs(error) > SnapError)
             {
@@ -343,9 +346,9 @@ namespace MphRead.Mods.Network
                 _readFrame += error * Correction;
             }
 
-            if (_readFrame > _newest)
+            if (_readFrame > _newestAbsolute)
             {
-                _readFrame = _newest;
+                _readFrame = _newestAbsolute;
                 Starved++;
                 _starveBoost = Math.Min(MaxDelayFrames - MinDelayFrames,
                     _starveBoost + StarveBoostPerEvent);
@@ -387,7 +390,7 @@ namespace MphRead.Mods.Network
             double t = Math.Clamp(alpha, 0.0, 1.0);
             _presentationReadFrame = _previousReadFrame
                 + (_readFrame - _previousReadFrame) * t;
-            _presentationReadFrame = Math.Clamp(_presentationReadFrame, 1.0, _newest);
+            _presentationReadFrame = Math.Clamp(_presentationReadFrame, 1.0, _newestAbsolute);
 
             // Live presentation and hit-registration acknowledgements must name
             // a received authority frame; offline replicas own their pose stream.
@@ -410,20 +413,24 @@ namespace MphRead.Mods.Network
             {
                 return false;
             }
-            uint lower = (uint)Math.Floor(readFrame);
-            float fraction = (float)(readFrame - lower);
+            long absoluteLower = (long)Math.Floor(readFrame);
+            uint lower = unchecked((uint)absoluteLower);
+            float fraction = (float)(readFrame - absoluteLower);
             if (!Lookup(slot, lower, out Vector3 a, out bool altA))
             {
+                if (countDiagnostics) NetPresentationDiagnostics.Sample(slot, false, false, true, null);
                 return false;
             }
             altForm = altA;
-            if (fraction <= 0.0001f || !Lookup(slot, lower + 1, out Vector3 b, out bool altB)
-                || altA != altB)
+            bool upperAvailable = Lookup(slot, unchecked(lower + 1), out Vector3 b, out bool altB);
+            if (fraction <= 0.0001f || !upperAvailable || altA != altB)
             {
                 position = a;
                 if (countDiagnostics)
                 {
                     Held++;
+                    NetPresentationDiagnostics.Sample(slot, true, false, fraction > 0.0001f && !upperAvailable,
+                        Math.Max(0, _newestAbsolute - absoluteLower));
                     NoteStep(slot, position);
                 }
                 return true;
@@ -435,6 +442,7 @@ namespace MphRead.Mods.Network
                 if (countDiagnostics)
                 {
                     Held++;
+                    NetPresentationDiagnostics.Sample(slot, true, false, false, Math.Max(0, _newestAbsolute - absoluteLower));
                     NoteStep(slot, position);
                 }
                 return true;
@@ -443,6 +451,7 @@ namespace MphRead.Mods.Network
             if (countDiagnostics)
             {
                 Interpolated++;
+                NetPresentationDiagnostics.Sample(slot, true, true, false, Math.Max(0, _newestAbsolute - absoluteLower));
                 NoteStep(slot, position);
             }
             return true;
@@ -464,26 +473,24 @@ namespace MphRead.Mods.Network
         /// </summary>
         private static double RecordedPoint(double point)
         {
-            uint lower = (uint)Math.Floor(point);
-            float fraction = (float)(point - lower);
+            long absoluteLower = (long)Math.Floor(point);
+            uint lower = unchecked((uint)absoluteLower);
+            float fraction = (float)(point - absoluteLower);
             if (FrameRecorded(lower))
             {
-                return fraction <= 0.0001f || FrameRecorded(lower + 1) ? point : lower;
+                return fraction <= 0.0001f || FrameRecorded(unchecked(lower + 1)) ? point : absoluteLower;
             }
-            for (uint back = 1; back <= MaxDelayFrames + 2 && back < lower; back++)
+            for (int back = 1; back <= MaxDelayFrames + 2 && back < absoluteLower; back++)
             {
-                uint candidate = lower - back;
-                if (FrameRecorded(candidate))
-                {
-                    return candidate;
-                }
+                long candidate = absoluteLower - back;
+                if (FrameRecorded(unchecked((uint)candidate))) return candidate;
             }
             return point;
         }
 
         private static bool FrameRecorded(uint frame)
         {
-            if (frame == 0 || frame > _newest) return false;
+            if (frame == 0 || NetLifecycleTracker.Newer(frame, _newest)) return false;
             return _stamp[(int)(frame % HistoryFrames)] == frame;
         }
 
@@ -491,7 +498,7 @@ namespace MphRead.Mods.Network
         {
             position = Vector3.Zero;
             altForm = false;
-            if (frame == 0 || frame > _newest)
+            if (frame == 0 || NetLifecycleTracker.Newer(frame, _newest))
             {
                 return false;
             }
@@ -565,14 +572,15 @@ namespace MphRead.Mods.Network
             {
                 return false;
             }
-            double point = _presentationValid ? _presentationReadFrame : _readFrame;
-            uint lower = (uint)Math.Floor(point);
-            if (lower == 0)
+            double point = RecordedPoint(_presentationValid ? _presentationReadFrame : _readFrame);
+            long absoluteLower = (long)Math.Floor(point);
+            uint lower = unchecked((uint)absoluteLower);
+            if (!FrameRecorded(lower))
             {
                 return false;
             }
             frame = lower;
-            subFrame = (byte)Math.Clamp((int)((point - lower) * 256.0), 0, 255);
+            subFrame = (byte)Math.Clamp((int)((point - absoluteLower) * 256.0), 0, 255);
             return true;
         }
 
@@ -583,6 +591,8 @@ namespace MphRead.Mods.Network
             Array.Clear(_sampledSeen);
             Array.Clear(_stallRun);
             _newest = 0;
+            _newestAbsolute = 0;
+            NetPresentationDiagnostics.Reset();
             _readFrame = 0;
             _previousReadFrame = 0;
             _presentationReadFrame = 0;
@@ -618,6 +628,8 @@ namespace MphRead.Mods.Network
             Array.Clear(_sampledSeen);
             Array.Clear(_stallRun);
             _newest = 0;
+            _newestAbsolute = 0;
+            NetPresentationDiagnostics.Reset();
             _readFrame = 0;
             _previousReadFrame = 0;
             _presentationReadFrame = 0;

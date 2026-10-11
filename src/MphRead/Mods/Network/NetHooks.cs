@@ -365,6 +365,7 @@ namespace MphRead.Mods.Network
                 NetPlayerBridge.RestoreSnapshotPosition(player, NetSession.RemoteStates[slot]);
                 Vector3 current = player.Position;
                 NetTimingDiagnostics.PreInputPuppetCorrection(before, current);
+                NetPresentationDiagnostics.Correction(slot, before, current);
                 NetPlayerBridge.RestoreSnapshotPresentationPosition(player,
                     NetSession.RemoteStates[slot]);
                 NetTimingDiagnostics.PresentationCorrection(current, player.Position);

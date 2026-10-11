@@ -34,6 +34,9 @@ namespace MphRead.NetTest
                 Prediction();
                 DamageHistory();
                 PresentationClock();
+                PresentationWrapAndCadence();
+                PresentationSlotDiagnostics();
+                PresentationTimingDiagnostics();
                 HistoryBoundaries();
                 ClaimBoundaries();
                 FaultStream();
@@ -605,6 +608,181 @@ namespace MphRead.NetTest
             NetDamage.Replay(player, next);
             NetDamage.Replay(player, state);
             Check(NetDamage.Replayed[1] == 5 && NetPlayerLifecycle.OldLifeDamage == 1, "old damage cannot cross life boundary");
+        }
+
+        private static void PresentationWrapAndCadence()
+        {
+            Session();
+            var state = State(7); NetPlayerLifecycle.AcceptState(state, 1);
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            long step = System.Diagnostics.Stopwatch.Frequency / 60;
+            NetSmoothing.Reset();
+            uint[] frames = { uint.MaxValue - 3, uint.MaxValue - 2, uint.MaxValue - 1,
+                uint.MaxValue, 1, 2, 3, 4 };
+            for (int i = 0; i < frames.Length; i++)
+            {
+                state.Position = new Vector3(10 + i, 2, 3);
+                NetSmoothing.Record(frames[i], new[] { state }, now + step * (i < 4 ? i : i + 1));
+                NetSmoothing.Tick();
+            }
+            NetSmoothing.PreparePresentation(1);
+            Check(NetSmoothing.SamplePresentation(1, out var wrappedPose, out _)
+                && Single.IsFinite(wrappedPose.X) && wrappedPose.X >= 13,
+                "wrapped authority stream advances to post-wrap poses");
+            Check(Double.IsFinite(NetSmoothing.Delay) && Double.IsFinite(NetSmoothing.JitterFrames)
+                && NetSmoothing.Delay <= NetSmoothing.MaxDelayFrames && NetSmoothing.JitterFrames < 1,
+                "wrap preserves finite bounded delay and 60 Hz arrival jitter");
+            Check(NetSmoothing.AckPoint(out uint frame, out byte fraction) && frame != 0,
+                "wrapped presentation produces nonzero wire ACK");
+            Vector3 before = wrappedPose; uint beforeFrame = frame; byte beforeFraction = fraction;
+            var stale = state; stale.Position = new Vector3(1000, 2, 3);
+            NetSmoothing.Record(uint.MaxValue - 1, new[] { stale }, now + step * 20);
+            NetSmoothing.Record(0, new[] { stale }, now + step * 21);
+            NetSmoothing.PreparePresentation(1);
+            Check(NetSmoothing.SamplePresentation(1, out var after, out _) && after == before
+                && NetSmoothing.AckPoint(out frame, out fraction) && frame == beforeFrame && fraction == beforeFraction,
+                "stale pre-wrap sample and frame zero cannot alter presented world or ACK");
+
+            NetSmoothing.Reset();
+            for (int i = 0; i < 60; i++)
+            {
+                state.Position = new Vector3(10 + i * .1f, 2, 3);
+                NetSmoothing.Record((uint)(100 + i), new[] { state }, now + step * i);
+                NetSmoothing.Tick();
+            }
+            NetSmoothing.PreparePresentation(1);
+            Check(NetSmoothing.SamplePresentation(1, out before, out _)
+                && NetSmoothing.AckPoint(out beforeFrame, out beforeFraction), "60 Hz fixture has pose and ACK");
+            long stepsBefore = NetSmoothing.Steps;
+            foreach (int refresh in new[] { 60, 120, 144, 240, 360 })
+            {
+                for (int i = 0; i < refresh; i++)
+                {
+                    NetSmoothing.PreparePresentation((i % 6) / 5.0);
+                    NetSmoothing.SamplePresentation(1, out _, out _);
+                }
+                NetSmoothing.PreparePresentation(1);
+                Check(NetSmoothing.SamplePresentation(1, out after, out _) && after == before
+                    && NetSmoothing.AckPoint(out frame, out fraction) && frame == beforeFrame && fraction == beforeFraction
+                    && NetSmoothing.Steps == stepsBefore, $"{refresh} Hz presentation does not advance 60 Hz simulation");
+            }
+            double point = frame + fraction / 256.0;
+            Check(Math.Abs(point - (100 + (after.X - 10) / .1)) < .03,
+                "steady 60 Hz rendered pose and fractional ACK identify same authority point");
+        }
+
+        private static void PresentationSlotDiagnostics()
+        {
+            Session();
+            var one = State(7); var two = one; two.SlotIndex = 2;
+            NetPlayerLifecycle.AcceptState(one, 1); NetPlayerLifecycle.AcceptState(two, 1);
+            NetSmoothing.Reset();
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            long step = System.Diagnostics.Stopwatch.Frequency / 60;
+            for (int i = 0; i < 20; i++)
+            {
+                typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)(100 + i));
+                NetSmoothing.Record((uint)(100 + i), i < 4 ? new[] { one, two } : new[] { one }, now + i * step);
+                NetSmoothing.Tick();
+                if (i >= 4)
+                {
+                    NetSmoothing.Sample(1, out _, out _); NetSmoothing.Sample(2, out _, out _);
+                    NetSmoothing.Sample(1, out _, out _); NetSmoothing.Sample(2, out _, out _);
+                }
+            }
+            var rows = NetPresentationDiagnostics.Capture();
+            var stationary = rows.Single(r => r.Slot == 1); var missing = rows.Single(r => r.Slot == 2);
+            Check(stationary.Samples <= 20 && missing.Samples <= 20,
+                "per-slot presentation diagnostics count once per simulation frame");
+            Check(stationary.Starved == 0 && missing.Starved > 0 && missing.Unavailable > 0,
+                "missing slot starves independently while stationary received slot does not");
+            Check(missing.LongestStarvation > 0 && stationary.AgeSamples > 0
+                && stationary.AgeHistogram.Sum() == stationary.AgeSamples,
+                "bounded slot diagnostics expose starvation runs and age denominator");
+            // Exact boundaries isolate availability from delay steering. Integer
+            // holds, form changes and discontinuities are not packet starvation.
+            NetSmoothing.Reset();
+            NetPresentationDiagnostics.Reset();
+            var discontinuous = one; discontinuous.Position = new Vector3(100, 2, 3);
+            NetSmoothing.Record(100, new[] { one }, now);
+            NetSmoothing.Record(101, new[] { discontinuous }, now + step);
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, 150u);
+            typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, 100.5);
+            Check(NetSmoothing.Sample(1, out var held, out _) && held == one.Position,
+                "large pose discontinuity holds prior received position");
+            Check(NetPresentationDiagnostics.Capture().Single(r => r.Slot == 1).Starved == 0,
+                "discontinuity hold is not starvation");
+            discontinuous.Position = one.Position; discontinuous.Flags |= PlayerState.FlagAltForm;
+            NetSmoothing.Record(102, new[] { discontinuous }, now + step * 2);
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, 151u);
+            typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, 101.5);
+            Check(NetSmoothing.Sample(1, out _, out _) && NetPresentationDiagnostics.Capture().Single(r => r.Slot == 1).Starved == 0,
+                "form-boundary hold is not starvation");
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, 152u);
+            typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, 102.0);
+            Check(NetSmoothing.Sample(1, out _, out _) && NetPresentationDiagnostics.Capture().Single(r => r.Slot == 1).Starved == 0,
+                "integer received pose needs no upper sample and is not starvation");
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, 153u);
+            typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, 102.5);
+            NetSmoothing.Sample(1, out _, out _);
+            Check(NetPresentationDiagnostics.Capture().Single(r => r.Slot == 1).Starved == 1,
+                "fractional missing upper pose counts one starvation");
+            var nextLife = State(8); nextLife.SlotIndex = 2;
+            NetPlayerLifecycle.AcceptState(nextLife, 200);
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, 200u);
+            NetSmoothing.Record(200, new[] { one, nextLife }, now + step * 100);
+            NetSmoothing.Tick(); NetSmoothing.Sample(2, out _, out _);
+            var renewed = NetPresentationDiagnostics.Capture().Single(r => r.Slot == 2);
+            Check(renewed.Generation == nextLife.SlotGeneration && renewed.Life == nextLife.LifeId
+                && renewed.Samples <= 1, "slot lifecycle change fences and resets presentation diagnostics");
+        }
+
+        private static void PresentationTimingDiagnostics()
+        {
+            long frequency = System.Diagnostics.Stopwatch.Frequency;
+            long start = frequency * 10, step = frequency / 60;
+            NetTimingDiagnostics.Reset();
+            for (int i = 0; i <= 60; i++)
+            {
+                NetTimingDiagnostics.Simulation(start + step * i);
+                NetTimingDiagnostics.Snapshot(start + step * i);
+            }
+            double interval = step * 1000.0 / frequency;
+            Check(Math.Abs(NetTimingDiagnostics.SimulationIntervalMs - interval) < .00001
+                && Math.Abs(NetTimingDiagnostics.SnapshotIntervalMs - interval) < .00001
+                && interval > 16.6 && interval < 16.7, "deterministic steady 60 Hz timing intervals");
+            long latest = start + step * 60;
+            NetTimingDiagnostics.Snapshot(latest); NetTimingDiagnostics.Snapshot(latest - step * 10);
+            NetTimingDiagnostics.Simulation(latest); NetTimingDiagnostics.Simulation(latest - step * 10);
+            NetTimingDiagnostics.Snapshot(latest + step); NetTimingDiagnostics.Simulation(latest + step);
+            Check(Math.Abs(NetTimingDiagnostics.SimulationIntervalMs - interval) < .00001
+                && Math.Abs(NetTimingDiagnostics.SnapshotIntervalMs - interval) < .00001,
+                "equal and reordered timestamps cannot move timing origin backwards");
+            NetTimingDiagnostics.Reset();
+            NetTimingDiagnostics.Simulation(start);
+            long fifty = frequency / 20;
+            NetTimingDiagnostics.Simulation(start + fifty);
+            NetTimingDiagnostics.Correction(start + fifty);
+            Check(NetTimingDiagnostics.CorrectionsAfterLocalStall == 0
+                && NetTimingDiagnostics.CorrectionsWithoutLocalStall == 1,
+                "exactly 50 ms simulation interval is not a local stall");
+            long stall = start + fifty + fifty + 1;
+            NetTimingDiagnostics.Simulation(stall);
+            NetTimingDiagnostics.Correction(stall - 1);
+            NetTimingDiagnostics.Correction(stall);
+            NetTimingDiagnostics.Correction(stall + frequency / 4 - 1);
+            NetTimingDiagnostics.Correction(stall + frequency / 4);
+            Check(NetTimingDiagnostics.CorrectionsAfterLocalStall == 2
+                && NetTimingDiagnostics.CorrectionsWithoutLocalStall == 3,
+                "stall attribution accepts only nonnegative ages strictly below 250 ms");
+
+            Session(); var origin = State(7); origin.Position = Vector3.Zero;
+            NetPlayerLifecycle.AcceptState(origin, 1); NetSmoothing.Reset();
+            NetSmoothing.Record(100, new[] { origin }, start);
+            NetSmoothing.Record(101, new[] { origin }, start + step);
+            typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, 100.5);
+            Check(NetSmoothing.Sample(1, out var pose, out _) && pose == Vector3.Zero,
+                "valid received origin pose remains available to smoothing");
         }
 
         private static void PresentationClock()

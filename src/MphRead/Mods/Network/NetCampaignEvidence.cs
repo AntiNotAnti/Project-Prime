@@ -74,7 +74,7 @@ internal static class NetCampaignEvidence
         bool Baseline, bool Award, uint AwardFrontier, string Payload);
     private sealed record Window(double Seconds, ulong Epoch, ushort Match, uint Frame, int LocalSlot,
         long Frames, long[] AliveFrames, NetTelemetrySnapshot Network, NetIntentSnapshot[] Intents,
-        NetInputAgeSnapshot[] InputAges,
+        NetInputAgeSnapshot[] InputAges, NetSlotPresentationSnapshot[] ObserverPoses,
         uint SemanticLatest, uint SemanticPresented, uint AwardLatest, uint AwardPresented,
         string Lifecycle, string Room, int BotMask, bool Spectating);
 
@@ -223,6 +223,7 @@ internal static class NetCampaignEvidence
             NetSession.LocalSlot, _frames, (long[])AliveFrames.Clone(), NetSession.CaptureTelemetry(),
             NetTelemetry.Session.Select(peer => peer.Capture()).ToArray(),
             NetTelemetry.Session.Select(peer => peer.CaptureInputAge()).ToArray(),
+            NetPresentationDiagnostics.Capture(),
             semantic.LatestEvent, semantic.PresentedEvent, semantic.LatestAward, semantic.PresentedAward,
             NetPlayerLifecycle.Describe(), NetSession.ServerMatch?.RoomKey ?? "",
             Enumerable.Range(0, 8).Aggregate(0, (mask, slot) => mask | (NetSession.SlotIsBot[slot] ? 1 << slot : 0)),
