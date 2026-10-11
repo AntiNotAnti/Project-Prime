@@ -226,7 +226,7 @@ namespace MphRead.Mods.Network
         private static long _triangleFixtureWaitAt;
         private static readonly bool[] _triangleFixturePoseConfirmed = new bool[2];
         private static readonly Vector3[] _triangleFixtureInitial = new Vector3[2];
-        private static bool TriangleFixtureEnabled => Environment.GetEnvironmentVariable("PRIME_NET2_TRIANGLE_SETUP") == "1";
+        private static readonly bool TriangleFixtureEnabled = Environment.GetEnvironmentVariable("PRIME_NET2_TRIANGLE_SETUP") == "1";
         private static void TriangleFixtureStream()
         {
             if (_triangleFixtureMatch == NetSession.CurrentMatchId && _triangleFixtureEpoch == NetSession.AuthorityEpoch) return;
@@ -255,14 +255,17 @@ namespace MphRead.Mods.Network
             if (!TriangleFixtureEnabled || !(NetSession.IsAuthority || NetSession.IsHost) || player.SlotIndex is < 0 or > 1) return false;
             TriangleFixtureStream();
             int slot = player.SlotIndex;
-            if (_triangleFixtureFailed || !_triangleFixtureAuthorityReady || _triangleFixturePoseConfirmed[slot]) return false;
+            if (_triangleFixtureFailed || !_triangleFixtureAuthorityReady
+                || _triangleFixturePoseConfirmed[0] && _triangleFixturePoseConfirmed[1]) return false;
             if (Environment.TickCount64 - _triangleFixtureWaitAt > 10000)
             { _triangleFixtureFailed = true; NetLog.Event("triangle fixture FAILED: initial authority pose confirmation timed out"); return false; }
             var intent = NetSession.RemoteIntents[slot];
             bool alt = (intent.Buttons & IntentButtons.AltFormState) != 0;
-            if (NetSession.RemoteIntentValid[slot] && (intent.Position - _triangleFixtureInitial[slot]).LengthSquared < .25f
+            if (!_triangleFixturePoseConfirmed[slot] && NetSession.RemoteIntentValid[slot]
+                && (intent.Position - _triangleFixtureInitial[slot]).LengthSquared < .25f
                 && alt == (slot == 0))
-            { _triangleFixturePoseConfirmed[slot] = true; NetLog.Event($"triangle fixture authority pose confirmed slot={slot}"); return false; }
+            { _triangleFixturePoseConfirmed[slot] = true; NetLog.Event($"triangle fixture authority pose confirmed slot={slot}"); }
+            if (_triangleFixturePoseConfirmed[0] && _triangleFixturePoseConfirmed[1]) return false;
             player.Controls.ClearAll(); return true;
         }
         private static bool TriangleFixtureClientObserved(PlayerEntity player)
@@ -278,7 +281,8 @@ namespace MphRead.Mods.Network
             var owner = NetSession.RemoteStates[0]; var victim = NetSession.RemoteStates[1];
             Vector3 difference = owner.Position - victim.Position;
             if ((owner.Flags & PlayerState.FlagAltForm) == 0 || (victim.Flags & PlayerState.FlagAltForm) != 0
-                || (difference - new Vector3(3, -.25f, 0)).LengthSquared > .0625f) return false;
+                || (new Vector2(difference.X - 3, difference.Z)).LengthSquared > .0625f
+                || MathF.Abs(difference.Y + .25f) > .5f) return false;
             // Local snapshots normally preserve predicted position. This explicit
             // fixture adopts only its initial authority pose, once per stream.
             var own = NetSession.RemoteStates[player.SlotIndex];
