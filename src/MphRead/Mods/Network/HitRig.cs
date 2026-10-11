@@ -432,7 +432,7 @@ namespace MphRead.Mods.Network
                     {
                         float distance = (wall.Position - origin).Length;
                         if (distance > .15f && distance < nearest)
-                        { nearest = distance; point = wall.Position; }
+                        { nearest = distance; point = wall.Position.WithY(player.Position.Y + .2f); }
                     }
                 }
                 _selfWallDistance = nearest;
@@ -445,7 +445,12 @@ namespace MphRead.Mods.Network
             // pitch as the gun moves. Aim a distant point along the desired ray
             // instead; the nearby floor/wall still owns the actual collision.
             Vector3 ray = (point - origin).Normalized();
-            (float x, float y) = player.ModAimDeltaTowards(player.CameraInfo.Position + ray * 40f);
+            // For wall shots aim at the wall's foot directly. A horizontal
+            // ray from eye height can explode above the self-damage sphere,
+            // especially at elevated respawn points.
+            Vector3 target = Mode == RigMode.SelfWall && _selfWallDistance < 12f
+                ? point : player.CameraInfo.Position + ray * 40f;
+            (float x, float y) = player.ModAimDeltaTowards(target);
             _selfAimX = x; _selfAimY = y;
             _selfPitch = MathHelper.RadiansToDegrees(MathF.Atan2(ray.Y, MathF.Sqrt(ray.X * ray.X + ray.Z * ray.Z)));
             AimDeltaX = Math.Clamp(x, -TurnRate, TurnRate);
