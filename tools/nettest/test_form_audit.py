@@ -14,7 +14,7 @@ def row(frame, phase, active=False, body=(0, 0, 0), hp=100, damage=0, started=2,
     return dict(Stage="authority", Epoch=111, Match=2, Slot=1, Generation=1, Life=1,
                 Source=source, ObservedFrame=frame, Phase=module.PHASES[phase], BodyHp=body_hp,
                 TurretHp=hp if active else 0, TurretActive=active, X=0., Y=0., Z=0.,
-                BodyX=body[0], BodyY=body[1], BodyZ=body[2], ObservedDamageEvent=damage)
+                BodyX=body[0], BodyY=body[1], BodyZ=body[2], ObservedDamageEvent=damage, BodyPredictionDebit=0)
 
 
 class FormAuditTests(unittest.TestCase):
@@ -25,7 +25,7 @@ class FormAuditTests(unittest.TestCase):
         for slot in (0, 1, 2):
             rows = copy.deepcopy(self.server["Forms"])
             for item in rows: item["Stage"] = "owner" if slot == 1 else "observer"
-            self.peers[f"peer-{slot}"] = dict(Forms=rows)
+            self.peers[f"peer-{slot}"] = dict(Forms=rows, Windows=[dict(Epoch=111, Match=2, LocalSlot=slot)])
         self.summary = dict(status="PASS", processes=[dict(name=n) for n in ("server", *self.peers)],
                             coverage=dict(boundedHeadlessDrain="PASS"))
         self.manifest = dict(scenario="alt-morph", observerDelay=3)
@@ -105,6 +105,38 @@ class FormAuditTests(unittest.TestCase):
         self.peers["peer-0"]["Forms"][0].update(Stage="owner", Phase="Biped")
         self.assertEqual(self.audit()["status"], "FAIL")
 
+    def test_actual_membership_and_first_bootstrap_self_observer(self):
+        self.peers["peer-1"]["Forms"][0]["Stage"] = "observer"
+        self.assertEqual(self.audit()["status"], "PASS")
+        self.peers["peer-1"]["Forms"][1]["Stage"] = "observer"
+        self.assertEqual(self.audit()["status"], "FAIL")
+        self.setUp()
+        self.peers["peer-0"], self.peers["peer-1"] = self.peers["peer-1"], self.peers["peer-0"]
+        self.assertEqual(self.audit()["status"], "PASS")
+
+    def test_bootstrap_self_observer_does_not_get_owner_phase_waiver(self):
+        self.peers["peer-1"]["Forms"][0].update(Stage="observer", Phase="Biped")
+        self.assertEqual(self.audit()["status"], "FAIL")
+
+    def test_spectator_self_remains_observer_and_checks_phase(self):
+        spectator = row(3, 1); spectator["Slot"] = 2
+        self.server["Forms"].append(spectator)
+        self.peers["peer-2"]["Windows"][0]["Spectating"] = True
+        self.peers["peer-2"]["Forms"] += [{**spectator, "Stage": "observer"},
+            {**spectator, "Source": row(4, 1)["Source"], "Stage": "observer", "ObservedFrame": 4}]
+        self.server["Forms"].append({**spectator, "Source": row(4, 1)["Source"], "ObservedFrame": 4})
+        self.assertEqual(self.audit()["status"], "PASS")
+        self.peers["peer-2"]["Forms"][-1]["Phase"] = "Alt"
+        self.assertEqual(self.audit()["status"], "FAIL")
+
+    def test_non_weavel_body_health_retains_base_fast_lane_gate(self):
+        other = row(3, 1); other["Slot"] = 0
+        self.server["Forms"].append(other)
+        self.peers["peer-2"]["Forms"].append({**other, "Stage": "observer", "BodyHp": 27})
+        self.assertEqual(self.audit()["status"], "PASS")
+        self.summary["status"] = "FAIL"
+        self.assertEqual(self.audit()["status"], "FAIL")
+
     def test_early_biped_does_not_replace_settled_phase_after_unmorph(self):
         for rows in (self.server["Forms"], *(p["Forms"] for p in self.peers.values())):
             old = rows.pop(); old["Source"] = row(2, 1)["Source"]; old["ObservedFrame"] = 2; rows.insert(0, old)
@@ -114,6 +146,39 @@ class FormAuditTests(unittest.TestCase):
     def test_actual_runner_manifest_settings_supported(self):
         self.manifest = {"settings": self.manifest}
         self.assertEqual(self.audit()["status"], "PASS")
+
+    def test_exact_remote_prediction_debit_and_nonlethal_floor(self):
+        sample = self.peers["peer-0"]["Forms"][0]
+        sample.update(BodyHp=90, BodyPredictionDebit=10)
+        self.assertEqual(self.audit()["status"], "PASS")
+        sample["BodyHp"] = 89
+        self.assertEqual(self.audit()["status"], "FAIL")
+        sample.update(BodyHp=1, BodyPredictionDebit=1000)
+        self.assertEqual(self.audit()["status"], "PASS")
+        sample["BodyPredictionDebit"] = -1
+        self.assertEqual(self.audit()["status"], "FAIL")
+
+    def test_missing_debit_incomplete_and_local_debit_forbidden(self):
+        sample = self.peers["peer-0"]["Forms"][0]
+        sample["BodyHp"] = 90; del sample["BodyPredictionDebit"]
+        self.assertEqual(self.audit()["status"], "INCOMPLETE")
+        self.setUp(); self.peers["peer-1"]["Forms"][0].update(BodyHp=90, BodyPredictionDebit=10)
+        self.assertEqual(self.audit()["status"], "FAIL")
+
+    def test_newer_authority_hp_basis_still_requires_exact_debit(self):
+        sample = self.peers["peer-0"]["Forms"][0]
+        sample.update(BodyHp=85, TurretHp=90, ObservedDamageEvent=1, BodyPredictionDebit=10)
+        self.server["Forms"].append(row(8, 3, True, hp=90, damage=1, body_hp=95))
+        self.assertEqual(self.audit()["status"], "PASS")
+        sample["BodyHp"] = 84
+        self.assertEqual(self.audit()["status"], "FAIL")
+
+    def test_inactive_anchor_not_location_proof_but_active_anchor_required(self):
+        sample = self.peers["peer-0"]["Forms"][-1]
+        sample.update(X=100, Y=2, Z=5)
+        self.assertEqual(self.audit()["status"], "PASS")
+        sample = self.peers["peer-0"]["Forms"][0]; sample["X"] = 100
+        self.assertEqual(self.audit()["status"], "FAIL")
 
     def test_peer_inventory_and_drain_required(self):
         del self.peers["peer-2"]

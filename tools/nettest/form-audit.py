@@ -25,7 +25,7 @@ def vector(row, fields):
     result = []
     for field in fields:
         value = row[field]
-        if type(value) not in (int, float) or not math.isfinite(value) or abs(value) > 32768:
+        if type(value) not in (int, float) or not math.isfinite(value) or abs(value) > 100000:
             raise ValueError("invalid finite position")
         result.append(struct.unpack("<f", struct.pack("<f", value))[0])
     return tuple(result)
@@ -43,7 +43,7 @@ def decode(row):
     active, hp, damage, body_hp = struct.unpack_from("<BHHH", raw, 21)
     if phase not in PHASES or phase == 0 or active > 1 or newer(started, frame):
         raise ValueError("invalid canonical form")
-    if not all(math.isfinite(v) and abs(v) <= 32768 for v in anchor):
+    if not all(math.isfinite(v) and abs(v) <= 100000 for v in anchor):
         raise ValueError("invalid canonical anchor")
     integer(row["ObservedFrame"])
     integer(row["BodyHp"], high=65535); integer(row["TurretHp"], high=65535)
@@ -56,7 +56,7 @@ def decode(row):
 def audit(server, peers, summary, manifest, owner_slot=1):
     failures, missing = [], []
     metrics = {"peers": {}, "authoritySamples": 0, "independentAnchorWitnesses": 0,
-               "healthDisagreements": [], "ownerPhaseDifferences": 0, "newerHealthJoins": 0}
+               "healthDisagreements": [], "ownerPhaseDifferences": 0, "newerHealthJoins": 0, "predictionDebitJoins": 0, "inactiveAnchorNotLocationProofSamples": 0}
     expected = {p["name"] for p in summary.get("processes", []) if p.get("name") != "server"}
     if not expected or expected != set(peers): missing.append("complete expected peer evidence unavailable")
     if summary.get("status") == "FAIL": failures.append("base campaign failed")
@@ -84,13 +84,30 @@ def audit(server, peers, summary, manifest, owner_slot=1):
     for name, peer in peers.items():
         matched, phases, active, separated = 0, set(), 0, 0
         target_rows, last, seen, anchor_motion = [], {}, set(), {}
+        membership, local_seen, spectating = {}, set(), {}
         try:
+            for window in peer.get("Windows", []):
+                context = (integer(window["Epoch"], 1, 2**64-1), integer(window["Match"], 1, 65535))
+                slot = integer(window["LocalSlot"], 0, 7)
+                if context in membership and membership[context] != slot:
+                    raise ValueError("conflicting local-slot membership")
+                membership[context] = slot
+                spectating[context] = spectating.get(context, True) and window.get("Spectating", False) is True
             if peer.get("Overflow", 0): failures.append(name + ": evidence overflow")
             for row in peer["Forms"]:
                 key, raw, form = decode(row)
                 full = (key, raw)
-                expected_stage = "owner" if name == "peer-" + str(key[2]) else "observer"
-                if row["Stage"] != expected_stage: raise ValueError("applied owner/observer role mismatch")
+                context = key[:2]
+                if context not in membership: raise ValueError("local-slot membership evidence missing")
+                local = key[2] == membership[context]
+                # Bootstrap constructs every player through the remote path,
+                # including the eventual local player. Its first self sample
+                # therefore uses observer checks, never the owner phase waiver.
+                bootstrap_self = local and context not in local_seen and row["Stage"] == "observer"
+                expected_stage = "owner" if local and not spectating[context] else "observer"
+                if row["Stage"] != expected_stage and not bootstrap_self:
+                    raise ValueError("applied owner/observer role mismatch")
+                if local: local_seen.add(context)
                 if full in seen: raise ValueError("duplicate applied source")
                 seen.add(full)
                 if key in last and not newer(form["frame"], last[key]["frame"]): raise ValueError("stale applied source stream")
@@ -99,26 +116,52 @@ def audit(server, peers, summary, manifest, owner_slot=1):
                 source = authority.get(full)
                 if source is None: raise ValueError("full identity/source absent from authority")
                 matched += 1
-                if vector(row, ("X", "Y", "Z")) != form["anchor"]: raise ValueError("observed turret anchor mismatch")
+                observed_anchor = vector(row, ("X", "Y", "Z"))
+                if form["active"] and row["TurretActive"]:
+                    if observed_anchor != form["anchor"]: raise ValueError("observed active turret anchor mismatch")
+                else:
+                    metrics["inactiveAnchorNotLocationProofSamples"] += 1
                 if row["Stage"] == "observer" and row["Phase"] != form["phase"]: raise ValueError("observer phase mismatch")
                 if row["Stage"] == "owner" and row["Phase"] != form["phase"]: metrics["ownerPhaseDifferences"] += 1
-                hp_diff = (row["BodyHp"], row["TurretHp"], row["TurretActive"]) != (form["body_hp"], form["hp"], form["active"])
-                if hp_diff:
+                # Only Weavel installs coupled form BodyHealth. Other hunters
+                # retain the fast health lane, checked by the base adjudicator.
+                debit = row.get("BodyPredictionDebit")
+                if debit is not None:
+                    integer(debit, high=2**31-1)
+                    if local and debit: raise ValueError("local body prediction debit must be zero")
+                def actual_health(basis):
+                    body_hp = basis["body_hp"]
+                    if key[2] != owner_slot: body_hp = row["BodyHp"]
+                    elif debit is not None and body_hp > 0: body_hp = max(1, body_hp-debit)
+                    return body_hp, basis["hp"], basis["active"]
+                actual = row["BodyHp"], row["TurretHp"], row["TurretActive"]
+                if actual != actual_health(form):
                     observed_damage = row.get("ObservedDamageEvent")
                     detail = dict(peer=name, identity=key, sourceFrame=form["frame"], sourceDamage=form["damage"],
-                                  observedDamage=observed_damage, bodyHp=row["BodyHp"], turretHp=row["TurretHp"], active=row["TurretActive"])
+                                  observedDamage=observed_damage, bodyHp=row["BodyHp"], turretHp=row["TurretHp"],
+                                  active=row["TurretActive"], predictionDebit=debit)
                     metrics["healthDisagreements"].append(detail)
+                    only_body = actual[1:] == (form["hp"], form["active"])
                     if observed_damage is None:
                         missing.append(name + ": health/presence differs; observed damage revision unavailable")
                     elif not newer(integer(observed_damage, high=65535), form["damage"], 16):
-                        raise ValueError("health/presence mismatch at same damage revision")
-                    elif any(other["started"] == form["started"] and other["damage"] == observed_damage
-                             and (other["body_hp"], other["hp"], other["active"]) ==
-                                 (row["BodyHp"], row["TurretHp"], row["TurretActive"])
-                             for candidate, other in by_life.get(key, [])):
-                        metrics["newerHealthJoins"] += 1
+                        if key[2] == owner_slot and debit is None and only_body:
+                            missing.append(name + ": body health difference lacks pending prediction debit evidence")
+                        else: raise ValueError("health/presence mismatch at same damage revision")
                     else:
-                        missing.append(name + ": newer health/presence lacks exact authority reconciliation")
+                        bases = [other for candidate, other in by_life.get(key, [])
+                                 if other["started"] == form["started"] and other["damage"] == observed_damage]
+                        if any(actual_health(other) == actual for other in bases):
+                            metrics["newerHealthJoins"] += 1
+                            if debit: metrics["predictionDebitJoins"] += 1
+                        elif not bases:
+                            missing.append(name + ": newer health/presence lacks exact authority reconciliation")
+                        elif debit is None and key[2] == owner_slot and any(actual[1:] == (other["hp"], other["active"]) for other in bases):
+                            missing.append(name + ": newer body health difference lacks pending prediction debit evidence")
+                        else:
+                            raise ValueError("health/presence/debit mismatch against newer authority revision")
+                elif key[2] == owner_slot and debit:
+                    metrics["predictionDebitJoins"] += 1
                 if key[2] != owner_slot: continue
                 target_rows.append((row, form)); phases.add(form["phase"])
                 if form["active"] and row["TurretActive"]:
@@ -156,7 +199,7 @@ def audit(server, peers, summary, manifest, owner_slot=1):
     if not authority: missing.append("nonempty authority form sources required")
     return dict(status="FAIL" if failures else "INCOMPLETE" if missing else "PASS", failures=failures,
                 incomplete=list(dict.fromkeys(missing)), metrics=metrics,
-                scope="exact accepted form-source identity, observer phase and turret anchor/presence/health; owner animation phase may lead; existing base health/score/drain gates retained")
+                scope="exact accepted form-source identity, observer phase and turret anchor/presence/health; owner animation phase may lead; exact pending remote body debit may explain predicted health; inactive turret anchors are not location proof; existing base health/score/drain gates retained")
 
 
 def main():

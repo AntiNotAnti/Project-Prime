@@ -1226,6 +1226,9 @@ namespace MphRead.Mods.Network
         /// What this machine has taken off <paramref name="slot"/> and not yet
         /// been told about, in points of health.
         /// </summary>
+        // Evidence of the exact pending remote prediction debit, not an authority payment.
+        internal static int FormPredictionDebit(int slot) => Predicting && slot != NetHooks.LocalSlot ? Debit(slot) : 0;
+
         private static int Debit(int slot)
         {
             EnsureLife(slot);
