@@ -89,6 +89,12 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return TurretEventTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
+            if (args.Length > 1 && args[0] == "--impact-authority")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return ImpactAuthorityTests.Run(args[1], args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
+            }
             if (args.Length > 0 && args[0] == "--shot-lifecycle") return ShotLifecycleTests.Run();
             if (args.Length > 0 && args[0] == "--gamemodecheck") return GameModeCheck.Run();
             if (args.Length > 1 && args[0] == "--gamemodecheck-scene")

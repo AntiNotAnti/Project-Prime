@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Net;
@@ -86,6 +87,8 @@ internal static class ImpactTransportTests
         Check(authority.CosmeticDrops > refused, "server rejects authenticated client-origin impact");
 
         // Deterministic ingress avoids socket timing/rate refill obscuring storage isolation.
+        lock (Field<object>(client, "_connectionLock"))
+        {
         var beforeStats = connection.Capture();
         for (int i = 0; i < 100; i++)
         {
@@ -98,6 +101,7 @@ internal static class ImpactTransportTests
         Check(afterStats.Sent == beforeStats.Sent && afterStats.Acknowledged == beforeStats.Acknowledged
             && afterStats.EstimatedLost == beforeStats.EstimatedLost && afterStats.RttMilliseconds == beforeStats.RttMilliseconds,
             "cosmetic flood leaves gameplay attempt and RTT accounting unchanged");
+        }
         client.EnableRealtimeStateCoalescing();
         byte[] snapshot = new byte[NetHeader.Size + 1]; snapshot[^1] = 42;
         serverConnection.Send(PacketType.SnapshotFast, 0).Write(snapshot);
@@ -115,6 +119,18 @@ internal static class ImpactTransportTests
     {
         // Use the production synchronized ingress; real UDP above proves endpoint binding.
         var method = typeof(NetTransport).GetMethod("AcceptDatagram", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        method.Invoke(transport, new object[] { sender, (byte[])wire.Clone(), wire.Length, System.Diagnostics.Stopwatch.GetTimestamp() });
+        byte[] rented = ArrayPool<byte>.Shared.Rent(wire.Length);
+        bool accepted = false;
+        try
+        {
+            wire.CopyTo(rented, 0);
+            accepted = (bool)method.Invoke(transport, new object[] { sender, rented, wire.Length,
+                System.Diagnostics.Stopwatch.GetTimestamp() })!;
+        }
+        finally
+        {
+            // Accepted ingress owns the lease through dequeue/coalescing/disposal.
+            if (!accepted) ArrayPool<byte>.Shared.Return(rented);
+        }
     }
 }
