@@ -46,6 +46,7 @@ public static class NetClaimLoadCheck
                 int retryFrames = Math.Clamp((int)(rtt * .06f) + 6, 8, 40);
                 var queue = new NetFaultQueue<Delivery>(8128 + rtt, rtt / 2.0, rtt == 0 ? 0 : 80, rtt == 0 ? 0 : .05, .03, .01);
                 var physical = new PriorityQueue<Delivery, int>();
+                var retries = new PriorityQueue<(Delivery Delivery, int Sends), int>();
                 var terminal = new byte[8, hits + 1]; int verdicts = 0, suppressed = 0;
                 NetHitClaims.VerdictSink = (int slot, ReadOnlySpan<(ushort Id, byte Result)> entries) =>
                 {
@@ -75,19 +76,31 @@ public static class NetClaimLoadCheck
                                 Flags = beams[shooter].EnhancedDirectHit ? HitClaimPacket.FlagDirect : (byte)0,
                                 HitPoint = PlayerEntity.Players[victim].Position };
                             var delivery = new Delivery(shooter, claim);
-                            // Six independent attempts, like the bounded client outbox.
-                            for (int attempt = 0; attempt < 6; attempt++) queue.Enqueue(now, delivery, attempt * retryFrames * (1000.0 / 60));
+                            // Reserve only the next actual send, as Compose does. Future
+                            // retries must not advance the fault scheduler's FIFO due time.
+                            retries.Enqueue((delivery, 0), tick);
                             physical.Enqueue(delivery, tick + (tick % 10 == 0 ? 64 : 0));
                         }
                     // Both a client send stall and authority pump stall are modeled
                     // as 400 ms of queued work; source frames and histories continue.
                     bool stalled = tick is >= 500 and < 524 or >= 1000 and < 1024;
                     if (!stalled)
+                    {
+                        while (retries.TryPeek(out _, out int sendDue) && sendDue <= tick)
+                        {
+                            var retry = retries.Dequeue();
+                            var delivery = retry.Delivery;
+                            if (terminal[delivery.Shooter, delivery.Claim.ClaimId] != 0) continue;
+                            queue.Enqueue(now, delivery);
+                            if (retry.Sends + 1 < 6)
+                                retries.Enqueue((delivery, retry.Sends + 1), tick + retryFrames);
+                        }
                         while (queue.TryDequeue(now, out var delivery))
                         {
                             delivery.Claim.Write(wire.AsSpan(1));
                             NetHitClaims.Receive(delivery.Shooter, wire);
                         }
+                    }
                     NetHitClaims.Tick();
                     while (physical.TryPeek(out _, out int due) && due <= tick)
                     {
