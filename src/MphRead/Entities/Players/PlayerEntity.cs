@@ -1813,6 +1813,13 @@ namespace MphRead.Entities
             var continuousBeam = NetSession.Active && !NetDamage.Replaying
                 && source is BeamProjectileEntity { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true } coil
                 && coil.Owner is PlayerEntity ? coil : null;
+            // The selected, lifecycle-fenced target owns this pulse. A ray
+            // crossing an incidental player (or an explicit no-target pulse)
+            // cannot independently pay damage and contradict the source claim.
+            if (continuousBeam != null && (continuousBeam.ModContinuousTarget != NetTargetIdentity.ForSlot(SlotIndex)
+                || (flags.TestFlag(DamageFlags.Halfturret)
+                    ? continuousBeam.Target is not HalfturretEntity turret || turret.Owner != this
+                    : continuousBeam.Target != this))) return;
             int continuousBodyBefore = _health, continuousTurretBefore = Halfturret?.Health ?? 0;
             using var continuousPayment = continuousBeam != null && (NetSession.IsAuthority || NetSession.IsHost)
                 ? NetContinuousPayments.Begin(new ContinuousPaymentKey(continuousBeam.ModLaunchKey with { ShotId = (uint)continuousBeam.ModContinuousPhase },

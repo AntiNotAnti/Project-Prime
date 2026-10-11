@@ -45,6 +45,7 @@ namespace MphRead.Entities
         // Spawn's firing phase must survive until a Shock Coil beam tests an enemy.
         public ulong ModContinuousPhase { get; set; }
         public bool ModHasSharedContinuousPhase { get; set; }
+        public NetTargetIdentity ModContinuousTarget { get; set; }
         public ushort ModLaunchMatch { get; set; }
         public ulong ModLaunchAuthority { get; set; }
         public ushort ModLaunchGeneration { get; set; }
@@ -2036,6 +2037,7 @@ namespace MphRead.Entities
                 beam.BattlehammerClusterChild = battlehammerCluster;
                 beam.ModContinuousPhase = phase;
                 beam.ModHasSharedContinuousPhase = sharedPhase;
+                beam.ModContinuousTarget = NetTargetIdentity.None;
                 beam.ModLaunchFrame = beam.ModShotId = 0;
                 beam.ModComponentId = componentId; beam._modChildOrdinal = 0;
                 beam.ModLaunchMatch = 0;
@@ -2229,6 +2231,12 @@ namespace MphRead.Entities
                 // moment the answer is known.
                 if (!scene.Services.IsReplica && beam.Beam == BeamType.ShockCoil && owner.Type == EntityType.Player)
                 {
+                    beam.ModContinuousTarget = beam.Target switch
+                    {
+                        PlayerEntity body => NetTargetIdentity.ForSlot(body.SlotIndex),
+                        HalfturretEntity turret => NetTargetIdentity.ForSlot(turret.Owner.SlotIndex),
+                        _ => NetTargetIdentity.None
+                    };
                     NetDamage.ShockCoilSpawned++;
                     if (beam.Target != null)
                     {

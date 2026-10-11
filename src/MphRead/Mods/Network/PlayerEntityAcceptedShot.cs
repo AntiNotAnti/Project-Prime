@@ -17,7 +17,7 @@ public partial class PlayerEntity
         return _modPendingHomingTarget;
     }
 
-    // Emit an already-authored discrete shot without running present-life input,
+    // Emit an authored shot or live continuous pulse without rerunning input,
     // inventory, cooldown, zoom, charge-release, or respawn transitions.
     internal BeamResultFlags ModSpawnAcceptedShot(in FireEvent fire)
     {

@@ -185,8 +185,9 @@ namespace MphRead.Mods.Network
 
         internal static void AcceptedShotFact(ReadOnlySpan<byte> payload, uint frame)
         {
-            if (DemoPlayback.IsActive) return;
-            Recorder.AcceptShotFact(payload, frame);
+            if (DemoPlayback.IsActive || !NetFactBatch.Validate(PacketType.ReplayShotFact, payload)) return;
+            for (int offset = 0; offset < payload.Length; offset += ReplayShotFactPacket.Size)
+                Recorder.AcceptShotFact(payload.Slice(offset, ReplayShotFactPacket.Size), frame);
         }
 
         internal static void AcceptedCosmetics()

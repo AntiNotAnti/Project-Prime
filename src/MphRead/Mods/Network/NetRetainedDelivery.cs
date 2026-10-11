@@ -34,4 +34,27 @@ internal sealed class NetRetainedDelivery
         }
         return true;
     }
+    internal delegate bool BatchSink(PacketType type, ReadOnlySpan<byte> payload);
+    internal bool PumpBatched(Cursor cursor, BatchSink accept, int budget = 64)
+    {
+        if (cursor.Next < First || cursor.Next > _next) return false;
+        Span<byte> batch = stackalloc byte[NetFactBatch.MaximumPayload];
+        for (int sent = 0; sent < budget && cursor.Next < _next;)
+        {
+            var first = _history[(int)(cursor.Next % (ulong)_history.Length)];
+            int stride = NetFactBatch.Stride(first.Type), count = 0;
+            if (stride == 0 || first.Payload.Length != stride)
+                throw new InvalidOperationException("Invalid retained authority fact.");
+            while (cursor.Next + (ulong)count < _next && sent + count < budget
+                && (count + 1) * stride <= batch.Length)
+            {
+                var fact = _history[(int)((cursor.Next + (ulong)count) % (ulong)_history.Length)];
+                if (fact.Type != first.Type || fact.Payload.Length != stride) break;
+                fact.Payload.CopyTo(batch.Slice(count * stride, stride)); count++;
+            }
+            if (!accept(first.Type, batch[..(count * stride)])) break;
+            cursor.Next += (ulong)count; sent += count;
+        }
+        return true;
+    }
 }

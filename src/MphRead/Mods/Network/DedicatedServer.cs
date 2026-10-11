@@ -2520,8 +2520,8 @@ namespace MphRead.Mods.Network
                     if (_transport?.TrySendSemantic(peer.EndPoint, PacketType.MatchSemanticEvent, peer.SemanticBaseline) != true) continue;
                     peer.SemanticBaseline = null;
                 }
-                if (!_semanticDelivery.Pump(peer.SemanticCursor,
-                    fact => _transport?.TrySendSemantic(peer.EndPoint, fact.Type, fact.Payload) == true))
+                if (!_semanticDelivery.PumpBatched(peer.SemanticCursor,
+                    (type, payload) => _transport?.TrySendSemantic(peer.EndPoint, type, payload) == true))
                 {
                     _semanticSlowPeerDisconnects++;
                     _transport?.Send(peer.EndPoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
