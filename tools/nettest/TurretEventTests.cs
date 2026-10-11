@@ -269,7 +269,7 @@ internal static class TurretEventTests
             var packet = new byte[1 + HitClaimPacket.Size]; packet[0] = 1;
             claim.Write(packet.AsSpan(1)); NetHitClaims.Receive(owner.SlotIndex, packet); NetHitClaims.Tick();
         }
-        IntentPacket Offer()
+        IntentPacket Offer(bool zeroSourceLife = false)
         {
             foreach (var beam in owner.EquipInfo.Beams) beam.Lifespan = 0;
             if (owner.IsAltForm || owner.Flags2.TestFlag(PlayerFlags2.Halfturret)) owner.ExitAltForm();
@@ -300,6 +300,7 @@ internal static class TurretEventTests
                 Check(outgoing.FireEventCount == 1 && outgoing.FireEvents[0].Kind == FireEventKind.TurretFire,
                     "actual client launch supplies exact turret offer");
                 fire = outgoing.FireEvents[0];
+                if (zeroSourceLife) fire = fire with { SourceLife = 0 };
             }
             finally { Session(nameof(NetSession.Role), role); Session(nameof(NetSession.IsAuthority), authority); Session(nameof(NetSession.LocalSlot), local); }
             foreach (var beam in owner.EquipInfo.Beams) beam.Lifespan = 0;
@@ -361,6 +362,13 @@ internal static class TurretEventTests
                     && ack.DamageApplied == 0 && victim.Health == health && NetDamage.Sequence(victim.SlotIndex) == sequence,
                     $"expired un-emitted offer cannot pay with evidence={evidence}");
             }
+            carrier = Offer(zeroSourceLife: true); key = ShotKey.For(owner.SlotIndex, carrier.FireEvents[0].ShotId);
+            Retire(); Record(); var legacyLife = Claim(carrier); health = victim.Health; sequence = NetDamage.Sequence(victim.SlotIndex);
+            Receive(legacyLife);
+            Check(NetFireEvents.IsRetiredUnemittedTurret(key) && !NetFireEvents.IsRetiredUnemittedTurret(key with { LifeId = 0 })
+                && answers.TryGetValue(legacyLife.ClaimId, out ack) && ack.Result == HitVerdictPacket.ResultInvalidLaunch
+                && victim.Health == health && NetDamage.Sequence(victim.SlotIndex) == sequence,
+                "legacy zero source-life offer retires exact actual current life and cannot pay");
             carrier = Offer(); key = ShotKey.For(owner.SlotIndex, carrier.FireEvents[0].ShotId);
             owner.TakeDamage(0, DamageFlags.Death | DamageFlags.IgnoreInvuln, null, victim);
             scene.RemoveEntity(owner.Halfturret); owner.ModForceForm(false);
