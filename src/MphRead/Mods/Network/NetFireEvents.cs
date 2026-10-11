@@ -149,6 +149,7 @@ public static class NetFireEvents
         public readonly TurretTerminal[] TurretTerminals = new TurretTerminal[256];
         public bool TurretTerminalOverflow;
         public uint TurretTerminalOverflowAt;
+        public long TurretTerminalOverflows;
         public readonly TurretRecovery[] TurretRecovery = new TurretRecovery[NetIncomingFireHistory.Capacity];
         public AcceptedShotLedger Ledger = NewLedger();
         public FireEvent Active;
@@ -174,7 +175,7 @@ public static class NetFireEvents
                 || unchecked((int)(NetSession.NetFrame - terminal.At)) > TurretTerminalRetentionFrames) free = i;
         }
         if (free >= 0) state.TurretTerminals[free] = new() { Key = key, At = NetSession.NetFrame };
-        else { state.TurretTerminalOverflow = true; state.TurretTerminalOverflowAt = NetSession.NetFrame; }
+        else { state.TurretTerminalOverflow = true; state.TurretTerminalOverflowAt = NetSession.NetFrame; state.TurretTerminalOverflows++; }
     }
     internal static bool IsRetiredUnemittedTurret(in ShotKey key)
     {
@@ -201,6 +202,10 @@ public static class NetFireEvents
             {
                 var key = state.Fence with { ShooterSlot = slot,
                     LifeId = fire.SourceLife != 0 ? fire.SourceLife : state.CurrentLife, ShotId = fire.ShotId };
+                // An expired pending source was never consumed by native Commit.
+                // Its claim rescue veto is production policy, independent of diagnostics.
+                if (NetSession.IsAuthority && fire.Kind == FireEventKind.TurretFire)
+                    RememberRetiredUnemittedTurret(key);
                 // Preserve the entire recovery window and all native firing gates.
                 // Only at terminal expiry can a settled, unavailable authority
                 // turret classify the retained event as rejected rather than lost.
@@ -212,7 +217,7 @@ public static class NetFireEvents
                     if (NetCampaignEvidence.Enabled && owner.SlotIndex == slot && owner.Hunter == Hunter.Weavel && proof.Key == key
                         && TurretRecoveryElapsed(proof.AcceptedAt, NetSession.NetFrame, proof.EverAvailable)
                         && ExpiredTurretUnavailable(key, ShotKey.For(slot, 0), owner.ModCaptureForm()))
-                    { RememberRetiredUnemittedTurret(key); NetCampaignEvidence.TurretRecoveryUnavailable(owner, key, fire, proof.AcceptedAt, proof.Form, proof.EverAvailable); return; }
+                    { NetCampaignEvidence.TurretRecoveryUnavailable(owner, key, fire, proof.AcceptedAt, proof.Form, proof.EverAvailable); return; }
                 }
                 NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Expired,
                     "fire-event recovery retention elapsed");
@@ -284,7 +289,7 @@ public static class NetFireEvents
         }
     }
     public static void Reset()
-    { NetShotProof.Reset(); foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.HasTurretRetirement = slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); Array.Clear(slot.TurretRecovery); Array.Clear(slot.TurretTerminals); slot.TurretTerminalOverflow = false; slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
+    { NetShotProof.Reset(); foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.HasTurretRetirement = slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); Array.Clear(slot.TurretRecovery); Array.Clear(slot.TurretTerminals); slot.TurretTerminalOverflow = false; slot.TurretTerminalOverflows = 0; slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
     internal static bool Accept(int slot, in IntentPacket intent)
     {
         if ((uint)slot >= 8 || !Validate(intent)) return false;
@@ -442,6 +447,7 @@ public static class NetFireEvents
         Outgoing = state.Outgoing.Count, Pending = state.Incoming.Pending,
         OutgoingOverflow = state.Outgoing.Overflows, UnsentExpired = state.Outgoing.UnsentExpired,
         IncomingOverflow = state.Incoming.Overflows, Conflicts = state.Incoming.Conflicts,
+        TurretTerminalOverflow = state.TurretTerminalOverflow, TurretTerminalOverflows = state.TurretTerminalOverflows,
         StaleCarriers = state.Incoming.StaleCarriers, ExpiredPending = state.Incoming.ExpiredPending,
         Discrete = new { state.Ledger.Accepted, state.Ledger.Fired, state.Ledger.Rejected, state.Ledger.Expired,
             state.Ledger.Pending, state.Ledger.Conflicts, state.Ledger.Overflows, state.Ledger.AdmissionRejected }
