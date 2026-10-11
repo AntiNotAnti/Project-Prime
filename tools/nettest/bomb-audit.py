@@ -482,9 +482,15 @@ def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibil
             finding("INCOMPLETE",name,"Bombs.Snapshot","bootstrap frontier/live baseline unavailable")
             continue
         start = seen[0][1]
-        expected = [by_seq[n] for n in sorted(by_seq) if n > start]
+        # Only a frozen release establishes the authority's terminal interval.
+        # Without it, compare every observed event in exact ordinal order, but
+        # do not misclassify a suffix created after this process exited as loss.
+        end = final if final is not None else max((e[0] for e in peer["events"]),default=start)
+        expected = [by_seq[n] for n in sorted(by_seq) if start < n <= end]
         if peer["events"] != expected:
             finding("FAIL",name,"Bombs.Event","post-bootstrap event sequence/payload differs from exact authority interval")
+        if final is None:
+            finding("INCOMPLETE",name,"Bombs.Event.TerminalInterval","no frozen release frontier; only the observed event prefix is verified")
         if final is not None and start > final:
             finding("FAIL",name,"Bombs.Snapshot.Frontier","bootstrap exceeds final authority frontier")
         previous_frontier = start
@@ -499,7 +505,8 @@ def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibil
         peer_states[name] = {s for _,_,ss in seen for s in ss}
         peer_snapshots[name] = [set(ss) for _,_,ss in seen]
         metrics["peers"].setdefault(name,{}).update(bootstrapFrontier=start,bootstrapLiveKeys=[list(s[0]) for s in seen[0][2]],
-                bootstrapLiveCount=len(seen[0][2]),eventsCompared=len(expected),snapshotsCompared=len(seen))
+                bootstrapLiveCount=len(seen[0][2]),eventIntervalEnd=end,terminalIntervalFrozen=final is not None,
+                eventsCompared=len(expected),snapshotsCompared=len(seen))
     if not kinds:
         finding("FAIL","campaign","kind","at least one relevant bomb kind must be required")
     for kind in kinds:

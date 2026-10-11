@@ -216,6 +216,19 @@ class BombAuditTests(unittest.TestCase):
         snap=next(r for r in self.server["Bombs"]["Rows"] if r["Type"] == "Snapshot" and r["States"])
         snap["States"][2]["Link1"]=77
         self.assertEqual(self.result(("Lockjaw",))["gameplayStatus"],"FAIL")
+    def test_without_drain_later_authority_suffix_is_incomplete_not_loss(self):
+        del self.manifest["drain"]
+        self.manifest["settings"]["drain_seconds"]=0
+        self.peers["peer-0"]["Bombs"]["Rows"]=self.peers["peer-0"]["Bombs"]["Rows"][:4]
+        result=self.result()
+        self.assertEqual(result["gameplayStatus"],"INCOMPLETE",result)
+        self.assertTrue(any(f["field"] == "Bombs.Event.TerminalInterval" for f in result["findings"]))
+        self.assertFalse(any(f["field"] == "Bombs.Event" and f["status"] == "FAIL" for f in result["findings"]))
+    def test_without_drain_missing_middle_or_duplicate_still_fails(self):
+        del self.manifest["drain"]
+        self.manifest["settings"]["drain_seconds"]=0
+        self.peers["peer-0"]["Bombs"]["Rows"].pop(2)
+        self.check("FAIL","Event")
     def test_strict_n8_missing_drain_fields_cannot_pass_as_legacy(self):
         for field in ("BombFrontier","BombPendingRequests","BombPendingEvents","BombFaulted"):
             saved=self.peers["peer-0"]["Drain"].pop(field)
