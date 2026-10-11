@@ -121,7 +121,11 @@ public static class EnhancedHunterChecks
         var lanes = new NetReplicationLanes(); lanes.Prepare(canonical.AsSpan(0, at));
         Check(lanes.FastLength + NetHeader.Size <= 1200 && lanes.WorldLength + NetHeader.Size <= 1200
             && lanes.SlowLength + NetHeader.Size <= 1200, "all maximum lanes fit realtime budget");
-        Check(SnapshotFast.MaximumEncodedSize + WorldBootstrapIdentity.Size + 5 <= 1200, "fast bootstrap fits budget");
+        // Live fast snapshots carry a personalized continuous-payment receipt;
+        // reliable WorldBootstrap strips it before adding its own envelope.
+        Check(SnapshotFast.MaximumEncodedSize - SnapshotFast.ReceiptSize == SnapshotFast.BootstrapMaximumEncodedSize
+            && SnapshotFast.BootstrapMaximumEncodedSize + WorldBootstrapIdentity.Size + 1 + 4 <= 1200,
+            "receipt-free fast bootstrap fits its reliable envelope budget");
         var receiver = new NetReplicationReceiver();
         Check(receiver.Receive(PacketType.PlayerSlowState, lanes.Slow.AsSpan(0, lanes.SlowLength), 1, 1), "slow lane accepted");
         Check(receiver.Receive(PacketType.WorldState, lanes.World.AsSpan(0, lanes.WorldLength), 1, 1), "world lane accepted");

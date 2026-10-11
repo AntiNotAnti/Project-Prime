@@ -52,6 +52,14 @@ namespace MphRead.Mods.Network
 
 namespace MphRead.Mods.Network
 {
+    // The isolated F0 scene adapter compiles without the full combat authority.
+    // The real journal updates Prime ownership in the game; this fixture only
+    // verifies semantic-event publication, never inventory or shot admission.
+    internal static class NetShotSourceJournal
+    {
+        internal static void PrimeChanged(MphRead.Scene scene) { }
+    }
+
     internal static class MatchReportStats
     {
         internal static void AcceptSemantic(MphRead.Scene scene, in MphRead.Mods.MatchEvents.MatchSemanticEvent fact,

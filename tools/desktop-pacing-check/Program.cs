@@ -1,6 +1,12 @@
 using MphRead.Mods.Render;
 
 int failures = 0;
+CheckDisplaySentinel();
+void CheckDisplaySentinel()
+{
+    if (DesktopFramePacing.DisplayRateCap != 0)
+        throw new InvalidOperationException("Desktop Display/VSync must use the zero sentinel");
+}
 void Check(bool result, string name)
 {
     Console.WriteLine($"DESKTOPPACING {(result ? "PASS" : "FAIL")} {name}");
