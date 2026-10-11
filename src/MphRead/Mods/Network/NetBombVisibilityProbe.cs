@@ -35,6 +35,8 @@ internal static class NetBombVisibilityProbe
     internal static void Observe(Scene scene)
     {
         if (string.IsNullOrEmpty(Output) || !NetSession.IsClient || NetSession.LocalSlot < 0 || NetSession.ConnectionLost) return;
+        // PNG capture redirects replay/killcam presentation; never pair that PNG with live-world RGB.
+        if (KillCam.Presentation(scene) != null || DemoPlayback.Presentation(scene) != null) return;
         if (!Initialized)
         {
             if (File.Exists(Output)) throw new IOException("Live bomb pixel evidence already exists: " + Output);
@@ -43,7 +45,8 @@ internal static class NetBombVisibilityProbe
             EngineSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(typeof(Scene).Assembly.Location))).ToLowerInvariant();
             Initialized = true;
         }
-        var bombs = scene.GetBombEntities().ToArray();
+        var bombs = new List<BombEntity>();
+        foreach (BombEntity bomb in scene.GetBombEntities()) bombs.Add(bomb);
         foreach (BombEntity bomb in bombs)
         {
             if (!bomb.ModReplica || bomb.Flags.TestFlag(BombFlags.Exploded) || !NetBombs.Current(bomb.ModOwnerKey)) continue;
@@ -69,6 +72,7 @@ internal static class NetBombVisibilityProbe
             // Bound unsupported camera retries without inventing successful coverage.
             if (attempt > 8) { Finished.Add(id); return; }
             BombState state = bomb.ModCaptureState();
+            uint snapshotFrame = (uint)typeof(NetBombWorld).GetField("_snapshotFrame", Private)!.GetValue(scene.Bombs)!;
             BombState? targetState = target?.ModCaptureState();
             var saved = CameraFields.Select(n => typeof(Scene).GetField(n, Private)!.GetValue(scene)).ToArray();
             bool allNodes = scene.ShowAllNodes;
@@ -86,7 +90,7 @@ internal static class NetBombVisibilityProbe
                 {
                     Rows[id] = new { Type = target == null ? "Body" : "Link", Key = state.Key, TargetKey = targetState?.Key,
                         State = State(state), TargetState = targetState.HasValue ? State(targetState.Value) : null,
-                        Frame = NetSession.NetFrame, SnapshotFrame = NetSession.AppliedSnapshotFrame, SceneFrame = frame,
+                        Frame = NetSession.NetFrame, SnapshotFrame = snapshotFrame, PlayerSnapshotFrame = NetSession.AppliedSnapshotFrame, SceneFrame = frame,
                         Attempts = attempt, Status = "INCOMPLETE", Reason = "no collision-clear vantage" };
                     return;
                 }
@@ -108,7 +112,7 @@ internal static class NetBombVisibilityProbe
                     : changed > 0 ? "PASS" : depthClear ? "FAIL" : "INCOMPLETE";
                 Rows[id] = new { Type = target == null ? "Body" : "Link", Key = state.Key, TargetKey = targetState?.Key,
                     State = State(state), TargetState = targetState.HasValue ? State(targetState.Value) : null,
-                    Frame = NetSession.NetFrame, SnapshotFrame = NetSession.AppliedSnapshotFrame, SceneFrame = frame,
+                    Frame = NetSession.NetFrame, SnapshotFrame = snapshotFrame, PlayerSnapshotFrame = NetSession.AppliedSnapshotFrame, SceneFrame = frame,
                     Attempts = attempt, Status = status, Camera = V(camera.Value), CollisionClear = true,
                     WorldDepth = depth.World, FixtureDepth = depth.Fixture, CenterDepthClear = depthClear,
                     SamplePixel = new { depth.X, depth.Y }, ChangedPixels = changed, UnstablePixels = unstable,
@@ -120,7 +124,7 @@ internal static class NetBombVisibilityProbe
             {
                 Rows[id] = new { Type = target == null ? "Body" : "Link", Key = state.Key, TargetKey = targetState?.Key,
                     State = State(state), TargetState = targetState.HasValue ? State(targetState.Value) : null,
-                    Frame = NetSession.NetFrame, SnapshotFrame = NetSession.AppliedSnapshotFrame, SceneFrame = frame,
+                    Frame = NetSession.NetFrame, SnapshotFrame = snapshotFrame, PlayerSnapshotFrame = NetSession.AppliedSnapshotFrame, SceneFrame = frame,
                     Attempts = attempt, Status = "INCOMPLETE", Reason = ex.Message };
             }
             finally
