@@ -38,6 +38,7 @@ namespace MphRead.NetTest
                 PresentationSlotDiagnostics();
                 PresentationTimingDiagnostics();
                 ReportedVelocityWrap();
+                RemoteIntentAgeWrap();
                 HistoryBoundaries();
                 ClaimBoundaries();
                 FaultStream();
@@ -788,6 +789,45 @@ namespace MphRead.NetTest
             typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, 100.5);
             Check(NetSmoothing.Sample(1, out var pose, out _) && pose == Vector3.Zero,
                 "valid received origin pose remains available to smoothing");
+        }
+
+        private static void RemoteIntentAgeWrap()
+        {
+            Session();
+            Deliver(Packet(100, State(7)));
+            var clock = typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!;
+            clock.SetValue(null, uint.MaxValue - 1);
+            var intent = new IntentPacket { MatchId = 51, AuthorityEpoch = 4,
+                SlotGeneration = 10, LifeId = 7, Frame = 1 };
+            Check(NetSession.AcceptSlotIntent(1, intent), "age fixture accepts current owner intent");
+            clock.SetValue(null, 1u);
+            Check(NetSession.RemoteIntentAge(1) == 3, "receiver intent age crosses frame wrap");
+            clock.SetValue(null, 0u);
+            intent.Frame = 2;
+            Check(NetSession.AcceptSlotIntent(1, intent) && NetSession.RemoteIntentArrived[1] == 0,
+                "real acceptance preserves receiver frame-zero arrival");
+            clock.SetValue(null, 1u);
+            Check(NetSession.RemoteIntentAge(1) == 1, "valid frame-zero arrival is not unknown");
+            clock.SetValue(null, 0u);
+            Check(NetSession.RemoteIntentAge(1) == 0, "valid frame-zero arrival has zero age");
+            NetSession.RemoteIntentArrived[1] = 1;
+            Check(NetSession.RemoteIntentAge(1) == 0, "future arrival clamps conservatively to zero");
+            NetSession.RemoteIntentValid[1] = false;
+            Check(NetSession.RemoteIntentAge(1) == uint.MaxValue, "invalid intent is unknown regardless of arrival");
+            NetSession.RemoteIntentValid[1] = true;
+            var stale = intent; stale.LifeId = 6;
+            NetSession.RemoteIntents[1] = stale;
+            Check(NetSession.RemoteIntentAge(1) == uint.MaxValue, "previous-life intent age is unknown");
+            stale = intent; stale.SlotGeneration = 9; NetSession.RemoteIntents[1] = stale;
+            Check(NetSession.RemoteIntentAge(1) == uint.MaxValue, "previous occupant intent age is unknown");
+            stale = intent; stale.MatchId = 50; NetSession.RemoteIntents[1] = stale;
+            Check(NetSession.RemoteIntentAge(1) == uint.MaxValue, "previous match intent age is unknown");
+            stale = intent; stale.AuthorityEpoch = 3; NetSession.RemoteIntents[1] = stale;
+            Check(NetSession.RemoteIntentAge(1) == uint.MaxValue, "previous authority intent age is unknown");
+            Check(NetSession.RemoteIntentAge(-1) == uint.MaxValue
+                && NetSession.RemoteIntentAge(NetSession.RemoteIntentArrived.Length) == uint.MaxValue,
+                "out-of-range intent age is unknown");
+            Session();
         }
 
         private static void ReportedVelocityWrap()

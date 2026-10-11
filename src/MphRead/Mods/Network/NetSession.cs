@@ -129,13 +129,15 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static uint RemoteIntentAge(int slot)
         {
-            if (slot < 0 || slot >= RemoteIntentArrived.Length || RemoteIntentArrived[slot] == 0)
+            if (slot < 0 || slot >= RemoteIntentArrived.Length || !RemoteIntentValid[slot]
+                || RemoteIntents[slot].MatchId != CurrentMatchId
+                || RemoteIntents[slot].AuthorityEpoch != AuthorityEpoch
+                || !NetPlayerLifecycle.Matches(slot, RemoteIntents[slot].SlotGeneration, RemoteIntents[slot].LifeId))
             {
                 return UInt32.MaxValue;
             }
-            return NetFrame >= RemoteIntentArrived[slot]
-                ? NetFrame - RemoteIntentArrived[slot]
-                : 0;
+            int age = unchecked((int)(NetFrame - RemoteIntentArrived[slot]));
+            return age >= 0 ? (uint)age : 0;
         }
 
         /// <summary>
@@ -1280,7 +1282,7 @@ namespace MphRead.Mods.Network
             peer.LastSeenTime = time;
             RemoteIntents[peer.SlotIndex] = intent;
             RemoteIntentValid[peer.SlotIndex] = true;
-            RemoteIntentArrived[peer.SlotIndex] = Math.Max(NetFrame, 1);
+            RemoteIntentArrived[peer.SlotIndex] = NetFrame;
         }
 
         /// <summary>
@@ -1348,7 +1350,7 @@ namespace MphRead.Mods.Network
             _lastSlotIntentFrame[slot] = intent.Frame;
             RemoteIntents[slot] = intent;
             RemoteIntentValid[slot] = true;
-            RemoteIntentArrived[slot] = Math.Max(NetFrame, 1);
+            RemoteIntentArrived[slot] = NetFrame;
             IntentsReceived++;
             if (NetLog.Enabled && intent.Buttons.HasFlag(IntentButtons.Shoot))
                 NetShotDiagnostics.Trace("intent", ShotKey.For(slot, intent.AckFrame), (BeamType)intent.WeaponSelect,
