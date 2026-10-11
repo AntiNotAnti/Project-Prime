@@ -4068,6 +4068,7 @@ namespace MphRead
 
         private void UnlinkEffectElement(EffectElementEntry element)
         {
+            Mods.Network.NetBombVisibilityProbe.ElementReleased(element);
             if (!_activeElements.Remove(element))
             {
                 Debug.Assert(false, "Effect element was released more than once.");
@@ -4172,7 +4173,10 @@ namespace MphRead
 
         internal void SpawnCanonicalBombEffect(int effectId, Matrix4 transform)
         {
+            int start = Mods.Network.NetBombVisibilityProbe.CapturingTerminal(this) ? _activeElements.Count : -1;
             SpawnEffect(effectId, transform, child: false, entry: null, entCol: null, canonicalBirth: true);
+            if (start >= 0)
+                Mods.Network.NetBombVisibilityProbe.RegisterTerminal(this, effectId, transform, _activeElements.Skip(start).ToArray());
         }
 
         private void SpawnEffect(int effectId, Matrix4 transform, bool child, EffectEntry? entry, EntityCollision? entCol,

@@ -283,6 +283,7 @@ internal sealed class NetBombWorld
                 bomb.ModRemoveReplica();
         foreach (var state in receiver.States)
             if (!_terminal.ContainsKey(state.Key)) Put(state);
+        NetBombVisibilityProbe.AppliedSnapshot(_scene, receiver.Frame, receiver.States);
         if (!_scene.Services.IsReplica)
             NetBombEvidence.Snapshot(receiver.Frame, receiver.Frontier, receiver.States, "applied");
     }
@@ -301,6 +302,8 @@ internal sealed class NetBombWorld
         {
             _frontier = fact.Sequence;
             var state = fact.State;
+            using var diagnostic = NetBombVisibilityProbe.AcceptedEvent(_scene, fact,
+                !_hasSnapshot || NetLifecycleTracker.Newer(fact.Frame, _snapshotFrame) || _snapshotKeys.Contains(state.Key));
             switch (fact.Kind)
             {
                 case BombEventKind.Placed:
