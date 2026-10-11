@@ -232,6 +232,7 @@ namespace MphRead.Mods.Network
             /// <summary>Frames since it was first sent, for the retry budget.</summary>
             public int Age;
             public int LastSentAge;
+            public bool PredictionReleased;
             public int Sends;
             public bool Live;
         }
@@ -244,23 +245,19 @@ namespace MphRead.Mods.Network
         /// keeps trying. UDP loses packets and a lost claim is a kill that did
         /// not happen, so this is the same reasoning as
         /// <see cref="IntentPacket.PressHistory"/> -- repeat until told to
-        /// stop. At most six sends fit within the separate MaxAge deadline;
+        /// stop. At most six sends fit within the separate DeliveryMaxAge deadline;
         /// the measured round trip sets the spacing between attempts.
         /// </summary>
         private const int MaxSends = 6;
-        /// <summary>
-        /// How long an unanswered claim is kept before it is given up on.
-        ///
-        /// Six sends at up to forty frames apart would run past any hold, so
-        /// this is the real bound on how long a claim is asked about: one
-        /// second, whichever of the two runs out first. It is deliberately
-        /// **shorter than the longest
-        /// <c>NetHitPrediction.HoldFrames</c>**, because giving up is what
-        /// releases the prediction the claim was holding: a lethal prediction
-        /// nobody ever answers holds a body down, and the sooner that decision
-        /// goes back to the authority the shorter the wrong picture lasts.
-        /// </summary>
+        /// <summary>Release speculative presentation after one second even if
+        /// the terminal receipt is still travelling or needs a retry.</summary>
         private const int MaxAge = 60;
+        private const int MaxResendInterval = 40;
+        // Retain identity for every bounded send opportunity, the authority's
+        // maximum pending window, and a final round trip. This is receipt-only
+        // after MaxAge; it cannot prolong or reinstate speculative health/death.
+        internal const int DeliveryMaxAge = MaxSends * MaxResendInterval
+            + 2 * MaxGraceFrames + MaxResendInterval;
         /// <summary>
         /// The least time between repeats of the same claim, in frames, when
         /// the round trip is not known yet.
@@ -286,7 +283,7 @@ namespace MphRead.Mods.Network
                 int ping = slot >= 0 && slot < NetSession.SlotPing.Length
                     ? NetSession.SlotPing[slot]
                     : 0;
-                return Math.Clamp((int)(ping * 0.06f) + 6, MinResendInterval, 40);
+                return Math.Clamp((int)(ping * 0.06f) + 6, MinResendInterval, MaxResendInterval);
             }
         }
 
@@ -527,6 +524,16 @@ namespace MphRead.Mods.Network
             return offset;
         }
 
+        internal static int OutgoingReceipts
+        {
+            get
+            {
+                int count = 0;
+                foreach (ref readonly var entry in _outbox.AsSpan()) if (entry.Live) count++;
+                return count;
+            }
+        }
+
         /// <summary>Age the outbox. One call a frame from the client.</summary>
         private static void TickOutbox()
         {
@@ -538,22 +545,18 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 entry.Age++;
-                if (entry.Age > MaxAge)
+                if (entry.Age > MaxAge && !entry.PredictionReleased)
+                {
+                    entry.PredictionReleased = true;
+                    NetHitPrediction.Settle(entry.VictimSlot, entry.Id, confirmed: false);
+                }
+                if (entry.Age > DeliveryMaxAge)
                 {
                     entry.Live = false;
                     Unanswered++;
                     if (NetLog.Enabled) NetShotDiagnostics.Trace("unanswered",
                         new ShotKey(entry.AuthorityEpoch, entry.MatchId, NetSession.LocalSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId),
                         (BeamType)entry.Beam, $"id={entry.Id} reason=verdict-timeout sends={entry.Sends}");
-                    // Six sends and no answer. The claim may still have landed
-                    // -- it is the verdict that went missing, not necessarily
-                    // the claim -- so this is not "the hit did not happen", it
-                    // is "stop holding the picture on the strength of it and
-                    // let the authority's snapshots decide", which is what
-                    // every build before claims did. A lethal prediction left
-                    // holding is a body on the floor for the whole of the hold
-                    // window.
-                    NetHitPrediction.Settle(entry.VictimSlot, entry.Id, confirmed: false);
                 }
             }
         }
@@ -603,10 +606,12 @@ namespace MphRead.Mods.Network
                     if (ack.VictimSlot != 255 && (ack.VictimSlot != entry.VictimSlot
                         || ack.VictimGeneration != entry.VictimGeneration || ack.VictimLife != entry.VictimLifeId)) continue;
                     entry.Live = false;
-                    if (!NetHitPrediction.ApplyCombatAck(ack, entry.Age))
+                    if (entry.PredictionReleased || !NetHitPrediction.ApplyCombatAck(ack, entry.Age))
                     {
                         // A snapshot often settles the hit before its claim is
-                        // answered. Retain that healthy path in the study too.
+                        // answered. After the short prediction deadline, a late
+                        // receipt also stays telemetry-only: it cannot reinstate
+                        // a debit or health/death correction.
                         bool headCorrection = ((entry.Flags & HitClaimPacket.FlagHeadshot) != 0)
                             != ((ack.Flags & CombatAckFlags.Headshot) != 0);
                         byte telemetryWeapon = (byte)(entry.Beam == HitClaimPacket.NoBeam
@@ -637,11 +642,11 @@ namespace MphRead.Mods.Network
                         // never matched, and its debit goes on being taken off
                         // a health the authority has already taken it off.
                         // NetHitPrediction._pendingClaim.
-                        NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: true);
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: true);
                         break;
                     case HitVerdictPacket.ResultDuplicate:
                         Duplicate++;
-                        NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: true);
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: true);
                         break;
                     case HitVerdictPacket.ResultDeadShooter:
                         RefusedDeadShooter++;
@@ -649,15 +654,15 @@ namespace MphRead.Mods.Network
                         // prediction this machine is holding is wrong and the
                         // sooner it is let go the shorter the wrong health bar
                         // lasts -- which is the whole reason a verdict exists.
-                        NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
                         break;
                     case HitVerdictPacket.ResultDeadVictim:
                         RefusedDeadVictim++;
-                        NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
                         break;
                     default:
                         RefusedOther++;
-                        NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
                         NetLog.Event($"claim {id} on slot {entry.VictimSlot} "
                             + $"{HitVerdictPacket.Describe(result)}");
                         break;

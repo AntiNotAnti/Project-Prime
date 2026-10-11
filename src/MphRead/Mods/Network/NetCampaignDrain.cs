@@ -124,7 +124,7 @@ internal static class NetCampaignDrain
             SemanticPresented = Server ? _semantic : receiver.PresentedEvent,
             AwardLatest = Server ? _award : receiver.LatestAward,
             AwardPresented = Server ? _award : receiver.PresentedAward,
-            ActiveProjectiles = _projectiles, ActiveBombs = _bombs, ClaimsPending = NetHitClaims.ClaimsPendingCurrent,
+            ActiveProjectiles = _projectiles, ActiveBombs = _bombs, ClaimsPending = Server ? NetHitClaims.ClaimsPendingCurrent : NetHitClaims.OutgoingReceipts,
             ClaimGraceSeconds = 2.0 * NetHitClaims.MaxGraceFrames / 60,
             OfferedShotKeys = Offered.OrderBy(key => key).ToArray(), AcceptedShotKeys = Accepted.OrderBy(key => key).ToArray(),
             Reliable = transport?.Endpoints.Select(peer => new { peer.Endpoint, peer.Connection.ConnectionId,

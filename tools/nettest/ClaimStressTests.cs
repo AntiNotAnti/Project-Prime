@@ -109,9 +109,115 @@ internal static class ClaimStressTests
             && OutgoingValue<bool>("Live") && NetHitClaims.Unanswered == 0,
             "retry keeps six-send cap and remains live through age sixty");
         AgeOutgoing();
+        NetArchitectureTests.Check(OutgoingValue<bool>("Live") && NetHitClaims.Unanswered == 0,
+            "age sixty-one releases prediction while terminal receipt remains live");
+        NetArchitectureTests.Check(OutgoingValue<bool>("PredictionReleased") && ReceiptCount() == 1
+            && DrainClaims() == 1 && NetHitClaims.Compose(wire) == 0,
+            "six-send cap retains one receipt in client drain after prediction release");
+        const int deliveryDeadline = 6 * 40 + 2 * NetHitClaims.MaxGraceFrames + 40;
+        for (int age = 62; age <= deliveryDeadline; age++)
+        {
+            AgeOutgoing();
+            NetArchitectureTests.Check(NetHitClaims.Compose(wire) == 0,
+                "delivery retention cannot exceed six sends");
+        }
+        NetArchitectureTests.Check(OutgoingValue<bool>("Live") && NetHitClaims.Unanswered == 0
+            && ReceiptCount() == 1, "receipt remains bounded and live through delivery deadline");
+        AgeOutgoing();
         NetArchitectureTests.Check(!OutgoingValue<bool>("Live") && NetHitClaims.Unanswered == 1
-            && NetHitClaims.Compose(wire) == 0, "retry preserves age-sixty-one expiration");
+            && NetHitClaims.Compose(wire) == 0 && ReceiptCount() == 0 && DrainClaims() == 0,
+            "receipt exhausts once beyond bounded delivery deadline");
+        AgeOutgoing();
+        NetArchitectureTests.Check(NetHitClaims.Unanswered == 1, "expired receipt is counted only once");
+        ReceiptAfterPredictionRelease();
         NetHitClaims.Reset();
+    }
+    private static int ReceiptCount() => (int)typeof(NetHitClaims)
+        .GetProperty("OutgoingReceipts", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+    private static int DrainClaims()
+    {
+        object status = NetCampaignDrain.Capture();
+        return (int)status.GetType().GetProperty("ClaimsPending")!.GetValue(status)!;
+    }
+    private static void ReceiptAfterPredictionRelease()
+    {
+        HealthShotTests.Session(); NetHitClaims.Reset(); NetHitPrediction.Reset(); Frame(100);
+        NetSession.SlotPing[0] = 1000;
+        var key = ShotKey.For(0, 19);
+        var victim = HealthShotTests.Player(1);
+        var savedVictim = PlayerEntity._players[1];
+        try
+        {
+            PlayerEntity._players[1] = victim;
+            DamageFlags flags = 0; uint damage = 32;
+            NetHitPrediction.NoteHit(victim, HealthShotTests.Player(0), ref flags, ref damage,
+                BeamType.Missile, launchFrame: 90, direct: true, shotId: key.ShotId, shotKey: key, componentId: 1);
+            victim.Health = NetHitPrediction.HealthFor(1, 99);
+            NetArchitectureTests.Check(victim.Health == 67 && ReceiptCount() == 1,
+                "receipt fixture starts with a real named health prediction");
+            byte[] wire = new byte[1 + HitClaimPacket.MaxPerPacket * HitClaimPacket.Size];
+            NetHitClaims.Compose(wire);
+            for (int age = 1; age <= 60; age++) { AgeOutgoing(); NetHitClaims.Compose(wire); }
+            NetArchitectureTests.Check(NetHitPrediction.Denied == 0 && !OutgoingValue<bool>("PredictionReleased"),
+                "visual prediction is not released before age sixty-one");
+            AgeOutgoing();
+            NetArchitectureTests.Check(OutgoingValue<bool>("Live") && OutgoingValue<bool>("PredictionReleased")
+                && NetHitPrediction.Denied == 1 && ReceiptCount() == 1 && DrainClaims() == 1,
+                "visual prediction is released exactly once while delivery remains pending");
+            victim.Health = NetHitPrediction.HealthFor(1, 99);
+            int health = victim.Health;
+            long denied = NetHitPrediction.Denied, confirmed = NetHitPrediction.Confirmed;
+            long combatAcks = NetHitPrediction.CombatAcks, damageCorrections = NetHitPrediction.DamageCorrections;
+            long healthCorrections = NetHitPrediction.HealthCorrections, headCorrections = NetHitPrediction.HeadshotCorrections;
+            uint sequence = NetDamage.Sequence(1);
+            for (int age = 62; age <= 70; age++) { AgeOutgoing(); NetHitClaims.Compose(wire); }
+            ushort claimId = OutgoingValue<ushort>("Id");
+            var ack = new CombatAckEntry { ClaimId = claimId, ShotId = key.ShotId,
+                VictimSlot = 1, VictimGeneration = NetPlayerLifecycle.Generation(1), VictimLife = NetPlayerLifecycle.Get(1),
+                Result = (byte)CombatAckResult.AlreadyResolved, DamageApplied = 32, HealthAfter = 67,
+                DamageSequence = sequence + 1, Flags = CombatAckFlags.OutcomePresent };
+            byte[] verdict = new byte[HitVerdictPacket.HeaderSize + CombatAckEntry.Size];
+            void Answer(ushort match, ulong epoch, ushort generation, ushort life)
+            {
+                HitVerdictPacket.Write(verdict, new[] { ack }, match, epoch, generation, life);
+                NetHitClaims.ApplyVerdicts(verdict);
+            }
+            ack.ShotId++;
+            Answer(key.MatchId, key.AuthorityEpoch, key.Generation, key.LifeId);
+            NetArchitectureTests.Check(OutgoingValue<bool>("Live"), "late wrong-shot ACK cannot retire receipt");
+            ack.ShotId = key.ShotId;
+            Answer(key.MatchId, key.AuthorityEpoch + 1, key.Generation, key.LifeId);
+            NetArchitectureTests.Check(OutgoingValue<bool>("Live"), "late wrong-stream ACK cannot retire receipt");
+            Answer(key.MatchId, key.AuthorityEpoch, key.Generation, (ushort)(key.LifeId + 1));
+            NetArchitectureTests.Check(OutgoingValue<bool>("Live"), "late wrong-shooter-life ACK cannot retire receipt");
+            ack.VictimLife++;
+            Answer(key.MatchId, key.AuthorityEpoch, key.Generation, key.LifeId);
+            NetArchitectureTests.Check(OutgoingValue<bool>("Live"), "late wrong-victim-life ACK cannot retire receipt");
+            ack.VictimLife--;
+            Answer(key.MatchId, key.AuthorityEpoch, key.Generation, key.LifeId);
+            NetArchitectureTests.Check(!OutgoingValue<bool>("Live") && ReceiptCount() == 0 && DrainClaims() == 0
+                && NetHitClaims.Duplicate == 1 && NetHitClaims.Unanswered == 0,
+                "exact age-seventy ACK retires only the retained delivery receipt");
+            Answer(key.MatchId, key.AuthorityEpoch, key.Generation, key.LifeId);
+            NetArchitectureTests.Check(victim.Health == health && NetHitPrediction.HealthFor(1, 99) == health
+                && NetDamage.Sequence(1) == sequence && NetHitPrediction.Denied == denied
+                && NetHitPrediction.Confirmed == confirmed && NetHitPrediction.CombatAcks == combatAcks
+                && NetHitPrediction.DamageCorrections == damageCorrections
+                && NetHitPrediction.HealthCorrections == healthCorrections
+                && NetHitPrediction.HeadshotCorrections == headCorrections && NetHitClaims.Duplicate == 1,
+                "late and duplicate receipts cannot replay visual health, corrections, settlement or native damage");
+            RetryFixture(0);
+            for (int age = 1; age <= 61; age++) AgeOutgoing();
+            NetHitClaims.ForgetSlot(1, preserveFlights: true);
+            NetArchitectureTests.Check(ReceiptCount() == 0 && DrainClaims() == 0,
+                "victim lifecycle cancellation clears retained receipt even when physical flights are preserved");
+            RetryFixture(0);
+            for (int age = 1; age <= 61; age++) AgeOutgoing();
+            NetHitClaims.ForgetSlot(0, preserveFlights: true);
+            NetArchitectureTests.Check(ReceiptCount() == 0 && DrainClaims() == 0,
+                "shooter lifecycle cancellation clears retained receipt");
+        }
+        finally { PlayerEntity._players[1] = savedVictim; }
     }
     private static void NativeOutcomeFirstAck()
     {
