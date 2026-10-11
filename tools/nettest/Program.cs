@@ -36,6 +36,8 @@ namespace MphRead.NetTest
                     + "  --compact-intents                 Test compact live intent transport and replay compatibility.\n"
                     + "  --shot-proof-scene <assets> [room] Test shot proof with real scene assets.\n"
                     + "  --native-discontinuities <assets> [room] Test native events through snapshot/history/presentation.\n"
+                    + "  --movement-tour <assets> [room]    Test seven hunters through native local movement.\n"
+                    + "  --movement-validation-shadow      Test bounded advisory movement observations.\n"
                     + "  --form-scene <assets> [room]       Test authority form and detached turret lifecycle.");
                 return 0;
             }
@@ -78,6 +80,13 @@ namespace MphRead.NetTest
             }
             if (args.Length > 0 && args[0] == "--shot-source-journal") return ShotSourceJournalTests.Run();
             if (args.Length > 0 && args[0] == "--shot-inputs") return ShotInputTests.Run();
+            if (args.Length > 0 && args[0] == "--movement-validation-shadow") return MovementValidationTests.Run();
+            if (args.Length > 1 && args[0] == "--movement-tour")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MovementTourTests.Run(args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
+            }
             if (args.Length > 1 && args[0] == "--native-discontinuities")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
