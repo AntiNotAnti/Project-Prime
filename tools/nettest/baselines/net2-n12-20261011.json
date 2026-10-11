@@ -1,0 +1,4231 @@
+{
+  "milestone": "N12",
+  "date": "2026-10-11",
+  "status": "VERIFIED_SHADOW_SCOPE_READY_FOR_PR_AND_MERGE",
+  "scope": "Opt-in advisory movement shadow only; optional server-derived authority disabled/deferred until independent native-equivalent kernel parity and legitimate-play evidence",
+  "source": "166e96fd8ba44e8931afc0776ceb7fb0dba7475e",
+  "testSource": "26d46d62d97011c2d156191aa1775645120a42c2",
+  "protocol": 50,
+  "defaultEnabled": false,
+  "platform": "macOS arm64",
+  "engineSha256": "7c0b95b4d991797207d84d089799bf2e8c446e3990bd2d58a620f200575b2f1e",
+  "tourToolSha256": "a79b4c6e451e83c6c40f6ba3ae7017ad191b28c47557c4602a2b2873481cac0f",
+  "python": {
+    "focused": 16,
+    "all": 319,
+    "allFinalRoleEvidence": 324,
+    "allQuiescence": 325,
+    "allFinal": 325
+  },
+  "focusedUnit": "PASS",
+  "nativeDiscontinuities": {
+    "status": "PASS",
+    "checks": 278,
+    "source": "ed4a75b89b904e0cab0af6c71711b98ff2daf7f4",
+    "engineSha256": "462eedc383d86ebd5a6c0eb6568a9534b492c759647f3b739ff1ebc3623e5eec",
+    "testSource": "26d46d62d97011c2d156191aa1775645120a42c2"
+  },
+  "nativeTour": {
+    "status": "PASS",
+    "steps": 4249,
+    "evaluatedBiped": 2352,
+    "unsupportedAlt": 1110,
+    "exempt": 780,
+    "baselines": 7,
+    "WouldRefuse": 0,
+    "Invalid": 0,
+    "Overflow": 0,
+    "perHunterForm": [
+      {
+        "Hunter": 0,
+        "Alt": false,
+        "Baselines": 1,
+        "Evaluated": 336,
+        "Exempt": 109,
+        "Unsupported": 0,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 5,
+        "MaximumHorizontal": 0.112789266,
+        "MaximumUpward": 0.14990234
+      },
+      {
+        "Hunter": 0,
+        "Alt": true,
+        "Baselines": 0,
+        "Evaluated": 0,
+        "Exempt": 3,
+        "Unsupported": 126,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 0,
+        "MaximumHorizontal": 0.29465497,
+        "MaximumUpward": 0
+      },
+      {
+        "Hunter": 1,
+        "Alt": false,
+        "Baselines": 1,
+        "Evaluated": 336,
+        "Exempt": 103,
+        "Unsupported": 0,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 5,
+        "MaximumHorizontal": 0.112789266,
+        "MaximumUpward": 0.14990234
+      },
+      {
+        "Hunter": 1,
+        "Alt": true,
+        "Baselines": 0,
+        "Evaluated": 0,
+        "Exempt": 1,
+        "Unsupported": 166,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 0,
+        "MaximumHorizontal": 0.15190962,
+        "MaximumUpward": 0
+      },
+      {
+        "Hunter": 5,
+        "Alt": false,
+        "Baselines": 1,
+        "Evaluated": 336,
+        "Exempt": 103,
+        "Unsupported": 0,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 5,
+        "MaximumHorizontal": 0.112789266,
+        "MaximumUpward": 0.14990234
+      },
+      {
+        "Hunter": 5,
+        "Alt": true,
+        "Baselines": 0,
+        "Evaluated": 0,
+        "Exempt": 1,
+        "Unsupported": 166,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 0,
+        "MaximumHorizontal": 0.15919633,
+        "MaximumUpward": 0.0494622
+      },
+      {
+        "Hunter": 4,
+        "Alt": false,
+        "Baselines": 1,
+        "Evaluated": 336,
+        "Exempt": 123,
+        "Unsupported": 0,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 5,
+        "MaximumHorizontal": 0.112789266,
+        "MaximumUpward": 0.14990234
+      },
+      {
+        "Hunter": 4,
+        "Alt": true,
+        "Baselines": 0,
+        "Evaluated": 0,
+        "Exempt": 1,
+        "Unsupported": 166,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 0,
+        "MaximumHorizontal": 0.15671153,
+        "MaximumUpward": 0
+      },
+      {
+        "Hunter": 2,
+        "Alt": false,
+        "Baselines": 1,
+        "Evaluated": 336,
+        "Exempt": 113,
+        "Unsupported": 0,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 5,
+        "MaximumHorizontal": 0.112789266,
+        "MaximumUpward": 0.14990234
+      },
+      {
+        "Hunter": 2,
+        "Alt": true,
+        "Baselines": 0,
+        "Evaluated": 0,
+        "Exempt": 13,
+        "Unsupported": 154,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 0,
+        "MaximumHorizontal": 0.49434814,
+        "MaximumUpward": 0.12988281
+      },
+      {
+        "Hunter": 3,
+        "Alt": false,
+        "Baselines": 1,
+        "Evaluated": 336,
+        "Exempt": 109,
+        "Unsupported": 0,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 5,
+        "MaximumHorizontal": 0.112789266,
+        "MaximumUpward": 0.14990234
+      },
+      {
+        "Hunter": 3,
+        "Alt": true,
+        "Baselines": 0,
+        "Evaluated": 0,
+        "Exempt": 1,
+        "Unsupported": 166,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 0,
+        "MaximumHorizontal": 0,
+        "MaximumUpward": 0.12988281
+      },
+      {
+        "Hunter": 6,
+        "Alt": false,
+        "Baselines": 1,
+        "Evaluated": 336,
+        "Exempt": 99,
+        "Unsupported": 0,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 5,
+        "MaximumHorizontal": 0.112789266,
+        "MaximumUpward": 0.14990234
+      },
+      {
+        "Hunter": 6,
+        "Alt": true,
+        "Baselines": 0,
+        "Evaluated": 0,
+        "Exempt": 1,
+        "Unsupported": 166,
+        "WouldRefuse": 0,
+        "DuplicateOrOld": 0,
+        "LongGaps": 0,
+        "InputAbsentWhileMoving": 0,
+        "MaximumHorizontal": 0.1714281,
+        "MaximumUpward": 0.19744879
+      }
+    ],
+    "scope": "All-seven native local body input in ServerSim Host/local0 with Roam camera; state fingerprints prove observation nonmutation. No dedicated authority kernel/HUD camera equivalence.",
+    "productionSource": "ed4a75b89b904e0cab0af6c71711b98ff2daf7f4",
+    "engineSha256": "462eedc383d86ebd5a6c0eb6568a9534b492c759647f3b739ff1ebc3623e5eec",
+    "testSource": "26d46d62d97011c2d156191aa1775645120a42c2",
+    "toolSha256": "a79b4c6e451e83c6c40f6ba3ae7017ad191b28c47557c4602a2b2873481cac0f"
+  },
+  "retainedFailures": [
+    "Attempt01 local native tour had no actual biped displacement.",
+    "Attempt02 fixture switched to normal camera update requiring GL binding.",
+    "Attempt03 post-spawn input/camera fixture state caused native simulation exception.",
+    "Attempt04 next hunter was not activated before local ownership.",
+    "LAN off form audit originally failed peer2 startup role mismatch; fixed by explicit sample-time LocalSlot/Spectating/AuthoritySpectating evidence; original failure retained and new campaigns revalidated.",
+    "Attempt06 extreme bounded drain expired with a new accepted turret source still within native64frame recovery and two pending authority reliable endpoints; strict baseFAIL preserved.",
+    "Attempt07 compile failed on incorrect Hunter namespace; no tests/campaign launched.",
+    "Attempt08 extreme still failed live native quiescence despite isolated560-check fixture PASS: owner remained Alt, pending respawn/active turret and uncommitted turret sources. LAN passed all three audits; no gate waiver.",
+    "Attempt06 launch setup copy/import failures occurred before processes started; corrected private managed copies/native links have exact wrapper provenance.",
+    "Blocked-pose diagnostic fixtures and incorrect native roll controls retained before the exact Weavel ordinary cardinal helper was validated."
+  ],
+  "limitations": [
+    "Exemptions sampled at authority receipt time are not aligned to delayed owner source frames",
+    "Stable alt deltas measured Unsupported; no alt physics parity",
+    "Broad native-constant envelopes are heuristic, not exact legitimate speed/acceleration limits",
+    "No hard rejection/correction or optional server-derived native kernel enabled",
+    "Native tour omitted map pads/platform/teleport/external knockback/grapple/Spire climb/HUD-camera parity",
+    "Mac short tests only; no all-hunter UDP, Windows, long soak or performance threshold"
+  ],
+  "evidence": [
+    {
+      "path": "artifacts/net2-n12/attempt-01/build-manifest.json",
+      "sha256": "9efc02e694b542fb5f6b2ec12811f4c56eba682007c04bffa19f1f5e922f8ab2"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-01/build.log",
+      "sha256": "a3ff2beef8c277ff77ef454ca909b161258de82ec4beace088a4ac432e472526"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-01/focused-agent/manifest.json",
+      "sha256": "abe50f89fba0e3ef309044c8d5884ad1c75b0b7cc0eb28ce611d73411d136495"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-01/focused-agent/movement-tour/map-catalog-v2.json",
+      "sha256": "425eab7104003d34dd4ada8dd69ae81c1650c75de66b53697b8ba3d3837b9ed0"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-01/focused-agent/movement-tour/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-01/focused-agent/movement-tour/stdout.log",
+      "sha256": "bb010d5bd3aaac4b2ae4b78846c8d91a9a29f4a0c37f8eb8cc8119c6156cdb2e"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-01/focused-agent/movement-validation-shadow/map-catalog-v2.json",
+      "sha256": "425eab7104003d34dd4ada8dd69ae81c1650c75de66b53697b8ba3d3837b9ed0"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-01/focused-agent/movement-validation-shadow/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-01/focused-agent/movement-validation-shadow/stdout.log",
+      "sha256": "3ffe76972d2f2c68cab071f26bd54eed2b673eb97858f1baa6ed109819c8bb78"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/build-manifest.json",
+      "sha256": "bff80c4654b36042fa2dfc684cf4a54940c9098e0e1d64c397c4d65b25704ce4"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/build.log",
+      "sha256": "c11828e3445909e618cc5af5c95b326dd6270ef7e2f23675e3b135635f5a6374"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/campaign-prepared-commands.json",
+      "sha256": "38b72ca3873342ba3e0ec6c12ffabc08a5a42272909bf0bfc6afdf30b9c7a260"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/campaign-run-manifest.json",
+      "sha256": "1a5bf5114cd75a89dabf29ccdb3c33f65f6755848b366af6d91b49aad79f6b73"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/focused-agent/manifest.json",
+      "sha256": "0a1f776155bb29ed4466100e46f5a4a7f7a1be645ca01f153f7bf09c9e40fd1f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/focused-agent/movement-tour/map-catalog-v2.json",
+      "sha256": "f19231138104b2d7ac29fe838b7289bca46e8e067ded463cf81c89dea59696b5"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/focused-agent/movement-tour/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/focused-agent/movement-tour/stdout.log",
+      "sha256": "793dccdcdbc1307570521b2f6f016cd255a9448dd7995bd461820432c8e41909"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/focused-agent/movement-validation-shadow/map-catalog-v2.json",
+      "sha256": "f19231138104b2d7ac29fe838b7289bca46e8e067ded463cf81c89dea59696b5"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/focused-agent/movement-validation-shadow/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/focused-agent/movement-validation-shadow/stdout.log",
+      "sha256": "3ffe76972d2f2c68cab071f26bd54eed2b673eb97858f1baa6ed109819c8bb78"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on-form-audit.json",
+      "sha256": "0b6efca501f76c45e9b3b3225460787f46b405c304c627fb09cb5f40649eea31"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on-form-audit.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on-movement-audit.json",
+      "sha256": "0213209574bd5fe9852ab0d75317bd9acf7005f9d73aba30b8be2e22675a2c53"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on-movement-audit.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on-runner.log",
+      "sha256": "97fab732e9e2bc0607d09d4c332bd21240ae362626730775c914c21c114499e2"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/drain.release.json",
+      "sha256": "92bfa36502f4f834b3d1bee6d57bec7922ee78fbcadabc9b36b601f58b471e22"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/drain.server-release.json",
+      "sha256": "92bfa36502f4f834b3d1bee6d57bec7922ee78fbcadabc9b36b601f58b471e22"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/manifest.json",
+      "sha256": "c13643efb3af0a9b9f784108c060430a04e43167e993795982aa4138b82cc70a"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-0.drain.json",
+      "sha256": "94590777ebc8a4ac332c9c4b07a0c2bd45399be7eaf143034319a5f2308f2bf7"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-0.json",
+      "sha256": "1c9a402c173a6663a83c284dc36f3c395c60dd695463bf03122d380b844f81a6"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-0.log",
+      "sha256": "4312d571469a6f2a06d75d4fbbb8471921279523b8c35f8a62dd08d45d8bc7ba"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-0/logs/ProjectPrime-20261011-074632-32015-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-0/logs/ProjectPrime-20261011-074632-32015.log",
+      "sha256": "09d70c8ec1f2c84467e56ca70bac110c44116c686b638fc75db57d6f6e2815d4"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-0/logs/platform-startup.log",
+      "sha256": "f1c3d2c9d5d19b378694c7f020bf51f4048e627f164532a3ede4fe916b03c344"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-0/netlog-peer_0.txt",
+      "sha256": "6449f88e3623712dc0ce6f7cc9f1b49847499c89b8e10690aa70102b1e037093"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-0/paths.txt",
+      "sha256": "f1e66177c90dab96ad37a812e0c83c2acc2fc7cf7974a0f7fc74cf14fa8da9bb"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-1.drain.json",
+      "sha256": "6c9cc60fb17179ecbc30b8393398a41d87cf2839c8be457c5e087bb870865bf5"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-1.json",
+      "sha256": "06b25e9c1507fdca090a4f361719d2f0bdeaa0cb053dba4cd971e8b5afa243e3"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-1.log",
+      "sha256": "98de27ceb15788da8d0be1da79d7dbc73982794840e1f7ea8c1af200d733a351"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-1/logs/ProjectPrime-20261011-074632-32016-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-1/logs/ProjectPrime-20261011-074632-32016.log",
+      "sha256": "4f4fb45627e3ab3780c8ee309c3221af49161e800860f7601d22ea4c8267a836"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-1/logs/platform-startup.log",
+      "sha256": "a10b6c2f94dd708736c62cbe33f756c3e3639c354836f7eb9dbe5a8cf145bf0e"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-1/netlog-peer_1.txt",
+      "sha256": "90e75da88e714920b442ad3e9098353733945c5fb0d7cf2a8350eaa29fb79cd6"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-1/paths.txt",
+      "sha256": "b15c0fb98d1e893ac3a1149eaab08c1d37e72dd858219bedce6daae8cd2e5acd"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-2.drain.json",
+      "sha256": "5007b2157692f46acb9426d524b003058c8d1caddf5b2aecd28e4db3f1b1322b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-2.json",
+      "sha256": "8fa4b8313c2d0b4ffcaafb8b78d72a1dd96c5d402b2b6c7a34afe7964a9c8b84"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-2.log",
+      "sha256": "d60bc4d1cc160ffc2d015e060f4570b9b9f3d233ff16f740f8ec39ae5782d634"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-2/logs/ProjectPrime-20261011-074632-32017-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-2/logs/ProjectPrime-20261011-074632-32017.log",
+      "sha256": "4b0add10bdfa4a81ef6be9ddccf3b686ad32e7c90cf7cffc0f37a14c0bbdddae"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-2/logs/platform-startup.log",
+      "sha256": "36975d135bff2f8d95594269bbeef0a12775892e3852eda62916772e359e2a3f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-2/netlog-peer_2.txt",
+      "sha256": "c2e8724d2ff0ef4e9488f9cd649d34a29b2abcfb866ab6f224aaf25e2af1b8fe"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/peer-2/paths.txt",
+      "sha256": "2a91ed2a830f412a0f98ba93ac13dc201e7be64da25e1ba40d3a5aefcb167537"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/rotation.txt",
+      "sha256": "9a02ba75282497013dc1c3871f3273a7ccb1ba7991824d857f575b11747ed543"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/server.drain.json",
+      "sha256": "1e84804de7f9f7467bb933024025971363bce04a0dee83854a4b8ca31b38853f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/server.json",
+      "sha256": "445d844e5dc952764a51b187ebb66addb1aa520188d0c39a0e30abfe2994c2d8"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/server.log",
+      "sha256": "fbcb93e4d819e19c5cb0a8566edb32152915290dfec8370babb3a60f9d563038"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/server/logs/ProjectPrime-20261011-074630-32009-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/server/logs/ProjectPrime-20261011-074630-32009.log",
+      "sha256": "f62c547a99a90c80bb46bbaf7e9229e0421856b8b52d0c4a701a2d2a92e6dd7b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/server/netlog-server.txt",
+      "sha256": "e8f7e3c47f4761a1576a0f287dbcb9da38706fef9a5fab9cd0c7ef9c644300f1"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/server/paths.txt",
+      "sha256": "5952edfa04e88e756f259be9a72c3c8a26f7e68b14c83dcd3cf963114eb766aa"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/server/telemetry/2026-10-11/match-02cbd02a5c804a40af66425aca6278dd.summary.json",
+      "sha256": "bb75e529cafa31864a109523a31a92c39b89f50dd454af46d34d889ffacd3bb6"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-extreme-shadow-on/summary.json",
+      "sha256": "a5632fb457306c34a119b7756c4b1cf1cc381b8eed140dd45bc67460f059da93"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off-form-audit.json",
+      "sha256": "c3e8e463d0464158559c543762bd31c0795aebd04a51ac96dff635b499c62baf"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off-form-audit.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off-movement-audit.json",
+      "sha256": "b12222274b426083ed17633ffad8bbe63fa800a75f540a544af172e2f6129035"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off-movement-audit.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off-runner.log",
+      "sha256": "b638daf18a8878af945f5365d382c8ff2d652dbe0aa1781498f1c05e5eb3cb1c"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/drain.release.json",
+      "sha256": "4a55bba1973b4a864f53de35a64799e67ad823c43b9c6934912f2d688e41eebe"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/drain.server-release.json",
+      "sha256": "4a55bba1973b4a864f53de35a64799e67ad823c43b9c6934912f2d688e41eebe"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/manifest.json",
+      "sha256": "d330db5400360e6e0e99423517eb85f51b12540c6ad163dc58eba6ac96039602"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-0.drain.json",
+      "sha256": "096e044e5992bdb5232e0b9589f75c68e3605c5a183873397c3862d0cc520b0c"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-0.json",
+      "sha256": "c7183c1f6f6a2e41c6cc0f3ef44cc4a7e8fc6b6ff12be1b2ede4cec57f9d3a32"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-0.log",
+      "sha256": "74a6fa8812595c90c460d5d56fa19fe3340f1f11daf8685906e712676eb65efd"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-0/logs/ProjectPrime-20261011-074601-31967-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-0/logs/ProjectPrime-20261011-074601-31967.log",
+      "sha256": "4992017078fad25153f70997c4904cbffdc9153e7262eb9754ea6b574c32c749"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-0/logs/platform-startup.log",
+      "sha256": "7d54d3e44fefd1da3136fbd45ff1d1014671db4f5403718076dc5af0e42bd9a3"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-0/netlog-peer_0.txt",
+      "sha256": "3b214914980f4c7762b4788b78c51a5229fd6cd14055a5f41f4c68ac1403eca0"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-0/paths.txt",
+      "sha256": "a0e9acd62c534f7d346a8cfb3c18ce3a69703117301b2bb63de7f4e62b747881"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-1.drain.json",
+      "sha256": "b80b5e8964f883b417646ce594097d28194fea6d5ee6186ba37e394b50a5cefd"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-1.json",
+      "sha256": "7d8468a01ea78f67018a11e491e6c89c02f3308d6014ae357b8a962bc7b68270"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-1.log",
+      "sha256": "d9911df9391f05c6d6b8cdb3283b37a89c1bdd4657a31da28d5c3d2501fd5cf0"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-1/logs/ProjectPrime-20261011-074601-31968-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-1/logs/ProjectPrime-20261011-074601-31968.log",
+      "sha256": "f62284f481280c30c9d0fc553087030055d71d88e808abfe79e72260874aa7b7"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-1/logs/platform-startup.log",
+      "sha256": "bf878b5a86428a7b762f446d4369f03c94e6de3a0d7bd983feefefe6bfa29500"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-1/netlog-peer_1.txt",
+      "sha256": "d15d5cf3f50c935da116ff260ea229bc781fb489cc4f3cc427e4bfcbe3af5247"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-1/paths.txt",
+      "sha256": "fbdbb7b219ced2874e815352ec71531f2e26ccbe56fe7019636adbbc92f977b6"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-2.drain.json",
+      "sha256": "7654c4aa3f3226046bc4f86fded7dc9dfaecbc803143066d24d60bbb715623d9"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-2.json",
+      "sha256": "7e2b7e9cbc28756ef1043ce3157b34bffa3af955cca4025b8dbc562a8efa9bce"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-2.log",
+      "sha256": "97fa8d82fc69b8c5442cef0b0baaeb6f67ce0904c26167acd132c8625e7a42fc"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-2/logs/ProjectPrime-20261011-074602-31969-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-2/logs/ProjectPrime-20261011-074602-31969.log",
+      "sha256": "acefb2007c26d9dff850110934960dad31e23b18f1acf5f913d31d491e917cdb"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-2/logs/platform-startup.log",
+      "sha256": "443e1965b6428d9beca5ea6b32d0f6b3ce0ac6a46d63a6dc9f9591a421c4326b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-2/netlog-peer_2.txt",
+      "sha256": "75c9b027a94e8d5d9c0e5988584535976cf073e2650683d163cd96302dc91cda"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/peer-2/paths.txt",
+      "sha256": "8c7e5cd8514b519cc3bb26c78655b93f88e28901558cb0dd31f413c4afa538d4"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/rotation.txt",
+      "sha256": "9a02ba75282497013dc1c3871f3273a7ccb1ba7991824d857f575b11747ed543"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/server.drain.json",
+      "sha256": "cb7aaee07d2ea67791a271e74e2987de8c11618bd2fb159ed7b24f4a56cfa11d"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/server.json",
+      "sha256": "a909a7889a90ec7963d1c73c041ec467462c98215ec67809acc1c075543ad406"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/server.log",
+      "sha256": "4ce9db067e393ce57f84194db8f577dac192ab0548ba9b7a0169340344ec1f60"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/server/logs/ProjectPrime-20261011-074559-31954-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/server/logs/ProjectPrime-20261011-074559-31954.log",
+      "sha256": "49948ee2f3b563e1621c035c59e2bcff3670f86d88f6cc923753fe2aa9a1269e"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/server/netlog-server.txt",
+      "sha256": "98b8a7dc5841ff40d9dfd5a4ec4135d113b8e3e65e3cb8c9c2a81daf7e42d5d9"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/server/paths.txt",
+      "sha256": "cc40462678fd26c338c6bcf0463b9954cc6cba8d7140755b548c7fb2f9f841a1"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/server/telemetry/2026-10-11/match-6350fb52f25a4e5d983f58182a59fe90.summary.json",
+      "sha256": "231cc5ead3b5399718f6d6d8c0a1032893ab0484a3a466736983f8828367a313"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-02/mac-movement-lan-shadow-off/summary.json",
+      "sha256": "a5b231408a6724dfbcb5de95a2bba3033d7e1650a924d10fe9c8c3912afe56a8"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-03/build-manifest.json",
+      "sha256": "fff8fb329fd6809da5687616540c823329417f6faa1c82ae45d7deac81a90f88"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-03/build.log",
+      "sha256": "4aaf70a9feea84c290774fa7b9b1b72b4f4fdc9ec587dca1aca6dc4ac06dab55"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-03/focused-agent/manifest.json",
+      "sha256": "f5c78afb2238e2dccca805ffc58e91f47f563a1293b6a0ed6795fd31e91aa6fc"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-03/focused-agent/movement-tour/map-catalog-v2.json",
+      "sha256": "8146b3b16834cb04a2a8c05343180b9185f8f270096e4935559480db7b304714"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-03/focused-agent/movement-tour/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-03/focused-agent/movement-tour/stdout.log",
+      "sha256": "7c20a3e10ff3e5e6899ecf5f9c0cc8f3ea29aeb3c3653e472ee047073d87d04f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-04/build-manifest.json",
+      "sha256": "34d41cb42b8f813fb9f9aa8b7e6c3465a45064aee70ccf71c3d9b1531968e385"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-04/build.log",
+      "sha256": "ecd24f23f43710a086d92f7107742d6b1b0b53c164872c08a90c49171c712804"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-04/focused-agent/manifest.json",
+      "sha256": "dfa4863b595834a97762a612320f006a983a4261b1c52c76e71daaa6bdb9bcdb"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-04/focused-agent/movement-tour/map-catalog-v2.json",
+      "sha256": "bc970df9e7ec8bd4aa9f48343c9ead9f34cb134eb4dfd88c7ada694b562b78db"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-04/focused-agent/movement-tour/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-04/focused-agent/movement-tour/stdout.log",
+      "sha256": "3e98870d3d9ca3cf9f1865d4bce27adf3336367f5d7b2a7744df6729046d434a"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-05/build-manifest.json",
+      "sha256": "13b3b0c66f740cfb5d4cc07089d90b0a1243e02455d99021a6dd65fea50d970c"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-05/build.log",
+      "sha256": "074412381d13307a1fc8e697d3cb4f4638756dad33941e3325c7dc70e920b67f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-05/focused-agent/manifest.json",
+      "sha256": "ea242ef69e1b7872925c60eb963b094da4829937eacb873ff40e130d75a4adb1"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-05/focused-agent/movement-tour/map-catalog-v2.json",
+      "sha256": "2932bfe3174882e910790ef083db3264aa235fc313d2d1a22bbeae13f7bb653f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-05/focused-agent/movement-tour/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-05/focused-agent/movement-tour/stdout.log",
+      "sha256": "a8de7154024f20febc6a028d0da1903211176ad21ffae495973d84c18997ad08"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-05/focused-agent/native-discontinuities/map-catalog-v2.json",
+      "sha256": "2932bfe3174882e910790ef083db3264aa235fc313d2d1a22bbeae13f7bb653f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-05/focused-agent/native-discontinuities/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-05/focused-agent/native-discontinuities/stdout.log",
+      "sha256": "e567ad0c8fcebe683f415ba36ebb87cc5aae9d8079fd3e75b15da01a421ad972"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/build-manifest.json",
+      "sha256": "7b5fe5fa142e3d3839eafab2d7f5aff19b96fae04d2067c82a45f4ee61b46c3d"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/build.log",
+      "sha256": "e33a22d3351b6f6219ac5911a94b827ee2bdfc32562661ea642983c65ba43182"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/campaign-prepared-commands.json",
+      "sha256": "96722107a66b2efdee070a95776f34e2606916494ecbe1b392e925c968dc12a8"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/campaign-run-manifest-02.json",
+      "sha256": "b6640c4ffe58fe5619dab80fa6079254059a754d231fc99848b8c071ad78492b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/campaign-run-manifest-03.json",
+      "sha256": "6da9e98e0b8684181077fef8565f24cd7bfbc84cfa0ba42d0eb580b5128defbc"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/campaign-run-manifest.json",
+      "sha256": "541c86857d62951d5df56aac24d79b734dcb8816c45844421d0461c5734f955c"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/focused/manifest.json",
+      "sha256": "fb55335e968f0c2657c11486dbb10890075e292dbe5fc921edaebaa1c2cfd974"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/focused/movement.log",
+      "sha256": "6f945c4d3171cf7dac769ed1ffa077b2731118b0a2bfb617bef4d483859792aa"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03-runner.log",
+      "sha256": "8d549a945e9261ec0d2ea9541526e8455533c508e69ebc3b46a37a11897a47b4"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/drain.release.json",
+      "sha256": "5e9a1f8fbfde8043ca5553f1b66959f420fd279bf1630b3228b19ec96698eaa7"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/drain.server-release.json",
+      "sha256": "5e9a1f8fbfde8043ca5553f1b66959f420fd279bf1630b3228b19ec96698eaa7"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/manifest.json",
+      "sha256": "34580cb02438cea3e902b24717e749d29f7affa8ab45149d9b4ad07501e5f298"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-0.drain.json",
+      "sha256": "9df7f66147972442b289f8e251a797a9a0b04deaf9fed8874641c7150aef31a6"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-0.json",
+      "sha256": "6f337d05e8175cc5b46b8c6f0012380cd7e2803134ea237e82f59c33bb8f0d33"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-0.log",
+      "sha256": "181a6d2bd76a807e8fafd4b354b5cf8cf04143ca7b06b710d6a864359d619a7b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-0/logs/ProjectPrime-20261011-075558-33749-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-0/logs/ProjectPrime-20261011-075558-33749.log",
+      "sha256": "20182e438f6534b2efef92c7293b70bd6a41cde8f0bf4add8ce081a01c97d8f6"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-0/logs/platform-startup.log",
+      "sha256": "104809dc4e1aad8535905eb2851bcc34e4bb0125daffdbe5ffeebd5db27b4485"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-0/netlog-peer_0.txt",
+      "sha256": "0a695c739847f4097bb9b9dba2f741384820d0f02e5f71fa47e10a61acfa41a0"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-0/paths.txt",
+      "sha256": "437f44a1ace92e141c00ad610315d44015a665065d082f574c3ca117c506ff44"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-1.drain.json",
+      "sha256": "aa6173201f41bb7ba619bea6490936dda5123b7125fdf2fbe4c1c2c66697eb0a"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-1.json",
+      "sha256": "182043b647111fe99f4c765dfaa908f4e2eacefb86b7ae2f92d280a62ad7a8fb"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-1.log",
+      "sha256": "ee553ff84d3ac78ca269d511a6bf86086d51ea7385f45ad453f2410a1f7e7828"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-1/logs/ProjectPrime-20261011-075558-33750-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-1/logs/ProjectPrime-20261011-075558-33750.log",
+      "sha256": "644d28d1f51ac4fa8c4054c608ea16899327d64a20dd4c6a267983c973490a75"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-1/logs/platform-startup.log",
+      "sha256": "5ea8d6aa49f8ed08bb33a18e986eb0aea0968fed691249f34c0b65237a1a936c"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-1/netlog-peer_1.txt",
+      "sha256": "eb643f6f7d4e3315822458e1b986fbd4686eb44548923728ecca45221dff235c"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-1/paths.txt",
+      "sha256": "3c16b41863326dffd521d3bd68a48203c2d3be09077610043a5b077c777507c2"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-2.drain.json",
+      "sha256": "2a5616837712d32e850eab7b3640f88368558b89a77ce29ecd8fd688967a2681"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-2.json",
+      "sha256": "86cb71b3aad02afb99005ae0e57d202aad7ffb2d21ac10d2af9186a09bb4f055"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-2.log",
+      "sha256": "8e910b3d9a77d6a81f9a6a5353a3e607e2bf4e90f3c207199fbef5303cc7d7a8"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-2/logs/ProjectPrime-20261011-075559-33752-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-2/logs/ProjectPrime-20261011-075559-33752.log",
+      "sha256": "e4fbbbffb6e4029213fe960500f182e1f1fca9cbd1b26c8e0a8a1b7219f61d6a"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-2/logs/platform-startup.log",
+      "sha256": "568126d0548b0c63b625a8d9a513b99c7a9364c17ff66eddfb74ace0c9487398"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-2/netlog-peer_2.txt",
+      "sha256": "288ea8a4d38d0771b4be2d16eb572e44fa72e1ead2f442924405558175f7c63e"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/peer-2/paths.txt",
+      "sha256": "d39caf9f673aef65271f26d2ca3f1cc718bb500db4712b000747f2568e939290"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/rotation.txt",
+      "sha256": "9a02ba75282497013dc1c3871f3273a7ccb1ba7991824d857f575b11747ed543"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/server.drain.json",
+      "sha256": "631135af63cb2c21bf6f59a99c4e13bb445ef95bf74e0a79453455b885d8d9a1"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/server.json",
+      "sha256": "802d93ab030d577adcbd6b82c3ec2f7392f4eb65c305aaeae9900cfc12c10e7a"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/server.log",
+      "sha256": "e4cd910fa0ea2c616d44f97a87d2f829bbb3a0680300afa453b36985976875c2"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/server/logs/ProjectPrime-20261011-075556-33748-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/server/logs/ProjectPrime-20261011-075556-33748.log",
+      "sha256": "7111a1f30f4744ec1a23251f0c5f2f5f823b8c5260168e1ebc04aa28597b7eff"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/server/netlog-server.txt",
+      "sha256": "181bf1417226f45f7c92799edee402f3c0139642a13180a3e0a3e2dbe585d1c3"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/server/paths.txt",
+      "sha256": "dec53e2af038f2aac483f441821f7105d0a2d3ec894f5f41a090ddb407ccdced"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/server/telemetry/2026-10-11/match-e69c643b725843d1a3520e156b37b6e8.summary.json",
+      "sha256": "4d1a7a3580759474269d8e267dd00a3f4bfe47b69a4607b1ed7195ebe2891f96"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-launch03/summary.json",
+      "sha256": "38d70847e4da436bf433ee2918cbc81dc68e3575015cf982371a4facbd61c68b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-runner-02.log",
+      "sha256": "f02d5156396b65079b440c9026c921e6ae4f9440ce93cca8753b9d33c04ff8f4"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-extreme-shadow-on-runner.log",
+      "sha256": "43008413987f63d6a8fa7c357d6850abe7b4270271d8ec6c425698385f2b6fac"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03-form-audit.json",
+      "sha256": "2347b96ae3286ed1ac93685816d6cabd48e2912fee2aaa066a93d87d19e398a9"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03-form-audit.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03-movement-audit.json",
+      "sha256": "b12222274b426083ed17633ffad8bbe63fa800a75f540a544af172e2f6129035"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03-movement-audit.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03-runner.log",
+      "sha256": "333618e66364702e93dc63553a7d20e5288c502165e632cb8eecfa924531267e"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/drain.release.json",
+      "sha256": "b4acd99be0ad8b171b28203ed85160c4417c4679df8d28c99fcde160a3ff7d21"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/drain.server-release.json",
+      "sha256": "b4acd99be0ad8b171b28203ed85160c4417c4679df8d28c99fcde160a3ff7d21"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/manifest.json",
+      "sha256": "b4bbb891e2e9e6282be2cfd58a970bc4c34d2b5fa45b73dfec3943fdb343f97b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-0.drain.json",
+      "sha256": "001a399987f6891442942856634ea1843215cfb8b9b49f674fe3574acee5b55e"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-0.json",
+      "sha256": "eea727dc86e5f99334748b55a8764603adf1d49dd0b6c2885775e95d5a15d980"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-0.log",
+      "sha256": "8c67747bb3f965c30d139dc05ce316253788ed402963410f18de94bb774c90d9"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-0/logs/ProjectPrime-20261011-075528-33715-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-0/logs/ProjectPrime-20261011-075528-33715.log",
+      "sha256": "a2d0ec04f5c4a6d5f01c2207f0ece6f2fb3234c8dc577d4720b56f75379ce386"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-0/logs/platform-startup.log",
+      "sha256": "e849b239c5b7d7a189570af843e16032c1fe1ce25436ee4fc6763d5dd20f4bb7"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-0/netlog-peer_0.txt",
+      "sha256": "c4a6b67370bad2fb810a80a257c27c1524e5450502dd7b78f728814bb2d19dcd"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-0/paths.txt",
+      "sha256": "bbd89344c0a449affcdf98b4f321e14ec9c1fbe967d93966c84630caecd9090b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-1.drain.json",
+      "sha256": "433b235e04c14e6e76cbc325fea5f81f32b5fcc28ac5e8b309c1b649095c2442"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-1.json",
+      "sha256": "c5f45d1e9c759aff95a6e9ca2a4b5fdc7bacc868f01b775bf1e6610b447870ee"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-1.log",
+      "sha256": "88c0bc002319bcf0dc50f01d0de35ab84f6aaa9e0835b9f8bb1423dc30321670"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-1/logs/ProjectPrime-20261011-075529-33717-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-1/logs/ProjectPrime-20261011-075529-33717.log",
+      "sha256": "5dbca7bfef01f642733a8ce0840ff03bcb527dd02e1e8c5a7a15c3b97f1a3e8b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-1/logs/platform-startup.log",
+      "sha256": "cf0a639f17ef2b9a3898110271a0ee8a240076e6408e03f0b19d16bdd7f31009"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-1/netlog-peer_1.txt",
+      "sha256": "fed2239a49c69426bd5815e0ff2a7ba223f5e8021f95ecdc86af2338b758ce01"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-1/paths.txt",
+      "sha256": "2f111e5f80b0a14784c0c2f892b8d5be4cd309747bdfcf80578b36b6f888ba9b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-2.drain.json",
+      "sha256": "eb3b12523a0dbc86cd546d4b136a63ce1180a77072b1f6627f294ec4990daa48"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-2.json",
+      "sha256": "593e2c07181c1b21b958f5ef5e227f305f87f6a794152c49b9336303a4aa9361"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-2.log",
+      "sha256": "f0b98d566c2da74cfe9535f6d1aa211adf4738717e48e9def4bc1e8f9aeef928"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-2/logs/ProjectPrime-20261011-075529-33718-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-2/logs/ProjectPrime-20261011-075529-33718.log",
+      "sha256": "fb8f9e8a7871c73f3c7dbe88cf116b71cfd8a759db55adae2a38d8bb09c1eb42"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-2/logs/platform-startup.log",
+      "sha256": "e643e8b2382ce2ae6343bb65d11134817b1eb36b8b5f77b076d59ab9145e4af3"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-2/netlog-peer_2.txt",
+      "sha256": "d973cf745d628e14d021c1970dbd345d93df0571b7f11037e38e3c787a67e647"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/peer-2/paths.txt",
+      "sha256": "fb6f477ee11c3505dbe100cf9bcf1d1893eff51061e543183907d64124dc175e"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/rotation.txt",
+      "sha256": "9a02ba75282497013dc1c3871f3273a7ccb1ba7991824d857f575b11747ed543"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/server.drain.json",
+      "sha256": "3f1b8cbaf15f75fecfc26820f1ecd5359d40efcb18f4a71ec9e80d86cd1ac6a5"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/server.json",
+      "sha256": "3a0585e97eda8690c47e993298279245874258d101d70904646917fa6ad40599"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/server.log",
+      "sha256": "b4f869d975629ef466782fbf34897b5844d9c19c65daa84d012c4459912ec659"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/server/logs/ProjectPrime-20261011-075526-33714-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/server/logs/ProjectPrime-20261011-075526-33714.log",
+      "sha256": "3afaec188556c3bcadd8a34210f0be7985db270c6108097c3bb31ab9b07d5aae"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/server/netlog-server.txt",
+      "sha256": "a5ef9e613a753b6df6fc60d7b2cefa0e8fe5e1cd3e762f5d750d19efd3649997"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/server/paths.txt",
+      "sha256": "9ae94b3a90baccaa70dfd1e765157bcbfb868ba606693a46efc7f00b8c762285"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/server/telemetry/2026-10-11/match-c31607569d7443f290a20a09aff5b5b5.summary.json",
+      "sha256": "b47644719f5105923f6073002f3da0328f58bb3f5c06be7c85b0b3b92b98cd26"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-launch03/summary.json",
+      "sha256": "f2364f6cbf6469e6b25488eafbb5f3e1529587a30355c45132cfb8dc13f6187e"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-runner-02.log",
+      "sha256": "f02d5156396b65079b440c9026c921e6ae4f9440ce93cca8753b9d33c04ff8f4"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-06/mac-movement-lan-shadow-off-runner.log",
+      "sha256": "43008413987f63d6a8fa7c357d6850abe7b4270271d8ec6c425698385f2b6fac"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-07/build-manifest.json",
+      "sha256": "7a85f9ee4a03639d98a8e81e290a992283ee3ae8e32bbdc7882440a20cf71d23"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-07/build.log",
+      "sha256": "2843174f9b53b780d42e1f245f19cf4794b50aa7a09f0673083562d40263e446"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-07/campaign-prepared-commands.json",
+      "sha256": "22f8aeb3a8247f7a07afa9d2f3b5d355c2202b3af0ba73d0be28fd9aff95cbde"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-07/quiesce-python.log",
+      "sha256": "c6e189a60a34de040e97943d13836e59d47590888f77a507828398b0e518e4dd"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/build-manifest.json",
+      "sha256": "ddeee59d1cbf1de034c4ec632ac7ef2bba4568ba6e83e7b63aa1a631422ddba0"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/build.log",
+      "sha256": "2d576d2f8b5fc53099024faa1f48eb89c668b1803a5ba3aeb718229f49976925"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/campaign-prepared-commands.json",
+      "sha256": "79f972ee5a7426a1e802f57cfbe241ac688969d13360a2c921acfce00aa9f57f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/campaign-run-manifest-03.json",
+      "sha256": "f7291e6038188ad547be80c47370a13152fd04c492f79b4e782f74cecbd5fb17"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/focused/manifest.json",
+      "sha256": "c2c0e10ed499a0eeb7fa307aa285f4be9f94f3ec8899fdda26008c27618af58b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/focused/movement-validation-shadow.log",
+      "sha256": "3ffe76972d2f2c68cab071f26bd54eed2b673eb97858f1baa6ed109819c8bb78"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/focused/profile/map-catalog-v2.json",
+      "sha256": "3606fd4db624b33a1a0dc23f496b6a4e34ba8997e8aceef0407f1f28f2971861"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/focused/profile/paths.txt",
+      "sha256": "0a84ac0557869492f7eefbe3610ca9daf7e5cfaa388504f3e780641e7f9c729c"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/focused/quiescent-turret-scene.log",
+      "sha256": "4af39eeb8f713bf21aae5b71a666e846468268bafe2d4a0db6684d1715928b95"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03-runner.log",
+      "sha256": "eff4e11c6f009a3b9c06420a38a2683b24dccf1d720452c383220c111e4d0dff"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/drain.release.json",
+      "sha256": "b95faa10db6d3223f8a96468a3d256b42ed57d04213c177282e3f2dd53192fce"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/drain.server-release.json",
+      "sha256": "b95faa10db6d3223f8a96468a3d256b42ed57d04213c177282e3f2dd53192fce"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/manifest.json",
+      "sha256": "02a92bce8f1bc63c1c1cfeea4083753a375d3a424abafb5ff7bc6043f453afa9"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-0.drain.json",
+      "sha256": "abc20d979dda5c8986513f49716c800285915601aa23cec020df5480c63d3084"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-0.json",
+      "sha256": "517f0b9819edff87447b225eb4ac2ca6041a55c02fd03031d91307c6210ec2a2"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-0.log",
+      "sha256": "47d0d89ae11f7329e792611ff261ac62b64bc50bdc64f4b3b0ed3e14a0da900c"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-0/logs/ProjectPrime-20261011-080905-35141-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-0/logs/ProjectPrime-20261011-080905-35141.log",
+      "sha256": "c781bc8d8877eaa1a549cd7a0ef32b148742e65929458fb4ff136f3b02762fb0"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-0/logs/platform-startup.log",
+      "sha256": "d1df61e5b55df453531eaf0fd8cb349504a4d873b66ec1498904c4c7be2ce1c9"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-0/netlog-peer_0.txt",
+      "sha256": "f57e6cfa3afc5f0b563ee202c3a2246188268ad5c15b08ee53705069ff9778b0"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-0/paths.txt",
+      "sha256": "ee9c78df036b4f899e379d881686c7e2710d74508f8a2e6188765acf3600d47b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-1.drain.json",
+      "sha256": "8eb0366de27bc7d77fc954fade56797b622a3717e33f65e7f74e74ec5d7e95b7"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-1.json",
+      "sha256": "2e846373c3ad6627e69b27b7794ce5979ef67c9b4c8faf8694953edf38c4d67d"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-1.log",
+      "sha256": "e9ba28aa24870ede0df0cf17123d9d9b13590b6b286bb36454972fc8deb8748d"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-1/logs/ProjectPrime-20261011-080905-35142-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-1/logs/ProjectPrime-20261011-080905-35142.log",
+      "sha256": "91a505e3ff7582e4cca8cc043bc3521b0d58913190ce73485e26d79ba05aef68"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-1/logs/platform-startup.log",
+      "sha256": "5e7dc3dcccdfc918fb8fabe0d9b233fdfa49f7c37b0b821910cedcf3d4a49711"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-1/netlog-peer_1.txt",
+      "sha256": "d598ccb063a2d7f88bac72fb4f07a71b8ac5110f729179b2bc332a1af790aebf"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-1/paths.txt",
+      "sha256": "adaca4d776c32e5c9d4009b1a87ca360133e0ccde1cb777253e84dea07770025"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-2.drain.json",
+      "sha256": "da9eae442ae0b957c2027e3ff3a3eed1dad26ded59315b659f3f1544f8bc2204"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-2.json",
+      "sha256": "991642a8e3244bea4e5434f96dd01547b6afd98820009602eee4d3a0c15b1f67"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-2.log",
+      "sha256": "7cf609180bc3a05f40c64f30b0855988fedfa1d392efa69fe58a40fc80d50d78"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-2/logs/ProjectPrime-20261011-080906-35144-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-2/logs/ProjectPrime-20261011-080906-35144.log",
+      "sha256": "aa56dfd8e625cd63d9cede2dedc555d87eb382e459977b987b5e3764b2d37379"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-2/logs/platform-startup.log",
+      "sha256": "e04824d49ef0c284711c8f79dd0964ea964f2804870052557c148da981c8a0ca"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-2/netlog-peer_2.txt",
+      "sha256": "d60ccecbee1506a3bcb3b54b332fc3e0b0d28564cac739fad9813be72f6517f9"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/peer-2/paths.txt",
+      "sha256": "e7cd3f6183030e0e4f5ac70756bb1362b7a384b07d88c1fc49b0bdbf6e0bc88c"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/rotation.txt",
+      "sha256": "9a02ba75282497013dc1c3871f3273a7ccb1ba7991824d857f575b11747ed543"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/server.drain.json",
+      "sha256": "47bf9dc34cada05bd6fd73e6ed6b0ab0fbf27a6b9adc407f69c05c50033dde6c"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/server.json",
+      "sha256": "33b7a949f596f3ae8e2c5d6c85669bd11cac20d3c35df10d816b74e6d59f9f32"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/server.log",
+      "sha256": "fe80be0aa82558ee202589ce7fa6070fc44dd9da24acf595f89393c64d591d04"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/server/logs/ProjectPrime-20261011-080903-35136-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/server/logs/ProjectPrime-20261011-080903-35136.log",
+      "sha256": "10c69ea671fa3be621483316e3e7ac850e2eb4722b1209e3d3d9b61317a72e9b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/server/netlog-server.txt",
+      "sha256": "117aaeb3f4e195c1ec125e6966d2822d7c9285346f38f3176c00836087fb517f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/server/paths.txt",
+      "sha256": "87f35ccf59754f16cfb535e3e1089d53cd646cbcfc8d0c783775f320908d8093"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/server/telemetry/2026-10-11/match-4e9a4e38fa44414d9506a75fcf564fcd.summary.json",
+      "sha256": "bd94205e8cc1ec06a4f4a172d5b567055df67b7083876daa695d6cd5fd7a59ba"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-extreme-shadow-on-launch03/summary.json",
+      "sha256": "6310a353a339c4bd859421cec7497810bca8955aa2aff907ebd3c4f3efdc690e"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03-form-audit.json",
+      "sha256": "59bae3409505ff1f5f20a0c2bc70f77b29d1dfb033c36d5dc6c5a4c6c2594485"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03-form-audit.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03-movement-audit.json",
+      "sha256": "b12222274b426083ed17633ffad8bbe63fa800a75f540a544af172e2f6129035"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03-movement-audit.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03-runner.log",
+      "sha256": "9331aa79fe8d8e2a17e1c5faeda797774769e2bf20dcc955e5482c8bf509f191"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/drain.release.json",
+      "sha256": "f68951c6c5d6514e436dd4866065090cf9470af2ae8b8c3bb7225b9210a66662"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/drain.server-release.json",
+      "sha256": "f68951c6c5d6514e436dd4866065090cf9470af2ae8b8c3bb7225b9210a66662"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/manifest.json",
+      "sha256": "920deac1a9ff0b3e03a1bb1a4f04fba90672d229fb9c71cf0a4292f1e8aa8fc0"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-0.drain.json",
+      "sha256": "fd5e3667b0594bdd4da0f4383c09010e1f79414d928f79239a474d2e27657149"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-0.json",
+      "sha256": "463f23d804a4ba458d409cd1a4b3e5a2473aa32388ccf0fbc2266ae6ec41a768"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-0.log",
+      "sha256": "d5ae3f8b0e0b7eb6e712d98d381ea285bf340051669374919e914618b0787033"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-0/logs/ProjectPrime-20261011-080837-35088-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-0/logs/ProjectPrime-20261011-080837-35088.log",
+      "sha256": "fad634cc3b5ebc583d8dfa194fc3c8adfe06ba99bff888b2335b7eb4b72fe682"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-0/logs/platform-startup.log",
+      "sha256": "0a502257bebf9b46beebe8fb54409e725caa4eb92ba0ed180905a190fbfb1949"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-0/netlog-peer_0.txt",
+      "sha256": "5a9026210b6cbbed6babf00f5ec99a6c039c7a680dcdd5bfa6dc21fd1facaf17"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-0/paths.txt",
+      "sha256": "7c2bc3e6b1cb68717157b3e312f3d5ab04c67081acfbc1756bef6114a80c6125"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-1.drain.json",
+      "sha256": "d76c0af38f4b0d7c2d49bdd15cd50a1deffdefb3aff35531975d144143c34bc7"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-1.json",
+      "sha256": "fc5b1b721c5cc7b4c4b122ef1568b29ecca1e47a7c0c5132a9cb6eef8ea6d534"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-1.log",
+      "sha256": "4e91da3590dcc306c6d00f931b1bba6ef97bc3649727a6476cba3443db0599c2"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-1/logs/ProjectPrime-20261011-080838-35089-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-1/logs/ProjectPrime-20261011-080838-35089.log",
+      "sha256": "60e05ec0585cb91e79511dc45120bddf32f0aeb36ec7a62f272cb607f280a943"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-1/logs/platform-startup.log",
+      "sha256": "88e7ca35bc800d0078db974f369ec930d90821663bf257be9d1aa3ec0d0b49bd"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-1/netlog-peer_1.txt",
+      "sha256": "af449689b30709f358e5c76fa8f576160ee26edccf3aa45ff37092faef2c4afb"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-1/paths.txt",
+      "sha256": "d509d6f2dd5255dead47e94eb3e370979f133410c8c06d006ce674440df215a5"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-2.drain.json",
+      "sha256": "d444a015b06e60a72ef02f9c8318b680324da8d1c1a48cab13c7bade1ce913d9"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-2.json",
+      "sha256": "3c51883c544336c6494b582850dc93a79db2766dc777a0c40efba3334e916285"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-2.log",
+      "sha256": "d01b2e3966319f1f927dcf99756b527302ab1e22226c3fdac31e8bc87c7df17e"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-2/logs/ProjectPrime-20261011-080838-35090-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-2/logs/ProjectPrime-20261011-080838-35090.log",
+      "sha256": "40d05d3352fd801b39a9d09f19cc77717e16c50e1efadf8b61f2fb0db73571ef"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-2/logs/platform-startup.log",
+      "sha256": "8ad7d45dee5a0b96b3da2ee4940a89d816655e4f2767a294de3a661fd6597f12"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-2/netlog-peer_2.txt",
+      "sha256": "5454ef9fa8b95b8841858714c0ffcb0c11dbf892b9d4a40d459de4d2f4eb3f3a"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/peer-2/paths.txt",
+      "sha256": "5614f1b247feedf67f3d4d4b85edccb4e0ff6ed9593e8016165acea1402b5d9d"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/rotation.txt",
+      "sha256": "9a02ba75282497013dc1c3871f3273a7ccb1ba7991824d857f575b11747ed543"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/server.drain.json",
+      "sha256": "cd8b5d5760bb67452f4a21984cb788063d59b989e4279b2a813bf3ee3bf9191d"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/server.json",
+      "sha256": "35fc7acb72ffc504b41d34f80ca2de28b3550ce0cd2aaf3a109250f0f7c39bb6"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/server.log",
+      "sha256": "db491683714b78b1448064268d5e5d454b8dea588f0ba7cbc99c3f6634669ce8"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/server/logs/ProjectPrime-20261011-080835-35085-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/server/logs/ProjectPrime-20261011-080835-35085.log",
+      "sha256": "0b7830109e7fd058c97971bd76633278a170a8353e1057e9c7ac0058a2c6b892"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/server/netlog-server.txt",
+      "sha256": "2d4f23bce47d8ecc82a51bf826f544828d4962532a676d0e0bcfa3704ef63329"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/server/paths.txt",
+      "sha256": "892dd8e925b45f3c7f516f0301c1db4624b18120e741cc10a919cd5bc8ccb906"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/server/telemetry/2026-10-11/match-bd3e03f9ac9e47a5ad9ae1063070e2a7.summary.json",
+      "sha256": "86f640b7b62e597cc534aaffdf52bd05d1fdfee3c94663a185e91e6a6ebed5c6"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-08/mac-movement-lan-shadow-off-launch03/summary.json",
+      "sha256": "bf23372873ffa5c7025b4fa8f7b72f6fdd7cb81e12b92e316baa3b672cc3e3c7"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/build-manifest.json",
+      "sha256": "d0ca6fdcd1f9edbbea6f78f1481cf1a8d8cc08ed5110f3534d7788dcd29359b9"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/build.log",
+      "sha256": "e6fa7d77013d15e8a6e2d19244808b3c152fa9b42c50a79ccc26cfeef0e7c432"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/campaign-prepared-commands.json",
+      "sha256": "9d302740586aafb6ecdae0613c1323f39744cced391b5dae859e7b5f22bf8adf"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/campaign-run-manifest-03.json",
+      "sha256": "5f5fd12a9e5e2a2e7116f3e472032022a8a94afd6662c99c8a77397aeed49e7d"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/focused-agent/blocked-helper-profile/map-catalog-v2.json",
+      "sha256": "df30c4bfa56987c107dfe3bfdcfd8153dcddef2035c866a1596ea19d546bb9f8"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/focused-agent/blocked-helper-profile/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/focused-agent/blocked-helper.log",
+      "sha256": "063d2166e06808e3a7adc4d98163958bfc07fc1b841665cfdb06416ab5fc1692"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/focused-agent/clear-quiesce-profile/map-catalog-v2.json",
+      "sha256": "df30c4bfa56987c107dfe3bfdcfd8153dcddef2035c866a1596ea19d546bb9f8"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/focused-agent/clear-quiesce-profile/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/focused-agent/clear-quiesce.log",
+      "sha256": "2efe74cfefab7b567cb19c27c9d7c7711299f352c063cfc20f28398f9d8802fe"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/focused-agent/manifest.json",
+      "sha256": "9dcf85b5b995841d05d9b2f5f528c70dd0395eee6ff638aafae17bbe15977495"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/focused-agent/movement-unit-profile/map-catalog-v2.json",
+      "sha256": "df30c4bfa56987c107dfe3bfdcfd8153dcddef2035c866a1596ea19d546bb9f8"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/focused-agent/movement-unit-profile/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/focused-agent/movement-unit.log",
+      "sha256": "3ffe76972d2f2c68cab071f26bd54eed2b673eb97858f1baa6ed109819c8bb78"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03-form-audit.json",
+      "sha256": "89fb7fc2c840a65c496a610b72744080ff7aab1b2e1a330b9806f68d64fb130b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03-form-audit.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03-movement-audit.json",
+      "sha256": "7054176768195e3814e2cf8f35be49e44f9b98f6e25520f6720beeacc08e26fd"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03-movement-audit.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03-runner.log",
+      "sha256": "dfd34d38456ce122a2f1c8cd687eb18fd96f790ac347399fa96bd7e4d1ec32b3"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/drain.release.json",
+      "sha256": "b6de33bcd04b2edbc84a62dae38b8c380327dd9f78f9049b2793bccb03d7b448"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/drain.server-release.json",
+      "sha256": "b6de33bcd04b2edbc84a62dae38b8c380327dd9f78f9049b2793bccb03d7b448"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/manifest.json",
+      "sha256": "a994fa93ad9b211d985e5d038ba5096aeb1c192e51772125b1a78bdc73feeeb5"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-0.drain.json",
+      "sha256": "7da417423566f3121b3f1d46857d7426043c9ce464c64d46e6984da30343ad02"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-0.json",
+      "sha256": "c5cdfba1389fef82b9e7b869c9511af6dfd53fd5606ec27691d0b78bef98beeb"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-0.log",
+      "sha256": "b8a695ae6a4df4bdccc3ab79f014c642ca2fefb7c737a0b5e210c02ac20313b2"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-0/logs/ProjectPrime-20261011-082917-43685-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-0/logs/ProjectPrime-20261011-082917-43685.log",
+      "sha256": "ec91b70abb9aaa02114f505874bdd3696b5fa7c45bda40fd8744d48f3cb8dc07"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-0/logs/platform-startup.log",
+      "sha256": "5cc563cafc8b02004a74b970771f6176a5bf4579bb146f8b3a9fcf2564225ca7"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-0/netlog-peer_0.txt",
+      "sha256": "ec29c213d1b3b34411ee0d107c34cc6cbf182b90fd2c5bd4f8bda15443d6f5d5"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-0/paths.txt",
+      "sha256": "3441f516652f85fe0f65888ab810cc942bcc339e63b54b9d41d9b48f8ba08ca4"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-1.drain.json",
+      "sha256": "abe03f7d533c1aabd8dc6a493be9e562e8863cadb46ca58e994d5e24c55445fa"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-1.json",
+      "sha256": "40f67ace462a493521da7448c5b0be69284bd91a0dfce8df7d7fc6695574cbc5"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-1.log",
+      "sha256": "6ab3ecdfd7e7f70a81ef5266611a0bff4545f90662b8011a2bdd1c3d89d437d6"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-1/logs/ProjectPrime-20261011-082917-43686-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-1/logs/ProjectPrime-20261011-082917-43686.log",
+      "sha256": "e4f55d0d13ad030100d947f2e277b09e672c51056597e41d3d460f06183ff07c"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-1/logs/platform-startup.log",
+      "sha256": "5032e4d3ea5e9245de444d9ab95997a184272f40ccd281539a49549b8964a152"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-1/netlog-peer_1.txt",
+      "sha256": "293ee563ab0aa501edf366f5b34bb9e2cb1468924f6ead05200777e35dc6a0fd"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-1/paths.txt",
+      "sha256": "d9b218dc62879bddfd3a9711f1b66a189c3dc990b64080117a4b37428ec76d6f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-2.drain.json",
+      "sha256": "0cd9b0ad71009b6e19690d150d4c538fdaa7a361654e7dd73afb23c95e3ea467"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-2.json",
+      "sha256": "f846f984102ebf9bc7eff85dbfc81cfde0547d7369c0031138b4c2955956c724"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-2.log",
+      "sha256": "eadb391610d7012f93fed665b7efa8d335c6c7ea5772eb409b2d6b84d044bdc7"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-2/logs/ProjectPrime-20261011-082917-43687-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-2/logs/ProjectPrime-20261011-082917-43687.log",
+      "sha256": "fdd21542e6a06631ec3ebc7e872e7c282a2ba7eb2cb208a22062a3ac3eafe005"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-2/logs/platform-startup.log",
+      "sha256": "b5b96ccae6111424977ebc4da81e54d4b5044d7fbfca645f011900385bf7fb03"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-2/netlog-peer_2.txt",
+      "sha256": "0d6e4a693c387e9e0ed99e16c871203d4e4c18349df04f52b75a9d8fa76d6a0f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/peer-2/paths.txt",
+      "sha256": "6b668c02d4413768c9f31bbfc8a4aae3f133831292db69cca1390a29560b6526"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/rotation.txt",
+      "sha256": "9a02ba75282497013dc1c3871f3273a7ccb1ba7991824d857f575b11747ed543"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/server.drain.json",
+      "sha256": "dc057472a324ccfa9d9df8d5556d2caaeed537aedbcbaf26a443cb5b2c96aee1"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/server.json",
+      "sha256": "b61cc9c48f15e03e57ba8b92249e6e06fa9888254fa14273601aa21cb5b91424"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/server.log",
+      "sha256": "636a0e369d4c538e6d87f229c31cbe2bb09a126ebf07aeb8980f7dfc3de2f347"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/server/logs/ProjectPrime-20261011-082915-43683-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/server/logs/ProjectPrime-20261011-082915-43683.log",
+      "sha256": "aecfe7e0af7eb457583f2708f5f69c3ab3a527aa80f9d9d8b534b1fb2bcb6efa"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/server/netlog-server.txt",
+      "sha256": "be4c4d10662cd6a31154ac83372b795a0164a419dfb351ccbd1382a41861b8c4"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/server/paths.txt",
+      "sha256": "de59d3c7e3966bf92b6055d246229c8de61ba872efd0c19dbc0919e9c282b15a"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/server/telemetry/2026-10-11/match-db5b2748861743eab4b9b1dc2b0185a1.summary.json",
+      "sha256": "7aa822d3b111c232bf9a22a9541a5370f96083021d0a1c80921a60fd83b12ced"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03/summary.json",
+      "sha256": "f5e0a52bd881cadb98a94da14beedc72bdad420defdd751f611e5e3f9e4d17ca"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03-form-audit.json",
+      "sha256": "ec607eb43611eeb90b0c448ee3495e845ed1a6c8514d195ec65eff3666fb2105"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03-form-audit.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03-movement-audit.json",
+      "sha256": "b12222274b426083ed17633ffad8bbe63fa800a75f540a544af172e2f6129035"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03-movement-audit.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03-runner.log",
+      "sha256": "221fc8fd51a57fc6e36cb408379de3fa692d2440cddae777856637bee8039209"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/drain.release.json",
+      "sha256": "3d5a12cbb0f47919326ce924bb2e869d7d276352afcf61d23714a2c56c91a048"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/drain.server-release.json",
+      "sha256": "3d5a12cbb0f47919326ce924bb2e869d7d276352afcf61d23714a2c56c91a048"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/manifest.json",
+      "sha256": "4f394a6bd05b807fa7f5f07b3f3fdbeb894a288c294842c3efc4da5f5a465643"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-0.drain.json",
+      "sha256": "a41fa1706ff582e64e1b35698b916b96d03068f93442da9844aa0399fc4b1709"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-0.json",
+      "sha256": "ce604c26651ce8bfd4a2df868a4d1869c7ced646f4d4e2d34573ce86c2219fe6"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-0.log",
+      "sha256": "741fe3f3687b6f5e7a95e3b36a4fdb0d1e646be11a9d2c72e661029206277ef2"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-0/logs/ProjectPrime-20261011-082847-43655-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-0/logs/ProjectPrime-20261011-082847-43655.log",
+      "sha256": "4b9f941ed0c03d30249752fcd68318991b9537288ac81b4e55571c3aa8067255"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-0/logs/platform-startup.log",
+      "sha256": "3c61a7211d54e598aa1c6f7c74a6289a623b703a1eca946147bfc3b4ab3e8065"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-0/netlog-peer_0.txt",
+      "sha256": "7e05a2bc25fd02f617121e83abb2f61a6566600ab9286824de2b3844481265b5"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-0/paths.txt",
+      "sha256": "eaede4e5ec2f76653389d8528afcd894f1f97999bc839ab7bce603d37fd0872a"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-1.drain.json",
+      "sha256": "85ab5b84716138ec783827d27cac7d714f0fa37d4f07237e8bc655f4ae6f5f29"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-1.json",
+      "sha256": "fcab89ee93e22f907f257a9c21c298ab32a740620809dddadcb202019e783fd2"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-1.log",
+      "sha256": "6674d61a6ed28a65fe8ee1cb5ab0bbd2c25db47c2ab66949b8d7956334f657b1"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-1/logs/ProjectPrime-20261011-082847-43656-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-1/logs/ProjectPrime-20261011-082847-43656.log",
+      "sha256": "da3eb06991cf2af3a95109f54b0121aea6ffc469ec484fdc3ee9994286d77848"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-1/logs/platform-startup.log",
+      "sha256": "1f5578f17ca66c7e3919eb1ab82a32fdcba6ba75f82e54e2857a02fa560b1945"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-1/netlog-peer_1.txt",
+      "sha256": "4d928394ecec42eba517f8cf681eff5fc5aa4013c62dac4897f98bae303df784"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-1/paths.txt",
+      "sha256": "cdb0c503d5565f09ec337360df2ba6b91a12834e2291323bb90a6d846354933c"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-2.drain.json",
+      "sha256": "46680220e6ea946df62be4b1ef6223b429d92b1f1782d28450de983db3fe18e5"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-2.json",
+      "sha256": "b3549b0e28e5330e1ff8fe302af7bfde2038dfb079e33377c990188c78906ae6"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-2.log",
+      "sha256": "1f56f7d6c42fb283e7b490bba4dbc66d8db1111f627758083cdbabe687099ae4"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-2/logs/ProjectPrime-20261011-082848-43657-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-2/logs/ProjectPrime-20261011-082848-43657.log",
+      "sha256": "466ea1ace68557bb9d3b96e9e4750ec87dcab980ed0063620fa30588b64ccf6b"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-2/logs/platform-startup.log",
+      "sha256": "a5b71c07f23769d873d1c1bf556b80ba2bfe38735e58b04cab04932b5aac0a62"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-2/netlog-peer_2.txt",
+      "sha256": "e665f8aab38a81ecf85cacae665271faa46774d6ea75398b573cfa86bef5f684"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/peer-2/paths.txt",
+      "sha256": "a66e6f0cb29fc42898c0e6aae79f955856ff3382d2f5fdcf098b824743cba8c7"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/rotation.txt",
+      "sha256": "9a02ba75282497013dc1c3871f3273a7ccb1ba7991824d857f575b11747ed543"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/server.drain.json",
+      "sha256": "1529a0a55e7792f70e463a211087251cfde74cfb1a5de002cc42c080c1ad90c1"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/server.json",
+      "sha256": "d335bc534db351b23e0bd123a5022024a2c17ebe4c672a691df35d1289dea4f8"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/server.log",
+      "sha256": "750eac33ef6be68ffe2ba91e6023abee17d2738b745c887a65c160f612238070"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/server/logs/ProjectPrime-20261011-082845-43651-native.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/server/logs/ProjectPrime-20261011-082845-43651.log",
+      "sha256": "55d8c9a4d23c8a6f164b877d60ff1b027f5dae7dd8d29ef104c522df22a69435"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/server/netlog-server.txt",
+      "sha256": "27569525e96f89c34c348305954aad86e2fceb271a4bf00d49cdc7e61d620114"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/server/paths.txt",
+      "sha256": "3cb64bdd0f18137aa04a880184969c067c1cfb17deb0ab7172de85442b81a13e"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/server/telemetry/2026-10-11/match-2ea2fbb896104b3ea35b5604e46197d1.summary.json",
+      "sha256": "727c392883c6b8dca720c25f7cce3ba2f8381a13ce98815b8d1e30b58d8f87f6"
+    },
+    {
+      "path": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03/summary.json",
+      "sha256": "da6cfcc4c6d31d39cdb9c3bde2464e2960eaa3e5e0585909f5e5762207369230"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-01/build-manifest.json",
+      "sha256": "28af398d4eeddaf4d6704e2253810b75d0f50034d51b9bd333257d57a4a6b186"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-01/build.log",
+      "sha256": "d1d51d44db29dcc5338bda737224406f13c51d766db8f62d86f4a607b9c476b4"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-01/profile/map-catalog-v2.json",
+      "sha256": "3930b3d1bac6ca2d0edd55d6da60d469e4f5b460ecc7381b7d3daad10cb5ae3f"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-01/profile/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-01/run-manifest.json",
+      "sha256": "9cf5e59298ea23d1bc7bc19057f86811e019daee584b40de37d1f08c5ff73518"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-01/stdout.log",
+      "sha256": "fbfc69567227c7736e4e03cfd98150d936b3664373f7bcb634227f88a9cbc624"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-02/build-manifest.json",
+      "sha256": "501869df6af3435f24a2ba3ea43c7822542d137928bc6276da097ac1a0bc61b8"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-02/build.log",
+      "sha256": "b81beb252b11961a8537ee9488e180c7293bc98f02532c63e9529a9f4e179b43"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-02/profile/map-catalog-v2.json",
+      "sha256": "bfc519e3efac9a2293c260f03502fb925cf5fc9dd26e9c55f4cac0e8ba43b57d"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-02/profile/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-02/run-manifest.json",
+      "sha256": "812e56b1f25edf20447338abb5bf3863ea12e756d1f61c0eb81ef5f1d855ae08"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-02/stdout.log",
+      "sha256": "7ef59e0b1844c2077d4ddb640e93d1f2ad5ec6e958799edf53c3c01d7a578b90"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-03/build-manifest.json",
+      "sha256": "4c15401c141ea77472a6df6b1fc0465b29a53ace133344e33d62dc20779f3d3c"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-03/build.log",
+      "sha256": "097d7ea50baa40f50d00ecd401c48b3266f7d187a2a7c85097b9cd1d8e8858c8"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-03/profile/map-catalog-v2.json",
+      "sha256": "c637254f6d69a4e0ef7e0cf7230aff3ceb9c1055a968b3950fd37f392451edb9"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-03/profile/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-03/run-manifest.json",
+      "sha256": "70170b652d82d77bfae62eee5ba1eb4a40a3f913ea7055219f52cf502e1e9da3"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-03/stdout.log",
+      "sha256": "fde48bbd364160f5bb2a3b690340af77087d05e7d42c14e67721d942b3d3f468"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-04/build-manifest.json",
+      "sha256": "152dd2a63ea5a7a061fc8ee5f69666ba2da838ead4975388c33e06ddba2f252e"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-04/build.log",
+      "sha256": "23e91465cd157a86c435e7f40d79744791d9b81017492a8904ab50d7355f549d"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-04/profile/map-catalog-v2.json",
+      "sha256": "3d14e9068cbbdf2b40059107c6ae64ed82123af920c88a285736bff03325217d"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-04/profile/paths.txt",
+      "sha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-04/run-manifest.json",
+      "sha256": "bdacde9ecb8198e63d7e51613f61346cdc6fa0e1bac9fbd165f0da860e8996fe"
+    },
+    {
+      "path": "artifacts/net2-n12/blocked-pose-attempt-04/stdout.log",
+      "sha256": "e5cd209ffbe017b4b7030d10534c6eeb0c94ff1b5b61c2cd8bbf6364539aa25d"
+    },
+    {
+      "path": "artifacts/net2-n12/native-dedup-attempt01-manifest.json",
+      "sha256": "1ea07ba03d5d93ed8be17a5edcb68158b28d65a3f79cf9cec64c50d47d9f0b69"
+    },
+    {
+      "path": "artifacts/net2-n12/native-dedup-attempt02-manifest.json",
+      "sha256": "78f88c06ca9b51d9805b4d476ba565be3bff1233da05e348396a2235cf0cb9c5"
+    },
+    {
+      "path": "artifacts/net2-n12/native-dedup-extreme-shadow-on-manifest.json",
+      "sha256": "67195dd0a0d494058c67ed0dc7011a6460773f74c1ceb80e4fdea4530ca2f121"
+    },
+    {
+      "path": "artifacts/net2-n12/native-dedup-lan-shadow-off-manifest.json",
+      "sha256": "1c6aeaecde3eb21fb9d565c8d875081e0c0e359642644163056ca40c43469e80"
+    },
+    {
+      "path": "artifacts/net2-n12/native-dedup-pre-attempt09-manifest.json",
+      "sha256": "1ab3ccdc98d1ed3a9a0911029f8c984842dd8edfa8fcc9b588f9c94e956da24b"
+    },
+    {
+      "path": "artifacts/net2-n12/python/all-tests-role-evidence.log",
+      "sha256": "c10b959a1a6eb90c46ac2fc270b716a02743b61bffed0bcfe7349920dd629217"
+    },
+    {
+      "path": "artifacts/net2-n12/python/all-tests.log",
+      "sha256": "74b4f1d771667bdfb00ea41956375a7945da3b34d999631f26318d4a0aaf46ca"
+    },
+    {
+      "path": "artifacts/net2-n12/python/movement-tests.log",
+      "sha256": "9af94d780b01eb9bda90b3c917e68f74862ee4ebcbf12c56257b3cf8f7a27225"
+    }
+  ],
+  "campaignEvidenceSource": "166e96fd8ba44e8931afc0776ceb7fb0dba7475e",
+  "campaignEngineSha256": "7c0b95b4d991797207d84d089799bf2e8c446e3990bd2d58a620f200575b2f1e",
+  "campaignsAfterSampleRoleRepair": {
+    "lanOff": {
+      "base": "PASS",
+      "movement": "PASS",
+      "form": "PASS"
+    },
+    "extremeOn": {
+      "base": "FAIL",
+      "reason": "accepted turret shot52 has only39 authority ticks left before bounded drain expiry, below64 native recovery; reliable endpoint Pending2 observed. No gate waiver."
+    }
+  },
+  "quiescenceFixture": {
+    "status": "PASS",
+    "checks": 560,
+    "source": "14efef5ff03a785a1d214604c4daebcc71cc3c68",
+    "engineSha256": "9046abb7f8fc819e1a9f930f70defbc5fb0201bd977c88c7025f654d215f4be2",
+    "scope": "Isolated native input/entity fixture, not proof live campaign quiescence"
+  },
+  "nativeEvidenceSource": "ed4a75b89b904e0cab0af6c71711b98ff2daf7f4",
+  "nativeEvidenceEngineSha256": "462eedc383d86ebd5a6c0eb6568a9534b492c759647f3b739ff1ebc3623e5eec",
+  "diagnosticCampaigns": {
+    "lanOff": {
+      "baseStatus": "PASS",
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "PASS",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "movementAudit": {
+        "status": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "metrics": {
+          "authority": {
+            "totals": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0
+            },
+            "perHunter": {
+              "Samus": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Kanden": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Trace": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Sylux": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Noxus": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Spire": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Weavel": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              }
+            },
+            "candidateRows": [],
+            "measuredHunters": []
+          },
+          "clients": {
+            "peer-0": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            },
+            "peer-1": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            },
+            "peer-2": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            }
+          },
+          "authorityEvaluated": 0
+        },
+        "confidence": "ADVISORY_ONLY",
+        "scope": "Opt-in authority accepted owner-source envelope observations only; WouldRefuse is reported, never required zero or treated as cheat/enforcement proof. Per-hunter evaluated/exempt/unsupported denominators do not establish seven-hunter native collision parity. Client authority guard and baseline gameplay/drain are required; no hard movement correction is validated."
+      },
+      "originalFormStatus": "FAIL",
+      "originalFormFailures": [
+        "peer-2: form evidence: applied owner/observer role mismatch"
+      ]
+    },
+    "extremeOn": {
+      "baseStatus": "PASS",
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "PASS",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "movementAudit": {
+        "status": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "metrics": {
+          "authority": {
+            "totals": {
+              "Baselines": 4,
+              "Evaluated": 523,
+              "Exempt": 448,
+              "Unsupported": 146,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 1204,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0
+            },
+            "perHunter": {
+              "Samus": {
+                "biped": {
+                  "Baselines": 1,
+                  "Evaluated": 503,
+                  "Exempt": 167,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 694,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0.112789296,
+                  "MaximumUpward": 0.125
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Kanden": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Trace": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Sylux": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Noxus": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Spire": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Weavel": {
+                "biped": {
+                  "Baselines": 3,
+                  "Evaluated": 20,
+                  "Exempt": 252,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 299,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0.112788804,
+                  "MaximumUpward": 0.16247559
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 29,
+                  "Unsupported": 146,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 211,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0.15863226,
+                  "MaximumUpward": 0.0019283295
+                }
+              }
+            },
+            "candidateRows": [],
+            "measuredHunters": [
+              "Samus",
+              "Weavel"
+            ]
+          },
+          "clients": {
+            "peer-0": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            },
+            "peer-1": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            },
+            "peer-2": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            }
+          },
+          "authorityEvaluated": 523
+        },
+        "confidence": "ADVISORY_ONLY",
+        "scope": "Opt-in authority accepted owner-source envelope observations only; WouldRefuse is reported, never required zero or treated as cheat/enforcement proof. Per-hunter evaluated/exempt/unsupported denominators do not establish seven-hunter native collision parity. Client authority guard and baseline gameplay/drain are required; no hard movement correction is validated."
+      },
+      "originalFormStatus": "PASS",
+      "originalFormFailures": []
+    }
+  },
+  "campaigns": {
+    "lan-shadow-off": {
+      "baseStatus": "PASS",
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "PASS",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "movementAuditPath": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03-movement-audit.json",
+      "authorityMovement": {
+        "totals": {
+          "Baselines": 0,
+          "Evaluated": 0,
+          "Exempt": 0,
+          "Unsupported": 0,
+          "WouldRefuse": 0,
+          "DuplicateOrOld": 0,
+          "LongGaps": 0,
+          "InputAbsentWhileMoving": 0
+        },
+        "perHunter": {
+          "Samus": {
+            "biped": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            }
+          },
+          "Kanden": {
+            "biped": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            }
+          },
+          "Trace": {
+            "biped": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            }
+          },
+          "Sylux": {
+            "biped": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            }
+          },
+          "Noxus": {
+            "biped": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            }
+          },
+          "Spire": {
+            "biped": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            }
+          },
+          "Weavel": {
+            "biped": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            }
+          }
+        },
+        "candidateRows": [],
+        "measuredHunters": []
+      },
+      "clientCounts": {
+        "peer-0": {
+          "Baselines": 0,
+          "Evaluated": 0,
+          "Exempt": 0,
+          "Unsupported": 0,
+          "WouldRefuse": 0,
+          "DuplicateOrOld": 0,
+          "LongGaps": 0,
+          "InputAbsentWhileMoving": 0
+        },
+        "peer-1": {
+          "Baselines": 0,
+          "Evaluated": 0,
+          "Exempt": 0,
+          "Unsupported": 0,
+          "WouldRefuse": 0,
+          "DuplicateOrOld": 0,
+          "LongGaps": 0,
+          "InputAbsentWhileMoving": 0
+        },
+        "peer-2": {
+          "Baselines": 0,
+          "Evaluated": 0,
+          "Exempt": 0,
+          "Unsupported": 0,
+          "WouldRefuse": 0,
+          "DuplicateOrOld": 0,
+          "LongGaps": 0,
+          "InputAbsentWhileMoving": 0
+        }
+      },
+      "formAuditPath": "artifacts/net2-n12/attempt-09/mac-movement-lan-shadow-off-launch03-form-audit.json",
+      "formStatus": "PASS",
+      "independentAnchorWitnesses": 215
+    },
+    "extreme-shadow-on": {
+      "baseStatus": "PASS",
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "PASS",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "movementAuditPath": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03-movement-audit.json",
+      "authorityMovement": {
+        "totals": {
+          "Baselines": 4,
+          "Evaluated": 693,
+          "Exempt": 329,
+          "Unsupported": 99,
+          "WouldRefuse": 0,
+          "DuplicateOrOld": 1172,
+          "LongGaps": 0,
+          "InputAbsentWhileMoving": 0
+        },
+        "perHunter": {
+          "Samus": {
+            "biped": {
+              "Baselines": 1,
+              "Evaluated": 579,
+              "Exempt": 76,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 677,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0.112789206,
+              "MaximumUpward": 0.073133975
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            }
+          },
+          "Kanden": {
+            "biped": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            }
+          },
+          "Trace": {
+            "biped": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            }
+          },
+          "Sylux": {
+            "biped": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            }
+          },
+          "Noxus": {
+            "biped": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            }
+          },
+          "Spire": {
+            "biped": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 0,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 0,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0,
+              "MaximumUpward": 0
+            }
+          },
+          "Weavel": {
+            "biped": {
+              "Baselines": 3,
+              "Evaluated": 114,
+              "Exempt": 243,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 396,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0.11278852,
+              "MaximumUpward": 0.21383277
+            },
+            "alt": {
+              "Baselines": 0,
+              "Evaluated": 0,
+              "Exempt": 10,
+              "Unsupported": 99,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 99,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 0,
+              "MaximumHorizontal": 0.14870775,
+              "MaximumUpward": 0
+            }
+          }
+        },
+        "candidateRows": [],
+        "measuredHunters": [
+          "Samus",
+          "Weavel"
+        ]
+      },
+      "clientCounts": {
+        "peer-0": {
+          "Baselines": 0,
+          "Evaluated": 0,
+          "Exempt": 0,
+          "Unsupported": 0,
+          "WouldRefuse": 0,
+          "DuplicateOrOld": 0,
+          "LongGaps": 0,
+          "InputAbsentWhileMoving": 0
+        },
+        "peer-1": {
+          "Baselines": 0,
+          "Evaluated": 0,
+          "Exempt": 0,
+          "Unsupported": 0,
+          "WouldRefuse": 0,
+          "DuplicateOrOld": 0,
+          "LongGaps": 0,
+          "InputAbsentWhileMoving": 0
+        },
+        "peer-2": {
+          "Baselines": 0,
+          "Evaluated": 0,
+          "Exempt": 0,
+          "Unsupported": 0,
+          "WouldRefuse": 0,
+          "DuplicateOrOld": 0,
+          "LongGaps": 0,
+          "InputAbsentWhileMoving": 0
+        }
+      },
+      "formAuditPath": "artifacts/net2-n12/attempt-09/mac-movement-extreme-shadow-on-launch03-form-audit.json",
+      "formStatus": "PASS",
+      "independentAnchorWitnesses": 148
+    }
+  },
+  "quiescenceFixture09": {
+    "source": "166e96fd8ba44e8931afc0776ceb7fb0dba7475e",
+    "engineSha256": "7c0b95b4d991797207d84d089799bf2e8c446e3990bd2d58a620f200575b2f1e",
+    "movementUnit": "PASS",
+    "clearNativeChecks": 655,
+    "blockedNativeChecks": 1032,
+    "actualHelperEscapeTicks": 107,
+    "scope": "Opt-in campaign quiescence uses ordinary native Weavel cardinal controls and morph pulse, no force/unconditional switch, teleport or position correction"
+  }
+}
