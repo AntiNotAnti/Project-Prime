@@ -11,7 +11,8 @@ from pathlib import Path
 MATRIX = [(players, pair, order) for players in (2, 4, 8)
           for pair, order in enumerate((('baseline', 'candidate'), ('candidate', 'baseline'), ('baseline', 'candidate')), 1)]
 WARMUP, STEPS, SECONDS = 300, 3600, 60
-PROFILE_EXCLUDED = {'logs', 'telemetry', '_demos', 'native-render-result.json', 'thumbnails.log'}
+# Derived catalog keys include staged binary paths; preserve as output, not seeded settings.
+PROFILE_EXCLUDED = {'map-catalog-v2.json', 'logs', 'telemetry', '_demos', 'native-render-result.json', 'thumbnails.log'}
 WORKLOAD_FIELDS = ('shotsFired', 'damageEvents', 'damagePoints', 'claimsReceived', 'claimsApplied', 'claimsDuplicate', 'claimsRefused')
 
 def sha(path):
