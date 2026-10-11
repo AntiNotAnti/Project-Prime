@@ -168,6 +168,8 @@ def run(args):
         env.update(PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS="null",
                    MPHREAD_PHASE_SECONDS="2", PRIME_NET2_EVIDENCE=str(args.out / f"{name}.json"),
                    PRIME_SHOT_PROOF=args.shot_proof)
+        if args.confirmed_impacts:
+            env["PRIME_CONFIRMED_IMPACTS"] = "1"
         if args.soak:
             env["PRIME_NET2_SOAK"] = "1"
         if args.drain_seconds:
@@ -192,6 +194,8 @@ def run(args):
             "environment": {k: env[k] for k in ("PROJECT_PRIME_USER_DATA", "ALSOFT_DRIVERS", "MPHREAD_PHASE_SECONDS", "PRIME_NET2_EVIDENCE", "PRIME_SHOT_PROOF")},
             "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
             "soak": args.soak})
+        if args.confirmed_impacts:
+            manifest["commands"][-1]["environment"]["PRIME_CONFIRMED_IMPACTS"] = "1"
         if args.drain_seconds:
             manifest["commands"][-1]["environment"].update({key: value for key, value in env.items() if key.startswith("PRIME_NET2_DRAIN_")})
         if args.scenario in BOMB_HUNTERS:
@@ -403,7 +407,7 @@ def parse_args(argv=None):
     p.add_argument("--source", required=True, help="Exact source SHA plus dirty diff hash if applicable")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--dotnet", default="dotnet")
-    p.add_argument("--protocol", type=int, default=49, help="Expected evidence protocol (historical campaigns may specify 41)")
+    p.add_argument("--protocol", type=int, default=50, help="Expected evidence protocol (historical campaigns may specify 41)")
     p.add_argument("--shot-proof", choices=("off", "shadow", "enforce"), default="shadow",
                    help="Record and apply the explicit N4 admission mode")
     p.add_argument("--players", type=int, choices=(2, 3, 4, 8), default=2)
@@ -419,6 +423,7 @@ def parse_args(argv=None):
     p.add_argument("--rooms", default="MP1 SANCTORUS")
     p.add_argument("--round-minutes", type=float, default=30)
     p.add_argument("--rendered", action="store_true")
+    p.add_argument("--confirmed-impacts", action="store_true", help="Enable the independent optional live hit-cue lane")
     p.add_argument("--bomb-visibility",action="store_true",
                    help="Capture per-peer live bomb GPU evidence; requires --rendered and a bomb scenario")
     p.add_argument("--bomb-triangle-fixture", action="store_true",

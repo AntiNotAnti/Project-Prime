@@ -1299,14 +1299,15 @@ namespace MphRead.Entities
 
             bool anchored = _scene.Services.IsReplica && _replayImpactPending
                 && _replayImpactDrawFrame == _scene.FrameCount;
+            bool liveAnchor = NetConfirmedImpacts.TryAnchor(this, out Vector3 liveImpact);
             Vector3 position = Position, back = BackPosition, past0 = PastPositions[0];
-            if (anchored)
+            if (anchored || liveAnchor)
             {
                 // Let the visible projectile/tracer terminate exactly where the
                 // authority says it did for this one draw. The simulation copy
                 // underneath keeps flying untouched and is hidden afterwards.
-                Position = _replayImpactPosition;
-                PastPositions[0] = _replayImpactPosition;
+                Position = liveAnchor ? liveImpact : _replayImpactPosition;
+                PastPositions[0] = Position;
             }
             try
             {
@@ -1322,7 +1323,7 @@ namespace MphRead.Entities
             }
             finally
             {
-                if (anchored)
+                if (anchored || liveAnchor)
                 {
                     Position = position;
                     BackPosition = back;

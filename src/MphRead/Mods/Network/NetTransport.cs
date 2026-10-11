@@ -231,6 +231,14 @@ namespace MphRead.Mods.Network
         private readonly NetFaultQueue<(IPEndPoint Target, byte[] Data, int Length)> _heldOut
             = NetLag.CreateQueue<(IPEndPoint Target, byte[] Data, int Length)>(outbound: true);
         private readonly object _heldLock = new();
+        private readonly NetFaultQueue<ReceivedPacket> _cosmeticHeldIn = NetLag.CreateQueue<ReceivedPacket>(false, cosmetic: true);
+        private readonly NetFaultQueue<(IPEndPoint Target, byte[] Data, int Length)> _cosmeticHeldOut
+            = NetLag.CreateQueue<(IPEndPoint Target, byte[] Data, int Length)>(true, cosmetic: true);
+        private NetTokenBucket _cosmeticSendBudget;
+        private NetTokenBucket _cosmeticIngressBudget;
+        private NetByteBucket _cosmeticSendBytes;
+        private long _cosmeticDrops;
+        internal long CosmeticDrops => Interlocked.Read(ref _cosmeticDrops) + _liveInbox.CosmeticDrops;
         private Thread? _lagWorker;
 
         /// <summary>
@@ -362,6 +370,13 @@ namespace MphRead.Mods.Network
                     }
                     SendNow(held.Target, held.Data.AsSpan(0, held.Length));
                 }
+                for (int i = 0; i < 8; i++)
+                {
+                    (IPEndPoint Target, byte[] Data, int Length) held;
+                    lock (_heldLock) if (!_cosmeticHeldOut.TryDequeue(now, out held)) break;
+                    if (CurrentCosmeticConnection(held.Target, held.Data.AsSpan(0, held.Length)))
+                        SendNow(held.Target, held.Data.AsSpan(0, held.Length));
+                }
                 Thread.Sleep(1);
             }
         }
@@ -403,8 +418,10 @@ namespace MphRead.Mods.Network
                         {
                             // Faults act on original datagrams BEFORE sequence/ACK
                             // processing. Duplicate entries share only immutable bytes.
+                            bool cosmetic = length > 1 && data[0] == NetHeader.Marker && data[1] == (byte)PacketType.ConfirmedImpact;
+                            if (cosmetic && !CanHoldImpact(sender, data.AsSpan(0, length))) continue;
                             byte[] heldCopy = data.AsSpan(0, length).ToArray();
-                            lock (_heldLock) _heldIn.Enqueue(NowMilliseconds,
+                            lock (_heldLock) (cosmetic ? _cosmeticHeldIn : _heldIn).Enqueue(NowMilliseconds,
                                 new ReceivedPacket(sender, heldCopy, heldCopy.Length, arrivedAt),
                                 lossOverride: NetLag.LossPercent / 100);
                             _activity.Set();
@@ -468,7 +485,11 @@ namespace MphRead.Mods.Network
                 return true;
             }
             if (!_liveInbox.TryEnqueue(packet))
-            { Telemetry.Drop(); PacketsDropped++; Interlocked.Increment(ref TotalPacketsDropped); return false; }
+            {
+                if (packet.Type != PacketType.ConfirmedImpact)
+                { Telemetry.Drop(); PacketsDropped++; Interlocked.Increment(ref TotalPacketsDropped); }
+                return false;
+            }
             Telemetry.Queue(_liveInbox.Count);
             _activity.Set();
             return true;
@@ -521,6 +542,13 @@ namespace MphRead.Mods.Network
                     finally { value.Release(); }
                 }
             }
+            // Gameplay (including the coalesced latest snapshot) always yields
+            // first. Cosmetic work has separate storage, bytes and count budget.
+            int cosmeticBudget = Math.Clamp(limits.Cosmetic, 0, 8);
+            while (cosmeticBudget-- > 0 && _liveInbox.TryDequeue(NetPacketPriority.Cosmetic, out var cue))
+            {
+                try { yield return cue; } finally { cue.Release(); }
+            }
         }
 
         private void PromoteHeldArrivals()
@@ -529,11 +557,25 @@ namespace MphRead.Mods.Network
             for (int work = 0; work < 256; work++)
             {
                 ReceivedPacket packet;
-                lock (_heldLock) if (!_heldIn.TryDequeue(now, out packet)) return;
+                lock (_heldLock) if (!_heldIn.TryDequeue(now, out packet)) break;
                 byte[] copy = ArrayPool<byte>.Shared.Rent(NetConfig.MaxPacketSize + 1);
                 bool owned = false;
                 try
                 {
+                    packet.Data.AsSpan(0, packet.Length).CopyTo(copy);
+                    owned = AcceptDatagram(packet.Sender, copy, packet.Length, packet.ArrivedAt);
+                }
+                finally { if (!owned) ArrayPool<byte>.Shared.Return(copy); }
+            }
+            for (int work = 0; work < 8; work++)
+            {
+                ReceivedPacket packet;
+                lock (_heldLock) if (!_cosmeticHeldIn.TryDequeue(now, out packet)) break;
+                byte[] copy = ArrayPool<byte>.Shared.Rent(NetHeader.Size + ConfirmedImpact.Size);
+                bool owned = false;
+                try
+                {
+                    if (packet.Length != NetHeader.Size + ConfirmedImpact.Size) continue;
                     packet.Data.AsSpan(0, packet.Length).CopyTo(copy);
                     owned = AcceptDatagram(packet.Sender, copy, packet.Length, packet.ArrivedAt);
                 }
@@ -606,6 +648,7 @@ namespace MphRead.Mods.Network
         public void Send(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload,
             long extraHoldTicks = 0, int immediateCopies = 1)
         {
+            if (type == PacketType.ConfirmedImpact) { TrySendImpact(target, payload); return; }
             if (immediateCopies < 1 || immediateCopies > 3
                 || (immediateCopies != 1 && !NetReliableChannel.IsReliable(type)))
                 throw new ArgumentOutOfRangeException(nameof(immediateCopies));
@@ -778,6 +821,20 @@ namespace MphRead.Mods.Network
                     connection.ReceivesAuthorityFacts = true;
                 }
                 if (!connection.Accepts(sender, header)) { Telemetry.Invalid(); return false; }
+                if (header.Type == PacketType.ConfirmedImpact)
+                {
+                    if (!NetConfirmedImpacts.Enabled || !connection.ReceivesAuthorityFacts || connection.QueueOnly
+                        || connection.RetiredAt.HasValue || header.Flags != NetHeaderFlags.None
+                        || header.Ack != 0 || header.AckBits != 0 || length != NetHeader.Size + ConfirmedImpact.Size
+                        || !ConfirmedImpact.TryRead(data.AsSpan(NetHeader.Size, length - NetHeader.Size), out _))
+                    { Interlocked.Increment(ref _cosmeticDrops); return false; }
+                    if (!connection.Allow(header.Type, NowMilliseconds, length))
+                    { Interlocked.Increment(ref _cosmeticDrops); return false; }
+                    if (connection.Receive(header, NowMilliseconds) is SequenceResult.Duplicate or SequenceResult.TooOld) return false;
+                    data.AsSpan(NetHeader.Size, ConfirmedImpact.Size).CopyTo(data.AsSpan(1));
+                    data[0] = (byte)header.Type; length = ConfirmedImpact.Size + 1;
+                    return true;
+                }
                 if ((header.Flags & NetHeaderFlags.AckOnly) == 0 && !connection.Allow(header.Type, NowMilliseconds, length))
                 { Telemetry.Drop(); return false; }
                 bool reliable = (header.Flags & NetHeaderFlags.Reliable) != 0;
@@ -1018,7 +1075,7 @@ namespace MphRead.Mods.Network
             {
                 packet.Release();
             }
-            for (int priority = 0; priority < 3; priority++)
+            for (int priority = 0; priority < 4; priority++)
                 while (_liveInbox.TryDequeue((NetPacketPriority)priority, out var queued)) queued.Release();
             lock (_stateLock)
             {
@@ -1026,6 +1083,11 @@ namespace MphRead.Mods.Network
                 _latestSnapshot = null;
             }
             _lagWorker?.Join(TimeSpan.FromSeconds(1));
+            lock (_heldLock)
+            {
+                while (_cosmeticHeldIn.TryDequeue(double.MaxValue, out var packet)) packet.Release();
+                while (_cosmeticHeldOut.TryDequeue(double.MaxValue, out _)) { }
+            }
             _activity.Dispose();
         }
     }

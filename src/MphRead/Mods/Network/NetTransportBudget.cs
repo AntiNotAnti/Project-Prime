@@ -9,6 +9,7 @@ public sealed record NetEndpointBudgetSnapshot(string Endpoint, NetConnectionSna
 public sealed record NetTransportBudgetSnapshot(NetWireSnapshot Wire, NetTransportSnapshot Queue,
     NetTransportContentionSnapshot Contention, NetEndpointBudgetSnapshot[] Endpoints)
 {
+    public object? Cosmetics { get; init; }
     public long IntentByteRejections { get { long total = 0; foreach (var endpoint in Endpoints) total += endpoint.Connection.IntentByteRejections; return total; } }
 }
 public readonly record struct NetAdmissionBudget(string Lane, int PacketsPerSecond, int Burst, int? BytesPerSecond = null, int? ByteBurst = null)
@@ -27,6 +28,8 @@ public sealed partial class NetTransport
         new NetAdmissionBudget("Critical", NetConnection.ControlRate, NetConnection.ControlBurst),
         new NetAdmissionBudget("Background", NetConnection.BackgroundRate, NetConnection.BackgroundBurst),
         new NetAdmissionBudget("Admitted authority facts", NetConnection.AuthorityFactRate, NetConnection.AuthorityFactBurst),
+        new NetAdmissionBudget("Optional cosmetic impacts", NetConnection.CosmeticRate, NetConnection.CosmeticBurst,
+            NetConnection.CosmeticBytes, NetConnection.CosmeticByteBurst),
         new NetAdmissionBudget("Discovery (shared transport)", 300, 128)
     };
 
@@ -71,6 +74,11 @@ public sealed partial class NetTransport
             var peer = peers[i];
             endpoints[i] = new(peer.Endpoint.ToString(), peer.Connection, peer.Reliable, peer.Wire.Capture());
         }
-        return new(Wire.Capture(), Telemetry.Capture(), ContentionStats(), endpoints);
+        object cosmetics;
+        lock (_heldLock) cosmetics = new { Queued = _liveInbox.CosmeticCount,
+            HighWater = _liveInbox.CosmeticHighWater, Drops = CosmeticDrops,
+            HeldIn = _cosmeticHeldIn.Count, HeldOut = _cosmeticHeldOut.Count,
+            HeldInDrops = _cosmeticHeldIn.Dropped, HeldOutDrops = _cosmeticHeldOut.Dropped };
+        return new(Wire.Capture(), Telemetry.Capture(), ContentionStats(), endpoints) { Cosmetics = cosmetics };
     }
 }

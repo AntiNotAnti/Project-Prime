@@ -45,9 +45,9 @@ namespace MphRead.Mods.Network
         public static double DuplicateRate { get; private set; }
         public static int Seed { get; private set; } = 1;
         public static bool Active => RoundTripMs > 0 || JitterMs > 0 || LossPercent > 0 || ReorderRate > 0 || DuplicateRate > 0;
-        public static NetFaultQueue<T> CreateQueue<T>(bool outbound) => new NetFaultQueue<T>(
-            unchecked(Seed + (outbound ? 1 : 0)), RoundTripMs / 2.0, JitterMs,
-            LossPercent / 100, ReorderRate, DuplicateRate);
+        public static NetFaultQueue<T> CreateQueue<T>(bool outbound, bool cosmetic = false) => new NetFaultQueue<T>(
+            unchecked(Seed + (outbound ? 1 : 0) + (cosmetic ? 17071 : 0)), RoundTripMs / 2.0, JitterMs,
+            LossPercent / 100, ReorderRate, DuplicateRate, cosmetic ? 64 : 2048);
 
         public static bool ConfigureSeed(string? value)
         {

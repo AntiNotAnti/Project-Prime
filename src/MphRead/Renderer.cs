@@ -5221,6 +5221,7 @@ namespace MphRead
                     player.GetDisplayVolumes();
                 }
             }
+            Mods.Network.NetConfirmedImpacts.BeginDraw(this);
             foreach (EntityBase entity in Entities)
             {
                 if (!entity.Initialized || entity.Type == EntityType.Player || entity.Type == EntityType.Room)
@@ -5237,6 +5238,7 @@ namespace MphRead
                 }
             }
 
+            Mods.Network.NetConfirmedImpacts.Draw(this);
             PrepareEffectDraw();
 
             for (int i = 0; i < _activeElements.Count; i++)

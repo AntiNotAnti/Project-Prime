@@ -88,6 +88,11 @@ public sealed class NetConnection
     private struct Attempt { public uint Sequence; public double SentAt; public bool Pending; public uint? EventId; }
     private readonly Attempt[] _attempts = new Attempt[512];
     private NetReceiveWindow _received;
+    private NetReceiveWindow _cosmeticReceived;
+    private uint _cosmeticSequence;
+    private NetTokenBucket _cosmeticPackets, _cosmeticSendPackets;
+    private NetByteBucket _cosmeticBytes, _cosmeticSendBytes;
+    internal const int CosmeticRate = 120, CosmeticBurst = 16, CosmeticBytes = 9240, CosmeticByteBurst = 1232;
     private uint _nextSequence;
     private long _sent, _acked, _lost, _duplicates, _reordered, _old;
     private double? _rtt, _variance, _minimum;
@@ -102,6 +107,10 @@ public sealed class NetConnection
     internal bool ReceivesAuthorityFacts { get; set; }
     public bool Allow(PacketType type, double nowMs, int datagramBytes = 0)
     {
+        if (type == PacketType.ConfirmedImpact)
+            return ReceivesAuthorityFacts && datagramBytes == NetHeader.Size + ConfirmedImpact.Size
+                && _cosmeticBytes.Take(nowMs, datagramBytes, CosmeticBytes, CosmeticByteBurst)
+                && _cosmeticPackets.Take(nowMs, CosmeticRate, CosmeticBurst);
         if (type == PacketType.Intent)
         {
             if (!_intentBytesInitialized) { _intentBytesInitialized = true; _intentByteTokens = IntentByteBurst; _intentByteLast = nowMs; }
@@ -142,6 +151,8 @@ public sealed class NetConnection
     }
     public NetHeader Send(PacketType type, double nowMs, NetHeaderFlags flags = NetHeaderFlags.None, uint? eventId = null)
     {
+        if (type == PacketType.ConfirmedImpact)
+            return new(type, NetHeaderFlags.None, Id, _cosmeticSequence++, 0, 0);
         uint sequence = _nextSequence++;
         ref Attempt previous = ref _attempts[sequence % (uint)_attempts.Length];
         if (previous.Pending) _lost++; // bounded-window estimate, not a claim of certain wire loss
@@ -153,6 +164,8 @@ public sealed class NetConnection
     public SequenceResult Receive(in NetHeader header, double nowMs)
     {
         if (header.ConnectionId != Id) throw new ArgumentException("Wrong connection");
+        if (header.Type == PacketType.ConfirmedImpact)
+            return _cosmeticReceived.Observe(header.Sequence);
         if ((header.Flags & NetHeaderFlags.AckValid) != 0)
         {
             Acknowledge(header.Ack, nowMs);
@@ -182,4 +195,21 @@ public sealed class NetConnection
         Reliable.UpdateRto(_rtt, _variance);
     }
     public NetConnectionSnapshot Capture() => new(Id, _sent, _acked, _lost, _duplicates, _reordered, _old, _rtt, _variance, _minimum, _intentByteRejections);
+    internal bool AllowCosmeticSend(double nowMs, int bytes)
+        => _cosmeticSendBytes.Take(nowMs, bytes, CosmeticBytes, CosmeticByteBurst)
+            && _cosmeticSendPackets.Take(nowMs, CosmeticRate, CosmeticBurst);
+}
+
+internal struct NetByteBucket
+{
+    private double _tokens, _last;
+    private bool _initialized;
+    internal bool Take(double now, int bytes, int rate, int burst)
+    {
+        if (!_initialized) { _initialized = true; _tokens = burst; _last = now; }
+        _tokens = Math.Min(burst, _tokens + Math.Max(0, now - _last) * rate / 1000);
+        _last = Math.Max(now, _last);
+        if (bytes < 0 || bytes > _tokens) return false;
+        _tokens -= bytes; return true;
+    }
 }
