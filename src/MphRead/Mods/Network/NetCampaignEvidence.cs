@@ -244,8 +244,7 @@ internal static class NetCampaignEvidence
                 IntentHistory = NetFireEvents.CaptureHistory(),
                 ShotProof = NetShotProof.Capture(),
                 CombatReconciliation = NetHitPrediction.Capture(),
-                CombatPayments = new { NetCombatPayments.Payments, NetCombatPayments.Suppressed,
-                    NetCombatPayments.CapacityRefused, NetCombatPayments.CapacityPerShooter, NetCombatPayments.Retention },
+                CombatPayments = NetCombatPayments.Capture(),
                 Drain = NetCampaignDrain.Capture(),
                 TransportWindows, Readiness, Windows, ServerSegments, Shots, States, SlowStates, Facts };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);

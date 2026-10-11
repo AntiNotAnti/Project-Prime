@@ -20,6 +20,10 @@ internal static class NetCombatPayments
     }
     private static readonly Entry[,] Entries = new Entry[8, CapacityPerShooter];
     internal static long Suppressed, CapacityRefused, Payments;
+    // Per-process evidence survives the authority clearing its final empty room.
+    internal static long LifetimePayments, LifetimeSuppressed, LifetimeCapacityRefused;
+    internal static object Capture() => new { LifetimePayments, LifetimeSuppressed,
+        LifetimeCapacityRefused, CapacityPerShooter, Retention };
     private static bool Valid(in ShotPaymentKey key) => (uint)key.Shot.ShooterSlot < 8
         && key.Victim < 8 && key.Shot.ShotId != 0 && key.Component != 0
         && NetSession.MatchesStream(key.Shot.MatchId, key.Shot.AuthorityEpoch)
@@ -56,7 +60,7 @@ internal static class NetCombatPayments
             ref var entry = ref Entries[_slot, _at];
             if (entry.Key != _key || entry.Paid) return;
             outcome.ShotId = _key.Shot.ShotId;
-            entry.Outcome = outcome; entry.Paid = true; Payments++;
+            entry.Outcome = outcome; entry.Paid = true; Payments++; LifetimePayments++;
         }
         public void Dispose()
         {
@@ -67,7 +71,7 @@ internal static class NetCombatPayments
     internal static Reservation Begin(in ShotPaymentKey key, byte weapon)
     {
         if (!Valid(key)) return new(true);
-        if (Find(key) >= 0) { Suppressed++; return new(false); }
+        if (Find(key) >= 0) { Suppressed++; LifetimeSuppressed++; return new(false); }
         for (int i = 0; i < CapacityPerShooter; i++)
             if (Expired(Entries[key.Shot.ShooterSlot, i]))
             {
@@ -75,7 +79,7 @@ internal static class NetCombatPayments
                     Weapon = weapon, Frame = NetSession.NetFrame };
                 return new(true, key.Shot.ShooterSlot, i, key);
             }
-        CapacityRefused++; return new(false);
+        CapacityRefused++; LifetimeCapacityRefused++; return new(false);
     }
     internal static Reservation Begin(PlayerEntity victim, EntityBase? source, DamageFlags flags)
     {

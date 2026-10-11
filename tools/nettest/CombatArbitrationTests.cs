@@ -335,6 +335,13 @@ internal static class CombatArbitrationTests
             Check(_direction.LengthSquared == 1, "asset fixture provides clear production collision lane");
             
             RescueFirst(); PendingSeenCollision(); PhysicalOnce(); ImperialistCorrectionOnce(); TerminalRetries(); PosthumousFlight(); NativeSameFrameTrade();
+            long lifetimePayments = NetCombatPayments.LifetimePayments;
+            long lifetimeSuppressed = NetCombatPayments.LifetimeSuppressed;
+            Check(lifetimePayments > 0 && lifetimeSuppressed > 0, "process evidence captures actual payments and suppressed repeats");
+            NetHitClaims.Reset();
+            Check(NetCombatPayments.LifetimePayments == lifetimePayments && NetCombatPayments.LifetimeSuppressed == lifetimeSuppressed
+                && NetCombatPayments.Payments == 0 && NetCombatPayments.Suppressed == 0,
+                "room teardown clears live ledger without erasing process payment evidence");
             Check(sim.StepFailures == 0, "no simulation failures");
             Console.WriteLine($"PASS: {_checks} combat arbitration asset assertions ({profile})"); return 0;
         }
