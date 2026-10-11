@@ -75,6 +75,8 @@ namespace MphRead.Entities
             // belongs to this step's native effect clock, so zero-age emitters run.
             Effect = _scene.SpawnEffectGetEntry(effectId, Transform);
             Effect?.SetElementExtension(true);
+            if (Effect != null)
+                foreach (var element in Effect.Elements) element.ModCanonicalBirthPending = true;
         }
 
         internal void ModApplyState(in BombState state)
@@ -101,7 +103,8 @@ namespace MphRead.Entities
             _soundSource.Update(Position, rangeIndex: 5);
             UpdateNodeRefVolume();
             int effect = BombType == BombType.Stinglarva ? 128 : BombType == BombType.Lockjaw ? 146 : 145;
-            _scene.SpawnEffect(effect, Transform);
+            if (ModReplica) _scene.SpawnCanonicalBombEffect(effect, Transform);
+            else _scene.SpawnEffect(effect, Transform);
             Countdown = 0;
             _soundSource.StopSfx(SfxId.KANDEN_ALT_ATTACK);
             _soundSource.StopSfx(SfxId.MORPH_BALL_BOMB_PLACE);

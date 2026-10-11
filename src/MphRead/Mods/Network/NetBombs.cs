@@ -283,7 +283,8 @@ internal sealed class NetBombWorld
                 bomb.ModRemoveReplica();
         foreach (var state in receiver.States)
             if (!_terminal.ContainsKey(state.Key)) Put(state);
-        NetBombEvidence.Snapshot(receiver.Frame, receiver.Frontier, receiver.States, "applied");
+        if (!_scene.Services.IsReplica)
+            NetBombEvidence.Snapshot(receiver.Frame, receiver.Frontier, receiver.States, "applied");
     }
     internal bool ReceiveEvent(BombEvent fact)
     {

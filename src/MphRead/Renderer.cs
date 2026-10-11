@@ -4049,6 +4049,7 @@ namespace MphRead
             entry.OwnTransform = Matrix4.Identity;
             entry.Transform = Matrix4.Identity;
             entry.ParticleAmount = 0;
+            entry.ModCanonicalBirthPending = false;
             entry.Expired = false;
             entry.ChildEffectId = (int)element.ChildEffectId;
             entry.Acceleration = element.Acceleration;
@@ -4169,7 +4170,13 @@ namespace MphRead
             SpawnEffect(effectId, transform, child, entry: null, entCol);
         }
 
-        private void SpawnEffect(int effectId, Matrix4 transform, bool child, EffectEntry? entry, EntityCollision? entCol)
+        internal void SpawnCanonicalBombEffect(int effectId, Matrix4 transform)
+        {
+            SpawnEffect(effectId, transform, child: false, entry: null, entCol: null, canonicalBirth: true);
+        }
+
+        private void SpawnEffect(int effectId, Matrix4 transform, bool child, EffectEntry? entry, EntityCollision? entCol,
+            bool canonicalBirth = false)
         {
             Effect? effect = Read.GetEffect(effectId);
             if (effect == null)
@@ -4185,6 +4192,7 @@ namespace MphRead
                 {
                     return;
                 }
+                element.ModCanonicalBirthPending = canonicalBirth;
                 if (entry != null)
                 {
                     element.EffectEntry = entry;
@@ -4292,6 +4300,16 @@ namespace MphRead
             for (int i = 0; i < _activeElements.Count; i++)
             {
                 EffectElementEntry element = _activeElements[i];
+                bool canonicalBirth = element.ModCanonicalBirthPending;
+                if (canonicalBirth)
+                {
+                    // Catch-up simulation can advance the clock before any effect
+                    // pass runs. Start this replica's visual lifetime now so its
+                    // zero-age emitter cannot be skipped or expire unseen.
+                    element.ExpirationTime += _elapsedTime - element.CreationTime;
+                    element.CreationTime = _elapsedTime;
+                    element.ModCanonicalBirthPending = false;
+                }
                 if (!element.Expired && _elapsedTime > element.ExpirationTime)
                 {
                     if (element.EffectEntry == null && !element.Flags.TestFlag(EffElemFlags.KeepAlive))
@@ -4333,7 +4351,7 @@ namespace MphRead
                         element.Transform = element.OwnTransform;
                     }
                     var times = new TimeValues(_elapsedTime, _elapsedTime - element.CreationTime, element.Lifespan);
-                    if (effectFrame % 2 == (ulong)element.Parity
+                    if ((canonicalBirth || effectFrame % 2 == (ulong)element.Parity)
                         && element.Actions.TryGetValue(FuncAction.IncreaseParticleAmount, out FxFuncInfo? info))
                     {
                         // todo: maybe revisit this frame time hack
