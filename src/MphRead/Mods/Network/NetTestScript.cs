@@ -281,7 +281,7 @@ namespace MphRead.Mods.Network
             // input/lifecycle processing; clearing attack alone cannot stop it.
             if (player.Health > 0 && player.Hunter == Hunter.Weavel && player.IsAltForm
                 && !player.IsMorphing && !player.IsUnmorphing)
-                Hold(player.Controls.Morph, true);
+                Hold(player.Controls.Morph, NetSession.NetFrame % 12 == 0);
             // Preserve ordinary release edges, including a final charged shot.
             Finish(player, player.Controls);
         }
