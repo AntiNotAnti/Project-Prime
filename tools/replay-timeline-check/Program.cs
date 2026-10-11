@@ -40,7 +40,8 @@ timeline.Reset();
 Check(timeline.PayloadBytes == 0 && timeline.RecordCount == 0 && timeline.FirstRecordingFrame == null, "reset");
 Check(clip!.Records.Count == 2 && !timeline.TryMapKillToRecordingFrame(kill, out _), "match reset detached clip");
 var configured = new RollingReplayTimeline(10, 2048, presentationProtocolVersion: 43);
-Check(configured.AppendRestorePoint(Restore(0)) && configured.TryFreeze(0, 0, out var tagged)
+Check(configured.AppendRestorePoint(Restore(0)), "tagged timeline accepts its baseline");
+Check(configured.TryFreeze(0, 0, out var tagged)
     && tagged!.PresentationProtocolVersion == 43, "frozen clip retains its authoring protocol");
 tagged!.Dispose();
 configured.Reset();

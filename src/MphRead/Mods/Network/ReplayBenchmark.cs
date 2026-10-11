@@ -21,7 +21,7 @@ internal static class ReplayBenchmark
         Headless.Enter(); Directory.CreateDirectory(output);
         var samples = new List<Sample>();
         string indexed = Path.Combine(output, "indexed.ppdemo"), baseline = Path.Combine(output, "unindexed.ppdemo");
-        var timeline = new RollingReplayTimeline();
+        RollingReplayTimeline timeline;
         try
         {
             // Upgrade only the local benchmark copy. Both variants start from
@@ -30,6 +30,8 @@ internal static class ReplayBenchmark
             using (var world = new PassiveReplayScene(source, Size))
             using (var reader = DemoReader.Open(source)!)
             {
+                // Frozen clips preserve the source recording's presentation capabilities.
+                timeline = new RollingReplayTimeline(presentationProtocolVersion: reader.ProtocolVersion);
                 if (!world.Session.HasSimulatedFrame && !world.Step()) throw new InvalidDataException("Empty benchmark source.");
                 var metadata = ReplayTimelineArchive.Metadata(world, ReplayType.FullMatch);
                 using var withIndex = new ReplayWriterV3(indexed, metadata);
