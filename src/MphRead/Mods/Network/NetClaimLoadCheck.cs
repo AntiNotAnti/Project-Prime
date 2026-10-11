@@ -91,10 +91,14 @@ public static class NetClaimLoadCheck
                         var delivery = physical.Dequeue(); var claim = delivery.Claim;
                         var beam = beams[delivery.Shooter]; beam.ModLaunchFrame = claim.LaunchFrame; beam.ModShotId = claim.ShotId;
                         beam.ModLaunchKey = ShotKey.For(delivery.Shooter, claim.ShotId);
-                        if (NetHitClaims.AlreadyRescued(delivery.Shooter, claim.VictimSlot, claim.ShotId, beam.ModLaunchKey)) { suppressed++; continue; }
                         var victim = PlayerEntity.Players[claim.VictimSlot]; int before = victim.Health;
+                        bool alreadyPaid = NetCombatPayments.TryGet(NetShotProof.PaymentKey(delivery.Shooter, claim),
+                            claim.Beam, out _);
+                        // Exercise the actual native guard even after a rescue paid.
                         victim.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, beam);
-                        Check(victim.Health == before - 1, "one physical damage application");
+                        Check(victim.Health == before - (alreadyPaid ? 0 : 1),
+                            $"native exact component debit slot={delivery.Shooter} shot={claim.ShotId} component={claim.ComponentId} priorPaid={alreadyPaid}");
+                        if (alreadyPaid) suppressed++;
                     }
                     NetHitClaims.Tick();
                     // This synthetic damage loop still owes the ordinary native
@@ -106,6 +110,8 @@ public static class NetClaimLoadCheck
                 Check(verdicts == 8 * hits && NetHitClaims.ClaimsPendingCurrent == 0, "every declared claim terminates and drains");
                 foreach (var player in PlayerEntity.Players) Check(player.Health == 20000 - hits,
                     $"physical/rescued hit pays exactly once slot={player.SlotIndex} life={NetPlayerLifecycle.Get(player.SlotIndex)} actualHP={player.Health} expectedHP={20000 - hits} rescued={NetHitClaims.AppliedHere} suppressed={suppressed} beamPhase={beams[player.SlotIndex].ModContinuousPhase} sharedPhase={beams[player.SlotIndex].ModHasSharedContinuousPhase} beamFlags={beams[player.SlotIndex].Flags}");
+                Check(NetCombatPayments.Payments == 8 * hits && NetCombatPayments.CapacityRefused == 0,
+                    "one committed component payment per declared shot without capacity refusal");
                 Check(NetHitClaims.ClaimsCapacityRefused == 0 && NetHitClaims.ResolvedLedgerOverwrittenUnused == 0,
                     "ordinary sustained combat has no capacity loss or unmatched eviction");
                 Console.WriteLine($"DISCRETE COMPONENT CLAIM LOAD PASS rtt={rtt} claims={verdicts} rescued={NetHitClaims.AppliedHere} suppressed={suppressed} pendingHigh={NetHitClaims.ClaimsPendingHighWater} ledgerHigh={NetHitClaims.ResolvedLedgerHighWater}");
