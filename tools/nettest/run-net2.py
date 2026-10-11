@@ -164,6 +164,8 @@ def run(args):
                        PRIME_NET2_DRAIN_RELEASE=str(args.out / ("drain.server-release.json" if name == "server" else "drain.release.json")))
         if args.scenario in BOMB_HUNTERS:
             env["PRIME_NET2_BOMB_EVIDENCE"] = str(args.out / f"{name}.bombs.json")
+        if args.bomb_triangle_fixture:
+            env["PRIME_NET2_TRIANGLE_SETUP"] = "1"
         env.update(bomb_visibility_environment(args,name))
         command = [dotnet, str(assembly), "-mapdir", str(maps), "-noupdate", "-noautoupdate", *extra]
         handle = open(args.out / f"{name}.log", "w", encoding="utf-8")
@@ -182,6 +184,9 @@ def run(args):
             manifest["commands"][-1]["environment"].update({key: value for key, value in env.items() if key.startswith("PRIME_NET2_DRAIN_")})
         if args.scenario in BOMB_HUNTERS:
             manifest["commands"][-1]["environment"]["PRIME_NET2_BOMB_EVIDENCE"] = env["PRIME_NET2_BOMB_EVIDENCE"]
+        if args.bomb_triangle_fixture:
+            manifest["commands"][-1]["environment"]["PRIME_NET2_TRIANGLE_SETUP"] = "1"
+            manifest["triangleFixture"] = "Explicit collision-verified initial authority geometry; each participant adopts its own initial snapshot pose once. Subsequent native movement, placement, damage and timers are unchanged."
         save(args.out / "manifest.json", manifest)
         return process, record
 
@@ -406,6 +411,8 @@ def parse_args(argv=None):
     p.add_argument("--rendered", action="store_true")
     p.add_argument("--bomb-visibility",action="store_true",
                    help="Capture per-peer live bomb GPU evidence; requires --rendered and a bomb scenario")
+    p.add_argument("--bomb-triangle-fixture", action="store_true",
+                   help="Explicit initial collision-verified geometry for a short Combat Hall Lockjaw fixture; native subsequent controls")
     p.add_argument("--record", action="store_true")
     p.add_argument("--soak", action="store_true")
     args = p.parse_args(argv)
@@ -418,6 +425,9 @@ def parse_args(argv=None):
         p.error("--observer-delay requires a short three-client bomb scenario and must be less than --seconds")
     if args.drain_seconds and args.soak:
         p.error("--drain-seconds supports short campaigns; soak drain is not implemented")
+    if args.bomb_triangle_fixture and (args.scenario != "bomb-lockjaw" or args.soak
+            or args.players not in (2, 3) or args.rooms != "MP3 PROVING GROUND"):
+        p.error("--bomb-triangle-fixture requires a short two/three-client bomb-lockjaw run in MP3 PROVING GROUND")
     if args.bomb_visibility and (not args.rendered or args.scenario not in BOMB_HUNTERS or args.soak):
         p.error("--bomb-visibility requires a short rendered bomb scenario")
     if args.soak and (args.players != 8 or args.seconds < 1200 or args.seconds > 1800):
