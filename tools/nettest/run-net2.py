@@ -149,8 +149,11 @@ def run(args):
         rtt, jitter, loss, reorder, duplicate = PROFILES[args.profile]
 
         def client(slot, name, seconds):
+            # Only affinity Shock Coil drains health. Combat roles use assigned
+            # network slots, which can differ from concurrent launch order.
+            hunter = "Sylux" if args.scenario == "shockcoil-mixed" else HUNTERS[slot]
             extra = ["-netcheck", "127.0.0.1", "-port", str(args.port), "-name", name,
-                "-hunter", HUNTERS[slot], "-seconds", str(seconds), "-size", "480x270",
+                "-hunter", hunter, "-seconds", str(seconds), "-size", "480x270",
                 "-netlag", f"{rtt}:{jitter}", "-netloss", f"{loss}%", "-netreorder", f"{reorder}%",
                 "-netduplicate", f"{duplicate}%", "-netseed", str(args.seed + slot)]
             if not args.rendered:
@@ -168,7 +171,7 @@ def run(args):
                 extra += ["-spectate", "0"]
             if args.soak and slot == args.players - 2:
                 extra += ["-spectate", "90", "-rejoin", "150"]
-            expects = not observer and (args.soak or args.scenario in ("tour", "duel", "shockcoil-all") or slot % 2 == 0)
+            expects = not observer and (args.soak or args.scenario in ("tour", "duel", "shockcoil-all", "shockcoil-mixed") or slot % 2 == 0)
             p, record = launch(name, extra, seconds, expects)
             clients.append((p, record, time.monotonic() + seconds + args.drain_seconds + 120))
 
@@ -299,7 +302,7 @@ if __name__ == "__main__":
     p.add_argument("--source", required=True, help="Exact source SHA plus dirty diff hash if applicable")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--dotnet", default="dotnet")
-    p.add_argument("--protocol", type=int, default=45, help="Expected evidence protocol (historical campaigns may specify 41)")
+    p.add_argument("--protocol", type=int, default=46, help="Expected evidence protocol (historical campaigns may specify 41)")
     p.add_argument("--shot-proof", choices=("off", "shadow", "enforce"), default="shadow",
                    help="Record and apply the explicit N4 admission mode")
     p.add_argument("--players", type=int, choices=(2, 3, 4, 8), default=2)
@@ -309,7 +312,7 @@ if __name__ == "__main__":
     p.add_argument("--port", type=int, default=27991)
     p.add_argument("--seed", type=int, default=8128)
     p.add_argument("--profile", choices=PROFILES, default="lan")
-    p.add_argument("--scenario", choices=("tour", "duel", "shockcoil", "shockcoil-all", "missile"), default="tour")
+    p.add_argument("--scenario", choices=("tour", "duel", "shockcoil", "shockcoil-all", "shockcoil-mixed", "missile"), default="tour")
     p.add_argument("--rooms", default="MP1 SANCTORUS")
     p.add_argument("--round-minutes", type=float, default=30)
     p.add_argument("--rendered", action="store_true")

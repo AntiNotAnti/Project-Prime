@@ -108,7 +108,8 @@ public static class NetProtocol19Check
             Prepare(100, 37); answers = 0;
             uint phase = NetSession.NetFrame + 50;
             var continuous = new BeamProjectileEntity(shooter.OwningScene) { Owner = shooter,
-                Beam = BeamType.ShockCoil, ModHasSharedContinuousPhase = true, ModContinuousPhase = phase };
+                Beam = BeamType.ShockCoil, ModHasSharedContinuousPhase = true, ModContinuousPhase = phase,
+                Target = victim.Halfturret, ModContinuousTarget = NetTargetIdentity.ForSlot(victim.SlotIndex) };
             NetPlayerLifecycle.StampProjectile(continuous);
             victim.TakeDamage(10, DamageFlags.Halfturret | DamageFlags.NoDmgInvuln, null, continuous);
             int continuousBody = victim.Health, continuousTurret = victim.Halfturret.Health;

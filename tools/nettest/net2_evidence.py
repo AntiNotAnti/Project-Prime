@@ -17,6 +17,51 @@ def shot_key(row):
     return tuple(key[k] for k in ("AuthorityEpoch", "MatchId", "ShooterSlot", "Generation", "LifeId", "ShotId"))
 
 
+def continuous_terminal_rejections(report, authority_accepted):
+    """Only exact admitted Shock Coil ticks with explicit owner death/life proof.
+
+    The raw accepted event supplies the immutable source signature. A reason
+    string alone never excludes a shot from commitment coverage.
+    """
+    valid, errors = {}, []
+    committed = {shot_key(row) for row in report["Shots"] if row["Stage"] == "committed"}
+    locally_accepted = {shot_key(row): row for row in report["Shots"] if row["Stage"] == "accepted"}
+    fields = ("SourceFrame", "ContinuousPhase", "Weapon", "Charge", "Kind")
+    reasons = ("continuous owner dead", "continuous owner life retired")
+    for row in report["Shots"]:
+        if row["Stage"] != "rejected" or row.get("Reason") not in reasons:
+            continue
+        try:
+            key = shot_key(row)
+            signature = tuple(row[field] for field in fields)
+            accepted = authority_accepted.get(key)
+            health, life = row["OwnerHealth"], row["CurrentOwnerLife"]
+            if any(type(value) is not int for value in (*key, *signature, health, life)):
+                raise ValueError("non-integer identity/source/death evidence")
+            if (not all(key[i] > 0 for i in (0, 1, 3, 4, 5)) or not 0 <= key[2] < 8
+                or signature[0] <= 0 or signature[1] != signature[0]
+                or signature[2] != 7 or signature[4] != 3 or not 0 <= signature[3] <= 255
+                or not 0 <= health <= 65535 or not 0 < life <= 65535):
+                raise ValueError("invalid continuous identity/source/death evidence")
+            if accepted is None or signature != tuple(accepted[field] for field in fields):
+                raise ValueError("rejection does not name its exact accepted fire event")
+            local = locally_accepted.get(key)
+            if local is None or signature != tuple(local[field] for field in fields):
+                raise ValueError("rejection lacks its own exact accepted fire event")
+            if row["Reason"] == reasons[0] and (health != 0 or life != key[4]):
+                raise ValueError("owner-dead receipt lacks same-life zero health")
+            if row["Reason"] == reasons[1] and life == key[4]:
+                raise ValueError("owner-life-retired receipt still names current life")
+            if key in committed:
+                raise ValueError("continuous tick is both committed and rejected in one view")
+            if key in valid and row != valid[key]:
+                raise ValueError("conflicting continuous terminal rejection receipts")
+            valid[key] = row
+        except (KeyError, TypeError, ValueError) as error:
+            errors.append("invalid continuous terminal rejection: " + str(error))
+    return valid, errors
+
+
 def state_key(row):
     return tuple(row[k] for k in ("Epoch", "Match", "Frame", "Slot", "Generation", "Life"))
 
@@ -29,6 +74,9 @@ def health_value(row, schema=1):
 
 def slow_states(report, authority=False):
     """Validate exact PlayerSlowState payloads; its revision has its own clock."""
+    # Protocol 46 appends a cosmetic continuous endpoint sidecar to each
+    # live entry. Canonical score fields remain in the original first 10 bytes.
+    stride = 28 if report.get("Protocol", 0) >= 46 else 10
     rows = report.get("SlowStates")
     if not isinstance(rows, list) or not rows:
         raise ValueError("missing/nonempty slow-lane evidence")
@@ -51,17 +99,17 @@ def slow_states(report, authority=False):
         if len(data) < 15 or struct.unpack_from("<HQI", data) != (key[1], key[0], key[2]):
             raise ValueError("slow-lane row/payload identity mismatch")
         count = data[14]
-        if count > 8 or len(data) != 15 + count * 10 + 64 or observation in seen:
+        if count > 8 or len(data) != 15 + count * stride + 64 or observation in seen:
             raise ValueError("invalid slow-lane length/count/duplicate revision/context")
         seen.add(observation)
         scores = {}
-        for at in range(15, 15 + count * 10, 10):
+        for at in range(15, 15 + count * stride, stride):
             slot, generation = data[at], struct.unpack_from("<H", data, at + 1)[0]
             if slot >= 8 or generation == 0 or any(s == slot for s, _ in scores):
                 raise ValueError("invalid slow-lane slot/generation")
             scores[slot, generation] = data[at + 3:at + 10]
         if any(not math.isfinite(value) or value < -1
-               for value in struct.unpack_from("<16f", data, 15 + count * 10)):
+               for value in struct.unpack_from("<16f", data, 15 + count * stride)):
             raise ValueError("invalid slow-lane time state")
         result.append(dict(key=key, context=row["Context"], frame=row["Frame"], payload=data, scores=scores))
     return result
@@ -438,6 +486,18 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
         committed = {shot_key(s): (s["Weapon"], s["Charge"], s["Kind"]) for s in authority["Shots"] if s["Stage"] == "committed"}
         authority_shots = {shot_key(s): s for s in authority["Shots"] if s["Stage"] == "committed"}
         authority_accepted = {shot_key(s): s for s in authority["Shots"] if s["Stage"] == "accepted"}
+        authority_rejected, rejection_errors = continuous_terminal_rejections(authority, authority_accepted)
+        failures.extend("server: " + error for error in rejection_errors)
+        observations["server"]["continuousTerminalRejectedCount"] = len(authority_rejected)
+        observations["server"]["continuousTerminalRejectedKeys"] = [list(k) for k in sorted(authority_rejected)]
+        # A dead-owner terminal receipt cannot coexist with an authoritative
+        # damage/heal payment for the same full owner lifecycle and phase.
+        paid_ticks = {tuple(row["Key"]["OwnerTick"][field] for field in
+                           ("AuthorityEpoch", "MatchId", "ShooterSlot", "Generation", "LifeId", "ShotId"))
+                      for row in authority.get("ContinuousPayments", {}).get("Rows", [])}
+        for key, row in authority_rejected.items():
+            if (*key[:5], row["ContinuousPhase"]) in paid_ticks:
+                failures.append("server: rejected continuous tick has an authoritative payment " + str(key))
         accepted = authority_accepted.keys()
         death_frames = {}
         for state in authority["States"]:
@@ -467,7 +527,16 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 failures.append(f"{name}: {wrong} shots committed with different weapon/charge/kind")
             missing_accepted = offered.keys() - accepted
             missing_committed = offered.keys() - committed.keys()
-            # N0 observes missing final shots; it cannot invent expiry/rejection proof.
+            terminal_offered = set()
+            offered_rows = {shot_key(s): s for s in report["Shots"] if s["Stage"] == "offered"}
+            for key in missing_committed & authority_rejected.keys():
+                fields = ("SourceFrame", "ContinuousPhase", "Weapon", "Charge", "Kind")
+                if tuple(offered_rows[key].get(f) for f in fields) == tuple(authority_rejected[key][f] for f in fields):
+                    terminal_offered.add(key)
+                else:
+                    failures.append(f"{name}: offered event differs from terminal rejected event")
+            missing_committed -= terminal_offered
+            # Generic expiry/skipped phases are still unexplained losses.
             if missing_accepted or missing_committed:
                 failures.append(f"{name}: unexplained shot tail/loss: {len(missing_accepted)} unaccepted, {len(missing_committed)} uncommitted")
             matching_facts = sum((f["Type"], f["Payload"]) in facts for f in report["Facts"] if not f["Baseline"])
@@ -492,6 +561,8 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
             if not semantic_expected:
                 incomplete.append(f"{name}: semantic completeness interval unexercised")
             received_commits = {shot_key(s) for s in report["Shots"] if s["Stage"] == "committed"}
+            view_rejected, view_rejection_errors = continuous_terminal_rejections(report, authority_accepted)
+            failures.extend(name + ": " + error for error in view_rejection_errors)
             expected_commits = set()
             intervals = {}
             for state, _ in common:
@@ -504,7 +575,8 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 first, last = intervals.get(key[:2], (1, 0))
                 if first + 30 <= shot["ObservedFrame"] <= last - 30:
                     expected_commits.add(key)
-            unobserved = expected_commits - received_commits
+            terminal_view = expected_commits & view_rejected.keys()
+            unobserved = expected_commits - received_commits - terminal_view
             if unobserved:
                 failures.append(f"{name}: {len(unobserved)} authority shots not committed in this view")
             if not expected_commits:
@@ -513,6 +585,10 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 **slow_parity,
                 "offeredShots": len(offered), "acceptedShots": len(offered.keys() & accepted),
                 "committedShots": len(offered.keys() & committed.keys()), "wrongWeaponChargeKind": wrong,
+                "terminalRejectedOfferedShots": len(terminal_offered),
+                "terminalRejectedOfferedKeys": [list(k) for k in sorted(terminal_offered)],
+                "terminalRejectedViewShots": len(terminal_view),
+                "terminalRejectedViewKeys": [list(k) for k in sorted(terminal_view)],
                 "unacceptedKeys": [list(k) for k in sorted(missing_accepted)[:32]],
                 "uncommittedKeys": [list(k) for k in sorted(missing_committed)[:32]],
                 "authorityGapContext": shot_gap_context(missing_committed, authority_accepted, authority, {}),
