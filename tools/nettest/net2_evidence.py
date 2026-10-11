@@ -23,8 +23,8 @@ def health_value(row):
     return tuple(row[k] for k in ("Hp", "TurretHp", "Kills", "Deaths", "DamageEvent"))
 
 
-def drain_barrier(server, peers):
-    """Observe a candidate barrier; caller must hold it for the authority claim grace."""
+def drain_barrier(server, peers, require_empty=True):
+    """Check gameplay quiescence; preparation/release additionally require empty queues."""
     try:
         identity = server["Epoch"], server["Match"]
         frontier = server["SemanticLatest"], server["AwardLatest"]
@@ -35,7 +35,9 @@ def drain_barrier(server, peers):
         if any(server[key] for key in ("ActiveProjectiles", "ActiveBombs", "ClaimsPending")):
             return None, "authority flights/bombs/claims remain"
         reliable = server["Reliable"]
-        if not reliable or len(reliable) != len(peers) or any(p["Pending"] or p["Failed"] for p in reliable):
+        if not reliable or len(reliable) != len(peers) or any(p["Failed"] or p["Pending"] < 0 for p in reliable):
+            return None, "authority reliable endpoints not healthy"
+        if require_empty and any(p["Pending"] for p in reliable):
             return None, "authority reliable endpoints not empty/healthy"
         offered = set()
         for peer in peers:
@@ -45,6 +47,13 @@ def drain_barrier(server, peers):
                 return None, "peer error or authority identity differs"
             if peer["ActiveProjectiles"] or peer["ActiveBombs"]:
                 return None, "peer flights/bombs may still generate a final claim"
+            if peer["ClaimsPending"]:
+                return None, "peer claims remain pending"
+            peer_reliable = peer["Reliable"]
+            if not peer_reliable or len(peer_reliable) != 1 or any(p["Failed"] or p["Pending"] < 0 for p in peer_reliable):
+                return None, "peer reliable endpoint not healthy"
+            if require_empty and any(p["Pending"] for p in peer_reliable):
+                return None, "peer reliable endpoint not empty"
             if (peer["SemanticLatest"], peer["SemanticPresented"]) != (frontier[0], frontier[0]) or (
                     peer["AwardLatest"], peer["AwardPresented"]) != (frontier[1], frontier[1]):
                 return None, "peer presentation has not caught authority frontier"
@@ -58,6 +67,22 @@ def drain_barrier(server, peers):
                 "Semantic": frontier[0], "Award": frontier[1]}, None
     except (KeyError, TypeError, ValueError):
         return None, "missing/malformed drain status"
+
+
+class DrainStability:
+    """Grace follows actual gameplay frontiers, independent of periodic reliable state traffic."""
+    def __init__(self):
+        self.fingerprint = None
+        self.started = None
+
+    def observe(self, server, peers, now):
+        candidate, reason = drain_barrier(server, list(peers.values()), require_empty=False)
+        fingerprint = (tuple(candidate.values()), tuple((name, tuple(row["OfferedShotKeys"]))
+                        for name, row in sorted(peers.items()))) if candidate else None
+        if fingerprint != self.fingerprint or not candidate:
+            self.fingerprint = fingerprint
+            self.started = now if candidate else None
+        return candidate, reason, now - self.started if self.started is not None else 0
 
 
 def drain_prepared(server, release):
@@ -95,6 +120,12 @@ def drain_coverage(manifest, reports):
         candidate, reason = drain_barrier(drain["server"], list(peers.values()))
         if candidate != release:
             raise ValueError(reason or "saved release differs from observed barrier")
+        if "prepareServer" in drain:
+            candidate, reason = drain_barrier(drain["prepareServer"], list(drain["preparePeers"].values()))
+            if candidate != release:
+                raise ValueError(reason or "preparation did not observe the frozen empty-queue barrier")
+            if drain["prepareStableSeconds"] < drain["prepareServer"]["ClaimGraceSeconds"]:
+                raise ValueError("preparation preceded the full gameplay claim grace")
         prepared, reason = drain_prepared(drain["server"], release)
         if not prepared:
             raise ValueError(reason)

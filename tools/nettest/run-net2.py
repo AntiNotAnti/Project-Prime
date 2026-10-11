@@ -14,7 +14,7 @@ import shutil
 import signal
 import subprocess
 import time
-from net2_evidence import adjudicate, drain_barrier, drain_prepared
+from net2_evidence import adjudicate, drain_barrier, drain_prepared, DrainStability
 
 PROFILES = {"lan": (0, 0, 0, 0, 0), "moderate": (100, 20, 1, 0, 0),
             "poor": (250, 40, 2, 0, 0), "extreme": (400, 80, 5, 3, 1)}
@@ -178,10 +178,11 @@ def run(args):
             client(slot, f"peer-{slot}", args.seconds)
             time.sleep(.25)
         late_started = reconnect_started = False
-        drain_started = stable_started = None
-        stable_fingerprint = None
+        drain_started = None
+        stability = DrainStability()
         drain_released = False
         prepared_release = None
+        preparation = None
         drain_reason = "waiting for peer quiescence"
         while True:
             elapsed = time.monotonic() - client_start
@@ -208,35 +209,36 @@ def run(args):
                     drain_started = time.monotonic()
                 release = None
                 if "server" in statuses and len(peers) == args.players:
+                    quiet, drain_reason, stable_seconds = stability.observe(statuses["server"], peers, time.monotonic())
                     release, drain_reason = drain_barrier(statuses["server"], list(peers.values()))
                 else:
                     drain_reason = "missing/frozen process drain statuses"
-                fingerprint = (json.dumps(release, sort_keys=True),
-                               tuple((name, tuple(row["OfferedShotKeys"])) for name, row in sorted(peers.items()))) if release else None
-                if fingerprint != stable_fingerprint or not release:
-                    stable_fingerprint = fingerprint
-                    stable_started = time.monotonic() if release else None
-                stable_seconds = time.monotonic() - stable_started if stable_started is not None else 0
+                    _, _, stable_seconds = stability.observe({}, {}, time.monotonic())
                 if prepared_release is None and release and stable_seconds >= statuses["server"]["ClaimGraceSeconds"]:
                     prepared_release = release
+                    preparation = {"prepareServer": statuses["server"], "preparePeers": peers,
+                        "prepareStableSeconds": stable_seconds,
+                        "stabilityCondition": "gameplay frontier and offered keys stable; healthy queues during grace, empty at preparation and release"}
                     # Prepare authority first. Clients cannot see this isolated token,
                     # so no Bye/PlayerLeft event can race its saved AtRelease frontier.
                     release_drain(args.out / "drain.server-release.json", release)
                     manifest["drain"] = {"status": "PREPARING", "release": release,
-                        "server": statuses["server"], "peers": peers, "stableSeconds": stable_seconds}
+                        "server": statuses["server"], "peers": peers, "stableSeconds": stable_seconds, **preparation}
                     save(args.out / "manifest.json", manifest)
                 prepared, prepared_reason = drain_prepared(statuses.get("server", {}), prepared_release) if prepared_release else (False, None)
                 if prepared and release == prepared_release and stable_seconds >= statuses["server"]["ClaimGraceSeconds"]:
                     manifest["drain"] = {"status": "PASS", "release": release, "server": statuses["server"],
-                        "peers": peers, "stableSeconds": stable_seconds, "elapsedSeconds": time.monotonic() - drain_started}
+                        "peers": peers, "stableSeconds": stable_seconds, "elapsedSeconds": time.monotonic() - drain_started,
+                        **preparation}
                     drain_released = True
                 elif drain_started is not None and time.monotonic() - drain_started >= args.drain_seconds:
                     authority = statuses.get("server", {})
                     release = {"Status": "FAIL", "Epoch": authority.get("Epoch", 0), "Match": authority.get("Match", 0),
                                "Semantic": authority.get("SemanticLatest", 0), "Award": authority.get("AwardLatest", 0)}
-                    timeout_reason = (prepared_reason or drain_reason) if prepared_release else drain_reason if not stable_started else "claim-grace stability not reached"
+                    timeout_reason = (prepared_reason or drain_reason) if prepared_release else drain_reason or "claim-grace stability not reached"
                     manifest["drain"] = {"status": "FAIL", "reason": timeout_reason,
-                        "release": release, "server": authority, "peers": peers, "stableSeconds": stable_seconds}
+                        "release": release, "server": authority, "peers": peers, "stableSeconds": stable_seconds,
+                        **(preparation or {})}
                     # A server that cached preparation PASS will retain that token;
                     # client FAIL and manifest FAIL still fail closed on export.
                     release_drain(args.out / "drain.server-release.json", release)

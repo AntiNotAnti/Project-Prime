@@ -2287,7 +2287,9 @@ namespace MphRead.Mods.Network
             // must repeat the verdict, never park the already applied hit again.
             CombatAckEntry answer = outcome ?? (_seenIds[slot, at] == id ? _seenOutcomes[slot, at] : new CombatAckEntry { VictimSlot = 255 });
             answer.ClaimId = id; answer.Result = result;
-            if (!outcome.HasValue && _seenIds[slot, at] == id) answer.ShotId = _seenKeys[slot, at].ShotId;
+            // Native outcomes carry victim state, not the claimant's correlation
+            // identity. The first answer must identify the claim just as a retry does.
+            if (answer.ShotId == 0 && _seenIds[slot, at] == id) answer.ShotId = _seenKeys[slot, at].ShotId;
             Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.Claim, NetSession.NetFrame,
                 Player: (byte)slot, Victim: answer.VictimSlot, Id: id, Result: result, Flags: (int)answer.Flags,
                 A: answer.DamageApplied, B: answer.HealthAfter, ShotId: answer.ShotId));

@@ -24,10 +24,73 @@ internal static class ClaimStressTests
         return method.Invoke(null, args);
     }
     private static void Frame(uint frame) => typeof(NetSession).GetProperty("NetFrame")!.SetValue(null, frame);
+    private static void NativeOutcomeFirstAck()
+    {
+        HealthShotTests.Session(); NetHitClaims.Reset(); NetDamage.Reset(); Frame(100);
+        typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, true);
+        var savedMode = NetShotProof.Mode;
+        var savedSink = NetHitClaims.CombatAckSink;
+        try
+        {
+            NetShotProof.Mode = ShotProofMode.Shadow;
+            // Establish the lifecycle/death baseline before the native hit is filed.
+            Call("TrackDeaths");
+            var shooter = HealthShotTests.Player(0);
+            var victim = HealthShotTests.Player(1);
+            var key = ShotKey.For(0, 28);
+            ushort sequence = NetDamage.Note(victim, shooter, BeamType.Missile, 0, null,
+                amount: 32, launchFrame: 90, launchKey: key, componentId: 1,
+                damageKind: NetShotProof.Kind(HitClaimPacket.FlagDirect));
+            victim.Health = 67;
+            NetHitClaims.CompleteAuthorityHit(victim, shooter, 99, 0, sequence, 90, BeamType.Missile);
+
+            var claim = new HitClaimPacket { MatchId = key.MatchId, AuthorityEpoch = key.AuthorityEpoch,
+                ShooterGeneration = key.Generation, ShooterLifeId = key.LifeId,
+                VictimSlot = 1, VictimGeneration = NetPlayerLifecycle.Generation(1),
+                VictimLifeId = NetPlayerLifecycle.Get(1), ClaimId = 1, ShotId = key.ShotId,
+                ComponentId = 1, Beam = (byte)BeamType.Missile, Damage = 32,
+                Flags = HitClaimPacket.FlagDirect, AckFrame = 100, LaunchFrame = 90 };
+            // Use the existing stress fixture's admission seam, then run the actual
+            // pending/native-ledger settlement and first CombatAck emission.
+            var keys = (ShotKey[,])typeof(NetHitClaims).GetField("_seenKeys", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+            keys[0, 1] = key;
+            Call("Remember", 0, claim.ClaimId, byte.MaxValue);
+            Call("Park", 0, claim);
+            CombatAckEntry first = default; int answers = 0;
+            NetHitClaims.CombatAckSink = (slot, entries) =>
+            { foreach (var ack in entries) if (slot == 0 && ack.ClaimId == claim.ClaimId) { first = ack; answers++; } };
+            NetHitClaims.Tick();
+            NetArchitectureTests.Check(answers == 1 && first.Result == HitVerdictPacket.ResultDuplicate,
+                "native hit receives terminal acknowledgement on first settlement");
+            NetArchitectureTests.Check(first.ShotId == key.ShotId && first.ClaimId == claim.ClaimId,
+                "first native outcome ACK retains exact requested shot identity");
+            NetArchitectureTests.Check(first.VictimSlot == 1 && first.VictimGeneration == claim.VictimGeneration
+                && first.VictimLife == claim.VictimLifeId, "native outcome ACK retains victim identity");
+            NetArchitectureTests.Check(first.DamageApplied == 32 && first.HealthAfter == 67
+                && first.DamageSequence == sequence && (first.Flags & CombatAckFlags.OutcomePresent) != 0,
+                "claim correlation preserves native damage, health and sequence");
+            NetArchitectureTests.Check(victim.Health == 67 && NetDamage.Sequence(1) == sequence
+                && NetDamage.Resolved[1] == 1 && NetHitClaims.ClaimsPendingCurrent == 0,
+                "native duplicate acknowledgement never reapplies damage");
+            // Wrong-life responses can reuse a cached ClaimId while carrying a
+            // different explicit shot identity; filling a native zero must preserve it.
+            var wrongLife = first; wrongLife.ShotId = 29;
+            Call("Answer", 0, claim.ClaimId, HitVerdictPacket.ResultWrongLife, false, wrongLife);
+            Call("FlushVerdicts");
+            NetArchitectureTests.Check(answers == 2 && first.ShotId == 29,
+                "explicit wrong-life ACK identity survives a colliding cached claim ID");
+        }
+        finally
+        {
+            NetHitClaims.CombatAckSink = savedSink; NetShotProof.Mode = savedMode;
+            typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, false);
+        }
+    }
     public static int Run()
     {
         try
         {
+            NativeOutcomeFirstAck();
             HealthShotTests.Session(); NetHitClaims.Reset();
             // 36 unconsumed Shock Coil resolutions survive a full 72-frame grace.
             for (uint frame = 1; frame <= 71; frame += 2)

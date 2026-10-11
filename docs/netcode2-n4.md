@@ -63,6 +63,12 @@ rescue damage or perform a new head correction against a present-life body.
 Their immutable physical outcome survives the legacy ledger reset on shooter
 respawn, retaining original shot ID, damage, health, flags and damage sequence.
 
+The impaired control also exposed an existing first-ACK identity bug: a native
+physical outcome omitted the claim's shot ID, causing the owner's exact-ID check
+to discard it. The terminal answer now stamps the admitted claim's shot ID on
+both first and cached results while preserving native damage, health and sequence.
+Retry timing and the broader N5 acknowledgement policy are unchanged.
+
 Straight-shot inspection uses the emitted ray, historical victim rig/head band,
 weapon reach and historical walls, doors and force fields. Claim `HitPoint` is
 a reported victim body origin; `Direction` is knockback. Neither is repurposed
@@ -94,6 +100,13 @@ claim stages, not independent honest shots. The short scripted UDP controls
 change test loadouts and do not establish an honest-player false-reject cutoff.
 No value was copied from Fruity's independent implementation.
 
+The final eight-player scripted control recorded ten unique physical-hit claims.
+All agreed on damage, head classification and effect bits; eight differed in
+knockback by more than the experimental 0.001 vector tolerance. Differences
+exceeded packet rounding alone. Four had otherwise verified source proof. This
+is a concrete strict-mode rejection gap, not grounds to loosen the tolerance
+without independent physical validation. Shadow preserves the authority result.
+
 ## Validation and evidence
 
 The durable ledger is `tools/nettest/baselines/net2-n4-20261010.json`.
@@ -121,9 +134,12 @@ reliable-pending when the peer exported and closed, while event 39 was buffered.
 The one-second comparison tail did not cover retransmission backoff. The final
 headless controls use an opt-in bounded drain, with scripts quiesced while real
 simulation and transport continue. Every offered shot must reach authority;
-flights, bombs and claims must settle; reliable queues must empty; and every peer
-must present the saved semantic/award frontier for the full claim grace. A
-server-first release handshake records that frontier before clients disconnect.
+flights, bombs and claims must settle; and every peer must present the saved
+semantic/award frontier for the full claim grace. Reliable queues must be healthy
+throughout and empty at authority preparation and client release. Periodic
+SessionState/Roster publications continue, so continuous queue emptiness is not
+a valid stability condition. A server-first release handshake records the
+frontier before clients disconnect.
 Offline checks compare the entire baseline-to-frontier payload interval without
 relaxing existing tail guards. Timeout is a failure. Default runner shutdown and
 ordinary gameplay are unchanged; rendered/soak drain combinations are unsupported.
