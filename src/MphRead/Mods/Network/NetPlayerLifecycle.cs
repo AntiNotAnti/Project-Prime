@@ -47,18 +47,22 @@ namespace MphRead.Mods.Network
                 beam.ModLaunchKey = accepted; beam.ModShotId = accepted.ShotId;
                 beam.ModLaunchMatch = accepted.MatchId; beam.ModLaunchAuthority = accepted.AuthorityEpoch;
                 beam.ModLaunchGeneration = accepted.Generation; beam.ModLaunchLife = accepted.LifeId;
-                beam.ModLaunchFrame = NetUnlagged.LaunchFrameFor(owner);
+                beam.ModLaunchFrame = ProjectileFrame(owner, beam);
                 return;
             }
             beam.ModLaunchMatch = NetSession.CurrentMatchId;
             beam.ModLaunchAuthority = NetSession.AuthorityEpoch;
             beam.ModLaunchGeneration = owner == null ? (ushort)0 : Generation(owner.SlotIndex);
             beam.ModLaunchLife = owner == null ? (ushort)0 : Get(owner.SlotIndex);
-            beam.ModLaunchFrame = owner == null ? 0 : NetUnlagged.LaunchFrameFor(owner);
             beam.ModShotId = owner == null ? 0 : NetFireEvents.ActiveShotId(owner);
+            beam.ModLaunchFrame = owner == null ? 0 : ProjectileFrame(owner, beam);
             beam.ModLaunchKey = new ShotKey(beam.ModLaunchAuthority, beam.ModLaunchMatch,
                 owner?.SlotIndex ?? -1, beam.ModLaunchGeneration, beam.ModLaunchLife, beam.ModShotId);
         }
+
+        private static uint ProjectileFrame(PlayerEntity owner, BeamProjectileEntity beam) =>
+            beam.ModHasSharedContinuousPhase && NetFireEvents.TryContinuousTiming(owner, beam.ModShotId,
+                (uint)beam.ModContinuousPhase, out var fire) ? fire.AckFrame : NetUnlagged.LaunchFrameFor(owner);
 
         public static bool CurrentProjectile(BeamProjectileEntity beam)
         {

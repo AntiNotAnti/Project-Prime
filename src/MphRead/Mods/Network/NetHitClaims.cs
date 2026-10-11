@@ -417,9 +417,12 @@ namespace MphRead.Mods.Network
             // the wrong picture. When the playout clock is running, the read
             // point is what the screen was showing -- NetSmoothing -- and the
             // applied snapshot is a frame or more newer than it.
-            uint ack = NetSmoothing.AckPoint(out uint readFrame, out _)
-                ? readFrame
-                : NetSession.AppliedSnapshotFrame;
+            // A continuous pulse is instantaneous in its authored historical
+            // world. Keep the fire event's stamped ACK through collision; a
+            // fresh smoothing read may move either side of that launch frame.
+            uint ack = (claimFlags & HitClaimPacket.FlagContinuousTick) != 0
+                ? launchFrame
+                : NetSmoothing.AckPoint(out uint readFrame, out _) ? readFrame : NetSession.AppliedSnapshotFrame;
             _outbox[index] = new Outgoing
             {
                 MatchId = NetSession.CurrentMatchId,

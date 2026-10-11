@@ -13,7 +13,7 @@ internal static class NetContinuousAdmission
     private const uint Retention = 256;
     private struct Entry
     {
-        public bool Live, Conflict;
+        public bool Live, Conflict, Rejected;
         public ShotKey Key;
         public FireEvent Fire;
         public uint Arrived;
@@ -60,10 +60,19 @@ internal static class NetContinuousAdmission
         for (int i = 0; i < Capacity; i++)
         {
             ref var e = ref Entries[slot, i];
-            if (!Expired(e) && !e.Conflict && e.Key == key && e.Fire.ContinuousPhase == claim.Frame)
+            if (!Expired(e) && !e.Conflict && !e.Rejected && e.Key == key && e.Fire.ContinuousPhase == claim.Frame)
             { fire = e.Fire; return true; }
         }
         return false;
+    }
+    internal static void Reject(in ShotKey key, in FireEvent fire)
+    {
+        if ((uint)key.ShooterSlot >= 8) return;
+        for (int i = 0; i < Capacity; i++)
+        {
+            ref var entry = ref Entries[key.ShooterSlot, i];
+            if (entry.Live && entry.Key == key && entry.Fire == fire) entry.Rejected = true;
+        }
     }
     // Arrival may precede its repeated fire-event carrier. Grace permits recovery;
     // settlement below still requires the exact immutable decision.

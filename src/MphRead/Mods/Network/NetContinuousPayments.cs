@@ -73,6 +73,20 @@ internal static class NetContinuousPayments
         }
         outcome = default; healBody = healTurret = 0; return false;
     }
+    // Terminal playback can run after a life transition. Check the immutable
+    // payment identity without requiring its retired bodies to still be current.
+    internal static bool WasPaid(in ShotKey emitted, uint phase, in NetTargetIdentity target)
+    {
+        if ((uint)emitted.ShooterSlot >= 8 || emitted.ShotId == 0 || phase == 0) return false;
+        var tick = emitted with { ShotId = phase };
+        for (int i = 0; i < CapacityPerOwner; i++)
+        {
+            ref var entry = ref Entries[emitted.ShooterSlot, i];
+            if (!Expired(entry) && entry.Paid && entry.Key.OwnerTick == tick
+                && entry.Key.Victim == target && entry.Outcome.ShotId == emitted.ShotId) return true;
+        }
+        return false;
+    }
     internal readonly struct Reservation : IDisposable
     {
         private readonly int _slot, _at;

@@ -90,8 +90,13 @@ internal static class NetCampaignEvidence
     internal static void Committed(PlayerEntity player, in FireEvent fire)
     {
         if (!Enabled || fire.ShotId == 0 || player.SceneServices.IsReplica) return;
-        Add(Shots, new("committed", NetFireEvents.TryAcceptedKey(player, out var accepted) ? accepted
-            : ShotKey.For(player.SlotIndex, fire.ShotId), fire.SourceFrame,
+        Committed(NetFireEvents.TryAcceptedKey(player, out var accepted) ? accepted
+            : ShotKey.For(player.SlotIndex, fire.ShotId), fire);
+    }
+    internal static void Committed(ShotKey key, in FireEvent fire)
+    {
+        if (!Enabled || fire.ShotId == 0) return;
+        Add(Shots, new("committed", key, fire.SourceFrame,
             NetSession.NetFrame, fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase));
     }
 

@@ -189,7 +189,7 @@ public static class NetFireEvents
                 LifeId = fire.SourceLife != 0 ? fire.SourceLife : state.CurrentLife, ShotId = fire.ShotId };
             if (fire.Kind == FireEventKind.ContinuousTick && (uint)slot < PlayerEntity.Players.Count
                 && (PlayerEntity.Players[slot].Health <= 0 || key.LifeId != NetPlayerLifecycle.Get(slot)))
-                NetCampaignEvidence.ContinuousUnavailable(PlayerEntity.Players[slot], key, fire);
+                CompleteUnavailableContinuous(PlayerEntity.Players[slot], key, fire);
             else NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Rejected, reason);
             state.Incoming.Consume(fire.ShotId);
         }
@@ -248,7 +248,7 @@ public static class NetFireEvents
         {
             var key = ShotKey.For(player.SlotIndex, fire.ShotId) with { LifeId = fire.SourceLife };
             if (fire.SourceLife != NetPlayerLifecycle.Get(player.SlotIndex) || player.Health <= 0)
-                NetCampaignEvidence.ContinuousUnavailable(player, key, fire);
+                CompleteUnavailableContinuous(player, key, fire);
             else if (PlayAccepted(player, key, fire) == BeamResultFlags.NoSpawn)
                 NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Rejected, "continuous tick spawn refused");
             state.Incoming.Consume(fire.ShotId);
@@ -265,6 +265,18 @@ public static class NetFireEvents
             state.Ledger.Complete(shot.Key, result == BeamResultFlags.NoSpawn
                 ? ShotDisposition.Rejected : ShotDisposition.Fired,
                 result == BeamResultFlags.NoSpawn ? "projectile spawn refused" : "projectile spawned");
+        }
+    }
+    private static void CompleteUnavailableContinuous(PlayerEntity player, ShotKey key, FireEvent fire)
+    {
+        // A rescued pulse can finish before its queued native playback. Its
+        // payment remains final even if the owner died in the meantime.
+        if (NetContinuousPayments.WasPaid(key, fire.ContinuousPhase, fire.Target))
+            NetCampaignEvidence.Committed(key, fire);
+        else
+        {
+            NetContinuousAdmission.Reject(key, fire);
+            NetCampaignEvidence.ContinuousUnavailable(player, key, fire);
         }
     }
     internal static BeamResultFlags PlayAccepted(PlayerEntity player, ShotKey key, FireEvent fire)
@@ -521,6 +533,15 @@ public static class NetFireEvents
         }
         e = (uint)player.SlotIndex < 8 ? For(player.SlotIndex).Active : default;
         return UsesEvents(player) && e.ShotId != 0;
+    }
+
+    internal static bool TryContinuousTiming(PlayerEntity player, uint shotId, uint phase, out FireEvent fire)
+    {
+        fire = default;
+        if (!NetSession.Active || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8) return false;
+        fire = _slots[player.SlotIndex].Active;
+        return shotId != 0 && fire.ShotId == shotId && fire.Kind == FireEventKind.ContinuousTick
+            && fire.SourceFrame == phase && fire.AckFrame != 0;
     }
 
     internal static bool TryAuthoredPose(PlayerEntity player, out Vector3 origin,
