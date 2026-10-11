@@ -231,6 +231,7 @@ namespace MphRead.Mods.Network
             public Vector3 Direction;
             /// <summary>Frames since it was first sent, for the retry budget.</summary>
             public int Age;
+            public int LastSentAge;
             public int Sends;
             public bool Live;
         }
@@ -243,9 +244,8 @@ namespace MphRead.Mods.Network
         /// keeps trying. UDP loses packets and a lost claim is a kill that did
         /// not happen, so this is the same reasoning as
         /// <see cref="IntentPacket.PressHistory"/> -- repeat until told to
-        /// stop. Six sends over 90 frames survives three consecutive drops on
-        /// a line that is losing one datagram in twenty, and 90 frames is past
-        /// any round trip the game is worth playing on.
+        /// stop. At most six sends fit within the separate MaxAge deadline;
+        /// the measured round trip sets the spacing between attempts.
         /// </summary>
         private const int MaxSends = 6;
         /// <summary>
@@ -481,7 +481,7 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 if (entry.Sends > 0
-                    && (entry.Sends >= MaxSends || entry.Age % interval != 0))
+                    && (entry.Sends >= MaxSends || entry.Age - entry.LastSentAge < interval))
                 {
                     continue;
                 }
@@ -513,6 +513,10 @@ namespace MphRead.Mods.Network
                     Resends++;
                 }
                 entry.Sends++;
+                // Send on the first opportunity after the deadline. A skipped
+                // Compose call or a changing RTT must not miss an exact age
+                // multiple and silently suppress the remaining retry budget.
+                entry.LastSentAge = entry.Age;
                 count++;
             }
             if (count == 0)

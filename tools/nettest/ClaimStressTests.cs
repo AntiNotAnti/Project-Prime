@@ -25,6 +25,94 @@ internal static class ClaimStressTests
         return method.Invoke(null, args);
     }
     private static void Frame(uint frame) => typeof(NetSession).GetProperty("NetFrame")!.SetValue(null, frame);
+    private static Array Outbox => (Array)typeof(NetHitClaims)
+        .GetField("_outbox", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+    private static object Outgoing => Outbox.GetValue(0)!;
+    private static void OutgoingField(string name, object value)
+    {
+        var entry = Outgoing;
+        entry.GetType().GetField(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(entry, value);
+        Outbox.SetValue(entry, 0);
+    }
+    private static T OutgoingValue<T>(string name) => (T)Outgoing.GetType()
+        .GetField(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(Outgoing)!;
+    private static ShotKey RetryFixture(int ping)
+    {
+        HealthShotTests.Session(); NetHitClaims.Reset(); Frame(100);
+        NetSession.SlotPing[0] = ping;
+        var key = ShotKey.For(0, 19);
+        OutgoingField("Live", true); OutgoingField("Id", (ushort)2); OutgoingField("ShotId", key.ShotId);
+        OutgoingField("MatchId", key.MatchId); OutgoingField("AuthorityEpoch", key.AuthorityEpoch);
+        OutgoingField("ShooterGeneration", key.Generation); OutgoingField("ShooterLifeId", key.LifeId);
+        OutgoingField("VictimSlot", (byte)1); OutgoingField("VictimGeneration", NetPlayerLifecycle.Generation(1));
+        OutgoingField("VictimLifeId", NetPlayerLifecycle.Get(1)); OutgoingField("Beam", (byte)BeamType.Missile);
+        return key;
+    }
+    private static void AgeOutgoing()
+    {
+        Frame(NetSession.NetFrame + 1);
+        Call("TickOutbox");
+    }
+    private static void RetrySchedule()
+    {
+        byte[] wire = new byte[1 + HitClaimPacket.MaxPerPacket * HitClaimPacket.Size];
+        var key = RetryFixture(1000); // Native interval clamps to forty frames.
+        NetArchitectureTests.Check(NetHitClaims.Compose(wire) > 0 && OutgoingValue<int>("Sends") == 1,
+            "claim first transmission is immediate");
+        for (int age = 1; age <= 39; age++)
+        {
+            AgeOutgoing();
+            NetArchitectureTests.Check(NetHitClaims.Compose(wire) == 0, "claim waits for elapsed retry interval");
+        }
+        AgeOutgoing(); // Deliberately miss the exact age-forty Compose call.
+        AgeOutgoing();
+        NetArchitectureTests.Check(NetHitClaims.Compose(wire) > 0 && OutgoingValue<int>("Sends") == 2,
+            "missed Compose deadline resends on the next eligible frame");
+        NetArchitectureTests.Check(NetHitClaims.Compose(wire) == 0,
+            "retry resets its elapsed interval rather than repeating immediately");
+        uint sequence = NetDamage.Sequence(1);
+        var ack = new CombatAckEntry { ClaimId = 2, ShotId = key.ShotId + 1,
+            VictimSlot = 1, VictimGeneration = NetPlayerLifecycle.Generation(1), VictimLife = NetPlayerLifecycle.Get(1),
+            Result = (byte)CombatAckResult.AlreadyResolved, DamageApplied = 32, HealthAfter = 67,
+            DamageSequence = sequence, Flags = CombatAckFlags.OutcomePresent };
+        byte[] verdict = new byte[HitVerdictPacket.HeaderSize + CombatAckEntry.Size];
+        HitVerdictPacket.Write(verdict, new[] { ack }, key.MatchId, key.AuthorityEpoch, key.Generation, key.LifeId);
+        NetHitClaims.ApplyVerdicts(verdict);
+        NetArchitectureTests.Check(OutgoingValue<bool>("Live"), "retry still rejects an ACK for a different shot");
+        ack.ShotId = key.ShotId;
+        HitVerdictPacket.Write(verdict, new[] { ack }, key.MatchId, key.AuthorityEpoch, key.Generation, key.LifeId);
+        NetHitClaims.ApplyVerdicts(verdict);
+        NetArchitectureTests.Check(!OutgoingValue<bool>("Live") && NetHitClaims.Compose(wire) == 0
+            && NetDamage.Sequence(1) == sequence, "exact retry ACK retires outbox without a new native payment");
+
+        RetryFixture(517); // Interval thirty-seven, then RTT changes after age thirty-six.
+        NetArchitectureTests.Check(NetHitClaims.Compose(wire) > 0, "dynamic RTT fixture sends initial claim");
+        for (int age = 1; age <= 36; age++)
+        {
+            AgeOutgoing();
+            NetArchitectureTests.Check(NetHitClaims.Compose(wire) == 0, "dynamic RTT retains minimum wait");
+        }
+        NetSession.SlotPing[0] = 500; AgeOutgoing(); // New interval thirty-six has already elapsed.
+        NetArchitectureTests.Check(NetHitClaims.Compose(wire) > 0 && OutgoingValue<int>("Sends") == 2,
+            "RTT interval moving behind current age cannot skip the retry");
+        NetArchitectureTests.Check(NetHitClaims.Compose(wire) == 0,
+            "dynamic interval change does not create an immediate extra send");
+
+        RetryFixture(0); int sends = NetHitClaims.Compose(wire) > 0 ? 1 : 0;
+        for (int age = 1; age <= 60; age++)
+        {
+            AgeOutgoing();
+            if (NetHitClaims.Compose(wire) > 0) sends++;
+        }
+        NetArchitectureTests.Check(sends == 6 && OutgoingValue<int>("Sends") == 6
+            && OutgoingValue<bool>("Live") && NetHitClaims.Unanswered == 0,
+            "retry keeps six-send cap and remains live through age sixty");
+        AgeOutgoing();
+        NetArchitectureTests.Check(!OutgoingValue<bool>("Live") && NetHitClaims.Unanswered == 1
+            && NetHitClaims.Compose(wire) == 0, "retry preserves age-sixty-one expiration");
+        NetHitClaims.Reset();
+    }
     private static void NativeOutcomeFirstAck()
     {
         HealthShotTests.Session(); NetHitClaims.Reset(); NetDamage.Reset(); Frame(100);
@@ -98,6 +186,7 @@ internal static class ClaimStressTests
         try
         {
             NativeOutcomeFirstAck();
+            RetrySchedule();
             HealthShotTests.Session(); NetHitClaims.Reset();
             // 36 unconsumed Shock Coil resolutions survive a full 72-frame grace.
             for (uint frame = 1; frame <= 71; frame += 2)
