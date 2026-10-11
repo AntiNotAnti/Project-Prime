@@ -1284,7 +1284,7 @@ namespace MphRead.Mods.Network
                 }
                 // A terminal receipt describes its original lives. Retry it
                 // before checking current bodies, without authoring any damage.
-                int receiptAt = claim.ClaimId % SeenCapacity;
+                int receiptAt = SeenIndex(shooterSlot, claim.ClaimId);
                 if (claim.ClaimId != 0 && _seenIds[shooterSlot, receiptAt] == claim.ClaimId
                     && _seenKeys[shooterSlot, receiptAt] == NetShotProof.Key(shooterSlot, claim)
                     && _seenPaymentKeys[shooterSlot, receiptAt] == NetShotProof.PaymentKey(shooterSlot, claim)
@@ -1312,7 +1312,7 @@ namespace MphRead.Mods.Network
                         claim.ShooterGeneration, claim.ShooterLifeId, claim.ShotId);
                     var outcome = new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot,
                         VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId };
-                    int seenAt = claim.ClaimId % SeenCapacity;
+                    int seenAt = SeenIndex(shooterSlot, claim.ClaimId);
                     CombatAckEntry physicalOutcome = default;
                     if (claim.ClaimId != 0 && _seenIds[shooterSlot, seenAt] == claim.ClaimId
                         && _seenKeys[shooterSlot, seenAt] == key
@@ -1370,11 +1370,11 @@ namespace MphRead.Mods.Network
                 var claimKey = new ShotKey(claim.AuthorityEpoch, claim.MatchId, shooterSlot,
                     claim.ShooterGeneration, claim.ShooterLifeId, claim.ShotId);
                 if (Seen(shooterSlot, claim.ClaimId)
-                    && (_seenIds[shooterSlot, claim.ClaimId % SeenCapacity] != claim.ClaimId
-                        || _seenKeys[shooterSlot, claim.ClaimId % SeenCapacity].LifeId == claim.ShooterLifeId))
+                    && (_seenIds[shooterSlot, SeenIndex(shooterSlot, claim.ClaimId)] != claim.ClaimId
+                        || _seenKeys[shooterSlot, SeenIndex(shooterSlot, claim.ClaimId)].LifeId == claim.ShooterLifeId))
                 {
                     RepeatsHere++;
-                    int seenAt = claim.ClaimId % SeenCapacity;
+                    int seenAt = SeenIndex(shooterSlot, claim.ClaimId);
                     if (_seenIds[shooterSlot, seenAt] == claim.ClaimId
                         && (_seenKeys[shooterSlot, seenAt] != claimKey
                             || _seenBeams[shooterSlot, seenAt] != (BeamType)claim.Beam
@@ -1390,7 +1390,18 @@ namespace MphRead.Mods.Network
                     if (result != ResultPending) Answer(shooterSlot, claim.ClaimId, result);
                     continue;
                 }
-                int claimAt = claim.ClaimId % SeenCapacity;
+                int claimAt = SeenIndex(shooterSlot, claim.ClaimId);
+                // An outstanding claim owns its receipt slot through settlement.
+                // A later modulo collision must not replace the identity that
+                // will receive the first claim's terminal result.
+                if (_seenIds[shooterSlot, claimAt] != 0 && _seenResults[shooterSlot, claimAt] == ResultPending)
+                {
+                    ClaimsCapacityRefused++;
+                    Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultClaimCapacity, remember: false,
+                        outcome: new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot,
+                            VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId });
+                    continue;
+                }
                 _seenBeams[shooterSlot, claimAt] = (BeamType)claim.Beam;
                 _seenPaymentKeys[shooterSlot, claimAt] = NetShotProof.PaymentKey(shooterSlot, claim);
                 _seenKeys[shooterSlot, claimAt] = claimKey;
@@ -1419,15 +1430,31 @@ namespace MphRead.Mods.Network
             }
         }
 
+        // Full lookup keeps IDs separated when they share a modulo bucket.
+        // Prefer an empty cell, then a terminal receipt; outstanding claims are
+        // pinned (at most PendingPerShooter, less than SeenCapacity).
+        private static int SeenIndex(int slot, ushort id)
+        {
+            int home = id % SeenCapacity, empty = -1, terminal = -1;
+            for (int n = 0; n < SeenCapacity; n++)
+            {
+                int at = (home + n) % SeenCapacity;
+                if (id != 0 && _seenIds[slot, at] == id) return at;
+                if (_seenIds[slot, at] == 0) { if (empty < 0) empty = at; }
+                else if (_seenResults[slot, at] != ResultPending && terminal < 0) terminal = at;
+            }
+            return empty >= 0 ? empty : terminal >= 0 ? terminal : home;
+        }
+
         private static bool Seen(int slot, ushort id) => id == 0
-            || _seenIds[slot, id % SeenCapacity] == id
+            || _seenIds[slot, SeenIndex(slot, id)] == id
             || (_newestId[slot] != 0 && !NetLifecycleTracker.Newer(id, _newestId[slot])
                 && unchecked((ushort)(_newestId[slot] - id)) >= SeenCapacity);
 
         private static void Remember(int slot, ushort id, byte result)
         {
             if (_newestId[slot] == 0 || NetLifecycleTracker.Newer(id, _newestId[slot])) _newestId[slot] = id;
-            int at = id % SeenCapacity;
+            int at = SeenIndex(slot, id);
             _seenIds[slot, at] = id;
             _seenResults[slot, at] = result;
         }
@@ -1994,6 +2021,7 @@ namespace MphRead.Mods.Network
                         || !NetPlayerLifecycle.Matches(entry.ShooterSlot, entry.ShooterGeneration, entry.ShooterLifeId)
                         || !NetPlayerLifecycle.Matches(entry.VictimSlot, entry.VictimGeneration, entry.VictimLifeId))
                     {
+                        Answer(entry.ShooterSlot, entry.Id, HitVerdictPacket.ResultWrongLife);
                         DeactivatePending(ref entry);
                         NetPlayerLifecycle.OldLifeClaims++;
                         continue;
@@ -2397,7 +2425,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            int at = id % SeenCapacity;
+            int at = SeenIndex(slot, id);
             // Once terminal, a cached claim cannot acquire a different answer.
             if (remember && _seenIds[slot, at] == id && _seenResults[slot, at] != ResultPending)
             { result = _seenResults[slot, at]; outcome = _seenOutcomes[slot, at]; }

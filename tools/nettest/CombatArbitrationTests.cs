@@ -180,6 +180,46 @@ internal static class CombatArbitrationTests
         _victim.ModSetFrozen(false); beam.Afflictions |= Affliction.Freeze;
         Unchanged(beam, true, "paid native component cannot introduce a later affliction");
     }
+    private static void PendingSeenCollision()
+    {
+        NetShotProof.Mode = ShotProofMode.Shadow; Prepare(); var beam = Emit(BeamType.Missile);
+        var first = Claim(beam, damage: 12);
+        var second = first; second.ClaimId = (ushort)(first.ClaimId + 128);
+        var receipts = new System.Collections.Generic.List<CombatAckEntry>();
+        var saved = NetHitClaims.CombatAckSink;
+        void Send(in HitClaimPacket value)
+        { byte[] packet = new byte[1 + HitClaimPacket.Size]; packet[0] = 1; value.Write(packet.AsSpan(1)); NetHitClaims.Receive(0, packet); }
+        int before = _victim.Health;
+        try
+        {
+            NetHitClaims.CombatAckSink = (slot, entries) =>
+            { if (slot == 0) foreach (var entry in entries) receipts.Add(entry); };
+            Send(first); NetHitClaims.Tick();
+            Check(NetHitClaims.ClaimsPendingCurrent == 1 && receipts.Count == 0 && _victim.Health == before,
+                "first full-key claim stays pending inside arbitration grace");
+            Send(second); NetHitClaims.Tick();
+            Check(receipts.Count == 0 && NetHitClaims.ClaimsPendingCurrent == 2 && _victim.Health == before,
+                "claim IDs separated by old seen modulus coexist pending without early damage");
+            Frame(_frame + (uint)NetHitClaims.MaxGraceFrames); NetHitClaims.Tick();
+            var firstAck = receipts.Single(entry => entry.ClaimId == first.ClaimId);
+            var secondAck = receipts.Single(entry => entry.ClaimId == second.ClaimId);
+            Check(receipts.Count == 2 && firstAck.Result == HitVerdictPacket.ResultApplied
+                && secondAck.Result == HitVerdictPacket.ResultDuplicate
+                && firstAck.ShotId == first.ShotId && secondAck.ShotId == first.ShotId
+                && firstAck.VictimGeneration == first.VictimGeneration && firstAck.VictimLife == first.VictimLifeId
+                && secondAck.VictimGeneration == first.VictimGeneration && secondAck.VictimLife == first.VictimLifeId
+                && firstAck.DamageApplied == 12 && secondAck.DamageApplied == 12
+                && firstAck.HealthAfter == before - 12 && secondAck.HealthAfter == before - 12
+                && _victim.Health == before - 12 && NetHitClaims.ClaimsPendingCurrent == 0,
+                "same component pending claims settle Applied and AlreadyResolved with exactly one payment");
+            byte[] canonicalFirst = Bytes(firstAck), canonicalSecond = Bytes(secondAck);
+            Send(first); Send(second); NetHitClaims.Tick();
+            Check(receipts.Count == 4 && Bytes(receipts[2]).SequenceEqual(canonicalFirst)
+                && Bytes(receipts[3]).SequenceEqual(canonicalSecond) && _victim.Health == before - 12,
+                "both formerly colliding claim IDs retain independent immutable terminal receipts");
+        }
+        finally { NetHitClaims.CombatAckSink = saved; }
+    }
     private static void ImperialistCorrectionOnce()
     {
         NetShotProof.Mode = ShotProofMode.Shadow; Prepare();
@@ -294,7 +334,7 @@ internal static class CombatArbitrationTests
                 { _direction = direction; break; }
             Check(_direction.LengthSquared == 1, "asset fixture provides clear production collision lane");
             
-            RescueFirst(); PhysicalOnce(); ImperialistCorrectionOnce(); TerminalRetries(); PosthumousFlight(); NativeSameFrameTrade();
+            RescueFirst(); PendingSeenCollision(); PhysicalOnce(); ImperialistCorrectionOnce(); TerminalRetries(); PosthumousFlight(); NativeSameFrameTrade();
             Check(sim.StepFailures == 0, "no simulation failures");
             Console.WriteLine($"PASS: {_checks} combat arbitration asset assertions ({profile})"); return 0;
         }
