@@ -273,14 +273,31 @@ namespace MphRead.Mods.Network
             Drive(player);
         }
 
+        private static uint _quiesceEscapeFrames;
+
         internal static void ApplyQuiescentControls(PlayerEntity player)
         {
             AimDeltaX = AimDeltaY = 0;
             Clear(player.Controls);
             // Native unmorph retires the autonomous turret through ordinary
             // input/lifecycle processing; clearing attack alone cannot stop it.
-            if (player.Health > 0 && player.Hunter == Hunter.Weavel && player.IsAltForm
-                && !player.IsMorphing && !player.IsUnmorphing)
+            bool settledWeavel = player.Health > 0 && player.Hunter == Hunter.Weavel && player.IsAltForm
+                && !player.IsMorphing && !player.IsUnmorphing;
+            bool blocked = settledWeavel && (player.MorphCamera != null
+                || player.Flags1.TestFlag(PlayerFlags1.NoUnmorph));
+            if (blocked)
+            {
+                // Ordinary input can leave a native low passage/camera region.
+                // Start each blocked episode forward, with bounded cardinal retries;
+                // the strict drain still fails if native movement cannot escape.
+                uint phase = _quiesceEscapeFrames++ / 120 % 4;
+                Hold(player.Controls.MoveUp, phase == 0);
+                Hold(player.Controls.MoveRight, phase == 1);
+                Hold(player.Controls.MoveDown, phase == 2);
+                Hold(player.Controls.MoveLeft, phase == 3);
+            }
+            else _quiesceEscapeFrames = 0;
+            if (settledWeavel)
                 Hold(player.Controls.Morph, NetSession.NetFrame % 12 == 0);
             // Preserve ordinary release edges, including a final charged shot.
             Finish(player, player.Controls);
