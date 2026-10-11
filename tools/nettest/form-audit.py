@@ -121,7 +121,18 @@ def audit(server, peers, summary, manifest, owner_slot=1):
                 # including the eventual local player. Its first self sample
                 # therefore uses observer checks, never the owner phase waiver.
                 bootstrap_self = local and context not in local_seen and row["Stage"] == "observer"
-                expected_stage = "owner" if local and not spectating[context] else "observer"
+                role_fields = ("LocalSlot", "Spectating", "AuthoritySpectating")
+                role_present = [field in row and row[field] is not None for field in role_fields]
+                new_role = any(field in row for field in role_fields)
+                if new_role:
+                    if not all(role_present): raise ValueError("partial sample-time role metadata")
+                    if integer(row["LocalSlot"], 0, 7) != membership[context]:
+                        raise ValueError("sample-time local-slot membership mismatch")
+                    if type(row["Spectating"]) is not bool or type(row["AuthoritySpectating"]) is not bool:
+                        raise ValueError("invalid sample-time spectator boolean")
+                expected_stage = "owner" if local and (new_role or not spectating[context]) else "observer"
+                owner_phase_allowed = row["Stage"] == "owner" and local and (not new_role
+                    or not row["Spectating"] and not row["AuthoritySpectating"])
                 if row["Stage"] != expected_stage and not bootstrap_self:
                     raise ValueError("applied owner/observer role mismatch")
                 if local: local_seen.add(context)
@@ -138,8 +149,8 @@ def audit(server, peers, summary, manifest, owner_slot=1):
                     if observed_anchor != form["anchor"]: raise ValueError("observed active turret anchor mismatch")
                 else:
                     metrics["inactiveAnchorNotLocationProofSamples"] += 1
-                if row["Stage"] == "observer" and row["Phase"] != form["phase"]: raise ValueError("observer phase mismatch")
-                if row["Stage"] == "owner" and row["Phase"] != form["phase"]: metrics["ownerPhaseDifferences"] += 1
+                if not owner_phase_allowed and row["Phase"] != form["phase"]: raise ValueError("observer phase mismatch")
+                if owner_phase_allowed and row["Phase"] != form["phase"]: metrics["ownerPhaseDifferences"] += 1
                 # Only Weavel installs coupled form BodyHealth. Other hunters
                 # retain the fast health lane, checked by the base adjudicator.
                 debit = row.get("BodyPredictionDebit")
@@ -205,7 +216,9 @@ def audit(server, peers, summary, manifest, owner_slot=1):
             for observed, form in target_rows:
                 key = tuple(observed[f] for f in IDENTITY)
                 step = progress.get(key, 0)
-                cycle_phase = observed["Phase"] if observed["Stage"] == "owner" else form["phase"]
+                cycle_owner = observed["Stage"] == "owner" and (observed.get("LocalSlot") is None
+                    or observed["Slot"] == observed["LocalSlot"] and not observed["Spectating"] and not observed["AuthoritySpectating"])
+                cycle_phase = observed["Phase"] if cycle_owner else form["phase"]
                 if cycle_phase == ("Morphing", "Alt", "Unmorphing", "Biped")[step]:
                     step += 1
                     if step == 4: complete_cycle = True; step = 0
