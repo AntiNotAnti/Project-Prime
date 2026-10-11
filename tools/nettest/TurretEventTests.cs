@@ -341,11 +341,21 @@ internal static class TurretEventTests
             Receive(parked);
             Check(NetHitClaims.ClaimsPendingCurrent == 1 && !answers.ContainsKey(parked.ClaimId),
                 "valid historical Shadow claim parks before turret retirement");
-            Retire();
             var key = NetShotProof.Key(owner.SlotIndex, parked);
+            Check(NetFireEvents.IsPendingTurret(key), "accepted un-emitted turret full key is pending");
+            foreach (var wrong in new[] { key with { LifeId = (ushort)(key.LifeId + 1) },
+                key with { Generation = (ushort)(key.Generation + 1) }, key with { AuthorityEpoch = key.AuthorityEpoch + 1 },
+                key with { ShotId = key.ShotId + 1 } })
+                Check(!NetFireEvents.IsPendingTurret(wrong), "pending turret cannot alias another full source identity");
+            Frame(NetSession.NetFrame + NetHitClaims.MaxGraceFrames + 1); NetHitClaims.Tick();
+            Check(NetHitClaims.ClaimsPendingCurrent == 1 && !answers.ContainsKey(parked.ClaimId)
+                && victim.Health == health && NetDamage.Sequence(victim.SlotIndex) == sequence
+                && NetHitClaims.AppliedHere == 0 && NetHitClaims.RescuedDamage == 0,
+                "pending native turret cannot Shadow-pay beyond normal claim grace before emission or retirement");
+            Retire();
             Check(NetFireEvents.IsRetiredUnemittedTurret(key) && owner.EquipInfo.Beams.All(beam => beam.Lifespan <= 0),
                 "native unmorph drains un-emitted exact offer into terminal refusal");
-            Frame(NetSession.NetFrame + 2 * NetHitClaims.MaxGraceFrames + 1); NetHitClaims.Tick();
+            NetHitClaims.Tick();
             Check(answers.TryGetValue(parked.ClaimId, out var ack) && ack.Result == HitVerdictPacket.ResultInvalidLaunch
                 && ack.DamageApplied == 0 && NetHitClaims.ClaimsPendingCurrent == 0,
                 "parked retired offer receives InvalidLaunch after grace");
@@ -361,6 +371,19 @@ internal static class TurretEventTests
                     $"claim arriving after retirement cannot pay in {mode}");
             }
             NetShotProof.Mode = ShotProofMode.Shadow;
+            carrier = Offer(); var timedOut = Claim(carrier); health = victim.Health; sequence = NetDamage.Sequence(victim.SlotIndex);
+            Receive(timedOut);
+            Frame(NetSession.NetFrame + 2 * NetHitClaims.MaxGraceFrames - 1); NetHitClaims.Tick();
+            Check(NetHitClaims.ClaimsPendingCurrent == 1 && !answers.ContainsKey(timedOut.ClaimId)
+                && victim.Health == health, "pending turret remains unpaid through last bounded arbitration frame");
+            Frame(NetSession.NetFrame + 1); NetHitClaims.Tick();
+            Check(answers.TryGetValue(timedOut.ClaimId, out ack) && ack.Result == HitVerdictPacket.ResultInvalidLaunch
+                && ack.DamageApplied == 0 && NetHitClaims.ClaimsPendingCurrent == 0 && victim.Health == health
+                && NetDamage.Sequence(victim.SlotIndex) == sequence && NetHitClaims.AppliedHere == 0
+                && NetHitClaims.RescuedDamage == 0, "un-emitted pending turret refuses at exact bounded horizon without damage");
+            Retire(); NetHitClaims.Tick();
+            Check(victim.Health == health && NetDamage.Sequence(victim.SlotIndex) == sequence,
+                "retiring source after bounded refusal cannot create a later payment");
             // Evidence is an immutable process option. Execute this fixture once per
             // environment; no reflection mutates readonly production evidence state.
             {
@@ -398,7 +421,8 @@ internal static class TurretEventTests
             key = ShotKey.For(owner.SlotIndex, carrier.FireEvents[0].ShotId);
             var emitted = owner.EquipInfo.Beams.Where(beam => beam.Lifespan > 0 && beam.ModLaunchKey == key).ToArray();
             Check(emitted.Length == 1 && ReferenceEquals(emitted[0].Owner, owner.Halfturret)
-                && emitted[0].ModComponentId != 0 && !NetFireEvents.CanFireTurret(owner),
+                && emitted[0].ModComponentId != 0 && !NetFireEvents.CanFireTurret(owner)
+                && !NetFireEvents.IsPendingTurret(key),
                 "actual native target and cooldown path commits exact turret component once");
             // A genuinely old flight has left its own body before native unmorph.
             // Advance actual projectile physics while the live turret owner is skipped;
