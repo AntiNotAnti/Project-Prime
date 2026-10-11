@@ -48,12 +48,14 @@ internal static class QuiescentTurretTests
             inputMode.SetValue(scene, Enum.Parse(inputMode.FieldType, "All"));
             foreach (var control in owner.Controls.All) { control.Type = ButtonType.Key; control.Key = Keys.Unknown; }
             owner.Controls.Morph.Key = Keys.C; owner.Controls.MouseAim = false;
+            owner.Controls.RollUp.Key = Keys.I; owner.Controls.RollDown.Key = Keys.K;
+            owner.Controls.RolltLeft.Key = Keys.J; owner.Controls.RollRight.Key = Keys.L;
             var keyboard = (KeyboardState)typeof(Scene).GetField("_keyboardState", Private)!.GetValue(scene)!;
             var setKey = typeof(KeyboardState).GetMethod("SetKeyState", Private | BindingFlags.Public)!
                 .CreateDelegate<Action<KeyboardState, Keys, bool>>();
             bool helperPressed = false, helperReleased = false;
             BeamProjectileEntity? witnessedFlight = null;
-            void Step(bool morph = false, bool quiesce = false)
+            void Step(bool morph = false, bool quiesce = false, Keys roll = Keys.Unknown)
             {
                 uint before = NetSession.NetFrame; Frame(unchecked(before + 1));
                 if (quiesce)
@@ -72,6 +74,7 @@ internal static class QuiescentTurretTests
                     Check(owner.Controls.All.Where(control => !ReferenceEquals(control, owner.Controls.Morph)).All(control => !control.IsDown),
                         "quiescent helper requests no other held action");
                 }
+                foreach (Keys key in new[] { Keys.I, Keys.K, Keys.J, Keys.L }) setKey(keyboard, key, key == roll);
                 setKey(keyboard, Keys.C, morph); sim.Step();
                 Check(sim.StepFailures == 0 && NetSession.NetFrame == unchecked(before + 1), "one real native scene step without exception");
             }
@@ -113,7 +116,31 @@ internal static class QuiescentTurretTests
                 Console.WriteLine("BLOCKED FINAL " + JsonSerializer.Serialize(Gate()));
                 Check(owner.IsAltForm && !owner.IsUnmorphing && owner.Flags1.TestFlag(PlayerFlags1.NoUnmorph),
                     "recorded pose native overhead contacts prohibit expansion despite ordinary unmorph pulses");
-                Console.WriteLine($"QUIESCENT BLOCKED TURRET: {_checks} checks PASS; exact fixture records native refusal, not successful drain");
+                // Diagnostic ordinary roll requests enter the same keyboard
+                // sampling as the native tour. Never reset the blocked body.
+                Vector3 blockedStart = owner.Position;
+                bool startedEscapeUnmorph = false;
+                int escapeTicks = 0;
+                foreach (Keys roll in new[] { Keys.I, Keys.K, Keys.J, Keys.L })
+                {
+                    Console.WriteLine("ESCAPE DIRECTION " + roll + " " + JsonSerializer.Serialize(Gate()));
+                    for (int i = 0; i < 120 && owner.IsAltForm && !owner.IsUnmorphing; i++)
+                    {
+                        Step(quiesce: true, roll: roll); escapeTicks++;
+                        startedEscapeUnmorph |= owner.IsUnmorphing;
+                        if (i % 12 == 0 || owner.IsUnmorphing)
+                            Console.WriteLine("ESCAPE NATIVE " + roll + " tick=" + escapeTicks + " " + JsonSerializer.Serialize(Gate()));
+                    }
+                    if (owner.IsUnmorphing || !owner.IsAltForm) break;
+                }
+                Console.WriteLine("ESCAPE MOVEMENT END ticks=" + escapeTicks + " " + JsonSerializer.Serialize(Gate()));
+                Check(owner.Position != blockedStart, "ordinary roll input moves the actual blocked native body");
+                Check(startedEscapeUnmorph, "bounded ordinary cardinal rolling permits native unmorph without forced form changes");
+                for (int i = 0; i < 180 && (owner.IsAltForm || owner.IsUnmorphing); i++) Step(quiesce: true);
+                Check(!owner.IsAltForm && !owner.IsUnmorphing && !owner.Flags2.TestFlag(PlayerFlags2.Halfturret),
+                    "ordinary movement escape finishes native biped and retires autonomous turret");
+                Console.WriteLine("ESCAPE FINAL " + JsonSerializer.Serialize(Gate()));
+                Console.WriteLine($"QUIESCENT BLOCKED TURRET: {_checks} checks PASS; native refusal then ordinary roll escape, no forced form or health writes");
                 return 0;
             }
             // Existing flight is an actual native projectile, not a synthetic
