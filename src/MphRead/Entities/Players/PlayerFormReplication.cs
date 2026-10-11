@@ -28,6 +28,7 @@ public partial class PlayerEntity
     {
         if (!state.IsValid || state.Phase == FormPhase.Unknown) return;
         int health = Health;
+        Vector3 speed = Speed;
         bool entering = state.Phase is FormPhase.Morphing or FormPhase.Alt;
         bool newTransition = state.StartedFrame != _modFormStartedFrame;
         if (entering)
@@ -41,7 +42,11 @@ public partial class PlayerEntity
             {
                 // A replica can receive two transitions before the entity loop
                 // retires the previous turret. There must only be one instance.
-                if (Hunter == Hunter.Weavel) _scene.RemoveEntity(_halfturret);
+                if (Hunter == Hunter.Weavel)
+                {
+                    _halfturret.Destroy();
+                    _scene.RemoveEntity(_halfturret);
+                }
                 EnterAltForm();
             }
             if (state.Phase == FormPhase.Alt) ModForceForm(true);
@@ -64,6 +69,9 @@ public partial class PlayerEntity
         }
         _modFormStartedFrame = state.StartedFrame;
         Health = health;
+        // The bridge already installed authoritative velocity. Native form entry
+        // can add a local lift impulse, which must not run again on replicas.
+        Speed = speed;
         ModApplyAuthorityTurret(state);
     }
 

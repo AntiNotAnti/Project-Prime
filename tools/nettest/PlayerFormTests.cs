@@ -90,6 +90,7 @@ internal static class PlayerFormTests
             var turret = observer.Halfturret;
             Check(observer.IsMorphing && observer.Health == start.Health && turret.Health == 37,
                 "observer transition preserves canonical body and turret health without another split");
+            Check(observer.Speed == start.Speed, "observer transition start preserves canonical speed without another native pop");
             Apply(start);
             Check(ReferenceEquals(turret, observer.Halfturret) && observer.Health == start.Health && turret.Health == 37,
                 "duplicate transition sample neither recreates turret nor splits health");
@@ -101,6 +102,7 @@ internal static class PlayerFormTests
             Check(observer.IsAltForm && !observer.IsMorphing && !observer.IsUnmorphing
                 && observer.Health == complete.Health && turret.Health == complete.Form.TurretHealth,
                 "completed authority sample settles immediately with canonical health");
+            Check(observer.Speed == complete.Speed, "completed form correction preserves canonical speed");
 
             var moved = complete; moved.Form.Frame += 1; moved.Position += new Vector3(25, 3, 0);
             Apply(moved);
@@ -121,6 +123,16 @@ internal static class PlayerFormTests
             Check(observer.IsAltForm && !observer.IsMorphing && Active(observer)
                 && observer.Health == complete.Health && turret.Position == complete.Form.TurretPosition,
                 "late join materializes completed form and anchor before first draw");
+            Check(observer.Speed == complete.Speed, "late join native form construction preserves canonical speed");
+            var missedCycle = complete; missedCycle.Form.StartedFrame = complete.Form.Frame + 2;
+            missedCycle.Form.Frame = complete.Form.Frame + 3;
+            Apply(missedCycle);
+            int ownedTurrets = 0;
+            foreach (var entity in observer.OwningScene.Entities)
+                if (entity is HalfturretEntity half && ReferenceEquals(half.Owner, observer)) ownedTurrets++;
+            Check(ownedTurrets == 1 && ReferenceEquals(turret, observer.Halfturret)
+                && Active(observer) && observer.Speed == missedCycle.Speed && observer.Health == missedCycle.Form.BodyHealth,
+                "missed unmorph and remorph cycle leaves one turret entity and canonical body motion");
 
             // Destruction is monotonic within one form episode, including while morphing.
             bridge.Reset(); Apply(start);
