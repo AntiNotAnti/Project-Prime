@@ -23,6 +23,10 @@ if(args.Length>0&&args[0]=="--worker")
     if(role=="community")
     {
         using var stop=new CancellationTokenSource();var service=MapCommunityServer.ServeAsync(address,Path.Combine(folder,"community"),fixtureToken,stop.Token);
+        // ServeAsync reaches its first incomplete await only after HttpListener.Start
+        // has returned. Do not race its listener constructor with /health probes:
+        // Linux .NET can accept synchronously before its connection lock is initialized.
+        if(!service.IsCompleted)File.WriteAllText(Path.Combine(folder,args.Length>4?args[4]:"community.ready"),"");
         while(!File.Exists(Path.Combine(folder,"community.stop"))&&!service.IsCompleted)await Task.Delay(50);
         stop.Cancel();try{await service;}catch(OperationCanceledException){}
     }
@@ -39,14 +43,15 @@ Process Spawn(string role,string folder,string address,string? logName=null)
     var start=new ProcessStartInfo(Environment.ProcessPath!){UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true};
     if((Path.GetFileNameWithoutExtension(Environment.ProcessPath)??"").Equals("dotnet",StringComparison.OrdinalIgnoreCase))start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
     foreach(string argument in new[]{"--worker",role,folder,address})start.ArgumentList.Add(argument);
+    if(role=="community")start.ArgumentList.Add((logName??role)+".ready");
     var process=Process.Start(start)??throw new IOException("Cannot start acceptance worker.");
     var log=Task.Run(async()=>{var stdout=process.StandardOutput.ReadToEndAsync();var stderr=process.StandardError.ReadToEndAsync();await Task.WhenAll(stdout,stderr);await File.WriteAllTextAsync(Path.Combine(folder,(logName??role)+".log"),stdout.Result+stderr.Result);});
     children.Add((process,log));return process;
 }
 async Task Finished(Process process,string name)
 {await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(120));await children.Single(p=>p.Process==process).Log;if(process.ExitCode!=0)throw new Exception(name+" failed; inspect its log in "+root);}
-async Task WaitFile(string path,Process process)
-{var watch=Stopwatch.StartNew();while(!File.Exists(path)){if(process.HasExited){await Finished(process,"worker");throw new Exception("Worker exited before creating "+path);}if(watch.Elapsed.TotalSeconds>60)throw new TimeoutException(path);await Task.Delay(20);}}
+async Task WaitFile(string path,Process process,double deadlineSeconds=60)
+{var watch=Stopwatch.StartNew();while(!File.Exists(path)){if(process.HasExited){await Finished(process,"worker");throw new Exception("Worker exited before creating "+path);}if(watch.Elapsed.TotalSeconds>deadlineSeconds)throw new TimeoutException(path);await Task.Delay(20);}}
 void Check(bool condition,string message){if(!condition)throw new Exception(message);Console.WriteLine("PASS: "+message);}
 using var port=new TcpListener(IPAddress.Loopback,0);port.Start();string hub="http://127.0.0.1:"+((IPEndPoint)port.LocalEndpoint).Port+"/";port.Stop();
 Process? community=null;
@@ -64,6 +69,7 @@ try
     }
     Guid identity=Guid.NewGuid();string v1=Package(identity,"ACCEPT_A","1"),second=Package(Guid.NewGuid(),"ACCEPT_B","1"),v2=Package(identity,"ACCEPT_A","2");
     community=Spawn("community",root,hub);
+    await WaitFile(Path.Combine(root,"community.ready"),community,15);
     using var http=new HttpClient{BaseAddress=new Uri(hub)};var waiting=Stopwatch.StartNew();
     while(true){try{using var response=await http.GetAsync("health");if(response.IsSuccessStatusCode)break;}catch(HttpRequestException){}if(waiting.Elapsed.TotalSeconds>15)throw new TimeoutException("Community fixture did not start.");await Task.Delay(50);}
     using var client=new MapCommunityClient(hub,fixtureToken);
@@ -151,6 +157,7 @@ try
         restartedHub="http://127.0.0.1:"+((IPEndPoint)restartPort.LocalEndpoint).Port+"/";
     } while(restartedHub==hub);
     community=Spawn("community",root,restartedHub,"community-restart");
+    await WaitFile(Path.Combine(root,"community-restart.ready"),community,15);
     using var restartedHttp=new HttpClient{BaseAddress=new Uri(restartedHub)};
     waiting.Restart();
     while(true)
