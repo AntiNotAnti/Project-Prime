@@ -150,6 +150,7 @@ def main():
     parser.add_argument('--profile', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--dotnet', type=Path, default=Path('/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet'))
+    parser.add_argument('--players', type=int, choices=(2, 4, 8), nargs='+', default=[2, 4, 8], help='Player sizes for the serial matrix; defaults to all')
     parser.add_argument('--execute', action='store_true', help='Run prepared matrix serially; keep all other tests/builds/campaigns idle')
     parser.add_argument('--timeout-seconds', type=int, default=180)
     args = parser.parse_args()
@@ -171,7 +172,7 @@ def main():
     sdk = subprocess.check_output([str(args.dotnet), '--version'], text=True).strip()
     if sdk != '10.0.401': raise ValueError('SDK differs from pinned 10.0.401: ' + sdk)
     manifest = {'schema': 1, 'privateManagedCopies': private_copies,
-                'copyStrategy': 'Darwin APFS /bin/cp -cp private verified distinct inodes; other platforms copy2; native hardlinks unchanged', 'driverSha256': sha(__file__), 'settings': {'players': [2, 4, 8], 'pairsPerPlayers': 3,
+                'copyStrategy': 'Darwin APFS /bin/cp -cp private verified distinct inodes; other platforms copy2; native hardlinks unchanged', 'driverSha256': sha(__file__), 'settings': {'players': args.players, 'pairsPerPlayers': 3,
                 'orders': ['B/C', 'C/B', 'B/C'], 'warmupSteps': WARMUP, 'measuredSteps': STEPS, 'simulationSeconds': SECONDS,
                 'room': 'MP1 SANCTORUS', 'telemetry': 'explicit -notelemetry both; legacy ProductionTelemetry disabled; PerformanceEvidence env absent'},
                 'source': {'baseline': args.baseline_source, 'candidate': args.candidate_source, 'runner': args.runner_source},
@@ -181,6 +182,7 @@ def main():
                 'binBefore': {label: files(path) for label, path in builds.items()}, 'seedProfileHashes': seed_hashes,
                 'commands': [], 'status': 'PREPARED', 'scope': 'Controlled synthetic asset-backed ServerSim; no transport/hosting-hardware claim; no pooled confidence estimates'}
     for players, pair, order in MATRIX:
+        if players not in args.players: continue
         for label in order:
             run = args.out / f'{players}players-pair{pair}-{label}'; run.mkdir(); profile = run / 'profile'; seed_profile(seed, profile)
             output = run / 'result.json'; commit = getattr(args, label + '_source')
@@ -243,6 +245,7 @@ def main():
                 return finish_invalid('INVALID_PAIRED_WORKLOAD')
     pairs = []
     for players, pair, order in MATRIX:
+        if players not in args.players: continue
         comparison = pair_comparison(results[(players, pair, 'baseline')], results[(players, pair, 'candidate')])
         pairs.append({'players': players, 'pair': pair, 'order': list(order), **comparison})
     manifest['binAfter'] = {label: files(path) for label, path in builds.items()}
