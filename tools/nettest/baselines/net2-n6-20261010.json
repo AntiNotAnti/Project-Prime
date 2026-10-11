@@ -1,0 +1,2411 @@
+{
+  "milestone": "N6 Shock Coil and continuous-weapon correctness",
+  "status": "PASS within requested short Mac validation scope; PR review and merge pending",
+  "dateLocal": "2026-10-10",
+  "provenance": {
+    "base": "734b30ef9f7764bff0d9f11fe49086cd41fbaf2f",
+    "packagedSource": "3074fc718bb5271ca9a258789a08e8746cc24ddd",
+    "testedProductionSource": "0654896999f3984b669537310574c3d373e57cf0",
+    "protocol": 46,
+    "branch": "codex/net2-06-continuous-weapons",
+    "createdUtc": "2026-10-11T04:25:11.115484+00:00",
+    "binaries": {
+      "attempt-01": {
+        "productionSourceCommit": null,
+        "sourceNote": "No exact committed candidate; immutable development binary or failed build",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-01/bin/ProjectPrime.dll",
+            "bytes": 31956992,
+            "sha256": "9b47fc047312105f61f554932a9737f16dbee0a43a5ad325e333ed745f6d13be"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-01/bin/nettest.dll",
+            "bytes": 410112,
+            "sha256": "7cb1aff1597cd15b1e3307281dae22fc7e61846e3404c5c2fc9c30934d2fb408"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-01/bin/nettest.pdb",
+            "bytes": 96260,
+            "sha256": "0d403de86fbe4d96a36a7fbd09f651009cc83546c2a2cf0baad4f5f94f9a41c7"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-02": {
+        "productionSourceCommit": null,
+        "sourceNote": "No exact committed candidate; immutable development binary or failed build",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-02/bin/ProjectPrime.dll",
+            "bytes": 31962624,
+            "sha256": "4a95c1d36a6ec97c9f566256f60bf6d63e011719c71c4f397fec958070488243"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-02/bin/nettest.dll",
+            "bytes": 419840,
+            "sha256": "3feac518285a5771cbb45401e4380d3926a3b3416494f7de0d4f5af8b021b149"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-02/bin/nettest.pdb",
+            "bytes": 97352,
+            "sha256": "68801bdf952c586736d8c0f17814dec6cfcde5406bfa0f9f5dc6e488f4901535"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-03": {
+        "productionSourceCommit": null,
+        "sourceNote": "No exact committed candidate; immutable development binary or failed build",
+        "binaries": {},
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-04": {
+        "productionSourceCommit": null,
+        "sourceNote": "No exact committed candidate; immutable development binary or failed build",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-04/bin/ProjectPrime.dll",
+            "bytes": 31964672,
+            "sha256": "d873ec82d333cfc7c9d5a422ac285526d4e5319e00d711157782a2eb5fe47fb2"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-04/bin/nettest.dll",
+            "bytes": 425984,
+            "sha256": "66a5fe84e25d20b7c00205bd614d1f97b5ff776da49d54d2dc4ac3cc49c7a0b2"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-04/bin/nettest.pdb",
+            "bytes": 98652,
+            "sha256": "0f156c5c2b9127439d7eb59ee91b471c3e71728b814dca07aab705113e00584b"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-05": {
+        "productionSourceCommit": "b2653397f8ce44c086e5d68327239435504a4ac9",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-05/bin/ProjectPrime.dll",
+            "bytes": 31966720,
+            "sha256": "9b67c514550128af79ec18aa60af7c6642267ef07afa8be2b25cead95c79c2ff"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-05/bin/nettest.dll",
+            "bytes": 427520,
+            "sha256": "83b34c75a7c7b1791efe5286c240d4b8cefa361cee6d2ec064f19a9cfc95a247"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-05/bin/nettest.pdb",
+            "bytes": 98960,
+            "sha256": "fab46749a791c2440bc76be38cc591031a840c52098042cacba20f5c58b1abc0"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-06": {
+        "productionSourceCommit": "b2653397f8ce44c086e5d68327239435504a4ac9",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-06/bin/ProjectPrime.dll",
+            "bytes": 31966720,
+            "sha256": "9b67c514550128af79ec18aa60af7c6642267ef07afa8be2b25cead95c79c2ff"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-06/bin/nettest.dll",
+            "bytes": 427520,
+            "sha256": "175d9531668ec21a02f9dfc606d8030ac9d1481449ca2c3d73efc24a056d0a20"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-06/bin/nettest.pdb",
+            "bytes": 98972,
+            "sha256": "78a906055b5e19cdbaf1695abde7166444fb5f7ceb7d3a380e6d91e9f3f9faee"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-07": {
+        "productionSourceCommit": "b2653397f8ce44c086e5d68327239435504a4ac9",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-07/bin/ProjectPrime.dll",
+            "bytes": 31966720,
+            "sha256": "9b67c514550128af79ec18aa60af7c6642267ef07afa8be2b25cead95c79c2ff"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-07/bin/nettest.dll",
+            "bytes": 428032,
+            "sha256": "2cce56d0cbf4ca2e90b346c7efdb0126897896cd27dcade8445eee7cfe4a1e0b"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-07/bin/nettest.pdb",
+            "bytes": 98972,
+            "sha256": "b1b9be7b03b1912b8bb5e0536398426c93497522d079a825cbbdc2783b73c4e4"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-08": {
+        "productionSourceCommit": "b2653397f8ce44c086e5d68327239435504a4ac9",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-08/bin/ProjectPrime.dll",
+            "bytes": 31966720,
+            "sha256": "9b67c514550128af79ec18aa60af7c6642267ef07afa8be2b25cead95c79c2ff"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-08/bin/nettest.dll",
+            "bytes": 428032,
+            "sha256": "158f720ac7991216a8fab68d0f0e796f8590cdd66feea6caa48bb699feda3f8d"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-08/bin/nettest.pdb",
+            "bytes": 99012,
+            "sha256": "b2dea4f92028a4c8fd3067b466742990a4403914db0f4de29dd49f6b10c24f3e"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-09": {
+        "productionSourceCommit": "564894af1e417666e2f6c98e1829932ba5bba686",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-09/bin/ProjectPrime.dll",
+            "bytes": 31968256,
+            "sha256": "bed2c8145f6540964f2e625835fd39a2a44873c8368fc06a4fe360c9ed8aba5f"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-09/bin/nettest.dll",
+            "bytes": 431104,
+            "sha256": "2e50ef5ab355e495e58103cb84195195c808d2d938fa3aa41b79c17a9d0d48ac"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-09/bin/nettest.pdb",
+            "bytes": 99668,
+            "sha256": "49e19a3ab7760f7748c8bba6fcc5f1b38ddbd3ff31c445c38cee2ecb9baae310"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-10": {
+        "productionSourceCommit": "564894af1e417666e2f6c98e1829932ba5bba686",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-10/bin/ProjectPrime.dll",
+            "bytes": 31968256,
+            "sha256": "bed2c8145f6540964f2e625835fd39a2a44873c8368fc06a4fe360c9ed8aba5f"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-10/bin/nettest.dll",
+            "bytes": 431616,
+            "sha256": "9f9d2255a564d78163b6cfb89187b9db0ac7949ed5b5b8752a034b494fe26dac"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-10/bin/nettest.pdb",
+            "bytes": 99672,
+            "sha256": "68974fa43717a10cc772fbaff73f9b8c16462178d9f97fa28ff94550d6361f74"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-11": {
+        "productionSourceCommit": "2430930ef4a88c39f7e642b604d00003a52874d7",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-11/bin/ProjectPrime.dll",
+            "bytes": 31970816,
+            "sha256": "aaf359103f6cea9524de8c7854f0c11fcb28dd5d90a6f12fcaf8504add587b89"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-11/bin/nettest.dll",
+            "bytes": 433664,
+            "sha256": "e05e007aedaf6c979d6d8922ff4bd1ded30e47f00c8cb81a7e68762cdc892776"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-11/bin/nettest.pdb",
+            "bytes": 99904,
+            "sha256": "7c95f54cbd6f6f3e2e654cfbb4cced58bcc5e425c4d0c083b6d300082cccde36"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-12": {
+        "productionSourceCommit": "176c194622f02a54b310387bced6f31c8ca031b9",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-12/bin/ProjectPrime.dll",
+            "bytes": 31970816,
+            "sha256": "356af467721ee1f2f840cd36754933e007f4db8c490a1cd5fcaa86234be991f4"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-12/bin/nettest.dll",
+            "bytes": 438272,
+            "sha256": "2f321ffe1e9516c8e7042db192e364e372cc5774c3de43676694ff459d64e14a"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-12/bin/nettest.pdb",
+            "bytes": 100888,
+            "sha256": "b1c2f8172892110f6b7fe5f8730590795af4fc1cec33785e21254fb63a9bf8ce"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-13": {
+        "productionSourceCommit": "5fbe67c98d58e3f7f8b09007cc20e75def98843a",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-13/bin/ProjectPrime.dll",
+            "bytes": 31970816,
+            "sha256": "1bd2aab957040ec08b74fc905ab2f7215653877b96b3f41abce7d3c39e98fbcc"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-13/bin/nettest.dll",
+            "bytes": 440320,
+            "sha256": "8efabd00af7d8fcc7de66bd7526665fd45886fd6c7e41fda357018e394176352"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-13/bin/nettest.pdb",
+            "bytes": 101224,
+            "sha256": "02801b76f802b383e381bd166eb0ed4974511a7a143d3d75159f361bb8a451a0"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-14": {
+        "productionSourceCommit": "5867c39fd292eb5e52d6a6fe946b75aaf7e925ca",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-14/bin/ProjectPrime.dll",
+            "bytes": 31970816,
+            "sha256": "98b28257a77bd73e1eddf7f9b8972994391ae29ff736695608434012fc5224fe"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-14/bin/nettest.dll",
+            "bytes": 440320,
+            "sha256": "0681b6bbb82cd2d0936ac029d511c6a9bce201169e5b520d0e73513b44085b33"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-14/bin/nettest.pdb",
+            "bytes": 101220,
+            "sha256": "18e094235e54176a9e95e8a5800adf8e2e4e017d4cfa8a1375eb9fa45f8cf04a"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-15": {
+        "productionSourceCommit": "32fe41241a5c9c96f39dc06150a8ad03cc2bdf7b",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-15/bin/ProjectPrime.dll",
+            "bytes": 31973888,
+            "sha256": "87b6b5c9d417557a586b9324219d213731b1cadf6f2af2f9bd5c87ddba18d47c"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-15/bin/nettest.dll",
+            "bytes": 443392,
+            "sha256": "9b6b4ff149048f7c1d5b8a3d7964e79bdab0e12b1214f03b4ceef22fe8c8a2fa"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-15/bin/nettest.pdb",
+            "bytes": 101756,
+            "sha256": "abf664064761678db22b418f7f126d34ee8eeef1c84b59d49044c55e18b83346"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-16": {
+        "productionSourceCommit": "7c90123c1fbd54de2e95f7eaa684f7a2135ff908",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-16/bin/ProjectPrime.dll",
+            "bytes": 31973888,
+            "sha256": "452f96bef15e87165087fbb406d01f7135575c16e1572b4e1f190fa8d35c8a7a"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-16/bin/nettest.dll",
+            "bytes": 444928,
+            "sha256": "cd42bdc3f4ada2327b7e958eacbf07b892f9c46a578159cf468534edcfa2790a"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-16/bin/nettest.pdb",
+            "bytes": 102000,
+            "sha256": "d62fc647d747b11a30b2e29119d41672cca0c1fbe3c3fa570ab83ac50e80205c"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-17": {
+        "productionSourceCommit": "bc6db88aa7672ea94afd1c94a8d302b33097b36c",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-17/bin/ProjectPrime.dll",
+            "bytes": 31977472,
+            "sha256": "10369818aebef45317cb2ef922977f05834093d13838bcff82f91194b431b937"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-17/bin/nettest.dll",
+            "bytes": 444928,
+            "sha256": "18037ddb863d5cd89481867d45c1b6bb265b3dd8c157fcd38ece2d3482c3aff2"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-17/bin/nettest.pdb",
+            "bytes": 102000,
+            "sha256": "7b338f14cdc5e0c974fabc39aae391af2a70b054eda8256b497c3b60a04af922"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      },
+      "attempt-18": {
+        "productionSourceCommit": "0654896999f3984b669537310574c3d373e57cf0",
+        "sourceNote": "Production candidate; test assembly before attempt14 may include uncommitted evolving fixtures, retained by exact hash",
+        "binaries": {
+          "ProjectPrime.dll": {
+            "path": "artifacts/net2-n6/attempt-18/bin/ProjectPrime.dll",
+            "bytes": 31977472,
+            "sha256": "93bc9357b3b7efec4c7b74d7857a73063f83b2913fee97397aaacbcd096efa16"
+          },
+          "nettest.dll": {
+            "path": "artifacts/net2-n6/attempt-18/bin/nettest.dll",
+            "bytes": 444928,
+            "sha256": "a6af4f71ee87ce7bc95bece9fac2ec9fe5d084440ae49f140d25bdc02bae0508"
+          },
+          "nettest.pdb": {
+            "path": "artifacts/net2-n6/attempt-18/bin/nettest.pdb",
+            "bytes": 102000,
+            "sha256": "b37fe2c46cb123674f0290052bca19efcdd3b8cf5020ad91e7fbe323582165b6"
+          }
+        },
+        "ProjectPrime.pdb": "absent"
+      }
+    },
+    "sourceEquivalence": "All final2/4/8-player controls and lifecycle compatibility use attempt18. Other focused checks use gameplay-identical attempt17;17-to18 changes only two protocol literals in NetLobbyTest. Later commits only document evidence.",
+    "archiveDeduplication": "Identical files retained as tar hardlinks; originals untouched. SHA-256 index describes every original byte sequence."
+  },
+  "environment": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "sdk": "10.0.401",
+    "runtime": "10.0.12",
+    "build": "Release; 42 warnings, zero errors",
+    "assetTestRoom": "MP1 SANCTORUS",
+    "campaignRoom": "MP3 PROVING GROUND (Combat Hall)"
+  },
+  "protocol": {
+    "live": 46,
+    "previous": 45,
+    "canonicalPlayerStateBytes": 145,
+    "eightPlayerFastFramedBytes": 1172,
+    "bootstrapMaximumFramedBytes": 1188,
+    "factEnvelopeMaximumBytes": 1200,
+    "individualSemanticAndReplayLayouts": "unchanged",
+    "mixedVersion": "peers must update together"
+  },
+  "validationCommands": {
+    "build": "/private/tmp/project-prime-dotnet10/dotnet build tools/nettest/nettest.csproj -c Release -o artifacts/net2-n6/attempt-18/bin",
+    "buildLog": {
+      "path": "artifacts/net2-n6/attempt-18/build.log",
+      "bytes": 29563,
+      "sha256": "aadc0cac0054ae3405aa2aa9d47e6c10c43679c22794276611b416a30dce2bbf"
+    },
+    "focused": {
+      "path": "artifacts/net2-n6/attempt-17/final-checks/results.json",
+      "bytes": 6735,
+      "sha256": "ac21beca6956104288865bdb40bc33c529798e2bb64bcba2dd4fedd03c52397c"
+    },
+    "lifecycleCompatibility": {
+      "path": "artifacts/net2-n6/attempt-18/final-checks/results.json",
+      "bytes": 1012,
+      "sha256": "7bda1404a6d8f05603195a8de3c04590703f33ee25e50033762df2a90df2652a"
+    },
+    "hashes": {
+      "path": "artifacts/net2-n6/attempt-18/final-checks/hashes.json",
+      "bytes": 178,
+      "sha256": "f26bf9b2c8c165904818abf5992acb3540b5282ffff58b202db4dd52e2452d83"
+    }
+  },
+  "focusedTests": {
+    "continuousCombatAsset": 163,
+    "continuousSnapshotsPresentationAndBatching": 337,
+    "continuousHealingPrediction": 44,
+    "combatReconciliation": 50,
+    "continuousScene": 63,
+    "protocol19Scene": 60,
+    "healthShotAssertions": 3338739,
+    "healthShotFaultProfiles": 7776,
+    "claimStress": "PASS",
+    "pythonEvidenceTests": 119,
+    "bootstrapScene": "PASS",
+    "lifecycleLobbyAssertions": 7739,
+    "botAssertions": 197,
+    "finalAttempt": "17; lifecycle compatibility refreshed at18 (test-only source delta)",
+    "compatibility": "Protocol18, compact intents, architecture and replay decoding passed at attempt13; unchanged by later historical rescue/drain fixes. Shot lifecycle passed at attempt05."
+  },
+  "testAttempts": [
+    {
+      "name": "attempt-01/compat-checks/combat-arbitration-scene.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-01/compat-checks/combat-arbitration-scene.json",
+        "bytes": 691,
+        "sha256": "09db184afddb8ef85bc02d78b58c6708fa85bb4de08526ae62c15ecb9a1f1645"
+      }
+    },
+    {
+      "name": "attempt-01/compat-checks/continuous-scene.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-01/compat-checks/continuous-scene.json",
+        "bytes": 683,
+        "sha256": "8e79b2f7a08e90fa08e3bb0a40ff9b8e91481eaa71bb4054ab927d7faf25340f"
+      }
+    },
+    {
+      "name": "attempt-01/compat-checks/protocol19-scene.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-01/compat-checks/protocol19-scene.json",
+        "bytes": 683,
+        "sha256": "a5b861bcd56bba1571ba369cec345799fe38652cbde0ef9e5addac3a87fbbac4"
+      }
+    },
+    {
+      "name": "attempt-01/payment-checks/result.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-01/payment-checks/result.json",
+        "bytes": 595,
+        "sha256": "1455182d962af3078c6ea4aed96033b50feb9b9fb16e796844e60008146fd59d"
+      }
+    },
+    {
+      "name": "attempt-01/prediction-checks/combat-reconciliation.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-01/prediction-checks/combat-reconciliation.json",
+        "bytes": 574,
+        "sha256": "d3d57a37cf46a0a0d3d64022ff970928fa0094dfb34f00a03b1da942269e0bde"
+      }
+    },
+    {
+      "name": "attempt-01/prediction-checks/continuous-healing-prediction.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-01/prediction-checks/continuous-healing-prediction.json",
+        "bytes": 582,
+        "sha256": "7430731574eb98a98acae5346364afced5b052116488eeaa2a0a2541910b9261"
+      }
+    },
+    {
+      "name": "attempt-01/prediction-checks/continuous-snapshots.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-01/prediction-checks/continuous-snapshots.json",
+        "bytes": 573,
+        "sha256": "fc3c9721325f92bbdb34f462bde872ed26659d462eab57134ef3e2b11ee9df8a"
+      }
+    },
+    {
+      "name": "attempt-02/prediction-checks/combat-reconciliation.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-02/prediction-checks/combat-reconciliation.json",
+        "bytes": 574,
+        "sha256": "98c6c1950553d33df860dfd8caeb2dfde7f85a4c2c5e40ddcca34070fb9bac30"
+      }
+    },
+    {
+      "name": "attempt-02/prediction-checks/continuous-healing-prediction.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-02/prediction-checks/continuous-healing-prediction.json",
+        "bytes": 582,
+        "sha256": "22ef7278ccf74b1e7f182c0d4203b6ddefba8294288b016c80c8a9742e4aafa7"
+      }
+    },
+    {
+      "name": "attempt-02/prediction-checks/continuous-snapshots-no-tiering.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-02/prediction-checks/continuous-snapshots-no-tiering.json",
+        "bytes": 505,
+        "sha256": "75360326a90044616b73a633f014a9d5f90774d40be003fdb6a87c5aaa8ee84c"
+      }
+    },
+    {
+      "name": "attempt-02/prediction-checks/continuous-snapshots.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-02/prediction-checks/continuous-snapshots.json",
+        "bytes": 573,
+        "sha256": "74f16e6a4e1844e9c5e6c01e35b1c6cf680af3f989b8e5e41a3588d175ee9b49"
+      }
+    },
+    {
+      "name": "attempt-04/payment-checks/continuous-combat-result.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-04/payment-checks/continuous-combat-result.json",
+        "bytes": 595,
+        "sha256": "9ed5c263c75b472e47a13c482a620e0db3fdafaf02e855ff6db873b566c66d8d"
+      }
+    },
+    {
+      "name": "attempt-04/payment-checks/continuous-result.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-04/payment-checks/continuous-result.json",
+        "bytes": 588,
+        "sha256": "133777e49cb4997f9e5abc20b42e0a47deabc73460ed6e0ec430c3116c320726"
+      }
+    },
+    {
+      "name": "attempt-04/payment-checks/protocol19-result.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-04/payment-checks/protocol19-result.json",
+        "bytes": 588,
+        "sha256": "ebcfb9667fc2c78032a3ff03ea1018ac0e225385c0c1d18585eb2fc0002fd66b"
+      }
+    },
+    {
+      "name": "attempt-04/prediction-checks/architecture.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-04/prediction-checks/architecture.json",
+        "bytes": 565,
+        "sha256": "826f913778e929cd8f8449487c06bb7064c32509cf693726d4789b17e8348cee"
+      }
+    },
+    {
+      "name": "attempt-04/prediction-checks/combat-reconciliation.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-04/prediction-checks/combat-reconciliation.json",
+        "bytes": 574,
+        "sha256": "4e59b74267bb2b4dcc91f02cb9337145eba85d3d05cf555a345e05014073e2b8"
+      }
+    },
+    {
+      "name": "attempt-04/prediction-checks/compact-intents.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-04/prediction-checks/compact-intents.json",
+        "bytes": 568,
+        "sha256": "12a4451e9332c122b67a7c4fd5fa93605ceb90c4f91ecc77069703c8d9b26ec0"
+      }
+    },
+    {
+      "name": "attempt-04/prediction-checks/continuous-healing-prediction.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-04/prediction-checks/continuous-healing-prediction.json",
+        "bytes": 582,
+        "sha256": "ab3a5da4ea507d48f303dc8f399a56476ef4db8f741ba50ec2c0bc3c25ee8871"
+      }
+    },
+    {
+      "name": "attempt-04/prediction-checks/continuous-snapshots.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-04/prediction-checks/continuous-snapshots.json",
+        "bytes": 573,
+        "sha256": "de710426014fe381fdaa2e6dc78c41075e3c8b9ac6aab368b5993e5331dc0887"
+      }
+    },
+    {
+      "name": "attempt-04/prediction-checks/protocol18.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-04/prediction-checks/protocol18.json",
+        "bytes": 563,
+        "sha256": "f60df4d386ea1ccd686b03b0b9906a0ee4710bde831929c7769678f8cae16274"
+      }
+    },
+    {
+      "name": "attempt-05/final-checks/architecture.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-05/final-checks/architecture.json",
+        "bytes": 565,
+        "sha256": "abb3fae65d86b275ca320beef7894685fece1cc47757d3fad350170c572a29d7"
+      }
+    },
+    {
+      "name": "attempt-05/final-checks/claim-stress.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-05/final-checks/claim-stress.json",
+        "bytes": 565,
+        "sha256": "c4ba451932df8bbb4d7f90ae3d703a5e6549e021ec5da5731b541f7ff4784f00"
+      }
+    },
+    {
+      "name": "attempt-05/final-checks/combat-reconciliation.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-05/final-checks/combat-reconciliation.json",
+        "bytes": 574,
+        "sha256": "9b599e232039f04840e5c8cc0a2a971a10743ba1cdbf42796f1b332e13b38a03"
+      }
+    },
+    {
+      "name": "attempt-05/final-checks/compact-intents.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-05/final-checks/compact-intents.json",
+        "bytes": 568,
+        "sha256": "77ed25a4b3f600bf089b8341835be383a3bfde7d834a40203cc6917037e2e563"
+      }
+    },
+    {
+      "name": "attempt-05/final-checks/continuous-healing-prediction.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-05/final-checks/continuous-healing-prediction.json",
+        "bytes": 582,
+        "sha256": "2f3b334f409b104012b15de59dde2f385cd89a74100607c23f645fb80a39b270"
+      }
+    },
+    {
+      "name": "attempt-05/final-checks/continuous-snapshots.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-05/final-checks/continuous-snapshots.json",
+        "bytes": 573,
+        "sha256": "e49b3949cd3399675fe09b50f7f41854f83e4b6dc761a86ef99344bcdf3ae8cc"
+      }
+    },
+    {
+      "name": "attempt-05/final-checks/health-shots.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-05/final-checks/health-shots.json",
+        "bytes": 565,
+        "sha256": "00c3cf289312dfba82bbe0ced20dc45d69bb8d1aa08e892897049db441c1fc6c"
+      }
+    },
+    {
+      "name": "attempt-05/final-checks/protocol18.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-05/final-checks/protocol18.json",
+        "bytes": 563,
+        "sha256": "e811dd34410a775b9b1eed40a188ae6071c7c218a5ef5c81acc144c4dafb141c"
+      }
+    },
+    {
+      "name": "attempt-05/final-checks/shot-lifecycle.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-05/final-checks/shot-lifecycle.json",
+        "bytes": 567,
+        "sha256": "c435d1db8f2d204cabead38c0235497702725b9e896a2061c6a98a269adc3c85"
+      }
+    },
+    {
+      "name": "attempt-05/payment-checks/result.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-05/payment-checks/result.json",
+        "bytes": 595,
+        "sha256": "99996868ea4701e289d3a9176ab3e78d8f16d418775f06f71e9e6a28e0f163d3"
+      }
+    },
+    {
+      "name": "attempt-06/payment-checks/result.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-06/payment-checks/result.json",
+        "bytes": 631,
+        "sha256": "30f4ced3a502ab05508a186e000b550d741ca5d67a25f627697843d0abbfa758"
+      }
+    },
+    {
+      "name": "attempt-07/payment-checks/result.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-07/payment-checks/result.json",
+        "bytes": 595,
+        "sha256": "d6f285f11e1365016f6cd0896f7ba35e9d158d8f7dd2c03c039a099bfdb2146e"
+      }
+    },
+    {
+      "name": "attempt-08/payment-checks/result.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-08/payment-checks/result.json",
+        "bytes": 595,
+        "sha256": "df2c9fbbb4788b11e96c327fa59fe7fa0f7f5d6e3e7383339bba708682d11ab2"
+      }
+    },
+    {
+      "name": "attempt-10/prediction-checks/build.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-10/prediction-checks/build.json",
+        "bytes": 551,
+        "sha256": "85eebce58e29d1dcef23b6d2824c9bb63373d3526d3bee8f3b42ab1dd0c48e00"
+      }
+    },
+    {
+      "name": "attempt-10/prediction-checks/continuous-combat-datashrine.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-10/prediction-checks/continuous-combat-datashrine.json",
+        "bytes": 568,
+        "sha256": "c93f7102a4a6983e76b8a9ea0ed92f8151aedb77b45d2609bf5cc15e0c2a50d5"
+      }
+    },
+    {
+      "name": "attempt-10/prediction-checks/continuous-combat-fixture02.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-10/prediction-checks/continuous-combat-fixture02.json",
+        "bytes": 568,
+        "sha256": "45dfd021dece423964bf6cc8fd68a00779e951d60f8bfd2852cda946fbc89229"
+      }
+    },
+    {
+      "name": "attempt-10/prediction-checks/continuous-combat-fixture03.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-10/prediction-checks/continuous-combat-fixture03.json",
+        "bytes": 568,
+        "sha256": "d192454837dc782521f3b1ba61799d348ed0c1575a324da9711a69a0bad71aa7"
+      }
+    },
+    {
+      "name": "attempt-10/prediction-checks/continuous-combat-fixture04.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-10/prediction-checks/continuous-combat-fixture04.json",
+        "bytes": 933,
+        "sha256": "e2fa7324163f182053fc0912de35ab8402d707192ee6bccd2529298662eeaf4c"
+      }
+    },
+    {
+      "name": "attempt-10/prediction-checks/continuous-combat.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-10/prediction-checks/continuous-combat.json",
+        "bytes": 570,
+        "sha256": "435c9418c5de9b474392e0b33704a1f976e3713a403d9e42449bbbfd5c657555"
+      }
+    },
+    {
+      "name": "attempt-10/prediction-checks/negative-clock.json",
+      "exit": 1,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-10/prediction-checks/negative-clock.json",
+        "bytes": 740,
+        "sha256": "fad1bd616aa22809afdad608a3f9a99387a453dbda316598137694a5ee125e24"
+      }
+    },
+    {
+      "name": "attempt-12/prediction-checks/continuous-combat.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-12/prediction-checks/continuous-combat.json",
+        "bytes": 568,
+        "sha256": "1aec9358d2786f2138416d07e01cdbc65244966dffa7a4d011811f19c64024f3"
+      }
+    },
+    {
+      "name": "attempt-12/prediction-checks/continuous-snapshots.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-12/prediction-checks/continuous-snapshots.json",
+        "bytes": 418,
+        "sha256": "4f5e1973743ed0efcc5d8cbd4af3e9b145aee19bcc51134cdde313009d0348a6"
+      }
+    },
+    {
+      "name": "attempt-13/final-checks/results.json",
+      "tests": [
+        {
+          "name": "continuous-snapshots",
+          "exit": 0,
+          "seconds": 0.148
+        },
+        {
+          "name": "continuous-healing-prediction",
+          "exit": 0,
+          "seconds": 0.107
+        },
+        {
+          "name": "combat-reconciliation",
+          "exit": 0,
+          "seconds": 0.113
+        },
+        {
+          "name": "claim-stress",
+          "exit": 0,
+          "seconds": 0.114
+        },
+        {
+          "name": "compact-intents",
+          "exit": 0,
+          "seconds": 0.307
+        },
+        {
+          "name": "architecture",
+          "exit": 0,
+          "seconds": 0.153
+        },
+        {
+          "name": "protocol18",
+          "exit": 0,
+          "seconds": 0.044
+        },
+        {
+          "name": "continuous-scene",
+          "exit": 0,
+          "seconds": 1.083
+        },
+        {
+          "name": "protocol19-scene",
+          "exit": 1,
+          "seconds": 1.09
+        },
+        {
+          "name": "PYTHON",
+          "exit": 0,
+          "seconds": 0.231
+        }
+      ],
+      "result": {
+        "path": "artifacts/net2-n6/attempt-13/final-checks/results.json",
+        "bytes": 5602,
+        "sha256": "355290b9a4e5318135f43ae4f9fe71e3d516e505dd59716cce983e450e4df6d8"
+      }
+    },
+    {
+      "name": "attempt-13/prediction-checks/continuous-combat.json",
+      "exit": 0,
+      "result": {
+        "path": "artifacts/net2-n6/attempt-13/prediction-checks/continuous-combat.json",
+        "bytes": 568,
+        "sha256": "92067d73d3969ad45bbf8abd69dd07ef16e04a66b863527d716a1c4fd379a226"
+      }
+    },
+    {
+      "name": "attempt-15/final-checks/results.json",
+      "tests": [
+        {
+          "name": "continuous-combat-scene",
+          "exit": 0,
+          "seconds": 4.156
+        },
+        {
+          "name": "protocol19-scene",
+          "exit": 0,
+          "seconds": 0.969
+        },
+        {
+          "name": "continuous-scene",
+          "exit": 0,
+          "seconds": 1.023
+        },
+        {
+          "name": "continuous-snapshots",
+          "exit": 0,
+          "seconds": 0.138
+        },
+        {
+          "name": "continuous-healing-prediction",
+          "exit": 0,
+          "seconds": 0.103
+        },
+        {
+          "name": "combat-reconciliation",
+          "exit": 0,
+          "seconds": 0.108
+        },
+        {
+          "name": "PYTHON",
+          "exit": 0,
+          "seconds": 0.2
+        }
+      ],
+      "result": {
+        "path": "artifacts/net2-n6/attempt-15/final-checks/results.json",
+        "bytes": 4389,
+        "sha256": "18beb94b4e80cdf1b4b13d1293ff5d1eb0eaad8cc318f8bc6eefd90eafd41319"
+      }
+    },
+    {
+      "name": "attempt-16/final-checks/results.json",
+      "tests": [
+        {
+          "name": "continuous-combat-scene",
+          "exit": 0,
+          "seconds": 1.356
+        },
+        {
+          "name": "protocol19-scene",
+          "exit": 0,
+          "seconds": 1.04
+        },
+        {
+          "name": "continuous-scene",
+          "exit": 0,
+          "seconds": 1.02
+        },
+        {
+          "name": "continuous-snapshots",
+          "exit": 0,
+          "seconds": 0.142
+        },
+        {
+          "name": "continuous-healing-prediction",
+          "exit": 0,
+          "seconds": 0.098
+        },
+        {
+          "name": "combat-reconciliation",
+          "exit": 0,
+          "seconds": 0.103
+        },
+        {
+          "name": "health-shots",
+          "exit": 0,
+          "seconds": 11.397
+        },
+        {
+          "name": "claim-stress",
+          "exit": 0,
+          "seconds": 0.113
+        },
+        {
+          "name": "PYTHON",
+          "exit": 0,
+          "seconds": 0.201
+        }
+      ],
+      "result": {
+        "path": "artifacts/net2-n6/attempt-16/final-checks/results.json",
+        "bytes": 5410,
+        "sha256": "4e97d8d66a920f4e45a50dc18ea248af933b97d58e8b33c7909b8c62bd22fbe6"
+      }
+    },
+    {
+      "name": "attempt-17/final-checks/results.json",
+      "tests": [
+        {
+          "name": "continuous-combat-scene",
+          "exit": 0,
+          "seconds": 1.449
+        },
+        {
+          "name": "protocol19-scene",
+          "exit": 0,
+          "seconds": 0.948
+        },
+        {
+          "name": "continuous-scene",
+          "exit": 0,
+          "seconds": 1.005
+        },
+        {
+          "name": "bootstrap-scene",
+          "exit": 0,
+          "seconds": 0.883
+        },
+        {
+          "name": "continuous-snapshots",
+          "exit": 0,
+          "seconds": 0.137
+        },
+        {
+          "name": "continuous-healing-prediction",
+          "exit": 0,
+          "seconds": 0.097
+        },
+        {
+          "name": "combat-reconciliation",
+          "exit": 0,
+          "seconds": 0.101
+        },
+        {
+          "name": "health-shots",
+          "exit": 0,
+          "seconds": 11.415
+        },
+        {
+          "name": "claim-stress",
+          "exit": 0,
+          "seconds": 0.108
+        },
+        {
+          "name": "load-lifecycle",
+          "exit": 1,
+          "seconds": 0.136
+        },
+        {
+          "name": "PYTHON",
+          "exit": 0,
+          "seconds": 0.194
+        }
+      ],
+      "result": {
+        "path": "artifacts/net2-n6/attempt-17/final-checks/results.json",
+        "bytes": 6735,
+        "sha256": "ac21beca6956104288865bdb40bc33c529798e2bb64bcba2dd4fedd03c52397c"
+      }
+    },
+    {
+      "name": "attempt-18/final-checks/results.json",
+      "tests": [
+        {
+          "name": "--load-lifecycle",
+          "exit": 0,
+          "seconds": 103.827
+        },
+        {
+          "name": "--bots",
+          "exit": 0,
+          "seconds": 25.653
+        }
+      ],
+      "result": {
+        "path": "artifacts/net2-n6/attempt-18/final-checks/results.json",
+        "bytes": 1012,
+        "sha256": "7bda1404a6d8f05603195a8de3c04590703f33ee25e50033762df2a90df2652a"
+      }
+    }
+  ],
+  "campaigns": [
+    {
+      "name": "mac-2-lan-mixed-candidate18",
+      "status": "PASS",
+      "continuousAudit": "PASS",
+      "source": "0654896999f3984b669537310574c3d373e57cf0",
+      "assemblySha256": "93bc9357b3b7efec4c7b74d7857a73063f83b2913fee97397aaacbcd096efa16",
+      "settings": {
+        "players": 2,
+        "seconds": 35.0,
+        "drain_seconds": 18.0,
+        "profile": "lan",
+        "scenario": "shockcoil-mixed",
+        "rooms": "MP3 PROVING GROUND"
+      },
+      "drain": "PASS",
+      "processes": [
+        {
+          "name": "server",
+          "pid": 83846,
+          "startedSeconds": 0.001900542000000005,
+          "requestedSeconds": 35.0,
+          "expectsShots": false,
+          "exit": 0,
+          "timedOut": false
+        },
+        {
+          "name": "peer-0",
+          "pid": 83847,
+          "startedSeconds": 2.1163745,
+          "requestedSeconds": 35.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 41.407747417
+        },
+        {
+          "name": "peer-1",
+          "pid": 83848,
+          "startedSeconds": 2.3702542500000003,
+          "requestedSeconds": 35.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 41.407750750000005
+        }
+      ],
+      "parity": {
+        "peer-0": {
+          "healthSamplesCompared": 754,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 387,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 829,
+          "acceptedShots": 829,
+          "committedShots": 829,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 0,
+          "terminalRejectedViewShots": 0,
+          "matchingSemanticFacts": 851,
+          "viewExpectedCommits": 838,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 851,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 748,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 386,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 9,
+          "acceptedShots": 9,
+          "committedShots": 9,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 0,
+          "terminalRejectedViewShots": 0,
+          "matchingSemanticFacts": 851,
+          "viewExpectedCommits": 838,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 851,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        }
+      },
+      "authorityContinuous": {
+        "LifetimePayments": 127,
+        "LifetimeDamage": 130,
+        "LifetimeTurretDamage": 0,
+        "LifetimeHealBody": 130,
+        "LifetimeHealTurret": 0,
+        "uniqueOwnerTicks": 127,
+        "evidenceCount": 127,
+        "evidenceCapacity": 8192
+      },
+      "predictionByPeer": {
+        "peer-0": {
+          "DrainPredicted": 129,
+          "DrainConfirmed": 129,
+          "DrainRejected": 0,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        },
+        "peer-1": {
+          "DrainPredicted": 0,
+          "DrainConfirmed": 0,
+          "DrainRejected": 0,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        }
+      },
+      "exactAckVerdicts": {
+        "peer-0": {
+          "receipts": 127,
+          "refusedKeys": 0,
+          "contradictoryPaidKeys": 0
+        },
+        "peer-1": {
+          "receipts": 8,
+          "refusedKeys": 0,
+          "contradictoryPaidKeys": 0
+        }
+      },
+      "terminalContinuousRejections": {
+        "server": 0,
+        "peer-0": 0,
+        "peer-1": 0
+      },
+      "respawnedContexts": 2,
+      "committedWeaponRows": {
+        "7": 1658,
+        "4": 18
+      },
+      "artifacts": {
+        "manifest.json": {
+          "path": "artifacts/net2-n6/mac-2-lan-mixed-candidate18/manifest.json",
+          "bytes": 232393,
+          "sha256": "53ab62fa2adfef36ee7294afb6bd7a3cbbc493cb59c6a00bc3ff91cae3e8632d"
+        },
+        "summary.json": {
+          "path": "artifacts/net2-n6/mac-2-lan-mixed-candidate18/summary.json",
+          "bytes": 7148,
+          "sha256": "f445a6ff480552dca2e68097e1a9ce7819b7feaee8a3bd0fc9a34f1a74904f9b"
+        },
+        "continuous-audit.json": {
+          "path": "artifacts/net2-n6/mac-2-lan-mixed-candidate18/continuous-audit.json",
+          "bytes": 1706,
+          "sha256": "44aaf7b2b9a4d8be2ac7f0f4d6c84d46c2974f5198dce4244db499ec1c897818"
+        },
+        "continuous-audit.log": {
+          "path": "artifacts/net2-n6/mac-2-lan-mixed-candidate18/continuous-audit.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "name": "mac-4-moderate-mixed-candidate18",
+      "status": "PASS",
+      "continuousAudit": "PASS",
+      "source": "0654896999f3984b669537310574c3d373e57cf0",
+      "assemblySha256": "93bc9357b3b7efec4c7b74d7857a73063f83b2913fee97397aaacbcd096efa16",
+      "settings": {
+        "players": 4,
+        "seconds": 40.0,
+        "drain_seconds": 18.0,
+        "profile": "moderate",
+        "scenario": "shockcoil-mixed",
+        "rooms": "MP3 PROVING GROUND"
+      },
+      "drain": "PASS",
+      "processes": [
+        {
+          "name": "server",
+          "pid": 83872,
+          "startedSeconds": 0.0019810840000000773,
+          "requestedSeconds": 40.0,
+          "expectsShots": false,
+          "exit": 0,
+          "timedOut": false
+        },
+        {
+          "name": "peer-0",
+          "pid": 83873,
+          "startedSeconds": 2.119261334,
+          "requestedSeconds": 40.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 47.3960835
+        },
+        {
+          "name": "peer-1",
+          "pid": 83874,
+          "startedSeconds": 2.37754175,
+          "requestedSeconds": 40.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 47.396087375
+        },
+        {
+          "name": "peer-2",
+          "pid": 83875,
+          "startedSeconds": 2.63088075,
+          "requestedSeconds": 40.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 47.396090125
+        },
+        {
+          "name": "peer-3",
+          "pid": 83876,
+          "startedSeconds": 2.8843695,
+          "requestedSeconds": 40.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 47.396092625
+        }
+      ],
+      "parity": {
+        "peer-0": {
+          "healthSamplesCompared": 1728,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 440,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 971,
+          "acceptedShots": 971,
+          "committedShots": 938,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 33,
+          "terminalRejectedViewShots": 0,
+          "matchingSemanticFacts": 1920,
+          "viewExpectedCommits": 1884,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 1920,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 1732,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 445,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 11,
+          "acceptedShots": 11,
+          "committedShots": 11,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 0,
+          "terminalRejectedViewShots": 1,
+          "matchingSemanticFacts": 1920,
+          "viewExpectedCommits": 1884,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 1920,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        },
+        "peer-2": {
+          "healthSamplesCompared": 1716,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 445,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 950,
+          "acceptedShots": 950,
+          "committedShots": 925,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 25,
+          "terminalRejectedViewShots": 0,
+          "matchingSemanticFacts": 1920,
+          "viewExpectedCommits": 1884,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 1920,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        },
+        "peer-3": {
+          "healthSamplesCompared": 1704,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 445,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 10,
+          "acceptedShots": 10,
+          "committedShots": 10,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 0,
+          "terminalRejectedViewShots": 2,
+          "matchingSemanticFacts": 1920,
+          "viewExpectedCommits": 1884,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 1920,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        }
+      },
+      "authorityContinuous": {
+        "LifetimePayments": 215,
+        "LifetimeDamage": 219,
+        "LifetimeTurretDamage": 0,
+        "LifetimeHealBody": 219,
+        "LifetimeHealTurret": 0,
+        "uniqueOwnerTicks": 215,
+        "evidenceCount": 215,
+        "evidenceCapacity": 8192
+      },
+      "predictionByPeer": {
+        "peer-0": {
+          "DrainPredicted": 101,
+          "DrainConfirmed": 98,
+          "DrainRejected": 3,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        },
+        "peer-1": {
+          "DrainPredicted": 0,
+          "DrainConfirmed": 0,
+          "DrainRejected": 0,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        },
+        "peer-2": {
+          "DrainPredicted": 122,
+          "DrainConfirmed": 119,
+          "DrainRejected": 3,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        },
+        "peer-3": {
+          "DrainPredicted": 0,
+          "DrainConfirmed": 0,
+          "DrainRejected": 0,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        }
+      },
+      "exactAckVerdicts": {
+        "peer-0": {
+          "receipts": 102,
+          "refusedKeys": 5,
+          "contradictoryPaidKeys": 0
+        },
+        "peer-1": {
+          "receipts": 10,
+          "refusedKeys": 0,
+          "contradictoryPaidKeys": 0
+        },
+        "peer-2": {
+          "receipts": 122,
+          "refusedKeys": 4,
+          "contradictoryPaidKeys": 0
+        },
+        "peer-3": {
+          "receipts": 9,
+          "refusedKeys": 0,
+          "contradictoryPaidKeys": 0
+        }
+      },
+      "terminalContinuousRejections": {
+        "server": 58,
+        "peer-0": 24,
+        "peer-1": 57,
+        "peer-2": 29,
+        "peer-3": 55
+      },
+      "respawnedContexts": 4,
+      "committedWeaponRows": {
+        "7": 7519,
+        "4": 84
+      },
+      "artifacts": {
+        "manifest.json": {
+          "path": "artifacts/net2-n6/mac-4-moderate-mixed-candidate18/manifest.json",
+          "bytes": 867762,
+          "sha256": "a9abdd5997ca78f5051b9717042ba3b79ae5690d78fc40b05965c5c1a257218c"
+        },
+        "summary.json": {
+          "path": "artifacts/net2-n6/mac-4-moderate-mixed-candidate18/summary.json",
+          "bytes": 26315,
+          "sha256": "d1e2c810618dede7bd0c066b9ef7f2e560579f521148292f394f9397b6277be8"
+        },
+        "continuous-audit.json": {
+          "path": "artifacts/net2-n6/mac-4-moderate-mixed-candidate18/continuous-audit.json",
+          "bytes": 33389,
+          "sha256": "53e000db7b504a3fc0362b85e5b876a20dae594e7465a38c88bdd05f00726c20"
+        },
+        "continuous-audit.log": {
+          "path": "artifacts/net2-n6/mac-4-moderate-mixed-candidate18/continuous-audit.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "name": "mac-8-extreme-mixed-candidate18",
+      "status": "PASS",
+      "continuousAudit": "PASS",
+      "source": "0654896999f3984b669537310574c3d373e57cf0",
+      "assemblySha256": "93bc9357b3b7efec4c7b74d7857a73063f83b2913fee97397aaacbcd096efa16",
+      "settings": {
+        "players": 8,
+        "seconds": 50.0,
+        "drain_seconds": 18.0,
+        "profile": "extreme",
+        "scenario": "shockcoil-mixed",
+        "rooms": "MP3 PROVING GROUND"
+      },
+      "drain": "PASS",
+      "processes": [
+        {
+          "name": "server",
+          "pid": 83787,
+          "startedSeconds": 0.0019437079999999884,
+          "requestedSeconds": 50.0,
+          "expectsShots": false,
+          "exit": 0,
+          "timedOut": false
+        },
+        {
+          "name": "peer-0",
+          "pid": 83788,
+          "startedSeconds": 2.118292375,
+          "requestedSeconds": 50.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 61.640391708
+        },
+        {
+          "name": "peer-1",
+          "pid": 83789,
+          "startedSeconds": 2.3767043749999996,
+          "requestedSeconds": 50.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 61.640394583
+        },
+        {
+          "name": "peer-2",
+          "pid": 83790,
+          "startedSeconds": 2.634944916,
+          "requestedSeconds": 50.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 61.640396375
+        },
+        {
+          "name": "peer-3",
+          "pid": 83791,
+          "startedSeconds": 2.890767583,
+          "requestedSeconds": 50.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 61.640397916
+        },
+        {
+          "name": "peer-4",
+          "pid": 83792,
+          "startedSeconds": 3.1481002080000002,
+          "requestedSeconds": 50.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 61.640399625
+        },
+        {
+          "name": "peer-5",
+          "pid": 83793,
+          "startedSeconds": 3.4042342910000003,
+          "requestedSeconds": 50.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 61.64040125
+        },
+        {
+          "name": "peer-6",
+          "pid": 83794,
+          "startedSeconds": 3.6616955829999998,
+          "requestedSeconds": 50.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 61.640402916
+        },
+        {
+          "name": "peer-7",
+          "pid": 83795,
+          "startedSeconds": 3.9297972910000003,
+          "requestedSeconds": 50.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 61.640404416
+        }
+      ],
+      "parity": {
+        "peer-0": {
+          "healthSamplesCompared": 4024,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 544,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 729,
+          "acceptedShots": 729,
+          "committedShots": 662,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 67,
+          "terminalRejectedViewShots": 1,
+          "matchingSemanticFacts": 3287,
+          "viewExpectedCommits": 3226,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 3287,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 4192,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 551,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 11,
+          "acceptedShots": 11,
+          "committedShots": 11,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 0,
+          "terminalRejectedViewShots": 2,
+          "matchingSemanticFacts": 3287,
+          "viewExpectedCommits": 3226,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 3287,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        },
+        "peer-2": {
+          "healthSamplesCompared": 4128,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 546,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 877,
+          "acceptedShots": 877,
+          "committedShots": 805,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 72,
+          "terminalRejectedViewShots": 415,
+          "matchingSemanticFacts": 3287,
+          "viewExpectedCommits": 3226,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 3287,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        },
+        "peer-3": {
+          "healthSamplesCompared": 4136,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 541,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 11,
+          "acceptedShots": 11,
+          "committedShots": 11,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 0,
+          "terminalRejectedViewShots": 1,
+          "matchingSemanticFacts": 3287,
+          "viewExpectedCommits": 3226,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 3287,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        },
+        "peer-4": {
+          "healthSamplesCompared": 4045,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 538,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 810,
+          "acceptedShots": 810,
+          "committedShots": 747,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 63,
+          "terminalRejectedViewShots": 413,
+          "matchingSemanticFacts": 3287,
+          "viewExpectedCommits": 3226,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 3287,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        },
+        "peer-5": {
+          "healthSamplesCompared": 3992,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 531,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 12,
+          "acceptedShots": 12,
+          "committedShots": 12,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 0,
+          "terminalRejectedViewShots": 1,
+          "matchingSemanticFacts": 3284,
+          "viewExpectedCommits": 3223,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 3284,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        },
+        "peer-6": {
+          "healthSamplesCompared": 4088,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 527,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 1021,
+          "acceptedShots": 1021,
+          "committedShots": 967,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 54,
+          "terminalRejectedViewShots": 2,
+          "matchingSemanticFacts": 3287,
+          "viewExpectedCommits": 3226,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 3287,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        },
+        "peer-7": {
+          "healthSamplesCompared": 4000,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 535,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 11,
+          "acceptedShots": 11,
+          "committedShots": 11,
+          "wrongWeaponChargeKind": 0,
+          "terminalRejectedOfferedShots": 0,
+          "terminalRejectedViewShots": 2,
+          "matchingSemanticFacts": 3248,
+          "viewExpectedCommits": 3215,
+          "viewMissingCommits": 0,
+          "viewTailExcludedFrames": 30,
+          "semanticExpected": 3248,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticTailExcludedFrames": 60,
+          "semanticCompleteness": "PASS",
+          "renderedProjectileAgreement": "NOT_RUN"
+        }
+      },
+      "authorityContinuous": {
+        "LifetimePayments": 383,
+        "LifetimeDamage": 390,
+        "LifetimeTurretDamage": 0,
+        "LifetimeHealBody": 390,
+        "LifetimeHealTurret": 0,
+        "uniqueOwnerTicks": 383,
+        "evidenceCount": 383,
+        "evidenceCapacity": 8192
+      },
+      "predictionByPeer": {
+        "peer-0": {
+          "DrainPredicted": 80,
+          "DrainConfirmed": 70,
+          "DrainRejected": 10,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        },
+        "peer-1": {
+          "DrainPredicted": 0,
+          "DrainConfirmed": 0,
+          "DrainRejected": 0,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        },
+        "peer-6": {
+          "DrainPredicted": 124,
+          "DrainConfirmed": 116,
+          "DrainRejected": 8,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        },
+        "peer-7": {
+          "DrainPredicted": 0,
+          "DrainConfirmed": 0,
+          "DrainRejected": 0,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        },
+        "peer-4": {
+          "DrainPredicted": 105,
+          "DrainConfirmed": 95,
+          "DrainRejected": 10,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        },
+        "peer-5": {
+          "DrainPredicted": 0,
+          "DrainConfirmed": 0,
+          "DrainRejected": 0,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        },
+        "peer-2": {
+          "DrainPredicted": 118,
+          "DrainConfirmed": 107,
+          "DrainRejected": 11,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        },
+        "peer-3": {
+          "DrainPredicted": 0,
+          "DrainConfirmed": 0,
+          "DrainRejected": 0,
+          "DrainExpired": 0,
+          "DrainCurrentPoints": 0,
+          "Outstanding": 0
+        }
+      },
+      "exactAckVerdicts": {
+        "peer-0": {
+          "receipts": 80,
+          "refusedKeys": 10,
+          "contradictoryPaidKeys": 0
+        },
+        "peer-1": {
+          "receipts": 10,
+          "refusedKeys": 0,
+          "contradictoryPaidKeys": 0
+        },
+        "peer-6": {
+          "receipts": 121,
+          "refusedKeys": 10,
+          "contradictoryPaidKeys": 0
+        },
+        "peer-7": {
+          "receipts": 10,
+          "refusedKeys": 0,
+          "contradictoryPaidKeys": 0
+        },
+        "peer-4": {
+          "receipts": 105,
+          "refusedKeys": 10,
+          "contradictoryPaidKeys": 0
+        },
+        "peer-5": {
+          "receipts": 11,
+          "refusedKeys": 1,
+          "contradictoryPaidKeys": 0
+        },
+        "peer-2": {
+          "receipts": 117,
+          "refusedKeys": 11,
+          "contradictoryPaidKeys": 0
+        },
+        "peer-3": {
+          "receipts": 6,
+          "refusedKeys": 0,
+          "contradictoryPaidKeys": 0
+        }
+      },
+      "terminalContinuousRejections": {
+        "server": 256,
+        "peer-0": 184,
+        "peer-1": 250,
+        "peer-6": 203,
+        "peer-7": 252,
+        "peer-4": 593,
+        "peer-5": 245,
+        "peer-2": 595,
+        "peer-3": 246
+      },
+      "respawnedContexts": 5,
+      "committedWeaponRows": {
+        "7": 24928,
+        "4": 360
+      },
+      "artifacts": {
+        "manifest.json": {
+          "path": "artifacts/net2-n6/mac-8-extreme-mixed-candidate18/manifest.json",
+          "bytes": 2774894,
+          "sha256": "2d8b9061184659dff3a1ea8e70e100665937f3875901ae15da73f73dd2ee20ea"
+        },
+        "summary.json": {
+          "path": "artifacts/net2-n6/mac-8-extreme-mixed-candidate18/summary.json",
+          "bytes": 180422,
+          "sha256": "8c0fde39735bae51eb9228935a07378cd1dc2bedbed033be13f145db097acc38"
+        },
+        "continuous-audit.json": {
+          "path": "artifacts/net2-n6/mac-8-extreme-mixed-candidate18/continuous-audit.json",
+          "bytes": 384966,
+          "sha256": "7e6aba2a1880247c10d0e2ec556f6259236df757a0340f1e69ffc16c5f0017d4"
+        },
+        "continuous-audit.log": {
+          "path": "artifacts/net2-n6/mac-8-extreme-mixed-candidate18/continuous-audit.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    }
+  ],
+  "developmentCampaigns": [
+    {
+      "name": "mac-2-lan-mixed-attempt02",
+      "source": "734b30ef+n6-attempt02-uncommitted-prototype",
+      "originalSummaryStatus": "FAIL",
+      "usedForAcceptance": false,
+      "summary": {
+        "path": "artifacts/net2-n6/mac-2-lan-mixed-attempt02/summary.json",
+        "bytes": 27096,
+        "sha256": "51c67cf10647a6e3fbd3a4b701d4533ad98b7cff50bb40622606ab5387d57e88"
+      },
+      "audits": []
+    },
+    {
+      "name": "mac-2-lan-mixed-attempt04",
+      "source": "734b30ef+n6-attempt04-uncommitted",
+      "originalSummaryStatus": "FAIL",
+      "usedForAcceptance": false,
+      "summary": {
+        "path": "artifacts/net2-n6/mac-2-lan-mixed-attempt04/summary.json",
+        "bytes": 7868,
+        "sha256": "e720a99d3b014e00b1978cf16fd12aa1301a4c402271fb9ed58211374f754132"
+      },
+      "audits": [
+        {
+          "status": "FAIL",
+          "failures": [
+            "unchanged campaign adjudication failed"
+          ],
+          "missing": [],
+          "result": {
+            "path": "artifacts/net2-n6/mac-2-lan-mixed-attempt04/continuous-audit-original.json",
+            "bytes": 1232,
+            "sha256": "a1273b7607944c34ad4ff62b0effcf3b447ec35a7386ce054ef053fbb6c2f787"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mac-2-lan-mixed-attempt05",
+      "source": "734b30ef+n6-attempt05-uncommitted",
+      "originalSummaryStatus": "PASS",
+      "usedForAcceptance": false,
+      "summary": {
+        "path": "artifacts/net2-n6/mac-2-lan-mixed-attempt05/summary.json",
+        "bytes": 7128,
+        "sha256": "f1178fdbbfa943c8c0c91c550f0596709483be90f479b7d892a358b693f9d1fb"
+      },
+      "audits": [
+        {
+          "status": "FAIL",
+          "failures": [
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272859349955230, 2, 0, 1, 2, 340)",
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272859349955230, 2, 0, 1, 2, 344)",
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272859349955230, 2, 0, 1, 2, 350)",
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272859349955230, 2, 0, 1, 2, 356)",
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272859349955230, 2, 0, 1, 2, 360)",
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272859349955230, 2, 0, 1, 2, 366)",
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272859349955230, 2, 0, 1, 2, 372)",
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272859349955230, 2, 0, 1, 2, 376)",
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272859349955230, 2, 0, 1, 2, 382)",
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272859349955230, 2, 0, 1, 2, 388)",
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272859349955230, 2, 0, 1, 2, 392)",
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272859349955230, 2, 0, 1, 2, 398)"
+          ],
+          "missing": [],
+          "result": {
+            "path": "artifacts/net2-n6/mac-2-lan-mixed-attempt05/continuous-audit-exact-verdicts.json",
+            "bytes": 6337,
+            "sha256": "a30baf333c245f62d89a6c7e1e315b365dab20b47dbf0703838aedfd20ee4075"
+          }
+        },
+        {
+          "status": "PASS",
+          "failures": [],
+          "missing": [],
+          "result": {
+            "path": "artifacts/net2-n6/mac-2-lan-mixed-attempt05/continuous-audit.json",
+            "bytes": 1428,
+            "sha256": "f8c8275dd88d0037566f4402f273230454da94c9b163fbd75566dcb917367b0d"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mac-4-moderate-mixed-attempt05",
+      "source": "734b30ef+n6-attempt05-uncommitted",
+      "originalSummaryStatus": "FAIL",
+      "usedForAcceptance": false,
+      "summary": {
+        "path": "artifacts/net2-n6/mac-4-moderate-mixed-attempt05/summary.json",
+        "bytes": 13577,
+        "sha256": "efb344c36e05fa755f4656e84396981185b95567838a32b3e2a593ed240c661d"
+      },
+      "audits": []
+    },
+    {
+      "name": "mac-4-moderate-mixed-combat-hall",
+      "source": "b2653397f8ce44c086e5d68327239435504a4ac9",
+      "originalSummaryStatus": "FAIL",
+      "usedForAcceptance": false,
+      "summary": {
+        "path": "artifacts/net2-n6/mac-4-moderate-mixed-combat-hall/summary.json",
+        "bytes": 27483,
+        "sha256": "68010aa576b2f71933d60ba7d739b9d1c784517d6fbdde73d7a036d687de0380"
+      },
+      "audits": [
+        {
+          "status": "FAIL",
+          "failures": [
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272863901663210, 2, 0, 1, 3, 398)",
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272863901663210, 2, 0, 1, 6, 930)",
+            "peer-0: refused CombatAck emitted shot has authority damage/heal payment: (639272863901663210, 2, 0, 1, 6, 936)",
+            "authority terminal rejected tick has a damage/heal payment: (639272863901663210, 2, 2, 1, 2, 74)",
+            "authority terminal rejected tick has a damage/heal payment: (639272863901663210, 2, 0, 1, 5, 767)",
+            "unchanged campaign adjudication failed"
+          ],
+          "missing": [],
+          "result": {
+            "path": "artifacts/net2-n6/mac-4-moderate-mixed-combat-hall/continuous-audit-exact-verdicts.json",
+            "bytes": 35708,
+            "sha256": "2cec9442343edb4e3cfc95ad1ddaa5510be4bb02a9ff4eec149bfcace5913ef5"
+          }
+        },
+        {
+          "status": "FAIL",
+          "failures": [
+            "authority terminal rejected tick has a damage/heal payment: (639272863901663210, 2, 2, 1, 2, 74)",
+            "authority terminal rejected tick has a damage/heal payment: (639272863901663210, 2, 0, 1, 5, 767)",
+            "unchanged campaign adjudication failed"
+          ],
+          "missing": [],
+          "result": {
+            "path": "artifacts/net2-n6/mac-4-moderate-mixed-combat-hall/continuous-audit.json",
+            "bytes": 33091,
+            "sha256": "4ec1d05028e85633670d2b9f6b1c35213b228953f79099fd446cf047cc0678ff"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mac-4-moderate-mixed-final",
+      "source": "176c194622f02a54b310387bced6f31c8ca031b9",
+      "originalSummaryStatus": "PASS",
+      "usedForAcceptance": false,
+      "summary": {
+        "path": "artifacts/net2-n6/mac-4-moderate-mixed-final/summary.json",
+        "bytes": 25731,
+        "sha256": "b735a4659069f07a4d5e117ab1f18ed07e969773e3c72edf631d9ffbf6a7ced3"
+      },
+      "audits": [
+        {
+          "status": "FAIL",
+          "failures": [
+            "peer-1: malformed exact verdict evidence: invalid key or unknown verdict"
+          ],
+          "missing": [],
+          "result": {
+            "path": "artifacts/net2-n6/mac-4-moderate-mixed-final/continuous-audit.json",
+            "bytes": 32004,
+            "sha256": "58825f6026431c46e2afcf0362ce5060e9b6cb9f07efa02c074c7c351366e9c7"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mac-8-extreme-mixed-candidate15",
+      "source": "32fe41241a5c9c96f39dc06150a8ad03cc2bdf7b",
+      "originalSummaryStatus": "PASS",
+      "usedForAcceptance": false,
+      "summary": {
+        "path": "artifacts/net2-n6/mac-8-extreme-mixed-candidate15/summary.json",
+        "bytes": 126695,
+        "sha256": "a4e12975a85ffbd0e825cf423595ef60388b0429154b26fa92b961da0ba9a80a"
+      },
+      "audits": [
+        {
+          "status": "FAIL",
+          "failures": [
+            "peer-6: refused CombatAck emitted shot has authority damage/heal payment: (639272882741137990, 2, 6, 1, 5, 467)"
+          ],
+          "missing": [],
+          "result": {
+            "path": "artifacts/net2-n6/mac-8-extreme-mixed-candidate15/continuous-audit.json",
+            "bytes": 462061,
+            "sha256": "47300bb8de51b8f681af2d60a0a0affe2e198c59a956a5e69156f3890ac2db9d"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mac-8-extreme-mixed-candidate16",
+      "source": "7c90123c1fbd54de2e95f7eaa684f7a2135ff908",
+      "originalSummaryStatus": "FAIL",
+      "usedForAcceptance": false,
+      "summary": {
+        "path": "artifacts/net2-n6/mac-8-extreme-mixed-candidate16/summary.json",
+        "bytes": 140551,
+        "sha256": "ed91bddfb7656c0bd7f8adda222de300d7fdcca78fcb666bdeb23e911d7839f3"
+      },
+      "audits": [
+        {
+          "status": "FAIL",
+          "failures": [
+            "unchanged campaign adjudication failed"
+          ],
+          "missing": [
+            "campaign drain barrier did not pass"
+          ],
+          "result": {
+            "path": "artifacts/net2-n6/mac-8-extreme-mixed-candidate16/continuous-audit.json",
+            "bytes": 435052,
+            "sha256": "e2616f3ba327d6b6ff506093ef9a1325f628ff94c05cd8c519f66ea0e18274e6"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mac-8-extreme-mixed-combat-hall",
+      "source": "564894af1e417666e2f6c98e1829932ba5bba686",
+      "originalSummaryStatus": "FAIL",
+      "usedForAcceptance": false,
+      "summary": {
+        "path": "artifacts/net2-n6/mac-8-extreme-mixed-combat-hall/summary.json",
+        "bytes": 126623,
+        "sha256": "847aa893a2d8a3463e70726d8b77d290998146eb2193ab673c426f20548daccb"
+      },
+      "audits": [
+        {
+          "status": "FAIL",
+          "failures": [
+            "peer-6: refused CombatAck emitted shot has authority damage/heal payment: (639272867185910100, 2, 6, 1, 4, 13)",
+            "peer-6: refused CombatAck emitted shot has authority damage/heal payment: (639272867185910100, 2, 6, 1, 4, 19)",
+            "peer-6: refused CombatAck emitted shot has authority damage/heal payment: (639272867185910100, 2, 6, 1, 4, 25)",
+            "peer-6: refused CombatAck emitted shot has authority damage/heal payment: (639272867185910100, 2, 6, 1, 4, 31)",
+            "peer-4: refused CombatAck emitted shot has authority damage/heal payment: (639272867185910100, 2, 4, 1, 5, 378)",
+            "peer-4: refused CombatAck emitted shot has authority damage/heal payment: (639272867185910100, 2, 4, 1, 6, 607)",
+            "unchanged campaign adjudication failed"
+          ],
+          "missing": [
+            "peer-0: verdict evidence count differs from CombatAcks",
+            "peer-1: verdict evidence count differs from CombatAcks",
+            "peer-6: verdict evidence count differs from CombatAcks",
+            "peer-7: verdict evidence count differs from CombatAcks",
+            "peer-4: verdict evidence count differs from CombatAcks",
+            "peer-5: verdict evidence count differs from CombatAcks",
+            "peer-2: verdict evidence count differs from CombatAcks",
+            "campaign drain barrier did not pass"
+          ],
+          "result": {
+            "path": "artifacts/net2-n6/mac-8-extreme-mixed-combat-hall/continuous-audit.json",
+            "bytes": 466904,
+            "sha256": "aaaac4719341fbdf544a28e837bd1281deaf7736e2051bf7424f6540582436ab"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mac-8-extreme-mixed-final",
+      "source": "176c194622f02a54b310387bced6f31c8ca031b9",
+      "originalSummaryStatus": "PASS",
+      "usedForAcceptance": false,
+      "summary": {
+        "path": "artifacts/net2-n6/mac-8-extreme-mixed-final/summary.json",
+        "bytes": 137537,
+        "sha256": "5342b9f653870fa0d66763ececb6f529843ecb63a00a4b6c1ebd3c2d1daffd41"
+      },
+      "audits": [
+        {
+          "status": "FAIL",
+          "failures": [
+            "peer-6: refused CombatAck emitted shot has authority damage/heal payment: (639272872723485020, 2, 6, 1, 2, 80)",
+            "peer-6: refused CombatAck emitted shot has authority damage/heal payment: (639272872723485020, 2, 6, 1, 2, 86)",
+            "peer-6: refused CombatAck emitted shot has authority damage/heal payment: (639272872723485020, 2, 6, 1, 2, 90)",
+            "peer-4: refused CombatAck emitted shot has authority damage/heal payment: (639272872723485020, 2, 4, 1, 8, 1123)"
+          ],
+          "missing": [],
+          "result": {
+            "path": "artifacts/net2-n6/mac-8-extreme-mixed-final/continuous-audit.json",
+            "bytes": 495543,
+            "sha256": "1ead1f9caa3bcc7b67cc4c619893c17f8d1e1909efec8cbce601c4fa22d824f2"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mac-8-extreme-mixed-final-v2",
+      "source": "5fbe67c98d58e3f7f8b09007cc20e75def98843a",
+      "originalSummaryStatus": "FAIL",
+      "usedForAcceptance": false,
+      "summary": {
+        "path": "artifacts/net2-n6/mac-8-extreme-mixed-final-v2/summary.json",
+        "bytes": 149230,
+        "sha256": "c002c77d2195bdb3602859dc6a6ec8ce1021c4a2cb2d794bfb37f17d16bf44dc"
+      },
+      "audits": [
+        {
+          "status": "FAIL",
+          "failures": [
+            "peer-6: refused CombatAck emitted shot has authority damage/heal payment: (639272876403316790, 2, 6, 1, 7, 696)",
+            "peer-2: refused CombatAck emitted shot has authority damage/heal payment: (639272876403316790, 2, 2, 1, 6, 498)",
+            "unchanged campaign adjudication failed"
+          ],
+          "missing": [
+            "campaign drain barrier did not pass"
+          ],
+          "result": {
+            "path": "artifacts/net2-n6/mac-8-extreme-mixed-final-v2/continuous-audit.json",
+            "bytes": 564098,
+            "sha256": "a97ebda89d3a78137cad0d88c7b68a74e92a8157c479c8bc2943d62a9456e23d"
+          }
+        }
+      ]
+    }
+  ],
+  "negativeControl": {
+    "name": "authored ACK clock drift",
+    "expectedExit": 1,
+    "result": {
+      "path": "artifacts/net2-n6/attempt-10/prediction-checks/negative-clock.json",
+      "bytes": 740,
+      "sha256": "fad1bd616aa22809afdad608a3f9a99387a453dbda316598137694a5ee125e24"
+    },
+    "note": "Current timing regression ran against prior production engine and failed at intended authored-clock assertion."
+  },
+  "failureDispositions": [
+    {
+      "attempt": "01/allied drain",
+      "cause": "Added explicit ally payment eligibility; covered by final asset tests."
+    },
+    {
+      "attempt": "01-02/snapshot allocation",
+      "cause": "24-byte tiered-JIT measurement artifact; isolated non-optimized measurement loop and warmed separately. Final packet writer measurement is zero allocation."
+    },
+    {
+      "attempt": "02/replay-format",
+      "cause": "Invalid CLI option treated as host name and failed DNS; not evidence of a replay-format failure. Correct replay compatibility exercised by compact-intent tests."
+    },
+    {
+      "attempt": "03/build",
+      "cause": "Missing using declaration; repaired before subsequent builds."
+    },
+    {
+      "attempt": "04-07/asset fixture",
+      "cause": "Real-collision lane, eligibility and emitted phase/ACK setup required correction. Attempts06-08 kept the same production binary; final fixture exercises actual native collision."
+    },
+    {
+      "attempt": "10/asset fixture",
+      "cause": "Manual phase and carrier intent frame setup corrected; immutable failed fixtures retained."
+    },
+    {
+      "attempt": "2-player02/04, 4-player05",
+      "cause": "Retained phase skipped/stranded events and no continuous healing coverage in initial hunter fixture; final mixed rig assigns Sylux and weapon roles by joined slot."
+    },
+    {
+      "attempt": "2-player05",
+      "cause": "Original aggregate audit PASS was insufficient; exact emitted ACK/payment join exposes12 refused-but-paid keys. Old PASS retained but excluded from acceptance."
+    },
+    {
+      "attempt": "4-player05/Data Shrine",
+      "cause": "Stock navigation produced zero offered shots on two peers. Combat Hall used for complete coverage without moving players or changing health."
+    },
+    {
+      "attempt": "4-player/combat-hall",
+      "cause": "Dead native ticks could later rescue. Exact terminal source rejection and paid cleanup dispositions fix it."
+    },
+    {
+      "attempt": "8-player/combat-hall",
+      "cause": "Semantic throughput backlog and incidental unselected native targets. Bounded fact batches and exact selected-target component fence fix both."
+    },
+    {
+      "attempt": "8-player/final",
+      "cause": "Damage ceiling omitted ramp after fractional rounding. Preserve native order."
+    },
+    {
+      "attempt": "4-player/final",
+      "cause": "Corrected Imperialist receipts logged an unknown verdict label. Named the existing result; unknown labels still fail the audit."
+    },
+    {
+      "attempt": "13/protocol19-scene",
+      "cause": "Old manual native beam fixture omitted exact selected target identity; repaired and passes final60 assertions."
+    },
+    {
+      "attempt": "8-player/final-v2",
+      "cause": "Two fractional target geometry ACK contradictions and periodic session/roster refreshes preventing empty reliable queue. Capture native fractional world and quiesce only opt-in test periodic refreshes."
+    },
+    {
+      "attempt": "17/load-lifecycle",
+      "cause": "Readiness assertions passed, but bundled lobby compatibility still hardcoded protocol42. Updated both test-only literals to46; final attempt18 passes."
+    },
+    {
+      "attempt": "8-player/candidate16",
+      "cause": "Startup firing began before authority WorldReady admission; first40 emitted ticks expired and one observer missed the first surviving tick after most of its resend window elapsed. Reliable exact WorldReady echo gates local authoring before resend history starts; no audit exclusion added."
+    },
+    {
+      "attempt": "8-player/candidate15",
+      "cause": "Generic integer hit-point geometry still rejected one continuous claim before native firing source arrived. Defer continuous radius check to grace and captured fractional world; discrete validation preserved."
+    }
+  ],
+  "gateEvidence": {
+    "onePaymentPerOwnerTick": "PASS authority rows and executable duplicate/native/rescue tests",
+    "exactPredictionCreditRetirement": "PASS deterministic receipt/ACK ordering and zero outstanding credit after every final campaign",
+    "healthScoreShotSemanticParity": "PASS all final campaign peers",
+    "refusedAckVersusPaidShotContradictions": 0,
+    "continuousTargetLifecycleAndHistoricalEligibility": "PASS asset tests and exact campaign identities",
+    "rapidRespawnMixedCombat": "PASS final2/4/8 campaigns",
+    "disconnectsAndTimeouts": "zero in final requested short controls",
+    "extendedUse": "NOT_RUN; user requested only necessary short tests"
+  },
+  "limitations": [
+    "N4 resource proof remains shadow; no strict admission or honest-player rejection-rate certification.",
+    "Campaigns establish authority payments, exact recorded ACK outcomes, health/score samples and retired local credit; exhaustive per-tick visible HP across every client is not instrumented.",
+    "No GPU endpoint/health-bar frame agreement claim; presentation payload freshness and exact credit ordering covered deterministically.",
+    "No long-session or performance claim. N7 self-hit/bomb/specialized splash work remains separate."
+  ],
+  "notRun": [
+    "Windows: no platform-specific change requiring it",
+    "Linux/Android",
+    "GitHub Actions",
+    "Long soak per user preference",
+    "Rendered endpoint and every health-bar frame",
+    "Performance comparison"
+  ],
+  "rawEvidence": {
+    "root": "artifacts/net2-n6",
+    "allAttemptsPreserved": true,
+    "index": {
+      "path": "artifacts/net2-n6/evidence-index.json",
+      "bytes": 1535957,
+      "sha256": "df7952fd70b58cd85dc99e6590076f8bfeac8298fbe501935af5fdaca43d6ead"
+    },
+    "archive": {
+      "path": "artifacts/net2-n6-evidence.tar.gz",
+      "bytes": 593290921,
+      "sha256": "41e4ad4259a58bd33f833665dea2a013217f4199e6ad281247d52448455ebc8c"
+    },
+    "verification": {
+      "members": 7245,
+      "method": "Every archived payload rehashed; hardlinks checked against prior verified target",
+      "status": "PASS"
+    },
+    "availability": "Local archive only; ignored logs and binaries are not published to GitHub. Tracked ledger preserves results and hashes."
+  }
+}
