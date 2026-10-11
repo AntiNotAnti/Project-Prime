@@ -57,14 +57,17 @@ internal static class QuiescentTurretTests
                 .CreateDelegate<Action<KeyboardState, Keys, bool>>();
             bool helperPressed = false, helperReleased = false;
             BeamProjectileEntity? witnessedFlight = null;
-            void Step(bool morph = false, bool quiesce = false, Keys move = Keys.Unknown)
+            void Step(bool morph = false, bool quiesce = false)
             {
                 uint before = NetSession.NetFrame; Frame(unchecked(before + 1));
+                Keys move = Keys.Unknown;
                 if (quiesce)
                 {
                     Vector3? flightPosition = witnessedFlight?.Position;
                     float? flightLife = witnessedFlight?.Lifespan;
                     int bodyHealth = owner.Health; bool alt = owner.IsAltForm, unmorph = owner.IsUnmorphing;
+                    bool blocked = owner.Health > 0 && owner.IsAltForm && !owner.IsMorphing && !owner.IsUnmorphing
+                        && (owner.MorphCamera != null || owner.Flags1.TestFlag(PlayerFlags1.NoUnmorph));
                     NetTestScript.ApplyQuiescentControls(owner);
                     Check(owner.Health == bodyHealth && owner.IsAltForm == alt && owner.IsUnmorphing == unmorph,
                         "helper requests controls without directly changing native health or form");
@@ -73,8 +76,14 @@ internal static class QuiescentTurretTests
                             "helper does not delete or alter existing native flight before simulation");
                     morph = owner.Controls.Morph.IsDown;
                     helperPressed |= owner.Controls.Morph.IsPressed; helperReleased |= owner.Controls.Morph.IsReleased;
-                    Check(owner.Controls.All.Where(control => !ReferenceEquals(control, owner.Controls.Morph)).All(control => !control.IsDown),
-                        "quiescent helper requests no other held action");
+                    var moves = new[] { owner.Controls.MoveUp, owner.Controls.MoveRight, owner.Controls.MoveDown, owner.Controls.MoveLeft };
+                    var keys = new[] { Keys.W, Keys.D, Keys.S, Keys.A };
+                    int held = 0;
+                    for (int i = 0; i < moves.Length; i++) if (moves[i].IsDown) { move = keys[i]; held++; }
+                    Check(blocked ? held == 1 : held == 0,
+                        "actual helper requests exactly one Move only while native expansion gates are blocked");
+                    Check(owner.Controls.All.Where(control => !ReferenceEquals(control, owner.Controls.Morph)
+                        && !moves.Contains(control)).All(control => !control.IsDown), "helper requests no unrelated held action");
                 }
                 foreach (Keys key in new[] { Keys.W, Keys.D, Keys.S, Keys.A }) setKey(keyboard, key, key == move);
                 setKey(keyboard, Keys.C, morph); sim.Step();
@@ -112,7 +121,7 @@ internal static class QuiescentTurretTests
                 Step(); Console.WriteLine("BLOCKED NATIVE CONTACT " + JsonSerializer.Serialize(Gate()));
                 for (int i = 0; i < 180; i++)
                 {
-                    Step(quiesce: true);
+                    Step(morph: unchecked(NetSession.NetFrame + 1) % 12 == 0);
                     if (owner.Controls.Morph.IsPressed) Console.WriteLine("BLOCKED NATIVE PULSE " + JsonSerializer.Serialize(Gate()));
                 }
                 Console.WriteLine("BLOCKED FINAL " + JsonSerializer.Serialize(Gate()));
@@ -127,21 +136,19 @@ internal static class QuiescentTurretTests
                 int gatesClearTick = -1;
                 bool previousCamera = owner.MorphCamera != null;
                 bool previousBlocked = owner.Flags1.TestFlag(PlayerFlags1.NoUnmorph);
-                foreach (Keys move in new[] { Keys.W, Keys.D, Keys.S, Keys.A })
+                while (escapeTicks < 480 && owner.IsAltForm && !owner.IsUnmorphing)
                 {
-                    Console.WriteLine("ESCAPE DIRECTION " + move + " " + JsonSerializer.Serialize(Gate()));
-                    for (int i = 0; i < 120 && owner.IsAltForm && !owner.IsUnmorphing; i++)
-                    {
-                        Step(quiesce: true, move: move); escapeTicks++;
-                        startedEscapeUnmorph |= owner.IsUnmorphing;
-                        bool camera = owner.MorphCamera != null;
-                        bool blocked = owner.Flags1.TestFlag(PlayerFlags1.NoUnmorph);
-                        if (i % 12 == 0 || owner.IsUnmorphing || camera != previousCamera || blocked != previousBlocked)
-                            Console.WriteLine("ESCAPE NATIVE " + move + " tick=" + escapeTicks + " " + JsonSerializer.Serialize(Gate()));
-                        previousCamera = camera; previousBlocked = blocked;
-                        if (!camera && !blocked) { gatesClearTick = escapeTicks; break; }
-                    }
-                    if (gatesClearTick >= 0 || owner.IsUnmorphing || !owner.IsAltForm) break;
+                    Step(quiesce: true); escapeTicks++;
+                    startedEscapeUnmorph |= owner.IsUnmorphing;
+                    bool camera = owner.MorphCamera != null;
+                    bool blocked = owner.Flags1.TestFlag(PlayerFlags1.NoUnmorph);
+                    if (escapeTicks % 12 == 1 || owner.IsUnmorphing || camera != previousCamera || blocked != previousBlocked)
+                        Console.WriteLine("ESCAPE ACTUAL HELPER tick=" + escapeTicks + " input="
+                            + (owner.Controls.MoveUp.IsDown ? "MoveUp" : owner.Controls.MoveRight.IsDown ? "MoveRight"
+                                : owner.Controls.MoveDown.IsDown ? "MoveDown" : owner.Controls.MoveLeft.IsDown ? "MoveLeft" : "None")
+                            + " " + JsonSerializer.Serialize(Gate()));
+                    previousCamera = camera; previousBlocked = blocked;
+                    if (!camera && !blocked) { gatesClearTick = escapeTicks; break; }
                 }
                 Console.WriteLine("ESCAPE MOVEMENT END ticks=" + escapeTicks + " gatesClearTick=" + gatesClearTick + " " + JsonSerializer.Serialize(Gate()));
                 Check(owner.Position != blockedStart, "ordinary Move input moves the actual blocked native body");
@@ -153,7 +160,7 @@ internal static class QuiescentTurretTests
                 Check(!owner.IsAltForm && !owner.IsUnmorphing && !owner.Flags2.TestFlag(PlayerFlags2.Halfturret),
                     "ordinary movement escape finishes native biped and retires autonomous turret");
                 Console.WriteLine("ESCAPE FINAL " + JsonSerializer.Serialize(Gate()));
-                Console.WriteLine($"QUIESCENT BLOCKED TURRET: {_checks} checks PASS; native refusal then ordinary movement escape, no forced form or health writes");
+                Console.WriteLine($"QUIESCENT BLOCKED TURRET: {_checks} checks PASS; native refusal then actual helper movement escape, no forced form or health writes");
                 return 0;
             }
             // Existing flight is an actual native projectile, not a synthetic
