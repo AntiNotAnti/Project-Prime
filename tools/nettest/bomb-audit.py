@@ -9,6 +9,9 @@ entity/state evidence can never establish pixels.
 import argparse
 from collections import defaultdict
 import json
+import hashlib
+import struct
+import zlib
 import math
 from pathlib import Path
 
@@ -139,6 +142,146 @@ def without_shots(value):
     if isinstance(value, list):
         return [without_shots(v) for v in value]
     return value
+
+
+def png_rgb(path):
+    """Decode the renderer's bounded noninterlaced 8-bit RGB PNGs, stdlib only."""
+    raw = Path(path).read_bytes()
+    if len(raw) > 20*1024*1024 or raw[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError("invalid/beyond-bound PNG")
+    offset, compressed, dimensions = 8, bytearray(), None
+    while offset < len(raw):
+        length = struct.unpack(">I",raw[offset:offset+4])[0]
+        tag = raw[offset+4:offset+8];data = raw[offset+8:offset+8+length]
+        crc = raw[offset+8+length:offset+12+length]
+        if len(data) != length or len(crc) != 4 or zlib.crc32(tag+data)&0xffffffff != struct.unpack(">I",crc)[0]:
+            raise ValueError("invalid PNG chunk/checksum")
+        if tag == b"IHDR":
+            dimensions = struct.unpack(">IIBBBBB",data)
+        elif tag == b"IDAT":
+            compressed.extend(data)
+        offset += length+12
+        if tag == b"IEND":
+            break
+    if dimensions is None:
+        raise ValueError("missing PNG dimensions")
+    width,height,depth,color,compression,filter_method,interlace = dimensions
+    if not 0 < width <= 4096 or not 0 < height <= 4096 or depth != 8 or color != 2 or any((compression,filter_method,interlace)):
+        raise ValueError("unsupported/beyond-bound PNG format")
+    stride = width*3;expected = (stride+1)*height
+    decoder = zlib.decompressobj();scanlines = decoder.decompress(bytes(compressed),expected+1)
+    if len(scanlines) != expected or not decoder.eof or decoder.unconsumed_tail:
+        raise ValueError("invalid/beyond-bound PNG scanlines")
+    rgb, previous = bytearray(),bytearray(stride)
+    for y in range(height):
+        at = y*(stride+1);method = scanlines[at];row = bytearray(scanlines[at+1:at+1+stride])
+        if method > 4:
+            raise ValueError("invalid PNG filter")
+        for x in range(stride):
+            left = row[x-3] if x >= 3 else 0;up = previous[x];upper_left = previous[x-3] if x >= 3 else 0
+            if method == 1: predictor = left
+            elif method == 2: predictor = up
+            elif method == 3: predictor = (left+up)//2
+            elif method == 4:
+                estimate = left+up-upper_left
+                distances = (abs(estimate-left),abs(estimate-up),abs(estimate-upper_left))
+                predictor = (left,up,upper_left)[distances.index(min(distances))]
+            else: predictor = 0
+            row[x] = (row[x]+predictor)&255
+        rgb.extend(row);previous = row
+    return raw,width,height,bytes(rgb)
+
+
+def slash_key(value):
+    if not isinstance(value,str):
+        raise ValueError("GPU full key must be canonical slash-separated string")
+    fields = value.split("/")
+    if len(fields) != 6 or any(not field.isdecimal() or str(int(field)) != field for field in fields):
+        raise ValueError("GPU full key must have exactly six canonical integer fields")
+    return key(dict(zip(KEY_FIELDS,map(int,fields))))
+
+
+def render_fixture(report, engine_sha, finding):
+    if report is None:
+        return "NOT_RUN"
+    verdicts = []
+    def issue(status,field,message):
+        verdicts.append(status);finding(status,"render-fixture",field,message)
+    try:
+        if "assemblySha256" not in report:
+            issue("INCOMPLETE","assemblySha256","GPU report cannot bind to exact campaign engine")
+        elif report["assemblySha256"] != engine_sha or report.get("assemblyAfterSha256",engine_sha) != engine_sha:
+            issue("FAIL","assemblySha256","GPU fixture and campaign engine identities differ")
+        proof = report["bombVisibility"]
+        if report["schema"] != 1 or proof["schema"] != 1 or report["complete"] is not True:
+            raise ValueError("incomplete/unsupported GPU report")
+        if proof["status"] != "PASS" or proof["failures"]:
+            issue("FAIL","bombVisibility.status","GPU fixture reported failure")
+        if proof["matchState"] != "InProgress" or proof["MenuPause"] is not False or proof["DialogPause"] is not False or proof["processFrame"] is not True:
+            raise ValueError("GPU fixture paused/outside active production rendering")
+        if integer(proof["pixelThreshold"],255) != 2:
+            raise ValueError("unexpected GPU pixel difference threshold")
+        fixtures = {}
+        for row in proof["fixtures"]:
+            identity = slash_key(row["key"])
+            if identity in fixtures or row["kind"] not in KINDS:
+                raise ValueError("duplicate/invalid GPU fixture full key/kind")
+            if len(row["position"]) != 3 or any(type(v) not in (int,float) or not math.isfinite(v) for v in row["position"]):
+                raise ValueError("invalid GPU fixture position")
+            integer(row["Index"],2);integer(row["Link0"]);integer(row["Link1"])
+            fixtures[identity] = row
+        if len(fixtures) != 5 or {k:sum(r["kind"] == k for r in fixtures.values()) for k in KINDS} != dict(MorphBall=1,Stinglarva=1,Lockjaw=3):
+            raise ValueError("need exactly five bodies across all three kinds")
+        linked = sorted(((k,r) for k,r in fixtures.items() if r["kind"] == "Lockjaw"),key=lambda pair:pair[1]["Index"])
+        if [r["Index"] for _,r in linked] != [0,1,2] or len({k[:5] for k,_ in linked}) != 1:
+            raise ValueError("Lockjaw fixture lacks same-owner three-index triangle")
+        if [(r["Link0"],r["Link1"]) for _,r in linked] != [(0,0),(linked[0][0][5],0),(linked[0][0][5],linked[1][0][5])]:
+            raise ValueError("GPU triangle links differ from exact progressive owner keys")
+        expected = {(k,None,occluded) for k in fixtures for occluded in (False,True)}
+        edges = ((linked[1][0],linked[0][0]),(linked[2][0],linked[0][0]),(linked[2][0],linked[1][0]))
+        expected.update((a,b,occluded) for a,b in edges for occluded in (False,True))
+        observed, capture_cache = set(),{}
+        for row in proof["cases"]:
+            source = slash_key(row["key"])
+            target = None if row["targetKey"] is None else slash_key(row["targetKey"])
+            if type(row["occluded"]) is not bool or (source,target,row["occluded"]) in observed:
+                raise ValueError("duplicate/invalid GPU body/edge case")
+            observed.add((source,target,row["occluded"]))
+            if row["status"] != "PASS" or row["geometryVerified"] is not True:
+                raise ValueError("GPU case failed geometry/pixel predicate")
+            world,fixture = row["worldDepth"],row["fixtureDepth"]
+            if any(type(v) not in (int,float) or not math.isfinite(v) or not 0 <= v <= 1 for v in (world,fixture)):
+                raise ValueError("invalid GPU depth samples")
+            if not (0 < world < fixture-.00001 if row["occluded"] else world > fixture-.00001):
+                raise ValueError("GPU depth cannot prove asserted visible/occluded geometry")
+            if len(row["captures"]) != 3:
+                raise ValueError("need before/enabled/after PNGs per GPU case")
+            images=[]
+            for capture in row["captures"]:
+                path = capture["path"]
+                if path not in capture_cache:
+                    capture_cache[path] = png_rgb(path)
+                raw,width,height,rgb = capture_cache[path]
+                if hashlib.sha256(raw).hexdigest() != capture["pngSha256"] or (width,height) != (capture["width"],capture["height"]):
+                    raise ValueError("GPU PNG hash/dimensions differ from capture report")
+                flipped = b"".join(rgb[y*width*3:(y+1)*width*3] for y in reversed(range(height)))
+                if capture["rgbSha256"] not in (hashlib.sha256(rgb).hexdigest(),hashlib.sha256(flipped).hexdigest()):
+                    raise ValueError("GPU PNG RGB differs from framebuffer hash")
+                images.append((width,height,rgb))
+            if len({image[:2] for image in images}) != 1:
+                raise ValueError("GPU bracket dimensions differ")
+            def difference(a,b):
+                return sum(any(abs(x-y) > 2 for x,y in zip(a[i:i+3],b[i:i+3])) for i in range(0,len(a),3))
+            changed = difference(images[0][2],images[1][2]);unstable = difference(images[0][2],images[2][2])
+            if changed != integer(row["changedPixels"]) or unstable != integer(row["unstablePixels"]) or unstable or (changed != 0 if row["occluded"] else changed == 0):
+                raise ValueError("GPU pixel comparison failed recomputed stable visible/wall control")
+        if observed != expected:
+            raise ValueError("need exactly five bodies and three edges, visible and wall controls")
+    except FileNotFoundError as error:
+        issue("INCOMPLETE","bombVisibility.captures",str(error))
+    except (OSError,KeyError,TypeError,ValueError,struct.error,zlib.error) as error:
+        issue("FAIL","bombVisibility",str(error))
+    return "FAIL" if "FAIL" in verdicts else "INCOMPLETE" if verdicts else "PASS"
 
 
 def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibility=None):
@@ -307,7 +450,11 @@ def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibil
                    authorityEventCounts={kind:sum(e[2] == kind for e in events) for kind in sorted(EVENT_KINDS)})
 
     snapshots = {}
+    previous_frontier = 0
     for frame, frontier, states in authority["snapshots"]:
+        if frontier < previous_frontier:
+            finding("FAIL","server","Bombs.Snapshot.Frontier","authority snapshot frontier regressed")
+        previous_frontier = frontier
         if frontier > (final if final is not None else len(events)):
             finding("FAIL","server","Bombs.Snapshot.Frontier","snapshot frontier beyond authority stream")
         live = {k for k,b in placements.items() if b[0] <= frontier and (k not in terminals or terminals[k][0] > frontier)}
@@ -340,7 +487,11 @@ def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibil
             finding("FAIL",name,"Bombs.Event","post-bootstrap event sequence/payload differs from exact authority interval")
         if final is not None and start > final:
             finding("FAIL",name,"Bombs.Snapshot.Frontier","bootstrap exceeds final authority frontier")
+        previous_frontier = start
         for frame,frontier,states in seen:
+            if frontier < previous_frontier:
+                finding("FAIL",name,"Bombs.Snapshot.Frontier","applied snapshot frontier regressed")
+            previous_frontier = frontier
             if (frame,frontier) not in snapshots:
                 finding("INCOMPLETE",name,"Bombs.Snapshot","authority frame/frontier snapshot unavailable")
             elif snapshots[frame,frontier] != states:
@@ -349,6 +500,8 @@ def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibil
         peer_snapshots[name] = [set(ss) for _,_,ss in seen]
         metrics["peers"].setdefault(name,{}).update(bootstrapFrontier=start,bootstrapLiveKeys=[list(s[0]) for s in seen[0][2]],
                 bootstrapLiveCount=len(seen[0][2]),eventsCompared=len(expected),snapshotsCompared=len(seen))
+    if not kinds:
+        finding("FAIL","campaign","kind","at least one relevant bomb kind must be required")
     for kind in kinds:
         if kind not in KINDS:
             finding("FAIL","campaign","kind","unknown required bomb kind")
@@ -394,16 +547,15 @@ def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibil
             if not motion_rotation(peer_states.get(name,set())):
                 finding("INCOMPLETE",name,"coverage.Stinglarva.motionRotation","moving/rotating same-key poses not observed exactly")
     gameplay = "FAIL" if any(f["status"] == "FAIL" for f in findings) else "INCOMPLETE" if findings else "PASS"
-    # GPU report format intentionally remains conservative until independently
-    # defined presentation captures can bind pixels to exact campaign identities.
-    visibility_status = "INCOMPLETE"
-    finding("INCOMPLETE","campaign","visibility", "GPU pixel visibility proof unavailable" if visibility is None else "supplied GPU report has no established exact-key presentation verification contract")
-    return dict(status="FAIL" if gameplay == "FAIL" else "INCOMPLETE", gameplayStatus=gameplay,
-                visibilityStatus=visibility_status, liveVisibilityStatus=visibility_status,
-                renderFixtureStatus="NOT_RUN" if visibility is None else "INCOMPLETE", scope=dict(authorityMatches=1, requiredKinds=list(kinds),
+    render_status = render_fixture(visibility,manifest.get("assemblySha256"),finding)
+    finding("INCOMPLETE","campaign","liveVisibility","live network bomb pixels were not measured; independent local GPU fixture does not establish every live bomb's visibility")
+    return dict(status="FAIL" if any(f["status"] == "FAIL" for f in findings) else "INCOMPLETE",
+                gameplayStatus=gameplay, visibilityStatus="INCOMPLETE", liveVisibilityStatus="INCOMPLETE",
+                renderFixtureStatus=render_status, scope=dict(authorityMatches=1,requiredKinds=list(kinds),
                 checked="request admission, exact bomb lifecycle/event/state parity, health and bounded reliable drain",
-                excluded=["GPU pixel visibility", "shot parity", "cross-match rotation", "all maps"]),
-                findings=findings, metrics=metrics)
+                independentRenderFixture="same-engine local canonical ghost fixture: five bodies and three Lockjaw edges, positive and wall-negative pixels; full fixture keys are independent of network keys",
+                excluded=["live network GPU pixel visibility","shot parity","cross-match rotation","all maps"]),
+                findings=findings,metrics=metrics)
 
 
 def main():

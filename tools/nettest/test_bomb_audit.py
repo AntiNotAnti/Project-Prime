@@ -1,4 +1,9 @@
 import copy
+import hashlib
+import json
+import struct
+import tempfile
+import zlib
 import importlib.util
 from pathlib import Path
 import unittest
@@ -54,6 +59,28 @@ def fixture(kind="MorphBall"):
         assemblyAfterSha256="a"*64,drain=dict(status="PASS",release=release,server=copy.deepcopy(server["Drain"]),
         peers={"peer-0":copy.deepcopy(peer["Drain"])},stableSeconds=3))
     return server,{"peer-0":peer},manifest,dict(processes=processes)
+
+def gpu_fixture(directory):
+    def chunk(tag,data):
+        return struct.pack(">I",len(data))+tag+data+struct.pack(">I",zlib.crc32(tag+data)&0xffffffff)
+    def capture(label,rgb):
+        raw = b"\x89PNG\r\n\x1a\n"+chunk(b"IHDR",struct.pack(">IIBBBBB",1,1,8,2,0,0,0))+chunk(b"IDAT",zlib.compress(b"\0"+rgb))+chunk(b"IEND",b"")
+        path=Path(directory)/(label+".png");path.write_bytes(raw)
+        return dict(path=str(path),width=1,height=1,pngSha256=hashlib.sha256(raw).hexdigest(),rgbSha256=hashlib.sha256(rgb).hexdigest())
+    bodies=[("9/2/0/1/1/1","MorphBall",0,0,0),("9/2/1/1/1/1","Stinglarva",0,0,0),
+        ("9/2/3/1/1/1","Lockjaw",0,0,0),("9/2/3/1/1/2","Lockjaw",1,1,0),("9/2/3/1/1/3","Lockjaw",2,1,2)]
+    fixtures=[dict(key=k,kind=kind,position=[i,0,0],Index=index,Link0=l0,Link1=l1) for i,(k,kind,index,l0,l1) in enumerate(bodies)]
+    pairs=[(b[0],None) for b in bodies]+[(bodies[3][0],bodies[2][0]),(bodies[4][0],bodies[2][0]),(bodies[4][0],bodies[3][0])]
+    cases=[]
+    for i,(source,target) in enumerate(pairs):
+        for occluded in (False,True):
+            rgb=b"\0\0\0";enabled=rgb if occluded else b"\3\0\0";label=f"case-{i}-{occluded}"
+            cases.append(dict(name=label,key=source,targetKey=target,occluded=occluded,status="PASS",geometryVerified=True,
+                worldDepth=.1 if occluded else .9,fixtureDepth=.5,changedPixels=0 if occluded else 1,unstablePixels=0,
+                captures=[capture(label+"-before",rgb),capture(label+"-enabled",enabled),capture(label+"-after",rgb)]))
+    return dict(schema=1,assemblySha256="a"*64,complete=True,bombVisibility=dict(schema=1,status="PASS",failures=[],
+        matchState="InProgress",MenuPause=False,DialogPause=False,processFrame=True,pixelThreshold=2,fixtures=fixtures,cases=cases))
+
 
 class BombAuditTests(unittest.TestCase):
     def setUp(self):
@@ -189,6 +216,57 @@ class BombAuditTests(unittest.TestCase):
         snap=next(r for r in self.server["Bombs"]["Rows"] if r["Type"] == "Snapshot" and r["States"])
         snap["States"][2]["Link1"]=77
         self.assertEqual(self.result(("Lockjaw",))["gameplayStatus"],"FAIL")
+    def test_strict_n8_missing_drain_fields_cannot_pass_as_legacy(self):
+        for field in ("BombFrontier","BombPendingRequests","BombPendingEvents","BombFaulted"):
+            saved=self.peers["peer-0"]["Drain"].pop(field)
+            self.assertNotEqual(self.result()["gameplayStatus"],"PASS")
+            self.peers["peer-0"]["Drain"][field]=saved
+    def test_strict_n8_missing_release_bomb_frontier_cannot_pass(self):
+        del self.manifest["drain"]["release"]["Bomb"]
+        self.assertNotEqual(self.result()["gameplayStatus"],"PASS")
+    def test_applied_snapshot_frontier_regression(self):
+        self.peers["peer-0"]["Bombs"]["Rows"].append(dict(snapshot(58,1,[state()]),Stage="applied"))
+        self.check("FAIL","Snapshot.Frontier")
+    def test_gpu_render_fixture_is_separate_from_network_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            r=self.result(visibility=gpu_fixture(directory))
+            self.assertEqual(r["gameplayStatus"],"PASS",r);self.assertEqual(r["renderFixtureStatus"],"PASS",r)
+            self.assertEqual(r["liveVisibilityStatus"],"INCOMPLETE");self.assertEqual(r["status"],"INCOMPLETE")
+    def test_gpu_engine_binding_required(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=gpu_fixture(directory);report["assemblySha256"]="b"*64
+            r=self.result(visibility=report);self.assertEqual(r["renderFixtureStatus"],"FAIL")
+            self.assertEqual(r["gameplayStatus"],"PASS");self.assertEqual(r["status"],"FAIL")
+            del report["assemblySha256"]
+            self.assertEqual(self.result(visibility=report)["renderFixtureStatus"],"INCOMPLETE")
+    def test_gpu_missing_duplicate_and_failed_case_fail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original=gpu_fixture(directory)
+            for mutate in (lambda rows: rows.pop(),lambda rows: rows.append(copy.deepcopy(rows[0])),lambda rows: rows[0].update(status="FAIL")):
+                report=copy.deepcopy(original);mutate(report["bombVisibility"]["cases"])
+                self.assertEqual(self.result(visibility=report)["renderFixtureStatus"],"FAIL")
+    def test_gpu_recomputes_pixel_counters(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=gpu_fixture(directory);report["bombVisibility"]["cases"][0]["changedPixels"]=10
+            self.assertEqual(self.result(visibility=report)["renderFixtureStatus"],"FAIL")
+    def test_gpu_png_missing_or_hash_changed_cannot_pass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=gpu_fixture(directory);capture=report["bombVisibility"]["cases"][0]["captures"][0]
+            capture["pngSha256"]="c"*64
+            self.assertEqual(self.result(visibility=report)["renderFixtureStatus"],"FAIL")
+            Path(capture["path"]).unlink()
+            self.assertEqual(self.result(visibility=report)["renderFixtureStatus"],"INCOMPLETE")
+    def test_runner_bomb_summary_uses_gameplay_status(self):
+        spec=importlib.util.spec_from_file_location("run_net2",Path(__file__).with_name("run-net2.py"))
+        runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+        with tempfile.TemporaryDirectory() as directory:
+            out=Path(directory)
+            for name,report in (("server",self.server),("peer-0",self.peers["peer-0"])):
+                (out/(name+".json")).write_text(json.dumps(report));(out/(name+".log")).write_text("clean")
+            summary=runner.bomb_summary(out,self.summary["processes"],self.manifest,"bomb-samus")
+            self.assertEqual(summary["status"],"PASS",summary)
+            self.assertEqual(summary["coverage"]["renderedBombVisibility"],"INCOMPLETE")
+            self.assertTrue((out/"bomb-audit.json").exists())
     def test_same_key_kanden_motion_and_rotation(self):
         self.server,self.peers,self.manifest,self.summary=fixture("Stinglarva")
         self.assertEqual(self.result(("Stinglarva",))["gameplayStatus"],"INCOMPLETE")

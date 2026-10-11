@@ -168,6 +168,27 @@ class DrainTests(unittest.TestCase):
             self.assertEqual(drain_coverage(self.manifest, self.reports)[0], "FAIL")
             del self.manifest["settings"][key]
 
+    def n8_status(self):
+        self.server.update(BombFrontier=8,BombPendingRequests=0,BombPendingEvents=0,BombFaulted=False)
+        self.peer.update(BombFrontier=8,BombPendingRequests=0,BombPendingEvents=0,BombFaulted=False)
+    def test_optional_n8_frontier_includes_release_without_breaking_legacy(self):
+        self.assertEqual(drain_barrier(self.server,[self.peer]),(self.release,None))
+        self.n8_status();release=drain_barrier(self.server,[self.peer])[0]
+        self.assertEqual(release,dict(self.release,Bomb=8))
+    def test_n8_missing_peer_fields_or_regressing_frontier_blocks(self):
+        self.n8_status()
+        for field in ("BombFrontier","BombPendingRequests","BombPendingEvents","BombFaulted"):
+            peer=copy.deepcopy(self.peer);del peer[field]
+            self.assertIsNone(drain_barrier(self.server,[peer])[0])
+        self.peer["BombFrontier"]=7;self.assertIsNone(drain_barrier(self.server,[self.peer])[0])
+    def test_n8_missing_authority_fields_and_pending_fault_blocks(self):
+        self.n8_status()
+        for field in ("BombPendingRequests","BombPendingEvents","BombFaulted"):
+            server=copy.deepcopy(self.server);del server[field]
+            self.assertIsNone(drain_barrier(server,[self.peer])[0])
+            server=copy.deepcopy(self.server);server[field]=1
+            self.assertIsNone(drain_barrier(server,[self.peer])[0])
+
 
 if __name__ == "__main__":
     unittest.main()

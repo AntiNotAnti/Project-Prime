@@ -50,6 +50,39 @@ def stop(process):
         return process.wait(timeout=10)
 
 
+def bomb_summary(out, records, manifest, scenario):
+    """Bomb campaigns use independent gameplay evidence, never shot coverage."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("bomb_audit",Path(__file__).with_name("bomb-audit.py"))
+    module = importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    try:
+        reports,logs = {},{}
+        for record in records:
+            name = record["name"]
+            if not isinstance(name,str) or Path(name).name != name or name in reports:
+                raise ValueError("unsafe/duplicate process name")
+            reports[name] = json.loads((out/(name+".json")).read_text())
+            if (out/(name+".log")).exists():
+                logs[name] = (out/(name+".log")).read_text(errors="replace")
+            for log in (out/name).glob("**/*.txt"):
+                logs[name] = logs.get(name,"")+"\n"+log.read_text(errors="replace")
+        kind = {"bomb-samus":"MorphBall","bomb-kanden":"Stinglarva","bomb-lockjaw":"Lockjaw"}[scenario]
+        audit = module.audit(reports.pop("server"),reports,manifest,dict(processes=records),(kind,),logs)
+    except (OSError,KeyError,TypeError,ValueError) as error:
+        audit = dict(status="FAIL",gameplayStatus="FAIL",liveVisibilityStatus="INCOMPLETE",renderFixtureStatus="NOT_RUN",
+                     findings=[dict(status="FAIL",process="campaign",field="evidence",message=str(error))],metrics={})
+    save(out/"bomb-audit.json",audit)
+    gameplay = [f for f in audit["findings"] if f["process"] != "render-fixture" and f["field"] != "liveVisibility"]
+    messages = lambda status: [f"{f['process']}: {f['field']}: {f['message']}" for f in gameplay if f["status"] == status]
+    drain = "FAIL" if any(f["status"] == "FAIL" and "drain" in f["field"].lower() for f in gameplay) else (
+        "INCOMPLETE" if not audit.get("metrics",{}).get("peers") or any("drain" in f["field"].lower() for f in gameplay) else "PASS")
+    return dict(status=audit["gameplayStatus"],scope="bomb gameplay gate; live network GPU visibility remains INCOMPLETE",
+                processes=records,failures=messages("FAIL"),incomplete=messages("INCOMPLETE"),
+                parity=audit.get("metrics",{}).get("peers",{}),bombAudit=audit,
+                coverage=dict(canonicalBombSequences=audit["gameplayStatus"],boundedHeadlessDrain=drain,
+                              renderedBombVisibility=audit["liveVisibilityStatus"],renderFixture=audit["renderFixtureStatus"]))
+
+
 def run(args):
     if platform.system() not in ("Darwin", "Windows"):
         raise RuntimeError("This campaign is restricted to Mac and Windows")
@@ -84,7 +117,8 @@ def run(args):
     manifest = {"source": args.source, "platform": platform.platform(), "python": platform.python_version(),
         "dotnetInfo": subprocess.check_output([dotnet, "--info"], text=True),
         "assemblySha256": digest(assembly), "assetManifestSha256": digest(args.out / "assets.json"),
-        "harnessSha256": {name: digest(Path(__file__).with_name(name)) for name in ("run-net2.py", "net2_evidence.py")},
+        "harnessSha256": {name: digest(Path(__file__).with_name(name)) for name in
+                         (("run-net2.py","net2_evidence.py","bomb-audit.py") if args.scenario in BOMB_HUNTERS else ("run-net2.py","net2_evidence.py"))},
         "settings": {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
         "commands": [], "startedUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     save(args.out / "manifest.json", manifest)
@@ -322,13 +356,8 @@ def run(args):
         manifest["elapsedSeconds"] = time.monotonic() - started
         manifest["assemblyAfterSha256"] = digest(assembly)
         save(args.out / "manifest.json", manifest)
-        summary = adjudicate(args.out, records, expected_protocol=args.protocol)
-        if args.scenario in BOMB_HUNTERS:
-            summary["coverage"]["canonicalBombSequences"] = "NOT_RUN"
-            summary["coverage"]["renderedBombVisibility"] = "NOT_RUN"
-            summary["incomplete"].append("exact bomb placement/detonation/visibility audit pending; shot parity does not establish bomb coverage")
-            if summary["status"] == "PASS":
-                summary["status"] = "INCOMPLETE"
+        summary = (bomb_summary(args.out,records,manifest,args.scenario) if args.scenario in BOMB_HUNTERS
+                   else adjudicate(args.out,records,expected_protocol=args.protocol))
         if len(records) < args.players + 1 or manifest.get("runnerError") or manifest["assemblyAfterSha256"] != manifest["assemblySha256"]:
             summary["status"] = "FAIL"
             summary["failures"].append(manifest.get("runnerError", "missing participants or modified running assembly"))
