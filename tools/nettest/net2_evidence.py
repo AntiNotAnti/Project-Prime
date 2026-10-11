@@ -265,8 +265,8 @@ def drain_coverage(manifest, reports):
         return "NOT_RUN", []
     gaps = []
     try:
-        if manifest["settings"].get("rendered") or manifest["settings"].get("soak"):
-            raise ValueError("rendered/soak drain unsupported")
+        if manifest["settings"].get("soak"):
+            raise ValueError("soak drain unsupported")
         drain = manifest["drain"]
         if drain["status"] != "PASS":
             raise ValueError("bounded barrier did not pass: " + drain.get("reason", "unknown"))

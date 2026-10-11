@@ -284,7 +284,157 @@ def render_fixture(report, engine_sha, finding):
     return "FAIL" if "FAIL" in verdicts else "INCOMPLETE" if verdicts else "PASS"
 
 
-def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibility=None):
+def pixel_bracket(captures):
+    if not isinstance(captures,list) or len(captures) != 3:
+        raise ValueError("need before/enabled/after pixel captures")
+    images = []
+    for capture in captures:
+        raw,width,height,rgb = png_rgb(capture["Path"])
+        if hashlib.sha256(raw).hexdigest() != capture["PngSha256"] or (width,height) != (capture["Width"],capture["Height"]):
+            raise ValueError("live PNG hash/dimensions differ from report")
+        flipped = b"".join(rgb[y*width*3:(y+1)*width*3] for y in reversed(range(height)))
+        if capture["RgbSha256"] not in (hashlib.sha256(rgb).hexdigest(),hashlib.sha256(flipped).hexdigest()):
+            raise ValueError("live PNG RGB differs from framebuffer hash")
+        images.append((width,height,rgb))
+    if len({i[:2] for i in images}) != 1:
+        raise ValueError("live pixel bracket dimensions differ")
+    def difference(a,b):
+        return sum(any(abs(x-y) > 2 for x,y in zip(a[i:i+3],b[i:i+3])) for i in range(0,len(a),3))
+    return difference(images[0][2],images[1][2]),difference(images[0][2],images[2][2]),images[0][:2]
+
+
+def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,finding):
+    metrics = {}
+    if live_reports is None:
+        finding("INCOMPLETE","campaign","LiveVisibility","live network bomb pixels were not measured")
+        return "INCOMPLETE",metrics
+    verdicts = []
+    def issue(status,name,field,message):
+        verdicts.append(status);finding(status,name,"LiveVisibility."+field,message)
+    extra = live_reports.keys()-peers.keys()
+    if extra:
+        issue("FAIL","campaign","processes","live pixel report from unexpected process")
+    for name,peer in peers.items():
+        report = live_reports.get(name)
+        if report is None:
+            issue("INCOMPLETE",name,"report","live pixel report unavailable")
+            continue
+        bodies,links,seen = set(),set(),set()
+        snapshots = parsed[name]["snapshots"]
+        eligible = {identity for identity,frame,kind,_,_ in damage
+                    if kind in kinds and snapshots and frame >= snapshots[0][0]}
+        before_bootstrap = {identity for identity,frame,kind,_,_ in damage
+                            if kind in kinds and snapshots and frame < snapshots[0][0]}-eligible
+        try:
+            if report.get("_Error"):
+                raise ValueError(report["_Error"])
+            if report["Schema"] != 1 or integer(report["PixelThreshold"],255) != 2:
+                raise ValueError("unsupported live pixel schema/threshold")
+            if report["EngineSha256"] != manifest["assemblySha256"] or report["Source"] != manifest["source"]:
+                raise ValueError("live pixel engine/source differs from campaign")
+            slots = {w["LocalSlot"] for w in peer["Windows"] if 0 <= w.get("LocalSlot",-1) < 8}
+            if len(slots) != 1 or integer(report["ClientSlot"],7) != next(iter(slots)):
+                raise ValueError("live pixel client slot differs from independent process")
+            if integer(report["Overflow"],2**63-1):
+                issue("FAIL",name,"Overflow","live pixel evidence budget overflow")
+            if report.get("Failures") or report.get("Status") == "FAIL":
+                issue("FAIL",name,"Status","live pixel probe reported failure")
+            if not isinstance(report["Rows"],list) or len(report["Rows"]) > 512:
+                raise ValueError("invalid/beyond-bound live pixel rows")
+            if not report["Rows"]:
+                issue("INCOMPLETE",name,"Rows","zero live pixel workload")
+            canonical = {(frame,s) for frame,_,states in snapshots for s in states}
+            births = {e[4] for e in parsed[name]["events"] if e[2] == "Placed"}
+            def canonical_payload(payload,snapshot_frame):
+                return (snapshot_frame,payload) in canonical or (payload in births and payload[2] > snapshot_frame)
+            for ordinal,row in enumerate(report["Rows"]):
+                try:
+                    identity = key(row["Key"]);payload = state(row["State"])
+                    if payload[0] != identity or identity not in placements or payload[1] != placements[identity][4][1]:
+                        raise ValueError("live body key/kind lacks exact authority placement")
+                    integer(row["Frame"]);integer(row["SceneFrame"],2**64-1);integer(row["SnapshotFrame"]);integer(row["PlayerSnapshotFrame"])
+                    integer(row["Attempts"],minimum=1)
+                    # SnapshotFrame is the canonical bomb lane, independent of
+                    # the separately reported PlayerSnapshotFrame. A birth can
+                    # legitimately follow the last accepted bomb snapshot.
+                    if not canonical_payload(payload,row["SnapshotFrame"]):
+                        raise ValueError("live captured state differs from every applied canonical bomb payload")
+                    target = None
+                    if row["Type"] == "Link":
+                        target = key(row["TargetKey"]);target_state = state(row["TargetState"])
+                        if payload[1] != "Lockjaw" or target_state[1] != "Lockjaw" or target != target_state[0] or identity[:5] != target[:5] or target[5] not in payload[9:11]:
+                            raise ValueError("live link differs from exact owner/life topology")
+                        if not canonical_payload(target_state,row["SnapshotFrame"]):
+                            raise ValueError("live target state lacks exact applied canonical payload")
+                    elif row["Type"] != "Body":
+                        raise ValueError("unknown live pixel row kind")
+                    row_identity = (identity,target)
+                    if row_identity in seen:
+                        raise ValueError("duplicate live body/link evidence identity")
+                    seen.add(row_identity)
+                    if row["Status"] == "FAIL":
+                        issue("FAIL",name,"Rows", "probe reported invisible/failed exact bomb body or link: "+str(row_identity))
+                        continue
+                    if row["Status"] == "INCOMPLETE":
+                        # No vantage or a moving baseline establishes no pixels.
+                        continue
+                    if row["Status"] != "PASS" or row["CollisionClear"] is not True:
+                        raise ValueError("invalid live pixel status/collision-clear predicate")
+                    vector(row["Camera"],32768)
+                    world,fixture = row["WorldDepth"],row["FixtureDepth"]
+                    if any(type(v) not in (int,float) or not math.isfinite(v) or not 0 <= v <= 1 for v in (world,fixture)):
+                        raise ValueError("invalid live world/fixture depth")
+                    if type(row["CenterDepthClear"]) is not bool or row["CenterDepthClear"] != (world >= fixture-.00001):
+                        raise ValueError("live center-depth flag differs from measured predicate")
+                    changed,unstable,(width,height) = pixel_bracket(row["Captures"])
+                    integer(row["SamplePixel"]["X"],width-1);integer(row["SamplePixel"]["Y"],height-1)
+                    if changed != integer(row["ChangedPixels"]) or unstable != integer(row["UnstablePixels"]) or changed == 0 or unstable:
+                        raise ValueError("live pixel bracket lacks stable positive exact-key pixels")
+                    if target is None:bodies.add(identity)
+                    else:links.add((identity,target))
+                except FileNotFoundError as error:
+                    issue("INCOMPLETE",name,f"Rows[{ordinal}].Captures",str(error))
+                except (OSError,KeyError,TypeError,ValueError,struct.error,zlib.error) as error:
+                    issue("FAIL",name,f"Rows[{ordinal}]",str(error))
+        except (KeyError,TypeError,ValueError) as error:
+            issue("FAIL",name,"report",str(error))
+        if not eligible:
+            issue("INCOMPLETE",name,"DamageCoverage","no relevant post-bootstrap authority damaging key")
+        missing = eligible-bodies
+        no_state = {identity for identity in missing if not any(s[0] == identity for _,_,states in snapshots for s in states)}
+        if missing:
+            issue("INCOMPLETE",name,"DamageKeys","positive body pixels missing for "+str(len(missing))+" exact damaging keys; "+str(len(no_state))+" had no applied live snapshot (short lifetime/batch delivery remains unproved)")
+        if "Lockjaw" in kinds:
+            triangles=[]
+            for _,_,states in snapshots:
+                groups=defaultdict(list)
+                for s in states:
+                    if s[1] == "Lockjaw":groups[s[0][:5]].append(s)
+                for group in groups.values():
+                    ordered=sorted(group,key=lambda s:s[8])
+                    if len(ordered) == 3 and [s[8] for s in ordered] == [0,1,2] and any(s[0] in eligible for s in ordered):
+                        edges={(s[0],(*s[0][:5],linked)) for s in ordered for linked in s[9:11] if linked}
+                        if len(edges) == 3:triangles.append(edges)
+            if not any(edges <= links for edges in triangles):
+                issue("INCOMPLETE",name,"LockjawEdges","three exact visible links from an actual damaging triangle not established")
+        metrics[name] = dict(requiredDamagingKeys=[list(k) for k in sorted(eligible)],
+            damagingKeysWithPositiveBodyPixels=len(eligible&bodies),missingDamagingKeys=[list(k) for k in sorted(missing)],
+            preBootstrapDamageKeysExcluded=[list(k) for k in sorted(before_bootstrap)],
+            missingWithNoAppliedSnapshot=[list(k) for k in sorted(no_state)],verifiedBodies=len(bodies),verifiedLinks=len(links))
+    return ("FAIL" if "FAIL" in verdicts else "INCOMPLETE" if verdicts else "PASS"),metrics
+
+
+def load_live_reports(directory,names):
+    result={}
+    for name in names:
+        path=Path(directory)/(name+".visibility.json")
+        if path.exists():
+            try:result[name]=json.loads(path.read_text())
+            except (OSError,ValueError) as error:result[name]=dict(_Error=str(error))
+    return result
+
+
+def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibility=None,live_visibility_reports=None):
     findings, finding_index = [], {}
     def finding(status, process, field, message):
         identity = (status,process,field,message)
@@ -555,13 +705,15 @@ def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibil
                 finding("INCOMPLETE",name,"coverage.Stinglarva.motionRotation","moving/rotating same-key poses not observed exactly")
     gameplay = "FAIL" if any(f["status"] == "FAIL" for f in findings) else "INCOMPLETE" if findings else "PASS"
     render_status = render_fixture(visibility,manifest.get("assemblySha256"),finding)
-    finding("INCOMPLETE","campaign","liveVisibility","live network bomb pixels were not measured; independent local GPU fixture does not establish every live bomb's visibility")
-    return dict(status="FAIL" if any(f["status"] == "FAIL" for f in findings) else "INCOMPLETE",
-                gameplayStatus=gameplay, visibilityStatus="INCOMPLETE", liveVisibilityStatus="INCOMPLETE",
+    live_status,live_metrics = live_pixels(peers,parsed,placements,authority["damage"],kinds,manifest,live_visibility_reports,finding)
+    return dict(status="FAIL" if any(f["status"] == "FAIL" for f in findings) else "INCOMPLETE" if any(f["status"] == "INCOMPLETE" for f in findings) else "PASS",
+                gameplayStatus=gameplay,visibilityStatus=live_status,liveVisibilityStatus=live_status,
+                liveVisibilityCoverage=live_metrics,
                 renderFixtureStatus=render_status, scope=dict(authorityMatches=1,requiredKinds=list(kinds),
                 checked="request admission, exact bomb lifecycle/event/state parity, health and bounded reliable drain",
                 independentRenderFixture="same-engine local canonical ghost fixture: five bodies and three Lockjaw edges, positive and wall-negative pixels; full fixture keys are independent of network keys",
-                excluded=["live network GPU pixel visibility","shot parity","cross-match rotation","all maps"]),
+                livePixelScope="stable positive body pixels for every relevant post-bootstrap authority damaging key on each peer; three links of an actual damaging Lockjaw triangle; exact canonical payload joins; no claim of visibility before damage or terminal-effect pixels",
+                excluded=["pre-bootstrap pixel visibility","born/terminal same-batch pixels without a body witness","terminal-effect pixels","shot parity","cross-match rotation","all maps"]),
                 findings=findings,metrics=metrics)
 
 
@@ -569,7 +721,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("campaign",type=Path)
     parser.add_argument("--kind",action="append",choices=KINDS)
-    parser.add_argument("--visibility",type=Path)
+    parser.add_argument("--visibility",type=Path,help="Independent local GPU fixture report")
+    parser.add_argument("--live-visibility",type=Path,help="Directory of peer-N.visibility.json live reports")
     parser.add_argument("--output",type=Path)
     args = parser.parse_args()
     try:
@@ -586,8 +739,10 @@ def main():
                 logs[name] = (args.campaign/(name+".log")).read_text(errors="replace")
             for log in (args.campaign/name).glob("**/*.txt"):
                 logs[name] = logs.get(name,"") + "\n" + log.read_text(errors="replace")
+        live_dir = args.live_visibility or (args.campaign if manifest["settings"].get("bomb_visibility") else None)
+        live_reports = load_live_reports(live_dir,(name for name in names if name != "server")) if live_dir else None
         result = audit(reports.pop("server"),reports,manifest,summary,args.kind or KINDS,logs,
-                       read(args.visibility) if args.visibility else None)
+                       read(args.visibility) if args.visibility else None,live_reports)
     except (OSError,KeyError,TypeError,ValueError) as error:
         result = dict(status="FAIL",gameplayStatus="FAIL",visibilityStatus="INCOMPLETE",
                       findings=[dict(status="FAIL",process="campaign",field="evidence",message=str(error))])

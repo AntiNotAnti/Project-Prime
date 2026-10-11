@@ -67,20 +67,30 @@ def bomb_summary(out, records, manifest, scenario):
             for log in (out/name).glob("**/*.txt"):
                 logs[name] = logs.get(name,"")+"\n"+log.read_text(errors="replace")
         kind = {"bomb-samus":"MorphBall","bomb-kanden":"Stinglarva","bomb-lockjaw":"Lockjaw"}[scenario]
-        audit = module.audit(reports.pop("server"),reports,manifest,dict(processes=records),(kind,),logs)
+        live_reports = module.load_live_reports(out,reports.keys()-{"server"}) if manifest["settings"].get("bomb_visibility") else None
+        audit = module.audit(reports.pop("server"),reports,manifest,dict(processes=records),(kind,),logs,live_visibility_reports=live_reports)
     except (OSError,KeyError,TypeError,ValueError) as error:
         audit = dict(status="FAIL",gameplayStatus="FAIL",liveVisibilityStatus="INCOMPLETE",renderFixtureStatus="NOT_RUN",
                      findings=[dict(status="FAIL",process="campaign",field="evidence",message=str(error))],metrics={})
     save(out/"bomb-audit.json",audit)
-    gameplay = [f for f in audit["findings"] if f["process"] != "render-fixture" and f["field"] != "liveVisibility"]
+    gameplay = [f for f in audit["findings"] if f["process"] != "render-fixture" and not f["field"].startswith("LiveVisibility")]
     messages = lambda status: [f"{f['process']}: {f['field']}: {f['message']}" for f in gameplay if f["status"] == status]
     drain = "FAIL" if any(f["status"] == "FAIL" and "drain" in f["field"].lower() for f in gameplay) else (
         "INCOMPLETE" if not audit.get("metrics",{}).get("peers") or any("drain" in f["field"].lower() for f in gameplay) else "PASS")
-    return dict(status=audit["gameplayStatus"],scope="bomb gameplay gate; live network GPU visibility remains INCOMPLETE",
+    return dict(status=audit["gameplayStatus"],scope="bomb gameplay gate; exact live pixel scope and independent render fixture reported separately",
                 processes=records,failures=messages("FAIL"),incomplete=messages("INCOMPLETE"),
                 parity=audit.get("metrics",{}).get("peers",{}),bombAudit=audit,
                 coverage=dict(canonicalBombSequences=audit["gameplayStatus"],boundedHeadlessDrain=drain,
                               renderedBombVisibility=audit["liveVisibilityStatus"],renderFixture=audit["renderFixtureStatus"]))
+
+
+def bomb_visibility_environment(args,name):
+    if not getattr(args,"bomb_visibility",False) or name == "server":
+        return {}
+    if not args.rendered or args.scenario not in BOMB_HUNTERS:
+        raise ValueError("live bomb visibility requires a rendered bomb campaign")
+    return dict(PRIME_NET2_BOMB_VISIBILITY=str((args.out/(name+".visibility.json")).resolve()),
+                PRIME_NET2_SOURCE=args.source)
 
 
 def run(args):
@@ -150,6 +160,7 @@ def run(args):
                        PRIME_NET2_DRAIN_RELEASE=str(args.out / ("drain.server-release.json" if name == "server" else "drain.release.json")))
         if args.scenario in BOMB_HUNTERS:
             env["PRIME_NET2_BOMB_EVIDENCE"] = str(args.out / f"{name}.bombs.json")
+        env.update(bomb_visibility_environment(args,name))
         command = [dotnet, str(assembly), "-mapdir", str(maps), "-noupdate", "-noautoupdate", *extra]
         handle = open(args.out / f"{name}.log", "w", encoding="utf-8")
         handles.append(handle)
@@ -366,7 +377,7 @@ def run(args):
     return 0 if summary["status"] == "PASS" else 1
 
 
-if __name__ == "__main__":
+def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--build", type=Path, required=True)
     p.add_argument("--paths", type=Path, required=True)
@@ -379,7 +390,7 @@ if __name__ == "__main__":
     p.add_argument("--players", type=int, choices=(2, 3, 4, 8), default=2)
     p.add_argument("--seconds", type=float, default=90)
     p.add_argument("--drain-seconds", type=float, default=0,
-                   help="Opt-in bounded headless quiescence/frontier/empty-reliable-queue barrier; zero preserves legacy shutdown")
+                   help="Opt-in bounded quiescence/frontier/empty-reliable-queue barrier; zero preserves legacy shutdown")
     p.add_argument("--port", type=int, default=27991)
     p.add_argument("--seed", type=int, default=8128)
     p.add_argument("--profile", choices=PROFILES, default="lan")
@@ -389,9 +400,11 @@ if __name__ == "__main__":
     p.add_argument("--rooms", default="MP1 SANCTORUS")
     p.add_argument("--round-minutes", type=float, default=30)
     p.add_argument("--rendered", action="store_true")
+    p.add_argument("--bomb-visibility",action="store_true",
+                   help="Capture per-peer live bomb GPU evidence; requires --rendered and a bomb scenario")
     p.add_argument("--record", action="store_true")
     p.add_argument("--soak", action="store_true")
-    args = p.parse_args()
+    args = p.parse_args(argv)
     if args.seconds <= 0 or args.round_minutes <= 0 or not 1024 <= args.port <= 65535:
         p.error("duration, round length and port must be positive and valid")
     if args.drain_seconds < 0 or args.drain_seconds > 60:
@@ -399,8 +412,14 @@ if __name__ == "__main__":
     if args.observer_delay < 0 or args.observer_delay >= args.seconds or (
             args.observer_delay and (args.players != 3 or args.scenario not in BOMB_HUNTERS or args.soak)):
         p.error("--observer-delay requires a short three-client bomb scenario and must be less than --seconds")
-    if args.drain_seconds and (args.rendered or args.soak):
-        p.error("--drain-seconds supports short headless campaigns only; rendered/soak is not implemented")
+    if args.drain_seconds and args.soak:
+        p.error("--drain-seconds supports short campaigns; soak drain is not implemented")
+    if args.bomb_visibility and (not args.rendered or args.scenario not in BOMB_HUNTERS or args.soak):
+        p.error("--bomb-visibility requires a short rendered bomb scenario")
     if args.soak and (args.players != 8 or args.seconds < 1200 or args.seconds > 1800):
         p.error("--soak requires eight slots and 1200–1800 seconds")
-    raise SystemExit(run(args))
+    return args
+
+
+if __name__ == "__main__":
+    raise SystemExit(run(parse_args()))

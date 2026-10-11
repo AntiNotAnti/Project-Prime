@@ -162,11 +162,15 @@ class DrainTests(unittest.TestCase):
         self.reports["peer"]["Facts"][-1]["Payload"] = "wrong"
         self.assertEqual(drain_coverage(self.manifest, self.reports)[0], "FAIL")
 
-    def test_rendered_and_soak_rejected(self):
-        for key in ("rendered", "soak"):
-            self.manifest["settings"][key] = True
-            self.assertEqual(drain_coverage(self.manifest, self.reports)[0], "FAIL")
-            del self.manifest["settings"][key]
+    def test_rendered_drain_uses_same_exact_barrier(self):
+        self.manifest["settings"]["rendered"]=True
+        self.assertEqual(drain_coverage(self.manifest,self.reports),("PASS",[]))
+        self.peer["Reliable"][0]["Pending"]=1
+        self.assertEqual(drain_coverage(self.manifest,self.reports)[0],"FAIL")
+
+    def test_soak_drain_remains_unsupported(self):
+        self.manifest["settings"]["soak"]=True
+        self.assertEqual(drain_coverage(self.manifest,self.reports)[0],"FAIL")
 
     def n8_status(self):
         self.server.update(BombFrontier=8,BombPendingRequests=0,BombPendingEvents=0,BombFaulted=False)

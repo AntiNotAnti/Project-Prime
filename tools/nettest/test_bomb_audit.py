@@ -55,7 +55,7 @@ def fixture(kind="MorphBall"):
     server=report("server",rows);peer=report("client",peer_rows)
     peer["Facts"]=[dict(Baseline=True,Epoch=1,Match=2,Id=0,AwardFrontier=0)]
     processes=[dict(name=n,exit=0,timedOut=False) for n in ("server","peer-0")]
-    manifest=dict(settings=dict(players=1,protocol=48,drain_seconds=5),assemblySha256="a"*64,
+    manifest=dict(source="fixture-source",settings=dict(players=1,protocol=48,drain_seconds=5),assemblySha256="a"*64,
         assemblyAfterSha256="a"*64,drain=dict(status="PASS",release=release,server=copy.deepcopy(server["Drain"]),
         peers={"peer-0":copy.deepcopy(peer["Drain"])},stableSeconds=3))
     return server,{"peer-0":peer},manifest,dict(processes=processes)
@@ -85,8 +85,8 @@ def gpu_fixture(directory):
 class BombAuditTests(unittest.TestCase):
     def setUp(self):
         self.server,self.peers,self.manifest,self.summary=fixture();self.logs={"server":"clean","peer-0":"clean"}
-    def result(self,kinds=("MorphBall",),visibility=None):
-        return bomb.audit(self.server,self.peers,self.manifest,self.summary,kinds,self.logs,visibility)
+    def result(self,kinds=("MorphBall",),visibility=None,live=None):
+        return bomb.audit(self.server,self.peers,self.manifest,self.summary,kinds,self.logs,visibility,live)
     def check(self,status,field):
         r=self.result();self.assertEqual(r["gameplayStatus"],status,r)
         self.assertTrue(any(field in f["field"] for f in r["findings"]),r)
@@ -280,6 +280,120 @@ class BombAuditTests(unittest.TestCase):
             self.assertEqual(summary["status"],"PASS",summary)
             self.assertEqual(summary["coverage"]["renderedBombVisibility"],"INCOMPLETE")
             self.assertTrue((out/"bomb-audit.json").exists())
+    def live_fixture(self,directory):
+        case=gpu_fixture(directory)["bombVisibility"]["cases"][0]
+        # Metadata names follow the live writer's C# field casing.
+        captures=[dict(Path=c["path"],Width=c["width"],Height=c["height"],RgbSha256=c["rgbSha256"],PngSha256=c["pngSha256"]) for c in case["captures"]]
+        row=dict(Type="Body",Key=key(),State=state(),Frame=15,SnapshotFrame=11,PlayerSnapshotFrame=10,
+            SceneFrame=15,Attempts=1,Status="PASS",Camera=dict(X=0,Y=1,Z=2),CollisionClear=True,
+            WorldDepth=.9,FixtureDepth=.5,CenterDepthClear=True,SamplePixel=dict(X=0,Y=0),
+            ChangedPixels=1,UnstablePixels=0,EffectParticles=1,Captures=captures)
+        return dict(Schema=1,EngineSha256="a"*64,EngineMvid="fixture",Source="fixture-source",ClientSlot=0,
+                    PixelThreshold=2,Rows=[row],Overflow=0)
+    def test_live_damaging_full_key_pixels_can_pass_exact_scope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=self.live_fixture(directory);r=self.result(live={"peer-0":report})
+            self.assertEqual(r["liveVisibilityStatus"],"PASS",r);self.assertEqual(r["status"],"PASS",r)
+            self.assertEqual(r["liveVisibilityCoverage"]["peer-0"]["damagingKeysWithPositiveBodyPixels"],1)
+    def test_live_missing_report_rows_or_damaging_body_incomplete(self):
+        self.assertEqual(self.result(live={})["liveVisibilityStatus"],"INCOMPLETE")
+        with tempfile.TemporaryDirectory() as directory:
+            report=self.live_fixture(directory);report["Rows"]=[]
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"INCOMPLETE")
+    def test_live_wrong_life_or_state_snapshot_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original=self.live_fixture(directory)
+            for mutate in (lambda r:r["Key"].update(LifeId=2),lambda r:r.update(SnapshotFrame=12),lambda r:r["State"]["Position"].update(X=2)):
+                report=copy.deepcopy(original);mutate(report["Rows"][0])
+                self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+    def test_live_birth_newer_than_snapshot_has_exact_event_reference(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=self.live_fixture(directory);report["Rows"][0]["SnapshotFrame"]=0
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"PASS")
+    def test_live_image_counts_and_duplicate_full_identity_fail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original=self.live_fixture(directory);report=copy.deepcopy(original)
+            report["Rows"][0]["ChangedPixels"]=0
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+            report=copy.deepcopy(original);report["Rows"].append(copy.deepcopy(report["Rows"][0]))
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+    def test_live_engine_source_slot_and_overflow_fail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original=self.live_fixture(directory)
+            for field,value in (("EngineSha256","b"*64),("Source","different"),("ClientSlot",1),("Overflow",1)):
+                report=copy.deepcopy(original);report[field]=value
+                self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+    def test_live_center_blocked_with_positive_key_pixels_still_proves_body(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=self.live_fixture(directory);report["Rows"][0].update(WorldDepth=.1,CenterDepthClear=False)
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"PASS")
+    def test_live_native_depth_equality_and_ulong_scene_frame(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=self.live_fixture(directory)
+            report["Rows"][0].update(WorldDepth=.5-.00001,SceneFrame=2**32+1)
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"PASS")
+            report["Rows"][0]["CenterDepthClear"]=False
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+    def test_live_lockjaw_requires_three_exact_canonical_edges(self):
+        self.triangle_fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            report=self.live_fixture(directory);template=report["Rows"][0]
+            states=self.peers["peer-0"]["Bombs"]["Rows"][7]["States"]
+            report["Rows"]=[dict(copy.deepcopy(template),Key=key(),State=states[0])]
+            for source,target in ((1,0),(2,0),(2,1)):
+                report["Rows"].append(dict(copy.deepcopy(template),Type="Link",Key=states[source]["Key"],
+                    State=states[source],TargetKey=states[target]["Key"],TargetState=states[target]))
+            self.assertEqual(self.result(("Lockjaw",),live={"peer-0":report})["liveVisibilityStatus"],"PASS")
+            report["Rows"].pop()
+            self.assertEqual(self.result(("Lockjaw",),live={"peer-0":report})["liveVisibilityStatus"],"INCOMPLETE")
+            report["Rows"][-1]["TargetKey"]=key(9)
+            self.assertEqual(self.result(("Lockjaw",),live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+    def test_runner_loads_live_report_only_when_manifest_requests_it(self):
+        spec=importlib.util.spec_from_file_location("run_net2",Path(__file__).with_name("run-net2.py"))
+        runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+        with tempfile.TemporaryDirectory() as directory:
+            out=Path(directory)
+            for name,report in (("server",self.server),("peer-0",self.peers["peer-0"])):
+                (out/(name+".json")).write_text(json.dumps(report));(out/(name+".log")).write_text("clean")
+            (out/"peer-0.visibility.json").write_text(json.dumps(self.live_fixture(directory)))
+            self.manifest["settings"]["bomb_visibility"]=True
+            summary=runner.bomb_summary(out,self.summary["processes"],self.manifest,"bomb-samus")
+            self.assertEqual(summary["coverage"]["renderedBombVisibility"],"PASS",summary)
+            self.assertEqual(json.loads((out/"bomb-audit.json").read_text())["liveVisibilityStatus"],"PASS")
+            self.manifest["settings"]["bomb_visibility"]=False
+            summary=runner.bomb_summary(out,self.summary["processes"],self.manifest,"bomb-samus")
+            self.assertEqual(summary["coverage"]["renderedBombVisibility"],"INCOMPLETE")
+    def test_live_no_alive_snapshot_and_no_body_witness_not_fabricated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=self.live_fixture(directory);report["Rows"]=[]
+            self.peers["peer-0"]["Bombs"]["Rows"].pop(3)
+            r=self.result(live={"peer-0":report});self.assertEqual(r["liveVisibilityStatus"],"INCOMPLETE")
+            self.assertEqual(len(r["liveVisibilityCoverage"]["peer-0"]["missingWithNoAppliedSnapshot"]),1)
+    def test_live_incomplete_probe_and_prebootstrap_damage_are_scoped(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=self.live_fixture(directory);report["Rows"][0]=dict(report["Rows"][0],Status="INCOMPLETE",Reason="no vantage")
+            for field in ("Camera","CollisionClear","WorldDepth","FixtureDepth","CenterDepthClear","SamplePixel","ChangedPixels","UnstablePixels","EffectParticles","Captures"):
+                report["Rows"][0].pop(field)
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"INCOMPLETE")
+            report["Rows"]=[]
+            self.peers["peer-0"]["Bombs"]["Rows"]=[dict(snapshot(57,2,[]),Stage="applied")]
+            r=self.result(live={"peer-0":report});self.assertEqual(r["liveVisibilityStatus"],"INCOMPLETE")
+            self.assertEqual(len(r["liveVisibilityCoverage"]["peer-0"]["preBootstrapDamageKeysExcluded"]),1)
+    def test_runner_visibility_argument_environment_and_manifest_setting(self):
+        spec=importlib.util.spec_from_file_location("run_net2",Path(__file__).with_name("run-net2.py"))
+        runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+        base=["--build","build","--paths","paths","--source","fixture-source","--out","out"]
+        args=runner.parse_args(base+["--rendered","--scenario","bomb-samus","--bomb-visibility","--drain-seconds","18"])
+        self.assertTrue(vars(args)["bomb_visibility"]);self.assertEqual(args.drain_seconds,18)
+        env=runner.bomb_visibility_environment(args,"peer-2")
+        self.assertTrue(Path(env["PRIME_NET2_BOMB_VISIBILITY"]).is_absolute())
+        self.assertTrue(env["PRIME_NET2_BOMB_VISIBILITY"].endswith("peer-2.visibility.json"))
+        self.assertEqual(env["PRIME_NET2_SOURCE"],"fixture-source")
+        self.assertEqual(runner.bomb_visibility_environment(args,"server"),{})
+        args.bomb_visibility=False;self.assertEqual(runner.bomb_visibility_environment(args,"peer-0"),{})
+        import contextlib,io
+        for flags in (["--bomb-visibility"],["--rendered","--bomb-visibility"],["--scenario","bomb-samus","--bomb-visibility"],["--soak","--drain-seconds","1"]):
+            with contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):runner.parse_args(base+flags)
     def test_same_key_kanden_motion_and_rotation(self):
         self.server,self.peers,self.manifest,self.summary=fixture("Stinglarva")
         self.assertEqual(self.result(("Stinglarva",))["gameplayStatus"],"INCOMPLETE")
