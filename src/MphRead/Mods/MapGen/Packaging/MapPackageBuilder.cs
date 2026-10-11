@@ -62,6 +62,7 @@ namespace MphRead.Mods.MapGen
             entries.Add("project.json", Encoding.UTF8.GetBytes(definition.Serialize()));
             var manifest = new MapPackageManifest
             {
+                Format = definition.FormatVersion,
                 MapId = definition.MapId, Name = definition.Name, DisplayName = definition.InGameName,
                 MinimumProtocol = Network.NetConfig.ProtocolVersion,
                 SupportedModes = definition.Capabilities?.SupportedModes.ToArray() ?? Array.Empty<string>(),

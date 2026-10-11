@@ -217,6 +217,8 @@ namespace MphRead.Mods.MapGen
             }
             if (map.Entities.Count == 0)
             {
+                if (map.ImportDiagnostics.FirstOrDefault(d => d.Severity == MapDiagnosticSeverity.Error) is {} diagnostic)
+                    throw new MapAuthoringException(diagnostic.Code, diagnostic.Message);
                 throw new ProgramException("A map needs at least one entity.");
             }
         }

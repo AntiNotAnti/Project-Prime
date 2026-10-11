@@ -1146,7 +1146,11 @@ namespace MphRead.Droid
             {
                 lock (_lock)
                 {
-                    bool engaged = _aimPointer != -1 || _fireAimPointer != -1;
+                    // A release can arrive between the last move and the next
+                    // simulation step. Keep that pending motion eligible for
+                    // roll until TakeAimDelta consumes the same sample for aim.
+                    bool engaged = _aimPointer != -1 || _fireAimPointer != -1
+                        || _aimDeltaX != 0 || _aimDeltaY != 0;
                     if (!engaged)
                     {
                         return (false, 0, 0);

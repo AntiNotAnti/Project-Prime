@@ -1258,6 +1258,7 @@ namespace MphRead.Entities
 
         public void Teleport(Vector3 position, Vector3 facing, NodeRef nodeRef)
         {
+            _q3LaunchGravity = 0; _q3LaunchFrames = 0;
             ModNoteMovementValidationTeleport();
             _soundSource.PlaySfx(SfxId.TELEPORT_OUT, noUpdate: true);
             Reposition(position, facing, nodeRef);
@@ -1322,6 +1323,23 @@ namespace MphRead.Entities
             }
         }
 
+        // The accepted bomb terminal uses the same native velocity floor without
+        // retesting distance after the owner has moved during network delivery.
+        internal void ModApplyBombJump(BombEntity? acceptedBomb = null)
+        {
+            float ySpeed = Fixed.ToFloat(Values.BombJumpSpeed);
+            if (Speed.Y < ySpeed) Speed = Speed.WithY(ySpeed);
+            if (acceptedBomb != null)
+            {
+                // Arrival-time distance affects only camera feedback, never the
+                // accepted movement result. Preserve native nearby-owner shake.
+                float radiusSquared = Fixed.ToFloat(Values.BombSelfRadiusSquared);
+                float distanceSquared = (Volume.SpherePosition - acceptedBomb.Position).LengthSquared;
+                if (distanceSquared <= radiusSquared)
+                    CameraInfo.SetShake((radiusSquared - distanceSquared) / radiusSquared * 0.1f);
+            }
+        }
+
         // todo: visualize
         public bool CheckHitByBomb(BombEntity bomb, bool halfturret)
         {
@@ -1348,11 +1366,7 @@ namespace MphRead.Entities
                 if (distSqr <= hitRadiusSqr && between.Y > -Volume.SphereRadius)
                 {
                     hit = true;
-                    float ySpeed = Fixed.ToFloat(Values.BombJumpSpeed);
-                    if (Speed.Y < ySpeed)
-                    {
-                        Speed = Speed.WithY(ySpeed);
-                    }
+                    ModApplyBombJump();
                 }
             }
             else if (distSqr <= bomb.Radius * bomb.Radius)

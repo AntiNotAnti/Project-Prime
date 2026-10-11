@@ -1348,6 +1348,7 @@ namespace MphRead.Entities
 
         public void ActivateJumpPad(JumpPadEntity jumpPad, Vector3 vector, ushort lockTime)
         {
+            _q3LaunchGravity = 0; _q3LaunchFrames = 0;
             // Only the authority authors the sequence during a live session.
             // Offline play still advances it so map/network harnesses can inspect
             // the same state without opening a socket.

@@ -62,7 +62,7 @@ namespace MphRead.Mods.MapGen
                     : $"{def.Name} has no textures: {import.Textures} is not beside its recipe, "
                         + "not in its bundle, and could not be baked from the level.");
             }
-            map.ImportDiagnostics.AddRange(Q3Gameplay.Inspect(bsp, unit));
+            map.ImportDiagnostics.AddRange(Q3Gameplay.Inspect(bsp, unit, typedTraversal: def.Q3Triggers != null));
             var missingMaterials = new HashSet<int>();
 
             // How big the sky's own texture should be drawn. A sky surface's
@@ -1118,7 +1118,7 @@ namespace MphRead.Mods.MapGen
                 {
                     continue;
                 }
-                if (classname.Equals("trigger_push", StringComparison.OrdinalIgnoreCase))
+                if (def.Q3Triggers == null && classname.Equals("trigger_push", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!entity.TryGetValue("model", out string? model) || !model.StartsWith("*")
                         || !entity.TryGetValue("target", out string? target)

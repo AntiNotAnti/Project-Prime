@@ -48,6 +48,9 @@ namespace MphRead.Entities
         public ulong ModContinuousPhase { get; set; }
         public bool ModHasSharedContinuousPhase { get; set; }
         public NetTargetIdentity ModContinuousTarget { get; set; }
+        // Runtime scheduling only: replica playback never uses accepted pulses.
+        // Keep the last eagerly resolved pulse drawable through this scene step.
+        private ulong? _modAcceptedContinuousFrame;
         public ushort ModLaunchMatch { get; set; }
         public ulong ModLaunchAuthority { get; set; }
         public ushort ModLaunchGeneration { get; set; }
@@ -260,8 +263,18 @@ namespace MphRead.Entities
             }
         }
 
+        internal void ModProcessAcceptedContinuousPulse()
+        {
+            // Every queued pulse must resolve, including a reuse in this frame.
+            _modAcceptedContinuousFrame = null;
+            Process();
+            _modAcceptedContinuousFrame = _scene.FrameCount;
+        }
+
         public override bool Process()
         {
+            if (!_scene.Services.IsReplica && _modAcceptedContinuousFrame == _scene.FrameCount)
+                return Lifespan > 0;
             if (_scene.Services.IsReplica && _replayImpactPending
                 && _scene.FrameCount >= _replayImpactDrawFrame)
             {
@@ -414,6 +427,77 @@ namespace MphRead.Entities
             return true;
         }
 
+        private static bool TryBeamObstacle(Vector3 start, Vector3 end, Scene scene,
+            out CollisionResult anyRes, out EntityBase? colWith)
+        {
+            anyRes = default; colWith = null; float minDist = 2f;
+            CollisionResult colRes = default;
+            if (CollisionDetection.CheckBetweenPoints(start, end, TestFlags.Beams, scene, ref colRes)
+                && colRes.Distance < minDist)
+            {
+                float dot = Vector3.Dot(start, colRes.Plane.Xyz) - colRes.Plane.W;
+                if (dot >= 0)
+                {
+                    minDist = colRes.Distance;
+                    anyRes = colRes;
+                }
+            }
+            foreach (DoorEntity door in scene.GetDoorEntities())
+            {
+                if (door.Flags.TestFlag(DoorFlags.Open) || door.ConnectorInactive)
+                {
+                    continue;
+                }
+                Vector3 doorFacing = door.FacingVector;
+                Vector3 lockPos = door.LockPosition;
+                var plane = new Vector4(doorFacing, 0);
+                if (Vector3.Dot(start - lockPos, doorFacing) < 0)
+                {
+                    plane *= -1;
+                }
+                Vector3 wvec = plane.Xyz * (lockPos + 0.4f * plane.Xyz);
+                plane.W = wvec.X + wvec.Y + wvec.Z;
+                if (CollisionDetection.CheckCylinderIntersectPlane(start, end, plane, ref colRes)
+                    && colRes.Distance < minDist)
+                {
+                    Vector3 between = colRes.Position - lockPos;
+                    if (between.LengthSquared < door.RadiusSquared)
+                    {
+                        minDist = colRes.Distance;
+                        anyRes = colRes;
+                        colWith = door;
+                        anyRes.Field0 = 0;
+                        anyRes.Plane = plane;
+                        anyRes.Flags = CollisionFlags.None;
+                    }
+                }
+            }
+            foreach (ForceFieldEntity forceField in scene.GetForceFieldEntities())
+            {
+                // todo: some of these properties are compatible with the entity moving, some aren't
+                if (forceField.Active
+                    && CollisionDetection.CheckCylinderIntersectPlane(start, end, forceField.Plane, ref colRes)
+                    && colRes.Distance < minDist)
+                {
+                    Vector3 between = colRes.Position - forceField.Position;
+                    float dot = Vector3.Dot(between, forceField.FieldUpVector);
+                    if (dot <= forceField.Height && dot >= -forceField.Height)
+                    {
+                        dot = Vector3.Dot(between, forceField.FieldRightVector);
+                        if (dot <= forceField.Width && dot >= -forceField.Width)
+                        {
+                            minDist = colRes.Distance;
+                            anyRes = colRes;
+                            colWith = forceField;
+                            anyRes.Field0 = 0;
+                            anyRes.Plane = forceField.Plane;
+                        }
+                    }
+                }
+            }
+            return minDist < 2;
+        }
+
         private void CheckCollision()
         {
             CollisionResult anyRes = default;
@@ -454,74 +538,12 @@ namespace MphRead.Entities
                     }
                 }
             }
-            if (Flags.TestFlag(BeamFlags.SurfaceCollision))
+            if (Flags.TestFlag(BeamFlags.SurfaceCollision)
+                && TryBeamObstacle(BackPosition, Position, _scene, out var surface, out var obstacle)
+                && surface.Distance < minDist)
             {
-                CollisionResult colRes = default;
-                if (CollisionDetection.CheckBetweenPoints(BackPosition, Position, TestFlags.Beams, _scene, ref colRes)
-                    && colRes.Distance < minDist)
-                {
-                    float dot = Vector3.Dot(BackPosition, colRes.Plane.Xyz) - colRes.Plane.W;
-                    if (dot >= 0)
-                    {
-                        minDist = colRes.Distance;
-                        anyRes = colRes;
-                    }
-                }
-                foreach (DoorEntity door in _scene.GetDoorEntities())
-                {
-                    if (door.Flags.TestFlag(DoorFlags.Open) || door.ConnectorInactive)
-                    {
-                        continue;
-                    }
-                    Vector3 doorFacing = door.FacingVector;
-                    Vector3 lockPos = door.LockPosition;
-                    var plane = new Vector4(doorFacing, 0);
-                    if (Vector3.Dot(BackPosition - lockPos, doorFacing) < 0)
-                    {
-                        plane *= -1;
-                    }
-                    Vector3 wvec = plane.Xyz * (lockPos + 0.4f * plane.Xyz);
-                    plane.W = wvec.X + wvec.Y + wvec.Z;
-                    if (CollisionDetection.CheckCylinderIntersectPlane(BackPosition, Position, plane, ref colRes)
-                        && colRes.Distance < minDist)
-                    {
-                        Vector3 between = colRes.Position - lockPos;
-                        if (between.LengthSquared < door.RadiusSquared)
-                        {
-                            minDist = colRes.Distance;
-                            anyRes = colRes;
-                            colWith = door;
-                            noColEff = false;
-                            anyRes.Field0 = 0;
-                            anyRes.Plane = plane;
-                            anyRes.Flags = CollisionFlags.None;
-                        }
-                    }
-                }
-                foreach (ForceFieldEntity forceField in _scene.GetForceFieldEntities())
-                {
-                    // todo: some of these properties are compatible with the entity moving, some aren't
-                    if (forceField.Active
-                        && CollisionDetection.CheckCylinderIntersectPlane(BackPosition, Position, forceField.Plane, ref colRes)
-                        && colRes.Distance < minDist)
-                    {
-                        Vector3 between = colRes.Position - forceField.Position;
-                        float dot = Vector3.Dot(between, forceField.FieldUpVector);
-                        if (dot <= forceField.Height && dot >= -forceField.Height)
-                        {
-                            dot = Vector3.Dot(between, forceField.FieldRightVector);
-                            if (dot <= forceField.Width && dot >= -forceField.Width)
-                            {
-                                minDist = colRes.Distance;
-                                anyRes = colRes;
-                                colWith = forceField;
-                                noColEff = false;
-                                anyRes.Field0 = 0;
-                                anyRes.Plane = forceField.Plane;
-                            }
-                        }
-                    }
-                }
+                minDist = surface.Distance; anyRes = surface; colWith = obstacle;
+                if (obstacle != null) noColEff = false;
             }
             Debug.Assert(Owner != null);
             if (Owner.Type != EntityType.EnemyInstance)
@@ -631,6 +653,13 @@ namespace MphRead.Entities
                     }
                 }
             }
+            ResolveCollision(anyRes, colWith, noColEff, minDist, hitHalfturret);
+        }
+
+        private void ResolveCollision(CollisionResult anyRes, EntityBase? colWith,
+            bool noColEff, float minDist, bool hitHalfturret)
+        {
+            Debug.Assert(Owner != null);
             NetContinuousTargetDiagnostics.CollisionWinner(this, colWith, minDist);
             if (minDist >= 0 && minDist <= 1)
             {
@@ -1747,6 +1776,10 @@ namespace MphRead.Entities
             {
                 return BeamResultFlags.NoSpawn;
             }
+            // Sylux's barrel can extend through a nearby surface even while its
+            // body is in front. Resolve only the finite native muzzle interval,
+            // after the ammo gate, through the same obstacle and impact kernel as
+            // normal flight. Child ricochets are not new muzzle emissions.
             equip.Ammo = ammo - cost;
             EffectEntry? muzzleEffect = null;
             if (!spawnFlags.TestFlag(BeamSpawnFlags.NoMuzzle))
@@ -2007,6 +2040,13 @@ namespace MphRead.Entities
             {
                 velocity = direction * speed;
             }
+            CollisionResult? muzzleObstacle = null;
+            EntityBase? muzzleEntity = null;
+            if (flags.TestFlag(BeamFlags.SurfaceCollision) && parent == null && owner is PlayerEntity { Hunter: Hunter.Sylux }
+                && TryBeamObstacle(position - direction.Normalized() * Fixed.ToFloat(0x651),
+                    position, scene, out var muzzleHit, out muzzleEntity)
+                && muzzleHit.Distance >= 0 && muzzleHit.Distance <= 1)
+                muzzleObstacle = muzzleHit;
             for (int i = 0; i < projectiles; i++)
             {
                 uint componentId = parent != null && parent.ModComponentId == 0 ? 0 : NetShotProof.ComponentId(parent?.ModComponentId ?? 0,
@@ -2047,6 +2087,7 @@ namespace MphRead.Entities
                 beam.ModContinuousPhase = phase;
                 beam.ModHasSharedContinuousPhase = sharedPhase;
                 beam.ModContinuousTarget = NetTargetIdentity.None;
+                beam._modAcceptedContinuousFrame = null;
                 beam.ModLaunchFrame = beam.ModShotId = 0;
                 beam.ModComponentId = componentId; beam._modChildOrdinal = 0;
                 beam.ModLaunchMatch = 0;
@@ -2140,6 +2181,14 @@ namespace MphRead.Entities
                 if (instantAoe)
                 {
                     NetShotProof.Emitted(beam, parent);
+                    if (muzzleObstacle.HasValue)
+                    {
+                        beam.Velocity = velocity; beam.Acceleration = acceleration;
+                        beam._soundSource.Update(beam.Position, rangeIndex: 0);
+                        beam.ResolveCollision(muzzleObstacle.Value, muzzleEntity, false, muzzleObstacle.Value.Distance, false);
+                        scene.AddEntity(beam);
+                        continue;
+                    }
                     beam.SpawnIceWave(weapon, chargePct);
                     // we don't actually "spawn" the beam projectile
                     beam.Velocity = beam.Acceleration = Vector3.Zero;
@@ -2211,6 +2260,17 @@ namespace MphRead.Entities
                 {
                     beam.MuzzleEffect = muzzleEffect;
                     beam.Flags |= BeamFlags.DestroyMuzzle;
+                }
+                if (muzzleObstacle.HasValue)
+                {
+                    // Spread RNG, render state and native ammo/shot identity are
+                    // authored normally; a blocked muzzle has no homing target.
+                    beam._soundSource.Update(beam.Position, rangeIndex: 0);
+                    beam.ResolveCollision(muzzleObstacle.Value, muzzleEntity, false, muzzleObstacle.Value.Distance, false);
+                    if (!scene.Services.IsReplica && NetSession.Active && weapon.Flags.TestFlag(WeaponFlags.Continuous))
+                        NetShotDiagnostics.Continuous(beam, cost);
+                    scene.AddEntity(beam);
+                    continue;
                 }
                 Debug.Assert(beam.Target == null);
                 if (beam.Flags.TestFlag(BeamFlags.Homing))

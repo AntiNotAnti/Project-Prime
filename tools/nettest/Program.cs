@@ -37,6 +37,7 @@ namespace MphRead.NetTest
                     + "  --shot-proof-scene <assets> [room] Test shot proof with real scene assets.\n"
                     + "  --native-discontinuities <assets> [room] Test native events through snapshot/history/presentation.\n"
                     + "  --movement-tour <assets> [room]    Test seven hunters through native local movement.\n"
+                    + "  --q3-traversal-scene <assets> [room] Test Q3 traversal through native movement.\n"
                     + "  --quiescent-turret-scene <assets> [room] Test native turret retirement during drain.\n"
                     + "  --movement-validation-shadow      Test bounded advisory movement observations.\n"
                     + "  --form-scene <assets> [room]       Test authority form and detached turret lifecycle.");
@@ -93,6 +94,18 @@ namespace MphRead.NetTest
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return QuiescentTurretTests.Run(args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
+            }
+            if (args.Length > 1 && args[0] == "--sylux-muzzle-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return SyluxMuzzleTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 1 && args[0] == "--q3-traversal-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return Q3TraversalSceneTests.Run(args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
             }
             if (args.Length > 1 && args[0] == "--movement-tour")
             {
@@ -186,6 +199,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--server-performance") return ServerPerformanceBenchmark.Run(args);
             if (args.Length > 0 && args[0] == "--netcode-performance") return NetcodePerformanceTests.Run();
             if (args.Length > 0 && args[0] == "--dynamic-geometry") return DynamicGeometryTests.Run();
+            if (args.Length > 0 && args[0] == "--spectator-camera") return SpectatorCameraTests.Run();
             if (args.Length > 0 && args[0] == "--input-edges") return InputEdgeTests.Run();
             if (args.Length > 0 && args[0] == "--protocol18") return Protocol18Tests.Run();
             if (args.Length > 0 && args[0] == "--claim-stress") return ClaimStressTests.Run();

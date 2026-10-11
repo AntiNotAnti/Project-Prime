@@ -61,7 +61,7 @@ internal static class NetMovementValidationShadow
             || !NetSession.MatchesStream(intent.MatchId, intent.AuthorityEpoch)
             || !NetPlayerLifecycle.Matches(player.SlotIndex, intent.SlotGeneration, intent.LifeId)) return;
         Observe(new(intent.AuthorityEpoch, intent.MatchId, player.SlotIndex, intent.SlotGeneration, intent.LifeId,
-            player.Hunter, intent.Frame, intent.Position, intent.Buttons, player.ModMovementValidationExemptions, intent.MoveX, intent.MoveY));
+            player.Hunter, intent.Frame, intent.Position, intent.Buttons, player.ModMovementValidationExemptions | player.ModQ3MovementProof(intent.Position), intent.MoveX, intent.MoveY));
     }
     internal static void Observe(in MovementValidationSample sample)
     {

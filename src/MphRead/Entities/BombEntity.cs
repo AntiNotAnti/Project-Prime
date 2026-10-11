@@ -137,6 +137,7 @@ namespace MphRead.Entities
             }
             if (!NetBombs.CanSimulate(this)) return false;
             EntityBase? hitEntity = null;
+            bool ownerJump = false;
             _soundSource.Update(Position, rangeIndex: 5);
             UpdateNodeRefVolume();
             if (Countdown > 0)
@@ -245,7 +246,7 @@ namespace MphRead.Entities
                 }
                 if (Owner.IsAltForm)
                 {
-                    Owner.CheckHitByBomb(this, halfturret: false);
+                    ownerJump = Owner.CheckHitByBomb(this, halfturret: false);
                 }
                 if (Flags.TestFlag(BombFlags.Exploding))
                 {
@@ -320,7 +321,7 @@ namespace MphRead.Entities
                 {
                     return false;
                 }
-                NetBombs.Terminal(this, detonated: true);
+                NetBombs.Terminal(this, detonated: true, ownerJump: ownerJump);
                 ModPresentDetonation();
                 if (hitEntity == null)
                 {

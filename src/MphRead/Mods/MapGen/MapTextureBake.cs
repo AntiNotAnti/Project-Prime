@@ -7,6 +7,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Security.Cryptography;
 using ReFuel.Stb;
 
 namespace MphRead.Mods.MapGen
@@ -270,7 +271,7 @@ namespace MphRead.Mods.MapGen
                 foreach (string path in paths.Distinct(StringComparer.OrdinalIgnoreCase))
                     if (File.Exists(path)
                         && !Path.GetExtension(path).Equals(".bsp", StringComparison.OrdinalIgnoreCase))
-                        archives.Add(ZipFile.OpenRead(path));
+                        archives.Add(Pk3DiscoveryService.OpenValidated(path));
                 return archives;
             }
             catch
@@ -459,22 +460,18 @@ namespace MphRead.Mods.MapGen
         private static (ushort[] palette,byte[] pixels) Quantized(ResolvedEntry found,string? archive,
             int size,CancellationToken cancellation)
         {
-            string stamp="";
-            if(archive!=null)
-            {
-                var info=new FileInfo(archive);
-                stamp=$"{info.Length}:{info.LastWriteTimeUtc.Ticks}";
-            }
-            string key=$"{archive}|{stamp}|{found.Entry.FullName}|{found.Entry.Length}|{size}";
-            if(_quantizedCache.TryGetValue(key,out var cached))return(cached.Palette,cached.Pixels);
             using Stream stream=found.Entry.Open();using var memory=new MemoryStream();
             byte[] buffer=new byte[65536];int read;
             while((read=stream.Read(buffer))>0)
             {
+                cancellation.ThrowIfCancellationRequested();
                 if(memory.Length+read>MapPackageReader.MaxEntryBytes)throw new InvalidDataException("Texture image exceeds the map asset limit.");
                 memory.Write(buffer,0,read);
             }
-            var result=Quantize(Decode(memory.ToArray(),size,cancellation),size,cancellation);
+            byte[] bytes = memory.ToArray();
+            string key = $"{Convert.ToHexString(SHA256.HashData(bytes))}|{size}";
+            if(_quantizedCache.TryGetValue(key,out var cached))return(cached.Palette,cached.Pixels);
+            var result=Quantize(Decode(bytes,size,cancellation),size,cancellation);
             if(_quantizedCache.Count>2048)_quantizedCache.Clear();
             _quantizedCache[key]=(result.Item1,result.Item2);
             return result;
@@ -485,6 +482,7 @@ namespace MphRead.Mods.MapGen
             string key=$"fallback|{name.ToUpperInvariant()}|{size}";
             if(_quantizedCache.TryGetValue(key,out var cached))return(cached.Palette,cached.Pixels);
             var result=Quantize(Fallback(size,name),size,cancellation);
+            if(_quantizedCache.Count>2048)_quantizedCache.Clear();
             _quantizedCache[key]=(result.Item1,result.Item2);
             return result;
         }
@@ -534,6 +532,7 @@ namespace MphRead.Mods.MapGen
                 return DownsampleRgb(rgb, asset.Width, asset.Height, size, cancellation);
             }
 
+            _ = Mods.Render.ModernTextureAsset.ProbeDimensions(raw);
             using var source = new MemoryStream(raw);
             StbImage image;
             try { image = StbImage.Load(source, StbiImageFormat.Rgb); }

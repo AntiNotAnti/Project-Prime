@@ -19,6 +19,7 @@ namespace MphRead.Mods.Input
                 _checks = 0;
                 CheckBindings();
                 CheckMovement();
+                TouchSamplingChecks.Run();
                 CheckCameraBasis();
                 CheckZone();
                 CheckPlayerInput();

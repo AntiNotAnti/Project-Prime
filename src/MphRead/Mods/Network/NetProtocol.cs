@@ -2512,7 +2512,8 @@ namespace MphRead.Mods.Network
         // and immutable burn ownership. Packet widths and replay records are unchanged.
         // Protocol 49 adds a lifecycle-fenced slow form/turret state; fast width is unchanged.
         // Protocol 50 isolates optional confirmed impacts from gameplay sequence/ACK windows.
-        public const int ProtocolVersion = 50;
+        // Protocol 51 carries the authority bomb-jump result in detonation events.
+        public const int ProtocolVersion = 51;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

@@ -2595,6 +2595,8 @@ namespace MphRead.Entities
 
         private void ProcessMovement()
         {
+            ModProcessQ3Triggers();
+            Vector3 q3IncomingSpeed = Speed;
             if (_accelerationTimer > 0)
             {
                 _accelerationTimer--;
@@ -2774,7 +2776,8 @@ namespace MphRead.Entities
             UpdateSlidingSfx(slideSfxAmount);
             ModMovementShadowNoteSpeedFactor(speedFactor);
             Vector3 speedMul = Speed.WithX(Speed.X * speedFactor).WithZ(Speed.Z * speedFactor);
-            Speed += (speedMul - Speed) / 2; // todo: FPS stuff
+            if (_q3LaunchGravity != 0) Speed = q3IncomingSpeed;
+            else Speed += (speedMul - Speed) / 2; // todo: FPS stuff
             if (Flags1.TestFlag(PlayerFlags1.UsedJumpPad))
             {
                 Speed = Speed.AddX(_jumpPadAccel.X);
@@ -2829,6 +2832,7 @@ namespace MphRead.Entities
                             _gravity = Fixed.ToFloat(Values.BipedGravity);
                         }
                     }
+                    if (_q3LaunchGravity != 0) _gravity = _q3LaunchGravity;
                     ModMovementShadowNoteGravity(_gravity);
                     Speed = Speed.AddY(_gravity / 2); // todo: FPS stuff
                 }
@@ -2842,6 +2846,8 @@ namespace MphRead.Entities
                 // unimpl-controls: the game does more calculation here if exact aim is off
                 // --> does so outside of the _health > 0 condition, before the player collision check (which is inside another _health > 0)
                 CheckPlayerCollision();
+                if (_q3LaunchGravity != 0 && Flags1.TestFlag(PlayerFlags1.Standing) && Speed.Y <= 0.01f)
+                { _q3LaunchGravity = 0; _q3LaunchFrames = 0; }
             }
             if (Hunter == Hunter.Kanden && IsAltForm && Flags1.TestFlag(PlayerFlags1.Standing))
             {

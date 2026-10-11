@@ -1365,7 +1365,7 @@ namespace MphRead.Droid
             ///
             /// The free camera is the room viewer's Roam camera (see
             /// <c>Scene.SetFreeCamera</c>), and it is not driven through binds
-            /// at all: <c>Scene.OnKeyHeld</c> reads W/A/S/D, Space and V off
+            /// at all: <c>Scene.OnKeyHeld</c> reads W/A/S/D, E and V off
             /// the keyboard and <c>Scene.OnMouseMove</c> turns it. This head
             /// already owns a keyboard nobody is holding, so the stick presses
             /// those keys and the aim drag is handed to the same method the
@@ -1456,7 +1456,7 @@ namespace MphRead.Droid
                     _input.ApplyKey(Keys.S, (dir & TouchControls.Dir.Down) != 0);
                     _input.ApplyKey(Keys.A, (dir & TouchControls.Dir.Left) != 0);
                     _input.ApplyKey(Keys.D, (dir & TouchControls.Dir.Right) != 0);
-                    _input.ApplyKey(Mods.Network.DemoPlayback.IsActive ? Keys.E : Keys.Space, _controls.IsHeld(TouchAction.Jump));
+                    _input.ApplyKey(Keys.E, _controls.IsHeld(TouchAction.Jump));
                     _input.ApplyKey(Keys.V, _controls.IsHeld(TouchAction.Morph));
                     (float X, float Y) look = _controls.TakeAimDelta(preservePresentation: false);
                     if (look.X != 0 || look.Y != 0)

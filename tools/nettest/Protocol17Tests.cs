@@ -42,7 +42,7 @@ internal static class Protocol17Tests
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 50, "protocol train is 50");
+            Check(NetConfig.ProtocolVersion == 51, "protocol train is 51");
             var window = new NetReceiveWindow();
             Check(window.Observe(uint.MaxValue - 1) == SequenceResult.New, "initial sequence");
             Check(window.Observe(0) == SequenceResult.New && window.Bits == 2, "wrap skips missing sequence");

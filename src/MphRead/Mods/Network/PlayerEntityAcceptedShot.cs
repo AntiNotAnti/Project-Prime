@@ -86,7 +86,7 @@ public partial class PlayerEntity
             // Resolve this pulse before another retained pulse reuses its entity.
             if (continuous && result != BeamResultFlags.NoSpawn)
                 foreach (var beam in equip.Beams)
-                    if (beam.Lifespan > 0 && beam.ModShotId == fire.ShotId) beam.Process();
+                    if (beam.Lifespan > 0 && beam.ModShotId == fire.ShotId) beam.ModProcessAcceptedContinuousPulse();
             NetUnlagged.EndShot(this);
         }
         finally { NetUnlagged.AbortShot(); }

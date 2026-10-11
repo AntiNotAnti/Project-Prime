@@ -122,12 +122,16 @@ namespace MphRead.Mods.MapGen
             }
             if (Path.GetExtension(source).Equals(".bsp", StringComparison.OrdinalIgnoreCase))
             {
-                if(new FileInfo(source).Length>MapPackageReader.MaxEntryBytes)throw new InvalidDataException("BSP exceeds the map asset limit.");
-                return File.ReadAllBytes(source);
+                using var bspStream = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read);
+                if (bspStream.Length > Pk3DiscoveryService.MaxEntryBytes)
+                    throw new InvalidDataException("BSP exceeds the map asset limit.");
+                return ReadBounded(bspStream);
             }
-            using ZipArchive archive = ZipFile.OpenRead(source);
+            using ZipArchive archive = Pk3DiscoveryService.OpenValidated(source);
             List<ZipArchiveEntry> maps = archive.Entries
                 .Where(e => e.FullName.EndsWith(".bsp", StringComparison.OrdinalIgnoreCase)).ToList();
+            if (maps.Select(e => Path.GetFileNameWithoutExtension(e.FullName)).Distinct(StringComparer.OrdinalIgnoreCase).Count() != maps.Count)
+                throw new InvalidDataException("Archive contains ambiguous BSP level names.");
             if (maps.Count == 0)
             {
                 throw new ProgramException($"{Path.GetFileName(source)} contains no .bsp.");
@@ -144,12 +148,18 @@ namespace MphRead.Mods.MapGen
             }
             using Stream stream = entry.Open();
             if(entry.Length>MapPackageReader.MaxEntryBytes)throw new InvalidDataException("BSP exceeds the map asset limit.");
+            return ReadBounded(stream);
+        }
+
+        private static byte[] ReadBounded(Stream stream)
+        {
             using var memory = new MemoryStream();
-            byte[] buffer=new byte[65536];int read;
-            while((read=stream.Read(buffer))>0)
+            byte[] buffer = new byte[65536]; int read;
+            while ((read = stream.Read(buffer)) > 0)
             {
-                if(memory.Length+read>MapPackageReader.MaxEntryBytes)throw new InvalidDataException("BSP exceeds the map asset limit.");
-                memory.Write(buffer,0,read);
+                if (memory.Length + read > Pk3DiscoveryService.MaxEntryBytes)
+                    throw new InvalidDataException("BSP exceeds the map asset limit.");
+                memory.Write(buffer, 0, read);
             }
             return memory.ToArray();
         }
@@ -160,16 +170,12 @@ namespace MphRead.Mods.MapGen
             {
                 return new[] { Path.GetFileNameWithoutExtension(source) };
             }
-            using ZipArchive archive = ZipFile.OpenRead(source);
-            return archive.Entries
-                .Where(e => e.FullName.EndsWith(".bsp", StringComparison.OrdinalIgnoreCase))
-                .Select(e => Path.GetFileNameWithoutExtension(e.FullName))
-                .OrderBy(n => n)
-                .ToList();
+            return Pk3DiscoveryService.Discover(source).Select(level => level.Name).ToArray();
         }
 
         private static Q3Bsp Parse(byte[] bytes, CancellationToken cancellation = default)
         {
+            if (bytes.Length < 144) throw new InvalidDataException("BSP is too short for its header.");
             using var stream = new MemoryStream(bytes);
             using var reader = new BinaryReader(stream);
             string magic = new string(reader.ReadChars(4));
@@ -182,7 +188,7 @@ namespace MphRead.Mods.MapGen
             for (int i = 0; i < offsets.Length; i++)
             {
                 offsets[i] = (reader.ReadInt32(), reader.ReadInt32());
-                if(offsets[i].offset<0||offsets[i].length<0||(long)offsets[i].offset+offsets[i].length>bytes.Length)
+                if(offsets[i].offset<0||offsets[i].length<0||(offsets[i].length>0&&offsets[i].offset<144)||(long)offsets[i].offset+offsets[i].length>bytes.Length)
                     throw new InvalidDataException("Invalid BSP lump bounds.");
             }
             IReadOnlyList<T> Lump<T>(BinaryReader r, (int offset, int length) l, int size, Func<BinaryReader,T> read)
@@ -234,6 +240,8 @@ namespace MphRead.Mods.MapGen
                 return new Q3Face(texture, effect, type, vertex, vertexCount, meshVert, meshVertCount, normal, size);
             });
             static bool Range(int start,int count,int size)=>start>=0&&count>=0&&(long)start+count<=size;
+            if (bsp.Faces.Any(face => face.Type is < 1 or > 4))
+                throw new InvalidDataException("BSP contains an unsupported surface type.");
             foreach(var brush in bsp.Brushes)
                 if(!Range(brush.FirstSide,brush.SideCount,bsp.BrushSides.Count)||brush.SideCount>128||brush.Texture<0||brush.Texture>=bsp.Textures.Count)
                     throw new InvalidDataException("Invalid BSP brush references.");

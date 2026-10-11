@@ -22,7 +22,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     internal const int MaximumBytes = 8 * 1024 * 1024;
     private const int MaximumObjects = 32768;
     private const uint Magic = 0x43575050; // PPWC
-    private const ushort Version = 4;
+    private const ushort Version = 5;
     private readonly ReplayPayload _data;
     internal ReadOnlySpan<byte> Bytes => _data.Span;
     internal ReplayPayload Payload => _data;
@@ -211,6 +211,9 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             long bombs = ReplayCheckpointWriter.BeginComponent(writer);
             replay.Scene.Bombs.WriteCheckpoint(writer);
             ReplayCheckpointWriter.EndComponent(writer, bombs);
+            long traversal = ReplayCheckpointWriter.BeginComponent(writer);
+            foreach (var player in replay.Scene.Players.Items) player.ModWriteQ3Traversal(writer);
+            ReplayCheckpointWriter.EndComponent(writer, traversal);
             ReplayPerfTelemetry.CheckpointBytes = stream.Length;
             return new(stream.Detach(), frame);
         }
@@ -333,6 +336,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         byte[]? assets = version >= 2 ? ReadBytes(reader, MaximumBytes) : null;
         byte[]? cosmetics = version >= 3 ? ReadBytes(reader, 4096) : null;
         byte[]? bombs = version >= 4 ? ReadBytes(reader, MaximumBytes) : null;
+        byte[]? traversal = version >= 5 ? ReadBytes(reader, 256 * 1024) : null;
         if (stream.Position != stream.Length || frame != Frame) throw new InvalidDataException("Invalid replay world capsule length/frame.");
         // Allocate and bind every object before following any link. Only this new
         // replica is modified; its caller disposes it if any validation fails.
@@ -420,6 +424,13 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             using var bombReader = new BinaryReader(bombStream);
             replay.Scene.Bombs.ReadCheckpoint(bombReader);
             if (bombStream.Position != bombStream.Length) throw new InvalidDataException("Invalid bomb checkpoint appendix.");
+        }
+        if (traversal != null)
+        {
+            using var traversalStream = new MemoryStream(traversal, writable: false);
+            using var traversalReader = new BinaryReader(traversalStream);
+            foreach (var player in replay.Scene.Players.Items) player.ModReadQ3Traversal(traversalReader);
+            if (traversalStream.Position != traversalStream.Length) throw new InvalidDataException("Invalid Q3 traversal appendix.");
         }
         replay.Scene.Random.SetRng1(rng1); replay.Scene.Random.SetRng2(rng2);
     }

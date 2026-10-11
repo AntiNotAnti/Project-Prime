@@ -213,6 +213,70 @@ internal static class BombSceneTests
         Check(player.ModTryAdmitBomb(BombAction.Detonate, out _) == BombAdmissionReason.None
             && bombs.All(b => b.Countdown == 0), "eligible full current-life Lockjaw set detonates all three");
     }
+    private static void DelayedOwnerJump(PlayerEntity player)
+    {
+        var scene = player.OwningScene;
+        var start = player.Position + Vector3.UnitY * 3;
+        player.Hunter = Hunter.Sylux; player.Health = 99; player.ModForceForm(true);
+        player.ModPlaceAt(start); player.Speed = new Vector3(.3f, 0, .1f);
+        var bomb = BombEntity.Spawn(player, Matrix4.CreateTranslation(player.Volume.SpherePosition), scene)!;
+        bomb.ModOwnerKey = ShotKey.For(player.SlotIndex, ++_sequence);
+        scene.Bombs.Placed(bomb);
+        BombEvent terminal = default;
+        var sink = NetSession.BombEventSink;
+        NetSession.BombEventSink = bytes =>
+        {
+            if (BombEvent.TryRead(bytes, out var fact) && fact.Kind == BombEventKind.Detonated
+                && fact.State.Key == bomb.ModOwnerKey) terminal = fact;
+        };
+        try { bomb.Countdown = 0; bomb.Process(); }
+        finally { NetSession.BombEventSink = sink; }
+        Check(player.Speed.Y == Fixed.ToFloat(player.Values.BombJumpSpeed),
+            "moving native Lockjaw receives authored bomb jump");
+        Check(terminal.Sequence != 0, "native Lockjaw emits terminal for delayed owner fixture");
+        var role = NetSession.Role; bool authority = NetSession.IsAuthority; int local = NetSession.LocalSlot;
+        try
+        {
+            typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, NetRole.Client);
+            typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, false);
+            typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, player.SlotIndex);
+            foreach (string variant in new[] { "moving", "stationary", "duplicate", "no-contact", "rising", "dead", "new-life", "new-generation", "other-owner", "unmorphed" })
+            {
+                player.Health = 99; player.ModForceForm(true);
+                player.ModPlaceAt(variant == "stationary" || variant == "no-contact" ? start : start + Vector3.UnitX * 10);
+                var speed = new Vector3(.3f, variant == "rising" ? 2 : 0, .1f); player.Speed = speed;
+                if (variant == "dead") player.Health = 0;
+                if (variant == "unmorphed") player.ModForceForm(false);
+                typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null,
+                    variant == "other-owner" ? 0 : player.SlotIndex);
+                var key = terminal.State.Key;
+                if (variant == "new-life") key = key with { LifeId = (ushort)(key.LifeId + 1) };
+                if (variant == "new-generation") key = key with { Generation = (ushort)(key.Generation + 1) };
+                var fact = terminal with { Sequence = 1, State = terminal.State with { Key = key },
+                    Reason = variant == "no-contact" ? (byte)0 : terminal.Reason };
+                var world = new NetBombWorld(scene); world.Begin(key.MatchId, key.AuthorityEpoch);
+                var receiver = new BombStateReceiver();
+                foreach (var page in BombStatePage.PackSnapshot(key.MatchId, key.AuthorityEpoch, fact.Frame, 0, Array.Empty<BombState>())) receiver.Accept(page);
+                world.ApplyBaseline(receiver);
+                Check(world.ReceiveEvent(fact), $"delayed terminal accepted {variant}");
+                bool eligible = variant is "moving" or "stationary" or "duplicate" or "rising";
+                Check(player.Speed == speed.WithY(eligible ? Math.Max(speed.Y, Fixed.ToFloat(player.Values.BombJumpSpeed)) : speed.Y),
+                    $"delayed bomb jump preserves native impulse and lifecycle {variant}");
+                if (variant == "duplicate")
+                {
+                    player.Speed = speed;
+                    Check(!world.ReceiveEvent(fact) && player.Speed == speed, "duplicate terminal cannot reapply owner jump");
+                }
+            }
+        }
+        finally
+        {
+            typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, role);
+            typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, authority);
+            typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, local);
+            player.Health = 99; player.ModForceForm(true);
+        }
+    }
     private static void PendingLifeReplacement(PlayerEntity player)
     {
         NetBombs.Reset(); player.ModForceForm(false); player.Health = 99;
@@ -246,7 +310,7 @@ internal static class BombSceneTests
             NetBombs.Reset(); _sequence = 0;
             var player = PlayerEntity.Players[1]; player.Hunter = Hunter.Samus;
             NativeTriangle(player, PlayerEntity.Players[0]);
-            Admission(player); Presentation(player); NativeEntityLifecycle(player); DetonationGates(player); PendingLifeReplacement(player);
+            Admission(player); Presentation(player); NativeEntityLifecycle(player); DetonationGates(player); PendingLifeReplacement(player); DelayedOwnerJump(player);
             Check(sim.StepFailures == 0, "asset authority fixture has no simulation failures");
             Console.WriteLine($"PASS: {_checks} bomb scene assertions ({profile})"); return 0;
         }

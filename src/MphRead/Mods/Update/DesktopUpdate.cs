@@ -456,7 +456,7 @@ namespace MphRead.Mods.Update
         /// Independent of game preferences and of the ephemeral staged folder.
         /// Failure logs survive both rollback and the next startup's stage sweep.
         /// </summary>
-        private static void Diagnostic(string target, string message)
+        internal static void Diagnostic(string target, string message)
         {
             Console.WriteLine("[update] " + message);
             try

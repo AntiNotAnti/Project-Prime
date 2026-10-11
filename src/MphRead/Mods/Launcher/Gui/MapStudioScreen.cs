@@ -2571,10 +2571,10 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if(_work!=null||_detached||_poppedOut)return;
             string? path=files.FirstOrDefault(file=>File.Exists(file)&&
-                Path.GetExtension(file).ToLowerInvariant() is ".pk3" or ".bsp" or ".json" or ".ppmap");
-            if(path==null){_status.Text="Drop a .pk3, .bsp, .json or .ppmap file into Map Studio.";return;}
+                Path.GetExtension(file).ToLowerInvariant() is ".pk3" or ".zip" or ".bsp" or ".json" or ".ppmap");
+            if(path==null){_status.Text="Drop a .pk3, .zip, .bsp, .json or .ppmap file into Map Studio.";return;}
             string extension=Path.GetExtension(path).ToLowerInvariant();
-            if(extension is ".pk3" or ".bsp")ShowImportWizard(path);
+            if(extension is ".pk3" or ".zip" or ".bsp")ShowImportWizard(path);
             else Open(path);
         }
 
@@ -2588,7 +2588,7 @@ namespace MphRead.Mods.Launcher.Gui
                 if(picked!=null){ShowImportWizard(picked);return;}
             }
 #endif
-            Browse("Choose a Quake 3 source",false,ShowImportWizard,".pk3",".bsp");
+            Browse("Choose a Quake 3 source",false,ShowImportWizard,".pk3",".zip",".bsp");
         }
         private void ShowImportWizard(string source)
         {
@@ -2615,6 +2615,8 @@ namespace MphRead.Mods.Launcher.Gui
             var healTolerance=new TextBox{Text="0.0625"};
             view.Children.Add(clip);view.Children.Add(items);view.Children.Add(sky);view.Children.Add(spawns);view.Children.Add(heal);
             view.Children.Add(Text("Collision heal tolerance"));view.Children.Add(healTolerance);
+            var fallback=new CheckBox {Content="Allow visible fallback textures for missing source art",IsChecked=true};
+            view.Children.Add(fallback);
             var dependencies=new List<string>();
             var report=Text("Preflight has not run yet.");report.MaxHeight=120;view.Children.Add(report);
 
@@ -2673,7 +2675,8 @@ namespace MphRead.Mods.Launcher.Gui
                     selectedScale,clip.IsChecked==true,items.IsChecked==true,sky.IsChecked==true,spawns.IsChecked==true,
                     patchLevel,texSize,dependencies.ToArray(),
                     AutoHealCollision:heal.IsChecked==true,
-                    CollisionHealTolerance:Number(healTolerance.Text??""));
+                    CollisionHealTolerance:Number(healTolerance.Text??""),
+                    AllowFallbackTextures:fallback.IsChecked==true);
                 WithUnsaved(()=>_=Job("Importing Quake 3 map",async token=>
                 {
                     Dismiss();

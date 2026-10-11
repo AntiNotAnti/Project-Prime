@@ -106,6 +106,7 @@ sealed class CheckWindow : RenderWindow
     private readonly Vector2i _requestedPixels;
     private readonly List<object> _windowEvents = new();
     private int _windowStage;
+    private string? _glVendor, _glRenderer, _glVersion;
     public bool Complete { get; private set; }
 
     internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck)
@@ -148,6 +149,9 @@ sealed class CheckWindow : RenderWindow
         Scene.GameState.PointGoal = 0; Scene.GameState.MatchTime = -1;
         FrameTiming.Reset(); FrameTiming.ResetDiagnostics();
         CursorState = CursorState.Normal;
+        _glVendor = GL.GetString(StringName.Vendor);
+        _glRenderer = GL.GetString(StringName.Renderer);
+        _glVersion = GL.GetString(StringName.Version);
         Console.WriteLine($"NATIVERENDER context room={_room} pixels={FramebufferSize} cap={_cap} shadows={_shadows}"
             + $" vendor={GL.GetString(StringName.Vendor)} renderer={GL.GetString(StringName.Renderer)} gl={GL.GetString(StringName.Version)}"
             + $" mvid={typeof(Scene).Module.ModuleVersionId:D}");
@@ -406,6 +410,7 @@ sealed class CheckWindow : RenderWindow
         double P(double percentile) => _intervals.Count == 0 ? 0
             : _intervals.Order().ElementAt(Math.Clamp((int)Math.Ceiling(_intervals.Count * percentile / 100) - 1, 0, _intervals.Count - 1));
         return new { schema = 1, room = _room, cap = _cap, shadows = _shadows.ToString(),
+            vendor = _glVendor, renderer = _glRenderer, glVersion = _glVersion,
             effectiveCap = FrameTiming.FrameRateCap, softwareFrequency = UpdateFrequency, vsync = VSync.ToString(),
             assemblyMvid = typeof(Scene).Module.ModuleVersionId, framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y },
             wallSeconds = _wall.Elapsed.TotalSeconds, measurementSeconds = Stopwatch.GetElapsedTime(_measureStarted).TotalSeconds,

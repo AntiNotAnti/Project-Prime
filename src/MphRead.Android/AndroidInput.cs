@@ -136,7 +136,7 @@ namespace MphRead.Droid
         /// A key that is not one of the player's binds.
         ///
         /// For the spectator's free camera, which is the room viewer's Roam
-        /// camera: <c>Scene.OnKeyHeld</c> drives it by reading W/A/S/D, Space
+        /// camera: <c>Scene.OnKeyHeld</c> drives it by reading W/A/S/D, E
         /// and V off the keyboard directly rather than through a
         /// <see cref="Keybind"/>, so there is no bind to apply and the key
         /// itself has to be pressed. Through the same accumulator as

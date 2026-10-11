@@ -1117,7 +1117,10 @@ namespace MphRead.Mods.Network
             // Observe only the owner pose that passed all placement/life guards.
             // The shadow never changes acceptance, position, velocity or controls.
             if (_host.IsAuthority && !_host.IsReplica && NetRoomChange.GameplayReady)
+            {
+                player.ModObserveQ3ReportedTraversal(intent.Position, intent.Frame);
                 NetMovementValidationShadow.ObserveAccepted(player, intent);
+            }
             Vector3 reported = InForm(player, intent.Position,
                 ((intent.Buttons & IntentButtons.AltFormState) == IntentButtons.AltFormState));
             NoteReportedVelocity(player, reported, intent.Frame);

@@ -165,10 +165,10 @@ internal static class NetBombs
             && key.Generation == NetPlayerLifecycle.Generation(key.ShooterSlot)
             && (bomb.BombType != BombType.Lockjaw || key.LifeId == NetPlayerLifecycle.Get(key.ShooterSlot));
     }
-    internal static void Terminal(BombEntity bomb, bool detonated)
+    internal static void Terminal(BombEntity bomb, bool detonated, bool ownerJump = false)
     {
         if (bomb.ModReplica || bomb.Owner == null || bomb.Owner.SceneServices.IsReplica || !NetSession.Active) return;
-        bomb.Owner.OwningScene.Bombs.Terminal(bomb, detonated);
+        bomb.Owner.OwningScene.Bombs.Terminal(bomb, detonated, ownerJump);
     }
     internal static byte[][] CaptureSnapshot(uint frame)
     {
@@ -214,10 +214,11 @@ internal sealed class NetBombWorld
         Begin(bomb.ModOwnerKey.MatchId, bomb.ModOwnerKey.AuthorityEpoch);
         if (_authorityLive.Add(bomb.ModOwnerKey)) Publish(BombEventKind.Placed, bomb.ModCaptureState());
     }
-    internal void Terminal(BombEntity bomb, bool detonated)
+    internal void Terminal(BombEntity bomb, bool detonated, bool ownerJump = false)
     {
         if (_authorityLive.Remove(bomb.ModOwnerKey))
-            Publish(detonated ? BombEventKind.Detonated : BombEventKind.Removed, bomb.ModCaptureState());
+            Publish(detonated ? BombEventKind.Detonated : BombEventKind.Removed, bomb.ModCaptureState(),
+                detonated && ownerJump ? BombEvent.OwnerJump : (byte)0);
     }
     internal void Publish(BombEventKind kind, BombState state, byte reason = 0)
     {
@@ -320,7 +321,7 @@ internal sealed class NetBombWorld
                 case BombEventKind.Removed:
                     var bomb = Find(state.Key);
                     if (fact.Kind == BombEventKind.Detonated)
-                    { bomb ??= Put(state); bomb?.ModApplyState(state); bomb?.ModPresentDetonation(); }
+                    { bomb ??= Put(state); bomb?.ModApplyState(state); bomb?.ModPresentDetonation(fact.HasOwnerJump); }
                     bomb?.ModRemoveReplica();
                     if (_terminal.TryAdd(state.Key, fact.Sequence)) _terminalOrder.Enqueue(state.Key);
                     while (_terminalOrder.Count > History) _terminal.Remove(_terminalOrder.Dequeue());

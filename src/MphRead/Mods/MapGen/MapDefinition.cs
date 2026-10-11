@@ -95,6 +95,7 @@ namespace MphRead.Mods.MapGen
         public MapCapabilities? Capabilities { get; set; }
         public List<MapNavigationLink> NavigationLinks { get; set; } = new();
         public List<MapSpawn> Spawns { get; set; } = new List<MapSpawn>();
+        public List<MapQ3Trigger>? Q3Triggers { get; set; }
         public List<MapJumpPad> JumpPads { get; set; } = new List<MapJumpPad>();
         public List<MapItem> Items { get; set; } = new List<MapItem>();
 
@@ -175,7 +176,7 @@ namespace MphRead.Mods.MapGen
             {
                 throw new ProgramException($"Could not read map definition {path}.");
             }
-            if (result.FormatVersion is < 1 or > 2)
+            if (result.FormatVersion is < 1 or > 3)
                 throw new MapAuthoringException("FP-MAP-008", $"Unsupported map format {result.FormatVersion}.");
             MapValidator.RequireRuntimeName(result.Name);
             if (result.FormatVersion == 1) result.Name = result.Name.ToUpperInvariant();

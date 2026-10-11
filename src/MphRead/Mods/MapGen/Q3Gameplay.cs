@@ -46,7 +46,7 @@ public static class Q3Gameplay
         return result;
     }
 
-    public static IReadOnlyList<MapDiagnostic> Inspect(Q3Bsp bsp, float unitsPerUnit)
+    public static IReadOnlyList<MapDiagnostic> Inspect(Q3Bsp bsp, float unitsPerUnit, bool typedTraversal = true)
     {
         var result = new List<MapDiagnostic>();
         void Warn(string message) => result.Add(new("FP-MAP-023", MapDiagnosticSeverity.Warning, message));
@@ -56,11 +56,17 @@ public static class Q3Gameplay
         int invalidStarts = bsp.Entities.Count(e => IsPlayerStart(e.GetValueOrDefault("classname") ?? ""))
             - bsp.Entities.Count(e => IsPlayerStart(e.GetValueOrDefault("classname") ?? "") && TryVector(e.GetValueOrDefault("origin"), out _));
         if (invalidStarts > 0) Warn($"Skipped {invalidStarts} player start(s) with missing or invalid coordinates.");
+        var traversal = typedTraversal ? Q3Traversal.Extract(bsp, unitsPerUnit) : Array.Empty<MapQ3Trigger>();
         foreach (var group in bsp.Entities.GroupBy(e => (e.GetValueOrDefault("classname") ?? "").ToLowerInvariant()))
         {
             string name = group.Key;
-            if (name is "trigger_teleport" or "target_teleporter")
-                Warn($"{group.Count()} {name} entity/entities need a Prime traversal replacement. Quake teleporters are not imported; check that all areas remain reachable.");
+            if (name == "trigger_teleport")
+            {
+                int unsupported = group.Count() - traversal.Count(t => t.Kind == "teleport");
+                if (unsupported > 0) Warn($"{unsupported} trigger_teleport entity/entities lack a usable model or destination, or use legacy native traversal. Repair or convert before playtesting.");
+            }
+            else if (name == "target_teleporter")
+                Warn($"{group.Count()} target_teleporter entity/entities require scripted activation that Prime does not simulate. Replace essential scripted routes.");
             else if (name.StartsWith("func_", StringComparison.Ordinal) && name != "func_group")
                 Warn($"{group.Count()} {name} entity/entities are not simulated. Their rendered surfaces may remain, but movement and brush-model collision are not imported. Replace essential doors, lifts or platforms with Prime geometry/routes.");
             else if ((name.StartsWith("trigger_", StringComparison.Ordinal) && name != "trigger_push")
@@ -73,6 +79,8 @@ public static class Q3Gameplay
         int brokenPads = bsp.Entities.Count(e => string.Equals(e.GetValueOrDefault("classname"), "trigger_push", StringComparison.OrdinalIgnoreCase)
             && (!targets.Contains(e.GetValueOrDefault("target") ?? "")
                 || !TryModel(e.GetValueOrDefault("model"), bsp.Models.Count, out _)));
+        if (typedTraversal) brokenPads = bsp.Entities.Count(e => e.GetValueOrDefault("classname") == "trigger_push")
+            - traversal.Count(t => t.Kind == "push");
         if (brokenPads > 0) Warn($"{brokenPads} jump pad(s) have no valid trigger model or target and cannot be imported. Add or repair their Prime jump pads.");
         return result;
     }

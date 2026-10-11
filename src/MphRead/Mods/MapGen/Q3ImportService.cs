@@ -26,7 +26,8 @@ public static class Q3ImportService
         int TextureSize = MapTextureBake.DefaultSize,
         IReadOnlyList<string>? Dependencies = null,
         bool AutoHealCollision = true,
-        float CollisionHealTolerance = 0.0625f);
+        float CollisionHealTolerance = 0.0625f,
+        bool AllowFallbackTextures = true);
 
     public sealed record Analysis(
         string Source,
@@ -143,8 +144,14 @@ public static class Q3ImportService
                 throw new ArgumentOutOfRangeException(nameof(options.PatchLevel), "Patch detail must be 1-8.");
 
             progress?.Invoke("Analyzing Quake 3 source…");
+            IReadOnlyList<string> archives = MapTextureBake.DiscoverArchives(options.Source, options.Dependencies);
+            string selectedMap = options.MapName ?? Q3Bsp.ListMaps(options.Source).FirstOrDefault()
+                ?? throw new InvalidDataException("Quake source contains no BSP levels.");
+            string cacheKey = Pk3DiscoveryService.Fingerprint(options, selectedMap, archives, cancellation);
             Analysis analysis = Analyze(options.Source, options.MapName, options.Dependencies,
                 options.UnitsPerUnit, cancellation);
+            if (!options.AllowFallbackTextures && analysis.Textures.Missing.Count != 0)
+                throw new InvalidDataException("Missing source textures. Add a local dependency archive or allow fallback textures.");
             foreach (var warning in analysis.GameplayWarnings)
                 diagnostics.Add(new(Severity.Warning, warning.Message));
             foreach (string missing in analysis.Textures.Missing)
@@ -152,22 +159,44 @@ public static class Q3ImportService
 
             Directory.CreateDirectory(staging);
             var lines = new List<string>();
-            IReadOnlyList<string> archives = MapTextureBake.DiscoverArchives(options.Source, options.Dependencies);
-            progress?.Invoke("Copying source and preparing textures…");
-            int status = Q3Convert.Run(options.Source, analysis.MapName, options.RoomName, staging,
-                dropClip: !options.KeepClip, dropItems: !options.KeepItems,
-                forcedScale: options.UnitsPerUnit, textureSize: options.TextureSize,
-                cancellation: cancellation, textureArchives: archives, log: lines.Add,
-                textureProgress: (done,total,name) =>
-                    progress?.Invoke($"Baking textures {done:N0}/{total:N0} · {name}"));
-            foreach (string line in lines) diagnostics.Add(new(Severity.Info, line));
-            if (status != 0) throw new IOException("Quake 3 conversion failed.");
+            void RequireUnchangedSource()
+            {
+                IReadOnlyList<string> currentArchives = MapTextureBake.DiscoverArchives(options.Source, options.Dependencies);
+                if (!currentArchives.SequenceEqual(archives, StringComparer.Ordinal)
+                    || Pk3DiscoveryService.Fingerprint(options, analysis.MapName, archives, cancellation) != cacheKey)
+                    throw new IOException("Quake source or texture dependencies changed during import. Retry with unchanged files.");
+            }
+            bool cacheHit = false;
+            try { cacheHit = Pk3DiscoveryService.Restore(cacheKey, staging, cancellation); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Directory.Delete(staging, true);
+                Directory.CreateDirectory(staging);
+                diagnostics.Add(new(Severity.Warning, "Conversion cache unavailable: " + ex.Message));
+            }
+            diagnostics.Add(new(Severity.Info, cacheHit ? "Q3 conversion cache hit." : "Q3 conversion cache miss."));
+            if (!cacheHit)
+            {
+                progress?.Invoke("Copying source and preparing textures…");
+                int status = Q3Convert.Run(options.Source, analysis.MapName, options.RoomName, staging,
+                    dropClip: !options.KeepClip, dropItems: !options.KeepItems,
+                    forcedScale: options.UnitsPerUnit, textureSize: options.TextureSize,
+                    cancellation: cancellation, textureArchives: archives, log: lines.Add,
+                    textureProgress: (done,total,name) =>
+                        progress?.Invoke($"Baking textures {done:N0}/{total:N0} · {name}"));
+                foreach (string line in lines) diagnostics.Add(new(Severity.Info, line));
+                if (status != 0) throw new IOException("Quake 3 conversion failed.");
+                RequireUnchangedSource();
+                try { Pk3DiscoveryService.Store(cacheKey, staging, cancellation); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { diagnostics.Add(new(Severity.Warning, "Conversion cache unavailable: " + ex.Message)); }
+            }
 
             progress?.Invoke("Finalizing imported project…");
             string projectPath = Directory.EnumerateFiles(staging, "*.json").Single();
             var definition = MapDefinition.Load(projectPath);
             definition.FormatVersion = 2;
-            if (definition.MapId == Guid.Empty) definition.MapId = Guid.NewGuid();
+            definition.MapId = Guid.NewGuid();
             if (definition.Import != null)
             {
                 definition.Import.KeepSky = options.KeepSky;
@@ -181,10 +210,12 @@ public static class Q3ImportService
                     definition.Spawns.Clear();
                 }
             }
+            Q3Traversal.Initialize(definition);
             definition.Save(projectPath);
             Q3ImportManifest.From(analysis,options.UnitsPerUnit??analysis.AutoScale).Save(staging);
             cancellation.ThrowIfCancellationRequested();
 
+            RequireUnchangedSource();
             progress?.Invoke("Publishing imported map…");
             Directory.Move(staging, destination);
             string finalProject = Path.Combine(destination, Path.GetFileName(projectPath));
@@ -232,6 +263,7 @@ public static class Q3ImportService
         };
         Result imported = Import(request, cancellation);
         if (!imported.Succeeded || imported.ProjectPath == null) return imported;
+        bool preserveRecovery = false;
         try
         {
             var fresh = MapDefinition.Load(imported.ProjectPath);
@@ -269,6 +301,7 @@ public static class Q3ImportService
             if (merged.Preview == null) merged.Preview = fresh.Preview;
 
             string freshRoot = Path.GetDirectoryName(imported.ProjectPath)!;
+            var updates = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             if (fresh.Import != null)
             {
                 string? level = fresh.Import.Resolve();
@@ -276,13 +309,13 @@ public static class Q3ImportService
                 if (level != null)
                 {
                     string target = Path.Combine(root, Path.GetFileName(level));
-                    AtomicFile.Write(target, File.ReadAllBytes(level));
+                    updates[target] = File.ReadAllBytes(level);
                     merged.Import!.Source = Path.GetFileName(target);
                 }
                 if (textures != null)
                 {
                     string target = Path.Combine(root, Path.GetFileName(textures));
-                    AtomicFile.Write(target, File.ReadAllBytes(textures));
+                    updates[target] = File.ReadAllBytes(textures);
                     merged.Import!.Textures = Path.GetFileName(target);
                 }
                 var oldModern = previousImport?.ModernTextures.Values.ToHashSet(StringComparer.OrdinalIgnoreCase)
@@ -295,8 +328,7 @@ public static class Q3ImportService
                     string prefix = Path.GetFullPath(root) + Path.DirectorySeparatorChar;
                     if (!target.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                         throw new InvalidDataException("Reimported HD texture escapes the map project.");
-                    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                    AtomicFile.Write(target, bytes);
+                    updates[target] = bytes;
                     if (!merged.Assets.Any(a => a.Path.Equals(relative, StringComparison.OrdinalIgnoreCase)))
                         merged.Assets.Add(new MapAsset { Path = relative, Kind = "texture", Name = "Q3 HD source" });
                 }
@@ -310,17 +342,68 @@ public static class Q3ImportService
             merged.BaseDirectory = root;
             merged.SourcePath = Path.GetFullPath(projectPath);
             merged.BundlePath = null;
-            merged.Save(projectPath);
+            // Source traversal is already validated in the isolated fresh import.
+            // Prepare every byte before changing any existing project file.
+            merged.Q3Triggers = fresh.Q3Triggers;
+            merged.FormatVersion = fresh.FormatVersion;
+            string preparedProject = Path.Combine(freshRoot, ".reimport-project.json");
+            merged.Save(preparedProject);
             string manifest=Path.Combine(freshRoot,Q3ImportManifest.FileName);
             if(File.Exists(manifest))
-                AtomicFile.Write(Path.Combine(root,Q3ImportManifest.FileName),File.ReadAllBytes(manifest));
+                updates[Path.Combine(root,Q3ImportManifest.FileName)] = File.ReadAllBytes(manifest);
+            updates[Path.GetFullPath(projectPath)] = File.ReadAllBytes(preparedProject);
+            PublishReimport(updates, Path.Combine(freshRoot, ".rollback"), cancellation);
             return imported with { ProjectPath = Path.GetFullPath(projectPath) };
         }
+        catch (AggregateException) { preserveRecovery = true; throw; }
         finally
         {
-            try { if (Directory.Exists(tempDestination)) Directory.Delete(tempDestination, true); }
+            try { if (!preserveRecovery && Directory.Exists(tempDestination)) Directory.Delete(tempDestination, true); }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
     }
+
+    internal static void PublishReimport(IReadOnlyDictionary<string, byte[]> updates, string backupDirectory,
+        CancellationToken cancellation)
+    {
+        Directory.CreateDirectory(backupDirectory);
+        var backups = new List<(string Target, string? Backup)>();
+        try
+        {
+            foreach ((string target, byte[] bytes) in updates)
+            {
+                cancellation.ThrowIfCancellationRequested();
+                if (Directory.Exists(target)) throw new IOException("Reimport target is a directory: " + target);
+                string? backup = null;
+                if (File.Exists(target))
+                {
+                    backup = Path.Combine(backupDirectory, backups.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    File.Copy(target, backup, false);
+                }
+                backups.Add((target, backup));
+                AtomicFile.Write(target, bytes);
+            }
+            cancellation.ThrowIfCancellationRequested();
+        }
+        catch (Exception publishError)
+        {
+            var rollbackErrors = new List<Exception>();
+            foreach (var (target, backup) in backups.AsEnumerable().Reverse())
+            {
+                try
+                {
+                    if (backup == null) { if (File.Exists(target)) File.Delete(target); }
+                    else AtomicFile.Write(target, File.ReadAllBytes(backup));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { rollbackErrors.Add(ex); }
+            }
+            if (rollbackErrors.Count > 0)
+                throw new AggregateException("Reimport failed and some original files could not be restored. Recovery copies: " + backupDirectory,
+                    new[] { publishError }.Concat(rollbackErrors));
+            throw;
+        }
+    }
+
 }
