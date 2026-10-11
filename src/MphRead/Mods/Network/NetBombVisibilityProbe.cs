@@ -76,6 +76,7 @@ internal static class NetBombVisibilityProbe
             BombState? targetState = target?.ModCaptureState();
             var saved = CameraFields.Select(n => typeof(Scene).GetField(n, Private)!.GetValue(scene)).ToArray();
             bool allNodes = scene.ShowAllNodes;
+            bool spectatorFreeCamera = SpectatorMode.FreeCamera;
             var draws = bombs.ToDictionary(b => b, b => b.ShouldDraw);
             var flags = bombs.SelectMany(b => b.Effect?.Elements ?? new List<EffectElementEntry>()).ToDictionary(e => e, e => e.Flags);
             var links = bombs.ToDictionary(b => b, b => (b.ModLink0, b.ModLink1));
@@ -133,6 +134,7 @@ internal static class NetBombVisibilityProbe
                 foreach (var row in links) { row.Key.ModLink0 = row.Value.Item1; row.Key.ModLink1 = row.Value.Item2; }
                 foreach (var row in draws) ShouldDraw.SetValue(row.Key, row.Value);
                 scene.ShowAllNodes = allNodes;
+                SpectatorMode.NoteFreeCamera(spectatorFreeCamera);
                 for (int i = 0; i < CameraFields.Length; i++) typeof(Scene).GetField(CameraFields[i], Private)!.SetValue(scene, saved[i]);
                 scene.OnDrawFrame(); scene.OnRenderFrame();
             }
