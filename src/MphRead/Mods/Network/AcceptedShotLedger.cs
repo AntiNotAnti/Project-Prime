@@ -52,7 +52,7 @@ public sealed class AcceptedShotLedger
         }
         if (key.ShotId == 0 || key.ShotId != fire.ShotId || key.LifeId == 0
             || key.Generation == 0 || key.ShooterSlot is < 0 or >= 8
-            || fire.Kind is FireEventKind.ContinuousTick or FireEventKind.TurretFire
+            || fire.Kind == FireEventKind.ContinuousTick
             || (byte)fire.Kind > (byte)FireEventKind.TurretFire || Newer(fire.SourceFrame, observedFrame))
         { AdmissionRejected++; return ShotAdmission.Invalid; }
         Expire(observedFrame);

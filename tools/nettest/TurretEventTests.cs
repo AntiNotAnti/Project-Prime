@@ -86,8 +86,12 @@ internal static class TurretEventTests
                 Weapon = (byte)BeamType.PowerBeam };
             Check(NetFireEvents.Accept(0, carrier), "pending turret and discrete event admitted together");
             NetFireEvents.Prepare(owner, carrier);
-            Check(NetFireEvents.CanFireTurret(owner) && NetFireEvents.CaptureLedger(0).Pending == 1,
+            var mixedLedger = NetFireEvents.CaptureLedger(0);
+            Check(NetFireEvents.CanFireTurret(owner) && mixedLedger.Pending == 1 && mixedLedger.Accepted == 1
+                && mixedLedger.TryPeek(out var discrete) && discrete.Fire.Kind == FireEventKind.PressFire,
                 "authority turret retains native selection while discrete event remains retained");
+            owner.ExitAltForm(); owner.ModForceForm(false); scene.RemoveEntity(turret);
+            Check(CountEntity(scene, turret) == 0, "fixture retires native turret before next-life spawn");
             owner.Spawn(owner.Position, Vector3.UnitZ, Vector3.UnitY, owner.NodeRef, respawn: true);
             var ledger = NetFireEvents.CaptureLedger(0);
             Check(ledger.Pending == 1 && !NetFireEvents.CanFireTurret(owner),
@@ -143,9 +147,15 @@ internal static class TurretEventTests
         bool OwnerUnchanged() => owner.Health == health && owner.ModCaptureForm().Equals(form)
             && owner.CurrentWeapon == weapon && owner.TimeSinceShot == 17 && ReferenceEquals(turret.Target, target)
             && Equals(cooldownBefore, cooldown.GetValue(turret)) && !ContainsEntity(scene, turret);
-        Check(NetSession.IsAuthority && owner.ModSpawnAcceptedTurret(fire) == BeamResultFlags.NoSpawn
-            && owner.EquipInfo.Beams.Count(beam => beam.Lifespan > 0) == 0 && OwnerUnchanged(),
+        Check(NetSession.IsAuthority, "helper refusal control runs in actual authority role");
+        Check(owner.ModSpawnAcceptedTurret(fire) == BeamResultFlags.NoSpawn,
             "authority cannot bypass native turret gates through accepted observer helper");
+        Check(owner.EquipInfo.Beams.Count(beam => beam.Lifespan > 0) == 0,
+            "refused authority helper creates no projectile");
+        Console.WriteLine($"TURRET authority refusal state health={owner.Health == health} form={owner.ModCaptureForm().Equals(form)} "
+            + $"weapon={owner.CurrentWeapon == weapon} shotTimer={owner.TimeSinceShot == 17} target={ReferenceEquals(turret.Target, target)} "
+            + $"cooldown={Equals(cooldownBefore, cooldown.GetValue(turret))} retiredReferences={CountEntity(scene, turret)}");
+        Check(OwnerUnchanged(), "refused authority helper preserves owner and retired turret state");
         NetRole role = NetSession.Role; bool authority = NetSession.IsAuthority; int local = NetSession.LocalSlot;
         void Session(string property, object value) => typeof(NetSession).GetProperty(property)!.SetValue(null, value);
         try
@@ -153,11 +163,13 @@ internal static class TurretEventTests
             Session(nameof(NetSession.Role), NetRole.Client);
             Session(nameof(NetSession.IsAuthority), false); Session(nameof(NetSession.LocalSlot), 1);
             NetSession.RemoteIntents[owner.SlotIndex] = carrier; NetSession.RemoteIntentValid[owner.SlotIndex] = true;
-            Check(NetFireEvents.Accept(owner.SlotIndex, carrier)
-                && NetFireEvents.CaptureLedger(owner.SlotIndex).Pending == 1,
-                "observer turret event enters full-key accepted ledger after unmorph");
             var key = new ShotKey(carrier.AuthorityEpoch, carrier.MatchId, owner.SlotIndex,
                 carrier.SlotGeneration, carrier.LifeId, fire.ShotId);
+            Check(NetFireEvents.Accept(owner.SlotIndex, carrier)
+                && NetFireEvents.CaptureLedger(owner.SlotIndex).Pending == 1
+                && NetFireEvents.CaptureLedger(owner.SlotIndex).TryGet(key, out var accepted, out var disposition, out _)
+                && accepted.Fire == fire && disposition == ShotDisposition.Pending,
+                "observer turret event enters full-key accepted ledger after unmorph");
             NetFireEvents.Prepare(owner, carrier);
             Check(!NetFireEvents.CanFireTurret(owner), "observer ledger does not select native target or cooldown policy");
             NetFireEvents.DrainAccepted(owner);
@@ -210,9 +222,13 @@ internal static class TurretEventTests
     }
 
     private static bool ContainsEntity(Scene scene, EntityBase entity)
+        => CountEntity(scene, entity) != 0;
+
+    private static int CountEntity(Scene scene, EntityBase entity)
     {
+        int count = 0;
         foreach (var candidate in scene.Entities)
-            if (ReferenceEquals(candidate, entity)) return true;
-        return false;
+            if (ReferenceEquals(candidate, entity)) count++;
+        return count;
     }
 }
