@@ -164,8 +164,14 @@ public static class NetFireEvents
     internal static void RememberRetiredUnemittedTurret(in ShotKey key)
     {
         if (!NetSession.IsAuthority || (uint)key.ShooterSlot >= 8 || key.ShotId == 0) return;
-        var state = For(key.ShooterSlot);
-        if (state.Fence != (key with { LifeId = 0, ShotId = 0 })) return;
+        RememberRetiredUnemittedTurret(For(key.ShooterSlot), key);
+    }
+    // Callbacks can run while For is retiring a life. Use its owned state rather
+    // than re-entering For before CurrentLife has advanced.
+    private static void RememberRetiredUnemittedTurret(Slot state, in ShotKey key)
+    {
+        if (!NetSession.IsAuthority || key.ShotId == 0
+            || state.Fence != (key with { LifeId = 0, ShotId = 0 })) return;
         int free = -1;
         for (int i = 0; i < state.TurretTerminals.Length; i++)
         {
@@ -205,7 +211,7 @@ public static class NetFireEvents
                 // An expired pending source was never consumed by native Commit.
                 // Its claim rescue veto is production policy, independent of diagnostics.
                 if (NetSession.IsAuthority && fire.Kind == FireEventKind.TurretFire)
-                    RememberRetiredUnemittedTurret(key);
+                    RememberRetiredUnemittedTurret(state, key);
                 // Preserve the entire recovery window and all native firing gates.
                 // Only at terminal expiry can a settled, unavailable authority
                 // turret classify the retained event as rejected rather than lost.
@@ -281,9 +287,13 @@ public static class NetFireEvents
             if (fire.Kind == FireEventKind.ContinuousTick && (uint)slot < PlayerEntity.Players.Count
                 && (PlayerEntity.Players[slot].Health <= 0 || key.LifeId != NetPlayerLifecycle.Get(slot)))
                 CompleteUnavailableContinuous(PlayerEntity.Players[slot], key, fire);
-            else if (fire.Kind == FireEventKind.TurretFire && NetSession.IsAuthority
-                && (uint)slot < PlayerEntity.Players.Count)
-                NetCampaignEvidence.TurretUnavailable(PlayerEntity.Players[slot], key, fire);
+            else if (fire.Kind == FireEventKind.TurretFire && NetSession.IsAuthority)
+            {
+                RememberRetiredUnemittedTurret(state, key);
+                if ((uint)slot < PlayerEntity.Players.Count)
+                    NetCampaignEvidence.TurretUnavailable(PlayerEntity.Players[slot], key, fire);
+                else NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Rejected, reason);
+            }
             else NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Rejected, reason);
             state.Incoming.Consume(fire.ShotId);
         }
@@ -371,7 +381,7 @@ public static class NetFireEvents
                 && !player.IsAltForm && !player.IsMorphing))
         {
             var key = ShotKey.For(player.SlotIndex, retired.ShotId) with { LifeId = retired.SourceLife };
-            RememberRetiredUnemittedTurret(key);
+            RememberRetiredUnemittedTurret(state, key);
             NetCampaignEvidence.TurretUnavailable(player, key, retired);
             state.Incoming.Consume(retired.ShotId);
             state.Selected = false; state.Active = default;
