@@ -511,7 +511,21 @@ namespace MphRead.Mods.Network
             bool aligned = Single.IsFinite(x) && Single.IsFinite(y) && MathF.Abs(x) < FiringCone;
             if (Single.IsFinite(x) && Single.IsFinite(y))
             { AimDeltaX = Math.Clamp(x, -TurnRate, TurnRate); AimDeltaY = Math.Clamp(y, -TurnRate, TurnRate); }
-            c.MoveUp.IsDown = gap > .7f && aligned;
+            // Locomotion uses the real alt camera basis, not ballistic
+            // muzzle convergence (which can align while rolling elsewhere).
+            // These are the same four native controls read by ProcessAlt.
+            if (gap > .7f)
+            {
+                float forward = (delta.X * player.CameraInfo.Field48 + delta.Z * player.CameraInfo.Field4C) / gap;
+                float left = (delta.X * player.CameraInfo.Field50 + delta.Z * player.CameraInfo.Field54) / gap;
+                if (Single.IsFinite(forward) && Single.IsFinite(left))
+                {
+                    c.MoveUp.IsDown = forward > .25f;
+                    c.MoveDown.IsDown = forward < -.25f;
+                    c.MoveLeft.IsDown = left > .25f;
+                    c.MoveRight.IsDown = left < -.25f;
+                }
+            }
             float horizontalSpeed = MathF.Sqrt(player.Speed.X * player.Speed.X + player.Speed.Z * player.Speed.Z);
             c.AltAttack.IsDown = player.IsAltForm && gap <= .7f && horizontalSpeed < .08f && _frame % 20 < 3;
             if (c.AltAttack.IsDown && _frame % 20 == 0) Triggers++;
