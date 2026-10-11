@@ -70,7 +70,6 @@ internal static class MovementTourTests
             // Dedicated ServerSim deliberately suppresses local input and uses
             // Roam. Select the actual local-player input/camera path for this
             // isolated tour; native keyboard sampling still owns all controls.
-            typeof(Scene).GetField("_cameraMode", Private)!.SetValue(scene, CameraMode.Player);
             var inputMode = typeof(Scene).GetField("_inputMode", Private)!;
             inputMode.SetValue(scene, Enum.Parse(inputMode.FieldType, "All"));
             scene.GameState.MatchTime = -1; scene.GameState.PointGoal = 10000;
@@ -141,6 +140,9 @@ internal static class MovementTourTests
             void Steps(int count, params Keys[] down) { for (int i = 0; i < count; i++) Step(down); }
             Steps(120);
             Require(player.ModIsInPlay && player.Health > 0, "native spawned live body");
+            // Initialize/spawn in Roam so the headless fixture never initializes
+            // GPU HUD resources; then select the real local simulation branches.
+            typeof(Scene).GetField("_cameraMode", Private)!.SetValue(scene, CameraMode.Player);
             Require(player.IsMainPlayer, "fixture selects actual native local-player path");
             walkStart = player.Position; trackWalk = true;
             Steps(24, Keys.W); Steps(24, Keys.D); Steps(24, Keys.S); Steps(24, Keys.A); Steps(20);
