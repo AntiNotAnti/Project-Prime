@@ -67,6 +67,12 @@ internal static class MovementTourTests
             Session(nameof(NetSession.LocalSlot), 0);
             var scene = (Scene)typeof(ServerSim).GetField("_scene", Private)!.GetValue(sim)!;
             scene.Players.MainPlayerIndex = 0;
+            // Dedicated ServerSim deliberately suppresses local input and uses
+            // Roam. Select the actual local-player input/camera path for this
+            // isolated tour; native keyboard sampling still owns all controls.
+            typeof(Scene).GetField("_cameraMode", Private)!.SetValue(scene, CameraMode.Player);
+            var inputMode = typeof(Scene).GetField("_inputMode", Private)!;
+            inputMode.SetValue(scene, Enum.Parse(inputMode.FieldType, "All"));
             scene.GameState.MatchTime = -1; scene.GameState.PointGoal = 10000;
             NetSlotManager.Sync();
             var player = scene.Players.Items[0];
@@ -86,15 +92,25 @@ internal static class MovementTourTests
             player.Controls.MouseAim = false;
             bool testedDisabled = false;
             long samples = 0;
+            bool trackWalk = false; Vector3 walkStart = Vector3.Zero;
+            float maximumWalkDistance = 0; int nativeMovementInputFrames = 0;
             // Empty device snapshots baseline through the real input path first.
             void Step(params Keys[] down)
             {
                 foreach (var binding in bindings) setKey(keyboard, binding.Key, Array.IndexOf(down, binding.Key) >= 0);
-                Session(nameof(NetSession.NetFrame), unchecked(NetSession.NetFrame + 1));
+                uint priorFrame = NetSession.NetFrame;
+                Session(nameof(NetSession.NetFrame), unchecked(priorFrame + 1));
                 sim.Step();
+                Require(NetSession.NetFrame == unchecked(priorFrame + 1), "exactly one network frame per actual native step");
                 Require(sim.StepFailures == 0, "native simulation exception");
                 if (player.ModIsInPlay && player.Health > 0)
                 {
+                    if (trackWalk)
+                    {
+                        maximumWalkDistance = Math.Max(maximumWalkDistance, (player.Position - walkStart).Length);
+                        if (player.Controls.MoveUp.IsDown || player.Controls.MoveDown.IsDown
+                            || player.Controls.MoveLeft.IsDown || player.Controls.MoveRight.IsDown) nativeMovementInputFrames++;
+                    }
                     IntentPacket intent = NetPlayerBridge.CaptureIntent(player);
                     var sample = new MovementValidationSample(NetSession.AuthorityEpoch, NetSession.CurrentMatchId,
                         player.SlotIndex, NetPlayerLifecycle.Generation(player.SlotIndex), NetPlayerLifecycle.Get(player.SlotIndex),
@@ -125,9 +141,12 @@ internal static class MovementTourTests
             void Steps(int count, params Keys[] down) { for (int i = 0; i < count; i++) Step(down); }
             Steps(120);
             Require(player.ModIsInPlay && player.Health > 0, "native spawned live body");
-            Vector3 walkStart = player.Position;
+            Require(player.IsMainPlayer, "fixture selects actual native local-player path");
+            walkStart = player.Position; trackWalk = true;
             Steps(24, Keys.W); Steps(24, Keys.D); Steps(24, Keys.S); Steps(24, Keys.A); Steps(20);
-            Require(player.Position != walkStart, "actual biped displacement");
+            trackWalk = false;
+            Require(nativeMovementInputFrames > 0 && maximumWalkDistance > 0,
+                "native keyboard controls produce actual biped displacement during tour");
             bool airborne = false, nativeUpwardImpulse = false;
             Step(Keys.Space);
             for (int i = 0; i < 100; i++)
