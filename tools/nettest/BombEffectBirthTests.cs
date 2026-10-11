@@ -78,6 +78,32 @@ internal static class BombEffectBirthTests
             $"{kind} delayed ordinary native effect retains native expiry and birth clock");
     }
 
+    private static void InitialDrawBirth(string replayPath, BombType kind)
+    {
+        using var replay = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+        var ghost = Ghost(replay, kind);
+        Check(ghost.Effect != null && Particles(ghost) == 0
+            && ghost.Effect.Elements.All(e => e.ModCanonicalBirthPending),
+            $"{kind} Initialize arms body before any bomb Process");
+        using var initialCheckpoint = ReplayWorldCheckpoint.Capture(replay);
+        ProcessEffects(replay.Scene);
+        int particles = Particles(ghost);
+        Check(particles > 0, $"{kind} first draw effects phase emits body before any bomb Process");
+        var effect = ghost.Effect;
+        AdvanceClock(replay.Scene); ghost.Process(); ProcessEffects(replay.Scene);
+        Check(ReferenceEquals(effect, ghost.Effect) && Particles(ghost) == particles,
+            $"{kind} first Process after draw does not duplicate initialized body");
+        using var restored = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+        initialCheckpoint.Restore(restored);
+        var initial = RestoredGhost(restored);
+        Check(initial.Effect != null && Particles(initial) == 0
+            && initial.Effect.Elements.All(e => e.ModCanonicalBirthPending),
+            $"{kind} checkpoint retains Initialize-only birth without Process");
+        AdvanceClock(restored.Scene); ProcessEffects(restored.Scene);
+        Check(Particles(initial) == particles,
+            $"{kind} restored Initialize-only birth emits before any bomb Process at later clock");
+    }
+
     private static void CatchupBirth(string replayPath, BombType kind)
     {
         using var source = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
@@ -161,13 +187,15 @@ internal static class BombEffectBirthTests
         {
             foreach (var kind in new[] { BombType.MorphBall, BombType.Lockjaw })
             {
+                InitialDrawBirth(replayPath, kind);
                 CatchupBirth(replayPath, kind);
                 CatchupTerminal(replayPath, kind);
                 foreach (bool beforeClock in new[] { false, true })
                 {
                     using var replay = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
                     var ghost = Ghost(replay, kind);
-                    Check(ghost.Effect == null, $"{kind} bootstrap birth has no premature zero-age emitter");
+                    Check(ghost.Effect != null && ghost.Effect.Elements.All(e => e.ModCanonicalBirthPending),
+                        $"{kind} bootstrap birth immediately arms clock-safe body emitter");
                     if (beforeClock) AdvanceClock(replay.Scene);
                     ghost.Process(); ProcessEffects(replay.Scene);
                     int particles = Particles(ghost);
@@ -183,8 +211,9 @@ internal static class BombEffectBirthTests
                 using var restored = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
                 pendingCheckpoint.Restore(restored);
                 var ghostRestored = RestoredGhost(restored);
-                Check(restored.Scene.Bombs.Canonical && ghostRestored.Effect == null,
-                    $"{kind} pre-emission world restore retains canonical deferred birth");
+                Check(restored.Scene.Bombs.Canonical && ghostRestored.Effect != null
+                    && ghostRestored.Effect.Elements.All(e => e.ModCanonicalBirthPending),
+                    $"{kind} pre-emission world restore retains canonical armed birth");
                 AdvanceClock(restored.Scene); ghostRestored.Process(); ProcessEffects(restored.Scene);
                 int restoredParticles = Particles(ghostRestored);
                 Check(restoredParticles > 0, $"{kind} restored pending ghost emits at first simulation effects phase");
