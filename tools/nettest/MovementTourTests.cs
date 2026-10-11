@@ -1,4 +1,5 @@
-// Scope: asset-backed local native production movement in a ServerSim-owned scene.
+// Scope: asset-backed local native body controls in a ServerSim-owned scene.
+// The dedicated Roam camera remains selected; HUD/camera input parity is unexercised.
 // Host/local0 is a fixture input seam; this is not dedicated native input authority.
 using System;
 using System.Reflection;
@@ -37,8 +38,8 @@ internal static class MovementTourTests
                     return 1; // Activation, asset/geometry and shadow failures are never waived.
                 }
             }
-            Console.WriteLine("MOVEMENT TOUR: local native production, seven hunters; no dedicated kernel proof.");
-            Console.WriteLine("UNSUPPORTED/UNEXERCISED: pad, moving platform, teleport, external knockback, grapple, Spire wall climb.");
+            Console.WriteLine("MOVEMENT TOUR: native local body controls, seven hunters, Roam camera; no dedicated kernel proof.");
+            Console.WriteLine("UNSUPPORTED/UNEXERCISED: pad, moving platform, teleport, external knockback, grapple, Spire wall climb, HUD/camera input parity.");
             Console.WriteLine("Stable alt intervals are measured as Unsupported; advisory WouldRefuse candidates are not hard rejections.");
             return 0;
         }
@@ -67,9 +68,9 @@ internal static class MovementTourTests
             Session(nameof(NetSession.LocalSlot), 0);
             var scene = (Scene)typeof(ServerSim).GetField("_scene", Private)!.GetValue(sim)!;
             scene.Players.MainPlayerIndex = 0;
-            // Dedicated ServerSim deliberately suppresses local input and uses
-            // Roam. Select the actual local-player input/camera path for this
-            // isolated tour; native keyboard sampling still owns all controls.
+            // Dedicated ServerSim deliberately suppresses keyboard input. Select
+            // the native local body control path for this isolated tour while
+            // retaining its Roam camera and headless presentation scope.
             var inputMode = typeof(Scene).GetField("_inputMode", Private)!;
             inputMode.SetValue(scene, Enum.Parse(inputMode.FieldType, "All"));
             scene.GameState.MatchTime = -1; scene.GameState.PointGoal = 10000;
@@ -140,11 +141,9 @@ internal static class MovementTourTests
             void Steps(int count, params Keys[] down) { for (int i = 0; i < count; i++) Step(down); }
             Steps(120);
             Require(player.ModIsInPlay && player.Health > 0, "native spawned live body");
-            // Initialize/spawn in Roam so the headless fixture never initializes
-            // GPU HUD resources; then select the real local simulation branches.
-            typeof(Scene).GetField("_cameraMode", Private)!.SetValue(scene, CameraMode.Player);
             inputMode.SetValue(scene, Enum.Parse(inputMode.FieldType, "All"));
-            Require(player.IsMainPlayer, "fixture selects actual native local-player path");
+            Require(scene.CameraMode == CameraMode.Roam && NetHooks.LocalSlot == player.SlotIndex,
+                "fixture selects native local body controls with dedicated Roam camera");
             walkStart = player.Position; trackWalk = true;
             Steps(24, Keys.W); Steps(24, Keys.D); Steps(24, Keys.S); Steps(24, Keys.A); Steps(20);
             trackWalk = false;
