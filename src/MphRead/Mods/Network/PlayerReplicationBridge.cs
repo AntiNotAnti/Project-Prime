@@ -997,6 +997,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public void NoteRoomChanged()
         {
+            NetMovementValidationShadow.ResetHistory();
             Array.Clear(_formReconciliation);
             Array.Clear(_authorityForms);
             Array.Clear(_lifeApplied);

@@ -16,7 +16,7 @@ internal static class MovementValidationTests
         try
         {
             NetMovementValidationShadow.Enabled = true;
-            HuntersAndForms(); OrderingAndGaps(); Lifecycle(); Exemptions(); InvalidSamples(); Bounds(); Disabled();
+            HuntersAndForms(); OrderingAndGaps(); Lifecycle(); RoomBoundary(); Exemptions(); InvalidSamples(); Bounds(); Disabled();
             Console.WriteLine("PASS: movement shadow lifecycle, source time, exemptions and bounded observations");
             return 0;
         }
@@ -96,6 +96,16 @@ internal static class MovementValidationTests
             Check(Count("Baselines") == 2 && Count("WouldRefuse") == 0 && Count("DuplicateOrOld") == 0,
                 field + " replacement cannot compare against stale motion");
         }
+    }
+    private static void RoomBoundary()
+    {
+        NetMovementValidationShadow.Reset();
+        NetMovementValidationShadow.Observe(Sample(100));
+        NetMovementValidationShadow.Observe(Sample(101, .05f));
+        NetPlayerBridge.NoteRoomChanged();
+        NetMovementValidationShadow.Observe(Sample(102, 9999));
+        Check(Count("Baselines") == 2 && Count("Evaluated") == 1 && Count("WouldRefuse") == 0,
+            "actual room boundary retires pose history without discarding accumulated measurements");
     }
     private static void Exemptions()
     {
