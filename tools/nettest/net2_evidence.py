@@ -1,8 +1,10 @@
 """Offline, fail-closed adjudication of N0 process evidence (no game imports)."""
 from collections import Counter
 import json
+import math
 from pathlib import Path
 import re
+import struct
 
 FATAL = re.compile(r"semantic history overrun|reliable (?:channel |control )?(?:failed|gap)|"
                    r"timed out|\btimeout\b|\[sim\] step failed|could not (?:join|load|spectate)|"
@@ -19,8 +21,91 @@ def state_key(row):
     return tuple(row[k] for k in ("Epoch", "Match", "Frame", "Slot", "Generation", "Life"))
 
 
-def health_value(row):
-    return tuple(row[k] for k in ("Hp", "TurretHp", "Kills", "Deaths", "DamageEvent"))
+def health_value(row, schema=1):
+    fields = ("Hp", "TurretHp", "DamageEvent") if schema == 2 else (
+        "Hp", "TurretHp", "Kills", "Deaths", "DamageEvent")
+    return tuple(row[k] for k in fields)
+
+
+def slow_states(report):
+    """Validate exact PlayerSlowState payloads; its revision has its own clock."""
+    rows = report.get("SlowStates")
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("missing/nonempty slow-lane evidence")
+    result, seen = [], set()
+    for row in rows:
+        limits = {"Epoch": (1, 2**64 - 1), "Match": (1, 65535),
+                  "Revision": (1, 2**32 - 1), "Frame": (0, 2**32 - 1)}
+        for field, (low, high) in limits.items():
+            if type(row[field]) is not int or not low <= row[field] <= high:
+                raise ValueError("invalid slow-lane " + field)
+        payload = row["Payload"]
+        if not isinstance(payload, str) or not re.fullmatch(r"(?:[0-9A-Fa-f]{2})+", payload):
+            raise ValueError("invalid slow-lane payload hex")
+        data = bytes.fromhex(payload)
+        key = row["Epoch"], row["Match"], row["Revision"]
+        if len(data) < 15 or struct.unpack_from("<HQI", data) != (key[1], key[0], key[2]):
+            raise ValueError("slow-lane row/payload identity mismatch")
+        count = data[14]
+        if count > 8 or len(data) != 15 + count * 10 + 64 or key in seen:
+            raise ValueError("invalid slow-lane length/count/duplicate revision")
+        seen.add(key)
+        scores = {}
+        for at in range(15, 15 + count * 10, 10):
+            slot, generation = data[at], struct.unpack_from("<H", data, at + 1)[0]
+            if slot >= 8 or generation == 0 or any(s == slot for s, _ in scores):
+                raise ValueError("invalid slow-lane slot/generation")
+            scores[slot, generation] = data[at + 3:at + 10]
+        if any(not math.isfinite(value) or value < -1
+               for value in struct.unpack_from("<16f", data, 15 + count * 10)):
+            raise ValueError("invalid slow-lane time state")
+        result.append(dict(key=key, frame=row["Frame"], payload=data, scores=scores))
+    return result
+
+
+def slow_lane_parity(authority, peer):
+    """No fast-frame pairing of cached scores; require exact lane receipts and final scores."""
+    errors = []
+    try:
+        server, client = slow_states(authority), slow_states(peer)
+    except (KeyError, TypeError, ValueError, struct.error) as error:
+        return {"slowSamplesCompared": 0, "slowLaneCompleteness": "FAIL",
+                "finalScoreConvergence": "FAIL"}, ["malformed/missing slow-lane evidence: " + str(error)]
+    indexed = {row["key"]: row for row in server}
+    matched = 0
+    for row in client:
+        reference = indexed.get(row["key"])
+        if reference is None:
+            errors.append("unknown authority slow-lane revision " + str(row["key"]))
+        elif reference["payload"] != row["payload"]:
+            errors.append("slow-lane full payload mismatch " + str(row["key"]))
+        else:
+            matched += 1
+    lane_ok = not errors
+    known_fast = {state_key(row) for row in authority["States"]}
+    streams = {(row["Epoch"], row["Match"]) for row in peer["States"]}
+    for stream in streams:
+        fast = [row for row in peer["States"] if (row["Epoch"], row["Match"]) == stream
+                and state_key(row) in known_fast]
+        if not fast:
+            errors.append("no matched terminal fast state for slow-lane stream " + str(stream))
+            continue
+        end = max(row["Frame"] for row in fast)
+        references = [row for row in server if row["key"][:2] == stream and row["frame"] <= end]
+        receipts = [row for row in client if row["key"][:2] == stream]
+        if not references or not receipts:
+            errors.append("missing terminal slow-lane stream " + str(stream))
+            continue
+        # Sender rows are chronological; client rows are accepted revision order.
+        reference = max(enumerate(references), key=lambda pair: (pair[1]["frame"], pair[0]))[1]
+        latest = receipts[-1]
+        active = {(row["Slot"], row["Generation"]) for row in peer["States"]
+                  if (row["Epoch"], row["Match"]) == stream and row["Frame"] == end}
+        if any(identity not in reference["scores"] or identity not in latest["scores"]
+               or reference["scores"][identity] != latest["scores"][identity] for identity in active):
+            errors.append("stale/missing terminal slow-lane scores " + str(stream) + " at " + str(end))
+    return {"slowSamplesCompared": matched, "slowLaneCompleteness": "PASS" if lane_ok else "FAIL",
+            "finalScoreConvergence": "PASS" if not errors else "FAIL"}, errors
 
 
 def drain_barrier(server, peers, require_empty=True):
@@ -289,7 +374,7 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 failures.append(f"{name}: {match.group(0)} in {log.relative_to(out)}")
         try:
             report = json.loads((out / f"{name}.json").read_text())
-            if report["Schema"] != 1 or report["Protocol"] != expected_protocol:
+            if report["Schema"] not in (1, 2) or report["Protocol"] != expected_protocol:
                 failures.append(f"{name}: schema/protocol mismatch")
             for field in ("Overflow", "ConnectionLost", "SemanticOverrun", "SemanticDisconnects", "LastError"):
                 if report[field]:
@@ -335,7 +420,8 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
             incomplete.append("server: no step distribution")
         if any(s["StepFailures"] for s in authority["ServerSegments"]):
             failures.append("server: simulation step failures")
-        states = {state_key(s): health_value(s) for s in authority["States"]}
+        schema = authority["Schema"]
+        states = {state_key(s): health_value(s, schema) for s in authority["States"]}
         committed = {shot_key(s): (s["Weapon"], s["Charge"], s["Kind"]) for s in authority["Shots"] if s["Stage"] == "committed"}
         authority_shots = {shot_key(s): s for s in authority["Shots"] if s["Stage"] == "committed"}
         authority_accepted = {shot_key(s): s for s in authority["Shots"] if s["Stage"] == "accepted"}
@@ -351,7 +437,13 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
             if name == "server":
                 continue
             common = [(s, states[state_key(s)]) for s in report["States"] if state_key(s) in states]
-            mismatch = sum(health_value(s) != value for s, value in common)
+            if report["Schema"] != schema:
+                failures.append(f"{name}: evidence schema differs from authority")
+            slow_parity = {}
+            if schema == 2:
+                slow_parity, slow_errors = slow_lane_parity(authority, report)
+                failures.extend(f"{name}: {error}" for error in slow_errors)
+            mismatch = sum(health_value(s, schema) != value for s, value in common)
             if not common:
                 incomplete.append(f"{name}: no health samples with identical authority identity/frame")
             if mismatch:
@@ -405,6 +497,7 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
             if not expected_commits:
                 incomplete.append(f"{name}: no comparable shooter/observer shot interval")
             parity[name] = {"healthSamplesCompared": len(common), "healthMismatches": mismatch,
+                **slow_parity,
                 "offeredShots": len(offered), "acceptedShots": len(offered.keys() & accepted),
                 "committedShots": len(offered.keys() & committed.keys()), "wrongWeaponChargeKind": wrong,
                 "unacceptedKeys": [list(k) for k in sorted(missing_accepted)[:32]],

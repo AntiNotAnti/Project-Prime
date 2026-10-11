@@ -69,6 +69,7 @@ public sealed class NetReplicationLanes
         {
             SlowRevision = Next(SlowRevision); Header(slow, header, SlowRevision);
             slow[..slowLength].CopyTo(Slow); SlowLength = slowLength; _slowFrame = header.Frame;
+            NetCampaignEvidence.SlowSnapshot(Slow.AsSpan(0, SlowLength), header.Frame);
         }
         var health = canonical[(timeAt + NetMatchTimeSync.Size)..];
         bool changed = WorldLength != LaneHeader + health.Length;
@@ -141,7 +142,8 @@ public sealed class NetReplicationReceiver
             if (!sameStream) Reset(match, epoch);
             Array.Fill(_slowOffsetBySlot, (short)-1);
             for (int i = 0; i < data[14]; i++) _slowOffsetBySlot[data[15 + i * 10]] = (short)(15 + i * 10);
-            data.CopyTo(_slow); _slowLength = data.Length; SlowRevision = revision; return true;
+            data.CopyTo(_slow); _slowLength = data.Length; SlowRevision = revision;
+            NetCampaignEvidence.SlowSnapshot(data, NetSession.NetFrame); return true;
         }
         if (type != PacketType.WorldState || data.Length > _world.Length
             || sameStream && WorldRevision != 0 && !NetLifecycleTracker.Newer(revision, WorldRevision)

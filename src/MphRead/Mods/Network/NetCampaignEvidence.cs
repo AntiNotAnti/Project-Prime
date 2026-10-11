@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Buffers.Binary;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -24,6 +25,7 @@ internal static class NetCampaignEvidence
         ? 1048576 : 262144;
     private static readonly List<Shot> Shots = new();
     private static readonly List<Health> States = new();
+    private static readonly List<SlowState> SlowStates = new();
     private static readonly List<Fact> Facts = new();
     private static readonly List<Window> Windows = new();
     private static readonly List<object> ServerSegments = new();
@@ -44,6 +46,7 @@ internal static class NetCampaignEvidence
         byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase, string? Reason = null);
     private sealed record Health(ulong Epoch, ushort Match, uint Frame, byte Slot, ushort Generation,
         ushort Life, ushort Hp, ushort TurretHp, ushort Kills, ushort Deaths, uint DamageEvent);
+    private sealed record SlowState(ulong Epoch, ushort Match, uint Revision, uint Frame, string Payload);
     private sealed record Fact(byte Type, ulong Epoch, ushort Match, uint Id, uint Tick,
         bool Baseline, bool Award, uint AwardFrontier, string Payload);
     private sealed record Window(double Seconds, ulong Epoch, ushort Match, uint Frame, int LocalSlot,
@@ -110,6 +113,18 @@ internal static class NetCampaignEvidence
         Add(States, new(NetSession.AuthorityEpoch, NetSession.CurrentMatchId, frame, state.SlotIndex,
             state.SlotGeneration, state.LifeId, state.Health, state.HalfturretHealth,
             state.Kills, state.Deaths, state.DamageEventId));
+    }
+
+    // A fast snapshot embeds cached scoreboard fields. Keep their actual slow-lane
+    // identity instead of asserting that they came from the fast snapshot's frame.
+    // Frame is source time at the sender and local arrival time at the receiver;
+    // only epoch/match/revision joins establish the receiver's authority provenance.
+    internal static void SlowSnapshot(ReadOnlySpan<byte> payload, uint frame)
+    {
+        if (!Enabled) return;
+        Add(SlowStates, new(BinaryPrimitives.ReadUInt64LittleEndian(payload[2..]),
+            BinaryPrimitives.ReadUInt16LittleEndian(payload),
+            BinaryPrimitives.ReadUInt32LittleEndian(payload[10..]), frame, Convert.ToHexString(payload)));
     }
 
     internal static void Semantic(PacketType type, ReadOnlySpan<byte> payload)
@@ -212,7 +227,7 @@ internal static class NetCampaignEvidence
         {
             if (_start != 0) CaptureWindow(Stopwatch.GetTimestamp());
             var assembly = typeof(NetCampaignEvidence).Assembly;
-            var report = new { Schema = 1, Role = role, Protocol = NetConfig.ProtocolVersion,
+            var report = new { Schema = 2, Role = role, Protocol = NetConfig.ProtocolVersion,
                 AcceptedShotPlayback = NetFireEvents.AcceptedPlaybackEnabled,
                 Version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
                 Platform = RuntimeInformation.OSDescription, Runtime = RuntimeInformation.FrameworkDescription,
@@ -229,7 +244,7 @@ internal static class NetCampaignEvidence
                 IntentHistory = NetFireEvents.CaptureHistory(),
                 ShotProof = NetShotProof.Capture(),
                 Drain = NetCampaignDrain.Capture(),
-                TransportWindows, Readiness, Windows, ServerSegments, Shots, States, Facts };
+                TransportWindows, Readiness, Windows, ServerSegments, Shots, States, SlowStates, Facts };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             JsonSerializer.Serialize(file, report);
             Console.WriteLine("[net2] evidence completed");
