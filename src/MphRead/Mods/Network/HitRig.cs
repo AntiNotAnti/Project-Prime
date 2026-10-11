@@ -220,6 +220,75 @@ namespace MphRead.Mods.Network
         private const float FiringCone = 2.5f;
 
         private static float _selfAimX, _selfAimY, _selfPitch, _selfWallDistance;
+        private static ushort _triangleFixtureMatch;
+        private static ulong _triangleFixtureEpoch;
+        private static bool _triangleFixtureAuthorityReady, _triangleFixtureClientReady, _triangleFixtureFailed;
+        private static long _triangleFixtureWaitAt;
+        private static readonly bool[] _triangleFixturePoseConfirmed = new bool[2];
+        private static readonly Vector3[] _triangleFixtureInitial = new Vector3[2];
+        private static bool TriangleFixtureEnabled => Environment.GetEnvironmentVariable("PRIME_NET2_TRIANGLE_SETUP") == "1";
+        private static void TriangleFixtureStream()
+        {
+            if (_triangleFixtureMatch == NetSession.CurrentMatchId && _triangleFixtureEpoch == NetSession.AuthorityEpoch) return;
+            _triangleFixtureMatch = NetSession.CurrentMatchId; _triangleFixtureEpoch = NetSession.AuthorityEpoch;
+            _triangleFixtureAuthorityReady = _triangleFixtureClientReady = _triangleFixtureFailed = false;
+            _triangleFixtureWaitAt = Environment.TickCount64;
+            Array.Clear(_triangleFixturePoseConfirmed);
+        }
+        internal static void SetupNetworkTriangleFixtureOnce()
+        {
+            if (!TriangleFixtureEnabled || !(NetSession.IsAuthority || NetSession.IsHost)) return;
+            TriangleFixtureStream();
+            if (_triangleFixtureFailed || _triangleFixtureAuthorityReady || PlayerEntity.Players.Count < 2 || NetBombs.LiveScene is not { } scene
+                || scene.Bombs.LiveCount != 0 || !NetSession.RemoteIntentValid[0] || !NetSession.RemoteIntentValid[1]) return;
+            var owner = PlayerEntity.Players[0]; var victim = PlayerEntity.Players[1];
+            if (owner.Health <= 0 || victim.Health <= 0 || !owner.LoadFlags.TestFlag(LoadFlags.Spawned)
+                || !victim.LoadFlags.TestFlag(LoadFlags.Spawned) || owner.SceneServices.IsReplica) return;
+            if (!TrySetupLockjawTriangleFixture(owner, victim, out Vector3 center))
+            { _triangleFixtureFailed = true; NetLog.Event("triangle fixture FAILED: no collision-verified initial geometry"); return; }
+            _triangleFixtureInitial[0] = owner.Position; _triangleFixtureInitial[1] = victim.Position;
+            _triangleFixtureAuthorityReady = true; _triangleFixtureWaitAt = Environment.TickCount64;
+            NetLog.Event($"triangle fixture authority ready match={_triangleFixtureMatch} epoch={_triangleFixtureEpoch} center={center}");
+        }
+        internal static bool HoldTriangleFixtureRemoteInput(PlayerEntity player)
+        {
+            if (!TriangleFixtureEnabled || !(NetSession.IsAuthority || NetSession.IsHost) || player.SlotIndex is < 0 or > 1) return false;
+            TriangleFixtureStream();
+            int slot = player.SlotIndex;
+            if (_triangleFixtureFailed || !_triangleFixtureAuthorityReady || _triangleFixturePoseConfirmed[slot]) return false;
+            if (Environment.TickCount64 - _triangleFixtureWaitAt > 10000)
+            { _triangleFixtureFailed = true; NetLog.Event("triangle fixture FAILED: initial authority pose confirmation timed out"); return false; }
+            var intent = NetSession.RemoteIntents[slot];
+            bool alt = (intent.Buttons & IntentButtons.AltFormState) != 0;
+            if (NetSession.RemoteIntentValid[slot] && (intent.Position - _triangleFixtureInitial[slot]).LengthSquared < .25f
+                && alt == (slot == 0))
+            { _triangleFixturePoseConfirmed[slot] = true; NetLog.Event($"triangle fixture authority pose confirmed slot={slot}"); return false; }
+            player.Controls.ClearAll(); return true;
+        }
+        private static bool TriangleFixtureClientObserved(PlayerEntity player)
+        {
+            if (!TriangleFixtureEnabled || Mode != RigMode.BombLockjaw || player.SlotIndex is < 0 or > 1) return true;
+            TriangleFixtureStream();
+            if (_triangleFixtureClientReady) return true;
+            if (_triangleFixtureFailed) return false;
+            if (!NetSession.WorldAdmissionConfirmed) { _triangleFixtureWaitAt = Environment.TickCount64; return false; }
+            if (Environment.TickCount64 - _triangleFixtureWaitAt > 10000)
+            { _triangleFixtureFailed = true; NetLog.Event("triangle fixture FAILED: initial authority snapshot timed out"); return false; }
+            if (!NetSession.RemoteStateValid[0] || !NetSession.RemoteStateValid[1]) return false;
+            var owner = NetSession.RemoteStates[0]; var victim = NetSession.RemoteStates[1];
+            Vector3 difference = owner.Position - victim.Position;
+            if ((owner.Flags & PlayerState.FlagAltForm) == 0 || (victim.Flags & PlayerState.FlagAltForm) != 0
+                || (difference - new Vector3(3, -.25f, 0)).LengthSquared > .0625f) return false;
+            // Local snapshots normally preserve predicted position. This explicit
+            // fixture adopts only its initial authority pose, once per stream.
+            var own = NetSession.RemoteStates[player.SlotIndex];
+            player.ModForceForm((own.Flags & PlayerState.FlagAltForm) != 0);
+            player.ModPlaceAt(own.Position); player.Speed = own.Speed;
+            _triangleFixtureClientReady = true;
+            NetLog.Event($"triangle fixture client ready slot={player.SlotIndex} match={_triangleFixtureMatch} epoch={_triangleFixtureEpoch} pos={player.Position}");
+            return true;
+        }
+
         private static int _frame;
         private static bool _lockjawWaitingForTerminal;
         private static ushort _lockjawOwnerLife, _lockjawVictimLife;
@@ -283,6 +352,8 @@ namespace MphRead.Mods.Network
             _frame++;
             PlayerControls c = player.Controls;
             ClearControls(c);
+            if (!TriangleFixtureClientObserved(player))
+            { FinishControls(player, c); return; }
             if (player.Health == 0)
             {
                 // Holding fire is what asks for an early respawn -- on a
@@ -420,7 +491,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         /// <summary>
         /// Explicit initial-geometry setup for the isolated asset fixture only.
-        /// Never called by ordinary campaigns or gameplay. The caller must use
+        /// Called only by the isolated asset fixture or explicit network fixture flag. The caller must use
         /// fresh native players before bomb admission; all later controls,
         /// placement, snare damage and retirement remain native simulation.
         /// </summary>

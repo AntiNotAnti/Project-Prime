@@ -368,6 +368,7 @@ namespace MphRead.Mods.Network
                     NetSession.RemoteStates[slot]);
                 NetTimingDiagnostics.PresentationCorrection(current, player.Position);
             }
+            if (HitRig.HoldTriangleFixtureRemoteInput(player)) return true;
             if (player.LoadFlags.TestFlag(LoadFlags.Active) && NetSession.RemoteIntentValid[slot])
             {
                 if (player.LoadFlags.TestFlag(LoadFlags.Spawned) && player.Health > 0
@@ -610,6 +611,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            HitRig.SetupNetworkTriangleFixtureOnce();
             NetBombs.AfterSimulation();
             NetBotInput.Flush();
             if (_continuousIntentPending)
