@@ -360,6 +360,74 @@ class EvidenceTests(unittest.TestCase):
         self.server["Forms"][0].update(Source=source,Phase="Alt",TurretHp=45,TurretActive=True)
         self.write();self.assertEqual(self.result()["status"],"FAIL")
 
+    def unavailable_turret_expiry_fixture(self):
+        row = self.turret_retirement_fixture()
+        source = struct.pack("<IIB3fBHHH",170,50,3,0.,0.,0.,0,0,2,99).hex()
+        accepted = struct.pack("<IIB3fBHHH",96,50,3,0.,0.,0.,0,0,2,99).hex()
+        row.update(ObservedFrame=170,RetiredFormSource=source,Reason="turret unavailable throughout native recovery window",
+                   AcceptedObservedFrame=96,AcceptedFormSource=accepted,TurretEverAvailable=False,TurretRecoveryFrames=64)
+        self.server["Forms"][0].update(ObservedFrame=170,Source=source,Phase="Alt")
+        self.server["Forms"].append(dict(self.server["Forms"][0],ObservedFrame=96,Source=accepted))
+        for item in self.server["Shots"]:
+            if item["Stage"]=="accepted" and item["Key"]["ShotId"]==6:
+                item.update(AcceptedObservedFrame=96,AcceptedFormSource=accepted,TurretEverAvailable=False,TurretRecoveryFrames=64)
+        return row
+
+    def test_settled_unavailable_turret_exact_recovery_expiry_is_terminal_not_emitted(self):
+        self.unavailable_turret_expiry_fixture();self.write();result=self.result()
+        self.assertEqual(result["status"],"PASS",result)
+        self.assertEqual(result["observations"]["server"]["authorityRetiredTurretCount"],1)
+        self.assertEqual(result["observations"]["server"]["authorityUnavailableTurretCount"],1)
+        self.assertEqual(result["parity"]["shooter"]["committedShots"],1)
+        self.assertEqual(result["parity"]["shooter"]["acceptedShots"],2)
+        self.assertEqual(result["parity"]["shooter"]["authorityRetiredOfferedTurretCount"],1)
+
+    def test_unavailable_turret_expiry_cannot_forge_life_form_or_native_window(self):
+        for case in ("life","missing-form","active","positive-hp","morphing","early","generic-expiry","paid"):
+            with self.subTest(case=case):
+                self.setUp();row=self.unavailable_turret_expiry_fixture();form=self.server["Forms"][0]
+                if case=="life":form["Life"]=5
+                elif case=="missing-form":self.server["Forms"]=[]
+                elif case=="paid":self.server["CombatPayments"]["PaidShotKeys"]=[row["Key"]]
+                elif case=="generic-expiry":row.update(Stage="expired",Reason="fire-event recovery retention elapsed")
+                else:
+                    frame=156 if case=="early" else 170
+                    phase=2 if case=="morphing" else 3
+                    active=1 if case=="active" else 0
+                    hp=1 if case=="positive-hp" else 0
+                    source=struct.pack("<IIB3fBHHH",frame,50,phase,0.,0.,0.,active,hp,2,99).hex()
+                    row.update(ObservedFrame=frame,RetiredFormSource=source)
+                    form.update(ObservedFrame=frame,Source=source,Phase="Morphing" if phase==2 else "Alt",
+                                TurretActive=bool(active),TurretHp=hp)
+                self.write();self.assertEqual(self.result()["status"],"FAIL")
+
+    def test_unavailable_turret_recovery_proof_must_be_typed_and_exact(self):
+        for field,value in (("AcceptedObservedFrame",97),("AcceptedObservedFrame",True),
+                            ("AcceptedFormSource","00"),("TurretEverAvailable",True),
+                            ("TurretEverAvailable",0),("TurretRecoveryFrames",63),("TurretRecoveryFrames",True)):
+            with self.subTest(field=field,value=value):
+                self.setUp();row=self.unavailable_turret_expiry_fixture();row[field]=value
+                self.write();self.assertEqual(self.result()["status"],"FAIL")
+        self.setUp();row=self.unavailable_turret_expiry_fixture();del row["AcceptedFormSource"]
+        self.write();self.assertEqual(self.result()["status"],"FAIL")
+        self.setUp();self.unavailable_turret_expiry_fixture();self.server["Forms"].pop()
+        self.write();self.assertEqual(self.result()["status"],"FAIL")
+        self.setUp();self.unavailable_turret_expiry_fixture()
+        accepted=next(r for r in self.server["Shots"] if r["Stage"]=="accepted" and r["Key"]["ShotId"]==6)
+        accepted["TurretEverAvailable"]=True
+        self.write();self.assertEqual(self.result()["status"],"FAIL")
+        self.setUp();self.unavailable_turret_expiry_fixture()
+        visible=struct.pack("<IIB3fBHHH",120,50,3,0.,0.,0.,1,10,2,99).hex()
+        self.server["Forms"].append(dict(self.server["Forms"][0],ObservedFrame=120,Source=visible,TurretActive=True,TurretHp=10))
+        self.write();self.assertEqual(self.result()["status"],"FAIL")
+
+    def test_unavailable_turret_uses_authority_elapsed_not_owner_source_clock(self):
+        self.unavailable_turret_expiry_fixture()
+        for report in (self.server,self.client):
+            for row in report["Shots"]:
+                if row["Key"]["ShotId"]==6:row["SourceFrame"]=40000
+        self.write();self.assertEqual(self.result()["status"],"PASS")
+
     def test_exact_newer_owner_life_proves_retired_source_without_sampled_death(self):
         r=self.turret_retirement_fixture();r["CurrentOwnerLife"]=5;self.server["Forms"][0]["Life"]=5
         self.write();self.assertEqual(self.result()["status"],"PASS")

@@ -20,6 +20,24 @@ internal static class TurretEventTests
     public static int Run(string room)
     {
         _checks = 0;
+        Check(NetFireEvents.TurretRecoveryElapsed(100, 164, false), "full authority recovery interval permits unavailable proof");
+        Check(!NetFireEvents.TurretRecoveryElapsed(100, 163, false), "partial authority interval cannot classify unavailable");
+        Check(!NetFireEvents.TurretRecoveryElapsed(100, 200, true), "any earlier live availability prevents unavailable classification");
+        Check(!NetFireEvents.TurretRecoveryElapsed(100, 99, false), "reordered authority clock cannot classify unavailable");
+        Check(NetFireEvents.TurretRecoveryElapsed(uint.MaxValue - 31, 32, false), "authority recovery interval handles wrap");
+        var current = new ShotKey(8, 7, 1, 2, 3, 0); var expired = current with { ShotId = 4 };
+        var unavailable = new PlayerFormState { Frame = 1000, StartedFrame = 950, Phase = FormPhase.Alt };
+        Check(NetFireEvents.ExpiredTurretUnavailable(expired, current, unavailable), "expiry classifies exact settled unavailable turret");
+        var pendingMorph = unavailable; pendingMorph.Phase = FormPhase.Morphing;
+        Check(!NetFireEvents.ExpiredTurretUnavailable(expired, current, pendingMorph), "expiry cannot retire pending morph creation");
+        var live = unavailable; live.TurretActive = true; live.TurretHealth = 1;
+        Check(!NetFireEvents.ExpiredTurretUnavailable(expired, current, live), "expiry does not bypass live turret targeting or cadence");
+        live.TurretActive = false;
+        Check(!NetFireEvents.ExpiredTurretUnavailable(expired, current, live), "positive turret health cannot prove retirement");
+        foreach (var wrong in new[] { expired with { LifeId = 4 }, expired with { Generation = 3 },
+            expired with { AuthorityEpoch = 9 }, expired with { MatchId = 8 }, expired with { ShooterSlot = 0 } })
+            Check(!NetFireEvents.ExpiredTurretUnavailable(wrong, current, unavailable), "unavailable terminal preserves complete owner identity");
+        Check(!NetFireEvents.ExpiredTurretUnavailable(current, current, unavailable), "missing event sequence cannot produce terminal proof");
         if (!ServerSim.Available(out string reason)) { Console.Error.WriteLine(reason); return 1; }
         var sim = new ServerSim();
         if (!sim.Start(room, GameMode.Battle, 2, _ => { }, () => { })) return 1;

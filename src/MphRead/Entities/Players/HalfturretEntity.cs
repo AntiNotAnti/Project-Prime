@@ -156,6 +156,7 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            Mods.Network.NetFireEvents.ObserveAuthorityTurret(Owner);
             if (_health == 0 || !Owner.Flags2.TestFlag(PlayerFlags2.Halfturret))
             {
                 // A predicted turret death must remain correctable by a newer

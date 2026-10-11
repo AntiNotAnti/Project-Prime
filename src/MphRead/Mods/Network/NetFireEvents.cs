@@ -146,11 +146,13 @@ public static class NetFireEvents
         public ShotKey ActiveKey, TurretRetiredLife;
         public uint TurretRetiredThrough;
         public bool HasTurretRetirement;
+        public readonly TurretRecovery[] TurretRecovery = new TurretRecovery[NetIncomingFireHistory.Capacity];
         public AcceptedShotLedger Ledger = NewLedger();
         public FireEvent Active;
         public readonly NetOutgoingFireHistory Outgoing = new();
         public readonly NetIncomingFireHistory Incoming = new();
     }
+    private struct TurretRecovery { internal ShotKey Key; internal uint AcceptedAt; internal PlayerFormState Form; internal bool EverAvailable; }
     private static AcceptedShotLedger NewLedger() => new() { OnDisposition = NetCampaignEvidence.Disposition };
     private static readonly Slot[] _slots = CreateSlots();
     private static Slot[] CreateSlots()
@@ -159,11 +161,56 @@ public static class NetFireEvents
         for (int i = 0; i < 8; i++)
         {
             var state = result[i] = new(); int slot = i;
-            state.Incoming.OnExpired = fire => NetCampaignEvidence.Disposition(new(
-                state.Fence with { ShooterSlot = slot, LifeId = fire.SourceLife != 0 ? fire.SourceLife : state.CurrentLife, ShotId = fire.ShotId }, fire),
-                ShotDisposition.Expired, "fire-event recovery retention elapsed");
+            state.Incoming.OnExpired = fire =>
+            {
+                var key = state.Fence with { ShooterSlot = slot,
+                    LifeId = fire.SourceLife != 0 ? fire.SourceLife : state.CurrentLife, ShotId = fire.ShotId };
+                // Preserve the entire recovery window and all native firing gates.
+                // Only at terminal expiry can a settled, unavailable authority
+                // turret classify the retained event as rejected rather than lost.
+                if (NetSession.IsAuthority && fire.Kind == FireEventKind.TurretFire
+                    && (uint)slot < PlayerEntity.Players.Count)
+                {
+                    var owner = PlayerEntity.Players[slot];
+                    ref var proof = ref state.TurretRecovery[key.ShotId % NetIncomingFireHistory.Capacity];
+                    if (NetCampaignEvidence.Enabled && owner.SlotIndex == slot && owner.Hunter == Hunter.Weavel && proof.Key == key
+                        && TurretRecoveryElapsed(proof.AcceptedAt, NetSession.NetFrame, proof.EverAvailable)
+                        && ExpiredTurretUnavailable(key, ShotKey.For(slot, 0), owner.ModCaptureForm()))
+                    { NetCampaignEvidence.TurretRecoveryUnavailable(owner, key, fire, proof.AcceptedAt, proof.Form, proof.EverAvailable); return; }
+                }
+                NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Expired,
+                    "fire-event recovery retention elapsed");
+            };
         }
         return result;
+    }
+    internal static bool TurretRecoveryElapsed(uint acceptedAt, uint now, bool everAvailable)
+        => !everAvailable && unchecked((int)(now - acceptedAt)) >= NetIncomingFireHistory.RecoveryFrames;
+    internal static bool ExpiredTurretUnavailable(in ShotKey eventKey, in ShotKey currentOwner,
+        in PlayerFormState form)
+        => eventKey.ShotId != 0 && currentOwner.AuthorityEpoch != 0 && currentOwner.MatchId != 0
+            && currentOwner.Generation != 0 && currentOwner.LifeId != 0
+            && eventKey == (currentOwner with { ShotId = eventKey.ShotId })
+            && form.Phase == FormPhase.Alt && !form.TurretActive && form.TurretHealth == 0;
+    internal static void ObserveAuthorityTurret(PlayerEntity owner)
+    { if ((uint)owner.SlotIndex < 8) ObserveTurretRecovery(_slots[owner.SlotIndex], owner.SlotIndex); }
+    internal static bool TryTurretRecovery(ShotKey key, out uint acceptedAt, out PlayerFormState form, out bool everAvailable)
+    {
+        acceptedAt = 0; form = default; everAvailable = false;
+        if ((uint)key.ShooterSlot >= 8) return false;
+        var proof = _slots[key.ShooterSlot].TurretRecovery[key.ShotId % NetIncomingFireHistory.Capacity];
+        if (proof.Key != key) return false;
+        acceptedAt = proof.AcceptedAt; form = proof.Form; everAvailable = proof.EverAvailable; return true;
+    }
+    private static void ObserveTurretRecovery(Slot state, int slot)
+    {
+        if (!NetCampaignEvidence.Enabled || !NetSession.IsAuthority || (uint)slot >= PlayerEntity.Players.Count) return;
+        var owner = PlayerEntity.Players[slot];
+        if (owner.SlotIndex != slot || owner.Hunter != Hunter.Weavel
+            || !owner.Flags2.TestFlag(PlayerFlags2.Halfturret) && owner.Halfturret.Health <= 0) return;
+        var current = ShotKey.For(slot, 0);
+        foreach (ref var proof in state.TurretRecovery.AsSpan())
+            if (proof.Key.ShotId != 0 && proof.Key == (current with { ShotId = proof.Key.ShotId })) proof.EverAvailable = true;
     }
     private static Slot For(int slot)
     {
@@ -171,14 +218,15 @@ public static class NetFireEvents
         if (state.Fence != fence)
         { state.Ledger.Retire(fence.AuthorityEpoch, fence.MatchId, slot, fence.Generation);
           state.Ledger.ResetObservationClock();
-          state.EventStream = false; state.Fence = fence; state.Outgoing.Clear(); state.Incoming.Clear(); state.NextId = 0; state.Selected = false; state.Active = default; }
+          state.EventStream = false; state.Fence = fence; state.Outgoing.Clear(); state.Incoming.Clear(); Array.Clear(state.TurretRecovery); state.NextId = 0; state.Selected = false; state.Active = default; }
+        ObserveTurretRecovery(state, slot);
         ushort life = NetPlayerLifecycle.Get(slot);
         if (state.CurrentLife != life)
         {
             // Cadence and turret ownership belong to the current body; only
             // discrete accepted shots and resend history survive its death.
             RejectSpecial(state, slot, "firing cadence life retired");
-            state.CurrentLife = life; state.Incoming.Clear(); state.Selected = false;
+            state.CurrentLife = life; state.Incoming.Clear(); Array.Clear(state.TurretRecovery); state.Selected = false;
             if (!state.PlayingAccepted) state.Active = default;
         }
         return state;
@@ -200,7 +248,7 @@ public static class NetFireEvents
         }
     }
     public static void Reset()
-    { NetShotProof.Reset(); foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.HasTurretRetirement = slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
+    { NetShotProof.Reset(); foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.HasTurretRetirement = slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); Array.Clear(slot.TurretRecovery); slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
     internal static bool Accept(int slot, in IntentPacket intent)
     {
         if ((uint)slot >= 8 || !Validate(intent)) return false;
@@ -232,7 +280,20 @@ public static class NetFireEvents
             if (admission is not (ShotAdmission.Accepted or ShotAdmission.Duplicate))
                 NetCampaignEvidence.AdmissionRejected(key, fire, admission.ToString());
         }
-        state.Incoming.Accept(special);
+        if (!state.Incoming.Accept(special)) return false;
+        if (NetCampaignEvidence.Enabled && NetSession.IsAuthority && (uint)slot < PlayerEntity.Players.Count)
+        {
+            var owner = PlayerEntity.Players[slot]; var form = owner.ModCaptureForm();
+            form.DamageEventId = NetDamage.Sequence(slot);
+            for (int i = 0; i < special.FireEventCount; i++)
+            {
+                var fire = special.FireEvents[i]; if (fire.Kind != FireEventKind.TurretFire) continue;
+                var key = new ShotKey(intent.AuthorityEpoch, intent.MatchId, slot, intent.SlotGeneration, fire.SourceLife != 0 ? fire.SourceLife : intent.LifeId, fire.ShotId);
+                ref var proof = ref state.TurretRecovery[fire.ShotId % NetIncomingFireHistory.Capacity];
+                if (proof.Key != key) proof = new TurretRecovery { Key = key, AcceptedAt = NetSession.NetFrame,
+                    Form = form, EverAvailable = form.TurretActive || form.TurretHealth > 0 };
+            }
+        }
         return true;
     }
     internal static AcceptedShotLedger CaptureLedger(int slot) => For(slot).Ledger;
@@ -336,7 +397,7 @@ public static class NetFireEvents
         var state = _slots[slot]; state.Fence = default;
         state.Ledger.Retire(0, 0, -1, 0);
         state.Ledger.ResetObservationClock(); state.EventStream = false;
-        state.Outgoing.Clear(); state.Incoming.Clear(); state.NextId = 0;
+        state.Outgoing.Clear(); state.Incoming.Clear(); Array.Clear(state.TurretRecovery); state.NextId = 0;
         state.Selected = false; state.Active = default;
     }
     internal static object CaptureHistory() => Array.ConvertAll(_slots, state => new

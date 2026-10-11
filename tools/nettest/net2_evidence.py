@@ -63,6 +63,7 @@ def continuous_terminal_rejections(report, authority_accepted):
 
 
 TURRET_RETIRED_REASON = "turret source retired before native emission"
+TURRET_UNAVAILABLE_REASON = "turret unavailable throughout native recovery window"
 
 
 def authority_turret_retirements(report, authority_accepted):
@@ -71,7 +72,7 @@ def authority_turret_retirements(report, authority_accepted):
     fields = ("SourceFrame", "ContinuousPhase", "Weapon", "Charge", "Kind")
     committed = {shot_key(row) for row in report["Shots"] if row["Stage"] == "committed"}
     for row in report["Shots"]:
-        if row["Stage"] != "rejected" or row.get("Reason") != TURRET_RETIRED_REASON: continue
+        if row["Stage"] != "rejected" or row.get("Reason") not in (TURRET_RETIRED_REASON,TURRET_UNAVAILABLE_REASON): continue
         try:
             if report.get("Role") != "server": raise ValueError("turret retirement is authority-only")
             key = shot_key(row); signature = tuple(row[f] for f in fields)
@@ -80,7 +81,7 @@ def authority_turret_retirements(report, authority_accepted):
                 raise ValueError("non-integer identity/source/retirement evidence")
             if not (0 < key[0] < 2**64 and 0 < key[1] <= 65535 and 0 <= key[2] < 8
                     and all(0 < key[i] <= 65535 for i in (3,4)) and 0 < key[5] < 2**32
-                    and 0 < signature[0] <= observed < 2**32 and 0 <= signature[1] < 2**32
+                    and 0 < signature[0] < 2**32 and 0 <= observed < 2**32 and 0 <= signature[1] < 2**32
                     and signature[2] == 3 and 0 <= signature[3] <= 255 and signature[4] == 4
                     and 0 < life <= 65535 and 0 <= hp <= 65535):
                 raise ValueError("invalid turret source identity/signature")
@@ -96,7 +97,59 @@ def authority_turret_retirements(report, authority_accepted):
             active, turret_hp, damage, body_hp = struct.unpack_from("<BHHH",raw,21)
             if frame != observed or started > frame or phase not in (1,2,3,4) or active > 1 or any(not math.isfinite(v) or abs(v)>100000 for v in anchor):
                 raise ValueError("invalid retired form clock/state")
-            if body_hp != hp or (life == key[4] and phase in (2,3) and hp != 0):
+            unavailable_at_expiry = row.get("Reason") == TURRET_UNAVAILABLE_REASON
+            if unavailable_at_expiry:
+                accepted_at = row["AcceptedObservedFrame"]
+                if (type(accepted_at) is not int or not 0 <= accepted_at < 2**32
+                        or accepted_at != accepted.get("ObservedFrame")
+                        or type(row["TurretRecoveryFrames"]) is not int or row["TurretRecoveryFrames"] != 64
+                        or row["TurretEverAvailable"] is not False
+                        or not 64 <= (observed-accepted_at) % 2**32 < 2**31
+                        or life != key[4] or phase != 3 or active != 0 or turret_hp != 0):
+                    raise ValueError("unavailable turret lacks exact full authority recovery-window proof")
+                accepted_source = row["AcceptedFormSource"]
+                if not isinstance(accepted_source,str) or not re.fullmatch(r"[0-9a-fA-F]{56}",accepted_source):
+                    raise ValueError("missing exact accepted Form28")
+                if (type(accepted.get("AcceptedObservedFrame")) is not int
+                        or accepted["AcceptedObservedFrame"] != accepted_at
+                        or not isinstance(accepted.get("AcceptedFormSource"),str)
+                        or accepted["AcceptedFormSource"].upper() != accepted_source.upper()
+                        or accepted.get("TurretEverAvailable") is not False
+                        or type(accepted.get("TurretRecoveryFrames")) is not int
+                        or accepted["TurretRecoveryFrames"] != 64):
+                    raise ValueError("accepted event lacks matching unavailable recovery evidence")
+                accepted_raw = bytes.fromhex(accepted_source)
+                aframe, astarted, aphase = struct.unpack_from("<IIB",accepted_raw)
+                aanchor = struct.unpack_from("<3f",accepted_raw,9)
+                aactive, ahp, adamage, abody = struct.unpack_from("<BHHH",accepted_raw,21)
+                if (aframe != accepted_at or astarted > aframe or aphase not in (1,2,3,4)
+                        or aactive != 0 or ahp != 0
+                        or any(not math.isfinite(v) or abs(v)>100000 for v in aanchor)):
+                    raise ValueError("accepted turret was available or form clock/state is invalid")
+                accepted_forms = [form for form in report.get("Forms",[]) if form.get("Stage") == "authority"
+                        and tuple(form.get(f) for f in ("Epoch","Match","Slot","Generation","Life")) == key[:5]
+                        and form.get("ObservedFrame") == accepted_at and isinstance(form.get("Source"),str)
+                        and form["Source"].upper() == accepted_source.upper()]
+                if not accepted_forms or any((form.get("BodyHp"),form.get("TurretHp"),form.get("TurretActive"),form.get("Phase"))
+                        != (abody,ahp,False,{1:"Biped",2:"Morphing",3:"Alt",4:"Unmorphing"}[aphase]) for form in accepted_forms):
+                    raise ValueError("accepted form lacks exact authority identity/clock/state join")
+                for form in report.get("Forms",[]):
+                    if (form.get("Stage") != "authority"
+                            or tuple(form.get(f) for f in ("Epoch","Match","Slot","Generation","Life")) != key[:5]):
+                        continue
+                    ftime = form.get("ObservedFrame")
+                    if type(ftime) is not int or not 0 <= ftime < 2**32:
+                        raise ValueError("unavailable recovery has malformed authority form clock")
+                    if (ftime-accepted_at) % 2**32 > (observed-accepted_at) % 2**32:
+                        continue
+                    fsource = form.get("Source")
+                    if not isinstance(fsource,str) or not re.fullmatch(r"[0-9a-fA-F]{56}",fsource):
+                        raise ValueError("unavailable recovery has malformed sampled authority form")
+                    fraw = bytes.fromhex(fsource)
+                    if fraw[21] != 0 or struct.unpack_from("<H",fraw,22)[0] != 0:
+                        raise ValueError("authority form proves turret available during recovery")
+            if body_hp != hp or (life == key[4] and phase in (2,3) and hp != 0
+                                and not unavailable_at_expiry):
                 raise ValueError("native turret source remains eligible")
             identity = key[:4] + (life,)
             matches = [form for form in report.get("Forms",[]) if form.get("Stage") == "authority"
@@ -246,6 +299,15 @@ def drain_barrier(server, peers, require_empty=True):
             return None, "authority drain status unavailable"
         if server["Error"] or server["ConnectionLost"]:
             return None, "authority drain error"
+        # Older immutable campaigns did not expose this field. New authority
+        # status must account for native respawns that can advance semantics
+        # after projectile/claim queues are already quiet.
+        if "PendingRespawns" in server:
+            pending = server["PendingRespawns"]
+            if type(pending) is not int or pending < 0:
+                return None, "malformed authority pending respawns"
+            if pending:
+                return None, "authority native respawns remain"
         if any(server[key] for key in ("ActiveProjectiles", "ActiveBombs", "ClaimsPending")):
             return None, "authority flights/bombs/claims remain"
         bomb_frontier = server.get("BombFrontier")
@@ -311,6 +373,9 @@ class DrainStability:
 def drain_prepared(server, release):
     """Authority must record the exact frontier before any peer receives its exit token."""
     try:
+        if "PendingRespawns" in server and (type(server["PendingRespawns"]) is not int
+                or server["PendingRespawns"] != 0):
+            return False, "authority native respawns remain during release preparation"
         at = server["AtRelease"]
         if server["Release"] != release or release["Status"] != "PASS":
             return False, "waiting for authority preparation acknowledgement"
@@ -573,6 +638,9 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
         failures.extend("server: " + error for error in turret_errors)
         observations["server"]["authorityRetiredTurretCount"] = len(retired_turrets)
         observations["server"]["authorityRetiredTurretKeys"] = [list(k) for k in sorted(retired_turrets)]
+        unavailable_turrets = {k for k,row in retired_turrets.items() if row.get("Reason") == TURRET_UNAVAILABLE_REASON}
+        observations["server"]["authorityUnavailableTurretCount"] = len(unavailable_turrets)
+        observations["server"]["authorityUnavailableTurretKeys"] = [list(k) for k in sorted(unavailable_turrets)]
         # A dead-owner terminal receipt cannot coexist with an authoritative
         # damage/heal payment for the same full owner lifecycle and phase.
         paid_ticks = {tuple(row["Key"]["OwnerTick"][field] for field in
@@ -626,7 +694,7 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                     retired_offered.add(key)
                 else: failures.append(name + ": offered turret differs from retired authority event")
             missing_committed -= retired_offered
-            if any(s.get("Reason") == TURRET_RETIRED_REASON for s in report["Shots"]):
+            if any(s.get("Reason") in (TURRET_RETIRED_REASON,TURRET_UNAVAILABLE_REASON) for s in report["Shots"]):
                 failures.append(name + ": observer turret retirement cannot excuse authority emission presentation")
             # Generic expiry/skipped phases are still unexplained losses.
             if missing_accepted or missing_committed:

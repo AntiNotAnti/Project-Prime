@@ -47,7 +47,8 @@ internal static class NetCampaignEvidence
                 : Offered.Any(key => key.ShooterSlot == NetSession.LocalSlot)));
     private sealed record Shot(string Stage, ShotKey Key, uint SourceFrame, uint ObservedFrame,
         byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase, string? Reason = null,
-        int OwnerHealth = -1, ushort CurrentOwnerLife = 0, string? RetiredFormSource = null);
+        int OwnerHealth = -1, ushort CurrentOwnerLife = 0, string? RetiredFormSource = null, uint? AcceptedObservedFrame = null, string? AcceptedFormSource = null,
+        bool? TurretEverAvailable = null, int? TurretRecoveryFrames = null);
     private sealed record FormObservation(string Stage, ulong Epoch, ushort Match, byte Slot, ushort Generation,
         ushort Life, string Source, uint ObservedFrame, string Phase, int BodyHp, int TurretHp,
         bool TurretActive, float X, float Y, float Z, float BodyX, float BodyY, float BodyZ, ushort ObservedDamageEvent, int BodyPredictionDebit, string? BodyAckSource);
@@ -97,8 +98,20 @@ internal static class NetCampaignEvidence
             if (seen.Count >= RowLimit) { _overflow++; continue; }
             seen.Add(key);
             NetCampaignDrain.Shot(key, offered);
+            string? acceptedFormSource = null; uint? acceptedObserved = null; bool? everAvailable = null;
+            if (!offered && fire.Kind == FireEventKind.TurretFire && NetSession.IsAuthority
+                && NetFireEvents.TryTurretRecovery(key, out uint acceptedAt, out var acceptedForm, out bool available))
+            {
+                Span<byte> source = stackalloc byte[PlayerFormState.Size]; acceptedForm.Write(source);
+                acceptedFormSource = Convert.ToHexString(source); acceptedObserved = acceptedAt; everAvailable = available;
+                var owner = PlayerEntity.Players[slot];
+                Form(new PlayerState { SlotIndex = (byte)slot, SlotGeneration = key.Generation, LifeId = key.LifeId,
+                    Health = (ushort)owner.Health, Position = owner.Position, Form = acceptedForm });
+            }
             Add(Shots, new(offered ? "offered" : "accepted", key, fire.SourceFrame,
-                NetSession.NetFrame, fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase));
+                NetSession.NetFrame, fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase,
+                AcceptedObservedFrame: acceptedObserved, AcceptedFormSource: acceptedFormSource,
+                TurretEverAvailable: everAvailable, TurretRecoveryFrames: acceptedObserved.HasValue ? NetIncomingFireHistory.RecoveryFrames : null));
         }
     }
 
@@ -147,6 +160,20 @@ internal static class NetCampaignEvidence
         Add(Shots, new("rejected", key, fire.SourceFrame, NetSession.NetFrame, fire.Weapon, fire.Charge,
             fire.Kind, fire.ContinuousPhase, "turret source retired before native emission", owner.Health,
             NetPlayerLifecycle.Get(owner.SlotIndex), Convert.ToHexString(source)));
+    }
+    internal static void TurretRecoveryUnavailable(PlayerEntity owner, ShotKey key, FireEvent fire,
+        uint acceptedAt, PlayerFormState acceptedForm, bool everAvailable)
+    {
+        if (!Enabled || !NetSession.IsAuthority) return;
+        var form = owner.ModCaptureForm(); form.DamageEventId = NetDamage.Sequence(owner.SlotIndex);
+        Form(new PlayerState { SlotIndex = (byte)owner.SlotIndex, SlotGeneration = key.Generation, LifeId = key.LifeId,
+            Health = (ushort)owner.Health, Position = owner.Position, Form = form });
+        Span<byte> terminal = stackalloc byte[PlayerFormState.Size]; form.Write(terminal);
+        Span<byte> accepted = stackalloc byte[PlayerFormState.Size]; acceptedForm.Write(accepted);
+        Add(Shots, new("rejected", key, fire.SourceFrame, NetSession.NetFrame, fire.Weapon, fire.Charge,
+            fire.Kind, fire.ContinuousPhase, "turret unavailable throughout native recovery window", owner.Health,
+            NetPlayerLifecycle.Get(owner.SlotIndex), Convert.ToHexString(terminal), acceptedAt,
+            Convert.ToHexString(accepted), everAvailable, NetIncomingFireHistory.RecoveryFrames));
     }
     internal static void AdmissionRejected(ShotKey key, FireEvent fire, string reason)
     {
