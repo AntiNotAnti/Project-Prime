@@ -1,0 +1,2751 @@
+{
+  "milestone": "N14",
+  "date": "2026-10-11",
+  "status": "VERIFIED_LOCAL_IMPLEMENTATION_READY_FOR_PR_WITH_EXTERNAL_RELEASE_LIMITS",
+  "source": "01292af8597a2bb1b88438390c4c9f87d953f2ef",
+  "protocol": 50,
+  "protocolBump": false,
+  "platform": "macOS arm64",
+  "operatorEvidence": {
+    "defaultEnabled": false,
+    "environment": "PRIME_SERVER_OPERATOR_OUTPUT",
+    "shutdownAggregate": true,
+    "endpointsOrPeerIdentifiers": false,
+    "responseUnit": "Authority Answer decisions, retries included; not unique shots or delivered ACKs",
+    "bufferExhaustions": null,
+    "bufferExhaustionStatus": "UNAVAILABLE"
+  },
+  "contracts": {
+    "status": "VERIFIED_WITH_EXPLICIT_TESTED_SOURCE_CARRY_FORWARD",
+    "actualMixedHelloUdpRequired": true,
+    "initial": {
+      "path": "artifacts/net2-n14/contracts-01",
+      "source": "211ac6cb",
+      "routes": 32,
+      "passed": 23,
+      "failed": 9,
+      "pythonChecks": 339
+    },
+    "repairs": [
+      "3068d388",
+      "5c088850"
+    ],
+    "recordings": [
+      {
+        "index": 0,
+        "format": "PASS",
+        "seek": "FAIL_EXPECTED_LAYOUT_FALLBACK_COUNT_CONFLATED_WITH_TARGET"
+      },
+      {
+        "index": 1,
+        "format": "PASS",
+        "continuation": "UNRESOLVED_MISMATCH_423"
+      }
+    ],
+    "cadence": "PASS_AT_A188D1BE_REAL_GL_GAMEPLAY_INVARIANCE_NOT_STUDIO_UI",
+    "next": null,
+    "remainingLobbyNativeRoutes": "PASS_5",
+    "contracts06": {
+      "status": "PASS_7_OF_7",
+      "source": "a188d1be",
+      "lobbyNativeRoutes": 5,
+      "cadenceChecks": 2,
+      "cadenceGameplayFramesEach": 600,
+      "virtualRefreshHz": [
+        60,
+        120,
+        144,
+        240,
+        360,
+        540
+      ],
+      "actualGl": true,
+      "caffeinateWrapperRecorded": true,
+      "binsProfilesUnchanged": true,
+      "carryForwardTo01292af8Reason": "Only imported-clip capability/fixture changed; unchanged lobby/operator/protocol scope",
+      "mixedHelloUdp": "PASS_LOBBY_ROUTE"
+    }
+  },
+  "localCanaries": {
+    "status": "PASS_BOTH",
+    "runs": 2,
+    "clientsPerRun": 8,
+    "actionSeconds": 20,
+    "maximumDrainSeconds": 20,
+    "profile": "moderate",
+    "allProcessExitsZero": true,
+    "engineUnchanged": true,
+    "manifest": "artifacts/net2-n14/attempt-07/canary-run-manifest.json",
+    "summary": {
+      "Scope": "Short local matched settings; not staging, soak, deterministic timing, or visible pixels",
+      "Arms": {
+        "control": {
+          "Status": "PASS",
+          "Failures": [],
+          "Incomplete": [],
+          "Coverage": {
+            "renderedProjectileAgreement": "NOT_RUN",
+            "botFills": "NOT_RUN",
+            "spectator": "NOT_RUN",
+            "mapRotation": "NOT_RUN",
+            "shockCoilDrainKillParity": "NOT_RUN",
+            "imperialistSpawnTrapCoverage": "NOT_RUN",
+            "sustained20Minutes": "NOT_RUN",
+            "boundedHeadlessDrain": "PASS"
+          },
+          "Operator": {
+            "status": "PASS",
+            "scope": "identity-free typed aggregate schema; not unique shot or delivery accounting"
+          },
+          "OperatorSha256": "6b4fa5f4c5e44b5241c06034129bd317a21f36e6c0857da557a7150669d652f2",
+          "PerformanceOperations": [
+            {
+              "operation": "Step",
+              "result": null,
+              "count": 1534,
+              "elapsedTicks": 1125214393,
+              "maximumTicks": 193785709
+            },
+            {
+              "operation": "PumpBefore",
+              "result": null,
+              "count": 662378,
+              "elapsedTicks": 1580089774,
+              "maximumTicks": 721118125
+            },
+            {
+              "operation": "PumpAfter",
+              "result": null,
+              "count": 662378,
+              "elapsedTicks": 43880705,
+              "maximumTicks": 1006666
+            },
+            {
+              "operation": "Replication",
+              "result": null,
+              "count": 1542,
+              "elapsedTicks": 364657792,
+              "maximumTicks": 6192583
+            },
+            {
+              "operation": "Eligibility",
+              "result": 0,
+              "count": 104,
+              "elapsedTicks": 627956,
+              "maximumTicks": 56208
+            },
+            {
+              "operation": "Eligibility",
+              "result": 2,
+              "count": 3,
+              "elapsedTicks": 20500,
+              "maximumTicks": 13417
+            },
+            {
+              "operation": "Eligibility",
+              "result": 3,
+              "count": 4,
+              "elapsedTicks": 17250,
+              "maximumTicks": 7750
+            },
+            {
+              "operation": "Settlement",
+              "result": 9,
+              "count": 1,
+              "elapsedTicks": 750291,
+              "maximumTicks": 750291
+            }
+          ],
+          "ServerSegments": [
+            {
+              "Room": "MP3 PROVING GROUND",
+              "AuthorityEpoch": 639273282664794500,
+              "CurrentMatchId": 2,
+              "Frames": 1534,
+              "StepFailures": 0,
+              "DroppedSteps": 6,
+              "Stalls": 1,
+              "StepAllocatedBytes": 71599224,
+              "MeanMs": 0.733396088657105,
+              "P50Ms": 0.42,
+              "P95Ms": 1.48,
+              "P99Ms": 2.96,
+              "P999Ms": 15.68,
+              "WorstMs": 193.7845
+            }
+          ],
+          "PeerTxBytes": {
+            "peer-0": {
+              "Bytes": 328119,
+              "ElapsedSeconds": 26.162132875
+            },
+            "peer-1": {
+              "Bytes": 243260,
+              "ElapsedSeconds": 26.083148667
+            },
+            "peer-2": {
+              "Bytes": 414219,
+              "ElapsedSeconds": 25.6131945
+            },
+            "peer-3": {
+              "Bytes": 244444,
+              "ElapsedSeconds": 25.444113
+            },
+            "peer-4": {
+              "Bytes": 490969,
+              "ElapsedSeconds": 25.140707584
+            },
+            "peer-5": {
+              "Bytes": 246965,
+              "ElapsedSeconds": 24.880172333
+            },
+            "peer-6": {
+              "Bytes": 558036,
+              "ElapsedSeconds": 24.650446541
+            },
+            "peer-7": {
+              "Bytes": 241271,
+              "ElapsedSeconds": 24.354840833
+            }
+          }
+        },
+        "experimental": {
+          "Status": "PASS",
+          "Failures": [],
+          "Incomplete": [],
+          "Coverage": {
+            "renderedProjectileAgreement": "NOT_RUN",
+            "botFills": "NOT_RUN",
+            "spectator": "NOT_RUN",
+            "mapRotation": "NOT_RUN",
+            "shockCoilDrainKillParity": "NOT_RUN",
+            "imperialistSpawnTrapCoverage": "NOT_RUN",
+            "sustained20Minutes": "NOT_RUN",
+            "boundedHeadlessDrain": "PASS"
+          },
+          "Operator": {
+            "status": "PASS",
+            "scope": "identity-free typed aggregate schema; not unique shot or delivery accounting"
+          },
+          "OperatorSha256": "2b5e39352e1c51b2e60d9f1dcfa0f4c7104b31bffa7a4e28bb520f11e9ec5cf7",
+          "PerformanceOperations": [
+            {
+              "operation": "Step",
+              "result": null,
+              "count": 1674,
+              "elapsedTicks": 1197883120,
+              "maximumTicks": 127750125
+            },
+            {
+              "operation": "PumpBefore",
+              "result": null,
+              "count": 707589,
+              "elapsedTicks": 1263792074,
+              "maximumTicks": 305002541
+            },
+            {
+              "operation": "PumpAfter",
+              "result": null,
+              "count": 707589,
+              "elapsedTicks": 50228515,
+              "maximumTicks": 762417
+            },
+            {
+              "operation": "Replication",
+              "result": null,
+              "count": 1682,
+              "elapsedTicks": 414210065,
+              "maximumTicks": 6288875
+            },
+            {
+              "operation": "Eligibility",
+              "result": 0,
+              "count": 168,
+              "elapsedTicks": 747005,
+              "maximumTicks": 48916
+            },
+            {
+              "operation": "Eligibility",
+              "result": 2,
+              "count": 9,
+              "elapsedTicks": 37626,
+              "maximumTicks": 9750
+            },
+            {
+              "operation": "Eligibility",
+              "result": 3,
+              "count": 5,
+              "elapsedTicks": 21541,
+              "maximumTicks": 6958
+            }
+          ],
+          "ServerSegments": [
+            {
+              "Room": "MP3 PROVING GROUND",
+              "AuthorityEpoch": 639273282979883730,
+              "CurrentMatchId": 2,
+              "Frames": 1674,
+              "StepFailures": 0,
+              "DroppedSteps": 2,
+              "Stalls": 1,
+              "StepAllocatedBytes": 83160448,
+              "MeanMs": 0.7154658900836337,
+              "P50Ms": 0.45,
+              "P95Ms": 1.72,
+              "P99Ms": 2.68,
+              "P999Ms": 9.22,
+              "WorstMs": 127.74940000000001
+            }
+          ],
+          "PeerTxBytes": {
+            "peer-0": {
+              "Bytes": 580589,
+              "ElapsedSeconds": 28.083615625
+            },
+            "peer-1": {
+              "Bytes": 273403,
+              "ElapsedSeconds": 27.874328333
+            },
+            "peer-2": {
+              "Bytes": 545408,
+              "ElapsedSeconds": 27.617133916
+            },
+            "peer-3": {
+              "Bytes": 270308,
+              "ElapsedSeconds": 27.409565375
+            },
+            "peer-4": {
+              "Bytes": 540872,
+              "ElapsedSeconds": 27.006626208
+            },
+            "peer-5": {
+              "Bytes": 263509,
+              "ElapsedSeconds": 26.859895208
+            },
+            "peer-6": {
+              "Bytes": 504041,
+              "ElapsedSeconds": 26.634636666
+            },
+            "peer-7": {
+              "Bytes": 260663,
+              "ElapsedSeconds": 26.36276425
+            }
+          }
+        }
+      },
+      "movementAudit": {
+        "Status": "PASS",
+        "Failures": [],
+        "Incomplete": [],
+        "Metrics": {
+          "authority": {
+            "totals": {
+              "Baselines": 20,
+              "Evaluated": 7991,
+              "Exempt": 412,
+              "Unsupported": 0,
+              "WouldRefuse": 0,
+              "DuplicateOrOld": 1958,
+              "LongGaps": 0,
+              "InputAbsentWhileMoving": 77
+            },
+            "perHunter": {
+              "Samus": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Kanden": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Trace": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Sylux": {
+                "biped": {
+                  "Baselines": 20,
+                  "Evaluated": 7991,
+                  "Exempt": 412,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 1958,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 77,
+                  "MaximumHorizontal": 0.23868194,
+                  "MaximumUpward": 0.21990967
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Noxus": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Spire": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              },
+              "Weavel": {
+                "biped": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                },
+                "alt": {
+                  "Baselines": 0,
+                  "Evaluated": 0,
+                  "Exempt": 0,
+                  "Unsupported": 0,
+                  "WouldRefuse": 0,
+                  "DuplicateOrOld": 0,
+                  "LongGaps": 0,
+                  "InputAbsentWhileMoving": 0,
+                  "MaximumHorizontal": 0,
+                  "MaximumUpward": 0
+                }
+              }
+            },
+            "candidateRows": [],
+            "measuredHunters": [
+              "Sylux"
+            ]
+          },
+          "clients": {
+            "peer-0": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            },
+            "peer-1": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            },
+            "peer-2": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            },
+            "peer-3": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            },
+            "peer-4": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            },
+            "peer-5": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            },
+            "peer-6": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            },
+            "peer-7": {
+              "totals": {
+                "Baselines": 0,
+                "Evaluated": 0,
+                "Exempt": 0,
+                "Unsupported": 0,
+                "WouldRefuse": 0,
+                "DuplicateOrOld": 0,
+                "LongGaps": 0,
+                "InputAbsentWhileMoving": 0
+              },
+              "perHunter": {
+                "Samus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Kanden": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Trace": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Sylux": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Noxus": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Spire": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                },
+                "Weavel": {
+                  "biped": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  },
+                  "alt": {
+                    "Baselines": 0,
+                    "Evaluated": 0,
+                    "Exempt": 0,
+                    "Unsupported": 0,
+                    "WouldRefuse": 0,
+                    "DuplicateOrOld": 0,
+                    "LongGaps": 0,
+                    "InputAbsentWhileMoving": 0,
+                    "MaximumHorizontal": 0,
+                    "MaximumUpward": 0
+                  }
+                }
+              },
+              "candidateRows": [],
+              "measuredHunters": []
+            }
+          },
+          "authorityEvaluated": 7991
+        }
+      },
+      "impactAudit": {
+        "Status": "PASS",
+        "Failures": [],
+        "Incomplete": [],
+        "Metrics": {
+          "authorityPublished": 214,
+          "peers": {
+            "peer-0": {
+              "accepted": 214,
+              "distinctAccepted": 214,
+              "duplicatesRejected": 0,
+              "rejected": 0,
+              "missingDeliveryCount": 0,
+              "cueDrawSubmissions": 0,
+              "exactProjectileDrawSubmissions": 0
+            },
+            "peer-1": {
+              "accepted": 211,
+              "distinctAccepted": 211,
+              "duplicatesRejected": 0,
+              "rejected": 0,
+              "missingDeliveryCount": 3,
+              "cueDrawSubmissions": 0,
+              "exactProjectileDrawSubmissions": 0
+            },
+            "peer-2": {
+              "accepted": 212,
+              "distinctAccepted": 212,
+              "duplicatesRejected": 0,
+              "rejected": 0,
+              "missingDeliveryCount": 2,
+              "cueDrawSubmissions": 0,
+              "exactProjectileDrawSubmissions": 0
+            },
+            "peer-3": {
+              "accepted": 214,
+              "distinctAccepted": 214,
+              "duplicatesRejected": 0,
+              "rejected": 0,
+              "missingDeliveryCount": 0,
+              "cueDrawSubmissions": 0,
+              "exactProjectileDrawSubmissions": 0
+            },
+            "peer-4": {
+              "accepted": 210,
+              "distinctAccepted": 210,
+              "duplicatesRejected": 0,
+              "rejected": 0,
+              "missingDeliveryCount": 4,
+              "cueDrawSubmissions": 0,
+              "exactProjectileDrawSubmissions": 0
+            },
+            "peer-5": {
+              "accepted": 209,
+              "distinctAccepted": 209,
+              "duplicatesRejected": 0,
+              "rejected": 0,
+              "missingDeliveryCount": 5,
+              "cueDrawSubmissions": 0,
+              "exactProjectileDrawSubmissions": 0
+            },
+            "peer-6": {
+              "accepted": 211,
+              "distinctAccepted": 211,
+              "duplicatesRejected": 0,
+              "rejected": 0,
+              "missingDeliveryCount": 3,
+              "cueDrawSubmissions": 0,
+              "exactProjectileDrawSubmissions": 0
+            },
+            "peer-7": {
+              "accepted": 209,
+              "distinctAccepted": 209,
+              "duplicatesRejected": 0,
+              "rejected": 0,
+              "missingDeliveryCount": 5,
+              "cueDrawSubmissions": 0,
+              "exactProjectileDrawSubmissions": 0
+            }
+          },
+          "authorityDistinctPublished": 214
+        }
+      }
+    },
+    "notStagingOrPixelsOrSoakOrDeterministicTiming": true,
+    "explicitScope": {
+      "serverDroppedSteps": {
+        "control": 6,
+        "experimental": 2
+      },
+      "serverStallsEach": 1,
+      "operatorQueueDropsEach": 0,
+      "operatorEndQueueEach": 0,
+      "movement": {
+        "hunter": "Sylux",
+        "form": "biped",
+        "evaluated": 7991,
+        "wouldRefuse": 0,
+        "notAllHunters": true
+      },
+      "impact": {
+        "published": 214,
+        "peerMissingRange": [
+          0,
+          5
+        ],
+        "drawSubmissions": 0,
+        "lossyPresentationAuditNotPixelProof": true
+      },
+      "settlement": {
+        "controlRejectionsResult9": 1,
+        "experimentalCalls": 0,
+        "liveCoverage": "INCOMPLETE"
+      },
+      "capacityCertification": false,
+      "optionalFeaturesOptIn": true
+    }
+  },
+  "releaseLimits": {
+    "N13LocalTiming": "INCONCLUSIVE_ORIGINAL_FLAGS_RETAINED",
+    "N13TargetHosting": "NOT_RUN",
+    "N13LiveSettlementTelemetry": "INCOMPLETE",
+    "externalStaging": "NOT_RUN",
+    "publicDeployment": "NOT_RUN",
+    "renderedStudioRmlUi": "NOT_RUN",
+    "Linux": "NOT_RUN",
+    "Android": "NOT_RUN",
+    "Windows": "NOT_RUN_UNLESS_NEEDED_AND_AVAILABLE",
+    "CI": "NOT_RUN",
+    "longSoak": "NOT_RUN_USER_EXCLUDED"
+  },
+  "hashes": {
+    "src/MphRead/Mods/Network/NetOperatorEvidence.cs": "52212f2fdbe5cad2d356c7143ee9eb2625d9c3720267ec33d8ba3ac16aaaefb5",
+    "tools/nettest/ServerOperatorEvidenceTests.cs": "7b775e866865d284cdeab818fc91a791f1724384f22cb2f3e320d04d72bd1f68",
+    "tools/nettest/run-net2.py": "bdfd7b176014e78f002c3cc17a70ece9ed7b1e762677da2dc03c547be0be41c9",
+    "artifacts/net2-n14/contracts-01/summary.json": "b0be2ffef006c29d1941d95f3ae943b6da8a1419c40763b670c8de47cba2f104",
+    "artifacts/net2-n14/contracts-01/manifest.json": "70fb3c0ccfa46cc952fc301317e4d44af394733aea122c4fe64e799d0b35c97c",
+    "artifacts/net2-n14/contracts-01/10-bomb-protocol/result.json": "d9a3ca201ced3c6d474d65635b5a454127d19a2fddfdd87a192afe39ece91599",
+    "artifacts/net2-n14/contracts-01/10-bomb-protocol/output.log": "4f3f5e9158a48669d9e5f6a94761a974fcae502bac98c535d96d23dd13240f08",
+    "artifacts/net2-n14/contracts-01/10-bomb-protocol/command.json": "232b2d3183713b4592fb73fa0f2eef35e0efcd4b574170125f4e9afb421dd333",
+    "artifacts/net2-n14/contracts-01/08-protocol19/result.json": "c3236d7f1946469e390b2ca3b092ac872ac46e64b878ae90d9b2dd6bb578dcd3",
+    "artifacts/net2-n14/contracts-01/08-protocol19/output.log": "ae36ebf9a3a6fed542ce918891f2204ce311c24905b64c41923355f5a6b15fb1",
+    "artifacts/net2-n14/contracts-01/08-protocol19/command.json": "f42424d3c7a2927f8d9d4b6231c0a3ed3666b542c2cbc7d710db6631d711d40a",
+    "artifacts/net2-n14/contracts-01/27-recording-0-replayreplicacheck/result.json": "5b4e7ba05284a9864cde39730846bfb84fe9bc4f6bd17011a08d6e17004184f1",
+    "artifacts/net2-n14/contracts-01/27-recording-0-replayreplicacheck/output.log": "e3acc6972f17a6b9dd76ef7e75c889ec9de45a41b3a9b22fc1c32ad767ba357c",
+    "artifacts/net2-n14/contracts-01/27-recording-0-replayreplicacheck/command.json": "ca35a13548c3bd38bfaf5a3c163b2c8f732cf002e3d3240aa4df54e31a0945ce",
+    "artifacts/net2-n14/contracts-01/27-recording-0-replayreplicacheck/profile/map-catalog-v2.json": "248a61a932b802662db92a484f71c74e68c918e37960f0002b44709c7fb67d9f",
+    "artifacts/net2-n14/contracts-01/27-recording-0-replayreplicacheck/profile/logs/platform-startup.log": "8f48e6d45bcc742ed593864aa8c299e9793f7b65a9770ad239a80482f5ce6d66",
+    "artifacts/net2-n14/contracts-01/27-recording-0-replayreplicacheck/profile/logs/ProjectPrime-20261011-092121-51476.log": "b8b2bab97a2fa406f9c024da5f7cbc8a58c3aba558f564475a58b2b1ac3f50e3",
+    "artifacts/net2-n14/contracts-01/15-custom-map-download/result.json": "9063c720df7150f82ad3ebc6c378986bc9b82e826f514280e850033084176a3c",
+    "artifacts/net2-n14/contracts-01/15-custom-map-download/output.log": "3f172dfda276b981ef3213bf43e7bfcd6e9ce0698a363b09eed1783bd6076972",
+    "artifacts/net2-n14/contracts-01/15-custom-map-download/command.json": "20c01a80f7f60e0413e63fa9ddb7a1b81222a52ca6ff613f56d0e1909890a1c4",
+    "artifacts/net2-n14/contracts-01/15-custom-map-download/profile/hunter-license.session.json": "400fa6e0561f68d6cc2bc01cb70e6613726a08a758cb10e1eabaf7df02a5afe5",
+    "artifacts/net2-n14/contracts-01/15-custom-map-download/profile/map-catalog-v2.json": "315cd99268d37a5438f97fd9568309d6b74d86a38d579c7df1e021aa03cec184",
+    "artifacts/net2-n14/contracts-01/16-lobby-community-selection/result.json": "9420eee8d3dee5119de0e4373a9a4d887a5d31a5cac7a3b3804b90c6cfa77dea",
+    "artifacts/net2-n14/contracts-01/16-lobby-community-selection/output.log": "22d598a58681f59de7267e44da680cdd17dd0bbb7330e56818a22f7d7439db2b",
+    "artifacts/net2-n14/contracts-01/16-lobby-community-selection/command.json": "324c25b544cf55e444e0f210bb8638331e2922624ee581c8ebeb597de56b457d",
+    "artifacts/net2-n14/contracts-01/16-lobby-community-selection/profile/map-catalog-v2.json": "315cd99268d37a5438f97fd9568309d6b74d86a38d579c7df1e021aa03cec184",
+    "artifacts/net2-n14/contracts-01/11-compact-intents/result.json": "1af32e60f4982c490c3ce7ff602cdc6634226f33a0d358848ca82ae7ab509695",
+    "artifacts/net2-n14/contracts-01/11-compact-intents/output.log": "0fd8ae4216b2f3a4782cb4920a8bfd7fb382c22afa6d8f6c2bfab497dc4208e5",
+    "artifacts/net2-n14/contracts-01/11-compact-intents/command.json": "3156b83321699af2560b0c492abc275fcec40c8734e23bf005df1da4275c98fa",
+    "artifacts/net2-n14/contracts-01/29-recording-1-replayvalidate/result.json": "ada7891244fdb0e791a3fe815aec1a015e396f73ad5b287ddd4fa204b5e2c936",
+    "artifacts/net2-n14/contracts-01/29-recording-1-replayvalidate/output.log": "0d15041ac1095d54b92d322f306bb21a10a83b980c7b2b6634efcbd39b21c8f6",
+    "artifacts/net2-n14/contracts-01/29-recording-1-replayvalidate/command.json": "a52e77500728df2d7ffdff772a871c3c60a2b768e8321c4782c3fe5ad07b5077",
+    "artifacts/net2-n14/contracts-01/07-protocol18/result.json": "20a4853aeff1cc6b30e22a17c61495fa13ccc498fdb258ad88514d49eb17290a",
+    "artifacts/net2-n14/contracts-01/07-protocol18/output.log": "768650085c1f77361be185ae9708f2e702b18e96945e8549c8a31a0e78fbf3a8",
+    "artifacts/net2-n14/contracts-01/07-protocol18/command.json": "a0edc309808ec7ff21611672b2bd76b83d365b958d4f0c62d9a8c3b194c1d3c7",
+    "artifacts/net2-n14/contracts-01/30-recording-1-replayreplicacheck/result.json": "6440719ad04f3d1b656f73fe85ece2a6479694fe40c82eb2057e79a04cec0379",
+    "artifacts/net2-n14/contracts-01/30-recording-1-replayreplicacheck/output.log": "f826e1422f8ee698bd7f9941f46a5b9dd1aedadf43651010763d452ee50d833f",
+    "artifacts/net2-n14/contracts-01/30-recording-1-replayreplicacheck/command.json": "c3c3fbd58c3c15c0d5a2728ed165f77c0daef4d04adc91568f27ed57d220378a",
+    "artifacts/net2-n14/contracts-01/30-recording-1-replayreplicacheck/profile/map-catalog-v2.json": "248a61a932b802662db92a484f71c74e68c918e37960f0002b44709c7fb67d9f",
+    "artifacts/net2-n14/contracts-01/30-recording-1-replayreplicacheck/profile/logs/platform-startup.log": "247257cc903441be6404ebf4e898a0f399ff6e4774ec4f28ccc19d780d944ab7",
+    "artifacts/net2-n14/contracts-01/30-recording-1-replayreplicacheck/profile/logs/ProjectPrime-20261011-092124-51481.log": "61f325c4543612a73698635568b01a1bb12d92509a3c105877b10e0f354f2a05",
+    "artifacts/net2-n14/contracts-01/04-load-lifecycle/result.json": "f7d0df4baacc621cb173641863da4819b2d5b113fc4114c30a26b5768a9392ac",
+    "artifacts/net2-n14/contracts-01/04-load-lifecycle/output.log": "bf4a8765933b1b82e6efa4502cc5e6a9c71fab9e33910a2701f5827653f3805d",
+    "artifacts/net2-n14/contracts-01/04-load-lifecycle/command.json": "dcbba4e0110fc9f818b06b4a5693da5764132426d8ad056333acc6e125692cbf",
+    "artifacts/net2-n14/contracts-01/04-load-lifecycle/profile/map-catalog-v2.json": "315cd99268d37a5438f97fd9568309d6b74d86a38d579c7df1e021aa03cec184",
+    "artifacts/net2-n14/contracts-01/28-recording-0-replaycadencecheck/result.json": "cadf6d68d68b61caab778ef41ef2100914be4ea2229e15a5ec05c277f0d57ebe",
+    "artifacts/net2-n14/contracts-01/28-recording-0-replaycadencecheck/output.log": "baa6ed02a0c72f75588d4faa492689b22398fb0fa23ba582ddae9cbbd1289429",
+    "artifacts/net2-n14/contracts-01/28-recording-0-replaycadencecheck/command.json": "c0c53385034b280f7e6e87c2377e6b2e49a372d2fbcc63e71cc43606b99b91dc",
+    "artifacts/net2-n14/contracts-01/28-recording-0-replaycadencecheck/profile/map-catalog-v2.json": "248a61a932b802662db92a484f71c74e68c918e37960f0002b44709c7fb67d9f",
+    "artifacts/net2-n14/contracts-01/28-recording-0-replaycadencecheck/profile/logs/platform-startup.log": "0ec7f68c954c620e2230394239f58108912db6f52cfdda6f228a0f3623501400",
+    "artifacts/net2-n14/contracts-01/28-recording-0-replaycadencecheck/profile/logs/ProjectPrime-20261011-092124-51479.log": "5cf3cc889f902b051c3ca54e9d70192ec81feb6496be89949f78a1ca4d6744f0",
+    "artifacts/net2-n14/contracts-01/28-recording-0-replaycadencecheck/profile/logs/ProjectPrime-crash-20261011-092124-51479.log": "9f50d132bbe1900cdd84d222aaa95af0163f85ff8aeacad2484aed65766e973c",
+    "artifacts/net2-n14/contracts-01/14-custom-map/result.json": "da5213c8a2bdb11185fa27405e8f1b2f29451ec64f704bb92b78d2585ffcf9ad",
+    "artifacts/net2-n14/contracts-01/14-custom-map/output.log": "96afe2c2d402f435d2c24eb3f61549789235632ac31c0404b7fa9bae0daf59e0",
+    "artifacts/net2-n14/contracts-01/14-custom-map/command.json": "ecb490c7db3e71d6a9513a7daea3b8de7fa794716d5a78df228e5e48ab07591b",
+    "artifacts/net2-n14/contracts-01/14-custom-map/profile/map-catalog-v2.json": "315cd99268d37a5438f97fd9568309d6b74d86a38d579c7df1e021aa03cec184",
+    "artifacts/net2-n14/contracts-01/05-architecture/result.json": "729d791a414d6007ba4e9561dc81b13d6064229adba6aaefb62b9e51be4adc8a",
+    "artifacts/net2-n14/contracts-01/05-architecture/output.log": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911",
+    "artifacts/net2-n14/contracts-01/05-architecture/command.json": "81f2ff5a046a17d684896f595f64f2719697b9cdf3e834d633763b622d61bff7",
+    "artifacts/net2-n14/contracts-01/09-player-form-protocol/result.json": "dba195480dd4615c5b174553af41fd4e367c3284e605abbfa9e9cd3fe96842cd",
+    "artifacts/net2-n14/contracts-01/09-player-form-protocol/output.log": "96169772d2d6575b263d5bfc3b3f1394aaaef0df4c2f0a06d30f49d149c96191",
+    "artifacts/net2-n14/contracts-01/09-player-form-protocol/command.json": "3acb45282eb1573d3a4083e3050b7886fcee8a3aa7e52c5fc6e8f80c75401609",
+    "artifacts/net2-n14/contracts-01/25-replaycontrolcheck/result.json": "d0e821c77f352e9deb50371980e30e300ec33cd1ee04eb5a59a90a5a9779cdd0",
+    "artifacts/net2-n14/contracts-01/25-replaycontrolcheck/output.log": "de363a31cb0b2063cbd530daad68e3f6a65c70029a4445e4e9033da0a94bc9bf",
+    "artifacts/net2-n14/contracts-01/25-replaycontrolcheck/command.json": "043220bf02ca614353060014f73f4750587376cd21b62c6572b65ccdc6c53c82",
+    "artifacts/net2-n14/contracts-01/00-generator/result.json": "9960229d12022decfe09aff3d0d75bc4be12d4c6b4f56a18035beb5ccda57dcb",
+    "artifacts/net2-n14/contracts-01/00-generator/output.log": "158e10ed777b660a0bc991796020a688852c4cc085ec3bc8426a0bf92c87332a",
+    "artifacts/net2-n14/contracts-01/00-generator/command.json": "322833cd7616ba73784e1fe33301c95d2997cd79f809d8a390fb6a012cef3efa",
+    "artifacts/net2-n14/contracts-01/31-recording-1-replaycadencecheck/result.json": "aedecd0681ea20eb366e282d795fb738c764019c7e08a2e8ee4187cec839e182",
+    "artifacts/net2-n14/contracts-01/31-recording-1-replaycadencecheck/output.log": "37509537d9574a23f5f660e4f401c967902afdd3387336d8d31863d7c2a328bb",
+    "artifacts/net2-n14/contracts-01/31-recording-1-replaycadencecheck/command.json": "a046c8071b79e38742aa636c829a35b398cfb76c7125fd5195f7d9bc707f515f",
+    "artifacts/net2-n14/contracts-01/31-recording-1-replaycadencecheck/profile/map-catalog-v2.json": "248a61a932b802662db92a484f71c74e68c918e37960f0002b44709c7fb67d9f",
+    "artifacts/net2-n14/contracts-01/31-recording-1-replaycadencecheck/profile/logs/ProjectPrime-crash-20261011-092126-51485.log": "d6947daad032ee7f2142158662df26124cea43892793c4a7502fec02ba500282",
+    "artifacts/net2-n14/contracts-01/31-recording-1-replaycadencecheck/profile/logs/platform-startup.log": "0ff7a886ebf6b73d986608a28eb88ff623ed6df0e8f7f03590da55a822d5b891",
+    "artifacts/net2-n14/contracts-01/31-recording-1-replaycadencecheck/profile/logs/ProjectPrime-20261011-092125-51485.log": "f2547e4c2f1aa06c0a0173d4ed012084c3613b9777c49c7809008e7414625bd8",
+    "artifacts/net2-n14/contracts-01/23-lobby-map-test-arena/result.json": "578884a7ffa711b98fbf68f9424fa2e8cdbff1725c8ea37d7844d5323d5bd585",
+    "artifacts/net2-n14/contracts-01/23-lobby-map-test-arena/output.log": "64a752fd6830f3ba776d545f89daafa3388774fbed186f248f3fbdecb2201477",
+    "artifacts/net2-n14/contracts-01/23-lobby-map-test-arena/command.json": "9f4f0e73c6ddbfe4dc30deaa48154f5cd263507dfc1863b87ee1e0b67411e7f1",
+    "artifacts/net2-n14/contracts-01/23-lobby-map-test-arena/profile/map-catalog-v2.json": "3ad6e335fd205c7513a5b124c1cc8b754cb44dfd17c18903ce4359e8ca4f9249",
+    "artifacts/net2-n14/contracts-01/03-confirmed-impacts/result.json": "cecf47af806842c90b7d983361dadee9f7511659f9bbf006d2ca03181063fbfa",
+    "artifacts/net2-n14/contracts-01/03-confirmed-impacts/output.log": "cb99ccf3a8291690a0255347e375939b6d14b1be544b8fb7fa940fd822582bd1",
+    "artifacts/net2-n14/contracts-01/03-confirmed-impacts/command.json": "38c038f354353da6fbfabcf1f5f086bf109e42f8379716587730decbb07f1c9b",
+    "artifacts/net2-n14/contracts-01/17-bots/result.json": "9cfe60384e878bb0084339b7c4d501d75a07707c8c3d759e2b91dc39733d595f",
+    "artifacts/net2-n14/contracts-01/17-bots/output.log": "56348a09b31b731a540c4ff832584cb0a6cca897b9e90b823bea661c07375cb0",
+    "artifacts/net2-n14/contracts-01/17-bots/command.json": "30a85e3fbe395522fed7daa1211f45b9e0432dc64343843fb79615bc9fc02bff",
+    "artifacts/net2-n14/contracts-01/17-bots/profile/map-catalog-v2.json": "315cd99268d37a5438f97fd9568309d6b74d86a38d579c7df1e021aa03cec184",
+    "artifacts/net2-n14/contracts-01/01-python-suite/result.json": "6c7f90c990de31537c5c5a3dfbe7de4d5efee3f5d51f4c9d4ab622ff772c1e1d",
+    "artifacts/net2-n14/contracts-01/01-python-suite/output.log": "904964055ad251eb10f103c2ff74bcd8f2eb249a7cccba8ac29dd12dcabf43cd",
+    "artifacts/net2-n14/contracts-01/01-python-suite/command.json": "11556d1a069fddc4604eac90da89955f7e3a8ad12af95ebd1d0e179dbfe3a799",
+    "artifacts/net2-n14/contracts-01/22-bots-online/result.json": "299435ddd21fbd7002572cb8f75431e14a8102a5a6389ee2a2c289f2aaa89b0e",
+    "artifacts/net2-n14/contracts-01/22-bots-online/output.log": "90b8c4ff1fbab2f9959b93c368da36c2e7ea7f418a858a081a896e3b154e28af",
+    "artifacts/net2-n14/contracts-01/22-bots-online/command.json": "ffb833a0412c49124ee0ceda7721d480cd1c1807e1c657f500b2edbc045af0fc",
+    "artifacts/net2-n14/contracts-01/22-bots-online/profile/map-catalog-v2.json": "315cd99268d37a5438f97fd9568309d6b74d86a38d579c7df1e021aa03cec184",
+    "artifacts/net2-n14/contracts-01/22-bots-online/profile/telemetry/2026-10-11/match-6846f7fb05cc438ba537e6490bfdc259.summary.json": "f28e1b52759680fcf1117f73d4c918e6bec963dd6ae2b0b94675b2a2d7a4c98f",
+    "artifacts/net2-n14/contracts-01/13-waitlist/result.json": "bb01c858d1388034c3cb3dedceb7f47290907cea0be1e79d0c688fca5172bd55",
+    "artifacts/net2-n14/contracts-01/13-waitlist/output.log": "2cf7040761909ae614eaf399f880e5a3983e75fd5030abe14c9a45d685141ac9",
+    "artifacts/net2-n14/contracts-01/13-waitlist/command.json": "ae679458d76750ae8841adf4eec927572c5bc7db8d5fe71831531156c6673b94",
+    "artifacts/net2-n14/contracts-01/13-waitlist/profile/map-catalog-v2.json": "315cd99268d37a5438f97fd9568309d6b74d86a38d579c7df1e021aa03cec184",
+    "artifacts/net2-n14/contracts-01/24-replayformatcheck/result.json": "a9919667396d119c370443b939f75df191c538380995765dc7d60904e49336e5",
+    "artifacts/net2-n14/contracts-01/24-replayformatcheck/output.log": "14b152895db68e8f3d3e983d4e908bd2062af0aa743a215ca1a9d2a168f5e32f",
+    "artifacts/net2-n14/contracts-01/24-replayformatcheck/command.json": "d611f7fabf1ccfeafd5d61eddb796ae77faf23a3bf9c2fca4b35bd215a037fac",
+    "artifacts/net2-n14/contracts-01/12-lobby/result.json": "a274055fb170dc06984908e53d4f07fd7d27ae15d29a2b577c7a406845591f4e",
+    "artifacts/net2-n14/contracts-01/12-lobby/output.log": "8e12e6e140780b73599d8f022758283353849d75af9c448b1955844ce4296980",
+    "artifacts/net2-n14/contracts-01/12-lobby/command.json": "930de3ffaa17f425dd491ae976e69d443fe5cc0758e184ccd701fa2af7d54622",
+    "artifacts/net2-n14/contracts-01/12-lobby/profile/map-catalog-v2.json": "315cd99268d37a5438f97fd9568309d6b74d86a38d579c7df1e021aa03cec184",
+    "artifacts/net2-n14/contracts-01/20-gamemodecheck-scene/result.json": "dfbe82208228d694b598ee9030dc27e6160325d4b1ff573eb17a6e0d88decb8f",
+    "artifacts/net2-n14/contracts-01/20-gamemodecheck-scene/output.log": "9811236bfabb1bdf80014805a42a6aa3901fe5b3b130fbff0a64522d7222dcf5",
+    "artifacts/net2-n14/contracts-01/20-gamemodecheck-scene/command.json": "e335a3fbcfc452a5b2e580f579f38a547c921de4ffc18ecd61fe7cd03d253762",
+    "artifacts/net2-n14/contracts-01/20-gamemodecheck-scene/profile/map-catalog-v2.json": "315cd99268d37a5438f97fd9568309d6b74d86a38d579c7df1e021aa03cec184",
+    "artifacts/net2-n14/contracts-01/19-gamemodecheck/result.json": "ddcaea5ff680a0bff72ccf32cfc2f90cb4287f9f91adfedccae415e42a859d9c",
+    "artifacts/net2-n14/contracts-01/19-gamemodecheck/output.log": "f961b1fa0a104f477d8ad0ba07e8ff0dc724cd12964142c621bd99715d23fdc3",
+    "artifacts/net2-n14/contracts-01/19-gamemodecheck/command.json": "1b60455fd749160fd7143ec0be6e372deb977ad66e6f08a1d5efca90c9d868cd",
+    "artifacts/net2-n14/contracts-01/26-recording-0-replayvalidate/result.json": "1e957394a11a042beb55152115f7af7e37c1cc6d7cdac3f4c9a7030a9b7b6dcf",
+    "artifacts/net2-n14/contracts-01/26-recording-0-replayvalidate/output.log": "0d15041ac1095d54b92d322f306bb21a10a83b980c7b2b6634efcbd39b21c8f6",
+    "artifacts/net2-n14/contracts-01/26-recording-0-replayvalidate/command.json": "f81d77269dfd5294053099ccd06b75d9818c788bb02f4d7459b188445fd4e064",
+    "artifacts/net2-n14/contracts-01/21-bots-scene/result.json": "a3c57d978ec764bccf8321d8b175c3ece8eca6c4f5ac4031f9d526ece31aca13",
+    "artifacts/net2-n14/contracts-01/21-bots-scene/output.log": "1b6531843c8a68a87db3d7f5ed7c23329dc8c27cea81ff000cf8649b31832cc7",
+    "artifacts/net2-n14/contracts-01/21-bots-scene/command.json": "c05023b1513a5902a7b93d402ed39d5ab48562731bb7d2e8229570e2399fb2cb",
+    "artifacts/net2-n14/contracts-01/21-bots-scene/profile/map-catalog-v2.json": "315cd99268d37a5438f97fd9568309d6b74d86a38d579c7df1e021aa03cec184",
+    "artifacts/net2-n14/contracts-01/02-server-operator-evidence/result.json": "edc3c20f3cacf0952e1e3fe14941ba5e7fb6f64252277bc1de5d4354d6a490d9",
+    "artifacts/net2-n14/contracts-01/02-server-operator-evidence/output.log": "5ad4a2bd2b598d8ba952940d6f547b78025af1a48c9507563a1fdf40b8774dc7",
+    "artifacts/net2-n14/contracts-01/02-server-operator-evidence/command.json": "fc8542ca1ba1df7b4fc019d4be3fb1a781eb7c10c180a165489b3bca327f129c",
+    "artifacts/net2-n14/contracts-01/06-protocol17/result.json": "5f3731e1e5e83bb56c051023b5613cd71078a72ef99ea6b597e8e82df40be7ab",
+    "artifacts/net2-n14/contracts-01/06-protocol17/output.log": "9139e28bde8d880ea9119ad134d83c8781c8955febd0c69e14afd1c561533ac1",
+    "artifacts/net2-n14/contracts-01/06-protocol17/command.json": "1a220ce855d9e2f863d7c739fe32b6c2997f09f9c0d17679649a2457e284ee11",
+    "artifacts/net2-n14/contracts-01/18-bot-ai/result.json": "02999b83c5bce3b65387dab357d1df0c725a46405a72f831cfdf71c4c67ac24d",
+    "artifacts/net2-n14/contracts-01/18-bot-ai/output.log": "88d4139990f907b0f2a49a2e968e819cae3ed72bc7d2096b4d8afab47d107d99",
+    "artifacts/net2-n14/contracts-01/18-bot-ai/command.json": "1445293be4210b9fb5b3369f2f27679cde249b0957f54de4b242f82796ff07a5",
+    "artifacts/net2-n14/attempt-05/generator-manifest.json": "c94488db1c77f590cf1abf1ff60dfaee1767043eb0b8c9628e4bbe5324122dc8",
+    "artifacts/net2-n14/attempt-05/generator.log": "b8880403dab8c6d27b965995d498ad60b04e65846696c2451433b438513aa0ac",
+    "artifacts/net2-n14/attempt-05/build-manifest.json": "d3c2d0f205b62f0838b8b66f430fee242f7c0f9080ccbe6c6ce59b5d57e7e6f7",
+    "artifacts/net2-n14/attempt-05/build.log": "756c0221d2ec4e17259260e93742d656294971c9544b4780f63972202b0fc07f",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/build-v6.log": "104a71d487dcf81a259764efd64b6cd3c076c0a7fba3543b875f1b640329c6b5",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/build-v7.log": "50be559642b93714c78df914c0d6be6e4f99317e6517732d5ffe31b7c8de60e8",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/manifest-v7.json": "2003e5975a7eb64e804af4a4b2fb764a6afe2091c109273380d7c1d90103ec43",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/build-v5.log": "50be559642b93714c78df914c0d6be6e4f99317e6517732d5ffe31b7c8de60e8",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/build-v4.log": "fd611f44e627374ccaacb0f4c7685b93578c7b316dce583ab98078a09d15c42d",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/output.log": "e5321da80c0da473b10b2b7db291fb81876492daa8b469d2244a2bee5518cfb3",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/manifest-v6.json": "d6bf748d284add124dd6b08d626fbd32e902ef56c84cde1f626364870260910f",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/build-v3.log": "50be559642b93714c78df914c0d6be6e4f99317e6517732d5ffe31b7c8de60e8",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/build-v2.log": "260f68b6b4a53f367abf5b6f5da13d153a4b82a4d788c35b2e299ffa81994f07",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/manifest-v5.json": "c4b65ca15b31284123aa67d6ff0dc992d13b0be040042631a1c3dfb357a5d0e6",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/manifest-v4.json": "b6b65eddb627153199544b0b8e523965e4fc6e077f091d4fe1fc558a19fcaa6c",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/build-v8.log": "d5946cc7b9d2fc20159da35005e810083f348728fa61620eb3329e0bf274cf85",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/manifest.json": "e091d512ca7427e5d51ee20cd29bc184e9508a48523413a29eb79e2f1d8ef0d7",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/output-v2.log": "4b19f84adef9c97d460609e59642977500f6cbbc7c66eec79a27096254161263",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/manifest-v3.json": "0294b9b4a8019ff975866d0ec79231e1dd64d7e1bc991e07af90a1f2380377ab",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/output-v3.log": "240927f455ce91543a87bf1b2d1ff1c0b631d4ac71def6788538001f25509e90",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/output-v4.log": "867d51e4938ca8832a751745f27c31b639ae79db29e9cb61d35666920a919b95",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/output-v5.log": "5b34fcb712569d5d53922d973c4e2f5816e79b830578706017b641fcdfea5866",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/output-v7.log": "3759035fb2d2fc8ef4d5cfc972b40274d87b4f773ca6cd0da214c5d018ea1152",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/manifest-v2.json": "8e4d8cd86d9b4bc64797c82b1936a7b4192c793c55782ec49d0b691ff8292df1",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/build.log": "81ed968d105cbef1ca968a58d846f909f565f061ae0b33f76e548d9e47dcfbda",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/output-v6.log": "7eab5cae21191d5435d92462f4b21c65f5b790e28a5bbf6f61169b08d0629073",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/obj/project.assets.json": "e3d0e6487810e7c0449178bd71fe5b846220110a2b06dea21fa7e18f303cba60",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/obj/diag.csproj.nuget.dgspec.json": "38705ef9f4869c2a6d4683d2b8633c29d6359ba2b61b266179a41e7f548c8117",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/obj/Release/net10.0/diag.sourcelink.json": "8ffcabddbaf66d324e98dcea55449eacde1b0d65fd7cd28d37831ac166857fb3",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/compiled/nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/compiled/nettest.deps.json": "512ecde12e07b4acbf6ede7fc544e9c3c84bd4e79ed6f15477d45312c0a5e735",
+    "artifacts/net2-n14/attempt-05/effect-state-diag/profile/map-catalog-v2.json": "feeaf77d9419c9406778aa3a928062930d881e8b3ec26c1aa1be67a1642f36ca",
+    "artifacts/net2-n14/attempt-05/replay-rng423/result.json": "94324fa573e6bf43aa97712051ed49a773fc7f460f69f2ee0e13f695d68d74bc",
+    "artifacts/net2-n14/attempt-05/replay-rng423/output.log": "83297d8188d228eb5383656643ba854f67e31b45673f6296c44380da2e0190bd",
+    "artifacts/net2-n14/attempt-05/replay-rng423/profile/map-catalog-v2.json": "6fe34ad386fa13379f7e5bf0a207f1e4667b0f2e9d93292b883b7a92a1b298da",
+    "artifacts/net2-n14/attempt-05/replay-rng423/profile/logs/ProjectPrime-20261011-093709-52839.log": "4b516df5696026dbb46cd4d0662f800e7164decc2444bbe55ef9f4926eeff1d8",
+    "artifacts/net2-n14/attempt-05/replay-rng423/profile/logs/platform-startup.log": "1207773accfa8e1a3f3cfe351da1a77aa7e66250e85773110d4963b0092ad75d",
+    "artifacts/net2-n14/attempt-02/sdk-info.log": "fc5d94727c9dfe424d223044811a3027f60ebde82576d1d130fd64764aeb6ece",
+    "artifacts/net2-n14/attempt-02/build-manifest.json": "baadada999e546fa649fcb70022335b77cf714719b74eb1ed3734cc7462f566b",
+    "artifacts/net2-n14/attempt-02/build.log": "e305b17521c88ff4adbb349d93b3f4157cdcf327c14c794306d5f908f3c67ac1",
+    "artifacts/net2-n14/attempt-03/build-manifest.json": "32be88c05f9d4d382d22a46b3ef04cf3ccd32fa5ba6932711d42edd9b208fdb5",
+    "artifacts/net2-n14/attempt-03/build.log": "2c8fe498fb91e6939a1bdd1108d87e00434a2a05e62d7a86a01f98465d00dc7c",
+    "artifacts/net2-n14/attempt-04/fixture-results.json": "fc789e8ab8dfda7a1d3db1c1e7f4f70ea0dada43874cd74e3807a8560482b860",
+    "artifacts/net2-n14/attempt-04/replay-results.json": "3d3824aa2a220438a403b06d2b65d97b615d71a63321d738ea6268a5c432c74b",
+    "artifacts/net2-n14/attempt-04/build-manifest.json": "9f5a8b8524e625f73d3f9432145bb9e5673371bfc2a5de6c494a297f1c7c97dc",
+    "artifacts/net2-n14/attempt-04/handoff-manifest.json": "57b2683ad82f78689caedf0eb907f951437d4bcb40469caae7b2f4cb22680647",
+    "artifacts/net2-n14/attempt-04/build.log": "49968fb014f03df0078a585e553ab49fc7ab79edc41f60ef79eb15ba2761b997",
+    "artifacts/net2-n14/attempt-04/27-recording-0-replayreplicacheck/result.json": "ddedf3999b674ec529357161aa4000a561f479eb14801068e0b7b94fadb6a1e5",
+    "artifacts/net2-n14/attempt-04/27-recording-0-replayreplicacheck/output.log": "3f0e43fafd19e8c2e7a0f870e6ed8ffffe64aa5b707e3efab6915b1675669007",
+    "artifacts/net2-n14/attempt-04/27-recording-0-replayreplicacheck/profile/map-catalog-v2.json": "4818581531d74522e669672e8df87e2f87a9f9ec1c768ca7314e83e69005b93f",
+    "artifacts/net2-n14/attempt-04/27-recording-0-replayreplicacheck/profile/logs/platform-startup.log": "4ad1e5c56253e584ebad57730696a7416df0c6c258f4bd99436115f46d9e1d20",
+    "artifacts/net2-n14/attempt-04/27-recording-0-replayreplicacheck/profile/logs/ProjectPrime-20261011-093053-52446.log": "409beceed3c15c29d0b05e8c186ec58747e991f697dceef72d5793f7d6367195",
+    "artifacts/net2-n14/attempt-04/30-recording-1-replayreplicacheck/result.json": "4bc42ec48b3b42a9deaf8cb104a9e0751d8c58e9793763718545e7eb99fd2cfe",
+    "artifacts/net2-n14/attempt-04/30-recording-1-replayreplicacheck/output.log": "339e73b5cfe6aaab925ae23ef758bed12bcf1259b08f6d0c684e9b532769de6b",
+    "artifacts/net2-n14/attempt-04/30-recording-1-replayreplicacheck/profile/map-catalog-v2.json": "4818581531d74522e669672e8df87e2f87a9f9ec1c768ca7314e83e69005b93f",
+    "artifacts/net2-n14/attempt-04/30-recording-1-replayreplicacheck/profile/logs/ProjectPrime-20261011-093056-52450.log": "5746834b36819f78d849273a719d4e735bceafc4eabb1720358ff595028097c7",
+    "artifacts/net2-n14/attempt-04/30-recording-1-replayreplicacheck/profile/logs/platform-startup.log": "3f06d51901cec4b220af9ef6c556d912c3224bd78089ec97abd40f7f73a53255",
+    "artifacts/net2-n14/attempt-04/04-load-lifecycle/result.json": "0f454f457d909d8885d665eff5c18c54df8860031c4de7f17542b69a8aeeeaf7",
+    "artifacts/net2-n14/attempt-04/04-load-lifecycle/output.log": "fa1811c33267cb347fa2de61a939b75b8ed68c39595159aacb5689e3d8b87dd8",
+    "artifacts/net2-n14/attempt-04/04-load-lifecycle/profile/map-catalog-v2.json": "63052b3ef89bd51286b56964c1da5fcb5454e84dffe3a6e6eaf126a3a8b0a1d3",
+    "artifacts/net2-n14/contracts-06/summary.json": "c263da44c401ae5caa9e4da0bd2432d9e038db2f19f416e4367a0a0d86dae4f0",
+    "artifacts/net2-n14/contracts-06/manifest.json": "4b386b94852c27b242b6e4582572f4cb1bb3247dd450871cbf24ec555192ed45",
+    "artifacts/net2-n14/contracts-06/04-lobby-map-test-arena/result.json": "ed319750b36e30a7274e516663bab636f78d2dbe10d917e4d93d89ff3adb9501",
+    "artifacts/net2-n14/contracts-06/04-lobby-map-test-arena/output.log": "70b9b25caf078da3a5908e29f38ced6b36c55b7e9690ddfc3d496d3530a919a1",
+    "artifacts/net2-n14/contracts-06/04-lobby-map-test-arena/command.json": "98a3010979791800422da4eebb2bdf54c6edcf3f8adbd9f4b5b4bc537d7074d1",
+    "artifacts/net2-n14/contracts-06/04-lobby-map-test-arena/profile/map-catalog-v2.json": "3ad6e335fd205c7513a5b124c1cc8b754cb44dfd17c18903ce4359e8ca4f9249",
+    "artifacts/net2-n14/contracts-06/04-lobby-map-test-arena/profile/telemetry/2026-10-11/match-8ba00d7ab9134f1c84c846ea22d22a64.summary.json": "9ed988cc3088e69cacab830c18fb67b7547245894fc57582410092062f8042e7",
+    "artifacts/net2-n14/contracts-06/01-lobby/result.json": "06d58248ea2286d315f42881a21179199ee6075b6c810da749810aa64a6065e9",
+    "artifacts/net2-n14/contracts-06/01-lobby/output.log": "0479674da27ca537abe890fee7fcd9a910d794052f8580b9a55d57a97bf8460a",
+    "artifacts/net2-n14/contracts-06/01-lobby/command.json": "c7f1facb77e7860968b8ebfebc604006508334631576ae4afe94ec231e994e44",
+    "artifacts/net2-n14/contracts-06/01-lobby/profile/hunter-license.session.json": "d6fc45168569754686b7a6b47462a2ba23208739d3e6eb0d3467ffd04325486c",
+    "artifacts/net2-n14/contracts-06/01-lobby/profile/map-catalog-v2.json": "2e8fab5f89896d36d8ea69b88ddc76a925fcac7077ac52767185e595073d8b55",
+    "artifacts/net2-n14/contracts-06/00-load-lifecycle/result.json": "991110a614e7ac30871d5d87df77b9156f0e1a6b75152a043e5b909b1ca942e8",
+    "artifacts/net2-n14/contracts-06/00-load-lifecycle/output.log": "becc9e6200d0bf5eefedcc030398c7943bd242033b5d4b1f25ea5e01515d5a21",
+    "artifacts/net2-n14/contracts-06/00-load-lifecycle/command.json": "f1a696f8e4d2fc3cbf22def33a128fc6fc43324cdb4d9ffb01776588d87d651d",
+    "artifacts/net2-n14/contracts-06/00-load-lifecycle/profile/hunter-license.session.json": "ed972c45655788b37726f61641ea546e1f4e8651f949b17382b0157b43940756",
+    "artifacts/net2-n14/contracts-06/00-load-lifecycle/profile/map-catalog-v2.json": "2e8fab5f89896d36d8ea69b88ddc76a925fcac7077ac52767185e595073d8b55",
+    "artifacts/net2-n14/contracts-06/03-bots/result.json": "4202a5c14dd5df7889576df58b491862dd20ab4f6d77ef3b41d02112e998a4fd",
+    "artifacts/net2-n14/contracts-06/03-bots/output.log": "87c2c23767605ec83b8ec9324b9d4eaac98e33ddc39c9baa4ad560687dc88fcd",
+    "artifacts/net2-n14/contracts-06/03-bots/command.json": "825d03206bcf00ef908058e09748ef2736abab0d7814701fe45eddd5751007e5",
+    "artifacts/net2-n14/contracts-06/03-bots/profile/map-catalog-v2.json": "2e8fab5f89896d36d8ea69b88ddc76a925fcac7077ac52767185e595073d8b55",
+    "artifacts/net2-n14/contracts-06/05-recording-0-replaycadencecheck/result.json": "6acba07ccaa7316102ba681c55668bb476926e4a2c30e712bfb53188e86ed97c",
+    "artifacts/net2-n14/contracts-06/05-recording-0-replaycadencecheck/output.log": "f3b5e40df93cf599e0be55a85fb8d8597416b3ee2836ae8c6bc3f912c8870788",
+    "artifacts/net2-n14/contracts-06/05-recording-0-replaycadencecheck/command.json": "85a8f547432a42fe3360d15e0732fe39a7b295186b072fa4a02d494db68198ce",
+    "artifacts/net2-n14/contracts-06/05-recording-0-replaycadencecheck/profile/map-catalog-v2.json": "2fda8e9deaf05c1241e4e5dad78f77ea5bc4f80505d2efe605083a9d99de6343",
+    "artifacts/net2-n14/contracts-06/05-recording-0-replaycadencecheck/profile/logs/platform-startup.log": "bd33989296a8eb331e74e9bebc0634926e72b7827bc4ed2a9f00e44f0a129022",
+    "artifacts/net2-n14/contracts-06/05-recording-0-replaycadencecheck/profile/logs/ProjectPrime-20261011-100602-54701.log": "cc3b809e6a2db309850a7a4a1ece6510b06b24872b88992384d07514806718b3",
+    "artifacts/net2-n14/contracts-06/06-recording-1-replaycadencecheck/result.json": "ba6077b426eaf0eb2895dc220dd49466a0c6dde5a85aed1d6f830aa3e734dc64",
+    "artifacts/net2-n14/contracts-06/06-recording-1-replaycadencecheck/output.log": "d4fda5e908598fe7ba8640222ee7f5d1141e7726a71dcdefb8ad38f1080e3688",
+    "artifacts/net2-n14/contracts-06/06-recording-1-replaycadencecheck/command.json": "26a7d8987ad27b62def68ce8ef051ab18a52ff9a41ddde8e7c5d52362ba2bd49",
+    "artifacts/net2-n14/contracts-06/06-recording-1-replaycadencecheck/profile/map-catalog-v2.json": "2fda8e9deaf05c1241e4e5dad78f77ea5bc4f80505d2efe605083a9d99de6343",
+    "artifacts/net2-n14/contracts-06/06-recording-1-replaycadencecheck/profile/logs/platform-startup.log": "35347d7bb9586ea7fde584e89f56a48a4f488c85bcb8700f8659dcfe8ccb0869",
+    "artifacts/net2-n14/contracts-06/06-recording-1-replaycadencecheck/profile/logs/ProjectPrime-20261011-100648-54902.log": "9cd9920c0e5faa175e6953e5cebed8e56430d300581a517ac8c925b093df40ff",
+    "artifacts/net2-n14/contracts-06/02-waitlist/result.json": "359c07d6adcc4d0241ef5506f231b802bac07bac11d80804609f9aaa745fe431",
+    "artifacts/net2-n14/contracts-06/02-waitlist/output.log": "9ee376b5d6cce288efd1e21fc6818ba214f3abaf1a335ba8b20e5af5f33d6f81",
+    "artifacts/net2-n14/contracts-06/02-waitlist/command.json": "c6dabd2933a03fd02c72f4ba424cb8a0619dfe43b1c784ebb0d0561650009d77",
+    "artifacts/net2-n14/contracts-06/02-waitlist/profile/hunter-license.session.json": "10845500d4026760cfc3b803413376cc5d0b82125283ab17737b81c5ffbba9e0",
+    "artifacts/net2-n14/contracts-06/02-waitlist/profile/map-catalog-v2.json": "2e8fab5f89896d36d8ea69b88ddc76a925fcac7077ac52767185e595073d8b55",
+    "artifacts/net2-n14/attempt-06/generator-manifest.json": "93dd4d724144007b5255831abe746145e76427bb8207171eb9e944ab655cecfd",
+    "artifacts/net2-n14/attempt-06/generator.log": "875dc0c7e4b394d17362f400e531745fc3294c96f0ed526c6ed7c0471ded3201",
+    "artifacts/net2-n14/attempt-06/replay-results.json": "80ace07ad6e22c4ef5423a0f9490e477f4422473964657da7080d920dffe3ee0",
+    "artifacts/net2-n14/attempt-06/build-manifest.json": "19adc0e927c84bef7edb1f138a826ab8ce32ceb1098006cef3573770cceed05f",
+    "artifacts/net2-n14/attempt-06/handoff-manifest.json": "ccc70a4fa88920a36a3d6207961d2a0eed0f404ee4b3317be9206b5a5d924edf",
+    "artifacts/net2-n14/attempt-06/preparation-manifest.json": "9fb113fb80ee0049e550ff0263285f87cab556a6689010d16fa1754f574f3a1b",
+    "artifacts/net2-n14/attempt-06/build.log": "adc066036a80577e431cdc630dd72d73e59321118a46758af9a00e44bda7ac23",
+    "artifacts/net2-n14/attempt-06/27-recording-0-replayreplicacheck/result.json": "9a73ff53ed961a5e940fb07fe11645c0cf83609f8f90deaf256a28962b76d336",
+    "artifacts/net2-n14/attempt-06/27-recording-0-replayreplicacheck/output.log": "28df28e6be1d7f640525f15acf0921f9d12b9b43f5888202943629b3d1b06848",
+    "artifacts/net2-n14/attempt-06/27-recording-0-replayreplicacheck/profile/map-catalog-v2.json": "2fda8e9deaf05c1241e4e5dad78f77ea5bc4f80505d2efe605083a9d99de6343",
+    "artifacts/net2-n14/attempt-06/27-recording-0-replayreplicacheck/profile/logs/ProjectPrime-20261011-100031-54409.log": "d6371a292bf4a2f9bcd31d06ee7580cd46aa77b88a9b85297da82fdde318085b",
+    "artifacts/net2-n14/attempt-06/27-recording-0-replayreplicacheck/profile/logs/platform-startup.log": "865476203a22b8b9c760e2ecfa227d5dc80829af33ece3bb94a8cece47a37fc9",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/build-v6.log": "621b70cd4c6960492ca53d7d80ab4be277fe2e19176f9bfae671ada27fa6d23f",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/build-v5.log": "aeea93358d7cebf4797ba7e195118d95aef9626acd8a4e38f26f41f1dc09c178",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/build-v4.log": "57c7dd0113615acc11e1fe416133dc5e26668298c4db0f94b43c618456544566",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/output.log": "17d6ae4cacd9c9e0813e36bc58e82c3df03823f3fbfb79802ce75610dee603ff",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/build-v3.log": "d2261c0b490d917fa6f173ea76803384d55a1557361c308fb1cd1eec95170b4b",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/build-v2.log": "aeea93358d7cebf4797ba7e195118d95aef9626acd8a4e38f26f41f1dc09c178",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/manifest-v5.json": "0d0b53eb7ff8ed6f8fcfd14cb45e70598ff8dcfc3c8f70cde198fa3a1ef2daa6",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/manifest-v4.json": "a8372dcd020ce26947779d2e1c80dd63875b2ddb21257e8056ab5775a1bba7de",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/manifest.json": "2dbdb98cedae3015e099646721e86ea633e98527561e8f7f4692ee22b0093c0d",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/output-v2.log": "bb254be68320961f96efebbfe1e2ede6e49263b84af6a625256af960e71a3b58",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/manifest-v3.json": "824a8bfae7acc3636fcac752f1d54de4780b21c92d1ef4a9bc90af5cd6b759a2",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/output-v3.log": "adeea6116999f817b9097ad9ca77beefcff0a14e13f2d6c3e1d9504fec7a559d",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/output-v4.log": "212043696b713e9f43e014c1f201af63600a50a176436b3e1ffae7cce734e96f",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/output-v5.log": "e4313f2dbf4710bcdd162bd21ac397b992456bd49fd219073424f46191b45b76",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/manifest-v2.json": "22bf7dc2a7a114165ecfbefd0a7959d4cad21af609ac1c718bd83ce072c3dbae",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/build.log": "1530061b189eceaba58d8c5017c6a67673773826dd5d1b7e33e5af7daa3f3b24",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/obj/project.assets.json": "8d792e02cb9ca1b12aa83c5dcaa5ba03754d3215da513e3ca8c6c8720349723d",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/obj/diag.csproj.nuget.dgspec.json": "3c9653bc4716e84490f54c3d119f14bea40fffff74ce209bc534d3eeb374b02f",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/obj/Release/net10.0/diag.sourcelink.json": "0697da6bf2009c222667b79943b32095112540fb701549e989fbb4ddfd2511d0",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/compiled/nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/compiled/nettest.deps.json": "512ecde12e07b4acbf6ede7fc544e9c3c84bd4e79ed6f15477d45312c0a5e735",
+    "artifacts/net2-n14/attempt-06/clip-state-diag/profile/map-catalog-v2.json": "fe9bc2442dde3ad53afa16ccf8f4d1665754c49217e1258f5e096472e454248d",
+    "artifacts/net2-n14/attempt-06/30-recording-1-replayreplicacheck/result.json": "3caab11b2c50af4e90fef4926191ad3877a9dc17ab0e7b05407dca97dfe6532f",
+    "artifacts/net2-n14/attempt-06/30-recording-1-replayreplicacheck/output.log": "81bce61b48bb5d18c21eb66486d9f06ee89a5311e5f2f78fe824a076c8ed197a",
+    "artifacts/net2-n14/attempt-06/30-recording-1-replayreplicacheck/profile/map-catalog-v2.json": "2fda8e9deaf05c1241e4e5dad78f77ea5bc4f80505d2efe605083a9d99de6343",
+    "artifacts/net2-n14/attempt-06/30-recording-1-replayreplicacheck/profile/logs/ProjectPrime-20261011-095831-54251.log": "0e33cc9b93eecb68092c9cb07dde597060ff54c012b4217626df1c090d41cca8",
+    "artifacts/net2-n14/attempt-06/30-recording-1-replayreplicacheck/profile/logs/platform-startup.log": "6c5a963ef00d8528a1b9e7e24c749d50b1a852659cdab2f94358e50a8e5ad145",
+    "artifacts/net2-n14/attempt-06/25-replaycontrolcheck/result.json": "755f86cd90a227e395f22dd3625e3c17680b02aea57b4c334ad645c7ce394810",
+    "artifacts/net2-n14/attempt-06/25-replaycontrolcheck/output.log": "de363a31cb0b2063cbd530daad68e3f6a65c70029a4445e4e9033da0a94bc9bf",
+    "artifacts/net2-n14/attempt-07/build-manifest.json": "e212e9b329e8e38616cfe25024c0facb5934683c8a283b02fba3f2252408f490",
+    "artifacts/net2-n14/attempt-07/build.log": "90f805a577aebd432669e09159875922114c2e4b856f98ba871cd51535df4d5a",
+    "artifacts/net2-n14/attempt-07/27-recording-0-replayreplicacheck/result.json": "8cd4b90c1bceffe99d4be3229a3cbe9484f2171a3b55362fd8da276969978d62",
+    "artifacts/net2-n14/attempt-07/27-recording-0-replayreplicacheck/output.log": "7c6637c54e045ea1bc4fa50b51910f1f9184985b307d61b72413f454f879f3d7",
+    "artifacts/net2-n14/attempt-07/27-recording-0-replayreplicacheck/command.json": "4b3c26037684340917966ed985664f0765c03521a7151ee815a8682d9f2a1035",
+    "artifacts/net2-n14/attempt-07/27-recording-0-replayreplicacheck/profile/map-catalog-v2.json": "778a9be63a46e464c43db6a8b829412e4e61a6591f5b0ad3bb16cb5f0b8bbd44",
+    "artifacts/net2-n14/attempt-07/27-recording-0-replayreplicacheck/profile/logs/platform-startup.log": "dd2cec468c666539a5a907860a2297191e24b7da584599d3c4a1c2bd31abf20d",
+    "artifacts/net2-n14/attempt-07/27-recording-0-replayreplicacheck/profile/logs/ProjectPrime-20261011-101024-55222.log": "9c7b95a1086df98926eb40ecd869ad7be6bc01edb73be9e6d4d8890a000495e0",
+    "artifacts/net2-n14/attempt-07/30-recording-1-replayreplicacheck/result.json": "a89672a1dd4b206e07bd81a4621440b6f6285e93945ecf221be8a90179facf06",
+    "artifacts/net2-n14/attempt-07/30-recording-1-replayreplicacheck/output.log": "056ec5bca4d9aa30b9a6c473950c90175c878b353fa8d186bd5d813ef6b22082",
+    "artifacts/net2-n14/attempt-07/30-recording-1-replayreplicacheck/command.json": "854391fbe4d2288bc5bae65fa80adb2efd3eaab34aff8cb313d176d221ead658",
+    "artifacts/net2-n14/attempt-07/30-recording-1-replayreplicacheck/profile/map-catalog-v2.json": "778a9be63a46e464c43db6a8b829412e4e61a6591f5b0ad3bb16cb5f0b8bbd44",
+    "artifacts/net2-n14/attempt-07/30-recording-1-replayreplicacheck/profile/logs/ProjectPrime-20261011-101020-55219.log": "03f0b758c8eab85c69a3def6f46004cef0ddbfaad35616ae0ef7de050b094518",
+    "artifacts/net2-n14/attempt-07/30-recording-1-replayreplicacheck/profile/logs/platform-startup.log": "f353747176b76e27ed7fec0ae39b2df2dc39d45ba02eb4013bc0b0ca883b67d1",
+    "artifacts/net2-n14/attempt-07/25-replaycontrolcheck/result.json": "41737c8b0025b1b9e0276fe79e2ba545f8f41a950748c17450c658d03e877738",
+    "artifacts/net2-n14/attempt-07/25-replaycontrolcheck/output.log": "de363a31cb0b2063cbd530daad68e3f6a65c70029a4445e4e9033da0a94bc9bf",
+    "artifacts/net2-n14/attempt-07/25-replaycontrolcheck/command.json": "30d73ffeca5f1c23651822312c5a86fe91d9ad8e273762458cc85b69182e1abe",
+    "artifacts/net2-n14/attempt-07/24-replayformatcheck/result.json": "4d180844bad6b2e6c2060c13b83ec08e3da55d9e2d49bb770057b230fdf392de",
+    "artifacts/net2-n14/attempt-07/24-replayformatcheck/output.log": "14b152895db68e8f3d3e983d4e908bd2062af0aa743a215ca1a9d2a168f5e32f",
+    "artifacts/net2-n14/attempt-07/24-replayformatcheck/command.json": "23270a47178d6044ee8581eb7bfb55c01447517981fefc01121d79f1e30b6ecd",
+    "artifacts/net2-n14/prepared/commands.json": "4a23f88f0d7b7d0cf30944b3591c03052d303dc6df0d70b81be35739f7cd7d18",
+    "artifacts/net2-n14/attempt-01/sdk-info.log": "fc5d94727c9dfe424d223044811a3027f60ebde82576d1d130fd64764aeb6ece",
+    "artifacts/net2-n14/attempt-01/build-manifest.json": "b64e96dea0ed95c560c9fc196d83af57648c8208b235b6875579c10503169c60",
+    "artifacts/net2-n14/attempt-01/build.log": "bb982b0ef84c21fb6aa6eec58c28563a17e4a0ad676598708436542fac60d25b",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental-runner.log": "666cf6b2517e92d21c3b267cfe309a821234f0adbc41083f713b4e81e1539397",
+    "artifacts/net2-n14/attempt-07/experimental-movement-audit.json": "b823246d336c2c66ec02ef7794d8cb3808dfc26842841e871c317b7902cbf374",
+    "artifacts/net2-n14/attempt-07/mac-canary-control-runner.log": "95e76d17ff9dea60167456cc87dc325bd4399979d6a1e588da91ee8e3a55a5a8",
+    "artifacts/net2-n14/attempt-07/experimental-impact-audit.json": "29938235dfba6d25befaf45d1113abe67a0065a23ab2ef216261de3f406109fc",
+    "artifacts/net2-n14/attempt-07/canary-summary.json": "7c5944b3f792ac668dc06b612bd908ead8b8427acd8c01e4b253fead853c2770",
+    "artifacts/net2-n14/attempt-07/preparation-manifest.json": "da01561cc03adcb013bbcd6070105f4851367a5788a0f41fca7700c41bb0de36",
+    "artifacts/net2-n14/attempt-07/canary-run-manifest.json": "b1ac5453fa6f4245bd7f5a3d1bf1faca28a3482bdd70d9acf61a1903cfe13038",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/drain.server-release.json": "48d36ef6df3e183a8694769d757d6da7b5bbb90e53e2f0e6207c3dca6e7a6f4a",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-2.drain.json": "2ce9cb2e4fba73d5753f574a1950233dc0a9df9ad554e099bf367ea6b0a98065",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/summary.json": "ba71f6429e1bb0d3b68b0749255fa284895fa95387e3ebd0b2561199f1da472d",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-0.json": "deb5eee4aa35d73a7fc52860cd36b6b50ffecab8c03da5b4183d5697732c5b4c",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/server-performance.json": "a98dd632a700bb39cabb10b74f4bfcfd29c1676a9c0a34dedf99953e043a4721",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/drain.release.json": "48d36ef6df3e183a8694769d757d6da7b5bbb90e53e2f0e6207c3dca6e7a6f4a",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-1.json": "dc942b13603f64fa01d38f60afd67cadea4d0c16063e19d6133e5df062bd2e41",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-7.drain.json": "08c67f5c3ccfaf61c2415c9fcabc8efc002180990f245c618f111326a535215d",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/server.json": "7f060f7c8bc9fa272baee6014d92f3eefb2faec0b6ce918c30bf56d7897ce296",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-6.json": "e00d65007f4039835b621f57e832189f9bfdfc353278d21c734b6d35894a3d79",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-0.drain.json": "0b512e118054c7c618be4b3169f8303e4aacaa43c928f783e6fb4025ea8e8c1e",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-5.drain.json": "70997e1610358da2e0200969813960ed8fe6b93a5396e045e2f440d4408bdce4",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-7.json": "7383aefd219c5a26e0645f523b6ffd23fb0a448868c8cefa369d054d56fbc2fb",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-0.log": "726ff2cf510a15bec083fe35df82a50b15f1a758fba05d87d19e2c59c0ee4ebe",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-4.json": "b837e880f59ceee671fd42b5d1d5baddaea0e605a8f599c3f7fb6b7d89244f79",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-1.log": "111872b3fa70f97493406b7482e54036f04d67547b0dd55970cc53ec70a1c96f",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-3.log": "1f286ce2c36a5b6a1bcbd747ff5c8db32ad6a878ab04efe9612fd005f0e849e8",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-6.drain.json": "7c3e36933f8f0e9dd031d03e29a20c63d558b8695dfe4393f102c7e52c7abb91",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-2.log": "a4f0090940f7585357899f95b79fb56813f7d0bcff4e9bb261f376a84a0061fe",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-6.log": "4f6c9c4d51cd28a00939aec6a2c91ef208c88e355b68fa9c5657b6a5f06c48e8",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-3.drain.json": "168912efe1db45cf320f4e435f8da5391a36997726cf71454d3ea7de3973eb67",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-7.log": "cd12f1d18fc6f35c318bf93bd21e0c5363825407a101db9328beecd902becd2e",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/manifest.json": "a6f1a8b8a3b382e6b058027f33ff5ab8909d58167911c9c1aa1d0dc36e5cfac4",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-5.log": "6a464dcaf0fa1382177320835645e22035b5aeac7158d362f1187e8c3eecb8b7",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-5.json": "5a220c50e75a4d7f8a247930be554a3eae6c82925dadda4f1185766043410e11",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-4.log": "b318ffe0d8dc6dfee0fef10944c1295a5608340a0cd93f93710ed3447c139222",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/server.operator.json": "2b5e39352e1c51b2e60d9f1dcfa0f4c7104b31bffa7a4e28bb520f11e9ec5cf7",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/assets.json": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-4.drain.json": "b52939fc349107cb45c80b091f25a4aded9aba11697c1db0f53c86b5e066587f",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-2.json": "88b8fca15abdc564768e5846b160b18b6e58382f42d521477c345db3c61a003c",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/server.log": "301d43cee8683ec5c48d1b5e3feae85e4bd899ddc19c93326182438a3945bd77",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-3.json": "28e487ca0b5ff7a1ae1fc07ffc97ad27e7484e5deb3d6159e4ad57406e71dd0d",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-1.drain.json": "9610c6e9fa3cab047255970b8ea9866e13216fa038ee705e37859d9263b67fcd",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/server.drain.json": "b153c7f659fcf678afd4cf1867aa005e32b088d84af0476e0814a2f0006393c2",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-0/logs/platform-startup.log": "102cc9161110fb32b8aa497a7ef6dbea7ab634ad220685e9dc0506c4c593bf19",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-0/logs/ProjectPrime-20261011-101140-55589.log": "0a7e01170c9cc84242ba1f21b9e9b5d0818909bd9e9730527b66abedbfc03beb",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-7/logs/ProjectPrime-20261011-101141-55596.log": "1968746398172eafdc1d73b2966252f10af69d22b2ffba4009ff2eaae07a0de1",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-7/logs/platform-startup.log": "469f920a39cce6ddc14d98c985f058ac3e52518f38db0836c206ce4a819c809f",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-6/logs/ProjectPrime-20261011-101141-55595.log": "14cf665ba7f8bf94bd287749ec00b1393147ffcb42c942aaa3d0c754fe9a8d32",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-6/logs/platform-startup.log": "3bef5636eb76dfced1a8f4e10fd83f3f0b2e022d3b90a0b2db0a542e51fd8353",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-1/logs/ProjectPrime-20261011-101140-55590.log": "b17e58adab9512d28e803c55ceb04905c8bc133ae8853b355b3aa418dbdaf03f",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-1/logs/platform-startup.log": "c53ab067cc5e7944720a120741b53da902ef72d544a7afce63c4d974c096c130",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/server/logs/ProjectPrime-20261011-101137-55588.log": "f2f9cb96365758e2986da1e84571b50e3cd04fb352af0a87283182e429c47758",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/server/telemetry/2026-10-11/match-dca5ae0ec89b4b36ba4c1e9a079079dd.summary.json": "80bb16c6d847a698d20df8869bb1b27f5093d783fd86c18b148e81a3aaf5e457",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-4/logs/ProjectPrime-20261011-101141-55593.log": "f9154d1b980e36eee0ba5b27fc01d77632e51504a406c70841e2ecadc50c4cde",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-4/logs/platform-startup.log": "b19fd7ef36534226418a759aee8cde4d48fc5d13dd3526a05e0a69e472c84f1c",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-3/logs/ProjectPrime-20261011-101140-55592.log": "106d2dd1c2eb016bd0e6c2a06d7d0fcb960e7887397d29664eb2d216bf9f14ce",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-3/logs/platform-startup.log": "e1e3aacfdb54ab8eff8c0a7f2e7bc2bd681e2cedfcd6534e3afecb8add0b055a",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-2/logs/ProjectPrime-20261011-101140-55591.log": "8e4aa1000ab612089bfc022c74ca4c137cf83a9c6bf01dea4e05646527f612d7",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-2/logs/platform-startup.log": "defa9890d526505f174fe21268493644a28e14d69d24b29bebe18dec5d269cc8",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-5/logs/ProjectPrime-20261011-101141-55594.log": "fcfeda269ae174564e7511d2ba8eb5ced02413a0c5a75300aefc9837f7128053",
+    "artifacts/net2-n14/attempt-07/mac-canary-experimental/peer-5/logs/platform-startup.log": "fe323346075bca5394812c5181ce35bd6050fee3743171b4450dc71b173de4f5",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/drain.server-release.json": "87a27a8ef3c4a06a35a4d89789e13cefbd5a8244274ab8b9c44464ab4d851de6",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-2.drain.json": "f32e87709115652a51182d80cc3c95f3a091bccbeacae76bcac312ca3d559507",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/summary.json": "e293f995d3716ec8f6dddbf50e121e09717b9ec49d3ec853c50cf414ce5fa46e",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-0.json": "fbae910597e21947b4b626bec80fc9489bfffb2778c5e006247bbbcae3f2b5eb",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/server-performance.json": "c96b51a527cb48745e028cc6d0da4d74d2f22976da83224d9d4f1e6c1bebba83",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/drain.release.json": "87a27a8ef3c4a06a35a4d89789e13cefbd5a8244274ab8b9c44464ab4d851de6",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-1.json": "e2e54d3020f0b8672d6bc8605f2d30afcc7550088fd3e469fccc47a401fb9d06",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-7.drain.json": "dda297d44c8cd92d4290a8bbabf74c6fad4d8be5a2c2896eb314c335264b0515",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/server.json": "a683262be62bc57d202925820b204d6eec549d17330e74ba3b75684b452906e8",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-6.json": "6ad9ff4008cb53ad898f5c809045fb02005014498fe8ccbf94f51e8705bbf771",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-0.drain.json": "a3f5c663f21e30edcd8a40907e207124d56cad8f6e19bc36c4eb3d782ca1f0e9",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-5.drain.json": "53926d5994d661b6cfa244c0e481d309a400f248d016e4d6d1a5eda7796452c7",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-7.json": "7a90ed245ec776f3fde8ae084bef4b690bebe34b465d89fcf52bcff8194ba758",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-0.log": "3b6dd6a40af9b8c40b74b5c7fed818a4b1befb056009bb86b7dd357644caba50",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-4.json": "dda6929fe32e3a7d61aa956858df850da77bcbfb902293b295f3a8a928a80ff9",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-1.log": "755407e3caecba9c29fc8ab41e2a9d558d236926fcb53c4f0d8dae394a70626d",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-3.log": "f3ce114ab468f52bfc768696f977a07452d4e3295b70857a81388fe27c10a18e",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-6.drain.json": "b88632633b9bc91442506d5765d5418f5998a1dd53b46f470056337aff88da3b",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-2.log": "3f6ca150d505e32efec94bd953c407b1b4e138ca050bc8dca3746ffb6465f061",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-6.log": "9d8630b01c167eb346778bbc9017d88098850f33ec99a02a20c9a55a529e9cec",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-3.drain.json": "4068f91f3bb337a1c9818cb07c586316db9650e88ac2749f0099639833b15bf8",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-7.log": "33609f7577f36f90de67a8c5a295e38ca491ba54cec9d7be58cc12f7286d86e1",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/manifest.json": "a50f8d6e3fd80bf4897c08d377cc8faf5ff8efa93e5cf9ff807c6af72f498853",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-5.log": "27e500adfa48095879305c1e6572881ca2a32ba81b034230d9fe0a2abc1a95ff",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-5.json": "81fff643661aa999a0fe71dc939eacbe54fcca4b72b94b7826acde75b7b6b179",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-4.log": "23d1a3181a1733cf038bf73a3d99866f51a188b4a531dc65eae28e79b5f4923a",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/server.operator.json": "6b4fa5f4c5e44b5241c06034129bd317a21f36e6c0857da557a7150669d652f2",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/assets.json": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-4.drain.json": "b5df0bb7c8f071324cd9ddee1f03919f5c7d4941dc13f245fad66820f68879d5",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-2.json": "48e8598b80a8452d84fd53674dfbf55aac3124ffdc464b72453b240df836050f",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/server.log": "b81e435817c332028d9eb3bd3480f42312214d41854fb58cfca438b68880f475",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-3.json": "d0fa5dabb9b50ca0b0269b13005c1ddbde70cd7cb8614b833cf1bb0175ad0adc",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-1.drain.json": "8c30398f1edb77993d27c94c089f1f5e4c3950e32a93ba057ac4826caf66ab6a",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/server.drain.json": "d7b13c9e50f8f6e8ee6997515bedcc4919610408e0566c8f8089ca0dbd66b506",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-0/logs/ProjectPrime-20261011-101108-55437.log": "031e0df3e7f8eeff71c73b0e1f736719c2c21474ecc3062b8b4aeddd76206337",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-0/logs/platform-startup.log": "3fb458c8830bf754abb853cda68675844f472ca331335e6be1f30802f41de706",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-7/logs/ProjectPrime-20261011-101110-55444.log": "45130c3f49d26f17965bdd1588b36d8f8078897df9f80409daae766b9b0fdc27",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-7/logs/platform-startup.log": "7fc6f3cf2bdc10028b7b2ba42f7cda18ed92fd1b2562871c1ff54abbece0466d",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-6/logs/ProjectPrime-20261011-101110-55443.log": "8f7e8af4e75a1884d5d7a24ed4d88aaa4fe874a4b871f65309cfa736a62c6947",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-6/logs/platform-startup.log": "7422659a09a494a0e9a75d0d779e8bc754445d2d5cb74935c500fc9a27e3b502",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-1/logs/platform-startup.log": "9665bb08450bfdf060d34e1643f6aa91523bfc1b335679a678a127df0904a3bb",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-1/logs/ProjectPrime-20261011-101108-55438.log": "44e91e9b8a1b70e3911bcb3c1ee9480444d213d7ec99cf8be4252e93470d756d",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/server/logs/ProjectPrime-20261011-101106-55406.log": "926ab13e453289c31101e01d204a17cf6195634db0df556d52ea739990ee94b8",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/server/telemetry/2026-10-11/match-3779fee12dfd486bb955817f24d80bbf.summary.json": "9fcfc8fc5e0a83b53fb6b01059c671356731b51a886eb886eb9fe6e729fe0f1e",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-4/logs/ProjectPrime-20261011-101109-55441.log": "788233f55ae2cf0df5539739e6f0cf0920766e4acdf2c84c9abd5a66efdf98e9",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-4/logs/platform-startup.log": "56487fe10933f38dfc49859643d8f7adb3a1de30bcdb9c37787089e18b50c9a6",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-3/logs/ProjectPrime-20261011-101109-55440.log": "dbb375885a87f7383adfc723a7fd090afb7ebe3932253a2967edb771fc1be92a",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-3/logs/platform-startup.log": "0442e1383dafe24aba2b330aaa7fa5aa399edcc474e69eb5e09b7f0f60a0f371",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-2/logs/platform-startup.log": "57cd6da923a61124ad04e28b405d6b2043e457691ddd5b8eed2387ff21bbb0ab",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-2/logs/ProjectPrime-20261011-101109-55439.log": "4c595d9a0ff99e84062e55af954a928940e4992061c24d14379597831984e1d2",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-5/logs/ProjectPrime-20261011-101109-55442.log": "cd55a8a0f020761fea771751e6eed38ee5ba57c93cade962a73f055f131a8798",
+    "artifacts/net2-n14/attempt-07/mac-canary-control/peer-5/logs/platform-startup.log": "0831fee80bf6af631c968351e63259d5d5b9a9e922f9ad1c860acd251fbe4b1e"
+  },
+  "replayInvestigation": {
+    "status": "FINAL07_HISTORICAL_REPLICA_CONTROL_FORMAT_PASS",
+    "retainedAttempts": [
+      2,
+      3,
+      4,
+      5
+    ],
+    "cause": "Future lookahead fact resolution against distant prior roomclock gives different linear/seek impactframes",
+    "diagnosticDivergence": {
+      "frame": 423,
+      "effect": "suppressEffect5 collision RNG"
+    },
+    "fix": [
+      "First recorded snapshot whose server tick reaches impact resolve tick; delivery fallback",
+      "14 previously omitted projectile checkpoint fields"
+    ],
+    "temporaryRngTraceRemoved": true,
+    "formatValidityDoesNotProveContinuation": true,
+    "historicalReplicaChecksRequired": 2,
+    "attempt06": {
+      "recording1DetachedValidations": "PASS_7",
+      "recording1FileSeeks": "PASS_9",
+      "recording0": "PASS",
+      "controls": "PASS",
+      "frozenClip": "FAIL_RETAINED",
+      "clipCauses": [
+        "sourceOrigin31 ignored",
+        "Protocol41 source incorrectly assumed current AcceptedFire",
+        "Finite clip discarded file960 lookahead"
+      ],
+      "causalV5": "PASS_901_THROUGH_1200_AND_BACKSEEK1160_NOT_FINAL_ARTIFACT"
+    },
+    "clipRepair": {
+      "source": "01292af8",
+      "importedClipCapabilities": true,
+      "defaultCapabilities": "CURRENT",
+      "fixture": [
+        "Absolute source clock",
+        "Canonical wire capabilities",
+        "Bounded retained lookahead tail",
+        "Visible end EOF"
+      ],
+      "status": "FINAL07_PASS"
+    }
+  },
+  "engineSha256": "e0fc25aadcad558b8f9d977cd6fd7e1eb043c5ce7da33eec9bc3518c2a258bca",
+  "runnerSha256": "587c1a0b6372f278b4b8540ca80512fcb912598edf868f89db361f19981219ee",
+  "build": {
+    "status": "PASS",
+    "warnings": 33,
+    "errors": 0,
+    "sdk": "10.0.401"
+  },
+  "finalReplay": {
+    "status": "PASS_4_OF_4",
+    "source": "01292af8597a2bb1b88438390c4c9f87d953f2ef",
+    "recording1": {
+      "hashes": 2039,
+      "animationRestores": 15786,
+      "detachedWorlds": 7,
+      "continuationFrames": 1996,
+      "fileClipComparisons": 62,
+      "frozenEof": true
+    },
+    "recording0": {
+      "hashes": 1143,
+      "animationRestores": 8976,
+      "detachedWorlds": 4,
+      "continuationFrames": 1032,
+      "seekComparisons": 9
+    },
+    "controls": "PASS",
+    "formatChecks": 3013
+  },
+  "retainedFailures": {
+    "contracts01": 9,
+    "attempts02Through05": "Replay diagnostics retained; futureclock fix tested separately",
+    "attempt06FrozenClip": "FAIL retained; final historical/file/clip validation distinct",
+    "inactiveDisplayCadence": "FAIL retained; realGL cadence finalPASS"
+  },
+  "verification": {
+    "hashEntriesVerified": 402,
+    "allContentHashesMatch": true,
+    "finalManifestAndBothSummariesRead": true
+  }
+}
