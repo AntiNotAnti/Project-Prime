@@ -2080,6 +2080,7 @@ namespace MphRead.Entities
 
         private void EnterAltForm()
         {
+            _modFormStartedFrame = Mods.Network.NetSession.NetFrame;
             _altCameraCollisionBasisLock = false;
             _altCameraCollisionClearFrames = 0;
             _altRollPrevInputX = _altRollPrevInputY = 0;
@@ -2156,6 +2157,8 @@ namespace MphRead.Entities
 
         public void ExitAltForm()
         {
+            NetFireEvents.RetireTurret(this);
+            _modFormStartedFrame = Mods.Network.NetSession.NetFrame;
             if (Flags2.TestFlag(PlayerFlags2.Halfturret))
             {
                 Flags2 &= ~PlayerFlags2.Halfturret;

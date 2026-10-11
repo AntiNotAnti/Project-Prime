@@ -34,9 +34,11 @@ namespace MphRead.NetTest
                     + "  --shot-source-journal              Test independent authority resources and grant chronology.\n"
                     + "  --shot-inputs                     Test live physical-input codec and bounded sender history.\n"
                     + "  --compact-intents                 Test compact live intent transport and replay compatibility.\n"
-                    + "  --shot-proof-scene <assets> [room] Test shot proof with real scene assets.");
+                    + "  --shot-proof-scene <assets> [room] Test shot proof with real scene assets.\n"
+                    + "  --form-scene <assets> [room]       Test authority form and detached turret lifecycle.");
                 return 0;
             }
+            if (args.Length > 0 && args[0] == "--player-form-protocol") return PlayerFormProtocolTests.Run();
             if (args.Length > 0 && args[0] == "--bomb-protocol") return BombProtocolTests.Run();
             if (args.Length > 2 && args[0] == "--bomb-effect-birth-scene")
             {
@@ -75,6 +77,12 @@ namespace MphRead.NetTest
             }
             if (args.Length > 0 && args[0] == "--shot-source-journal") return ShotSourceJournalTests.Run();
             if (args.Length > 0 && args[0] == "--shot-inputs") return ShotInputTests.Run();
+            if (args.Length > 1 && args[0] == "--form-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return PlayerFormTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
             if (args.Length > 1 && args[0] == "--turret-events")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));

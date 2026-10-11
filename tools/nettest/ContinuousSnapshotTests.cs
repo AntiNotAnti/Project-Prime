@@ -26,11 +26,10 @@ internal static class ContinuousSnapshotTests
             for (int i = 0; i < 8; i++) { roster.Slots[i] = (byte)i; roster.Generations[i] = (ushort)(9 + i); }
             NetSession.ApplyRoster(roster);
             byte[] canonical = Canonical();
-            int canonicalPlayerSize = PlayerState.Size;
             var lanes = new NetReplicationLanes();
             RecordPhase(0, 100); RecordPhase(0, 36); RecordPhase(1, 200);
             lanes.Prepare(canonical);
-            Check(SnapshotFast.PlayerSize == canonicalPlayerSize - 7,
+            Check(SnapshotFast.PlayerSize == PlayerState.Protocol48Size - 7,
                 "continuous receipts do not change canonical or fast player record size");
             Check(lanes.FastLength == SnapshotHeader.Size + 8 * SnapshotFast.PlayerSize + TailSize
                 && lanes.FastLength + NetHeader.Size == SnapshotFast.MaximumEncodedSize
@@ -220,7 +219,8 @@ internal static class ContinuousSnapshotTests
         NetContinuousPresentation.Reset(); NetContinuousPresentation.Confirm(key, point);
 
         var lanes = new NetReplicationLanes(); lanes.Prepare(canonical);
-        Check(lanes.SlowLength + NetHeader.Size <= 1200 && NetReplicationLanes.SlowEntry == 28,
+        Check(lanes.SlowLength + NetHeader.Size <= 1200 && NetReplicationLanes.SlowEntry == 10 + ContinuousPresentation.Size + 2 + PlayerFormState.Size
+            && lanes.SlowLength + NetHeader.Size + 4 + WorldBootstrapIdentity.Size + 1 <= 1200,
             "eight owner presentation sidecars remain within the slow-lane MTU");
         byte[] firstSlow = lanes.Slow.AsSpan(0, lanes.SlowLength).ToArray();
         var receiver = new NetReplicationReceiver();

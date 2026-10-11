@@ -7,7 +7,7 @@ namespace MphRead.Mods.Network;
 /// and replay representation; live UDP never needs its large combined payload.</summary>
 public static class SnapshotFast
 {
-    public const int PlayerSize = PlayerState.Size - 7;
+    public const int PlayerSize = PlayerState.Protocol48Size - 7;
     public const int ReceiptSize = 21;
     public const int BootstrapMaximumEncodedSize = NetHeader.Size + SnapshotHeader.Size + 8 * PlayerSize;
     public const int MaximumEncodedSize = NetHeader.Size + SnapshotHeader.Size + 8 * PlayerSize + ReceiptSize;
@@ -18,7 +18,7 @@ public static class SnapshotFast
         {
             var source = canonical.Slice(SnapshotHeader.Size + i * PlayerState.Size, PlayerState.Size);
             var target = dest.Slice(SnapshotHeader.Size + i * PlayerSize, PlayerSize);
-            source[..41].CopyTo(target); source[48..].CopyTo(target[41..]);
+            source[..41].CopyTo(target); source.Slice(48, PlayerState.Protocol48Size - 48).CopyTo(target[41..]);
         }
         int end = SnapshotHeader.Size + header.PlayerCount * PlayerSize;
         dest.Slice(end, ReceiptSize).Clear(); dest[end] = 255;
@@ -28,8 +28,8 @@ public static class SnapshotFast
 
 public sealed class NetReplicationLanes
 {
-    public const int LaneHeader = 14, SlowEntry = 10 + ContinuousPresentation.Size;
-    public readonly byte[] Fast = new byte[1200], Slow = new byte[512], World = new byte[1200];
+    public const int LaneHeader = 14, FormLifeOffset = 10 + ContinuousPresentation.Size, FormOffset = FormLifeOffset + 2, SlowEntry = FormOffset + PlayerFormState.Size;
+    public readonly byte[] Fast = new byte[1200], Slow = new byte[1200], World = new byte[1200];
     public int FastLength { get; private set; }
     public int SlowLength { get; private set; }
     public int WorldLength { get; private set; }
@@ -80,7 +80,7 @@ public sealed class NetReplicationLanes
                 && NetContinuousPayments.TryCapturePhase(state.SlotIndex, out uint tick, out ulong low, out ulong high))
                 _paid[state.SlotIndex] = (tick, low, high);
         }
-        Span<byte> slow = stackalloc byte[512];
+        Span<byte> slow = stackalloc byte[1200];
         int at = LaneHeader; slow[at++] = header.PlayerCount;
         for (int i = 0; i < header.PlayerCount; i++)
         {
@@ -88,7 +88,9 @@ public sealed class NetReplicationLanes
             slow[at] = source[0]; source.Slice(48, 2).CopyTo(slow[(at + 1)..]);
             source.Slice(41, 7).CopyTo(slow[(at + 3)..]);
             var state = PlayerState.Read(source);
-            NetContinuousPresentation.Capture(state).Write(slow[(at + 10)..]); at += SlowEntry;
+            NetContinuousPresentation.Capture(state).Write(slow[(at + 10)..]);
+            BinaryPrimitives.WriteUInt16LittleEndian(slow[(at + FormLifeOffset)..], state.LifeId);
+            state.Form.Write(slow[(at + FormOffset)..]); at += SlowEntry;
         }
         int timeAt = SnapshotHeader.Size + header.PlayerCount * PlayerState.Size;
         int slowLength = at + NetMatchTimeSync.Size;
@@ -97,7 +99,13 @@ public sealed class NetReplicationLanes
         // Score/roster changes still publish immediately.
         bool scoresChanged = slowLength != SlowLength || slow[LaneHeader] != Slow[LaneHeader];
         for (int i = LaneHeader + 1; !scoresChanged && i < at; i += SlowEntry)
-            scoresChanged = !slow.Slice(i, 10).SequenceEqual(Slow.AsSpan(i, 10));
+        {
+            scoresChanged = !slow.Slice(i, 10).SequenceEqual(Slow.AsSpan(i, 10))
+                || !slow.Slice(i + FormLifeOffset, 2).SequenceEqual(Slow.AsSpan(i + FormLifeOffset, 2))
+                || !slow.Slice(i + FormOffset + 4, 5).SequenceEqual(Slow.AsSpan(i + FormOffset + 4, 5))
+                || !slow.Slice(i + FormOffset + 21, 3).SequenceEqual(Slow.AsSpan(i + FormOffset + 21, 3))
+                || !slow.Slice(i + FormOffset + 26, 2).SequenceEqual(Slow.AsSpan(i + FormOffset + 26, 2));
+        }
         SendSlow = reset || SlowRevision == 0 || scoresChanged || header.Frame - _slowFrame >= 6;
         if (SendSlow)
         {
@@ -140,7 +148,7 @@ public sealed class NetReplicationLanes
 /// <summary>Revision fencing and full-state assembly, with no decode allocations.</summary>
 public sealed class NetReplicationReceiver
 {
-    private readonly byte[] _slow = new byte[512], _world = new byte[1200];
+    private readonly byte[] _slow = new byte[1200], _world = new byte[1200];
     private int _slowLength, _worldLength;
     private readonly short[] _slowOffsetBySlot = new short[8];
     private readonly byte[] _emptySlow = new byte[7], _emptyTime = new byte[NetMatchTimeSync.Size], _emptyWorld = new byte[NetHealthSync.HeaderSize];
@@ -186,14 +194,15 @@ public sealed class NetReplicationReceiver
         if (revision == 0) return false;
         if (type == PacketType.PlayerSlowState)
         {
-            if (data.Length < 15 || data[14] > 8 || data.Length != 15 + data[14] * NetReplicationLanes.SlowEntry + NetMatchTimeSync.Size
+            if (data.Length < 15 || data.Length > _slow.Length || data[14] > 8 || data.Length != 15 + data[14] * NetReplicationLanes.SlowEntry + NetMatchTimeSync.Size
                 || sameStream && SlowRevision != 0 && !NetLifecycleTracker.Newer(revision, SlowRevision)
                 || !NetMatchTimeSync.Validate(data[(15 + data[14] * NetReplicationLanes.SlowEntry)..])) return false;
             int seen = 0;
             for (int i = 0; i < data[14]; i++)
             { int at = 15 + i * NetReplicationLanes.SlowEntry; int slot = data[at];
                 if (slot >= 8 || (seen & (1 << slot)) != 0
-                    || !ContinuousPresentation.WellFormed(data.Slice(at + 10, ContinuousPresentation.Size))) return false;
+                    || !ContinuousPresentation.WellFormed(data.Slice(at + 10, ContinuousPresentation.Size))
+                    || !PlayerFormState.TryRead(data.Slice(at + NetReplicationLanes.FormOffset, PlayerFormState.Size), out _)) return false;
                 seen |= 1 << slot; }
             if (!sameStream) Reset(match, epoch);
             Array.Fill(_slowOffsetBySlot, (short)-1);
@@ -233,10 +242,18 @@ public sealed class NetReplicationReceiver
         return at >= 0 && BinaryPrimitives.ReadUInt16LittleEndian(_slow.AsSpan(at + 1))
             == BinaryPrimitives.ReadUInt16LittleEndian(fastPlayer[41..]) ? _slow.AsSpan(at + 3, 7) : _emptySlow;
     }
+    private PlayerFormState SlowForm(PlayerState state, uint frame)
+    {
+        int at = _slowOffsetBySlot[state.SlotIndex];
+        if (at < 0 || BinaryPrimitives.ReadUInt16LittleEndian(_slow.AsSpan(at + 1)) != state.SlotGeneration
+            || BinaryPrimitives.ReadUInt16LittleEndian(_slow.AsSpan(at + NetReplicationLanes.FormLifeOffset)) != state.LifeId) return default;
+        return PlayerFormState.TryRead(_slow.AsSpan(at + NetReplicationLanes.FormOffset, PlayerFormState.Size), out var form) && !NetLifecycleTracker.Newer(form.Frame, frame) ? form : default;
+    }
     internal PlayerState DecodeValidatedPlayer(ReadOnlySpan<byte> fast, int index)
     {
         var player = fast.Slice(SnapshotHeader.Size + index * SnapshotFast.PlayerSize, SnapshotFast.PlayerSize);
         var state = PlayerState.ReadFast(player, SlowPlayer(player));
+        state.Form = SlowForm(state, SnapshotHeader.Read(fast).Frame);
         var receipt = fast[^SnapshotFast.ReceiptSize..];
         if (receipt[0] == state.SlotIndex)
         {
@@ -270,6 +287,7 @@ public sealed class NetReplicationReceiver
             var target = canonical.Slice(SnapshotHeader.Size + i * PlayerState.Size, PlayerState.Size);
             source[..41].CopyTo(target); source[41..].CopyTo(target[48..]);
             SlowPlayer(source).CopyTo(target[41..]);
+            SlowForm(PlayerState.ReadFast(source, SlowPlayer(source)), header.Frame).Write(target[PlayerState.Protocol48Size..]);
         }
         int timeAt = SnapshotHeader.Size + header.PlayerCount * PlayerState.Size;
         if (_slowLength != 0) _slow.AsSpan(_slowLength - NetMatchTimeSync.Size, NetMatchTimeSync.Size).CopyTo(canonical[timeAt..]);

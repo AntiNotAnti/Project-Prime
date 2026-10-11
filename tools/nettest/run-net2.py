@@ -22,6 +22,18 @@ HUNTERS = ["Samus", "Kanden", "Trace", "Sylux", "Noxus", "Spire", "Weavel", "Sam
 BOMB_HUNTERS = {"bomb-samus": "Samus", "bomb-kanden": "Kanden", "bomb-lockjaw": "Sylux"}
 
 
+def client_role(args, slot):
+    """Native hunter, spectator role and actual shot workload for this slot."""
+    hunter = BOMB_HUNTERS.get(args.scenario, "Sylux" if args.scenario == "shockcoil-mixed" else HUNTERS[slot])
+    if args.scenario == "alt-morph" and slot == 1:
+        hunter = "Weavel"
+    observer = args.players == 3 and slot == 2 and (
+        args.rendered or args.scenario in BOMB_HUNTERS or args.scenario == "alt-morph")
+    expects_shots = not observer and args.scenario not in BOMB_HUNTERS and (
+        args.soak or args.scenario in ("tour", "duel", "shockcoil-all", "shockcoil-mixed") or slot % 2 == 0)
+    return hunter, observer, expects_shots
+
+
 def digest(path):
     value = hashlib.sha256()
     with open(path, "rb") as stream:
@@ -210,7 +222,7 @@ def run(args):
         def client(slot, name, seconds):
             # Only affinity Shock Coil drains health. Combat roles use assigned
             # network slots, which can differ from concurrent launch order.
-            hunter = BOMB_HUNTERS.get(args.scenario, "Sylux" if args.scenario == "shockcoil-mixed" else HUNTERS[slot])
+            hunter, observer, expects = client_role(args, slot)
             extra = ["-netcheck", "127.0.0.1", "-port", str(args.port), "-name", name,
                 "-hunter", hunter, "-seconds", str(seconds), "-size", "480x270",
                 "-netlag", f"{rtt}:{jitter}", "-netloss", f"{loss}%", "-netreorder", f"{reorder}%",
@@ -225,12 +237,10 @@ def run(args):
                 extra += ["-shots", str(shots)]
             if args.scenario != "tour":
                 extra += ["-hitrig", args.scenario]
-            observer = args.players == 3 and slot == 2 and (args.rendered or args.scenario in BOMB_HUNTERS)
             if observer:
                 extra += ["-spectate", "0"]
             if args.soak and slot == args.players - 2:
                 extra += ["-spectate", "90", "-rejoin", "150"]
-            expects = not observer and args.scenario not in BOMB_HUNTERS and (args.soak or args.scenario in ("tour", "duel", "shockcoil-all", "shockcoil-mixed") or slot % 2 == 0)
             p, record = launch(name, extra, seconds, expects)
             if args.scenario in BOMB_HUNTERS:
                 record["expectsBombs"] = slot == 0
@@ -393,7 +403,7 @@ def parse_args(argv=None):
     p.add_argument("--source", required=True, help="Exact source SHA plus dirty diff hash if applicable")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--dotnet", default="dotnet")
-    p.add_argument("--protocol", type=int, default=48, help="Expected evidence protocol (historical campaigns may specify 41)")
+    p.add_argument("--protocol", type=int, default=49, help="Expected evidence protocol (historical campaigns may specify 41)")
     p.add_argument("--shot-proof", choices=("off", "shadow", "enforce"), default="shadow",
                    help="Record and apply the explicit N4 admission mode")
     p.add_argument("--players", type=int, choices=(2, 3, 4, 8), default=2)
@@ -403,9 +413,9 @@ def parse_args(argv=None):
     p.add_argument("--port", type=int, default=27991)
     p.add_argument("--seed", type=int, default=8128)
     p.add_argument("--profile", choices=PROFILES, default="lan")
-    p.add_argument("--scenario", choices=("tour", "duel", "shockcoil", "shockcoil-all", "shockcoil-mixed", "missile", "self-moving", "self-wall", *BOMB_HUNTERS), default="tour")
+    p.add_argument("--scenario", choices=("tour", "duel", "shockcoil", "shockcoil-all", "shockcoil-mixed", "missile", "self-moving", "self-wall", "alt-morph", *BOMB_HUNTERS), default="tour")
     p.add_argument("--observer-delay", type=float, default=0,
-                   help="Delay the third spectator in a short three-client bomb campaign")
+                   help="Delay the third spectator in a short three-client bomb or alt-morph campaign")
     p.add_argument("--rooms", default="MP1 SANCTORUS")
     p.add_argument("--round-minutes", type=float, default=30)
     p.add_argument("--rendered", action="store_true")
@@ -421,8 +431,8 @@ def parse_args(argv=None):
     if args.drain_seconds < 0 or args.drain_seconds > 60:
         p.error("--drain-seconds must be between zero and 60")
     if args.observer_delay < 0 or args.observer_delay >= args.seconds or (
-            args.observer_delay and (args.players != 3 or args.scenario not in BOMB_HUNTERS or args.soak)):
-        p.error("--observer-delay requires a short three-client bomb scenario and must be less than --seconds")
+            args.observer_delay and (args.players != 3 or (args.scenario not in BOMB_HUNTERS and args.scenario != "alt-morph") or args.soak)):
+        p.error("--observer-delay requires a short three-client bomb or alt-morph scenario and must be less than --seconds")
     if args.drain_seconds and args.soak:
         p.error("--drain-seconds supports short campaigns; soak drain is not implemented")
     if args.bomb_triangle_fixture and (args.scenario != "bomb-lockjaw" or args.soak

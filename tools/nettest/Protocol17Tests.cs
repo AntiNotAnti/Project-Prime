@@ -21,11 +21,28 @@ internal static class Protocol17Tests
         foreach (var packet in server.Drain()) { }
         foreach (var packet in client.Drain()) { }
     }
+    internal static bool SplitSnapshotBudgets()
+    {
+        int canonicalLength = SnapshotHeader.Size + 8 * PlayerState.Size + NetMatchTimeSync.Size + NetHealthSync.HeaderSize;
+        var canonical = new byte[canonicalLength];
+        new SnapshotHeader { MatchId = 7, AuthorityEpoch = 8, Frame = 30, PlayerCount = 8 }.Write(canonical);
+        for (byte i = 0; i < 8; i++) new PlayerState { SlotIndex = i, SlotGeneration = 1, LifeId = 1,
+            Form = new PlayerFormState { Frame = 30, Phase = FormPhase.Biped } }.Write(canonical.AsSpan(SnapshotHeader.Size + i * PlayerState.Size));
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(canonical.AsSpan(canonical.Length - NetHealthSync.HeaderSize), 7);
+        var lanes = new NetReplicationLanes(); lanes.Prepare(canonical);
+        int bootstrapOverhead = NetHeader.Size + 4 + WorldBootstrapIdentity.Size + 1;
+        return canonicalLength + NetHealthSync.MaxSpawns * NetHealthSync.EntrySize <= NetConfig.MaxSnapshotSize
+            && lanes.FastLength + NetHeader.Size <= 1200
+            && lanes.SlowLength + NetHeader.Size <= 1200 && lanes.WorldLength + NetHeader.Size <= 1200
+            && lanes.FastLength - SnapshotFast.ReceiptSize + bootstrapOverhead <= 1200
+            && lanes.SlowLength + bootstrapOverhead <= 1200 && lanes.WorldLength + bootstrapOverhead <= 1200
+            && NetReplicationLanes.LaneHeader + NetHealthSync.HeaderSize + NetHealthSync.MaxSpawns * NetHealthSync.EntrySize + bootstrapOverhead <= 1200;
+    }
     public static int Run()
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 48, "protocol train is 48");
+            Check(NetConfig.ProtocolVersion == 49, "protocol train is 49");
             var window = new NetReceiveWindow();
             Check(window.Observe(uint.MaxValue - 1) == SequenceResult.New, "initial sequence");
             Check(window.Observe(0) == SequenceResult.New && window.Bits == 2, "wrap skips missing sequence");
@@ -51,8 +68,7 @@ internal static class Protocol17Tests
             Span<byte> bytes = stackalloc byte[NetHeader.Size]; sent.Write(bytes);
             Check(NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "envelope round trip");
             bytes[3]--; Check(!NetHeader.TryRead(bytes, out _), "wrong envelope version rejected");
-            Check(NetHeader.Size + SnapshotHeader.Size + 8 * PlayerState.Size + 64 + NetHealthSync.HeaderSize <= NetConfig.MaxPacketSize,
-                "8-player snapshot plus tails fits datagram");
+            Check(SplitSnapshotBudgets(), "eight-player canonical state and actual split live/bootstrap lanes remain bounded");
             using var server = new NetTransport(0);
             using var client = new NetTransport(0);
             Connect(server, client);

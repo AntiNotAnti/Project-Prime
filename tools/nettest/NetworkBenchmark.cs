@@ -48,7 +48,7 @@ internal static class NetworkBenchmark
         int high = 0, maxPacket = 0;
         var timings = new List<double>((ticks + 120) * s.Players * 5);
         byte[] buffer = new byte[NetConfig.MaxPacketSize];
-        byte[] canonical = new byte[NetConfig.MaxPacketSize];
+        byte[] canonical = new byte[NetConfig.MaxSnapshotSize];
         var lanes = new NetReplicationLanes();
         var livePlayers = new PlayerState[8];
         var receivers = Enumerable.Range(0, s.Players).Select(_ => new NetReplicationReceiver()).ToArray();

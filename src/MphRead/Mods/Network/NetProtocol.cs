@@ -1780,7 +1780,9 @@ namespace MphRead.Mods.Network
         private const byte AuxSpawnProtected = 1 << 1;
         private const int JumpPadEventOffset = HalfturretOffset + 3;
         public const int LegacySize = JumpPadEventOffset + 2;
-        public const int Size = LegacySize + Mods.EnhancedHunters.EnhancedHunterNetState.Size;
+        public const int Protocol48Size = LegacySize + Mods.EnhancedHunters.EnhancedHunterNetState.Size;
+        public const int Size = Protocol48Size + PlayerFormState.Size;
+        public PlayerFormState Form;
         public Mods.EnhancedHunters.EnhancedHunterNetState Enhanced;
         public bool HalfturretActive;
         public bool SpawnProtected;
@@ -1908,6 +1910,7 @@ namespace MphRead.Mods.Network
         public void Write(Span<byte> dest)
         {
             Enhanced.Write(dest[LegacySize..]);
+            Form.Write(dest[Protocol48Size..]);
             dest[0] = SlotIndex;
             dest[1] = Flags;
             WriteVec(dest[2..], Position);
@@ -1932,14 +1935,15 @@ namespace MphRead.Mods.Network
             }
         }
 
-        public static PlayerState Read(ReadOnlySpan<byte> src) => ReadFields(src[..41], src.Slice(41, 7), src[48..]);
+        public static PlayerState Read(ReadOnlySpan<byte> src) => ReadFields(src[..41], src.Slice(41, 7), src[48..], src.Length >= Size && PlayerFormState.TryRead(src.Slice(Protocol48Size, PlayerFormState.Size), out var form) ? form : default);
         internal static PlayerState ReadFast(ReadOnlySpan<byte> fast, ReadOnlySpan<byte> slow)
-            => ReadFields(fast[..41], slow, fast[41..]);
-        private static PlayerState ReadFields(ReadOnlySpan<byte> prefix, ReadOnlySpan<byte> slow, ReadOnlySpan<byte> suffix)
+            => ReadFields(fast[..41], slow, fast[41..], default);
+        private static PlayerState ReadFields(ReadOnlySpan<byte> prefix, ReadOnlySpan<byte> slow, ReadOnlySpan<byte> suffix, PlayerFormState form)
         {
             byte auxiliary = suffix[HalfturretOffset - 48];
             var state = new PlayerState
             {
+                Form = form,
                 Enhanced = Mods.EnhancedHunters.EnhancedHunterNetState.Read(suffix[(LegacySize - 48)..]),
                 SlotIndex = prefix[0],
                 Flags = prefix[1],
@@ -2505,7 +2509,8 @@ namespace MphRead.Mods.Network
         // Canonical player, individual semantic and replay record widths stay unchanged.
         // Protocol 47 adds constrained owner projectile claims, exact self receipts
         // and immutable burn ownership. Packet widths and replay records are unchanged.
-        public const int ProtocolVersion = 48;
+        // Protocol 49 adds a lifecycle-fenced slow form/turret state; fast width is unchanged.
+        public const int ProtocolVersion = 49;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

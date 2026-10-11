@@ -67,9 +67,12 @@ public static class NetAltHitCheck
                     Check(states[i] == PlayerEntity.Players[i].ModCaptureCollisionState(), "exception restores exact collision state");
             }
             var weavel = PlayerEntity.Players[6];
+            weavel.ModForceForm(false);
+            weavel.ModStartFormSwitch();
             weavel.ModForceForm(true);
             weavel.ModPlaceAt(new Vector3(30, 5, 10));
             weavel.Halfturret.Health = 37;
+            Check(weavel.Flags2.TestFlag(PlayerFlags2.Halfturret), "native Weavel entry creates active turret before history capture");
             Vector3 historicalTurret = weavel.Halfturret.Position;
             NetUnlagged.Record(205);
             weavel.Halfturret.Reposition(new Vector3(8, 0, 0), weavel.NodeRef);
@@ -200,7 +203,15 @@ public static class NetAltHitCheck
             var noxusAttackTime = typeof(PlayerEntity).GetField("_altAttackTime",
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
             noxus.ModForceForm(true); victim.ModForceForm(false);
-            noxus.ModPlaceAt(new Vector3(0, 5, 10)); victim.ModPlaceAt(new Vector3(1, 5, 10));
+            // Native morph shifts Position between form reference frames. Equal
+            // Position.Y here puts Noxus's alt center exactly at the excluded
+            // vertical boundary of the biped contact sphere. Align real centers.
+            Vector3 noxusOrigin = new Vector3(0, 5, 10)
+                - PlayerEntity.PlayerVolumes[(int)Hunter.Noxus, 2].SpherePosition;
+            noxus.ModPlaceAt(noxusOrigin); victim.ModPlaceAt(new Vector3(1, 5, 10));
+            foreach (var other in PlayerEntity.Players)
+                if (other != null && other != noxus && other != victim)
+                    other.ModPlaceAt(new Vector3(100 + other.SlotIndex * 10, 5, 10));
             noxus.Health = victim.Health = 199;
             typeof(PlayerEntity).GetField("_spawnInvulnTimer", BindingFlags.NonPublic | BindingFlags.Instance)!
                 .SetValue(victim, (ushort)0);
@@ -210,6 +221,17 @@ public static class NetAltHitCheck
             typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)330);
             Check(noxus.ModCaptureContactState().Kind == ContactAttackKind.Noxus,
                 "charged Noxus captured by production contact resolver");
+            var noxusContact = noxus.ModCaptureContactState();
+            bool isolated = true;
+            foreach (var other in PlayerEntity.Players)
+                if (other != null && other != noxus && other != victim)
+                    isolated &= !NetContactLagComp.Intersects(noxusContact,
+                        new HistoricalBody(other.SlotIndex, other.Volume.SpherePosition, other.Volume.SphereRadius,
+                            0, 0, HistoricalBodyType.AltSphere), false);
+            Check(isolated && NetContactLagComp.Intersects(noxusContact,
+                new HistoricalBody(victim.SlotIndex, victim.Volume.SpherePosition, victim.Volume.SphereRadius,
+                    0, 0, HistoricalBodyType.AltSphere), false),
+                "native Noxus contact fixture selects only the intended current-life victim");
             health = victim.Health;
             NetContactLagComp.ResolveFrame();
             Check(victim.Health < health && Convert.ToUInt16(noxusAttackTime.GetValue(noxus)) == 0,
@@ -217,7 +239,7 @@ public static class NetAltHitCheck
 
             // If the requested ACK frame is absent from the ring entirely, retain the
             // pre-lag-comp live-authority behavior instead of manufacturing a miss.
-            noxus.ModPlaceAt(new Vector3(0, 5, 10)); victim.ModPlaceAt(new Vector3(1, 5, 10));
+            noxus.ModPlaceAt(noxusOrigin); victim.ModPlaceAt(new Vector3(1, 5, 10));
             noxusAttackTime.SetValue(noxus, (ushort)(noxus.Values.AltAttackStartup * 2));
             typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(noxus,
                 noxus.Flags2 | PlayerFlags2.AltAttack);
@@ -225,9 +247,13 @@ public static class NetAltHitCheck
             NetSession.RemoteIntentValid[noxus.SlotIndex] = true;
             NetSession.RemoteIntents[noxus.SlotIndex] = new IntentPacket { AckFrame = 335 };
             long noxusFallbacks = NetContactLagComp.HistoryFallbacks;
+            int fallbackTargets = 0;
+            foreach (var other in PlayerEntity.Players)
+                if (other != null && other != noxus && other.LoadFlags.TestFlag(LoadFlags.Active)
+                    && other.ModIsInPlay && !other.Flags2.TestFlag(PlayerFlags2.Spectating)) fallbackTargets++;
             health = victim.Health;
             NetContactLagComp.ResolveFrame();
-            Check(victim.Health < health && NetContactLagComp.HistoryFallbacks == noxusFallbacks + 1,
+            Check(victim.Health < health && NetContactLagComp.HistoryFallbacks == noxusFallbacks + fallbackTargets,
                 "Noxus missing history falls back to original live authority contact");
 
             // A recorded frame that refuses the current victim is not a missing sample:
@@ -238,7 +264,7 @@ public static class NetAltHitCheck
             victim.Health = 199;
             typeof(PlayerEntity).GetField("_spawnInvulnTimer", BindingFlags.NonPublic | BindingFlags.Instance)!
                 .SetValue(victim, (ushort)0);
-            noxus.ModPlaceAt(new Vector3(0, 5, 10)); victim.ModPlaceAt(new Vector3(1, 5, 10));
+            noxus.ModPlaceAt(noxusOrigin); victim.ModPlaceAt(new Vector3(1, 5, 10));
             noxusAttackTime.SetValue(noxus, (ushort)(noxus.Values.AltAttackStartup * 2));
             typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(noxus,
                 noxus.Flags2 | PlayerFlags2.AltAttack);
@@ -254,6 +280,36 @@ public static class NetAltHitCheck
             typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(noxus,
                 noxus.Flags2 & ~PlayerFlags2.AltAttack);
             noxus.ModPlaceAt(new Vector3(100, 5, 10));
+
+            // One real Spire attack: native input starts the model animation,
+            // native node transforms supply the rocks, and the authority
+            // contact resolver applies damage. Do not synthesize rock positions.
+            var spire = PlayerEntity.Players[5];
+            spire.ModForceForm(false); spire.ModStartFormSwitch(); spire.ModForceForm(true);
+            spire.ModPlaceAt(new Vector3(0, 5, 10));
+            spire.Controls.ClearAll();
+            spire.Controls.AltAttack.IsPressed = spire.Controls.AltAttack.IsDown = true;
+            typeof(PlayerEntity).GetMethod("ProcessInput", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(spire, null);
+            typeof(PlayerEntity).GetMethod("UpdateSpireAltCollisionPose", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(spire, null);
+            var spireContact = spire.ModCaptureContactState();
+            Check(spireContact.Kind == ContactAttackKind.Spire, "native input starts asset-backed Spire rock attack");
+            victim.ModPlaceAt(spireContact.LeftRock - PlayerEntity.PlayerVolumes[(int)victim.Hunter, 0].SpherePosition);
+            victim.Health = 199; victim.ModReleaseSpawnProtection();
+            typeof(PlayerEntity).GetField("_spawnInvulnTimer", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .SetValue(victim, (ushort)0);
+            Check(NetContactLagComp.Intersects(spireContact,
+                new HistoricalBody(victim.SlotIndex, victim.Volume.SpherePosition, victim.Volume.SphereRadius,
+                    0, 0, HistoricalBodyType.AltSphere), false), "native Spire rock pose intersects actual victim collision sphere");
+            NetSession.RemoteIntentValid[spire.SlotIndex] = false;
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)360);
+            health = victim.Health;
+            NetContactLagComp.ResolveFrame();
+            Check(health - victim.Health == spire.Values.AltAttackDamage,
+                "authority resolver applies actual native Spire contact damage once");
+            spire.Controls.ClearAll(); spire.ModForceForm(false);
+            spire.ModPlaceAt(new Vector3(150, 5, 10));
 
             ImpairmentMatrix(victim);
             for (uint f = 400; f < 500; f++) NetUnlagged.Record(f);

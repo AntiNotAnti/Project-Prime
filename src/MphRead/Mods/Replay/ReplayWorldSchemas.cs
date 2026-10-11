@@ -41,6 +41,7 @@ internal static class ReplayWorldSchemas
             "_useRoomLights",
         ],
         ["MphRead.Entities.PlayerEntity"] = [
+            "_modFormStartedFrame",
             "_chamberShots", "_chamberShotCursor", "_lastChamberLocalShotFrame",
             "<EnhancedState>k__BackingField",
             "_replicaLastDamage",

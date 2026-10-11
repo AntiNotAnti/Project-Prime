@@ -17,6 +17,31 @@ public partial class PlayerEntity
         return _modPendingHomingTarget;
     }
 
+    // A delayed, already authored turret shot can outlive the owner's alt form.
+    // The retained turret is an ownership source only: never add it to the scene,
+    // split health, find a new target or run its native cooldown a second time.
+    internal BeamResultFlags ModSpawnAcceptedTurret(in FireEvent fire)
+    {
+        if (NetSession.IsAuthority || Hunter != Hunter.Weavel || fire.Kind != FireEventKind.TurretFire
+            || fire.Weapon != (byte)BeamType.Battlehammer || !fire.HasPose
+            || fire.SourceLife == 0)
+            return BeamResultFlags.NoSpawn;
+        var equip = new EquipInfo(_scene.WeaponRules[(int)BeamType.Battlehammer], EquipInfo.Beams)
+        { InfiniteAmmo = true };
+        var flags = BeamSpawnFlags.NoMuzzle;
+        if (fire.DoubleAtFire) flags |= BeamSpawnFlags.DoubleDamage;
+        var direction = fire.Direction.Normalized();
+        var node = _scene.UpdateNodeRef(NodeRef, Position, fire.Origin);
+        try
+        {
+            NetUnlagged.BeginShot(this, fire.Origin, direction, equip);
+            var result = BeamProjectileEntity.Spawn(_halfturret, equip, fire.Origin, direction, flags, node, _scene);
+            NetUnlagged.EndShot(this);
+            return result;
+        }
+        finally { NetUnlagged.AbortShot(); }
+    }
+
     // Emit an authored shot or live continuous pulse without rerunning input,
     // inventory, cooldown, zoom, charge-release, or respawn transitions.
     internal BeamResultFlags ModSpawnAcceptedShot(in FireEvent fire)

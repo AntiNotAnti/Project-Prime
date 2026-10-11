@@ -62,6 +62,73 @@ def continuous_terminal_rejections(report, authority_accepted):
     return valid, errors
 
 
+TURRET_RETIRED_REASON = "turret source retired before native emission"
+
+
+def authority_turret_retirements(report, authority_accepted):
+    """Authority-only native source retirement, separate from emission coverage."""
+    valid, errors = {}, []
+    fields = ("SourceFrame", "ContinuousPhase", "Weapon", "Charge", "Kind")
+    committed = {shot_key(row) for row in report["Shots"] if row["Stage"] == "committed"}
+    for row in report["Shots"]:
+        if row["Stage"] != "rejected" or row.get("Reason") != TURRET_RETIRED_REASON: continue
+        try:
+            if report.get("Role") != "server": raise ValueError("turret retirement is authority-only")
+            key = shot_key(row); signature = tuple(row[f] for f in fields)
+            life, hp, observed = row["CurrentOwnerLife"], row["OwnerHealth"], row["ObservedFrame"]
+            if any(type(v) is not int for v in (*key, *signature, life, hp, observed)):
+                raise ValueError("non-integer identity/source/retirement evidence")
+            if not (0 < key[0] < 2**64 and 0 < key[1] <= 65535 and 0 <= key[2] < 8
+                    and all(0 < key[i] <= 65535 for i in (3,4)) and 0 < key[5] < 2**32
+                    and 0 < signature[0] <= observed < 2**32 and 0 <= signature[1] < 2**32
+                    and signature[2] == 3 and 0 <= signature[3] <= 255 and signature[4] == 4
+                    and 0 < life <= 65535 and 0 <= hp <= 65535):
+                raise ValueError("invalid turret source identity/signature")
+            accepted = authority_accepted.get(key)
+            if accepted is None or signature != tuple(accepted[f] for f in fields):
+                raise ValueError("retirement does not name exact authority accepted event")
+            source = row["RetiredFormSource"]
+            if not isinstance(source,str) or not re.fullmatch(r"[0-9a-fA-F]{56}",source):
+                raise ValueError("missing exact retired Form28")
+            raw = bytes.fromhex(source)
+            frame, started, phase = struct.unpack_from("<IIB",raw)
+            anchor = struct.unpack_from("<3f",raw,9)
+            active, turret_hp, damage, body_hp = struct.unpack_from("<BHHH",raw,21)
+            if frame != observed or started > frame or phase not in (1,2,3,4) or active > 1 or any(not math.isfinite(v) or abs(v)>100000 for v in anchor):
+                raise ValueError("invalid retired form clock/state")
+            if body_hp != hp or (life == key[4] and phase in (2,3) and hp != 0):
+                raise ValueError("native turret source remains eligible")
+            identity = key[:4] + (life,)
+            matches = [form for form in report.get("Forms",[]) if form.get("Stage") == "authority"
+                       and tuple(form.get(f) for f in ("Epoch","Match","Slot","Generation","Life")) == identity
+                       and form.get("ObservedFrame") == observed and isinstance(form.get("Source"),str)
+                       and form["Source"].upper() == source.upper()]
+            if not matches or any((form.get("BodyHp"),form.get("TurretHp"),form.get("TurretActive"),form.get("Phase"))
+                    != (body_hp,turret_hp,bool(active),{1:"Biped",2:"Morphing",3:"Alt",4:"Unmorphing"}[phase]) for form in matches):
+                raise ValueError("retired form lacks exact authority identity/clock/state join")
+            if life != key[4] and not 0 < (life-key[4]) % 65536 < 32768:
+                raise ValueError("owner replacement life is not newer than accepted source life")
+            if key in committed: raise ValueError("turret key both emitted and retired")
+            ledger = report["CombatPayments"]
+            if type(ledger["EvidenceOverflow"]) is not int or ledger["EvidenceOverflow"] != 0:
+                raise ValueError("payment-key evidence overflow")
+            if not isinstance(ledger["PaidShotKeys"],list): raise ValueError("missing payment-key evidence")
+            paid = []
+            for paid_key in ledger["PaidShotKeys"]:
+                value = shot_key({"Key":paid_key})
+                if any(type(v) is not int for v in value) or not (0 < value[0] < 2**64 and 0 < value[1] <= 65535
+                        and 0 <= value[2] < 8 and all(0 < value[i] <= 65535 for i in (3,4)) and 0 < value[5] < 2**32):
+                    raise ValueError("malformed authority paid shot identity")
+                paid.append(value)
+            if len(paid) != len(set(paid)) or len(paid)>16384: raise ValueError("invalid bounded payment-key evidence")
+            if key in paid: raise ValueError("retired turret has authority payment")
+            if key in valid and row != valid[key]: raise ValueError("conflicting turret retirement receipts")
+            valid[key] = row
+        except (KeyError, TypeError, ValueError,struct.error) as error:
+            errors.append("invalid authority turret retirement: " + str(error))
+    return valid, errors
+
+
 def state_key(row):
     return tuple(row[k] for k in ("Epoch", "Match", "Frame", "Slot", "Generation", "Life"))
 
@@ -74,9 +141,10 @@ def health_value(row, schema=1):
 
 def slow_states(report, authority=False):
     """Validate exact PlayerSlowState payloads; its revision has its own clock."""
-    # Protocol 46 appends a cosmetic continuous endpoint sidecar to each
-    # live entry. Canonical score fields remain in the original first 10 bytes.
-    stride = 28 if report.get("Protocol", 0) >= 46 else 10
+    # Protocols 46–48 append the continuous endpoint sidecar; protocol 49
+    # adds observed form/turret state. Scores remain in the first 10 bytes.
+    protocol = report.get("Protocol", 0)
+    stride = 58 if protocol >= 49 else 28 if protocol >= 46 else 10
     rows = report.get("SlowStates")
     if not isinstance(rows, list) or not rows:
         raise ValueError("missing/nonempty slow-lane evidence")
@@ -501,6 +569,10 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
         failures.extend("server: " + error for error in rejection_errors)
         observations["server"]["continuousTerminalRejectedCount"] = len(authority_rejected)
         observations["server"]["continuousTerminalRejectedKeys"] = [list(k) for k in sorted(authority_rejected)]
+        retired_turrets, turret_errors = authority_turret_retirements(authority, authority_accepted)
+        failures.extend("server: " + error for error in turret_errors)
+        observations["server"]["authorityRetiredTurretCount"] = len(retired_turrets)
+        observations["server"]["authorityRetiredTurretKeys"] = [list(k) for k in sorted(retired_turrets)]
         # A dead-owner terminal receipt cannot coexist with an authoritative
         # damage/heal payment for the same full owner lifecycle and phase.
         paid_ticks = {tuple(row["Key"]["OwnerTick"][field] for field in
@@ -547,6 +619,15 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 else:
                     failures.append(f"{name}: offered event differs from terminal rejected event")
             missing_committed -= terminal_offered
+            retired_offered = set()
+            for key in missing_committed & retired_turrets.keys():
+                fields = ("SourceFrame", "ContinuousPhase", "Weapon", "Charge", "Kind")
+                if tuple(offered_rows[key].get(f) for f in fields) == tuple(retired_turrets[key][f] for f in fields):
+                    retired_offered.add(key)
+                else: failures.append(name + ": offered turret differs from retired authority event")
+            missing_committed -= retired_offered
+            if any(s.get("Reason") == TURRET_RETIRED_REASON for s in report["Shots"]):
+                failures.append(name + ": observer turret retirement cannot excuse authority emission presentation")
             # Generic expiry/skipped phases are still unexplained losses.
             if missing_accepted or missing_committed:
                 failures.append(f"{name}: unexplained shot tail/loss: {len(missing_accepted)} unaccepted, {len(missing_committed)} uncommitted")
@@ -598,6 +679,8 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 "committedShots": len(offered.keys() & committed.keys()), "wrongWeaponChargeKind": wrong,
                 "terminalRejectedOfferedShots": len(terminal_offered),
                 "terminalRejectedOfferedKeys": [list(k) for k in sorted(terminal_offered)],
+                "authorityRetiredOfferedTurretCount": len(retired_offered),
+                "authorityRetiredOfferedTurretKeys": [list(k) for k in sorted(retired_offered)],
                 "terminalRejectedViewShots": len(terminal_view),
                 "terminalRejectedViewKeys": [list(k) for k in sorted(terminal_view)],
                 "unacceptedKeys": [list(k) for k in sorted(missing_accepted)[:32]],

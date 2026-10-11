@@ -313,6 +313,81 @@ class EvidenceTests(unittest.TestCase):
         rejection["Stage"] = "phase-skipped"
         self.write(); self.assertEqual(self.result()["status"], "FAIL")
 
+    def turret_retirement_fixture(self):
+        row = dict(self.client["Shots"][0], Key=dict(self.client["Shots"][0]["Key"], ShotId=6),
+                   SourceFrame=92, ContinuousPhase=0, Weapon=3, Kind=4, ObservedFrame=96)
+        self.client["Shots"].append(dict(row, Stage="offered"))
+        self.server["Shots"].append(dict(row, Stage="accepted"))
+        source = struct.pack("<IIB3fBHHH",96,50,1,0.,0.,0.,0,0,2,99).hex()
+        rejection = dict(row,Stage="rejected",Reason="turret source retired before native emission",
+                         OwnerHealth=99,CurrentOwnerLife=4,RetiredFormSource=source)
+        self.server["Shots"].append(rejection); self.server["Role"]="server"
+        self.server["Forms"]=[dict(Stage="authority",Epoch=111,Match=2,Slot=0,Generation=3,Life=4,
+                                   ObservedFrame=96,Source=source,BodyHp=99,TurretHp=0,TurretActive=False,Phase="Biped")]
+        self.server["CombatPayments"]=dict(PaidShotKeys=[],EvidenceOverflow=0)
+        return rejection
+
+    def test_strict_authority_turret_retirement_separate_from_emission(self):
+        self.turret_retirement_fixture();self.write();result=self.result()
+        self.assertEqual(result["status"],"PASS",result)
+        self.assertEqual(result["observations"]["server"]["authorityRetiredTurretCount"],1)
+        self.assertEqual(result["parity"]["shooter"]["committedShots"],1)
+        self.assertEqual(result["parity"]["shooter"]["acceptedShots"],2)
+        self.assertEqual(result["parity"]["shooter"]["authorityRetiredOfferedTurretCount"],1)
+        self.assertEqual(result["parity"]["shooter"]["terminalRejectedOfferedShots"],0)
+
+    def test_double_turret_context_is_exact_accepted_uint32_signature(self):
+        self.turret_retirement_fixture()
+        for report in (self.server,self.client):
+            for row in report["Shots"]:
+                if row["Key"]["ShotId"] == 6: row["ContinuousPhase"] = 1 << 29
+        self.write(); self.assertEqual(self.result()["status"],"PASS")
+        self.server["Shots"][-1]["ContinuousPhase"] = 1 << 30
+        self.write(); self.assertEqual(self.result()["status"],"FAIL")
+
+    def test_turret_retirement_bad_key_source_clock_or_form_fails(self):
+        for field,value in (("SourceFrame",91),("ObservedFrame",97),("Weapon",7),("Kind",3),
+                            ("RetiredFormSource","00"),("OwnerHealth",0),("CurrentOwnerLife",3),("ContinuousPhase",-1),("ContinuousPhase",2**32)):
+            with self.subTest(field=field):
+                self.setUp();r=self.turret_retirement_fixture();r[field]=value;self.write()
+                self.assertEqual(self.result()["status"],"FAIL")
+        self.setUp();r=self.turret_retirement_fixture();r["Key"]=dict(r["Key"],ShotId=7);self.write()
+        self.assertEqual(self.result()["status"],"FAIL")
+
+    def test_active_same_life_turret_is_not_retired(self):
+        r=self.turret_retirement_fixture();source=struct.pack("<IIB3fBHHH",96,50,3,0.,0.,0.,1,45,2,99).hex()
+        r["RetiredFormSource"]=source
+        self.server["Forms"][0].update(Source=source,Phase="Alt",TurretHp=45,TurretActive=True)
+        self.write();self.assertEqual(self.result()["status"],"FAIL")
+
+    def test_exact_newer_owner_life_proves_retired_source_without_sampled_death(self):
+        r=self.turret_retirement_fixture();r["CurrentOwnerLife"]=5;self.server["Forms"][0]["Life"]=5
+        self.write();self.assertEqual(self.result()["status"],"PASS")
+        self.server["Forms"][0]["Life"]=4;self.write();self.assertEqual(self.result()["status"],"FAIL")
+
+    def test_turret_retirement_cannot_have_payment_or_emission_or_missing_payment_proof(self):
+        for case in ("paid","committed","missing","overflow"):
+            with self.subTest(case=case):
+                self.setUp();r=self.turret_retirement_fixture()
+                if case=="paid":self.server["CombatPayments"]["PaidShotKeys"]=[r["Key"]]
+                elif case=="committed":self.server["Shots"].append(dict(r,Stage="committed"))
+                elif case=="missing":del self.server["CombatPayments"]["PaidShotKeys"]
+                else:self.server["CombatPayments"]["EvidenceOverflow"]=1
+                self.write();self.assertEqual(self.result()["status"],"FAIL")
+
+    def test_observer_turret_retirement_cannot_excuse_authority_commit(self):
+        r=self.turret_retirement_fixture();self.server["Shots"].remove(r)
+        self.server["Shots"].append(dict(r,Stage="committed"))
+        self.client["Shots"] += [dict(r,Stage="accepted"),r]
+        self.write();result=self.result();self.assertEqual(result["status"],"FAIL")
+        self.assertEqual(result["observations"]["server"]["authorityRetiredTurretCount"],0)
+        self.assertGreater(result["parity"]["shooter"]["viewMissingCommits"],0)
+
+    def test_turret_generic_expiry_remains_unexplained_loss(self):
+        r=self.turret_retirement_fixture();r["Reason"]="turret cooldown or pose refused"
+        self.write();result=self.result();self.assertEqual(result["status"],"FAIL")
+        self.assertEqual(result["observations"]["server"]["authorityRetiredTurretCount"],0)
+
     def test_duplicate_commit(self):
         self.client["Shots"].append(self.client["Shots"][0])
         self.write()
@@ -410,12 +485,14 @@ class EvidenceTests(unittest.TestCase):
 
     @staticmethod
     def slow(revision, frame, kills=0, deaths=0, generation=3, epoch=111, match=2, context=0,
-             protocol=41, cosmetic=None):
+             protocol=41, cosmetic=None, form=None):
         # Raw PlayerSlowState payload excludes the outer transport packet header.
         payload = struct.pack("<HQIBBH", match, epoch, revision, 1, 0, generation)
         payload += struct.pack("<BhHH", 0, 0, kills, deaths)
         if protocol >= 46:
             payload += bytes(18) if cosmetic is None else cosmetic
+        if protocol >= 49:
+            payload += bytes(30) if form is None else form
         payload += bytes(64)
         return dict(Epoch=epoch, Match=match, Revision=revision, Frame=frame,
                     Context=context, Payload=payload.hex())
@@ -463,6 +540,42 @@ class EvidenceTests(unittest.TestCase):
                           + struct.pack("<16f", float("nan"), *([1.0] * 15))).hex()
         with self.assertRaises(ValueError):
             slow_states(report)
+
+    def test_protocol49_slow_form_sidecar_preserves_scores_and_exact_payload_parity(self):
+        self.lanes()
+        for report in (self.server, self.client):
+            report["Protocol"] = 49
+            report["SlowStates"] = [self.slow(1, 6, protocol=49),
+                                    self.slow(2, 180, kills=1, protocol=49)]
+        self.assertEqual(slow_states(self.server)[-1]["scores"][(0, 3)], struct.pack("<BhHH", 0, 0, 1, 0))
+        self.write()
+        self.assertEqual(adjudicate(self.out, self.processes, expected_protocol=49)["status"], "PASS")
+        self.client["SlowStates"][-1] = self.slow(2, 180, kills=1, protocol=49, form=b"\x01" + bytes(29))
+        self.write()
+        self.assertEqual(adjudicate(self.out, self.processes, expected_protocol=49)["status"], "FAIL")
+
+    def test_protocol49_stride_cannot_masquerade_as_previous_or_legacy(self):
+        for protocol, wire in ((49, 48), (49, 45), (48, 49), (45, 49)):
+            with self.subTest(protocol=protocol, wire=wire):
+                with self.assertRaises(ValueError):
+                    slow_states(dict(Protocol=protocol, SlowStates=[self.slow(1, 6, protocol=wire)]))
+        for protocol in (45, 46, 47, 48, 49):
+            self.assertEqual(len(slow_states(dict(Protocol=protocol, SlowStates=[self.slow(1, 6, protocol=protocol)]))), 1)
+
+    def test_protocol49_rejects_obsolete_56byte_slow_entry(self):
+        old = self.slow(1, 6, protocol=49, form=bytes(28))
+        with self.assertRaises(ValueError):
+            slow_states(dict(Protocol=49, SlowStates=[old]))
+
+    def test_protocol49_multiple_entries_use_correct_time_offset(self):
+        row = self.slow(1, 6, kills=1, protocol=49)
+        data = bytearray.fromhex(row["Payload"]); data[14] = 2
+        second = struct.pack("<BH", 1, 4) + struct.pack("<BhHH", 0, 0, 2, 3) + bytes(48)
+        row["Payload"] = (data[:73] + second + struct.pack("<16f", *([1.0] * 16))).hex()
+        report = dict(Protocol=49, SlowStates=[row])
+        self.assertEqual(slow_states(report)[0]["scores"][(1, 4)], struct.pack("<BhHH", 0, 0, 2, 3))
+        row["Payload"] = (bytes.fromhex(row["Payload"])[:-64] + struct.pack("<16f", float("nan"), *([1.0] * 15))).hex()
+        with self.assertRaises(ValueError): slow_states(report)
 
     def test_schema1_score_lag_still_fails(self):
         self.server["States"][-1]["Kills"] = 1
@@ -642,6 +755,44 @@ class EvidenceTests(unittest.TestCase):
         self.client["Protocol"] = 42
         self.write()
         self.assertEqual(self.result()["status"], "FAIL")
+
+
+class RunnerRoleTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("net2_runner", Path(__file__).with_name("run-net2.py"))
+        cls.runner = importlib.util.module_from_spec(spec); spec.loader.exec_module(cls.runner)
+
+    def args(self, *extra):
+        return self.runner.parse_args(["--build", "build", "--paths", "paths.txt", "--source", "test", "--out", "out", *extra])
+
+    def test_alt_morph_headless_late_observer_and_real_shooter_roles(self):
+        args = self.args("--scenario", "alt-morph", "--players", "3", "--seconds", "20", "--observer-delay", "6", "--profile", "extreme")
+        self.assertEqual(args.protocol, 49)
+        self.assertFalse(args.rendered)
+        self.assertEqual(self.runner.client_role(args, 0), ("Samus", False, True))
+        self.assertEqual(self.runner.client_role(args, 1), ("Weavel", False, False))
+        self.assertEqual(self.runner.client_role(args, 2), ("Trace", True, False))
+        self.assertEqual(self.args("--protocol", "41").protocol, 41)
+
+    def test_existing_bomb_and_shot_roles_preserved(self):
+        bomb = self.args("--scenario", "bomb-kanden", "--players", "3", "--observer-delay", "4")
+        self.assertEqual(self.runner.client_role(bomb, 0), ("Kanden", False, False))
+        self.assertEqual(self.runner.client_role(bomb, 2), ("Kanden", True, False))
+        duel = self.args("--scenario", "duel", "--players", "3")
+        self.assertEqual(self.runner.client_role(duel, 2), ("Trace", False, True))
+        duel.rendered = True
+        self.assertEqual(self.runner.client_role(duel, 2), ("Trace", True, False))
+
+    def test_observer_delay_rejects_wrong_scenario_player_count_or_duration(self):
+        from contextlib import redirect_stderr
+        import io
+        for extra in (("--scenario", "duel", "--players", "3"),
+                      ("--scenario", "alt-morph", "--players", "2"),
+                      ("--scenario", "alt-morph", "--players", "3", "--seconds", "4")):
+            with self.subTest(extra=extra), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                self.args(*extra, "--observer-delay", "4")
 
 
 if __name__ == "__main__":

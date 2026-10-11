@@ -52,7 +52,11 @@ internal static class ReplayReplicaSeekChecks
             {
                 if (record.Frame <= checkpoint.Frame) continue;
                 if (record.Frame > 1200) break;
-                timeline.Append(new(record.Frame, record.Frame, ReplayFactKind.Snapshot, record.Data));
+                // A frozen timeline contains current canonical facts, unlike a
+                // file reader whose payloads still use its advertised protocol.
+                ReadOnlySpan<byte> canonical = ReplayIdentityCompatibility.Convert(record.Data, reader.ProtocolVersion);
+                if (!canonical.IsEmpty)
+                    timeline.Append(new(record.Frame, record.Frame, ReplayFactKind.Snapshot, canonical));
             }
             timeline.Append(new(1200, 1200, ReplayFactKind.Event, ReadOnlySpan<byte>.Empty));
             if (!timeline.TryFreeze(1150, 1200, out var clip) || clip == null) throw new InvalidDataException("Could not freeze the replica clip.");

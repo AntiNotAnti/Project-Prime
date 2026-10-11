@@ -42,6 +42,7 @@ namespace MphRead.Mods.Network
             {
                 ReplayReplicaProjectionChecks.Run(Require);
                 ReplayBombChecks.Run(Require);
+                ReplayFormCompatibilityChecks.Run(Require);
                 Mods.MatchEvents.MatchSemanticWireChecks.Run(Require);
                 ReplayAuthorityChecks.Run(Require);
                 var match = new MatchStatePacket { RoomKey = "MP1 SANCTORUS", NextRoomKey = "",

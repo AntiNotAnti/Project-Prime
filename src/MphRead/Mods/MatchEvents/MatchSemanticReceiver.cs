@@ -14,8 +14,10 @@ internal sealed class MatchSemanticReceiver
     private readonly SortedDictionary<uint, MatchAwardPacket> _pendingAwards = new();
     internal bool HasBaseline { get; private set; }
     internal bool PresentationOverrun { get; private set; }
-    internal uint LatestEvent => _latestEvent;
-    internal uint LatestAward => _latestAward;
+    // An accepted baseline is authority knowledge even without individual facts.
+    // Keep raw receive frontiers separate so deduplication remains unchanged.
+    internal uint LatestEvent => Math.Max(_latestEvent, _presentedEvent);
+    internal uint LatestAward => Math.Max(_latestAward, _presentedAward);
     internal uint PresentedEvent => _presentedEvent;
     internal uint PresentedAward => _presentedAward;
     internal ushort MatchId { get; private set; }

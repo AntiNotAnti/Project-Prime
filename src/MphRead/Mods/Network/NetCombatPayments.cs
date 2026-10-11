@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MphRead.Entities;
 
 namespace MphRead.Mods.Network;
@@ -22,7 +23,9 @@ internal static class NetCombatPayments
     internal static long Suppressed, CapacityRefused, Payments;
     // Per-process evidence survives the authority clearing its final empty room.
     internal static long LifetimePayments, LifetimeSuppressed, LifetimeCapacityRefused;
-    internal static object Capture() => new { LifetimePayments, LifetimeSuppressed,
+    private static readonly HashSet<ShotKey> PaidEvidence = new();
+    private static long EvidenceOverflow;
+    internal static object Capture() => new { PaidShotKeys = PaidEvidence, EvidenceOverflow, LifetimePayments, LifetimeSuppressed,
         LifetimeCapacityRefused, CapacityPerShooter, Retention };
     private static bool Valid(in ShotPaymentKey key) => (uint)key.Shot.ShooterSlot < 8
         && key.Victim < 8 && key.Shot.ShotId != 0 && key.Component != 0
@@ -62,6 +65,11 @@ internal static class NetCombatPayments
             outcome.ShotId = _key.Shot.ShotId;
             entry.Outcome = outcome; entry.Paid = true; Payments++; LifetimePayments++;
             NetSelfSplash.RecordPayment(_key, outcome);
+            if (NetCampaignEvidence.Enabled && !PaidEvidence.Contains(_key.Shot))
+            {
+                if (PaidEvidence.Count < 16384) PaidEvidence.Add(_key.Shot);
+                else EvidenceOverflow++;
+            }
         }
         public void Dispose()
         {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Buffers.Binary;
@@ -109,6 +110,42 @@ internal static class MatchSemanticWireChecks
         require(shown == 2, "old baseline history never announces");
         require(!(baseline with { ActorSlot = 0 }).Validate(), "baseline cannot carry player identity");
         require(!(fact with { AwardFrontier = 1 }).Validate(), "ordinary fact cannot smuggle baseline frontier");
+        var late = new MatchSemanticReceiver(); late.Begin(1, 2, requireBaseline: true);
+        require(late.Accept(baseline with { EventId = 10, AwardFrontier = 1 }), "late baseline accepts existing authority award without individual award");
+        require(late.LatestEvent == 10 && late.LatestAward == 1
+            && late.PresentedEvent == late.LatestEvent && late.PresentedAward == late.LatestAward,
+            "late baseline known and presented frontiers agree for bounded drain");
+        require(late.Events.Count == 0 && late.Awards.Count == 0, "baseline frontier does not invent receive history");
+        int lateAnnouncements = 0;
+        late.DrainPresentation(_ => lateAnnouncements++, _ => lateAnnouncements++);
+        require(lateAnnouncements == 0, "late baseline does not synthesize historical announcements");
+        using (var baselineStorage = new MemoryStream())
+        {
+            late.WriteCheckpoint(new BinaryWriter(baselineStorage)); baselineStorage.Position = 0;
+            var baselineRestored = MatchSemanticReceiver.ReadCheckpoint(new BinaryReader(baselineStorage), 1, 2);
+            require(baselineRestored.LatestEvent == 10 && baselineRestored.LatestAward == 1,
+                "checkpoint restore retains baseline-only authority frontiers");
+            baselineRestored.DrainPresentation(_ => lateAnnouncements++, _ => lateAnnouncements++);
+            require(lateAnnouncements == 0, "restored baseline creates no synthetic drain gap or announcements");
+        }
+        var baselineFuture = new MatchSemanticReceiver(); baselineFuture.Begin(1, 2, requireBaseline: true);
+        require(baselineFuture.Accept(fact with { EventId = 12 })
+            && baselineFuture.Accept(award with { AwardId = 2, SourceEventId = 12 }), "future facts and award arrive before late baseline");
+        require(baselineFuture.Accept(baseline with { EventId = 10, AwardFrontier = 1 }), "late baseline preserves queued future facts");
+        require(baselineFuture.LatestEvent == 12 && baselineFuture.LatestAward == 2,
+            "known future frontiers remain ahead of late baseline");
+        var baselineOrder = new List<string>();
+        baselineFuture.DrainPresentation(f => baselineOrder.Add("event" + f.EventId), a => baselineOrder.Add("award" + a.AwardId));
+        require(baselineOrder.Count == 0, "late baseline leaves real future predecessor gap pending");
+        require(baselineFuture.Accept(fact with { EventId = 11 }), "missing future predecessor accepted after baseline");
+        baselineFuture.DrainPresentation(f => baselineOrder.Add("event" + f.EventId), a => baselineOrder.Add("award" + a.AwardId));
+        require(baselineOrder.SequenceEqual(new[] { "event11", "event12", "award2" })
+            && baselineFuture.PresentedEvent == baselineFuture.LatestEvent
+            && baselineFuture.PresentedAward == baselineFuture.LatestAward,
+            "future facts precede dependent award and drain reaches known authority frontiers");
+        require(late.RestorePresentationBaseline(baseline with { EventId = 20, AwardFrontier = 3 })
+            && late.LatestEvent == 20 && late.LatestAward == 3,
+            "explicit presentation baseline restore updates known frontiers without receive rows");
         var overrun = new MatchSemanticReceiver(); overrun.Begin(1, 2, requireBaseline: true);
         overrun.Accept(fact with { EventId = 1025 }); overrun.Accept(baseline with { EventId = 0 });
         require(overrun.PresentationOverrun, "baseline cannot silently skip a missing fact outside reorder window");
@@ -179,8 +216,9 @@ internal static class MatchSemanticWireChecks
             int at = firstPlayer;
             for (int slot = 0; slot < RosterPacket.MaxSlots; slot++)
             {
-                int prefix = 8 + PlayerState.Size;
-                historical.Write(source.AsSpan(at, prefix)); at += prefix;
+                historical.Write(source.AsSpan(at, 7 + PlayerState.Protocol48Size));
+                at += 7 + PlayerState.Size;
+                historical.Write(source.AsSpan(at, 1)); at++;
                 historical.Write(source.AsSpan(at, intentSize)); at += IntentPacket.FullSize;
                 historical.Write(source.AsSpan(at, 4)); at += 4;
             }
