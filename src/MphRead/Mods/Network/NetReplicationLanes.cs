@@ -116,10 +116,12 @@ public sealed class NetReplicationReceiver
     internal ReadOnlySpan<byte> WorldState => _worldLength == 0 ? _emptyWorld : _world.AsSpan(14, _worldLength - 14);
     private ushort _match;
     private ulong _epoch;
+    internal ulong EvidenceContext { get; private set; }
     public uint SlowRevision { get; private set; }
     public uint WorldRevision { get; private set; }
     public void Reset(ushort match, ulong epoch)
     {
+        EvidenceContext++;
         _match = match; _epoch = epoch; _slowLength = _worldLength = 0; SlowRevision = WorldRevision = 0;
         Array.Fill(_slowOffsetBySlot, (short)-1);
         Array.Clear(_emptyWorld); BinaryPrimitives.WriteUInt16LittleEndian(_emptyWorld, match);
@@ -143,7 +145,7 @@ public sealed class NetReplicationReceiver
             Array.Fill(_slowOffsetBySlot, (short)-1);
             for (int i = 0; i < data[14]; i++) _slowOffsetBySlot[data[15 + i * 10]] = (short)(15 + i * 10);
             data.CopyTo(_slow); _slowLength = data.Length; SlowRevision = revision;
-            NetCampaignEvidence.SlowSnapshot(data, NetSession.NetFrame); return true;
+            return true;
         }
         if (type != PacketType.WorldState || data.Length > _world.Length
             || sameStream && WorldRevision != 0 && !NetLifecycleTracker.Newer(revision, WorldRevision)

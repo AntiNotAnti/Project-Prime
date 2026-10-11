@@ -46,7 +46,7 @@ internal static class NetCampaignEvidence
         byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase, string? Reason = null);
     private sealed record Health(ulong Epoch, ushort Match, uint Frame, byte Slot, ushort Generation,
         ushort Life, ushort Hp, ushort TurretHp, ushort Kills, ushort Deaths, uint DamageEvent);
-    private sealed record SlowState(ulong Epoch, ushort Match, uint Revision, uint Frame, string Payload);
+    private sealed record SlowState(ulong Epoch, ushort Match, uint Revision, uint Frame, ulong Context, string Payload);
     private sealed record Fact(byte Type, ulong Epoch, ushort Match, uint Id, uint Tick,
         bool Baseline, bool Award, uint AwardFrontier, string Payload);
     private sealed record Window(double Seconds, ulong Epoch, ushort Match, uint Frame, int LocalSlot,
@@ -119,12 +119,12 @@ internal static class NetCampaignEvidence
     // identity instead of asserting that they came from the fast snapshot's frame.
     // Frame is source time at the sender and local arrival time at the receiver;
     // only epoch/match/revision joins establish the receiver's authority provenance.
-    internal static void SlowSnapshot(ReadOnlySpan<byte> payload, uint frame)
+    internal static void SlowSnapshot(ReadOnlySpan<byte> payload, uint frame, ulong context = 0)
     {
         if (!Enabled) return;
         Add(SlowStates, new(BinaryPrimitives.ReadUInt64LittleEndian(payload[2..]),
             BinaryPrimitives.ReadUInt16LittleEndian(payload),
-            BinaryPrimitives.ReadUInt32LittleEndian(payload[10..]), frame, Convert.ToHexString(payload)));
+            BinaryPrimitives.ReadUInt32LittleEndian(payload[10..]), frame, context, Convert.ToHexString(payload)));
     }
 
     internal static void Semantic(PacketType type, ReadOnlySpan<byte> payload)

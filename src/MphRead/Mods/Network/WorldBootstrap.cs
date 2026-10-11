@@ -157,7 +157,9 @@ public static partial class NetSession
         _laneReceiver.Reset(identity.Start.MatchId, identity.Start.AuthorityEpoch);
         // The same lanes seed live recovery; later fast packets cannot erase
         // the scoreboard or world state applied at the barrier.
-        _laneReceiver.Receive(PacketType.PlayerSlowState, _bootstrapSlow.AsSpan(0, _bootstrapSlowLength), identity.Start.MatchId, identity.Start.AuthorityEpoch);
+        if (_laneReceiver.Receive(PacketType.PlayerSlowState, _bootstrapSlow.AsSpan(0, _bootstrapSlowLength), identity.Start.MatchId, identity.Start.AuthorityEpoch))
+            NetCampaignEvidence.SlowSnapshot(_bootstrapSlow.AsSpan(0, _bootstrapSlowLength), NetFrame,
+                _laneReceiver.EvidenceContext);
         _laneReceiver.Receive(PacketType.WorldState, _bootstrapWorld.AsSpan(0, _bootstrapWorldLength), identity.Start.MatchId, identity.Start.AuthorityEpoch);
         _appliedBootstrap = identity;
         SendWorldReady(identity);

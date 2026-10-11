@@ -27,7 +27,7 @@ def health_value(row, schema=1):
     return tuple(row[k] for k in fields)
 
 
-def slow_states(report):
+def slow_states(report, authority=False):
     """Validate exact PlayerSlowState payloads; its revision has its own clock."""
     rows = report.get("SlowStates")
     if not isinstance(rows, list) or not rows:
@@ -35,21 +35,25 @@ def slow_states(report):
     result, seen = [], set()
     for row in rows:
         limits = {"Epoch": (1, 2**64 - 1), "Match": (1, 65535),
-                  "Revision": (1, 2**32 - 1), "Frame": (0, 2**32 - 1)}
+                  "Revision": (1, 2**32 - 1), "Frame": (0, 2**32 - 1),
+                  "Context": (0, 2**31 - 1)}
         for field, (low, high) in limits.items():
             if type(row[field]) is not int or not low <= row[field] <= high:
                 raise ValueError("invalid slow-lane " + field)
+        if authority and row["Context"] != 0:
+            raise ValueError("authority slow-lane Context must be zero")
         payload = row["Payload"]
         if not isinstance(payload, str) or not re.fullmatch(r"(?:[0-9A-Fa-f]{2})+", payload):
             raise ValueError("invalid slow-lane payload hex")
         data = bytes.fromhex(payload)
         key = row["Epoch"], row["Match"], row["Revision"]
+        observation = (*key, row["Context"])
         if len(data) < 15 or struct.unpack_from("<HQI", data) != (key[1], key[0], key[2]):
             raise ValueError("slow-lane row/payload identity mismatch")
         count = data[14]
-        if count > 8 or len(data) != 15 + count * 10 + 64 or key in seen:
-            raise ValueError("invalid slow-lane length/count/duplicate revision")
-        seen.add(key)
+        if count > 8 or len(data) != 15 + count * 10 + 64 or observation in seen:
+            raise ValueError("invalid slow-lane length/count/duplicate revision/context")
+        seen.add(observation)
         scores = {}
         for at in range(15, 15 + count * 10, 10):
             slot, generation = data[at], struct.unpack_from("<H", data, at + 1)[0]
@@ -59,7 +63,7 @@ def slow_states(report):
         if any(not math.isfinite(value) or value < -1
                for value in struct.unpack_from("<16f", data, 15 + count * 10)):
             raise ValueError("invalid slow-lane time state")
-        result.append(dict(key=key, frame=row["Frame"], payload=data, scores=scores))
+        result.append(dict(key=key, context=row["Context"], frame=row["Frame"], payload=data, scores=scores))
     return result
 
 
@@ -67,7 +71,7 @@ def slow_lane_parity(authority, peer):
     """No fast-frame pairing of cached scores; require exact lane receipts and final scores."""
     errors = []
     try:
-        server, client = slow_states(authority), slow_states(peer)
+        server, client = slow_states(authority, authority=True), slow_states(peer)
     except (KeyError, TypeError, ValueError, struct.error) as error:
         return {"slowSamplesCompared": 0, "slowLaneCompleteness": "FAIL",
                 "finalScoreConvergence": "FAIL"}, ["malformed/missing slow-lane evidence: " + str(error)]
@@ -96,7 +100,9 @@ def slow_lane_parity(authority, peer):
         if not references or not receipts:
             errors.append("missing terminal slow-lane stream " + str(stream))
             continue
-        # Sender rows are chronological; client rows are accepted revision order.
+        # Receiver reset/bootstrap assignments can roll revision backwards in a new
+        # context. The last recorded cache assignment, not the highest revision,
+        # determines the terminal scores actually available to that client.
         reference = max(enumerate(references), key=lambda pair: (pair[1]["frame"], pair[0]))[1]
         latest = receipts[-1]
         active = {(row["Slot"], row["Generation"]) for row in peer["States"]
