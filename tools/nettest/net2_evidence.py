@@ -308,6 +308,10 @@ def drain_barrier(server, peers, require_empty=True):
                 return None, "malformed authority pending respawns"
             if pending:
                 return None, "authority native respawns remain"
+        if "ActiveTurrets" in server:
+            if type(server["ActiveTurrets"]) is not int or server["ActiveTurrets"] < 0:
+                return None, "malformed authority active turrets"
+            if server["ActiveTurrets"]: return None, "authority autonomous turrets remain"
         if any(server[key] for key in ("ActiveProjectiles", "ActiveBombs", "ClaimsPending")):
             return None, "authority flights/bombs/claims remain"
         bomb_frontier = server.get("BombFrontier")
@@ -324,6 +328,10 @@ def drain_barrier(server, peers, require_empty=True):
                 return None, "scripted actions still active"
             if peer["Error"] or peer["ConnectionLost"] or (peer["Epoch"], peer["Match"]) != identity:
                 return None, "peer error or authority identity differs"
+            if "ActiveTurrets" in peer:
+                if type(peer["ActiveTurrets"]) is not int or peer["ActiveTurrets"] < 0:
+                    return None, "malformed peer active turrets"
+                if peer["ActiveTurrets"]: return None, "peer autonomous turrets remain"
             if peer["ActiveProjectiles"] or peer["ActiveBombs"]:
                 return None, "peer flights/bombs may still generate a final claim"
             if peer["ClaimsPending"]:

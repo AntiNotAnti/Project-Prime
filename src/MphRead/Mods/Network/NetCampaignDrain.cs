@@ -24,7 +24,7 @@ internal static class NetCampaignDrain
     private static ulong _epoch;
     private static ushort _match;
     private static uint _semantic, _award;
-    private static int _projectiles, _bombs, _pendingRespawns;
+    private static int _projectiles, _bombs, _pendingRespawns, _turrets;
     private static string? _error;
     private static Release? _release;
     private static QuiesceRequest? _quiesceRequest;
@@ -66,7 +66,10 @@ internal static class NetCampaignDrain
         long now = Stopwatch.GetTimestamp();
         if (_lastPublish != 0 && Stopwatch.GetElapsedTime(_lastPublish, now).TotalSeconds < .2) return;
         _lastPublish = now;
-        _projectiles = _bombs = _pendingRespawns = 0;
+        _projectiles = _bombs = _pendingRespawns = _turrets = 0;
+        foreach (var player in scene.Players.Items)
+            if (player.Hunter == MphRead.Formats.Hunter.Weavel
+                && player.ModCaptureForm().TurretActive && player.Halfturret.Health > 0) _turrets++;
         if (Server && scene.GameState.MatchState == MatchState.InProgress)
         {
             foreach (var player in scene.Players.Items)
@@ -170,7 +173,7 @@ internal static class NetCampaignDrain
             BombPendingEvents = (NetBombs.LiveScene?.Bombs.PendingEvents ?? 0) + NetSession.PendingBombPackets,
             BombFaulted = NetBombs.LiveScene?.Bombs.Faulted ?? false,
             PendingRespawns = _pendingRespawns,
-            ActiveProjectiles = _projectiles, ActiveBombs = _bombs, ClaimsPending = Server ? NetHitClaims.ClaimsPendingCurrent : NetHitClaims.OutgoingReceipts,
+            ActiveProjectiles = _projectiles, ActiveBombs = _bombs, ActiveTurrets = _turrets, ClaimsPending = Server ? NetHitClaims.ClaimsPendingCurrent : NetHitClaims.OutgoingReceipts,
             ClaimGraceSeconds = 2.0 * NetHitClaims.MaxGraceFrames / 60,
             OfferedShotKeys = Offered.OrderBy(key => key).ToArray(), AcceptedShotKeys = Accepted.OrderBy(key => key).ToArray(),
             Reliable = transport?.Endpoints.Select(peer => new { peer.Endpoint, peer.Connection.ConnectionId,

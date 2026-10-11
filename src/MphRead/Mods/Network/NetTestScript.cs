@@ -1,5 +1,6 @@
 using System;
 using MphRead.Entities;
+using MphRead.Formats;
 
 namespace MphRead.Mods.Network
 {
@@ -254,10 +255,7 @@ namespace MphRead.Mods.Network
             }
             if (NetCampaignDrain.Quiescing)
             {
-                AimDeltaX = AimDeltaY = 0;
-                Clear(player.Controls);
-                // Preserve the ordinary release edge, including a final charged shot.
-                Finish(player, player.Controls);
+                ApplyQuiescentControls(player);
                 return;
             }
             ApplyCampaignPhase();
@@ -273,6 +271,19 @@ namespace MphRead.Mods.Network
             }
             _frame++;
             Drive(player);
+        }
+
+        internal static void ApplyQuiescentControls(PlayerEntity player)
+        {
+            AimDeltaX = AimDeltaY = 0;
+            Clear(player.Controls);
+            // Native unmorph retires the autonomous turret through ordinary
+            // input/lifecycle processing; clearing attack alone cannot stop it.
+            if (player.Health > 0 && player.Hunter == Hunter.Weavel && player.IsAltForm
+                && !player.IsMorphing && !player.IsUnmorphing)
+                Hold(player.Controls.Morph, true);
+            // Preserve ordinary release edges, including a final charged shot.
+            Finish(player, player.Controls);
         }
 
         private static readonly bool CampaignSoak = Environment.GetEnvironmentVariable("PRIME_NET2_SOAK") == "1";

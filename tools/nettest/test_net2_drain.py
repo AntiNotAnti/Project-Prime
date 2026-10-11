@@ -27,6 +27,17 @@ class DrainTests(unittest.TestCase):
         self.reports = {"server": dict(Drain=dict(exported, Quiescing=False), Facts=copy.deepcopy(facts)),
                         "peer": dict(Drain=exported, Facts=[dict(fact, Baseline=True, Id=0)] + copy.deepcopy(facts))}
 
+    def test_native_turrets_hold_barrier_without_relaxing_queues(self):
+        for target in (self.server, self.peer):
+            for value in (1, -1, True, "0", None):
+                target["ActiveTurrets"] = value
+                for empty in (False, True):
+                    self.assertIsNone(drain_barrier(self.server, [self.peer], require_empty=empty)[0])
+            target["ActiveTurrets"] = 0
+        self.assertEqual(drain_barrier(self.server, [self.peer]), (self.release, None))
+        self.peer["Reliable"][0]["Pending"] = 1
+        self.assertIsNone(drain_barrier(self.server, [self.peer])[0])
+
     def test_complete_barrier_and_frozen_interval_pass(self):
         self.assertEqual(drain_barrier(self.server, [self.peer]), (self.release, None))
         self.assertEqual(drain_coverage(self.manifest, self.reports), ("PASS", []))
