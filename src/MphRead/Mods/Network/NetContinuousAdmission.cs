@@ -108,6 +108,11 @@ internal static class NetContinuousAdmission
         bool charged = weapon.Flags.TestFlag(WeaponFlags.CanCharge)
             && fire.Charge >= (weapon.Flags.TestFlag(WeaponFlags.PartialCharge) ? weapon.MinCharge : weapon.FullCharge) * 2;
         if (!NetUnlagged.TryContinuousClaimPose(victim, worldFrame, out var pose, out bool morphing, out int team)) return false;
+        Vector3 hitBody = pose.Position;
+        if ((claim.Flags & HitClaimPacket.FlagHalfturret) != 0
+            && !NetUnlagged.TryHistoricalHalfturretPosition(claim.VictimSlot, worldFrame,
+                claim.VictimGeneration, claim.VictimLifeId, out hitBody)) return false;
+        if (!NetHitClaims.WithinClaimRadius(hitBody, claim.HitPoint, claim.Beam)) return false;
         Vector3 target = pose.Position.AddY(pose.AltForm ? 0 : .5f);
         if (NetContinuousTargeting.Evaluate(fire.Origin, fire.Direction, target,
             victim != owner && victim.ModIsInPlay && victim.LoadFlags.TestFlag(LoadFlags.Active)

@@ -442,6 +442,10 @@ internal static class ContinuousCombatTests
             && Vector3.Distance(half.Position, center) < .001f,
             "continuous claim pose samples fractional moving-target midpoint");
         var claim = JournalClaim(beam, publish: false); claim.AckFrame = first;
+        claim.HitPoint = center - side * 1.9f;
+        Check(Vector3.Distance(claim.HitPoint, center + side * offset) > 2
+            && Vector3.Distance(claim.HitPoint, half.Position) < 2,
+            "fractional midpoint hitpoint lies outside integer radius and inside captured fractional radius");
         var fire = new FireEvent(beam.ModShotId, claim.Frame, claim.AckFrame, 128,
             FireEventKind.ContinuousTick, (byte)BeamType.ShockCoil, 0, claim.Frame,
             FireEvent.FlagPose, origin, _direction, _direction, _direction,
@@ -487,6 +491,39 @@ internal static class ContinuousCombatTests
                     && _owner.Health == 50 && NetContinuousPayments.LifetimePayments == payments,
                 nativeWins ? "valid native payment before rescue returns immutable outcome despite missing source"
                     : "still-invalid continuous source refuses at grace settlement without payment");
+        }
+    }
+    private static void DeferredContinuousHitRadius()
+    {
+        foreach (bool nativeWins in new[] { true, false })
+        {
+            Prepare(); _owner.Hunter = Hunter.Sylux; var beam = Beam();
+            var claim = JournalClaim(beam, publish: !nativeWins);
+            claim.HitPoint = _victim.Position + Vector3.UnitY * 2.02f;
+            byte[] packet = new byte[1 + HitClaimPacket.Size]; packet[0] = 1; claim.Write(packet.AsSpan(1));
+            NetHitClaims.Receive(0, packet);
+            Check(NetHitClaims.ClaimsPendingCurrent == 1 && _victim.Health == 99 && _owner.Health == 50,
+                "continuous hitpoint 2.02 units outside integer radius parks until exact settlement");
+            long payments = NetContinuousPayments.LifetimePayments;
+            CombatAckEntry paid = default;
+            if (nativeWins)
+            {
+                Native(beam, 1);
+                Check(NetContinuousPayments.TryGet(Key(beam, _victim), out paid, out _, out _),
+                    "deferred radius fixture has immutable native payment before grace");
+            }
+            byte result = Receive(claim);
+            if (nativeWins)
+                Check(result == HitVerdictPacket.ResultDuplicate && _ack.ShotId == paid.ShotId
+                    && _ack.DamageSequence == paid.DamageSequence && _ack.HealthAfter == paid.HealthAfter
+                    && _ack.DamageApplied == paid.DamageApplied && _victim.Health == 98 && _owner.Health == 51
+                    && NetContinuousPayments.LifetimePayments == payments + 1,
+                    "native-paid continuous hit returns original outcome despite integer hitpoint radius");
+            else
+                Check(result == HitVerdictPacket.ResultInvalidLaunch && _victim.Health == 99
+                    && _owner.Health == 50 && NetContinuousPayments.LifetimePayments == payments
+                    && !NetContinuousPayments.TryGet(Key(beam, _victim), out _, out _, out _),
+                    "unpaid forged hitpoint outside captured history refuses rescue after grace");
         }
     }
     private static void RefusedSources()
@@ -593,7 +630,7 @@ internal static class ContinuousCombatTests
                     _base + direction * 4 + Vector3.UnitY * .5f, _frame, out float wall) && wall == 1)
                 { _direction = direction; break; }
             Check(_direction.LengthSquared == 1, "asset fixture provides clear continuous collision lane");
-            NativePaymentOnce(); SelectedTargetFence(); DeclinedAndCapped(); SplitAndBalanced(); ActualCollision(); ReservationAndLifetime(); ClaimAndNativeOrdering(); LocalAuthoredClock(); TerminalDeathOrdering(false); TerminalDeathOrdering(true); RampAfterFractionalDither(); FractionalHistoricalTarget(); PendingSourceSettlement(); RefusedSources(); ExpiryCallback(); RetainedCarrierEvent(); RetainedCarrierEvent(latest: true); RetainedCarrierEvent(latest: true, dead: true);
+            NativePaymentOnce(); SelectedTargetFence(); DeclinedAndCapped(); SplitAndBalanced(); ActualCollision(); ReservationAndLifetime(); ClaimAndNativeOrdering(); LocalAuthoredClock(); TerminalDeathOrdering(false); TerminalDeathOrdering(true); RampAfterFractionalDither(); FractionalHistoricalTarget(); PendingSourceSettlement(); DeferredContinuousHitRadius(); RefusedSources(); ExpiryCallback(); RetainedCarrierEvent(); RetainedCarrierEvent(latest: true); RetainedCarrierEvent(latest: true, dead: true);
             Check(sim.StepFailures == 0, "continuous asset simulation has no step failures");
             Console.WriteLine($"PASS: {_checks} continuous combat asset assertions ({profile})"); return 0;
         }
