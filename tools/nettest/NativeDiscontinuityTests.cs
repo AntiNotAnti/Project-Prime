@@ -44,7 +44,7 @@ internal static class NativeDiscontinuityTests
         try
         {
             NetSession.ApplyMatchState(new MatchStatePacket { MatchId = 1, AuthorityEpoch = 1, RoomKey = room, Mode = (byte)GameMode.Battle }, false);
-            NetSlotManager.Sync();
+            NetSession.ApplyRoster(roster); NetSlotManager.Sync();
             var scene = (Scene)typeof(ServerSim).GetField("_scene", Private)!.GetValue(sim)!;
             GameState.MatchTime = 3600; GameState.PointGoal = 10000;
             void Publish()
@@ -52,9 +52,11 @@ internal static class NativeDiscontinuityTests
                 int before = wire.Count; NetSession.BroadcastSnapshot();
                 Require(wire.Count > before, "actual published snapshot contains target");
             }
+            bool spawning = true;
             void Step()
-            { sim.Step(); Require(sim.StepFailures == 0, "native step did not throw"); Publish(); }
+            { sim.Step(); Require(sim.StepFailures == 0, "native step did not throw"); if (!spawning) Publish(); }
             for (int i = 0; i < 120; i++) Step();
+            spawning = false;
             var player = scene.Players.Items[1];
             Require(player.Health > 0 && player.ModIsInPlay && player.Hunter == Hunter.Weavel, "native live target spawned");
             Sample Capture()
