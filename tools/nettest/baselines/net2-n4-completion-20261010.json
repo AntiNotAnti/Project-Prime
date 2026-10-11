@@ -1,0 +1,2560 @@
+{
+  "schema": 1,
+  "slice": "N4 continuation",
+  "date": "2026-10-10",
+  "timezone": "America/Chicago",
+  "base": "c9da1be3a12d2a07dd1c39b41929131eac5f74e9",
+  "priorPrHead": "b6c05763eaf89b8482bbfbc72e6b4691fd6636ae",
+  "productionInputSourceAckCandidate": "616ef88f81f8726f237bb5ae1a77146dcf6c74c3",
+  "evidenceLaneCandidate": "5d1c6a91ef3a2f7ec268da61cc55e6016c922c48",
+  "evidenceCacheCandidate": "f5c02520e41d3ea79718513b9088e582402c564a",
+  "retryRecoveryCandidate": "d81cb16be17621269ad552856ed9fb7f9c673d46",
+  "finalTestCandidate": "42b9fbe0e0da89478e960529ea51780f2d82ddd5",
+  "platform": "macOS 27 arm64, Apple M4 Pro",
+  "sdk": "10.0.401",
+  "runtime": "10.0.12",
+  "protocol": 45,
+  "protocolDelta": "43 -> 44 component claim ID; 44 -> 45 adds 33 bytes of compact physical input history per live intent",
+  "maximumLiveDatagramBytes": 1197,
+  "datagramBudgetBytes": 1200,
+  "canonicalReplayWidthChanged": false,
+  "defaultMode": "Shadow",
+  "comparisonSwitch": "PRIME_SHOT_PROOF=off|shadow|enforce",
+  "claimRadius": 2.0,
+  "implementationStatus": "SOURCE_INPUT_CANONICAL_ACK_AND_RETRY_RECOVERY_IMPLEMENTED_IN_SHADOW_ROLLOUT",
+  "gate": "ENFORCEMENT_NOT_READY",
+  "honestFalseRejectRate": "NOT_ESTABLISHED",
+  "n5Started": false,
+  "scope": "Independent native source grants/spending, physical input charge/scope proof, immutable exact paid-hit acknowledgements, elapsed claim retry scheduling, retained close-ACK tombstones bounded late receipt retention without extending visual prediction, and separate fast-health/slow-score evidence identities. No global strict rollout.",
+  "sourceSnapshot": {
+    "path": "artifacts/net2-n4-completion/source-final.json",
+    "bytes": 235,
+    "sha256": "53d27d17efcbaa8fb619d3799b90396689f68b90a4bcbaba7d9894e3edce9c41"
+  },
+  "sourcePatch": {
+    "path": "artifacts/net2-n4-completion/source-final.patch",
+    "bytes": 393061,
+    "sha256": "93e293fc97446616c307edd563a07834be0d943f3f4d54f2725fba50bcb19ec9"
+  },
+  "changedPathsSincePriorPrHead": [
+    "src/MphRead/Entities/Players/PlayerInput.cs",
+    "src/MphRead/Entities/Players/PlayerProcess.cs",
+    "src/MphRead/Mods/MatchEvents/SceneMatchEvents.cs",
+    "src/MphRead/Mods/Network/CompactIntentCodec.cs",
+    "src/MphRead/Mods/Network/NetCampaignDrain.cs",
+    "src/MphRead/Mods/Network/NetCampaignEvidence.cs",
+    "src/MphRead/Mods/Network/NetFireEvents.cs",
+    "src/MphRead/Mods/Network/NetHitClaims.cs",
+    "src/MphRead/Mods/Network/NetHooks.cs",
+    "src/MphRead/Mods/Network/NetProtocol.cs",
+    "src/MphRead/Mods/Network/NetReplicationLanes.cs",
+    "src/MphRead/Mods/Network/NetSessionLanes.cs",
+    "src/MphRead/Mods/Network/NetShotInputHistory.cs",
+    "src/MphRead/Mods/Network/NetShotInputProof.cs",
+    "src/MphRead/Mods/Network/NetShotProof.cs",
+    "src/MphRead/Mods/Network/NetShotSourceJournal.cs",
+    "src/MphRead/Mods/Network/NetTransport.cs",
+    "src/MphRead/Mods/Network/PlayerEntityShotProof.cs",
+    "src/MphRead/Mods/Network/WorldBootstrap.cs",
+    "tools/nettest/ClaimStressTests.cs",
+    "tools/nettest/CompactIntentCodecTests.cs",
+    "tools/nettest/ContinuousTargetTests.cs",
+    "tools/nettest/NetArchitectureTests.cs",
+    "tools/nettest/Program.cs",
+    "tools/nettest/Protocol17Tests.cs",
+    "tools/nettest/Protocol18Tests.cs",
+    "tools/nettest/Protocol19Tests.cs",
+    "tools/nettest/ReliableTests.cs",
+    "tools/nettest/ShotInputProofTests.cs",
+    "tools/nettest/ShotInputTests.cs",
+    "tools/nettest/ShotProofTests.cs",
+    "tools/nettest/ShotSourceJournalTests.cs",
+    "tools/nettest/net2_evidence.py",
+    "tools/nettest/run-net2.py",
+    "tools/nettest/test_net2_evidence.py"
+  ],
+  "priorEvidence": {
+    "ledger": {
+      "path": "tools/nettest/baselines/net2-n4-20261010.json",
+      "bytes": 69387,
+      "sha256": "2a2306fd7cd186f25fae084a97530d10abe60d649802e3e624c3e39f6fd1554e"
+    },
+    "archive": {
+      "path": "artifacts/net2-n4-evidence.tar.gz",
+      "bytes": 342661037,
+      "sha256": "3045adb2adb8f7d92fa866b069b22fb9a3fd246d47a58049efc3032fa828cb61"
+    },
+    "preservedUnmodified": true
+  },
+  "testSourceEquivalence": "616ef88f contains all continuation gameplay/source/input/ACK edits. 5d1/f5c capture opt-in slow-lane evidence/cache contexts; f5c also repairs an obsolete protocol18 MTU assertion. d81 fixes elapsed claim retry and retired close-ACK state; proof scene, claim-stress, reliable and architecture checks were rerun at d81. 42b separates 60-frame prediction release from 424-frame receipt retention and exports client pending receipts to the existing drain check. Protocol18 and lane/performance checks apply to unchanged paths from f5c.",
+  "focusedTests": {
+    "proofScene": {
+      "status": "PASS",
+      "assertions": 324,
+      "physicalInputProofAssertions": 43,
+      "result": {
+        "path": "artifacts/net2-n4-completion/attempt-06/checks/manifest.json",
+        "bytes": 5936,
+        "sha256": "41da49971413394b032a1bd9cbd7cfcd033f0f1e46f044bc33981ed0e83cbfce"
+      }
+    },
+    "combatScene": {
+      "status": "PASS",
+      "assertions": 204,
+      "result": {
+        "path": "artifacts/net2-n4-completion/attempt-03/checks/combat-scene-result.json",
+        "bytes": 1137,
+        "sha256": "83e87c9e61ab874629b167e9cbe159eacb0616d760b44d078fe17125d68c57c2"
+      }
+    },
+    "sourceJournal": {
+      "status": "PASS",
+      "assertions": 84
+    },
+    "packetSourceAndLifecycle": {
+      "status": "PASS",
+      "result": {
+        "path": "artifacts/net2-n4-completion/attempt-03/checks/source-research-check-results.json",
+        "bytes": 13058,
+        "sha256": "93f00c6a4ee463198418725b8c3dccd5490f90e52badf23f59505ad61ae82065"
+      }
+    },
+    "finalProtocol18ArchitecturePerformance": {
+      "status": "PASS",
+      "result": {
+        "path": "artifacts/net2-n4-completion/attempt-05/checks/manifest.json",
+        "bytes": 4352,
+        "sha256": "4ef0682b5be3212ac328fed94cd421f3bf9837e2b72f8ea6d043d049bbf2cb3d"
+      }
+    },
+    "pythonEvidenceDrain": {
+      "status": "PASS",
+      "count": 108,
+      "result": {
+        "path": "artifacts/net2-n4-completion/schema2-evidence-checks/python-context-tests-result.json",
+        "bytes": 546,
+        "sha256": "194a3b9978cfb613d2b5b3bbc858693eb797c9338ebf69c4dca526b749875581"
+      }
+    },
+    "canonicalPaidAck": "Real-collision scene tests cover divergent/forged impulse, damage, status effects and headshot fields; exact canonical native ACK; retries/new claim IDs; pending-before-collision settlement; legacy ledger expiry; shooter respawn; wrong component/victim life/weapon/kind rejection and witness expiry. No second damage, impulse or head correction.",
+    "finalClaimRetryReliableAndProof": {
+      "status": "PASS",
+      "result": {
+        "path": "artifacts/net2-n4-completion/attempt-06/checks/manifest.json",
+        "bytes": 5936,
+        "sha256": "41da49971413394b032a1bd9cbd7cfcd033f0f1e46f044bc33981ed0e83cbfce"
+      }
+    },
+    "oldEngineNegativeControls": {
+      "status": "EXPECTED_FAILURES_CONFIRMED",
+      "result": {
+        "path": "artifacts/net2-n4-completion/attempt-06/negative-control/checks/manifest.json",
+        "bytes": 3906,
+        "sha256": "0d1787e3c28ef861cc9ce0b25126d4c2bc51e17739c8316ca863e185f6afbd87"
+      },
+      "description": "New tests against immutable f5c engine fail at missed Compose retry and lost first close-ACK retention assertions; both pass with d81 engine. Negative logs are preserved, not counted as positive test passes."
+    },
+    "lateReceiptAndHealthPrediction": {
+      "status": "PASS",
+      "result": {
+        "path": "artifacts/net2-n4-completion/attempt-07/checks/manifest.json",
+        "bytes": 4513,
+        "sha256": "16005820e52888ac2ab3cb051dee72d2bedb965007e4cfa9a71e6d011e4cb13e"
+      },
+      "coverage": "Real named prediction releases once at61; exact ACK at70 retires only receipt with no replayed visual/native state; wrong identities and lifecycle cancellation; six sends; bounded expiry425; client receipt drain."
+    },
+    "oldReceiptEngineNegativeControl": {
+      "status": "EXPECTED_FAILURE_CONFIRMED",
+      "result": {
+        "path": "artifacts/net2-n4-completion/attempt-07/negative-control/checks/manifest.json",
+        "bytes": 2443,
+        "sha256": "bb44ee601b727e6b9fb4f5ea1ce2ec685c069c963a76199727fa3787dce88309"
+      },
+      "description": "New receipt test against d81 engine fails at age61 Live receipt assertion before touching any new runtime member."
+    }
+  },
+  "attempts": [
+    {
+      "name": "attempt-01",
+      "build": "FAIL",
+      "reason": "New source-journal fixture called its State helper with three arguments rather than two; corrected fixture, preserved original build log.",
+      "buildLog": {
+        "path": "artifacts/net2-n4-completion/attempt-01/build.log",
+        "bytes": 29455,
+        "sha256": "6089e75ff90b9ddf9a6cce8ee57edfc1606fea9344edb7cddb5013d34d2e330e"
+      },
+      "metadata": {
+        "path": "artifacts/net2-n4-completion/attempt-01/metadata.json",
+        "bytes": 151,
+        "sha256": "18866d958b838d94e46112c3cee3319962fa79fafd911f7eab2bffdb61825bf6"
+      },
+      "binaries": [
+        {
+          "path": "artifacts/net2-n4-completion/attempt-01/bin/ProjectPrime.dll",
+          "bytes": 31911424,
+          "sha256": "262b2855f358f80bb4d9bab61c6c7940ececfb3624a8707011aa2b3348597196"
+        }
+      ]
+    },
+    {
+      "name": "attempt-02",
+      "build": "PASS",
+      "warnings": 41,
+      "errors": 0,
+      "notes": "Uncommitted predecessor candidate preserved with metadata, working patch and source delta; proof scene and five packet checks passed.",
+      "buildLog": {
+        "path": "artifacts/net2-n4-completion/attempt-02/build.log",
+        "bytes": 28995,
+        "sha256": "73aea0458618a42f5183da29ff249a5b2c6ec62b8459e845b0b3f92146051a8f"
+      },
+      "metadata": {
+        "path": "artifacts/net2-n4-completion/attempt-02/metadata.json",
+        "bytes": 299,
+        "sha256": "3a86f3ee1ee3420ace62f9fdfc6d1d636db6d1351e3da02c66a25487bc4199ef"
+      },
+      "binaries": [
+        {
+          "path": "artifacts/net2-n4-completion/attempt-02/bin/ProjectPrime.dll",
+          "bytes": 31911424,
+          "sha256": "2b0ec4ebd639381966954c16a18410c27a07570ba5f34e451984dd69ba619678"
+        },
+        {
+          "path": "artifacts/net2-n4-completion/attempt-02/bin/nettest.dll",
+          "bytes": 351744,
+          "sha256": "19a89035f8deaca9b7d4fcece96c3fd2cae66fe5109f62af36e0bdeccbfaec61"
+        }
+      ]
+    },
+    {
+      "name": "attempt-03",
+      "source": "616ef88f81f8726f237bb5ae1a77146dcf6c74c3",
+      "build": "PASS",
+      "warnings": 41,
+      "errors": 0,
+      "notes": "324 proof + 43 physical-input assertions, nine packet checks and 204 combat assertions passed. Original scene wrapper looked for MphRead.dll after a passing test; corrected to ProjectPrime.dll with error metadata retained. First combat invocation passed a paths file instead of profile directory; failed asset lookup preserved separately before corrected invocation.",
+      "buildLog": {
+        "path": "artifacts/net2-n4-completion/attempt-03/build.log",
+        "bytes": 28995,
+        "sha256": "2bff2ca3adf96ec486e6a287ac2db3ee08808ecc51b99245adafa1070a26dacd"
+      },
+      "metadata": {
+        "path": "artifacts/net2-n4-completion/attempt-03/metadata.json",
+        "bytes": 179,
+        "sha256": "95af6be3ab93842cd722192306ea76de7a5a53b281aed86670211db330113d3f"
+      },
+      "binaries": [
+        {
+          "path": "artifacts/net2-n4-completion/attempt-03/bin/ProjectPrime.dll",
+          "bytes": 31911936,
+          "sha256": "a2d41cbf38bc68a6305db4c6efd5dfd2b3fb352919d4b412f272ddf1db334cbc"
+        },
+        {
+          "path": "artifacts/net2-n4-completion/attempt-03/bin/nettest.dll",
+          "bytes": 352256,
+          "sha256": "b3054a883cd002813dd4908c43bb33586dbb789ccc9f48fb8bbc00922e16f65c"
+        }
+      ]
+    },
+    {
+      "name": "attempt-04",
+      "source": "5d1c6a91ef3a2f7ec268da61cc55e6016c922c48",
+      "build": "PASS",
+      "warnings": 41,
+      "errors": 0,
+      "notes": "Proof scene, architecture and performance passed. Protocol18 failed obsolete MTU assertion using canonical replay width; corrected only that assertion to live CompactIntentCodec size in f5c.",
+      "buildLog": {
+        "path": "artifacts/net2-n4-completion/attempt-04/build.log",
+        "bytes": 28995,
+        "sha256": "2bb8e6324575ba6fbd0c1c4cb4196962febef175ba91ddddaeb7b745f4e50333"
+      },
+      "metadata": {
+        "path": "artifacts/net2-n4-completion/attempt-04/metadata.json",
+        "bytes": 201,
+        "sha256": "1914da891e8f5c3763f653ec79563b0b814c6df435836d0a7aec19b8a3b38463"
+      },
+      "binaries": [
+        {
+          "path": "artifacts/net2-n4-completion/attempt-04/bin/ProjectPrime.dll",
+          "bytes": 31915008,
+          "sha256": "a79aa91211eeaf39291f0f0328702ae988635e74649fd1deff69527424912d48"
+        },
+        {
+          "path": "artifacts/net2-n4-completion/attempt-04/bin/nettest.dll",
+          "bytes": 352256,
+          "sha256": "fcf1bbe0104c19c6211e25929f77db1c31e664be4bc9cec07a65daff9836be62"
+        }
+      ]
+    },
+    {
+      "name": "attempt-05",
+      "source": "f5c02520e41d3ea79718513b9088e582402c564a",
+      "build": "PASS",
+      "warnings": 41,
+      "errors": 0,
+      "engineSha256": "2ef328f11bc88139140f1d3fad5df84584cf095d6283ec1ca094455a5f85a02d",
+      "testAssemblySha256": "e2aae46bc84006794bbfd48464d24ff08e7cf5468c0da2224bc4cc2ce7df6bab",
+      "notes": "Corrected protocol18, architecture and direct-lane/decode performance checks passed. Evidence-lane final controls use immutable copies of this build; the recovery campaign uses attempt06.",
+      "buildLog": {
+        "path": "artifacts/net2-n4-completion/attempt-05/build.log",
+        "bytes": 28995,
+        "sha256": "15bef4f683445a27eb7f3c9c2cf2e2d7cafc35d0bca839e989356668d86e212a"
+      },
+      "metadata": {
+        "path": "artifacts/net2-n4-completion/attempt-05/metadata.json",
+        "bytes": 178,
+        "sha256": "afe82cbd456f44bc60aa2b16258232c66e8be0aff1de87bd356f0c4eba6dbc8e"
+      },
+      "binaries": [
+        {
+          "path": "artifacts/net2-n4-completion/attempt-05/bin/ProjectPrime.dll",
+          "bytes": 31915520,
+          "sha256": "2ef328f11bc88139140f1d3fad5df84584cf095d6283ec1ca094455a5f85a02d"
+        },
+        {
+          "path": "artifacts/net2-n4-completion/attempt-05/bin/nettest.dll",
+          "bytes": 352256,
+          "sha256": "e2aae46bc84006794bbfd48464d24ff08e7cf5468c0da2224bc4cc2ce7df6bab"
+        }
+      ]
+    },
+    {
+      "name": "attempt-06",
+      "source": "d81cb16be17621269ad552856ed9fb7f9c673d46",
+      "build": "PASS",
+      "warnings": 41,
+      "errors": 0,
+      "notes": "Claim-stress/reliable/architecture and 324 proof + 43 physical-input assertions passed; identical new test assembly against previous engine demonstrates both regression failures.",
+      "buildLog": {
+        "path": "artifacts/net2-n4-completion/attempt-06/build.log",
+        "bytes": 28995,
+        "sha256": "504793fc18853feac791bb644ec661e6426dceaca51d8639c156a421daf1b500"
+      },
+      "metadata": {
+        "path": "artifacts/net2-n4-completion/attempt-06/metadata.json",
+        "bytes": 191,
+        "sha256": "d8da697f2e69457514d92afe2aff4cd21707b351298e8de4df918ec7beff2549"
+      },
+      "binaries": [
+        {
+          "path": "artifacts/net2-n4-completion/attempt-06/bin/ProjectPrime.dll",
+          "bytes": 31915520,
+          "sha256": "77cca1bdef0301fea41ff4ced0c96097b770b0e99d329723fbf5571d70ab973e"
+        },
+        {
+          "path": "artifacts/net2-n4-completion/attempt-06/bin/nettest.dll",
+          "bytes": 359424,
+          "sha256": "be5073ad2a978d15f7ab24187404354200cb1ff40fb878898337118a10b66284"
+        }
+      ]
+    },
+    {
+      "name": "attempt-07",
+      "source": "42b9fbe0e0da89478e960529ea51780f2d82ddd5",
+      "build": "PASS",
+      "warnings": 41,
+      "errors": 0,
+      "notes": "Prediction/receipt split with unchanged proof/server arbitration, bounded receipt-aware client drain; focused results include old-engine sensitivity control.",
+      "buildLog": {
+        "path": "artifacts/net2-n4-completion/attempt-07/build.log",
+        "bytes": 28995,
+        "sha256": "bc6020847845ce8b05ca354099711c46d975e047d7d7c686c84d1412f5eacfba"
+      },
+      "metadata": {
+        "path": "artifacts/net2-n4-completion/attempt-07/metadata.json",
+        "bytes": 210,
+        "sha256": "a367073b2105f53bf24e6585a040946af995cbd169ff6c2a0710625a9b3a1e2c"
+      },
+      "binaries": [
+        {
+          "path": "artifacts/net2-n4-completion/attempt-07/bin/ProjectPrime.dll",
+          "bytes": 31916032,
+          "sha256": "a6863be7146ae3c6138af1f9277520028a118e295b056f603d47a8b498c0267b"
+        },
+        {
+          "path": "artifacts/net2-n4-completion/attempt-07/bin/nettest.dll",
+          "bytes": 363520,
+          "sha256": "e9892ac6a516e8e06c03e51e77b2b1f9fa3552d5b4029d2428efa212f5b5679e"
+        }
+      ]
+    }
+  ],
+  "preservedCampaignFailures": [
+    {
+      "name": "mac-2-extreme-duel",
+      "status": "FAIL",
+      "cause": "Two scoreboard mismatches per peer at authority frame474; health and damage IDs matched, scores converged at480. Old audit incorrectly attributed independently cached slow scores to fast snapshot time.",
+      "repair": "Schema2 records full slow-lane identity/payload, joins exact authority revisions, compares health at its fast frame and separately requires final score convergence. Schema1 and failed summary untouched."
+    },
+    {
+      "name": "mac-2-extreme-duel-schema2",
+      "status": "FAIL",
+      "cause": "Generic slow receiver capture recorded live cache receipt, bootstrap helper validation and bootstrap reseed as duplicate revisions.",
+      "repair": "Capture only accepted primary cache assignments; record reset context so a repeated authority revision after reset is distinct, exact-payload verified, and cannot mask stale terminal scores. Same-context duplicate still fails."
+    },
+    {
+      "name": "mac-8-extreme-claims",
+      "status": "FAIL",
+      "cause": "Seven claims exercised; one correct server ACK never dequeued to client gameplay and no claim retry occurred before expiry. Separate peer1 graceful-close ACK expired after server retired its incarnation too early.",
+      "repair": "Replace exact modulo retry age with elapsed since last send (six-send/60-frame budgets unchanged), and retain retired receive/dedup state for reliable lifetime (2-second Dispose bound unchanged). Deterministic old-engine negative controls confirm both fixes.",
+      "limitations": "Wire aggregate RX/dequeue evidence cannot distinguish injected inbound loss from postfault sequence rejection for the missing ACK."
+    },
+    {
+      "name": "mac-8-extreme-recovery",
+      "status": "FAIL",
+      "cause": "Six claims and114shots; shutdown and gameplay parity passed. One first claim was dropped before kernel TX; retry's correct answer was generated100ms before the old one-second deadline and reached gameplay aboutage70, after outbox expiry. Shooter/victim life unchanged; not an identity mismatch.",
+      "repair": "Prediction still releases once after60frames. Exact receipt identity remains live up to424frames from six max-spaced send opportunities, authority pending bound and final roundtrip. Late receipts bypass ApplyCombatAck/Settle to prevent visual state replay. Existing lifecycle cancellation and server cutoffs remain unchanged. Client pending receipts now block test drain."
+    }
+  ],
+  "remainingEnforcementGates": [
+    "Shared pickup grant receipt/source boundary needed to establish honest client equivalence; native authority journal itself is independently tested.",
+    "Recovered original source poses and incomplete charge/scope histories remain unavailable; scripted client loadout/ammo mutation is not an honest-player false-reject dataset.",
+    "Omega slot replacement and PowerBeam ramping sustained autofire remain unavailable; Balanced/Chamber/GunGame/enhanced-hunter transitions lack trusted proof.",
+    "Continuous/turret/bomb/melee validators retain conservative unavailable policies; rendered projectile agreement not exercised."
+  ],
+  "performanceInterpretation": "These short headless campaigns are correctness controls, not comparable before/after performance benchmarks. Input history adds 33 bytes per live intent. Raw step and transport observations are retained, including startup stalls.",
+  "notRun": [
+    "Windows (no platform-specific change)",
+    "Linux",
+    "Android",
+    "CI",
+    "20-minute soak",
+    "rendered visual agreement"
+  ],
+  "rollback": "Set PRIME_SHOT_PROOF=off to stop proof observations/enforcement. Binary rollback must coordinate protocol45 across clients/server; runtime flag does not downgrade the wire.",
+  "campaigns": [
+    {
+      "name": "mac-2-extreme-duel",
+      "source": "616ef88f",
+      "settings": {
+        "build": "artifacts/net2-n4-completion/attempt-03/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "616ef88f",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n4-completion/mac-2-extreme-duel",
+        "dotnet": "/private/tmp/project-prime-dotnet10/dotnet",
+        "protocol": 45,
+        "shot_proof": "shadow",
+        "players": 2,
+        "seconds": 30.0,
+        "drain_seconds": 15.0,
+        "port": 28810,
+        "seed": 2128,
+        "profile": "extreme",
+        "scenario": "duel",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "FAIL",
+      "failures": [
+        "peer-0: 2 authoritative health/event mismatches",
+        "peer-1: 2 authoritative health/event mismatches"
+      ],
+      "incomplete": [],
+      "manifest": {
+        "path": "artifacts/net2-n4-completion/mac-2-extreme-duel/manifest.json",
+        "bytes": 20400,
+        "sha256": "4aae5731d94cbfc65186978c4681e7ae49bd19346c03e71e488a2d634621b437"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4-completion/mac-2-extreme-duel/summary.json",
+        "bytes": 6635,
+        "sha256": "987b70f0b3a02f004e6c8963937db69dc219413d487f0b13cffa39c6f0b73fc3"
+      },
+      "assemblySha256": "a2d41cbf38bc68a6305db4c6efd5dfd2b3fb352919d4b412f272ddf1db334cbc",
+      "assemblyAfterSha256": "a2d41cbf38bc68a6305db4c6efd5dfd2b3fb352919d4b412f272ddf1db334cbc",
+      "harnessSha256": {
+        "run-net2.py": "e7ddcaffadeb8fccdff1f39e79453f9bf2439d8b43ba5a05e64e89132316d821",
+        "net2_evidence.py": "8f085dffed1bf604a528fe446498324f14b2317a31fe8b663555d1d76ba2108b"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "allProcessExitsZero": true,
+      "shots": {
+        "accepted": 24,
+        "committed": 24,
+        "fired": 24
+      },
+      "healthSamplesCompared": 1246,
+      "slowSamplesCompared": 0,
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 628,
+          "healthMismatches": 2,
+          "offeredShots": 12,
+          "acceptedShots": 12,
+          "committedShots": 12,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 24,
+          "viewMissingCommits": 0,
+          "semanticExpected": 34,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 618,
+          "healthMismatches": 2,
+          "offeredShots": 12,
+          "acceptedShots": 12,
+          "committedShots": 12,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 24,
+          "viewMissingCommits": 0,
+          "semanticExpected": 34,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4-completion/mac-2-extreme-duel-proof.json",
+        "bytes": 5324,
+        "sha256": "2000f4f4d5af9178c5bdecb6719a94d44146e6e7db1c1eb4e3e23e268274e249"
+      },
+      "proofInstrumentation": "PASS",
+      "proofIncomplete": [],
+      "uniqueClaims": {
+        "count": 2,
+        "definition": "full ShotKey plus ClaimId",
+        "summaryBasis": "last recorded observation per claim, not terminal damage verdict",
+        "latest": {
+          "Status": {
+            "Rejected": 2
+          },
+          "Reason": {
+            "UnownedWeapon": 2
+          },
+          "Source": {
+            "UnownedWeapon": 2
+          },
+          "Geometry": {
+            "SourcePoseUnavailable": 2
+          },
+          "Family": {
+            "Straight": 2
+          }
+        },
+        "observationsPerClaim": {
+          "2": 2
+        }
+      },
+      "emissionCounts": {
+        "Verified": 0,
+        "Rejected": 24,
+        "Unavailable": 0
+      },
+      "claimObservationCounts": {
+        "Verified": 0,
+        "Rejected": 2,
+        "Unavailable": 2
+      },
+      "drain": {
+        "status": "PASS",
+        "release": {
+          "Status": "PASS",
+          "Epoch": 639272768405403510,
+          "Match": 2,
+          "Semantic": 39,
+          "Award": 1
+        },
+        "reason": null,
+        "stableSeconds": 4.691301082999999,
+        "elapsedSeconds": 5.099020583000005,
+        "prepareStableSeconds": 4.484386291
+      },
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272768405403510,
+          "CurrentMatchId": 2,
+          "Frames": 2208,
+          "StepFailures": 0,
+          "DroppedSteps": 6,
+          "Stalls": 1,
+          "StepAllocatedBytes": 37261104,
+          "MeanMs": 0.34657192028985445,
+          "P50Ms": 0.13,
+          "P95Ms": 0.83,
+          "P99Ms": 1.72,
+          "P999Ms": 10.84,
+          "WorstMs": 193.18540000000002
+        }
+      ],
+      "transport": {
+        "PacketsReceived": 4141,
+        "PacketsSent": 10551,
+        "BytesReceived": 690218,
+        "BytesSent": 2875633,
+        "Invalid": 0,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 8,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 4049,
+        "ProcessingMilliseconds": 573.426613,
+        "SocketErrors": 0
+      },
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      }
+    },
+    {
+      "name": "mac-8-lan",
+      "source": "616ef88f81f8726f237bb5ae1a77146dcf6c74c3",
+      "settings": {
+        "build": "artifacts/net2-n4-completion/attempt-03/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "616ef88f81f8726f237bb5ae1a77146dcf6c74c3",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n4-completion/mac-8-lan",
+        "dotnet": "/private/tmp/project-prime-dotnet10/dotnet",
+        "protocol": 45,
+        "shot_proof": "shadow",
+        "players": 8,
+        "seconds": 25.0,
+        "drain_seconds": 15.0,
+        "port": 28830,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "manifest": {
+        "path": "artifacts/net2-n4-completion/mac-8-lan/manifest.json",
+        "bytes": 114070,
+        "sha256": "3a7c74f707a387cea853d38aa50c9b0691c5eda8f952b345512961166de3c8cd"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4-completion/mac-8-lan/summary.json",
+        "bytes": 20109,
+        "sha256": "7a8fa88a293c5b267129e028a9c54e867c4953dd820d03b04c83d12172c3db63"
+      },
+      "assemblySha256": "a2d41cbf38bc68a6305db4c6efd5dfd2b3fb352919d4b412f272ddf1db334cbc",
+      "assemblyAfterSha256": "a2d41cbf38bc68a6305db4c6efd5dfd2b3fb352919d4b412f272ddf1db334cbc",
+      "harnessSha256": {
+        "run-net2.py": "e7ddcaffadeb8fccdff1f39e79453f9bf2439d8b43ba5a05e64e89132316d821",
+        "net2_evidence.py": "8f085dffed1bf604a528fe446498324f14b2317a31fe8b663555d1d76ba2108b"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "allProcessExitsZero": true,
+      "shots": {
+        "accepted": 100,
+        "committed": 100,
+        "fired": 100
+      },
+      "healthSamplesCompared": 19288,
+      "slowSamplesCompared": 0,
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 2431,
+          "healthMismatches": 0,
+          "offeredShots": 21,
+          "acceptedShots": 21,
+          "committedShots": 21,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 2431,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-2": {
+          "healthSamplesCompared": 2396,
+          "healthMismatches": 0,
+          "offeredShots": 23,
+          "acceptedShots": 23,
+          "committedShots": 23,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-3": {
+          "healthSamplesCompared": 2443,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-4": {
+          "healthSamplesCompared": 2432,
+          "healthMismatches": 0,
+          "offeredShots": 30,
+          "acceptedShots": 30,
+          "committedShots": 30,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 99,
+          "viewMissingCommits": 0,
+          "semanticExpected": 115,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-5": {
+          "healthSamplesCompared": 2399,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 98,
+          "viewMissingCommits": 0,
+          "semanticExpected": 114,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-6": {
+          "healthSamplesCompared": 2388,
+          "healthMismatches": 0,
+          "offeredShots": 26,
+          "acceptedShots": 26,
+          "committedShots": 26,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 98,
+          "viewMissingCommits": 0,
+          "semanticExpected": 112,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-7": {
+          "healthSamplesCompared": 2368,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 95,
+          "viewMissingCommits": 0,
+          "semanticExpected": 111,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4-completion/mac-8-lan-proof.json",
+        "bytes": 5551,
+        "sha256": "2b9bfc4875e8183c9fbdda1b17957b42f652d06c2cf149a8855f3e3ce8dbddca"
+      },
+      "proofInstrumentation": "PASS",
+      "proofIncomplete": [],
+      "uniqueClaims": {
+        "count": 8,
+        "definition": "full ShotKey plus ClaimId",
+        "summaryBasis": "last recorded observation per claim, not terminal damage verdict",
+        "latest": {
+          "Status": {
+            "Rejected": 8
+          },
+          "Reason": {
+            "Ammunition": 3,
+            "ClaimEffectsMismatch": 5
+          },
+          "Source": {
+            "Ammunition": 3,
+            "Verified": 5
+          },
+          "Geometry": {
+            "ClaimEffectsMismatch": 8
+          },
+          "Family": {
+            "Projectile": 8
+          }
+        },
+        "observationsPerClaim": {
+          "2": 8
+        }
+      },
+      "emissionCounts": {
+        "Verified": 61,
+        "Rejected": 38,
+        "Unavailable": 1
+      },
+      "claimObservationCounts": {
+        "Verified": 0,
+        "Rejected": 16,
+        "Unavailable": 0
+      },
+      "drain": {
+        "status": "PASS",
+        "release": {
+          "Status": "PASS",
+          "Epoch": 639272769210362490,
+          "Match": 2,
+          "Semantic": 123,
+          "Award": 1
+        },
+        "reason": null,
+        "stableSeconds": 2.8588781250000004,
+        "elapsedSeconds": 5.526654374999996,
+        "prepareStableSeconds": 2.4496952090000015
+      },
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272769210362490,
+          "CurrentMatchId": 2,
+          "Frames": 1899,
+          "StepFailures": 0,
+          "DroppedSteps": 6,
+          "Stalls": 1,
+          "StepAllocatedBytes": 82122240,
+          "MeanMs": 0.48216471827277385,
+          "P50Ms": 0.25,
+          "P95Ms": 0.83,
+          "P99Ms": 1.64,
+          "P999Ms": 20.09,
+          "WorstMs": 190.5575
+        }
+      ],
+      "transport": {
+        "PacketsReceived": 16237,
+        "PacketsSent": 125556,
+        "BytesReceived": 2623306,
+        "BytesSent": 38056258,
+        "Invalid": 0,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 10,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 15380,
+        "ProcessingMilliseconds": 1514.371335,
+        "SocketErrors": 0
+      },
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      }
+    },
+    {
+      "name": "mac-2-extreme-duel-schema2",
+      "source": "5d1c6a91ef3a2f7ec268da61cc55e6016c922c48",
+      "settings": {
+        "build": "artifacts/net2-n4-completion/attempt-04/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "5d1c6a91ef3a2f7ec268da61cc55e6016c922c48",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n4-completion/mac-2-extreme-duel-schema2",
+        "dotnet": "/private/tmp/project-prime-dotnet10/dotnet",
+        "protocol": 45,
+        "shot_proof": "shadow",
+        "players": 2,
+        "seconds": 30.0,
+        "drain_seconds": 15.0,
+        "port": 28850,
+        "seed": 2128,
+        "profile": "extreme",
+        "scenario": "duel",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "FAIL",
+      "failures": [
+        "peer-0: malformed/missing slow-lane evidence: invalid slow-lane length/count/duplicate revision",
+        "peer-1: malformed/missing slow-lane evidence: invalid slow-lane length/count/duplicate revision"
+      ],
+      "incomplete": [],
+      "manifest": {
+        "path": "artifacts/net2-n4-completion/mac-2-extreme-duel-schema2/manifest.json",
+        "bytes": 20385,
+        "sha256": "f8d654d52ffeee2b6ab683cf24f7f63954cf5b1dc96d2aef454bef150a106e93"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4-completion/mac-2-extreme-duel-schema2/summary.json",
+        "bytes": 6959,
+        "sha256": "7bfc970bd041a1952ec3120ac3d7799c068d858ced64013c737209d916158408"
+      },
+      "assemblySha256": "a79aa91211eeaf39291f0f0328702ae988635e74649fd1deff69527424912d48",
+      "assemblyAfterSha256": "a79aa91211eeaf39291f0f0328702ae988635e74649fd1deff69527424912d48",
+      "harnessSha256": {
+        "run-net2.py": "e7ddcaffadeb8fccdff1f39e79453f9bf2439d8b43ba5a05e64e89132316d821",
+        "net2_evidence.py": "2561c5e48bb1e9503714eecbc8cd24130767a487a2dc7d862d1f7e8d13774d36"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "allProcessExitsZero": true,
+      "shots": {
+        "accepted": 23,
+        "committed": 23,
+        "fired": 23
+      },
+      "healthSamplesCompared": 1232,
+      "slowSamplesCompared": 0,
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 616,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 0,
+          "slowLaneCompleteness": "FAIL",
+          "finalScoreConvergence": "FAIL",
+          "offeredShots": 12,
+          "acceptedShots": 12,
+          "committedShots": 12,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 23,
+          "viewMissingCommits": 0,
+          "semanticExpected": 33,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 616,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 0,
+          "slowLaneCompleteness": "FAIL",
+          "finalScoreConvergence": "FAIL",
+          "offeredShots": 11,
+          "acceptedShots": 11,
+          "committedShots": 11,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 23,
+          "viewMissingCommits": 0,
+          "semanticExpected": 33,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4-completion/mac-2-extreme-duel-schema2-proof.json",
+        "bytes": 5542,
+        "sha256": "f7154c7823388a14a4514519d9f4e998282bf2642b2bc7b1d09223c1491682ce"
+      },
+      "proofInstrumentation": "PASS",
+      "proofIncomplete": [],
+      "uniqueClaims": {
+        "count": 3,
+        "definition": "full ShotKey plus ClaimId",
+        "summaryBasis": "last recorded observation per claim, not terminal damage verdict",
+        "latest": {
+          "Status": {
+            "Rejected": 3
+          },
+          "Reason": {
+            "UnownedWeapon": 3
+          },
+          "Source": {
+            "UnownedWeapon": 3
+          },
+          "Geometry": {
+            "SourcePoseUnavailable": 3
+          },
+          "Family": {
+            "Straight": 3
+          }
+        },
+        "observationsPerClaim": {
+          "1": 1,
+          "2": 2
+        }
+      },
+      "emissionCounts": {
+        "Verified": 0,
+        "Rejected": 23,
+        "Unavailable": 0
+      },
+      "claimObservationCounts": {
+        "Verified": 0,
+        "Rejected": 3,
+        "Unavailable": 2
+      },
+      "drain": {
+        "status": "PASS",
+        "release": {
+          "Status": "PASS",
+          "Epoch": 639272773420071760,
+          "Match": 2,
+          "Semantic": 38,
+          "Award": 1
+        },
+        "reason": null,
+        "stableSeconds": 3.0650263329999987,
+        "elapsedSeconds": 3.4698314580000016,
+        "prepareStableSeconds": 2.859959042
+      },
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272773420071760,
+          "CurrentMatchId": 2,
+          "Frames": 2115,
+          "StepFailures": 0,
+          "DroppedSteps": 7,
+          "Stalls": 1,
+          "StepAllocatedBytes": 37140768,
+          "MeanMs": 0.3547501182033099,
+          "P50Ms": 0.12,
+          "P95Ms": 0.72,
+          "P99Ms": 1.74,
+          "P999Ms": 10.46,
+          "WorstMs": 203.4814
+        }
+      ],
+      "transport": {
+        "PacketsReceived": 4022,
+        "PacketsSent": 10160,
+        "BytesReceived": 670087,
+        "BytesSent": 2763042,
+        "Invalid": 0,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 8,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 3941,
+        "ProcessingMilliseconds": 2537.676546,
+        "SocketErrors": 0
+      },
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      }
+    },
+    {
+      "name": "mac-2-extreme-duel-final",
+      "source": "f5c02520e41d3ea79718513b9088e582402c564a",
+      "settings": {
+        "build": "artifacts/net2-n4-completion/attempt-05/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "f5c02520e41d3ea79718513b9088e582402c564a",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n4-completion/mac-2-extreme-duel-final",
+        "dotnet": "/private/tmp/project-prime-dotnet10/dotnet",
+        "protocol": 45,
+        "shot_proof": "shadow",
+        "players": 2,
+        "seconds": 30.0,
+        "drain_seconds": 15.0,
+        "port": 28870,
+        "seed": 2128,
+        "profile": "extreme",
+        "scenario": "duel",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "manifest": {
+        "path": "artifacts/net2-n4-completion/mac-2-extreme-duel-final/manifest.json",
+        "bytes": 21606,
+        "sha256": "1ac156ab3269a49726242e7a7ce9240d79c364a876022001f78e25931961591d"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4-completion/mac-2-extreme-duel-final/summary.json",
+        "bytes": 6732,
+        "sha256": "28cb38e5f6a36e0af75decf77baca80f1d0514eb41e977f49f7f4837aa71e0e6"
+      },
+      "assemblySha256": "2ef328f11bc88139140f1d3fad5df84584cf095d6283ec1ca094455a5f85a02d",
+      "assemblyAfterSha256": "2ef328f11bc88139140f1d3fad5df84584cf095d6283ec1ca094455a5f85a02d",
+      "harnessSha256": {
+        "run-net2.py": "e7ddcaffadeb8fccdff1f39e79453f9bf2439d8b43ba5a05e64e89132316d821",
+        "net2_evidence.py": "366131ab80fac260c3c369fe60cc28041a73fa7a26c02f196d4a2755bbfe94ad"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "allProcessExitsZero": true,
+      "shots": {
+        "accepted": 28,
+        "committed": 28,
+        "fired": 28
+      },
+      "healthSamplesCompared": 1196,
+      "slowSamplesCompared": 637,
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 616,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 321,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 14,
+          "acceptedShots": 14,
+          "committedShots": 14,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 28,
+          "viewMissingCommits": 0,
+          "semanticExpected": 28,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 580,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 316,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 14,
+          "acceptedShots": 14,
+          "committedShots": 14,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 27,
+          "viewMissingCommits": 0,
+          "semanticExpected": 27,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4-completion/mac-2-extreme-duel-final-proof.json",
+        "bytes": 4612,
+        "sha256": "665b7ed97f88595ab3ba6dfdb0940eb1cd431fe98fb4ce7fb4fa0266c5b9a2d7"
+      },
+      "proofInstrumentation": "INCOMPLETE",
+      "proofIncomplete": [
+        "campaign needs nonempty claim and emission observations"
+      ],
+      "uniqueClaims": {
+        "count": 0,
+        "definition": "full ShotKey plus ClaimId",
+        "summaryBasis": "last recorded observation per claim, not terminal damage verdict",
+        "latest": {
+          "Status": {},
+          "Reason": {},
+          "Source": {},
+          "Geometry": {},
+          "Family": {}
+        },
+        "observationsPerClaim": {}
+      },
+      "emissionCounts": {
+        "Verified": 0,
+        "Rejected": 28,
+        "Unavailable": 0
+      },
+      "claimObservationCounts": {
+        "Verified": 0,
+        "Rejected": 0,
+        "Unavailable": 0
+      },
+      "drain": {
+        "status": "PASS",
+        "release": {
+          "Status": "PASS",
+          "Epoch": 639272777974750060,
+          "Match": 2,
+          "Semantic": 32,
+          "Award": 0
+        },
+        "reason": null,
+        "stableSeconds": 3.103330542000002,
+        "elapsedSeconds": 3.513285500000002,
+        "prepareStableSeconds": 2.470487624999997
+      },
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272777974750060,
+          "CurrentMatchId": 2,
+          "Frames": 2109,
+          "StepFailures": 0,
+          "DroppedSteps": 6,
+          "Stalls": 1,
+          "StepAllocatedBytes": 36832048,
+          "MeanMs": 0.392842863916548,
+          "P50Ms": 0.16,
+          "P95Ms": 0.93,
+          "P99Ms": 1.87,
+          "P999Ms": 10.33,
+          "WorstMs": 185.3266
+        }
+      ],
+      "transport": {
+        "PacketsReceived": 3996,
+        "PacketsSent": 10128,
+        "BytesReceived": 678525,
+        "BytesSent": 2756981,
+        "Invalid": 0,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 7,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 3923,
+        "ProcessingMilliseconds": 1216.602653,
+        "SocketErrors": 0
+      },
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      }
+    },
+    {
+      "name": "mac-8-lan-final",
+      "source": "f5c02520e41d3ea79718513b9088e582402c564a",
+      "settings": {
+        "build": "artifacts/net2-n4-completion/attempt-05/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "f5c02520e41d3ea79718513b9088e582402c564a",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n4-completion/mac-8-lan-final",
+        "dotnet": "/private/tmp/project-prime-dotnet10/dotnet",
+        "protocol": 45,
+        "shot_proof": "shadow",
+        "players": 8,
+        "seconds": 25.0,
+        "drain_seconds": 15.0,
+        "port": 28890,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "manifest": {
+        "path": "artifacts/net2-n4-completion/mac-8-lan-final/manifest.json",
+        "bytes": 106612,
+        "sha256": "7513a8ed82570492c5c2e42a664081ed08ec127e9f31880c2babf6c538d843de"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4-completion/mac-8-lan-final/summary.json",
+        "bytes": 20948,
+        "sha256": "ef85a3d431a2d104bdb3799d45846cf26b980927590a778814d8178ef18779de"
+      },
+      "assemblySha256": "2ef328f11bc88139140f1d3fad5df84584cf095d6283ec1ca094455a5f85a02d",
+      "assemblyAfterSha256": "2ef328f11bc88139140f1d3fad5df84584cf095d6283ec1ca094455a5f85a02d",
+      "harnessSha256": {
+        "run-net2.py": "e7ddcaffadeb8fccdff1f39e79453f9bf2439d8b43ba5a05e64e89132316d821",
+        "net2_evidence.py": "366131ab80fac260c3c369fe60cc28041a73fa7a26c02f196d4a2755bbfe94ad"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "allProcessExitsZero": true,
+      "shots": {
+        "accepted": 90,
+        "committed": 90,
+        "fired": 90
+      },
+      "healthSamplesCompared": 17888,
+      "slowSamplesCompared": 2371,
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 2305,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 302,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 20,
+          "acceptedShots": 20,
+          "committedShots": 20,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 90,
+          "viewMissingCommits": 0,
+          "semanticExpected": 105,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 1901,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 304,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 90,
+          "viewMissingCommits": 0,
+          "semanticExpected": 105,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-2": {
+          "healthSamplesCompared": 2317,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 299,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 25,
+          "acceptedShots": 25,
+          "committedShots": 25,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 89,
+          "viewMissingCommits": 0,
+          "semanticExpected": 104,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-3": {
+          "healthSamplesCompared": 2317,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 301,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 89,
+          "viewMissingCommits": 0,
+          "semanticExpected": 104,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-4": {
+          "healthSamplesCompared": 2291,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 293,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 22,
+          "acceptedShots": 22,
+          "committedShots": 22,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 88,
+          "viewMissingCommits": 0,
+          "semanticExpected": 103,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-5": {
+          "healthSamplesCompared": 2271,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 291,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 87,
+          "viewMissingCommits": 0,
+          "semanticExpected": 101,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-6": {
+          "healthSamplesCompared": 2263,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 292,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 23,
+          "acceptedShots": 23,
+          "committedShots": 23,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 86,
+          "viewMissingCommits": 0,
+          "semanticExpected": 99,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-7": {
+          "healthSamplesCompared": 2223,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 289,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 83,
+          "viewMissingCommits": 0,
+          "semanticExpected": 98,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4-completion/mac-8-lan-final-proof.json",
+        "bytes": 5763,
+        "sha256": "4ff4e91b2bd40cdd679dd5fdacf7eb8bb22805994c8ab6db46ff6523488f192d"
+      },
+      "proofInstrumentation": "PASS",
+      "proofIncomplete": [],
+      "uniqueClaims": {
+        "count": 8,
+        "definition": "full ShotKey plus ClaimId",
+        "summaryBasis": "last recorded observation per claim, not terminal damage verdict",
+        "latest": {
+          "Status": {
+            "Rejected": 7,
+            "Verified": 1
+          },
+          "Reason": {
+            "Ammunition": 3,
+            "ClaimEffectsMismatch": 4,
+            "Verified": 1
+          },
+          "Source": {
+            "Ammunition": 3,
+            "Verified": 5
+          },
+          "Geometry": {
+            "ClaimEffectsMismatch": 7,
+            "Verified": 1
+          },
+          "Family": {
+            "Projectile": 8
+          }
+        },
+        "observationsPerClaim": {
+          "2": 8
+        }
+      },
+      "emissionCounts": {
+        "Verified": 51,
+        "Rejected": 38,
+        "Unavailable": 1
+      },
+      "claimObservationCounts": {
+        "Verified": 2,
+        "Rejected": 14,
+        "Unavailable": 0
+      },
+      "drain": {
+        "status": "PASS",
+        "release": {
+          "Status": "PASS",
+          "Epoch": 639272778506107160,
+          "Match": 2,
+          "Semantic": 108,
+          "Award": 3
+        },
+        "reason": null,
+        "stableSeconds": 2.693716207999998,
+        "elapsedSeconds": 4.146890041999999,
+        "prepareStableSeconds": 2.484770625000003
+      },
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272778506107160,
+          "CurrentMatchId": 2,
+          "Frames": 1790,
+          "StepFailures": 0,
+          "DroppedSteps": 6,
+          "Stalls": 1,
+          "StepAllocatedBytes": 81326920,
+          "MeanMs": 0.5300807262569841,
+          "P50Ms": 0.28,
+          "P95Ms": 0.9,
+          "P99Ms": 2.15,
+          "P999Ms": 18.86,
+          "WorstMs": 195.0171
+        }
+      ],
+      "transport": {
+        "PacketsReceived": 15208,
+        "PacketsSent": 119084,
+        "BytesReceived": 2476482,
+        "BytesSent": 36009974,
+        "Invalid": 0,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 14,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 14619,
+        "ProcessingMilliseconds": 1614.361265,
+        "SocketErrors": 0
+      },
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      }
+    },
+    {
+      "name": "mac-8-extreme-claims",
+      "source": "f5c02520e41d3ea79718513b9088e582402c564a",
+      "settings": {
+        "build": "artifacts/net2-n4-completion/attempt-05/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "f5c02520e41d3ea79718513b9088e582402c564a",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n4-completion/mac-8-extreme-claims",
+        "dotnet": "/private/tmp/project-prime-dotnet10/dotnet",
+        "protocol": 45,
+        "shot_proof": "shadow",
+        "players": 8,
+        "seconds": 25.0,
+        "drain_seconds": 15.0,
+        "port": 28910,
+        "seed": 8128,
+        "profile": "extreme",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "FAIL",
+      "failures": [
+        "peer-1: timeout in peer-1/netlog-peer_1.txt",
+        "peer-2: timeout in peer-2/netlog-peer_2.txt"
+      ],
+      "incomplete": [],
+      "manifest": {
+        "path": "artifacts/net2-n4-completion/mac-8-extreme-claims/manifest.json",
+        "bytes": 121825,
+        "sha256": "af3609996ddd3525d82436e222ead1c650a7b0fe2b59feca7e9dc9216be112fb"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4-completion/mac-8-extreme-claims/summary.json",
+        "bytes": 21092,
+        "sha256": "5c6249f0fcb209760cbd7acb2a6ce65b89ad5a1d02203a468c5ee8a694bba852"
+      },
+      "assemblySha256": "2ef328f11bc88139140f1d3fad5df84584cf095d6283ec1ca094455a5f85a02d",
+      "assemblyAfterSha256": "2ef328f11bc88139140f1d3fad5df84584cf095d6283ec1ca094455a5f85a02d",
+      "harnessSha256": {
+        "run-net2.py": "e7ddcaffadeb8fccdff1f39e79453f9bf2439d8b43ba5a05e64e89132316d821",
+        "net2_evidence.py": "366131ab80fac260c3c369fe60cc28041a73fa7a26c02f196d4a2755bbfe94ad"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "allProcessExitsZero": true,
+      "shots": {
+        "accepted": 110,
+        "committed": 110,
+        "fired": 110
+      },
+      "healthSamplesCompared": 17929,
+      "slowSamplesCompared": 2424,
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 2352,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 306,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 31,
+          "acceptedShots": 31,
+          "committedShots": 31,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 110,
+          "viewMissingCommits": 0,
+          "semanticExpected": 119,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 2360,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 308,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 110,
+          "viewMissingCommits": 0,
+          "semanticExpected": 119,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-2": {
+          "healthSamplesCompared": 2300,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 307,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 24,
+          "acceptedShots": 24,
+          "committedShots": 24,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 110,
+          "viewMissingCommits": 0,
+          "semanticExpected": 117,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-3": {
+          "healthSamplesCompared": 2176,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 310,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 104,
+          "viewMissingCommits": 0,
+          "semanticExpected": 111,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-4": {
+          "healthSamplesCompared": 2293,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 293,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 28,
+          "acceptedShots": 28,
+          "committedShots": 28,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 110,
+          "viewMissingCommits": 0,
+          "semanticExpected": 117,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-5": {
+          "healthSamplesCompared": 2208,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 306,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 109,
+          "viewMissingCommits": 0,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-6": {
+          "healthSamplesCompared": 2184,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 305,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 27,
+          "acceptedShots": 27,
+          "committedShots": 27,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 108,
+          "viewMissingCommits": 0,
+          "semanticExpected": 115,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-7": {
+          "healthSamplesCompared": 2056,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 289,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 98,
+          "viewMissingCommits": 0,
+          "semanticExpected": 105,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4-completion/mac-8-extreme-claims-proof.json",
+        "bytes": 5878,
+        "sha256": "61d52b30243a5a183a74a55e8c43737c8d53501a2541e6d60653b1d2a1b2fb26"
+      },
+      "proofInstrumentation": "PASS",
+      "proofIncomplete": [],
+      "uniqueClaims": {
+        "count": 7,
+        "definition": "full ShotKey plus ClaimId",
+        "summaryBasis": "last recorded observation per claim, not terminal damage verdict",
+        "latest": {
+          "Status": {
+            "Rejected": 6,
+            "Unavailable": 1
+          },
+          "Reason": {
+            "Ammunition": 6,
+            "SourcePoseUnavailable": 1
+          },
+          "Source": {
+            "Ammunition": 6,
+            "Verified": 1
+          },
+          "Geometry": {
+            "ClaimEffectsMismatch": 2,
+            "SourcePoseUnavailable": 3,
+            "Verified": 2
+          },
+          "Family": {
+            "Projectile": 6,
+            "Splash": 1
+          }
+        },
+        "observationsPerClaim": {
+          "1": 1,
+          "2": 6
+        }
+      },
+      "emissionCounts": {
+        "Verified": 25,
+        "Rejected": 64,
+        "Unavailable": 21
+      },
+      "claimObservationCounts": {
+        "Verified": 0,
+        "Rejected": 11,
+        "Unavailable": 2
+      },
+      "drain": {
+        "status": "PASS",
+        "release": {
+          "Status": "PASS",
+          "Epoch": 639272779640474930,
+          "Match": 2,
+          "Semantic": 139,
+          "Award": 1
+        },
+        "reason": null,
+        "stableSeconds": 3.7682544170000014,
+        "elapsedSeconds": 6.917437374999999,
+        "prepareStableSeconds": 3.5558952920000024
+      },
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272779640474930,
+          "CurrentMatchId": 2,
+          "Frames": 2041,
+          "StepFailures": 0,
+          "DroppedSteps": 5,
+          "Stalls": 1,
+          "StepAllocatedBytes": 84291896,
+          "MeanMs": 0.44916477217050493,
+          "P50Ms": 0.24,
+          "P95Ms": 0.78,
+          "P99Ms": 1.36,
+          "P999Ms": 9.33,
+          "WorstMs": 180.8393
+        }
+      ],
+      "transport": {
+        "PacketsReceived": 15018,
+        "PacketsSent": 123267,
+        "BytesReceived": 2549846,
+        "BytesSent": 38998298,
+        "Invalid": 3,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 12,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 14638,
+        "ProcessingMilliseconds": 1350.287789,
+        "SocketErrors": 0
+      },
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      }
+    },
+    {
+      "name": "mac-8-extreme-recovery",
+      "source": "d81cb16be17621269ad552856ed9fb7f9c673d46",
+      "settings": {
+        "build": "artifacts/net2-n4-completion/attempt-06/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "d81cb16be17621269ad552856ed9fb7f9c673d46",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n4-completion/mac-8-extreme-recovery",
+        "dotnet": "/private/tmp/project-prime-dotnet10/dotnet",
+        "protocol": 45,
+        "shot_proof": "shadow",
+        "players": 8,
+        "seconds": 25.0,
+        "drain_seconds": 15.0,
+        "port": 28930,
+        "seed": 8128,
+        "profile": "extreme",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "FAIL",
+      "failures": [
+        "peer-6: timeout in peer-6/netlog-peer_6.txt"
+      ],
+      "incomplete": [],
+      "manifest": {
+        "path": "artifacts/net2-n4-completion/mac-8-extreme-recovery/manifest.json",
+        "bytes": 125258,
+        "sha256": "cc8d00b7d780820df0db8f4f0a7bfc8362f87f0ef54d4c783451636eace2c521"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4-completion/mac-8-extreme-recovery/summary.json",
+        "bytes": 21069,
+        "sha256": "3cc5e0aa79409d640ec6acaed1621c37e20d4ab34d00873029a964f2851ce804"
+      },
+      "assemblySha256": "77cca1bdef0301fea41ff4ced0c96097b770b0e99d329723fbf5571d70ab973e",
+      "assemblyAfterSha256": "77cca1bdef0301fea41ff4ced0c96097b770b0e99d329723fbf5571d70ab973e",
+      "harnessSha256": {
+        "run-net2.py": "e7ddcaffadeb8fccdff1f39e79453f9bf2439d8b43ba5a05e64e89132316d821",
+        "net2_evidence.py": "366131ab80fac260c3c369fe60cc28041a73fa7a26c02f196d4a2755bbfe94ad"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "allProcessExitsZero": true,
+      "shots": {
+        "accepted": 114,
+        "committed": 114,
+        "fired": 114
+      },
+      "healthSamplesCompared": 18701,
+      "slowSamplesCompared": 2521,
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 2360,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 319,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 31,
+          "acceptedShots": 31,
+          "committedShots": 31,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 114,
+          "viewMissingCommits": 0,
+          "semanticExpected": 121,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 2464,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 320,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 114,
+          "viewMissingCommits": 0,
+          "semanticExpected": 119,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-2": {
+          "healthSamplesCompared": 2384,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 313,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 28,
+          "acceptedShots": 28,
+          "committedShots": 28,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 114,
+          "viewMissingCommits": 0,
+          "semanticExpected": 119,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-3": {
+          "healthSamplesCompared": 2328,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 316,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 113,
+          "viewMissingCommits": 0,
+          "semanticExpected": 118,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-4": {
+          "healthSamplesCompared": 2357,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 310,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 33,
+          "acceptedShots": 33,
+          "committedShots": 33,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 114,
+          "viewMissingCommits": 0,
+          "semanticExpected": 117,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-5": {
+          "healthSamplesCompared": 2240,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 317,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 112,
+          "viewMissingCommits": 0,
+          "semanticExpected": 117,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-6": {
+          "healthSamplesCompared": 2392,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 317,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 22,
+          "acceptedShots": 22,
+          "committedShots": 22,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 112,
+          "viewMissingCommits": 0,
+          "semanticExpected": 117,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-7": {
+          "healthSamplesCompared": 2176,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 309,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 108,
+          "viewMissingCommits": 0,
+          "semanticExpected": 109,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4-completion/mac-8-extreme-recovery-proof.json",
+        "bytes": 5870,
+        "sha256": "ef2fe1329351c71c0429500f9d19f2d03f1f2cca30206e25926fb9abcca2937a"
+      },
+      "proofInstrumentation": "PASS",
+      "proofIncomplete": [],
+      "uniqueClaims": {
+        "count": 6,
+        "definition": "full ShotKey plus ClaimId",
+        "summaryBasis": "last recorded observation per claim, not terminal damage verdict",
+        "latest": {
+          "Status": {
+            "Rejected": 5,
+            "Unavailable": 1
+          },
+          "Reason": {
+            "Ammunition": 4,
+            "ClaimEffectsMismatch": 1,
+            "SourcePoseUnavailable": 1
+          },
+          "Source": {
+            "Ammunition": 4,
+            "Verified": 2
+          },
+          "Geometry": {
+            "ClaimEffectsMismatch": 3,
+            "SourcePoseUnavailable": 3
+          },
+          "Family": {
+            "Projectile": 6
+          }
+        },
+        "observationsPerClaim": {
+          "1": 1,
+          "2": 5
+        }
+      },
+      "emissionCounts": {
+        "Verified": 24,
+        "Rejected": 63,
+        "Unavailable": 27
+      },
+      "claimObservationCounts": {
+        "Verified": 0,
+        "Rejected": 9,
+        "Unavailable": 2
+      },
+      "drain": {
+        "status": "PASS",
+        "release": {
+          "Status": "PASS",
+          "Epoch": 639272784682628420,
+          "Match": 2,
+          "Semantic": 145,
+          "Award": 1
+        },
+        "reason": null,
+        "stableSeconds": 6.064682208000001,
+        "elapsedSeconds": 8.163143875000003,
+        "prepareStableSeconds": 5.851243958000005
+      },
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272784682628420,
+          "CurrentMatchId": 2,
+          "Frames": 2126,
+          "StepFailures": 0,
+          "DroppedSteps": 5,
+          "Stalls": 1,
+          "StepAllocatedBytes": 85034032,
+          "MeanMs": 0.46178226716839094,
+          "P50Ms": 0.24,
+          "P95Ms": 0.83,
+          "P99Ms": 1.48,
+          "P999Ms": 18.79,
+          "WorstMs": 181.8469
+        }
+      ],
+      "transport": {
+        "PacketsReceived": 15647,
+        "PacketsSent": 127544,
+        "BytesReceived": 2648182,
+        "BytesSent": 40403806,
+        "Invalid": 0,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 10,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 15231,
+        "ProcessingMilliseconds": 1438.862817,
+        "SocketErrors": 0
+      },
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      }
+    },
+    {
+      "name": "mac-8-extreme-receipts",
+      "source": "42b9fbe0e0da89478e960529ea51780f2d82ddd5",
+      "settings": {
+        "build": "artifacts/net2-n4-completion/attempt-07/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "42b9fbe0e0da89478e960529ea51780f2d82ddd5",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n4-completion/mac-8-extreme-receipts",
+        "dotnet": "/private/tmp/project-prime-dotnet10/dotnet",
+        "protocol": 45,
+        "shot_proof": "shadow",
+        "players": 8,
+        "seconds": 25.0,
+        "drain_seconds": 15.0,
+        "port": 28950,
+        "seed": 8128,
+        "profile": "extreme",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "manifest": {
+        "path": "artifacts/net2-n4-completion/mac-8-extreme-receipts/manifest.json",
+        "bytes": 114807,
+        "sha256": "47ba0226c630438f6f79fca661d53a02cb7a71b9673a5910d399416c703899ab"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4-completion/mac-8-extreme-receipts/summary.json",
+        "bytes": 21011,
+        "sha256": "6d5a0a5af30e88f7204c6e8e7424074cbdb028b3e0f64c3d3ba78fa4d5d5d879"
+      },
+      "assemblySha256": "a6863be7146ae3c6138af1f9277520028a118e295b056f603d47a8b498c0267b",
+      "assemblyAfterSha256": "a6863be7146ae3c6138af1f9277520028a118e295b056f603d47a8b498c0267b",
+      "harnessSha256": {
+        "run-net2.py": "e7ddcaffadeb8fccdff1f39e79453f9bf2439d8b43ba5a05e64e89132316d821",
+        "net2_evidence.py": "366131ab80fac260c3c369fe60cc28041a73fa7a26c02f196d4a2755bbfe94ad"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "allProcessExitsZero": true,
+      "shots": {
+        "accepted": 100,
+        "committed": 100,
+        "fired": 100
+      },
+      "healthSamplesCompared": 19080,
+      "slowSamplesCompared": 2512,
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 2448,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 320,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 25,
+          "acceptedShots": 25,
+          "committedShots": 25,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 107,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 2448,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 319,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 108,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-2": {
+          "healthSamplesCompared": 2416,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 306,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 21,
+          "acceptedShots": 21,
+          "committedShots": 21,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 107,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-3": {
+          "healthSamplesCompared": 2376,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 325,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 107,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-4": {
+          "healthSamplesCompared": 2288,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 316,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 25,
+          "acceptedShots": 25,
+          "committedShots": 25,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 99,
+          "viewMissingCommits": 0,
+          "semanticExpected": 106,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-5": {
+          "healthSamplesCompared": 2424,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 309,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 106,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-6": {
+          "healthSamplesCompared": 2336,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 311,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 29,
+          "acceptedShots": 29,
+          "committedShots": 29,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 99,
+          "viewMissingCommits": 0,
+          "semanticExpected": 106,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-7": {
+          "healthSamplesCompared": 2344,
+          "healthMismatches": 0,
+          "slowSamplesCompared": 306,
+          "slowLaneCompleteness": "PASS",
+          "finalScoreConvergence": "PASS",
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 99,
+          "viewMissingCommits": 0,
+          "semanticExpected": 101,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4-completion/mac-8-extreme-receipts-proof.json",
+        "bytes": 6567,
+        "sha256": "c8ab84f018646151b7b455e37f1fb5ace0d78071b3dcb4953387fb3479f9c136"
+      },
+      "proofInstrumentation": "PASS",
+      "proofIncomplete": [],
+      "uniqueClaims": {
+        "count": 12,
+        "definition": "full ShotKey plus ClaimId",
+        "summaryBasis": "last recorded observation per claim, not terminal damage verdict",
+        "latest": {
+          "Status": {
+            "Rejected": 9,
+            "Unavailable": 3
+          },
+          "Reason": {
+            "Ammunition": 7,
+            "ClaimEffectsMismatch": 2,
+            "PhysicalWitnessRequired": 1,
+            "SourcePoseUnavailable": 2
+          },
+          "Source": {
+            "Ammunition": 7,
+            "Verified": 5
+          },
+          "Geometry": {
+            "ClaimEffectsMismatch": 3,
+            "PhysicalWitnessRequired": 2,
+            "SourcePoseUnavailable": 5,
+            "Verified": 2
+          },
+          "Family": {
+            "Projectile": 10,
+            "Splash": 2
+          }
+        },
+        "observationsPerClaim": {
+          "1": 2,
+          "2": 10
+        }
+      },
+      "emissionCounts": {
+        "Verified": 27,
+        "Rejected": 52,
+        "Unavailable": 21
+      },
+      "claimObservationCounts": {
+        "Verified": 0,
+        "Rejected": 16,
+        "Unavailable": 6
+      },
+      "drain": {
+        "status": "PASS",
+        "release": {
+          "Status": "PASS",
+          "Epoch": 639272789780452130,
+          "Match": 2,
+          "Semantic": 129,
+          "Award": 2
+        },
+        "reason": null,
+        "stableSeconds": 4.8268668340000005,
+        "elapsedSeconds": 7.765866666000001,
+        "prepareStableSeconds": 4.615324334
+      },
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272789780452130,
+          "CurrentMatchId": 2,
+          "Frames": 2092,
+          "StepFailures": 0,
+          "DroppedSteps": 7,
+          "Stalls": 1,
+          "StepAllocatedBytes": 84542624,
+          "MeanMs": 0.4578804971319314,
+          "P50Ms": 0.23,
+          "P95Ms": 0.78,
+          "P99Ms": 1.38,
+          "P999Ms": 8.91,
+          "WorstMs": 209.82819999999998
+        }
+      ],
+      "transport": {
+        "PacketsReceived": 15710,
+        "PacketsSent": 127725,
+        "BytesReceived": 2628589,
+        "BytesSent": 40111771,
+        "Invalid": 0,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 10,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 15306,
+        "ProcessingMilliseconds": 1559.396618,
+        "SocketErrors": 0
+      },
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      }
+    }
+  ],
+  "finalShadowControl": {
+    "status": "PASS",
+    "campaign": "mac-8-extreme-receipts",
+    "shots": 100,
+    "claims": 12,
+    "healthSamplesCompared": 19080,
+    "slowSamplesCompared": 2512,
+    "claimAndShutdownTimeouts": 0,
+    "ackAnalysis": {
+      "path": "artifacts/net2-n4-completion/mac-8-extreme-receipts-ack-analysis.json",
+      "bytes": 86680,
+      "sha256": "b7eaa3fc4273d2ae60d433e3f65e878e9751b3192ad923c2b894b15d07d485ad"
+    },
+    "summary": {
+      "uniqueClaims": 12,
+      "terminalAnswers": 16,
+      "clientReportedAcks": 11,
+      "clientLogTerminalReceipts": 12,
+      "clientLogTimeouts": 0,
+      "zeroShotIdAnswers": 0,
+      "zeroShotIdClientReports": 0,
+      "authorityHealthReductionsPerClaim": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "physicalNativePayments": 10,
+      "legacyRescuePayments": 2,
+      "acceptedNativeOutcomeAgreement": true,
+      "claimsWithRepeatedServerAnswers": 4,
+      "lateReceipts": [
+        {
+          "shooter": 0,
+          "shotId": 8,
+          "claimId": 3,
+          "ageFrames": 83,
+          "result": "result=applied"
+        },
+        {
+          "shooter": 0,
+          "shotId": 13,
+          "claimId": 4,
+          "ageFrames": 68,
+          "result": "result=victim was already down"
+        },
+        {
+          "shooter": 6,
+          "shotId": 15,
+          "claimId": 1,
+          "ageFrames": 81,
+          "result": "result=applied"
+        },
+        {
+          "shooter": 6,
+          "shotId": 28,
+          "claimId": 3,
+          "ageFrames": 104,
+          "result": "result=victim was already down"
+        }
+      ],
+      "allClientsDrainReceiptCountZero": true,
+      "proofInstrumentationStatus": "PASS",
+      "claimProofVerified": 0,
+      "enforcementReadiness": "NOT_ESTABLISHED"
+    },
+    "strictEnforcementExercised": false
+  },
+  "derivedAckEvidence": [
+    {
+      "path": "artifacts/net2-n4-completion/mac-8-extreme-claims-ack-analysis.json",
+      "bytes": 50315,
+      "sha256": "6cc86d275b22d35b3178b65dd9bea4942df6e4a520feabc441886241468e966a"
+    },
+    {
+      "path": "artifacts/net2-n4-completion/mac-8-extreme-receipts-ack-analysis.json",
+      "bytes": 86680,
+      "sha256": "b7eaa3fc4273d2ae60d433e3f65e878e9751b3192ad923c2b894b15d07d485ad"
+    },
+    {
+      "path": "artifacts/net2-n4-completion/mac-8-extreme-recovery-ack-analysis.json",
+      "bytes": 33749,
+      "sha256": "39ff2304401d4535bfc47f9b5d9a1796352e0a6e46efeb0d4bf48733261e5ae4"
+    },
+    {
+      "path": "artifacts/net2-n4-completion/mac-8-lan-final-ack-analysis.json",
+      "bytes": 27099,
+      "sha256": "47fe9fd24c7f5ec0f74925bba509c006402bf89eb4e6f973fddb677e1d2dc14c"
+    },
+    {
+      "path": "artifacts/net2-n4-completion/package-result.json",
+      "bytes": 455,
+      "sha256": "b8e601d229aefc3f182b09cea486e15b1c8da84ec1ffd914d1a042190a7f6345"
+    }
+  ],
+  "evidence": {
+    "archive": {
+      "path": "artifacts/net2-n4-completion-evidence.tar.gz",
+      "bytes": 391271708,
+      "sha256": "bbf818a88c11a624836f61ddbe4f65168784a74e4aece5ead2dd099e1071e9a3"
+    },
+    "index": {
+      "path": "artifacts/net2-n4-completion/evidence-index.json",
+      "bytes": 144992,
+      "sha256": "0ce38832f279a75ba1ebe23ff626cc2219996c1ae497512a8f170b03c07b4bc4",
+      "files": 807,
+      "indexedBytes": 637605509
+    },
+    "verifiedArchiveMembers": true
+  }
+}
