@@ -2498,6 +2498,9 @@ namespace MphRead.Mods.Network
         // preserves discrete shot-time modifiers, and caps live carriers at fourteen events.
         // Protocol 44 appends exact emitted-component identity to hit claims.
         // Protocol 45 adds independent per-frame controls to compact live intents only.
+        // Protocol 46 adds personalized continuous payment receipts, confirmed
+        // endpoint sidecars, and bounded batches of reliable authority facts.
+        // Canonical player, individual semantic and replay record widths stay unchanged.
         public const int ProtocolVersion = 46;
         /// <summary>
         /// Frames between intent packets. One, so every frame.

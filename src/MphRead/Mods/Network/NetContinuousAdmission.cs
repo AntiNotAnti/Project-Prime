@@ -104,8 +104,28 @@ internal static class NetContinuousAdmission
             || wall < .999f) return false;
         // Keep the native fractional pulse boundary. Modifier/source enforcement
         // remains N4 shadow policy; this ceiling never invents an odd-frame tick.
-        int raw = Math.Max(weapon.UnchargedDamage, Math.Max(weapon.MinChargeDamage, weapon.ChargedDamage));
-        int maximum = ContinuousWeaponPhase.Amount(raw * 2, fire.ContinuousPhase, damage: true) * 4;
+        float charge = !charged ? 0 : weapon.Flags.TestFlag(WeaponFlags.PartialCharge)
+            ? (fire.Charge - weapon.MinCharge * 2) / (float)(weapon.FullCharge * 2 - weapon.MinCharge * 2) : 1;
+        int raw = charge <= 0 ? weapon.UnchargedDamage
+            : (int)(weapon.MinChargeDamage + (weapon.ChargedDamage - weapon.MinChargeDamage) * charge);
+        int pulse;
+        if (fire.HasContinuousContext)
+        {
+            if (fire.ContinuousDouble) raw *= 2;
+            else if (fire.ContinuousPrime) raw = 150 * raw / 100;
+            pulse = ContinuousWeaponPhase.Amount(raw, fire.ContinuousPhase, damage: true);
+        }
+        else
+        {
+            // Legacy fixtures have no modifier context. Fractional dither is
+            // not monotonic in raw damage, so doubled damage alone is no bound.
+            pulse = Math.Max(ContinuousWeaponPhase.Amount(raw, fire.ContinuousPhase, true),
+                Math.Max(ContinuousWeaponPhase.Amount(raw * 2, fire.ContinuousPhase, true),
+                    ContinuousWeaponPhase.Amount(150 * raw / 100, fire.ContinuousPhase, true)));
+        }
+        // Native spawning adds ramp AFTER fractional rounding and optional quad
+        // damage. A zero base pulse can therefore still be a legal ramp tick.
+        int maximum = pulse * 4 + (fire.HasContinuousContext ? fire.ContinuousRamp : 4);
         maximum = (int)Math.Ceiling(maximum * Metadata.DamageLevels[scene.GameState.DamageLevel] * 2);
         if (claim.Damage <= 0 || claim.Damage > maximum) return false;
         byte allowedAfflictions = NetHitClaims.AfflictionClaimFlags(weapon.Afflictions[charged ? 1 : 0]);
