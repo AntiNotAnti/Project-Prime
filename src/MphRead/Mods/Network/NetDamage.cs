@@ -439,6 +439,19 @@ namespace MphRead.Mods.Network
         /// same hit twice on the scoreboard and produced kills that never
         /// happened anywhere else.
         /// </summary>
+        internal static bool CurrentBomb(BombEntity bomb)
+        {
+            if (!NetSession.Active || Replaying) return true;
+            var key = bomb.ModOwnerKey;
+            if (!NetSession.MatchesStream(key.MatchId, key.AuthorityEpoch)
+                || key.ShooterSlot != bomb.Owner.SlotIndex || key.Generation == 0 || key.LifeId == 0
+                || key.Generation != NetPlayerLifecycle.Generation(key.ShooterSlot)) return false;
+            // Same-occupant old-life bombs remain authority-owned flights;
+            // clients cannot predict them as a placement by their new life.
+            return NetSession.IsHost || NetSession.IsAuthority
+                || NetPlayerLifecycle.Matches(key.ShooterSlot, key.Generation, key.LifeId);
+        }
+
         public static bool Suppress(PlayerEntity victim, EntityBase? source, DamageFlags flags)
         {
             if (!NetSession.Active || Replaying)
@@ -447,6 +460,7 @@ namespace MphRead.Mods.Network
             }
             if (source is BeamProjectileEntity projectile && !NetPlayerLifecycle.CurrentProjectile(projectile))
                 return true;
+            if (source is BombEntity bomb && !CurrentBomb(bomb)) return true;
             if (source is BeamProjectileEntity { EnhancedMicroSeeker: true } && !NetSession.IsAuthority) return true;
             if (NetSession.IsHost || NetSession.IsAuthority)
             {

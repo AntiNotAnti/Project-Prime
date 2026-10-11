@@ -92,7 +92,8 @@ internal static class NetCheckSimulation
         }
         Console.WriteLine(NetUnlagged.Describe());
         Console.WriteLine(ReplayPerfTelemetry.Summary(ReplayCapture.Recorder.Timeline));
-        bool stationaryTarget = HitRig.IsSniper && (HitRig.Mode == HitRig.RigMode.AltStatic || HitRig.Mode == HitRig.RigMode.AltContact);
+        bool stationaryTarget = HitRig.IsSniper && (HitRig.Mode == HitRig.RigMode.AltStatic || HitRig.Mode == HitRig.RigMode.AltContact
+            || HitRig.Mode == HitRig.RigMode.SelfMoving || HitRig.Mode == HitRig.RigMode.SelfWall);
         bool contactAttacker = HitRig.Mode == HitRig.RigMode.AltCrossing || HitRig.Mode == HitRig.RigMode.AltContact && HitRig.IsSniper;
         bool scenario = (!contactAttacker || NetContactLagComp.AttacksAttempted > 0)
             && (!HitRig.Active || !HitRig.IsSniper || HitRig.Triggers > 0);

@@ -365,6 +365,60 @@ internal static class SelfSplashTests
         Check(_victim.Health == 0 && GameState.Points[0] == points && GameState.Kills[0] == kills,
             "burn survives owner replacement but cannot credit replacement occupant for lethal tick");
     }
+    private static void BombLifecycleFence()
+    {
+        foreach (string variant in new[] { "current", "match", "epoch", "generation", "authority-old-life", "client-old-life" })
+        {
+            Prepare(); _shooter.Hunter = Hunter.Samus;
+            var bomb = BombEntity.Spawn(_shooter, Matrix4.CreateTranslation(_shooter.Position), _shooter.OwningScene);
+            Check(bomb != null && bomb.ModOwnerKey == ShotKey.For(0, 0),
+                "real bomb placement captures full original owner lifecycle");
+            bomb!.NodeRef = _shooter.NodeRef;
+            bomb.Radius = Fixed.ToFloat(_shooter.Values.BombRadius);
+            bomb.SelfRadius = Fixed.ToFloat(_shooter.Values.BombSelfRadius);
+            bomb.Damage = (ushort)_shooter.Values.BombDamage;
+            bomb.EnemyDamage = (ushort)_shooter.Values.BombEnemyDamage;
+            var key = bomb.ModOwnerKey;
+            if (variant == "match") bomb.ModOwnerKey = key with { MatchId = (ushort)(key.MatchId + 1) };
+            if (variant == "epoch") bomb.ModOwnerKey = key with { AuthorityEpoch = key.AuthorityEpoch + 1 };
+            if (variant == "generation") bomb.ModOwnerKey = key with { Generation = (ushort)(key.Generation + 1) };
+            if (variant.Contains("old-life"))
+            {
+                _shooter.Spawn(_shooter.Position, Vector3.UnitZ, Vector3.UnitY, _shooter.NodeRef, respawn: true);
+                Check(bomb.ModOwnerKey == key && NetPlayerLifecycle.Get(0) != key.LifeId,
+                    "live bomb survives respawn retaining original owner life");
+            }
+            var role = NetSession.Role; bool authority = NetSession.IsAuthority; int local = NetSession.LocalSlot;
+            try
+            {
+                if (variant == "client-old-life")
+                {
+                    typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, NetRole.Client);
+                    typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, false);
+                    typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, 0);
+                }
+                bool refused = variant is "match" or "epoch" or "generation" or "client-old-life";
+                Check(NetDamage.Suppress(_victim, bomb, DamageFlags.NoDmgInvuln) == refused,
+                    $"bomb captured lifecycle suppression policy {variant}");
+                _victim.ModPlaceAt(bomb.Position + Vector3.UnitX * .1f);
+                int health = _victim.Health; ushort sequence = NetDamage.Sequence(1);
+                bomb.Countdown = 0; bomb.Process();
+                Check(refused ? _victim.Health == health && NetDamage.Sequence(1) == sequence
+                    : _victim.Health < health && NetDamage.Sequence(1) != sequence,
+                    $"actual native bomb detonation respects lifecycle fence {variant}");
+                _shooter.ModPlaceAt(bomb.Position); _shooter.Speed = Vector3.Zero;
+                bool jump = _shooter.CheckHitByBomb(bomb, halfturret: false);
+                Check(refused ? !jump && _shooter.Speed == Vector3.Zero : jump && _shooter.Speed.Y > 0,
+                    $"actual owner bomb jump respects captured lifecycle fence {variant}");
+            }
+            finally
+            {
+                typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, role);
+                typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, authority);
+                typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, local);
+            }
+        }
+    }
     public static int Run(string profile, string room)
     {
         bool accepted = NetFireEvents.AcceptedPlaybackEnabled; var mode = NetShotProof.Mode; bool selfEnabled = NetSelfSplash.Enabled; NetSelfSplash.Enabled = true;
@@ -388,7 +442,7 @@ internal static class SelfSplashTests
                 { _direction = direction; break; }
             Check(_direction.LengthSquared == 1, "asset fixture provides clear production collision lane");
 
-            SupportedPolicy(); ForgedClaims(); ActualExplosions(); JudicatorAffinityPolicy(); ProtectedAndReplacement(); MovingJumpAndSelfKill(); ChainedAndTeamSplash(); SplitNativeHookRescue(); BurnOwnership();
+            SupportedPolicy(); ForgedClaims(); ActualExplosions(); JudicatorAffinityPolicy(); ProtectedAndReplacement(); MovingJumpAndSelfKill(); ChainedAndTeamSplash(); SplitNativeHookRescue(); BombLifecycleFence(); BurnOwnership();
             long lifetimePayments = NetCombatPayments.LifetimePayments;
             long lifetimeSuppressed = NetCombatPayments.LifetimeSuppressed;
             Check(lifetimePayments > 0, "process evidence captures actual payments and suppressed repeats");

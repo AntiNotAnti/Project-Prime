@@ -1321,6 +1321,7 @@ namespace MphRead.Entities
         // todo: visualize
         public bool CheckHitByBomb(BombEntity bomb, bool halfturret)
         {
+            if (!NetDamage.CurrentBomb(bomb)) return false;
             if (bomb.Owner == this
                 && (!bomb.Flags.TestFlag(BombFlags.Exploding) && !bomb.Flags.TestFlag(BombFlags.Exploded) || halfturret))
             {

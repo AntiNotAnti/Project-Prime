@@ -215,6 +215,7 @@ namespace MphRead.Mods.Network
         /// <summary>How close the aim must be before the trigger is pulled.</summary>
         private const float FiringCone = 2.5f;
 
+        private static float _selfAimX, _selfAimY, _selfPitch;
         private static int _frame;
         private static int _stuckFrames;
         private static bool _stuckDirection;
@@ -243,7 +244,7 @@ namespace MphRead.Mods.Network
 
         public static void Reset()
         {
-            _frame = 0;
+            _frame = 0; _selfAimX = _selfAimY = _selfPitch = 0;
             _stuckFrames = 0;
             _lastPosition = Vector3.Zero;
             AimDeltaX = 0;
@@ -436,7 +437,13 @@ namespace MphRead.Mods.Network
                 }
                 c.MoveUp.IsDown = nearest > 1.1f && nearest < 12f;
             }
-            (float x, float y) = player.ModAimDeltaTowards(point);
+            // Close self points feed muzzle convergence back into the requested
+            // pitch as the gun moves. Aim a distant point along the desired ray
+            // instead; the nearby floor/wall still owns the actual collision.
+            Vector3 ray = (point - origin).Normalized();
+            (float x, float y) = player.ModAimDeltaTowards(player.CameraInfo.Position + ray * 40f);
+            _selfAimX = x; _selfAimY = y;
+            _selfPitch = MathHelper.RadiansToDegrees(MathF.Atan2(ray.Y, MathF.Sqrt(ray.X * ray.X + ray.Z * ray.Z)));
             AimDeltaX = Math.Clamp(x, -TurnRate, TurnRate);
             AimDeltaY = Math.Clamp(y, -TurnRate, TurnRate);
             bool aligned = float.IsFinite(x) && float.IsFinite(y) && MathF.Abs(x) < FiringCone && MathF.Abs(y) < FiringCone;
@@ -757,7 +764,9 @@ namespace MphRead.Mods.Network
             {
                 double range = RangeSamples > 0 ? RangeSum / RangeSamples : 0;
                 return $"hit rig: {Mode} as {role}, {Triggers} triggers, "
-                    + $"{FramesOnTarget} frames on target, mean range {range:F1} units";
+                    + $"{FramesOnTarget} frames on target, mean range {range:F1} units"
+                    + (Mode == RigMode.SelfMoving || Mode == RigMode.SelfWall
+                        ? $", self aim residual {_selfAimX:F2}/{_selfAimY:F2}deg desired pitch {_selfPitch:F2}deg" : "");
             }
             double rise = VerticalSpeedSamples > 0
                 ? VerticalSpeedSum / VerticalSpeedSamples
