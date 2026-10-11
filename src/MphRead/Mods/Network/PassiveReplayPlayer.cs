@@ -132,18 +132,21 @@ internal sealed class PassiveReplayPlayer : IDisposable
     {
         PassiveReplayScene? replacement = null;
         ReplayWorldCheckpoint? loaded = null;
+        string? fallbackWarning = null;
         try
         {
             if (durable is { } disk)
             {
-                try { checkpoint = loaded = Current.Session.LoadCheckpoint(disk); }
+                try { checkpoint = loaded = Current.Session.LoadCheckpoint(disk, requireIndexedFirePresentation: Current.Scene.ReplayPoses?.IndexedFirePresentation != false); }
                 catch (Exception ex) when (ex is InvalidDataException or IOException or InvalidOperationException or ArgumentException)
                 {
                     RejectedCheckpoints++; LastCheckpointError = ex.Message; _rejectedDurable!.Add(disk.Offset);
+                    fallbackWarning = "Durable checkpoint fallback: " + ex.Message;
                     durable = null; checkpoint = null;
                 }
             }
             replacement = _open();
+            if (fallbackWarning != null) replacement.Session.WarnVerification(fallbackWarning);
             CheckpointSource = checkpoint == null ? "initial world" : durable.HasValue ? "file" : "memory";
             if (checkpoint != null)
             {

@@ -582,6 +582,45 @@ namespace MphRead.Mods.Network
                     Require(read?.DurationFrames == 120 && read.Metadata!.Events.Single().Frame == 10,
                         "lead-in normalizes duration and events");
                 }
+                // Explicit continuation changes the container contract. V4
+                // remains unchanged and rejects even a recognized V5 tail.
+                foreach (bool policy in new[] { false, true })
+                {
+                    var v5Metadata = new ReplayMetadata { FormatVersion = 5, RoomKey = match.RoomKey,
+                        Mode = GameMode.Battle, OriginRecordingFrame = 900, LeadInFrames = 60,
+                        WorldCheckpoint = new byte[300000], IndexedFireContinuation = policy };
+                    byte[] header = ReplayFormatV3.EncodeMetadata(v5Metadata);
+                    var decoded = ReplayFormatV3.DecodeMetadata(v5Metadata.ProtocolVersion, header, 5);
+                    Require(decoded.FormatVersion == 5 && decoded.IndexedFireContinuation == policy
+                        && decoded.WorldCheckpoint.Length == 300000 && decoded.LeadInFrames == 60,
+                        "v5 consumer policy and bounded world metadata roundtrip");
+                    bool Reject(byte[] candidate, byte version)
+                    {
+                        try { ReplayFormatV3.DecodeMetadata(v5Metadata.ProtocolVersion, candidate, version); return false; }
+                        catch (Exception ex) when (ex is IOException or InvalidDataException) { return true; }
+                    }
+                    byte[] malformed = (byte[])header.Clone(); malformed[^5] ^= 1;
+                    Require(Reject(malformed, 5), "v5 rejects unknown continuation marker");
+                    malformed = (byte[])header.Clone(); malformed[^1] = 2;
+                    Require(Reject(malformed, 5), "v5 rejects malformed continuation policy");
+                    Require(Reject(header[..^1], 5), "v5 rejects truncated continuation policy");
+                    Require(Reject(header, 4), "v4 rejects continuation metadata tails");
+                    Require(Reject(header, 6), "metadata rejects unknown future versions");
+                    string v5 = Path.Combine(directory, $"world-policy-{policy}.ppdemo");
+                    using (var writer = new ReplayWriterV3(v5, v5Metadata))
+                        for (uint frame = 0; frame <= 80; frame++) ReplayTimelineArchive.EndFrame(writer, frame);
+                    using (var read = DemoReader.Open(v5, out var opened))
+                        Require(opened == ReplayOpenResult.Success && read?.FormatVersion == 5
+                            && read.Metadata!.IndexedFireContinuation == policy && read.DurationFrames == 20,
+                            "v5 container reader retains consumer policy and lead-in");
+                    Require(ReplayArchive.Validate(v5) == ReplayOpenResult.Success, "v5 container CRC validation");
+                    byte[] future = File.ReadAllBytes(v5); future[4] = 6;
+                    string futurePath = Path.Combine(directory, $"world-future-{policy}.ppdemo");
+                    File.WriteAllBytes(futurePath, future);
+                    using (var read = DemoReader.Open(futurePath, out var opened))
+                        Require(read == null && opened == ReplayOpenResult.UnsupportedFormat,
+                            "container rejects unknown future versions");
+                }
                 string v4Range = Path.Combine(directory, "world-subrange.ppdemo");
                 Require(ReplayArchive.Extract(v4, 5, 40, v4Range) == ReplayOpenResult.Success, "world range extraction");
                 using (var read = DemoReader.Open(v4Range, out _))
