@@ -797,13 +797,13 @@ namespace MphRead.NetTest
             Session();
             Check(NetSession.SnapshotAge == uint.MaxValue, "snapshot age unknown before acceptance");
             var clock = typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!;
-            clock.SetValue(null, 0u);
+            clock.SetValue(null, uint.MaxValue);
             Deliver(Packet(100, State(7)));
             Check(NetSession.SnapshotArrived == 0 && NetSession.SnapshotAge == 0,
                 "real snapshot acceptance preserves valid receiver frame zero");
             clock.SetValue(null, 20u);
             Check(NetSession.SnapshotAge == 20, "frame-zero snapshot becomes stale normally");
-            clock.SetValue(null, uint.MaxValue - 1);
+            clock.SetValue(null, uint.MaxValue - 2);
             Deliver(Packet(101, State(7)));
             clock.SetValue(null, 1u);
             Check(NetSession.SnapshotAge == 3, "snapshot age crosses receiver frame wrap");
