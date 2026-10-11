@@ -37,6 +37,7 @@ namespace MphRead.NetTest
                 PresentationWrapAndCadence();
                 PresentationSlotDiagnostics();
                 PresentationTimingDiagnostics();
+                ReportedVelocityWrap();
                 HistoryBoundaries();
                 ClaimBoundaries();
                 FaultStream();
@@ -674,6 +675,9 @@ namespace MphRead.NetTest
         private static void PresentationSlotDiagnostics()
         {
             Session();
+            var roster = Roster(revision: 2); roster.Count = 3;
+            roster.Slots[2] = 2; roster.Generations[2] = 10; roster.Names[2] = "second-puppet";
+            NetSession.ApplyRoster(roster);
             var one = State(7); var two = one; two.SlotIndex = 2;
             NetPlayerLifecycle.AcceptState(one, 1); NetPlayerLifecycle.AcceptState(two, 1);
             NetSmoothing.Reset();
@@ -748,15 +752,15 @@ namespace MphRead.NetTest
                 NetTimingDiagnostics.Snapshot(start + step * i);
             }
             double interval = step * 1000.0 / frequency;
-            Check(Math.Abs(NetTimingDiagnostics.SimulationIntervalMs - interval) < .00001
-                && Math.Abs(NetTimingDiagnostics.SnapshotIntervalMs - interval) < .00001
+            Check(Math.Abs(NetTimingDiagnostics.SimulationIntervalMs - interval) < .00011
+                && Math.Abs(NetTimingDiagnostics.SnapshotIntervalMs - interval) < .00011
                 && interval > 16.6 && interval < 16.7, "deterministic steady 60 Hz timing intervals");
             long latest = start + step * 60;
             NetTimingDiagnostics.Snapshot(latest); NetTimingDiagnostics.Snapshot(latest - step * 10);
             NetTimingDiagnostics.Simulation(latest); NetTimingDiagnostics.Simulation(latest - step * 10);
             NetTimingDiagnostics.Snapshot(latest + step); NetTimingDiagnostics.Simulation(latest + step);
-            Check(Math.Abs(NetTimingDiagnostics.SimulationIntervalMs - interval) < .00001
-                && Math.Abs(NetTimingDiagnostics.SnapshotIntervalMs - interval) < .00001,
+            Check(Math.Abs(NetTimingDiagnostics.SimulationIntervalMs - interval) < .00011
+                && Math.Abs(NetTimingDiagnostics.SnapshotIntervalMs - interval) < .00011,
                 "equal and reordered timestamps cannot move timing origin backwards");
             NetTimingDiagnostics.Reset();
             NetTimingDiagnostics.Simulation(start);
@@ -766,11 +770,12 @@ namespace MphRead.NetTest
             Check(NetTimingDiagnostics.CorrectionsAfterLocalStall == 0
                 && NetTimingDiagnostics.CorrectionsWithoutLocalStall == 1,
                 "exactly 50 ms simulation interval is not a local stall");
-            long stall = start + fifty + fifty + 1;
+            long epsilon = Math.Max(1, frequency / 100000); // 10 us survives TimeSpan rounding.
+            long stall = start + fifty + fifty + epsilon;
             NetTimingDiagnostics.Simulation(stall);
-            NetTimingDiagnostics.Correction(stall - 1);
+            NetTimingDiagnostics.Correction(stall - epsilon);
             NetTimingDiagnostics.Correction(stall);
-            NetTimingDiagnostics.Correction(stall + frequency / 4 - 1);
+            NetTimingDiagnostics.Correction(stall + frequency / 4 - epsilon);
             NetTimingDiagnostics.Correction(stall + frequency / 4);
             Check(NetTimingDiagnostics.CorrectionsAfterLocalStall == 2
                 && NetTimingDiagnostics.CorrectionsWithoutLocalStall == 3,
@@ -783,6 +788,22 @@ namespace MphRead.NetTest
             typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, 100.5);
             Check(NetSmoothing.Sample(1, out var pose, out _) && pose == Vector3.Zero,
                 "valid received origin pose remains available to smoothing");
+        }
+
+        private static void ReportedVelocityWrap()
+        {
+            var bridge = new PlayerReplicationBridge(LivePlayerReplicationHost.Instance);
+            var player = Player(1, 50);
+            var note = typeof(PlayerReplicationBridge).GetMethod("NoteReportedVelocity",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            note.Invoke(bridge, new object[] { player, Vector3.Zero, uint.MaxValue });
+            note.Invoke(bridge, new object[] { player, new Vector3(.4f, 0, 0), 1u });
+            Check(Math.Abs(player.Speed.X - .2f) < .00001f,
+                "reported velocity uses modular two-frame delta across skipped frame zero");
+            note.Invoke(bridge, new object[] { player, new Vector3(100, 0, 0), uint.MaxValue });
+            note.Invoke(bridge, new object[] { player, new Vector3(.6f, 0, 0), 2u });
+            Check(Math.Abs(player.Speed.X - .2f) < .00001f,
+                "reordered pre-wrap report cannot corrupt next authoritative velocity");
         }
 
         private static void PresentationClock()

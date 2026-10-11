@@ -1246,12 +1246,12 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            if (_reportSeen[slot] && frame > _lastReportFrame[slot])
+            if (_reportSeen[slot] && NetLifecycleTracker.Newer(frame, _lastReportFrame[slot]))
             {
                 // Capped: a report that follows a long silence describes a
                 // gap, not a frame of movement, and dividing by two hundred
                 // is as wrong as dividing by one.
-                uint elapsed = Math.Min(frame - _lastReportFrame[slot], 8);
+                uint elapsed = Math.Min(unchecked(frame - _lastReportFrame[slot]), 8);
                 Vector3 travelled = reported - _lastReportPosition[slot];
                 float step = travelled.Length;
                 if (!Sane(travelled) || step > SnapDistance)
@@ -1281,7 +1281,7 @@ namespace MphRead.Mods.Network
                     player.Speed = speed;
                 }
             }
-            if (!_reportSeen[slot] || frame > _lastReportFrame[slot])
+            if (!_reportSeen[slot] || NetLifecycleTracker.Newer(frame, _lastReportFrame[slot]))
             {
                 _reportSeen[slot] = true;
                 _lastReportFrame[slot] = frame;
