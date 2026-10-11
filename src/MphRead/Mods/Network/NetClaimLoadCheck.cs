@@ -6,7 +6,9 @@ using OpenTK.Mathematics;
 namespace MphRead.Mods.Network;
 
 /// <summary>Real player damage/claim arbitration under a seeded virtual network.
-/// Collision placement is controlled; rendered combat independently covers aiming and flight.</summary>
+/// Discrete Power Beam component payments use controlled damage/collision placement.
+/// Rendered combat independently covers aiming/flight; continuous phase/healing and replay
+/// reconstruction are outside this generic arbitration load fixture.</summary>
 public static class NetClaimLoadCheck
 {
     private readonly record struct Delivery(int Shooter, HitClaimPacket Claim);
@@ -27,10 +29,10 @@ public static class NetClaimLoadCheck
             var beams = new BeamProjectileEntity[8];
             foreach (var player in PlayerEntity.Players)
             {
-                player.ModArmWeapon(BeamType.ShockCoil);
+                player.ModArmWeapon(BeamType.PowerBeam);
                 BeamProjectileEntity.Spawn(player, player.EquipInfo, player.Position, Vector3.UnitY, BeamSpawnFlags.NoMuzzle, player.NodeRef, scene);
                 foreach (var beam in player.EquipInfo.Beams) if (beam.Lifespan > 0) { beams[player.SlotIndex] = beam; break; }
-                Check(beams[player.SlotIndex] != null, "real Shock Coil projectile exists");
+                Check(beams[player.SlotIndex] != null, "real Power Beam component exists");
                 typeof(PlayerEntity).GetField("_spawnInvulnTimer", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(player, (ushort)0);
             }
             byte[] wire = new byte[1 + HitClaimPacket.Size]; wire[0] = 1;
@@ -66,7 +68,9 @@ public static class NetClaimLoadCheck
                                 ShooterGeneration = 1, ShooterLifeId = NetPlayerLifecycle.Get(shooter),
                                 VictimSlot = (byte)victim, VictimGeneration = 1, VictimLifeId = NetPlayerLifecycle.Get(victim),
                                 ClaimId = (ushort)(tick / 2), AckFrame = frame, LaunchFrame = frame, ShotId = (uint)(tick / 2),
-                                Damage = 1, Beam = (byte)BeamType.ShockCoil, HitPoint = PlayerEntity.Players[victim].Position };
+                                Damage = 1, Beam = (byte)BeamType.PowerBeam, ComponentId = beams[shooter].ModComponentId,
+                                Flags = beams[shooter].EnhancedDirectHit ? HitClaimPacket.FlagDirect : (byte)0,
+                                HitPoint = PlayerEntity.Players[victim].Position };
                             var delivery = new Delivery(shooter, claim);
                             // Six independent attempts, like the bounded client outbox.
                             for (int attempt = 0; attempt < 6; attempt++) queue.Enqueue(now, delivery, attempt * 80);
@@ -93,12 +97,18 @@ public static class NetClaimLoadCheck
                         Check(victim.Health == before - 1, "one physical damage application");
                     }
                     NetHitClaims.Tick();
+                    // This synthetic damage loop still owes the ordinary native
+                    // after-frame recorder hook. Headless world capture is disabled
+                    // there; accepted facts must not accumulate in an unadvanced sink.
+                    ReplayCapture.AfterSimulation(scene);
+                    Check(ReplayCapture.WorldCapture.LastError == null, "after-frame replay sink remains healthy");
                 }
                 Check(verdicts == 8 * hits && NetHitClaims.ClaimsPendingCurrent == 0, "every declared claim terminates and drains");
-                foreach (var player in PlayerEntity.Players) Check(player.Health == 20000 - hits, "physical/rescued hit pays exactly once");
+                foreach (var player in PlayerEntity.Players) Check(player.Health == 20000 - hits,
+                    $"physical/rescued hit pays exactly once slot={player.SlotIndex} life={NetPlayerLifecycle.Get(player.SlotIndex)} actualHP={player.Health} expectedHP={20000 - hits} rescued={NetHitClaims.AppliedHere} suppressed={suppressed} beamPhase={beams[player.SlotIndex].ModContinuousPhase} sharedPhase={beams[player.SlotIndex].ModHasSharedContinuousPhase} beamFlags={beams[player.SlotIndex].Flags}");
                 Check(NetHitClaims.ClaimsCapacityRefused == 0 && NetHitClaims.ResolvedLedgerOverwrittenUnused == 0,
                     "ordinary sustained combat has no capacity loss or unmatched eviction");
-                Console.WriteLine($"CLAIM LOAD PASS rtt={rtt} claims={verdicts} rescued={NetHitClaims.AppliedHere} suppressed={suppressed} pendingHigh={NetHitClaims.ClaimsPendingHighWater} ledgerHigh={NetHitClaims.ResolvedLedgerHighWater}");
+                Console.WriteLine($"DISCRETE COMPONENT CLAIM LOAD PASS rtt={rtt} claims={verdicts} rescued={NetHitClaims.AppliedHere} suppressed={suppressed} pendingHigh={NetHitClaims.ClaimsPendingHighWater} ledgerHigh={NetHitClaims.ResolvedLedgerHighWater}");
             }
             return 0;
         }
