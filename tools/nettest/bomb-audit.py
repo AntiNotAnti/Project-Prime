@@ -417,8 +417,20 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
                             raise ValueError("terminal pixel sequence/frame differs from exact accepted facts")
                         if payload!=death[4] or row.get("TargetKey") is not None or integer(row["EffectId"],65535)!={"MorphBall":145,"Stinglarva":128,"Lockjaw":146}[payload[1]]:
                             raise ValueError("terminal pixel state/effect differs from exact native detonation")
-                        if row["Classification"]!="BirthTerminalBeforeBodyDraw" or integer(row["BodyDrawOpportunities"]) or integer(row["BodyAttempts"]) or identity in body_attempts:
-                            raise ValueError("terminal pixels cannot replace an observed/attempted bomb body")
+                        if row["Classification"]!="BirthTerminalBeforeBodyDraw" or integer(row["BodyDrawOpportunities"]) or integer(row["BodyAttempts"]) or identity in body_attempts or row["MissingExpectedGhost"] is not False:
+                            raise ValueError("terminal pixels cannot replace an observed/attempted/missing bomb body")
+                        if vector(row["EffectPosition"],32768)!=payload[3]:
+                            raise ValueError("actual native terminal effect position differs from exact terminal packet")
+                        lifecycles=report["Lifecycles"]
+                        if not isinstance(lifecycles,list) or len(lifecycles)>512:
+                            raise ValueError("invalid terminal lifecycle ledger")
+                        matching=[l for l in lifecycles if key(l["Key"])==identity]
+                        fields=("BirthSequence","BirthFrame","TerminalSequence","TerminalFrame","AppliedBirthDrawIndex","AppliedTerminalDrawIndex","BodyDrawOpportunities","BodyAttempts","MissingExpectedGhost")
+                        if len(matching)!=1 or any(matching[0][field]!=row[field] for field in fields) or matching[0]["MissingExpectedGhost"] is not False:
+                            raise ValueError("terminal metadata differs from independent lifecycle ledger")
+                        for field in fields[:-1]:integer(matching[0][field],2**64-1)
+                        if integer(row["CaptureDrawIndex"],2**64-1)>integer(report["DrawIndex"],2**64-1):
+                            raise ValueError("terminal capture exceeds recorded renderer draw index")
                         birth_draw=integer(row["AppliedBirthDrawIndex"],2**64-1)
                         death_draw=integer(row["AppliedTerminalDrawIndex"],2**64-1)
                         if birth_draw!=death_draw or integer(row["CaptureDrawIndex"],2**64-1)<death_draw:

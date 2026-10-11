@@ -301,7 +301,11 @@ class BombAuditTests(unittest.TestCase):
         row.update(Type="Terminal",State=copy.deepcopy(self.server["Bombs"]["Rows"][5]["State"]),
                    BirthSequence=1,BirthFrame=10,TerminalSequence=2,TerminalFrame=56,EffectId=145,
                    BodyDrawOpportunities=0,BodyAttempts=0,Classification="BirthTerminalBeforeBodyDraw",
-                   AppliedBirthDrawIndex=3,AppliedTerminalDrawIndex=3,CaptureDrawIndex=4)
+                   AppliedBirthDrawIndex=3,AppliedTerminalDrawIndex=3,CaptureDrawIndex=4,
+                   MissingExpectedGhost=False,EffectPosition=copy.deepcopy(row["State"]["Position"]))
+        fields=("Key","BirthSequence","BirthFrame","TerminalSequence","TerminalFrame","AppliedBirthDrawIndex","AppliedTerminalDrawIndex","BodyDrawOpportunities","BodyAttempts","MissingExpectedGhost")
+        report["Lifecycles"]=[{field:copy.deepcopy(row[field]) for field in fields}]
+        report["DrawIndex"]=4
         # Transport can deliver a long authority lifetime within one render batch.
         self.peers["peer-0"]["Bombs"]["Rows"].pop(3)
         return report
@@ -350,6 +354,19 @@ class BombAuditTests(unittest.TestCase):
                 r=self.result(live={"peer-0":report})
                 self.assertEqual(r["liveVisibilityStatus"],"FAIL",r)
                 self.assertEqual(r["liveVisibilityCoverage"]["peer-0"]["terminalFallbackKeys"],[])
+    def test_terminal_actual_effect_and_lifecycle_draw_ledger_are_exact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original=self.terminal_fixture(directory)
+            for mutate in (lambda r:r["Rows"][0].update(MissingExpectedGhost=True),
+                           lambda r:r["Rows"][0]["EffectPosition"].update(X=1e-9),
+                           lambda r:r["Lifecycles"][0].update(BodyDrawOpportunities=1),
+                           lambda r:r["Lifecycles"][0].update(BodyAttempts=1),
+                           lambda r:r["Lifecycles"][0].update(MissingExpectedGhost=True),
+                           lambda r:r.update(Lifecycles=[]),
+                           lambda r:r["Lifecycles"].append(copy.deepcopy(r["Lifecycles"][0])),
+                           lambda r:r.update(DrawIndex=3)):
+                report=copy.deepcopy(original);mutate(report)
+                self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
     def test_terminal_requires_applied_and_authority_accepted_facts(self):
         with tempfile.TemporaryDirectory() as directory:
             report=self.terminal_fixture(directory)
