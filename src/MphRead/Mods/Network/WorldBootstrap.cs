@@ -232,7 +232,11 @@ public sealed partial class DedicatedServer
                 : new ReplayAuthorityWorld { MatchId = _matchId, Epoch = _authorityEpoch, Tick = header.Frame };
             peer.BootstrapObjectives = WorldBootstrapObjectives.Packets(peer.BootstrapIdentity, objectives);
             peer.BombCursor = _bombDelivery.Join();
-            var bombs = NetBombs.CaptureSnapshot(header.Frame);
+            // An engine-free control-plane fixture still owns a real server
+            // identity; the global gameplay session has not been initialized.
+            var bombs = _sim == null
+                ? BombStatePage.PackSnapshot(_matchId, _authorityEpoch, header.Frame, 0, Array.Empty<BombState>())
+                : NetBombs.CaptureSnapshot(header.Frame);
             peer.BootstrapBombs = new byte[BombStatePage.Pages][];
             for (int page = 0; page < BombStatePage.Pages; page++)
             {
