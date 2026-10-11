@@ -989,6 +989,8 @@ namespace MphRead.Entities
             ModRefreshNetworkAim();
             UpdateCamera();
             UpdateAimVecs();
+            NetShotInputHistory.Capture(this, _frozenTimer == 0 && _health > 0 && !_field6D0
+                && !ScanVisor && !IsUnmorphing && !IsAltForm);
             if (_frozenTimer == 0 && _health > 0 && !_field6D0)
             {
                 bool scanInput = false;

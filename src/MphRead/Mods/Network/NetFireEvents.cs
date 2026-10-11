@@ -178,6 +178,8 @@ public static class NetFireEvents
     internal static bool Accept(int slot, in IntentPacket intent)
     {
         if ((uint)slot >= 8 || !Validate(intent)) return false;
+        NetShotInputProof.Observe(slot, intent);
+        NetShotSourceJournal.Observe(slot, intent);
         var state = For(slot);
         state.EventStream |= intent.HasFireEvents;
         if (!AcceptedPlaybackEnabled) return state.Incoming.Accept(intent);
@@ -274,7 +276,7 @@ public static class NetFireEvents
         => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
     public static bool Validate(in IntentPacket intent)
     {
-        if (intent.FireEventCount > Capacity) return false;
+        if (intent.FireEventCount > Capacity || !intent.ShotInputs.Valid(intent.ShotInputCount)) return false;
         uint previous = 0;
         for (int i = 0; i < intent.FireEventCount; i++)
         {

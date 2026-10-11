@@ -1407,6 +1407,9 @@ namespace MphRead.Mods.Network
         public bool HasFireEvents;
         public byte FireEventCount;
         public FireEventHistory FireEvents;
+        // Live compact carriers only; canonical replay serialization intentionally omits these fields.
+        public byte ShotInputCount;
+        public ShotInputHistory ShotInputs;
 
         /// <summary>
         /// <c>EquipInfo.ChargeLevel</c> as the owner holds it, clamped to a
@@ -2491,7 +2494,8 @@ namespace MphRead.Mods.Network
         // Protocol 43 appends source life and fenced homing targets to authored shots,
         // preserves discrete shot-time modifiers, and caps live carriers at fourteen events.
         // Protocol 44 appends exact emitted-component identity to hit claims.
-        public const int ProtocolVersion = 44;
+        // Protocol 45 adds independent per-frame controls to compact live intents only.
+        public const int ProtocolVersion = 45;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

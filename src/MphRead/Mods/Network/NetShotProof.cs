@@ -21,14 +21,15 @@ public enum ShotProofReason
 public readonly record struct ShotProofDecision(ShotProofStatus Status, ShotProofReason Reason,
     ShotProofFamily Family, ShotProofReason Source, ShotProofReason Geometry, bool PhysicalMatch = false);
 public readonly record struct ShotProofSource(ushort Weapons, ushort Charges, int Ammo0, int Ammo1,
-    bool Infinite, Hunter Hunter, bool Prime, bool Double, bool Supported = true);
+    bool Infinite, Hunter Hunter, bool Prime, bool Double, bool Supported = true,
+    int AmmoMax0 = int.MaxValue, int AmmoMax1 = int.MaxValue);
 public readonly record struct ShotPaymentKey(ShotKey Shot, byte Victim, ushort Generation,
     ushort Life, uint Component, byte Kind);
 
 /// <summary>Bounded, read-only proof of authored shots and authority collision witnesses.
 /// Does not own emission or damage. Shadow is the default; unavailable evidence is never
-/// reported as verified. Source state is captured only at authority spawn, before client
-/// inventory is applied. Unordered pickup/mode changes invalidate that observation.</summary>
+/// reported as verified. Source state starts at authority spawn, before client
+/// inventory is applied, and advances through independently recorded grants and expenditure.</summary>
 public static class NetShotProof
 {
     public static ShotProofMode Mode { get; set; } = Environment.GetEnvironmentVariable("PRIME_SHOT_PROOF") switch
@@ -42,11 +43,8 @@ public static class NetShotProof
         public FireEvent Fire;
         public uint Observed;
         public int Cost, AmmoType, Cooldown;
-        public bool Chargeable, RequiresChargeInput;
-        public ShotProofReason Pose;
+        public ShotProofReason Pose, Source;
     }
-    private struct Source
-    { public ShotKey Life; public ShotProofSource State; public bool Live, Changed, Incomplete; }
     private struct Pose
     { public ShotKey Life; public uint SourceFrame, WorldFrame; public Vector3 Body, Aim; public bool Live, ClockValid, Disrupted; }
     private struct SourceClock
@@ -65,7 +63,6 @@ public static class NetShotProof
     private struct Payment
     { public bool Live, Physical, Claimed; public ShotPaymentKey Key; public uint Frame; public int Damage; public bool Head; public byte Effects; public Vector3 Impulse; public CombatAckEntry Outcome; }
     private static readonly Shot[,] _shots = new Shot[8, ShotsPerSlot];
-    private static readonly Source[,] _sources = new Source[8, 8];
     private static readonly Pose[,] _poses = new Pose[8, 128];
     private static readonly Component[,] _components = new Component[8, ComponentsPerSlot];
     private static readonly Payment[,] _payments = new Payment[8, PaymentsPerSlot];
@@ -99,16 +96,10 @@ public static class NetShotProof
     }
     internal static void Seed(PlayerEntity player, in ShotProofSource state)
     {
-        if (!Active || (uint)player.SlotIndex >= 8) return;
-        var key=ShotKey.For(player.SlotIndex,0);
-        _sources[player.SlotIndex,key.LifeId % 8]=new Source { Live=true,Life=key,State=state };
+        NetShotSourceJournal.Seed(player, state);
+        NetShotInputProof.Seed(player);
     }
-    internal static void SourceChanged(PlayerEntity player)
-    {
-        if (!Active || (uint)player.SlotIndex >= 8) return;
-        ref var source=ref _sources[player.SlotIndex,NetPlayerLifecycle.Get(player.SlotIndex)%8];
-        source.Changed=true;
-    }
+    internal static void SourceChanged(PlayerEntity player) => NetShotSourceJournal.Invalidate(player);
     internal static void ObservePose(PlayerEntity player, in IntentPacket intent)
     {
         if (!Active || (uint)player.SlotIndex>=8 || !player.ModIsInPlay) return;
@@ -136,12 +127,18 @@ public static class NetShotProof
                 || _shots[key.ShooterSlot,i].Key.Generation != key.Generation) { free=i;break; }
         if(free<0) { CapacityRefused++; return; }
         int weapon=Math.Min((int)fire.Weapon,8);
-        var mechanics=player.OwningScene.WeaponRules[weapon+(fire.PrimeAtFire||fire.AffinityAtFire?9:0)];
+        bool known = NetShotSourceJournal.TryState(key, fire.SourceFrame, out var sourceState);
+        bool affinity = known && (sourceState.Prime || Weapons.GetAffinityBeam(sourceState.Hunter) == (BeamType)weapon);
+        var mechanics=player.OwningScene.WeaponRules[weapon+(affinity?9:0)];
+        // Prime swaps the emission row only around Spawn; input charge and cooldown
+        // still use the hunter's normally equipped weapon.
+        var inputMechanics = player.OwningScene.WeaponRules[weapon
+            + (known && Weapons.GetAffinityBeam(sourceState.Hunter) == (BeamType)weapon ? 9 : 0)];
         float charge=0;
         if(mechanics.Flags.TestFlag(WeaponFlags.CanCharge))
         {
             if(mechanics.Flags.TestFlag(WeaponFlags.PartialCharge) && fire.Charge>=mechanics.MinCharge*2)
-                charge=Math.Clamp((fire.Charge-mechanics.MinCharge*2)/(float)Math.Max(1,(mechanics.FullCharge-mechanics.MinCharge)*2),0,1);
+                charge=(fire.Charge-mechanics.MinCharge*2)/(float)Math.Max(1,(mechanics.FullCharge-mechanics.MinCharge)*2);
             else if(fire.Charge>=mechanics.FullCharge*2) charge=1;
         }
         int cost=(int)(charge<=0?mechanics.AmmoCost:mechanics.MinChargeCost+(mechanics.ChargeCost-mechanics.MinChargeCost)*charge);
@@ -162,59 +159,46 @@ public static class NetShotProof
                 : !NetDynamicGeometryHistory.TryTraceDistanceAtFrame(player.OwningScene,body,fire.Origin,pose.WorldFrame,out float wall)
                     ? ShotProofReason.HistoryUnavailable : wall<.999f?ShotProofReason.BlockedMuzzle:ShotProofReason.Verified;
         }
-        ref var evicted = ref _shots[key.ShooterSlot,free];
-        if(evicted.Live && evicted.Fired)
+        int cooldown = (fire.Kind == FireEventKind.AutomaticFire
+            ? Math.Max(inputMechanics.ShotCooldown, inputMechanics.AutofireCooldown) : inputMechanics.ShotCooldown) * 2;
+        var sourceReason = NetShotSourceJournal.Inspect(key, fire, mechanics.AmmoType, cost, cooldown);
+        bool charged = mechanics.Flags.TestFlag(WeaponFlags.CanCharge)
+            && fire.Charge >= (mechanics.Flags.TestFlag(WeaponFlags.PartialCharge) ? mechanics.MinCharge : mechanics.FullCharge) * 2;
+        if (sourceReason == ShotProofReason.Verified)
         {
-            ref var oldSource=ref _sources[key.ShooterSlot,evicted.Key.LifeId%8];
-            if(oldSource.Live && SameLife(oldSource.Life,evicted.Key))oldSource.Incomplete=true;
+            if (!known) sourceReason = ShotProofReason.SourceUnavailable;
+            else if (fire.Charge > 0 && !inputMechanics.Flags.TestFlag(WeaponFlags.CanCharge)
+                || fire.Charge > inputMechanics.FullCharge * 2 && inputMechanics.Flags.TestFlag(WeaponFlags.CanCharge)
+                || charged && (sourceState.Charges & (1 << weapon)) == 0)
+                sourceReason = ShotProofReason.InvalidCharge;
+            else if (fire.HasEnhancedContext || fire.PrimeAtFire != sourceState.Prime || fire.DoubleAtFire != sourceState.Double
+                || fire.AffinityAtFire != affinity) sourceReason = ShotProofReason.ModifierMismatch;
+            // Selecting another affinity slot can consume Omega even without a shot.
+            // Until those transitions have independent evidence, its source is unavailable.
+            else if (fire.Weapon == (byte)BeamType.OmegaCannon) sourceReason = ShotProofReason.SourceUnavailable;
+            else if (fire.Kind == FireEventKind.AutomaticFire && fire.Weapon == (byte)BeamType.PowerBeam)
+                sourceReason = ShotProofReason.SourceInputUnavailable; // Native held-fire cadence ramps over time.
+            else sourceReason = NetShotInputProof.Inspect(player, key, fire,
+                charged || fire.Kind == FireEventKind.ReleaseFire);
         }
         _shots[key.ShooterSlot,free]=new Shot { Live=true,Key=key,Fire=fire,Observed=NetSession.NetFrame,
-            Cost=cost,AmmoType=mechanics.AmmoType,Cooldown=mechanics.ShotCooldown*2,
-            Chargeable=mechanics.Flags.TestFlag(WeaponFlags.CanCharge),
-            RequiresChargeInput=mechanics.Flags.TestFlag(WeaponFlags.CanCharge)
-                && fire.Charge >= (mechanics.Flags.TestFlag(WeaponFlags.PartialCharge) ? mechanics.MinCharge : mechanics.FullCharge)*2,
-            Pose=poseReason };
+            Cost=cost,AmmoType=mechanics.AmmoType,Cooldown=cooldown,
+            Pose=poseReason, Source=sourceReason };
     }
-    internal static void Fired(in ShotKey key) { int i=Find(key);if(i>=0)_shots[key.ShooterSlot,i].Fired=true; }
+    internal static void Fired(in ShotKey key)
+    {
+        int i=Find(key); if(i<0)return;
+        ref var shot=ref _shots[key.ShooterSlot,i];
+        if (shot.Fired) return;
+        shot.Fired=true;
+        NetShotSourceJournal.Fired(key,shot.Fire,shot.AmmoType,shot.Cost,shot.Cooldown);
+    }
     internal static ShotProofReason SourceReason(in ShotKey key)
     {
-        int at=Find(key);if(at<0)return ShotProofReason.UnknownShot;
-        ref var shot=ref _shots[key.ShooterSlot,at];
-        var fire=shot.Fire;
-        ref var source=ref _sources[key.ShooterSlot,key.LifeId%8];
-        if(!source.Live || !SameLife(source.Life,key) || !source.State.Supported) return ShotProofReason.SourceUnavailable;
-        if(source.Changed)return ShotProofReason.SourceChanged;
-        if(source.Incomplete)return ShotProofReason.SourceHistoryIncomplete;
-        var state=source.State;
-        if((state.Weapons & (1<<fire.Weapon))==0)return ShotProofReason.UnownedWeapon;
-        if(fire.Charge>0 && !shot.Chargeable
-            || shot.RequiresChargeInput && (state.Charges & (1<<fire.Weapon))==0)return ShotProofReason.InvalidCharge;
-        bool affinity=Weapons.GetAffinityBeam(state.Hunter)==(BeamType)fire.Weapon;
-        if(fire.PrimeAtFire!=state.Prime || fire.DoubleAtFire!=state.Double
-            || fire.AffinityAtFire && !affinity && !state.Prime) return ShotProofReason.ModifierMismatch;
-        int cost=shot.Cost;
-        for(int i=0;i<ShotsPerSlot;i++)
-        {
-            ref var prior=ref _shots[key.ShooterSlot,i];
-            if(i==at || !prior.Live || !prior.Fired || !SameLife(prior.Key,key))continue;
-            if(Expired(prior.Observed))return ShotProofReason.SourceHistoryIncomplete;
-            long gap=unchecked((int)(fire.SourceFrame-prior.Fire.SourceFrame));
-            bool before=gap>0 || gap==0 && unchecked((int)(key.ShotId-prior.Key.ShotId))>0;
-            // A retained older event can arrive after a newer event has fired.
-            // Check the later shot's cooldown in either ordering and reserve all
-            // admitted expenditure, not just the subset earlier than this event.
-            if(before ? gap<shot.Cooldown : -gap<prior.Cooldown)return ShotProofReason.FireRate;
-            if(prior.AmmoType==shot.AmmoType)cost+=prior.Cost;
-        }
-        if(!state.Infinite && shot.AmmoType is 0 or 1 && cost>(shot.AmmoType==0?state.Ammo0:state.Ammo1))
-            return ShotProofReason.Ammunition;
-        // Spawn facts do not prove owner button hold/zoom transitions or later
-        // timed powerup state. Those need an independently reconstructed input history.
-        // Native taps can retain Charge=1 while still emitting the uncharged
-        // weapon row. Only an effective charge tier needs hold/release proof.
-        if(shot.RequiresChargeInput || fire.ScopedAtFire)return ShotProofReason.SourceInputUnavailable;
-        if(fire.PrimeAtFire || fire.DoubleAtFire)return ShotProofReason.UnverifiedModifier;
-        return ShotProofReason.Verified;
+        int at=Find(key);
+        // Admission certificates are immutable; later pickups and ring eviction cannot
+        // retroactively fund, refund or invalidate the source of an existing shot.
+        return at<0 ? ShotProofReason.UnknownShot : _shots[key.ShooterSlot,at].Source;
     }
     internal static ShotProofReason EmissionReason(in ShotKey key)
     {
@@ -456,10 +440,11 @@ public static class NetShotProof
     internal static object Capture()=>new {Mode=Mode.ToString(),Verified,Rejected,Unavailable,LegacyAllowedRejected,
         LegacyAllowedUnavailable,CapacityRefused,EvidenceOverflow,PhysicalDuplicates,RadiusSamples,RadiusSum,RadiusMax,
         RadiusBuckets=_radiusBuckets,Reasons=_reasons,ReasonNames=Enum.GetNames<ShotProofReason>(),Rows=_evidence,
-        EmissionVerified,EmissionRejected,EmissionUnavailable,EmissionReasons=_emissionReasons,EmissionRows=_emissionEvidence};
+        EmissionVerified,EmissionRejected,EmissionUnavailable,EmissionReasons=_emissionReasons,EmissionRows=_emissionEvidence,
+        SourceJournal=NetShotSourceJournal.Capture()};
     public static void Reset()
     {
-        Array.Clear(_clocks);Array.Clear(_shots);Array.Clear(_sources);Array.Clear(_poses);Array.Clear(_components);Array.Clear(_payments);
+        Array.Clear(_clocks);Array.Clear(_shots);NetShotSourceJournal.Reset();NetShotInputProof.Reset();Array.Clear(_poses);Array.Clear(_components);Array.Clear(_payments);
         // Campaign counters survive match teardown; start a fresh process for a new evidence run.
     }
 }

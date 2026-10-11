@@ -1238,6 +1238,8 @@ namespace MphRead.Entities
             }
             // todo: update license stats
             Flags2 &= ~PlayerFlags2.NoFormSwitch;
+            // The journal owns its timer; reported shot state may overwrite the native one.
+            Mods.Network.NetShotSourceJournal.Tick(this);
             if (_doubleDmgTimer > 0)
             {
                 _doubleDmgTimer--;
@@ -1474,6 +1476,7 @@ namespace MphRead.Entities
                     {
                         _ammo[slot] = _ammoMax[slot];
                     }
+                    Mods.Network.NetShotSourceJournal.GrantAmmo(this, slot, amount);
                     // todo: update story save
                     break;
                 case ItemType.VoltDriver:
@@ -1492,6 +1495,7 @@ namespace MphRead.Entities
                     pickedUp = true;
                     _timeSincePickup = 0;
                     _doubleDmgTimer = 900 * 2; // todo: FPS stuff
+                    Mods.Network.NetShotSourceJournal.SetDouble(this, 900 * 2);
                     if (IsMainPlayer)
                     {
                         _soundSource.PlayFreeSfx(SfxId.DOUBLE_DAMAGE_POWER_UP);
@@ -1546,6 +1550,7 @@ namespace MphRead.Entities
                         _ammoMax[1] += 100;
                         _ammoRecovery[1] = _ammoMax[1] - _ammo[1];
                         _scene.GameState.StorySave.AmmoMax[1] = _ammoMax[1];
+                        Mods.Network.NetShotSourceJournal.Invalidate(this);
                         if (IsMainPlayer)
                         {
                             // MISSILE EXPANSION FOUND your MISSILE capacity is increased by 10 UNITS.
@@ -1561,6 +1566,7 @@ namespace MphRead.Entities
                         _ammoMax[0] += 300;
                         _ammoRecovery[0] = _ammoMax[0] - _ammo[0];
                         _scene.GameState.StorySave.AmmoMax[0] = _ammoMax[0];
+                        Mods.Network.NetShotSourceJournal.Invalidate(this);
                         if (IsMainPlayer)
                         {
                             // UA EXPANSION FOUND your UNIVERSAL AMMO capacity is increased by 30 UNITS.
@@ -1577,14 +1583,11 @@ namespace MphRead.Entities
                     break;
                 default:
                     pickedUp = true;
+                    Mods.Network.NetShotSourceJournal.Invalidate(this);
                     break;
                 }
                 if (pickedUp)
                 {
-                    if (item.ItemType is ItemType.UASmall or ItemType.UABig or ItemType.MissileSmall or ItemType.MissileBig
-                        or ItemType.VoltDriver or ItemType.Battlehammer or ItemType.Imperialist or ItemType.Judicator
-                        or ItemType.Magmaul or ItemType.ShockCoil or ItemType.OmegaCannon or ItemType.AffinityWeapon
-                        or ItemType.DoubleDamage) Mods.Network.NetShotProof.SourceChanged(this);
                     item.OnPickedUp(this);
                 }
             }
@@ -1615,6 +1618,7 @@ namespace MphRead.Entities
                 if (Hunter == Hunter.Samus || Hunter == Hunter.Guardian) // game doesn't check for Guardian
                 {
                     _ammo[1] = Math.Min(_ammo[1] + 50, _ammoMax[1]);
+                    Mods.Network.NetShotSourceJournal.GrantAmmo(this, 1, 50);
                     if (IsMainPlayer && Sfx.TimedSfxMute == 0)
                     {
                         _soundSource.PlayFreeSfx(SfxId.AMMO_POWER_UP1);
@@ -1693,6 +1697,9 @@ namespace MphRead.Entities
             {
                 _soundSource.PlayFreeSfx(SfxId.AMMO_POWER_UP1);
             }
+            // Native shared-pool pickups refill toward 60. Never sample the owner's reported ammo.
+            if (UsesBalancedImperialistAmmo(weapon)) Mods.Network.NetShotSourceJournal.Invalidate(this);
+            else Mods.Network.NetShotSourceJournal.GrantWeapon(this, weapon, info.AmmoType, 60);
         }
 
         private static readonly int[] _healthPickupAmounts = new int[3] { 30, 60, 100 };

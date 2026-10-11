@@ -1311,6 +1311,12 @@ namespace MphRead.Mods.Network
                                 NetSession.NetFrame, MaxGraceFrames, out _, claim.ShotId, key, claim.ComponentId, NetShotProof.Kind(claim.Flags))))
                     {
                         DuplicateHere++;
+                        if (NetShotProof.Mode == ShotProofMode.Enforce)
+                        {
+                            NetShotProof.Observe(shooterSlot, claim,
+                                HitVerdictPacket.ResultDuplicate, "authority-match", final: true);
+                            NetShotProof.MarkClaim(shooterSlot, claim);
+                        }
                         // Do not replace a present-life claim's answer when an
                         // earlier life reused its ClaimId. Full shot keys remain distinct.
                         bool cache = _seenIds[shooterSlot, seenAt] != claim.ClaimId
@@ -1369,6 +1375,8 @@ namespace MphRead.Mods.Network
                 _seenOutcomes[shooterSlot, claimAt] = new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot, VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId };
                 byte immediate = Judge(shooterSlot, claim);
                 var proof = NetShotProof.Observe(shooterSlot, claim, immediate, "arrival");
+                if (NetShotProof.Mode == ShotProofMode.Enforce && AnswerPhysicalOutcome(shooterSlot, claim))
+                    continue;
                 if (NetShotProof.Mode == ShotProofMode.Enforce && proof.Status == ShotProofStatus.Rejected)
                     immediate = HitVerdictPacket.ResultRefused;
                 if (immediate != HitVerdictPacket.ResultApplied)
@@ -1719,6 +1727,17 @@ namespace MphRead.Mods.Network
             Frame=entry.ContinuousPhase
         };
 
+        // Exact paid identity authorizes only acknowledgement of immutable native
+        // state. Claimed damage, headshot, afflictions and impulse never enter it.
+        private static bool AnswerPhysicalOutcome(int slot, in HitClaimPacket claim)
+        {
+            if (!NetShotProof.TryPhysicalOutcome(slot, claim, out var outcome)) return false;
+            NetShotProof.MarkClaim(slot, claim);
+            DuplicateHere++;
+            Answer(slot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: outcome);
+            return true;
+        }
+
         private static void Park(int shooterSlot, in HitClaimPacket claim)
         {
             int index = -1;
@@ -1914,6 +1933,18 @@ namespace MphRead.Mods.Network
                         NetPlayerLifecycle.OldLifeClaims++;
                         continue;
                     }
+                    var paidClaim = ProofClaim(entry);
+                    if (NetShotProof.Mode == ShotProofMode.Enforce
+                        && NetShotProof.TryPhysicalOutcome(entry.ShooterSlot, paidClaim, out var paidOutcome))
+                    {
+                        NetShotProof.Observe(entry.ShooterSlot, paidClaim,
+                            HitVerdictPacket.ResultDuplicate, "authority-match", final: true);
+                        AnswerPhysicalOutcome(entry.ShooterSlot, paidClaim);
+                        DeactivatePending(ref entry);
+                        NoteAgreement(entry.ShooterSlot, entry.VictimSlot, entry.Beam,
+                            entry.Damage, paidOutcome.DamageApplied);
+                        continue;
+                    }
                     int resolved;
                     if (entry.ContinuousPhase != 0
                         ? TakeContinuousLedger(entry.ShooterSlot, entry.VictimSlot, entry.ContinuousPhase, out resolved)
@@ -1930,7 +1961,7 @@ namespace MphRead.Mods.Network
                         var proofClaim = ProofClaim(entry);
                         var proof = NetShotProof.Observe(entry.ShooterSlot, proofClaim,
                             HitVerdictPacket.ResultDuplicate, "authority-match", final: true);
-                        if (NetShotProof.Mode != ShotProofMode.Enforce || proof.Status == ShotProofStatus.Verified)
+                        if (NetShotProof.Mode != ShotProofMode.Enforce)
                             ReconcileImperialistHeadshot(ref entry, resolved);
                         NetShotProof.MarkClaim(entry.ShooterSlot, proofClaim);
                         DeactivatePending(ref entry);
@@ -2059,6 +2090,15 @@ namespace MphRead.Mods.Network
                 NetPlayerLifecycle.OldLifeClaims++;
                 return;
             }
+            var paidClaim = ProofClaim(entry);
+            if (NetShotProof.Mode == ShotProofMode.Enforce
+                && NetShotProof.TryPhysicalOutcome(shooterSlot, paidClaim, out _))
+            {
+                NetShotProof.Observe(shooterSlot, paidClaim,
+                    HitVerdictPacket.ResultDuplicate, "settlement", final: true);
+                AnswerPhysicalOutcome(shooterSlot, paidClaim);
+                return;
+            }
             if (victimSlot >= PlayerEntity.Players.Count
                 || shooterSlot >= PlayerEntity.Players.Count)
             {
@@ -2097,10 +2137,14 @@ namespace MphRead.Mods.Network
             {
                 // A physical witness authorizes acknowledgement of that existing
                 // resolution, never another payment after the legacy match ring expires.
+                if (proof.PhysicalMatch)
+                {
+                    if (!AnswerPhysicalOutcome(shooterSlot, proofClaim))
+                        Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultRefused);
+                    return;
+                }
                 if (!NetShotProof.MarkClaim(shooterSlot, proofClaim))
                 { Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultClaimCapacity); return; }
-                if (proof.PhysicalMatch)
-                { Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultDuplicate); return; }
             }
             if (!CanRememberRescue(shooterSlot, victimSlot, entry.ShotId)
                 || (_ledgerUnsafeUntil[shooterSlot, victimSlot] != 0

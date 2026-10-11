@@ -637,6 +637,7 @@ namespace MphRead.Mods.Network
                         _continuousIntent.ContinuousFireTick = owner.ModContinuousFireTick;
                         _continuousIntent.HasContinuousFireTick = true;
                     }
+                    NetShotInputHistory.Fill(NetSession.NetFrame, ShotKey.For(owner.SlotIndex, 0), ref _continuousIntent);
                     NetSession.SendIntent(_continuousIntent);
                 }
             }

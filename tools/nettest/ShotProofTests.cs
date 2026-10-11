@@ -44,20 +44,38 @@ internal static class ShotProofTests
         NetHitClaims.Tick(); Record();
         NetShotProof.Seed(_shooter, source ?? Source());
     }
+    private static int NativeWeaponIndex(BeamType weapon)
+        => (int)weapon + (Weapons.GetAffinityBeam(_shooter.Hunter) == weapon ? 9 : 0);
     private static BeamProjectileEntity Emit(BeamType weapon = BeamType.Imperialist, byte charge = 0,
-        uint modifiers = 0, Vector3? ray = null, bool preserve = false, Vector3? ownerAim = null, uint? sourceFrame = null)
+        uint modifiers = 0, Vector3? ray = null, bool preserve = false, Vector3? ownerAim = null, uint? sourceFrame = null,
+        bool? affinity = null)
     {
         if (!preserve) foreach (var old in _shooter.EquipInfo.Beams) old.Lifespan = 0;
         var direction = ray ?? _direction;
         uint source = sourceFrame ?? _frame;
         var aim = ownerAim ?? direction.Normalized();
+        if (affinity ?? Weapons.GetAffinityBeam(_shooter.Hunter) == weapon)
+            modifiers |= FireEvent.AffinityStateBit;
+        else if (affinity.HasValue) modifiers &= ~FireEvent.AffinityStateBit;
         var fire = new FireEvent(++_id, source, _frame, 0, FireEventKind.PressFire,
             (byte)weapon, charge, modifiers, FireEvent.FlagPose, _shooter.Position + Vector3.UnitY * .5f,
             direction, aim, aim, SourceLife: NetPlayerLifecycle.Get(0));
         var packet = new IntentPacket { MatchId = NetSession.CurrentMatchId, AuthorityEpoch = NetSession.AuthorityEpoch,
             SlotGeneration = NetPlayerLifecycle.Generation(0), LifeId = NetPlayerLifecycle.Get(0),
-            Frame = source, AckFrame = _frame, Position = _shooter.Position, Aim = aim,
+            Frame = source, AckFrame = _frame, Position = _shooter.Position, Aim = aim, WeaponSelect = (byte)weapon,
             Buttons = IntentButtons.InPlayState, HasFireEvents = true, FireEventCount = 1 };
+        if (weapon == BeamType.Imperialist || charge <= 1)
+        {
+            // Ordinary fixtures provide a real press edge and a weapon reset for scope.
+            // Charged Missile fixtures deliberately omit the unproven hold history.
+            packet.ShotInputCount = 2;
+            packet.ShotInputs[1] = ShotInputHistory.Sample((byte)BeamType.PowerBeam,
+                shoot: false, physicalZoom: false, eligible: true);
+            packet.ShotInputs[0] = ShotInputHistory.Sample((byte)weapon,
+                shoot: true, physicalZoom: fire.ScopedAtFire, eligible: true);
+            packet.Buttons |= IntentButtons.Shoot;
+            if (fire.ScopedAtFire) packet.Buttons |= IntentButtons.Zoom;
+        }
         packet.FireEvents[0] = fire;
         NetShotProof.ObservePose(_shooter, packet);
         Check(NetFireEvents.Accept(0, packet), "actual carrier admitted");
@@ -136,7 +154,7 @@ internal static class ShotProofTests
         Prepare(Source(ammo1: 0)); beam = Emit(BeamType.Missile);
         Decision(Claim(beam), ShotProofStatus.Rejected, ShotProofReason.Ammunition, "empty source ammo");
         Prepare(Source(charges: 0));
-        byte missileCharge = (byte)(_shooter.OwningScene.WeaponRules[(int)BeamType.Missile].FullCharge * 2);
+        byte missileCharge = (byte)(_shooter.OwningScene.WeaponRules[NativeWeaponIndex(BeamType.Missile)].FullCharge * 2);
         beam = Emit(BeamType.Missile, charge: missileCharge);
         Decision(Claim(beam), ShotProofStatus.Rejected, ShotProofReason.InvalidCharge, "authority source excludes charge upgrade");
         Prepare(); beam = Emit(BeamType.Missile, charge: missileCharge);
@@ -144,6 +162,9 @@ internal static class ShotProofTests
             "charged Missile needs independently verified hold/release history");
         Prepare(); beam = Emit(modifiers: FireEvent.DoubleStateBit);
         Decision(Claim(beam), ShotProofStatus.Rejected, ShotProofReason.ModifierMismatch, "fabricated double damage modifier");
+        Prepare(); beam = Emit(BeamType.Missile, affinity: false);
+        Decision(Claim(beam), ShotProofStatus.Rejected, ShotProofReason.ModifierMismatch,
+            "missing native Samus Missile affinity modifier");
         Prepare(); beam = Emit(ray: _direction * 2);
         Decision(Claim(beam), ShotProofStatus.Rejected, ShotProofReason.InvalidRay, "nonunit original emitted ray");
         Prepare(); beam = Emit(ray: -_direction, ownerAim: _direction);
@@ -157,7 +178,7 @@ internal static class ShotProofTests
         Prepare(); Emit(); beam = Emit(preserve: true, sourceFrame: _frame - 1);
         Decision(Claim(beam), ShotProofStatus.Rejected, ShotProofReason.FireRate,
             "late older event inside newer fired shot cooldown");
-        int missileCost = _shooter.OwningScene.WeaponRules[(int)BeamType.Missile].AmmoCost;
+        int missileCost = _shooter.OwningScene.WeaponRules[NativeWeaponIndex(BeamType.Missile)].AmmoCost;
         Prepare(Source(ammo1: missileCost)); Emit(BeamType.Missile);
         beam = Emit(BeamType.Missile, preserve: true, sourceFrame: _frame - 50);
         Decision(Claim(beam), ShotProofStatus.Rejected, ShotProofReason.Ammunition,
@@ -257,7 +278,7 @@ internal static class ShotProofTests
             $"actual ricochet child impact source={ricochetProof.Source} geometry={ricochetProof.Geometry} status={ricochetProof.Status} family={ricochetProof.Family}");
 
         Prepare();
-        byte charge = (byte)(_shooter.OwningScene.WeaponRules[(int)BeamType.Missile].FullCharge * 2);
+        byte charge = (byte)(_shooter.OwningScene.WeaponRules[NativeWeaponIndex(BeamType.Missile)].FullCharge * 2);
         // MP Missile homing belongs to the Samus affinity row; the ordinary row has none.
         var homing = Emit(BeamType.Missile, charge: charge, modifiers: FireEvent.AffinityStateBit);
         Check(homing.Flags.TestFlag(BeamFlags.Homing) && homing.Target == _victim,
@@ -318,6 +339,85 @@ internal static class ShotProofTests
         }
         Check(Receive(original) == HitVerdictPacket.ResultDuplicate && _victim.Health == health,
             "mutated cached retries cannot replace valid original acknowledgement");
+        NetShotProof.Mode = ShotProofMode.Shadow;
+    }
+    private static void CanonicalPaidAcknowledgements()
+    {
+        bool Canonical(in CombatAckEntry ack, in CombatAckEntry paid, in HitClaimPacket claim)
+            => ack.Result == HitVerdictPacket.ResultDuplicate && ack.ClaimId == claim.ClaimId
+                && ack.ShotId == claim.ShotId && ack.VictimSlot == paid.VictimSlot
+                && ack.VictimGeneration == paid.VictimGeneration && ack.VictimLife == paid.VictimLife
+                && ack.DamageApplied == paid.DamageApplied && ack.HealthAfter == paid.HealthAfter
+                && ack.HalfturretHealthAfter == paid.HalfturretHealthAfter
+                && ack.DamageSequence == paid.DamageSequence && ack.Flags == paid.Flags;
+        foreach (int mutation in new[] { 0, 1, 2, 3 })
+        {
+            NetShotProof.Mode = ShotProofMode.Shadow; Prepare(); var beam = Emit(BeamType.Missile); Collide(beam);
+            var claim = Claim(beam);
+            Check(NetShotProof.TryPhysicalOutcome(0, claim, out var paid), "real collision retains canonical outcome");
+            int health = _victim.Health; ushort sequence = NetDamage.Sequence(1); var speed = _victim.Speed;
+            var effects = (_victim.ModFrozen, _victim.ModBurning, _victim.ModDisrupted);
+            if (mutation == 0) claim.Direction += Vector3.UnitY * .08f;
+            else if (mutation == 1) claim.Flags |= HitClaimPacket.FlagFrozen | HitClaimPacket.FlagBurning | HitClaimPacket.FlagDisrupted;
+            else if (mutation == 2) claim.Damage = ushort.MaxValue;
+            else claim.Flags |= HitClaimPacket.FlagHeadshot;
+            NetShotProof.Mode = ShotProofMode.Enforce;
+            long verified = NetShotProof.Verified, rejected = NetShotProof.Rejected;
+            Check(Receive(claim) == HitVerdictPacket.ResultDuplicate && Canonical(_lastAck, paid, claim),
+                $"strict exact paid ACK ignores claimed impulse/effects/damage/head payload/{mutation}");
+            Check(NetShotProof.Verified == verified && NetShotProof.Rejected > rejected,
+                $"paid ACK preserves rejected payload diagnostics without verified inflation/{mutation}");
+            Check(_victim.Health == health && NetDamage.Sequence(1) == sequence && _victim.Speed == speed
+                && (_victim.ModFrozen, _victim.ModBurning, _victim.ModDisrupted) == effects
+                && NetHitClaims.AppliedHere == 0 && NetHitClaims.HeadshotCorrections == 0,
+                $"paid ACK never changes native damage, effects or impulse/{mutation}");
+            Check(Receive(claim) == HitVerdictPacket.ResultDuplicate && Canonical(_lastAck, paid, claim),
+                $"cached strict paid ACK retains immutable native outcome/{mutation}");
+            claim.ClaimId = ++_claimId;
+            Check(Receive(claim) == HitVerdictPacket.ResultDuplicate && Canonical(_lastAck, paid, claim)
+                && _victim.Health == health && NetDamage.Sequence(1) == sequence,
+                $"new claim ID acknowledges same payment without another hit/{mutation}");
+        }
+        NetShotProof.Mode = ShotProofMode.Shadow; Prepare(); var pendingBeam = Emit(BeamType.Missile);
+        var pending = Claim(pendingBeam); pending.Direction = Vector3.UnitY * .08f;
+        pending.Flags |= HitClaimPacket.FlagFrozen;
+        NetShotProof.Mode = ShotProofMode.Enforce;
+        byte[] packet = new byte[1 + HitClaimPacket.Size]; packet[0] = 1; pending.Write(packet.AsSpan(1));
+        NetHitClaims.Receive(0, packet);
+        Check(NetHitClaims.ClaimsPendingCurrent == 1, "unpaid projectile claim parks before native collision");
+        Collide(pendingBeam);
+        Check(NetShotProof.TryPhysicalOutcome(0, pending, out var pendingPaid), "pending claim gains actual native payment");
+        int pendingHealth = _victim.Health; ushort pendingSequence = NetDamage.Sequence(1); var pendingSpeed = _victim.Speed;
+        Check(Receive(pending) == HitVerdictPacket.ResultDuplicate && Canonical(_lastAck, pendingPaid, pending)
+            && NetHitClaims.ClaimsPendingCurrent == 0 && _victim.Health == pendingHealth
+            && NetDamage.Sequence(1) == pendingSequence && _victim.Speed == pendingSpeed && !_victim.ModFrozen,
+            "pending exact physical ACK discards forged effect and impulse without paying again");
+
+        NetShotProof.Mode = ShotProofMode.Shadow; Prepare(); var retainedBeam = Emit(BeamType.Missile); Collide(retainedBeam);
+        var retained = Claim(retainedBeam);
+        Check(NetShotProof.TryPhysicalOutcome(0, retained, out var retainedPaid), "expiry fixture records real payment");
+        int retainedHealth = _victim.Health; ushort retainedSequence = NetDamage.Sequence(1);
+        Frame(_frame + (uint)NetHitClaims.MaxGraceFrames + 1); NetShotProof.Mode = ShotProofMode.Enforce;
+        retained.Direction += Vector3.UnitY * .08f;
+        Check(Receive(retained) == HitVerdictPacket.ResultDuplicate && Canonical(_lastAck, retainedPaid, retained)
+            && _victim.Health == retainedHealth && NetDamage.Sequence(1) == retainedSequence,
+            "retained physical outcome ACK survives native ledger expiry");
+        foreach (int mutation in new[] { 0, 1, 2, 3 })
+        {
+            var forged = retained; forged.ClaimId = ++_claimId;
+            if (mutation == 0) forged.ComponentId += 10000;
+            else if (mutation == 1) forged.ComponentId = 0;
+            else if (mutation == 2) forged.Beam = (byte)BeamType.Imperialist;
+            else forged.Flags &= unchecked((byte)~HitClaimPacket.FlagDirect);
+            Check(Receive(forged) != HitVerdictPacket.ResultDuplicate && _victim.Health == retainedHealth
+                && NetDamage.Sequence(1) == retainedSequence,
+                $"strict retained paid ACK requires exact component, weapon and kind/{mutation}");
+        }
+        Frame(_frame + NetShotProof.Retention + 1); retained.ClaimId = ++_claimId;
+        Check(!NetShotProof.TryPhysicalOutcome(0, retained, out _)
+            && Receive(retained) != HitVerdictPacket.ResultDuplicate
+            && _victim.Health == retainedHealth && NetDamage.Sequence(1) == retainedSequence,
+            "expired physical evidence cannot authorize canonical ACK or damage");
         NetShotProof.Mode = ShotProofMode.Shadow;
     }
     private static void ComponentLineageBounds()
@@ -397,7 +497,8 @@ internal static class ShotProofTests
                     _base + Vector3.UnitY * .5f, _base + direction * 4 + Vector3.UnitY * .5f, _frame, out float wall) && wall == 1)
                 { _direction = direction; break; }
             Check(_direction.LengthSquared == 1, "asset fixture provides clear production collision lane");
-            NegativeCases(); PhysicalAndPaymentCases(); WeaponVariants(); StrictOldLifeIdentity(); ComponentLineageBounds(); BlockedWorld(); ShadowAndEnforcement();
+            Check(ShotInputProofTests.Run(_shooter) == 0, "independent physical input proof suite");
+            NegativeCases(); PhysicalAndPaymentCases(); WeaponVariants(); StrictOldLifeIdentity(); CanonicalPaidAcknowledgements(); ComponentLineageBounds(); BlockedWorld(); ShadowAndEnforcement();
             Check(sim.StepFailures == 0, "no simulation failures");
             Console.WriteLine($"PASS: {_checks} shot proof asset assertions"); return 0;
         }

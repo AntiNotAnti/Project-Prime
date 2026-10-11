@@ -28,6 +28,17 @@ namespace MphRead.NetTest
 
         private static int Main(string[] args)
         {
+            if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h"))
+            {
+                Console.WriteLine("Usage: nettest [host] [port]\n"
+                    + "  --shot-source-journal              Test independent authority resources and grant chronology.\n"
+                    + "  --shot-inputs                     Test live physical-input codec and bounded sender history.\n"
+                    + "  --compact-intents                 Test compact live intent transport and replay compatibility.\n"
+                    + "  --shot-proof-scene <assets> [room] Test shot proof with real scene assets.");
+                return 0;
+            }
+            if (args.Length > 0 && args[0] == "--shot-source-journal") return ShotSourceJournalTests.Run();
+            if (args.Length > 0 && args[0] == "--shot-inputs") return ShotInputTests.Run();
             if (args.Length > 1 && args[0] == "--turret-events")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));

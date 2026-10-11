@@ -15,6 +15,7 @@ public partial class PlayerEntity
         NetShotProof.Seed(this,new ShotProofSource(weapons,charges,_ammo[0],_ammo[1],
             EquipInfo.InfiniteAmmo,Hunter,IsPrimeHunter,DoubleDamage,
             !_scene.GameState.BalancedMode && !_scene.GameState.OneInTheChamber
-                && _scene.GameState.Mode!=GameMode.GunGame && !Mods.EnhancedHunters.EnhancedHunters.Enabled(this)));
+                && _scene.GameState.Mode!=GameMode.GunGame && !Mods.EnhancedHunters.EnhancedHunters.Enabled(this),
+            AmmoMax0: _ammoMax[0], AmmoMax1: _ammoMax[1]));
     }
 }
