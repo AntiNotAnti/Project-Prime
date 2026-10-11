@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using MphRead.Entities;
 using MphRead.Mods.Network;
 
 namespace MphRead.NetTest;
@@ -30,13 +31,18 @@ internal static class ClaimStressTests
         typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, true);
         var savedMode = NetShotProof.Mode;
         var savedSink = NetHitClaims.CombatAckSink;
+        var players = PlayerEntity._players;
+        var savedPlayers = (PlayerEntity[])players.Clone();
         try
         {
             NetShotProof.Mode = ShotProofMode.Shadow;
+            // Packet-only actors need explicit registration for Tick's death tracking.
+            for (int i = 0; i < players.Length; i++) players[i] = HealthShotTests.Player(i);
+            var shooter = players[0];
+            var victim = players[1];
+            shooter.LoadFlags = victim.LoadFlags = LoadFlags.Active | LoadFlags.Spawned;
             // Establish the lifecycle/death baseline before the native hit is filed.
             Call("TrackDeaths");
-            var shooter = HealthShotTests.Player(0);
-            var victim = HealthShotTests.Player(1);
             var key = ShotKey.For(0, 28);
             ushort sequence = NetDamage.Note(victim, shooter, BeamType.Missile, 0, null,
                 amount: 32, launchFrame: 90, launchKey: key, componentId: 1,
@@ -82,6 +88,7 @@ internal static class ClaimStressTests
         }
         finally
         {
+            Array.Copy(savedPlayers, players, players.Length);
             NetHitClaims.CombatAckSink = savedSink; NetShotProof.Mode = savedMode;
             typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, false);
         }
