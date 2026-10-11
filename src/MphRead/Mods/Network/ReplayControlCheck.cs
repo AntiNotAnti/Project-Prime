@@ -122,6 +122,51 @@ namespace MphRead.Mods.Network
                     "resolved-shot server tick did not map backward on the recording clock");
                 Require(!ReplayPoseStream.TryMapServerTick(2, 1000, 990, out _),
                     "resolved-shot clock mapping underflowed before replay frame zero");
+                var priorClock = new[] { new ReplayPoseStream.ServerClockSample(500, 1000) };
+                Require(!ReplayPoseStream.TryScheduleShotFact(priorClock, 1004, 530, 501, out _),
+                    "future shot fact extrapolated from a prior-only snapshot prefix");
+                var firstUpperClock = priorClock.Append(
+                    new ReplayPoseStream.ServerClockSample(510, 1010)).ToArray();
+                Require(ReplayPoseStream.TryScheduleShotFact(firstUpperClock, 1004, 530, 501,
+                        out uint linearImpact) && linearImpact == 504,
+                    "first recorded upper snapshot did not map the exact impact frame");
+                var expandedClock = firstUpperClock.Concat(new[]
+                {
+                    new ReplayPoseStream.ServerClockSample(511, 1005),
+                    new ReplayPoseStream.ServerClockSample(512, 1010)
+                }).ToArray();
+                Require(ReplayPoseStream.TryScheduleShotFact(expandedClock, 1004, 530, 501,
+                        out uint expandedImpact) && expandedImpact == linearImpact,
+                    "later closer or duplicate upper snapshot changed the scheduled impact");
+                var restoredClock = new[]
+                {
+                    new ReplayPoseStream.ServerClockSample(500, 1000),
+                    new ReplayPoseStream.ServerClockSample(510, 1010),
+                    new ReplayPoseStream.ServerClockSample(511, 1005),
+                    new ReplayPoseStream.ServerClockSample(512, 1010)
+                };
+                Require(ReplayPoseStream.TryScheduleShotFact(restoredClock, 1004, 530, 501,
+                        out uint restoredImpact) && restoredImpact == linearImpact,
+                    "fresh restored full clock window disagreed with linear prefix playback");
+                var sparseClock = new[] { new ReplayPoseStream.ServerClockSample(650, 1125) };
+                Require(!ReplayPoseStream.TryScheduleShotFact(sparseClock, 1004, 530, 529, out _)
+                    && ReplayPoseStream.TryScheduleShotFact(sparseClock, 1004, 530, 530,
+                        out uint sparseImpact) && sparseImpact == 530,
+                    "out-of-range upper snapshot did not wait for exact carrier fallback");
+                Require(ReplayPoseStream.TryScheduleShotFact(
+                        new[] { new ReplayPoseStream.ServerClockSample(650, 1124) },
+                        1004, 530, 529, out uint boundaryImpact) && boundaryImpact == 530,
+                    "inclusive 120-tick upper snapshot mapping was lost");
+                var underflowClock = new[] { new ReplayPoseStream.ServerClockSample(2, 1010) };
+                Require(!ReplayPoseStream.TryScheduleShotFact(underflowClock, 1004, 530, 529, out _)
+                    && ReplayPoseStream.TryScheduleShotFact(underflowClock, 1004, 530, 530,
+                        out uint underflowFallback) && underflowFallback == 530,
+                    "underflowing impact mapping presented before carrier delivery");
+                Require(!ReplayPoseStream.TryMapServerTick(uint.MaxValue, 1000, 1004, out _)
+                    && !ReplayPoseStream.TryScheduleShotFact(
+                        new[] { new ReplayPoseStream.ServerClockSample(uint.MaxValue, 1000) },
+                        1004, uint.MaxValue, uint.MaxValue - 1, out _),
+                    "overflowing prior-clock extrapolation presented before carrier delivery");
                 var impactA = new ReplayShotFact(1, 1, 100, 90, 7, 10,
                     0, 1, 1, 1, 1, 1, (byte)BeamType.Missile,
                     ReplayShotFactFlags.Direct, 20, 79, 0, 0,
