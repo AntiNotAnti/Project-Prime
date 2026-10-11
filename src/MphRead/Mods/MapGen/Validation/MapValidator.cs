@@ -27,11 +27,15 @@ namespace MphRead.Mods.MapGen
         public static MapValidationResult Validate(MapDefinition d, bool checkSources = true)
         {
             var r = new MapValidationResult();
-            if (d.FormatVersion is < 1 or > 2) r.Error("FP-MAP-008", "Unsupported source format.");
+            if (d.FormatVersion is < 1 or > 3) r.Error("FP-MAP-008", "Unsupported source format.");
             if (!ValidRuntimeName(d.Name)) r.Error("FP-MAP-009", "Invalid runtime name.");
             if(d.Version?.Length>64||d.Author?.Length>256||d.InGameName?.Length>256||d.Description?.Length>8192)
                 r.Error("FP-MAP-008","Map metadata exceeds the supported length.");
-            if (d.FormatVersion == 2 && d.MapId == Guid.Empty) r.Error("FP-MAP-010", "Version 2 maps require a persistent ID.");
+            if (d.Q3Triggers != null && (d.FormatVersion != 3 || d.Q3Triggers.Count > 4096
+                || d.Q3Triggers.Any(t => !Q3Traversal.Valid(t) || t.Kind == "push" && !Q3Traversal.TryLaunch(t, out _))
+                || d.Q3Triggers.Select(t => t.SourceEntity).Distinct().Count() != d.Q3Triggers.Count))
+                r.Error("FP-MAP-008", "Q3 traversal requires valid, unique version-three trigger metadata.");
+            if (d.FormatVersion >= 2 && d.MapId == Guid.Empty) r.Error("FP-MAP-010", "Version 2 and 3 maps require a persistent ID.");
             if (d.ScaleFactor is < 0 or > 16) r.Error("FP-MAP-004", "Scale factor must be between 0 and 16.");
             if (!float.IsFinite(d.KillHeight) || Math.Abs(d.KillHeight) >= 524288)
                 r.Error("FP-MAP-011", "Kill height must fit the runtime fixed-point range.");

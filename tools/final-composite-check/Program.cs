@@ -5,6 +5,7 @@ using OpenTK.Graphics.OpenGL;
 using OpenTK.Windowing.Desktop;
 using G = MphRead.Mods.Render.GraphicsApi;
 
+Environment.SetEnvironmentVariable("PROJECT_PRIME_GL_PROFILE", "1");
 GraphicsBackendPolicy.Configure(args.Length == 0 ? "opengl" : args[0]);
 var settings = DesktopGlContext.Settings(background: true);
 settings.ClientSize = new(65, 33);
@@ -37,6 +38,7 @@ try { Check(ScreenCapture.SaveWindow(width, height, "unused.png") && encoded, "w
 finally { ScreenCapture.PngWriter = null; }
 try { FinalCompositeCapture.Read(8192, 8192); throw new Exception("readback budget ignored"); }
 catch (ArgumentOutOfRangeException) { Console.WriteLine("PASS bounded readback"); }
+RenderTransitionChecks.Run(width, height);
 Console.WriteLine($"FINALCOMPOSITE PASS actual={G.GetString(StringName.Renderer)} {G.GetString(StringName.Version)}");
 return 0;
 static void Check(bool ok, string name) { if (!ok) throw new Exception(name); Console.WriteLine("PASS " + name); }

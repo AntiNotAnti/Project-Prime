@@ -5,7 +5,7 @@ namespace MphRead.Entities;
 public partial class PlayerEntity
 {
     private ulong _movementValidationTeleportUntil;
-    internal void ModResetMovementValidation() => _movementValidationTeleportUntil = 0;
+    internal void ModResetMovementValidation() { _movementValidationTeleportUntil = 0; ModResetQ3Traversal(); }
     internal void ModNoteMovementValidationTeleport()
     {
         if (NetMovementValidationShadow.Enabled) _movementValidationTeleportUntil = _scene.FrameCount + 120;
@@ -20,6 +20,7 @@ public partial class PlayerEntity
             if (_movementValidationTeleportUntil != 0 && _scene.FrameCount <= _movementValidationTeleportUntil)
                 result |= MovementValidationExemption.Teleport;
             if (_standingEntCol != null) result |= MovementValidationExemption.Platform;
+            if (_q3LaunchGravity != 0) result |= MovementValidationExemption.JumpPad;
             if (_jumpPadControlLock > 0 || _timeSinceJumpPad <= 120 || Flags1.TestFlag(PlayerFlags1.UsedJumpPad))
                 result |= MovementValidationExemption.JumpPad;
             if (_accelerationTimer > 0 || _damageInvulnTimer > 0) result |= MovementValidationExemption.Impulse;

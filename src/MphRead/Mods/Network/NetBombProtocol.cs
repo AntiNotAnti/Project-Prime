@@ -77,6 +77,10 @@ public readonly record struct BombState(ShotKey Key, BombType Kind, uint PlacedF
 
 public readonly record struct BombEvent(ulong Sequence, uint Frame, BombEventKind Kind, byte Reason, BombState State)
 {
+    // Protocol 51: the detonation's reason byte carries the native authority
+    // contact result. Other event kinds retain their existing reason semantics.
+    public const byte OwnerJump = 1;
+    public bool HasOwnerJump => Kind == BombEventKind.Detonated && (Reason & OwnerJump) != 0;
     public const int Size = 98;
     public void Write(Span<byte> b)
     { if (b.Length < Size) throw new ArgumentException(nameof(b)); BinaryPrimitives.WriteUInt64LittleEndian(b, Sequence); BinaryPrimitives.WriteUInt32LittleEndian(b[8..], Frame); b[12] = (byte)Kind; b[13] = Reason; State.Write(b[14..]); }
@@ -85,6 +89,7 @@ public readonly record struct BombEvent(ulong Sequence, uint Frame, BombEventKin
         value = default; if (b.Length != Size) return false;
         var candidate = new BombEvent(BinaryPrimitives.ReadUInt64LittleEndian(b), BinaryPrimitives.ReadUInt32LittleEndian(b[8..]), (BombEventKind)b[12], b[13], BombState.ReadUnchecked(b[14..]));
         if (candidate.Sequence == 0 || candidate.Kind > BombEventKind.DetonateAccepted || !BombCodec.ValidKey(candidate.State.Key)
+            || candidate.Kind == BombEventKind.Detonated && (candidate.Reason & ~OwnerJump) != 0
             || (candidate.Kind is not (BombEventKind.Refused or BombEventKind.DetonateAccepted) && !candidate.State.IsValid)) return false;
         // Identity-only refusals carry no transform. A supplied transform must still be valid.
         if ((candidate.Kind is BombEventKind.Refused or BombEventKind.DetonateAccepted) && !candidate.State.IsValid

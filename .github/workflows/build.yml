@@ -200,8 +200,14 @@ jobs:
         run: |
           xvfb-run -a --server-args="-screen 0 640x480x24" \
             publish/opengl-linux/ProjectPrime -textureupdatecheck -renderer opengl
+      - name: HUD alpha draws and room fog program transitions
+        run: |
+          xvfb-run -a --server-args="-screen 0 640x480x24" \
+            dotnet run --project tools/final-composite-check -c Release -- opengl
       - name: Validate OpenGL capture evidence comparator
         run: python -m unittest discover -s tools/opengl-visual -v
+      - name: Validate reproducible baseline campaign planning
+        run: python tools/test-fruity-baseline.py
       - name: Validate OpenGL E/F benchmark evidence gate
         run: python -m unittest discover -s tools/opengl-phase4 -v
       - name: OpenGL depth, alpha, stencil and repeated-frame pixel fixtures
@@ -260,6 +266,8 @@ jobs:
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
       - run: dotnet run --project tools/desktop-pacing-check -c Release
+      - name: Android touch sampling and release between fixed steps
+        run: dotnet run --project tools/touchcheck -c Release
 
   renderer-policy-foundation:
     name: renderer state, lifecycle and low-latency policy
@@ -485,6 +493,7 @@ jobs:
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --lifecycle
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --health-shots
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --architecture
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --spectator-camera
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --bot-ai
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --lobby
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --custom-map-download
@@ -493,6 +502,7 @@ jobs:
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --protocol18
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --protocol19
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --continuous-targets
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --bomb-protocol
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --alt-hits
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --claim-stress
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --input-edges

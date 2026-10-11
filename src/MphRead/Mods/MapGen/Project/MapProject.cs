@@ -64,7 +64,7 @@ namespace MphRead.Mods.MapGen
         public static MapProject Upgrade(MapProject source)
         {
             MapDefinition copy = source.ToDefinition();
-            copy.FormatVersion = 2;
+            copy.FormatVersion = copy.Q3Triggers == null ? 2 : 3;
             if (copy.MapId == Guid.Empty) copy.MapId = Guid.NewGuid();
             foreach (var x in copy.Materials) if (x.Id == Guid.Empty) x.Id = Guid.NewGuid();
             foreach (var x in copy.Brushes) if (x.Id == Guid.Empty) x.Id = Guid.NewGuid();

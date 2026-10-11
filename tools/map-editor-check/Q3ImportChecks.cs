@@ -10,6 +10,7 @@ static class Q3ImportChecks
 {
     public static void Run(Action<bool, string> check, string root)
     {
+        Q3TraversalChecks.Run(check, root);
         string source = Path.Combine(root, "prime-fixture.bsp");
         string starts = "{\"classname\" \"info_player_deathmatch\" \"origin\" \"-64 -64 24\" \"angle\" \"0\"}\n"
             + "{\"classname\" \"info_player_start\" \"origin\" \"64 64 24\" \"angle\" \"90\"}\n";
@@ -52,6 +53,8 @@ static class Q3ImportChecks
         string texturedBundle = Path.Combine(root, "q3-textured.ppmap");
         MapPackageBuilder.Build(texturedMap, texturedBundle);
         var bundledTexturedMap = MapDefinition.Load(texturedBundle);
+        check(bundledTexturedMap.FormatVersion == 3 && bundledTexturedMap.Q3Triggers?.Count == 1,
+            "Q3 typed metadata survives version3 portable package");
         check(bundledTexturedMap.Import!.LoadTexturePack()?.Entries.Count == 1,
             "Q3 package carries its baked source texture pack");
         check(bundledTexturedMap.Import.ModernTextures.TryGetValue(0, out string? bundledHd)
@@ -72,16 +75,17 @@ static class Q3ImportChecks
         var compiled = MapCompiler.Compile(map);
         check(compiled.Map != null && compiled.Validation.IsValid,
             "synthetic Q3 floor, spawns and targeted jump pad compile for Prime: " + string.Join("; ",compiled.Validation.Diagnostics));
-        check(compiled.Map!.Definition.Spawns.Count == 2 && compiled.Map.Definition.JumpPads.Count == 1,
-            "Q3 compile creates one jump pad without duplicating starts");
+        check(compiled.Map!.Definition.Spawns.Count == 2 && compiled.Map.Definition.JumpPads.Count == 0 && compiled.Map.Definition.Q3Triggers?.Count == 1,
+            "Q3 compile retains typed push without native pad duplication");
         check(compiled.Validation.Diagnostics.Any(d => d.Code == "FP-MAP-023" && d.Message.Contains("trigger_teleport")),
             "Q3 unsupported traversal appears in build diagnostics");
-        var legacy = MapProjectSerializer.Clone(map); legacy.Spawns.Clear(); legacy.Import!.KeepSpawns = true;
+        var legacy = MapProjectSerializer.Clone(map); legacy.Q3Triggers = null; legacy.FormatVersion = 2; legacy.Spawns.Clear(); legacy.Import!.KeepSpawns = true;
         var legacyMap = Q3Import.Build(legacy, false);
+        check(legacyMap.Definition.JumpPads.Count == 1, "Q3 legacy format still compiles a native jump pad");
         check(legacyMap.Definition.Spawns.Select(s => s.Yaw).SequenceEqual(map.Spawns.Select(s => s.Yaw)),
             "Q3 legacy dynamic starts match editable converted starts");
         var repeated = MapCompiler.Compile(map);
-        check(repeated.Map!.Definition.Spawns.Count == 2 && repeated.Map.Definition.JumpPads.Count == 1
+        check(repeated.Map!.Definition.Spawns.Count == 2 && repeated.Map.Definition.JumpPads.Count == 0 && repeated.Map.Definition.Q3Triggers?.Count == 1
             && map.JumpPads.Count == 0, "Q3 repeated builds do not mutate source gameplay data");
 
         // Leave a valid pack whose shader ID no longer matches the source BSP.
@@ -108,10 +112,15 @@ static class Q3ImportChecks
         check(Q3Gameplay.Spawns(ctfBsp,16).Count == 0 && Q3Gameplay.Inspect(ctfBsp,16).Any(d => d.Message.Contains("cannot be imported")),
             "Q3 missing starts and broken pads remain explicit repair tasks");
         var noStarts = MapProjectSerializer.Clone(map);
+        noStarts.Q3Triggers = null; noStarts.FormatVersion = 2;
         noStarts.Spawns.Clear(); noStarts.Import!.Source = ctf; noStarts.Import.KeepSpawns = true;
         var noStartResult = MapCompiler.Compile(noStarts);
         check(!noStartResult.Validation.IsValid && noStartResult.Validation.Diagnostics.Any(d => d.Code == "FP-MAP-014"),
             "Q3 legacy map without any real starts cannot pass runtime validation");
+        noStarts.FormatVersion = 3; Q3Traversal.Initialize(noStarts);
+        var typedNoStartResult = MapCompiler.Compile(noStarts);
+        check(!typedNoStartResult.Validation.IsValid && typedNoStartResult.Validation.Diagnostics.Any(d => d.Code == "FP-MAP-014"),
+            "Q3 typed map without starts retains actionable spawn diagnostic");
         var noMaterials = MapProjectSerializer.Clone(map); noMaterials.Import!.Textures = null;
         var noMaterialResult = MapCompiler.Compile(noMaterials);
         check(!noMaterialResult.Validation.IsValid && noMaterialResult.Validation.Diagnostics.Any(d => d.Message.Contains("no materials")),
@@ -147,7 +156,7 @@ static class Q3ImportChecks
     }
 
     // Pure synthetic IBSP 46: one solid floor, its drawn top, and one push-trigger model.
-    private static void WriteBsp(string path, string entities)
+    internal static void WriteBsp(string path, string entities)
     {
         byte[][] lumps = Enumerable.Range(0,17).Select(_ => Array.Empty<byte>()).ToArray();
         void Lump(int index, Action<BinaryWriter> write)

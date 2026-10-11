@@ -1249,7 +1249,10 @@ namespace MphRead.Entities
                         && !IsUnmorphing && !Flags1.TestFlag(PlayerFlags1.Standing) && _timeSinceJumpPad > 5 * 2) // todo: FPS stuff
                     {
                         // fall damage
-                        int damage = (int)(Fixed.ToFloat(Values.FallDamageMax) * -(Speed.Y + damageSpeed) / 0.8f);
+                        // FallDamageMax is an HP scalar, unlike the fixed-point
+                        // speed threshold. Converting it as fixed point reduced
+                        // ordinary damaging landings to the one-HP minimum.
+                        int damage = (int)((float)Values.FallDamageMax * -(Speed.Y + damageSpeed) / 0.8f);
                         Debug.Assert(damage >= 0);
                         if (damage == 0)
                         {

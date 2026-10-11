@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using MphRead.Entities;
+using MphRead.Formats;
 using MphRead.Mods.Network;
 using MphRead.Mods.Multiplayer;
 using OpenTK.Mathematics;
@@ -609,10 +610,23 @@ internal static class ContinuousCombatTests
                 $"unpaid continuous source refusal preserves health and heal variant={variant}");
         }
     }
-    private static void RetainedCarrierEvent(bool latest = false, bool dead = false)
+    private static void CheckContinuousTrail(BeamProjectileEntity beam)
+    {
+        var scene = _owner.OwningScene;
+        var items = (System.Collections.Generic.List<RenderItem>)typeof(Scene)
+            .GetField("_nonDecalItems", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(scene)!;
+        int before = items.Count;
+        beam.GetDrawInfo();
+        Check(beam.DrawFuncId == 9 && items.Count == before + 1
+            && items[before].Type == RenderItemType.TrailMulti && items[before].ItemCount == 40
+            && items[before].Alpha > 0 && items[before].Points != null
+            && items[before].Points!.Take(40).All(p => float.IsFinite(p.X) && float.IsFinite(p.Y) && float.IsFinite(p.Z)),
+            "accepted targeted Shock Coil submits actual finite visible Draw09 trail geometry");
+    }
+    private static void RetainedCarrierEvent(bool latest = false, bool dead = false, bool queued = false, bool observer = false)
     {
         Prepare(); _owner.Hunter = Hunter.Sylux; _owner.ModArmWeapon(BeamType.ShockCoil); _owner.EquipInfo.InfiniteAmmo = true;
-        uint phase = (_frame - 2) & ~1u, shot = ++_shot;
+        uint phase = (_frame - (queued ? 16u : 2u)) & ~1u, shot = ++_shot;
         var weapon = _owner.OwningScene.WeaponRules[(int)BeamType.ShockCoil + 9];
         for (int i = 0; i < 32 && ContinuousWeaponPhase.Amount(weapon.UnchargedDamage, phase, true) == 0; i++) phase -= 2;
         Check(ContinuousWeaponPhase.Amount(weapon.UnchargedDamage, phase, true) > 0,
@@ -622,13 +636,24 @@ internal static class ContinuousCombatTests
             (byte)BeamType.ShockCoil, 0, phase, (byte)(FireEvent.FlagPose | 0x80),
             _owner.Position + Vector3.UnitY * .5f, _direction, _direction, _direction,
             SourceLife: NetPlayerLifecycle.Get(0), Target: target);
+        var firstFire = fire;
+        int expectedDamage = ContinuousWeaponPhase.Amount(weapon.UnchargedDamage, phase, true);
+        if (queued)
+        {
+            phase += 2; shot = ++_shot;
+            while (ContinuousWeaponPhase.Amount(weapon.UnchargedDamage, phase, true) == 0) phase += 2;
+            fire = fire with { ShotId = shot, SourceFrame = phase, ContinuousPhase = phase };
+            expectedDamage += ContinuousWeaponPhase.Amount(weapon.UnchargedDamage, phase, true);
+        }
         var carrier = new IntentPacket { MatchId = NetSession.CurrentMatchId, AuthorityEpoch = NetSession.AuthorityEpoch,
             SlotGeneration = NetPlayerLifecycle.Generation(0), LifeId = NetPlayerLifecycle.Get(0),
             Frame = _frame, AckFrame = _frame, Position = _owner.Position, Aim = -_direction,
             WeaponSelect = (byte)BeamType.ShockCoil, Buttons = IntentButtons.InPlayState | IntentButtons.Shoot,
             HasState = false, Target = NetTargetIdentity.ForSlot(2), HasContinuousFireTick = true,
             ContinuousFireTick = latest ? phase : phase + 2, HasFireEvents = true, FireEventCount = 1 };
-        carrier.FireEvents[0] = fire; NetSession.RemoteIntents[0] = carrier; NetSession.RemoteIntentValid[0] = true; NetSession.RemoteIntentArrived[0] = _frame;
+        carrier.FireEvents[0] = queued ? firstFire : fire;
+        if (queued) { carrier.FireEventCount = 2; carrier.FireEvents[1] = fire; }
+        NetSession.RemoteIntents[0] = carrier; NetSession.RemoteIntentValid[0] = true; NetSession.RemoteIntentArrived[0] = _frame;
         Check(NetFireEvents.Accept(0, carrier), "older unique continuous event accepted in newer carrier");
         typeof(PlayerEntity).GetField("_doubleDmgTimer", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(_owner, (ushort)1000);
         typeof(PlayerEntity).GetField("_shockCoilTimer", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(_owner, (ushort)240);
@@ -649,11 +674,79 @@ internal static class ContinuousCombatTests
             "retained event spawns with authored phase rather than newer carrier phase");
         Check(beam!.Target == _victim && beam.Target != _other,
             "retained event keeps authored victim rather than future carrier target");
+        if (observer)
+        {
+            Check(NetSession.Role == NetRole.Client && !NetSession.IsAuthority && NetSession.LocalSlot == 2,
+                "accepted observer fixture runs as independent nonauthority client");
+            int observerVictimHealth = _victim.Health, observerOwnerHealth = _owner.Health;
+            long observerPayments = NetContinuousPayments.LifetimePayments;
+            float observerAge = beam.Age;
+            Check(beam.Process() && beam.Lifespan > 0 && beam.Age == observerAge,
+                "actual client accepted spawn survives ordinary same-frame pass");
+            CheckContinuousTrail(beam);
+            Check(_victim.Health == observerVictimHealth && _owner.Health == observerOwnerHealth
+                && NetContinuousPayments.LifetimePayments == observerPayments,
+                "actual client accepted trail pass cannot resolve predicted pulse twice");
+            var observerScene = _owner.OwningScene;
+            var observerFrame = typeof(Scene).GetField("_frameCount", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            ulong at = observerScene.FrameCount;
+            try
+            {
+                observerFrame.SetValue(observerScene, at + 1);
+                Check(!beam.Process(), "actual client accepted trail retires without next-frame refresh");
+            }
+            finally { observerFrame.SetValue(observerScene, at); }
+            return;
+        }
         int victimHealth = _victim.Health, ownerHealth = _owner.Health;
-        Check(99 - victimHealth == ContinuousWeaponPhase.Amount(weapon.UnchargedDamage, phase, true),
+        Check(99 - victimHealth == expectedDamage,
             "retained authored no-double zero-ramp damage ignores later owner modifiers");
         Check(victimHealth < 99 && _other.Health == 99 && ownerHealth - 50 == 99 - victimHealth,
             "retained older event pays authored target and drain exactly once");
+        Check(NetContinuousPayments.LifetimePayments == paymentsBefore + (queued ? 2 : 1),
+            "each accepted positive continuous pulse commits exactly one payment");
+        float age = beam.Age, lifespan = beam.Lifespan;
+        long payments = NetContinuousPayments.LifetimePayments;
+        bool retainedInScene = false;
+        foreach (var entity in _owner.OwningScene.Entities) retainedInScene |= entity == beam;
+        Check(beam.Process() && beam.Lifespan == lifespan && beam.Age == age
+            && beam.Target == _victim && !beam.Flags.TestFlag(BeamFlags.Collided)
+            && retainedInScene,
+            "accepted continuous beam survives normal same-frame pass with visible targeted trail");
+        Check(_victim.Health == victimHealth && _owner.Health == ownerHealth
+            && NetContinuousPayments.LifetimePayments == payments,
+            "normal same-frame pass cannot resolve accepted pulses twice");
+        CheckContinuousTrail(beam);
+        var savedRole = NetSession.Role;
+        bool savedAuthority = NetSession.IsAuthority;
+        int savedLocal = NetSession.LocalSlot;
+        try
+        {
+            typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, NetRole.Client);
+            typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, false);
+            typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, 2);
+            Check(beam.Process() && beam.Lifespan == lifespan && beam.Age == age,
+                "client observer also preserves accepted beam through normal same-frame pass");
+            CheckContinuousTrail(beam);
+            Check(_victim.Health == victimHealth && _owner.Health == ownerHealth
+                && NetContinuousPayments.LifetimePayments == payments,
+                "client observer rendering cannot repay accepted damage or healing");
+        }
+        finally
+        {
+            typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, savedRole);
+            typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, savedAuthority);
+            typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, savedLocal);
+        }
+        var scene = _owner.OwningScene;
+        var frameField = typeof(Scene).GetField("_frameCount", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        ulong sceneFrame = scene.FrameCount;
+        try
+        {
+            frameField.SetValue(scene, sceneFrame + 1);
+            Check(!beam.Process(), "accepted continuous beam retires next scene step without refresh");
+        }
+        finally { frameField.SetValue(scene, sceneFrame); }
         Check(NetFireEvents.Accept(0, carrier), "repeated newer carrier remains admissible");
         Frame(_frame + 1); NetFireEvents.Prepare(_owner, carrier); NetFireEvents.DrainAccepted(_owner); Native(beam, 1);
         Check(_victim.Health == victimHealth && _owner.Health == ownerHealth && _other.Health == 99,
@@ -680,6 +773,23 @@ internal static class ContinuousCombatTests
             && history.Pending == 0 && history.ExpiredPending == 1,
             "retention expiry reports exact authored fire once and retires pending pulse");
     }
+    private static void ObserverAcceptedEvent()
+    {
+        var role = NetSession.Role; int local = NetSession.LocalSlot; bool authority = NetSession.IsAuthority;
+        try
+        {
+            typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, NetRole.Client);
+            typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, false);
+            typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, 2);
+            RetainedCarrierEvent(observer: true);
+        }
+        finally
+        {
+            typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, role);
+            typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, authority);
+            typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, local);
+        }
+    }
     public static int Run(string profile, string room)
     {
         var mode = NetShotProof.Mode; bool accepted = NetFireEvents.AcceptedPlaybackEnabled; var sim = new ServerSim();
@@ -697,8 +807,9 @@ internal static class ContinuousCombatTests
                     _base + direction * 4 + Vector3.UnitY * .5f, _frame, out float wall) && wall == 1)
                 { _direction = direction; break; }
             Check(_direction.LengthSquared == 1, "asset fixture provides clear continuous collision lane");
-            NativePaymentOnce(); SelectedTargetFence(); DeclinedAndCapped(); SplitAndBalanced(); ActualCollision(); ReservationAndLifetime(); ClaimAndNativeOrdering(); MalformedContinuousShape(); LocalAuthoredClock(); TerminalDeathOrdering(false); TerminalDeathOrdering(true); RampAfterFractionalDither(); FractionalHistoricalTarget(); PendingSourceSettlement(); DeferredContinuousHitRadius(); RefusedSources(); ExpiryCallback(); RetainedCarrierEvent(); RetainedCarrierEvent(latest: true); RetainedCarrierEvent(latest: true, dead: true);
+            NativePaymentOnce(); SelectedTargetFence(); DeclinedAndCapped(); SplitAndBalanced(); ActualCollision(); ReservationAndLifetime(); ClaimAndNativeOrdering(); MalformedContinuousShape(); LocalAuthoredClock(); TerminalDeathOrdering(false); TerminalDeathOrdering(true); RampAfterFractionalDither(); FractionalHistoricalTarget(); PendingSourceSettlement(); DeferredContinuousHitRadius(); RefusedSources(); ExpiryCallback(); RetainedCarrierEvent(); RetainedCarrierEvent(latest: true); RetainedCarrierEvent(queued: true); RetainedCarrierEvent(latest: true, dead: true);
             Check(sim.StepFailures == 0, "continuous asset simulation has no step failures");
+            ObserverAcceptedEvent();
             Console.WriteLine($"PASS: {_checks} continuous combat asset assertions ({profile})"); return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }

@@ -25,6 +25,15 @@ internal static class BombProtocolTests
         var refusal = new BombEvent(2, 20, BombEventKind.Refused, 3, default(BombState) with { Key = State(2).Key }); byte[] refused = new byte[BombEvent.Size]; refusal.Write(refused); Check(BombEvent.TryRead(refused, out var r) && r == refusal, "identity refusal");
         var detonateAccepted = refusal with { Kind = BombEventKind.DetonateAccepted }; detonateAccepted.Write(refused);
         Check(BombEvent.TryRead(refused, out var accepted) && accepted == detonateAccepted, "identity detonate acceptance");
+        var jump = new BombEvent(3, 21, BombEventKind.Detonated, BombEvent.OwnerJump, State(3));
+        jump.Write(refused);
+        Check(BombEvent.TryRead(refused, out var jumping) && jumping == jump && jumping.HasOwnerJump,
+            "authority owner jump roundtrips without changing terminal size");
+        (jump with { Reason = 2 }).Write(refused);
+        Check(!BombEvent.TryRead(refused, out _), "unknown detonation outcome rejected");
+        (jump with { Reason = 0 }).Write(refused);
+        Check(BombEvent.TryRead(refused, out var legacy) && !legacy.HasOwnerJump,
+            "historical protocol 48-50 terminal remains readable without jump outcome");
         byte[] bad = new byte[BombState.Size]; (State(1) with { Position = new Vector3(float.NaN, 0, 0) }).Write(bad); Check(!BombState.TryRead(bad, out _), "nonfinite transform");
         (State(1) with { Up = Vector3.UnitZ }).Write(bad); Check(!BombState.TryRead(bad, out _), "degenerate basis");
         (State(1) with { Key = State(1).Key with { LifeId = 0 } }).Write(bad); Check(!BombState.TryRead(bad, out _), "invalid life");

@@ -42,11 +42,11 @@ namespace MphRead.Mods.Update
     /// </para>
     /// <para>
     /// What works instead needs no second process at all. A running program on
-    /// Linux holds its files by inode, not by name: the file can be unlinked
-    /// and a new one put at the same path, and the process carries on with
-    /// what it has open until it exits. So the new build is written over the
-    /// installation *by the server itself*, one atomic rename at a time, and
-    /// then the process exits and comes back as the new build.
+    /// Linux holds its files by inode, not by name: an original can be renamed
+    /// into a transaction backup without changing the bytes this process has
+    /// mapped. The shared release transaction verifies every incoming file,
+    /// journals replacement and rolls back failed publication. After commit,
+    /// this process exits and comes back as the new build.
     /// </para>
     /// <para>
     /// Windows refuses to delete a running image, and for a while that was
@@ -136,6 +136,13 @@ namespace MphRead.Mods.Update
             // sweeps was left by an update that has already happened, and a
             // server switched to -noautoupdate afterwards should not keep the
             // debris for ever.
+            // Healthy read-only installations still support -noautoupdate;
+            // recovery only needs a writable lock when a transaction exists.
+            if (Directory.Exists(Path.Combine(AppContext.BaseDirectory,
+                ".project-prime-update-transaction")))
+            {
+                ReleaseInstallation.Recover(AppContext.BaseDirectory);
+            }
             SweepOld(AppContext.BaseDirectory);
             if (!Enabled || Updater.Disabled)
             {
@@ -262,15 +269,9 @@ namespace MphRead.Mods.Update
         }
 
         /// <summary>
-        /// Put the staged build over this one and say whether to exit.
-        ///
-        /// Every file is written to a neighbouring name and then renamed into
-        /// place, which on both platforms is the one operation that either
-        /// happened or did not. A machine that loses power in the middle of
-        /// this comes back with a mix of two builds either way -- there is no
-        /// transaction across a whole directory -- but no single file is ever
-        /// a half-written one, which is the difference between a server that
-        /// refuses to start and one that starts and then behaves strangely.
+        /// Commit a verified release transaction while the server is empty.
+        /// Running images are renamed into backups, never overwritten. A failed
+        /// publication restores the previous files before continuing this process.
         /// </summary>
         private static bool Swap(string why)
         {
@@ -290,13 +291,11 @@ namespace MphRead.Mods.Update
             }
             catch (Exception ex)
             {
-                // Loud, because the installation may now be a mix of two
-                // builds and the staged one is still on disk to finish by
-                // hand. The server keeps running on what it has loaded, which
-                // is the old build in memory -- correct until it restarts.
-                Console.WriteLine($"[update] the copy failed: {ex.Message}");
-                Console.WriteLine($"[update] the new build is in {staged} -- "
-                    + $"copy it over {target} by hand");
+                // ReleaseInstallation rolls publication back before throwing.
+                // Preserve the staged payload and report any recovery failure
+                // through the transaction exception instead of claiming success.
+                Console.WriteLine($"[update] the release transaction failed: {ex.Message}");
+                DesktopUpdate.Diagnostic(target, "server release transaction failed: " + ex);
                 Staged = false;
                 return false;
             }
@@ -321,90 +320,11 @@ namespace MphRead.Mods.Update
             return true;
         }
 
-        /// <summary>
-        /// Copy <paramref name="source"/> over <paramref name="target"/> while
-        /// the target is in use.
-        ///
-        /// Getting the running program out of the way is the whole problem,
-        /// and the two platforms solve it differently.
-        ///
-        /// **Unix**: the delete is what makes this legal. Writing into a file
-        /// this process has mapped would corrupt the running program;
-        /// unlinking it and creating a new one at the same path does not touch
-        /// what is mapped at all -- the old inode stays alive, unnamed, until
-        /// the process exits. A POSIX guarantee.
-        ///
-        /// **Windows**: deleting a running image is refused, and this used to
-        /// stop there -- the copy failed, the operator was told to finish it
-        /// by hand, and the installation was left as a mix of two builds,
-        /// since every file enumerated before the executable had already been
-        /// replaced. A Windows server therefore never updated itself, which
-        /// stopped being cosmetic the moment a protocol bump made a stale
-        /// server one that refuses every client in the world.
-        ///
-        /// But Windows *does* allow a running image to be **renamed**: the
-        /// mapping follows the file, not the name, so moving it aside and
-        /// putting the new build at the old name is legal and atomic. The
-        /// leftover is deleted by the next start (<see cref="SweepOld"/>) --
-        /// it cannot be deleted by this one, which is still running out of it.
-        ///
-        /// So: delete where deleting works, rename aside where it does not,
-        /// and rename the new file into place either way.
-        /// </summary>
-        private static void ReplaceInPlace(string source, string target)
+        /// <summary>Shared verified publication and rollback boundary.</summary>
+        internal static void ReplaceInPlace(string source, string target,
+            Action<int>? afterMutation = null)
         {
-            // Client and server packages use the same ownership manifest. Any
-            // release-owned file removed by the new build is deleted before
-            // replacement, while settings/game data/replays remain outside the
-            // manifest and are never inferred as disposable.
-            DesktopUpdate.RemoveObsoleteReleaseFiles(source, target);
-            foreach (string path in Directory.EnumerateFiles(source, "*",
-                SearchOption.AllDirectories))
-            {
-                string relative = Path.GetRelativePath(source, path);
-                string destination = Path.Combine(target, relative);
-                string? directory = Path.GetDirectoryName(destination);
-                if (!String.IsNullOrEmpty(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
-                string incoming = destination + IncomingSuffix;
-                File.Copy(path, incoming, overwrite: true);
-                if (File.Exists(destination))
-                {
-                    Displace(destination);
-                }
-                File.Move(incoming, destination);
-                MakeExecutable(destination);
-            }
-        }
-
-        /// <summary>
-        /// Get one file out of the way: deleted if this machine will delete
-        /// it, renamed aside if it will not.
-        ///
-        /// The rename is tried second rather than first because a delete
-        /// leaves nothing behind and a rename leaves something for the next
-        /// start to tidy. On Unix the delete always works; on Windows it works
-        /// for every file except the ones this process is running out of,
-        /// which is exactly the set that has to be renamed.
-        /// </summary>
-        private static void Displace(string destination)
-        {
-            try
-            {
-                File.Delete(destination);
-                return;
-            }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
-            {
-                // In use. Fall through to the rename, and let *that* throw if
-                // this is a file nothing can do anything with -- a genuine
-                // permission problem should still reach the operator.
-            }
-            string aside = destination + OldSuffix;
-            File.Delete(aside); // no-op when it is not there; a stale one otherwise
-            File.Move(destination, aside);
+            ReleaseInstallation.Apply(source, target, afterMutation);
         }
 
         /// <summary>
@@ -482,24 +402,5 @@ namespace MphRead.Mods.Update
             }
         }
 
-        private static void MakeExecutable(string path)
-        {
-            if (OperatingSystem.IsWindows() || Path.GetExtension(path).Length > 0)
-            {
-                return;
-            }
-            try
-            {
-                File.SetUnixFileMode(path, File.GetUnixFileMode(path)
-                    | UnixFileMode.UserExecute | UnixFileMode.GroupExecute
-                    | UnixFileMode.OtherExecute);
-            }
-            catch (Exception)
-            {
-                // Not fatal here: the file is in place, and a mode that did not
-                // take is something the next start reports far more clearly
-                // than this line would.
-            }
-        }
     }
 }

@@ -241,6 +241,52 @@ internal static class InstallationChecks
         {
             for (int step = 1; step <= 6; step++)
             {
+                var fixture = Fixture("server-fault-" + step);
+                File.WriteAllText(Path.Combine(fixture.Target, "paths.txt"), "operator game data");
+                bool failed = false;
+                try
+                {
+                    ServerUpdate.ReplaceInPlace(fixture.Source, fixture.Target, count =>
+                    {
+                        if (count == step) throw new IOException("simulated server publication fault");
+                    });
+                }
+                catch (IOException) { failed = true; }
+                check(failed && Original(fixture.Target)
+                    && File.ReadAllText(Path.Combine(fixture.Target, "paths.txt")) == "operator game data",
+                    "server publication fault " + step + " restores owned files and preserves game paths");
+            }
+            var serverDigest = Fixture("server-digest");
+            File.WriteAllText(Path.Combine(serverDigest.Source, "a.dll"), "changed after staging");
+            bool serverDigestRejected = false;
+            try { ServerUpdate.ReplaceInPlace(serverDigest.Source, serverDigest.Target); }
+            catch (InvalidDataException) { serverDigestRejected = true; }
+            check(serverDigestRejected && Original(serverDigest.Target),
+                "server tampered payload is rejected before any publication");
+
+            var serverMapped = Fixture("server-mapped-image");
+            using (var oldImage = new FileStream(Path.Combine(serverMapped.Target, "a.dll"),
+                FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete))
+            {
+                ServerUpdate.ReplaceInPlace(serverMapped.Source, serverMapped.Target);
+                using var reader = new StreamReader(oldImage);
+                check(reader.ReadToEnd() == "old A"
+                    && File.ReadAllText(Path.Combine(serverMapped.Target, "a.dll")) == "new A",
+                    "server replacement preserves bytes held by the old running-image handle");
+            }
+            ReleaseInstallation.Recover(serverMapped.Target);
+
+            var serverSuccess = Fixture("server-success");
+            File.WriteAllText(Path.Combine(serverSuccess.Target, "paths.txt"), "operator game data");
+            ServerUpdate.ReplaceInPlace(serverSuccess.Source, serverSuccess.Target);
+            check(File.ReadAllText(Path.Combine(serverSuccess.Target, "a.dll")) == "new A"
+                && !File.Exists(Path.Combine(serverSuccess.Target, "obsolete.dll"))
+                && File.ReadAllText(Path.Combine(serverSuccess.Target, "paths.txt")) == "operator game data"
+                && File.ReadAllText(Path.Combine(serverSuccess.Target, "settings.json")) == "player settings",
+                "server transaction commits release ownership while preserving operator data");
+
+            for (int step = 1; step <= 6; step++)
+            {
                 var fixture = Fixture("fault-" + step);
                 bool failed = false;
                 try

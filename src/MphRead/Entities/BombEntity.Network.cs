@@ -92,7 +92,7 @@ namespace MphRead.Entities
             Effect?.Transform(Position, Transform);
         }
 
-        internal void ModPresentDetonation()
+        internal void ModPresentDetonation(bool ownerJump = false)
         {
             if (Flags.TestFlag(BombFlags.Exploded)) return;
             Flags = (Flags & ~BombFlags.Exploding) | BombFlags.Exploded;
@@ -111,9 +111,10 @@ namespace MphRead.Entities
             _soundSource.PlaySfx(SfxId.MORPH_BALL_BOMB);
             // The owner jump is a movement response to the accepted terminal,
             // never a client's independent bomb timer/contact decision.
-            if (ModReplica && !_scene.Services.IsReplica && NetSession.IsClient
+            if (ownerJump && ModReplica && !_scene.Services.IsReplica && NetSession.IsClient
                 && Owner.SlotIndex == NetSession.LocalSlot && Owner.IsAltForm
-                && NetBombs.Current(ModOwnerKey)) Owner.CheckHitByBomb(this, halfturret: false);
+                && Owner.Health > 0 && Owner.ModIsInPlay && !Owner.Flags2.TestFlag(PlayerFlags2.Spectating)
+                && NetBombs.Current(ModOwnerKey)) Owner.ModApplyBombJump(this);
         }
 
         internal void ModRemoveReplica()

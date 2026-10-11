@@ -245,6 +245,8 @@ jobs:
         run: dotnet run --project tools/updatecheck -c Release
       - name: release manifest portability regression
         run: python3 -m unittest discover -s tools -p 'test_release_manifest_writer.py'
+      - name: delivered server archive regressions
+        run: python3 -m unittest discover -s tools -p 'test_server_archive.py'
       - name: hosted lobby allocation protocol
         run: dotnet run --project tools/nettest/nettest.csproj -c Release -- --lobby
       - name: cook the map bundles
@@ -591,11 +593,12 @@ jobs:
 
             ./ProjectPrime -masterserver -port 27889
           NOTE
+          cp LICENSE publish/linux-arm64/LICENSE
           cp SERVER.md publish/linux-arm64/SERVER.md
           python3 tools/write-release-manifest.py publish/linux-arm64
           ( cd publish/linux-arm64 && tar czf "../../dist/ProjectPrime-$TAG-server-linux-arm64.tar.gz" . )
 
-          cp LICENSE publish/linux-x64-server/ 2>/dev/null || true
+          cp LICENSE publish/linux-x64-server/
           cat > publish/linux-x64-server/SERVER.txt <<'NOTE'
           Project Prime dedicated server, for a plain x64 Linux machine -- a
           VPS, a spare desktop, anything that is not a Raspberry Pi (see the
@@ -625,7 +628,7 @@ jobs:
           python3 tools/write-release-manifest.py publish/linux-x64-server
           ( cd publish/linux-x64-server && tar czf "../../dist/ProjectPrime-$TAG-server-linux-x64.tar.gz" . )
 
-          cp LICENSE publish/win-x64-server/ 2>/dev/null || true
+          cp LICENSE publish/win-x64-server/
           cat > publish/win-x64-server/SERVER.txt <<'NOTE'
           Project Prime dedicated server, for Windows.
 
@@ -665,6 +668,10 @@ jobs:
           python3 tools/write-release-manifest.py publish/win-x64-server
           ( cd publish/win-x64-server && zip -qr "../../dist/ProjectPrime-$TAG-server-win-x64.zip" . )
 
+          # Judge the delivered bytes and modes, then run the missing-data /
+          # directory contract from a fresh extraction outside the checkout.
+          python3 tools/check-server-archive.py "dist/ProjectPrime-$TAG-server-linux-x64.tar.gz" x64 --smoke
+          python3 tools/check-server-archive.py "dist/ProjectPrime-$TAG-server-linux-arm64.tar.gz" arm64
           ls -la dist
 
       - uses: actions/upload-artifact@v7

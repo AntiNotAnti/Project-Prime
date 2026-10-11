@@ -483,10 +483,9 @@ namespace MphRead
             _killHeight = meta.KillHeight;
             _farClip = meta.FarClip;
 
-            if (_shaderProgramId != 0)
-            {
-                SetShaderFog();
-            }
+            // Room metadata can change while a launcher/RTT/other scene's
+            // program is bound. Upload it at the next world-pass boundary,
+            // where this scene owns the current program and its locations.
         }
 
         private void SetShaderFog()
@@ -2574,7 +2573,7 @@ namespace MphRead
                 {
                     Mods.EndScreen.PollGamepad();
                 }
-                bool noPlayerInput = _inputMode == InputMode.CameraOnly
+                bool noPlayerInput = !HardwareInputReady || _inputMode == InputMode.CameraOnly
                     || Mods.PauseMenu.Open || Mods.Chat.ChatBox.Composing;
                 PlayerEntity.ProcessInput(this.Players, _keyboardState, _mouseState, noPlayerInput);
                 if (!noPlayerInput && !Mods.SpectatorMode.IsSpectating)
@@ -3823,20 +3822,10 @@ namespace MphRead
             }
         }
 
-        private const float _almostHalfPi = MathF.PI / 2 - 0.000001f;
-
         private void UpdateCameraRotation(float stepH, float stepV)
         {
-            float angleH = MathF.Atan2(_cameraFacing.X, -_cameraFacing.Z) + stepH;
-            float angleV = MathF.Asin(_cameraFacing.Y) + stepV;
-            angleV = Math.Clamp(angleV, -_almostHalfPi, _almostHalfPi);
-            _cameraFacing = new Vector3(
-                MathF.Cos(angleV) * MathF.Sin(angleH),
-                MathF.Sin(angleV),
-                -(MathF.Cos(angleV) * MathF.Cos(angleH))
-            ).Normalized();
-            _cameraRight = Vector3.Cross(_cameraFacing, Vector3.UnitY);
-            _cameraUp = Vector3.Cross(_cameraRight, _cameraFacing);
+            Mods.Input.SpectatorCameraMath.Rotate(ref _cameraFacing, out _cameraRight,
+                out _cameraUp, stepH, stepV, _freeCam, previousRight: _cameraRight);
         }
 
         public void StartCutscene(int id)
@@ -5299,6 +5288,7 @@ namespace MphRead
         private void UpdateUniforms()
         {
             UseRoomLights();
+            SetShaderFog();
             GL.Uniform1(_shaderLocations.UseFog, _hasFog && FogOn ? 1 : 0);
             GL.Uniform1(_shaderLocations.CelBands, Mods.RenderOptions.CelShading
                 ? Mods.RenderOptions.CelBands : 0);
@@ -6118,8 +6108,10 @@ namespace MphRead
 
         private void DrawHudLayer(LayerInfo info)
         {
-            ApplyCosmeticUniforms(default);
-            if (info.BindingId == -1)
+            // This is an RTT-program draw. Cosmetic locations belong to the
+            // world program, which is reset at BeginWorldPass; a hidden layer
+            // must not perform any uniform, texture, or geometry work.
+            if (info.BindingId == -1 || info.Alpha <= 0)
             {
                 return;
             }
@@ -7123,9 +7115,8 @@ localCenter *= _profileHudScale;
             {
                 _cameraFacing = -Vector3.UnitZ;
             }
-            _cameraFacing = _cameraFacing.Normalized();
-            _cameraRight = Vector3.Cross(_cameraFacing, Vector3.UnitY);
-            _cameraUp = Vector3.Cross(_cameraRight, _cameraFacing);
+            Mods.Input.SpectatorCameraMath.Rotate(ref _cameraFacing, out _cameraRight,
+                out _cameraUp, 0, 0, freeCamera: true, previousRight: _cameraRight);
             // Free cam owns its own projection. Do not carry the watched
             // player's scoped FOV into it, or leaving a zoomed spectator POV
             // permanently turns the roam camera into a sniper scope.
@@ -7153,29 +7144,10 @@ localCenter *= _profileHudScale;
 
         public void OnMouseMove(float deltaX, float deltaY)
         {
-            if ((_leftMouse || _freeCam) && AllowCameraMovement && _inputMode != InputMode.PlayerOnly)
+            if (HardwareInputReady && (_leftMouse || _freeCam) && AllowCameraMovement && _inputMode != InputMode.PlayerOnly)
             {
-                // The spectator's free camera is the player's look, so it
-                // obeys the player's settings.
-                //
-                // The /1.5 below is the model viewer's own feel and stays that
-                // for the viewer's Pivot and Roam cameras -- those are a tool,
-                // not a game. But the demo/spectator free camera is reached
-                // from a match, with the same mouse, and it ignored mouse
-                // sensitivity and both invert axes outright: turning it on
-                // changed how fast the view turned and which way up it went,
-                // with nothing in the settings able to say otherwise.
-                float sensitivity = 1f;
-                float invertX = 1f;
-                float invertY = 1f;
-                if (_freeCam)
-                {
-                    sensitivity = Mods.InputSettings.MouseSensitivity;
-                    invertX = Mods.InputSettings.InvertMouseX ? -1f : 1f;
-                    invertY = Mods.InputSettings.InvertMouseY ? -1f : 1f;
-                }
-                float moveX = deltaX * sensitivity * invertX;
-                float moveY = deltaY * sensitivity * invertY;
+                float moveX = deltaX;
+                float moveY = deltaY;
                 if (_cameraMode == CameraMode.Pivot)
                 {
                     _pivotAngleX += moveY / 1.5f;
@@ -7185,7 +7157,12 @@ localCenter *= _profileHudScale;
                 }
                 else if (_cameraMode == CameraMode.Roam)
                 {
-                    UpdateCameraRotation(MathHelper.DegreesToRadians(moveX / 1.5f), MathHelper.DegreesToRadians(-moveY / 1.5f));
+                    if (_freeCam)
+                    {
+                        var look = Mods.Input.SpectatorCameraMath.MouseLook(deltaX, deltaY);
+                        UpdateCameraRotation(look.Yaw, look.Pitch);
+                    }
+                    else UpdateCameraRotation(MathHelper.DegreesToRadians(moveX / 1.5f), MathHelper.DegreesToRadians(-moveY / 1.5f));
                 }
             }
         }
@@ -7675,8 +7652,22 @@ localCenter *= _profileHudScale;
 
         private InputMode _inputMode = InputMode.All;
 
+        private static readonly Mods.Input.HardwareFocusLatch _hardwareFocus = new();
+        internal void NoteHardwareFocusLost()
+        {
+            _hardwareFocus.LoseFocus();
+            _leftMouse = false;
+            Mods.SpectatorMode.NoteScoreboard(false);
+            int localSlot = Mods.Network.NetHooks.LocalSlot;
+            if (localSlot >= 0 && localSlot < Players.Items.Count)
+                Players.Items[localSlot].Controls.ClearAll();
+        }
+        internal bool HardwareInputReady => _hardwareFocus.Poll(Mods.Input.GamepadContexts.Focused,
+            _keyboardState.IsAnyKeyDown, _mouseState.IsAnyButtonDown);
+
         private void OnKeyHeld()
         {
+            if (!HardwareInputReady) return;
             if (_keyboardState.IsKeyDown(Keys.LeftAlt) || _keyboardState.IsKeyDown(Keys.RightAlt))
             {
                 if (!Mods.Network.DemoPlayback.IsActive)
@@ -7703,7 +7694,7 @@ localCenter *= _profileHudScale;
                     _cameraPosition -= _cameraFacing * moveStep;
                 }
                 if (_keyboardState.IsKeyDown(
-                    Mods.Network.DemoPlayback.IsActive ? Keys.E : Keys.Space)) // move up
+                    Mods.Input.SpectatorCameraMath.AscendKey(Mods.SpectatorMode.IsSpectating, Mods.Network.DemoPlayback.IsActive))) // move up
                 {
                     _cameraPosition = _cameraPosition.WithY(_cameraPosition.Y + moveStep);
                 }
@@ -9004,7 +8995,7 @@ localCenter *= _profileHudScale;
             var pointer = Mods.Input.WindowsPenInput.Read(MouseState, ClientSize.X, ClientSize.Y,
                 out bool independentPrimary);
             Mods.Input.PointerDevice.Update(pointer, ClientSize.X, ClientSize.Y, independentPrimary,
-                acceptsInput: IsFocused && !Mods.PauseMenu.Open && !Mods.Chat.ChatBox.Composing
+                acceptsInput: IsFocused && Scene.HardwareInputReady && !Mods.PauseMenu.Open && !Mods.Chat.ChatBox.Composing
                     && !GameState.MenuPause && !GameState.DialogPause && !Mods.EndScreen.Available);
             if (Mods.Input.StylusZone.Placing)
             {
@@ -9293,6 +9284,7 @@ localCenter *= _profileHudScale;
             Mods.Input.GamepadContexts.Focused = e.IsFocused;
             if (!e.IsFocused)
             {
+                _scene?.NoteHardwareFocusLost();
                 Mods.Replay.ReplayInput.CancelScrub();
                 Mods.Input.GamepadManager.ClearAll();
                 Mods.Input.GamepadInput.InvalidatePresentationAim();
@@ -9324,6 +9316,7 @@ localCenter *= _profileHudScale;
                 base.OnMouseDown(e);
                 return;
             }
+            if (_scene != null && !Scene.HardwareInputReady) { base.OnMouseDown(e); return; }
             if (Mods.Network.DemoPlayback.IsActive && !Mods.PauseMenu.Open
                 && e.Button == MouseButton.Right)
             {
@@ -9377,6 +9370,7 @@ localCenter *= _profileHudScale;
 
         protected override void OnMouseUp(MouseButtonEventArgs e)
         {
+            _ = _scene?.HardwareInputReady;
             if (e.Button == MouseButton.Button1
                 && Mods.Replay.ReplayInput.PointerUp(MouseState.X / Math.Max(ClientSize.X, 1))) return;
 #if MPHREAD_SHELL
@@ -9431,7 +9425,7 @@ localCenter *= _profileHudScale;
                 return;
             }
 #endif
-            if (Mods.PauseMenu.Open || Mods.Chat.ChatBox.Composing || Mods.EndScreen.Available
+            if (!Scene.HardwareInputReady || Mods.PauseMenu.Open || Mods.Chat.ChatBox.Composing || Mods.EndScreen.Available
                 || GameState.MenuPause || GameState.DialogPause)
             {
                 Scene.ModSetLateAim(0, 0);
@@ -9529,6 +9523,7 @@ localCenter *= _profileHudScale;
         /// </summary>
         protected override void OnKeyUp(KeyboardKeyEventArgs e)
         {
+            _ = _scene?.HardwareInputReady;
 #if MPHREAD_SHELL
             if (Mods.Launcher.Gui.Shell.UiVisible)
             {
@@ -9584,6 +9579,7 @@ localCenter *= _profileHudScale;
                 return;
             }
 #endif
+            if (_scene != null && !Scene.HardwareInputReady) { base.OnKeyDown(e); return; }
             // First, before anything else claims a key. While the chat prompt
             // is up every key belongs to it: Escape closes the prompt rather
             // than the match, Space types a space rather than jumping, and
@@ -9698,12 +9694,14 @@ localCenter *= _profileHudScale;
                 base.OnKeyDown(e);
                 return;
             }
+            // Space keeps the existing live spectator toggle; E ascends in both
+            // live and replay free cameras. Space in replay remains play/pause.
             // Space, while spectating a live match: toggle between the map/free
             // camera and the player view. Replay Space is handled above as
             // play/pause.
             if (e.Key == Keys.Space && Mods.SpectatorMode.IsSpectating)
             {
-                Mods.SpectatorMode.ToggleView();
+                if (!e.IsRepeat) Mods.SpectatorMode.ToggleView();
                 base.OnKeyDown(e);
                 return;
             }

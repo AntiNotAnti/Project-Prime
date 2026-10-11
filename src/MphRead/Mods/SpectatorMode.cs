@@ -50,7 +50,7 @@ namespace MphRead.Mods
         /// Owned by the scene, which is what actually holds the camera:
         /// <c>Scene.SetFreeCamera</c> reports the change here through
         /// <see cref="NoteFreeCamera"/> rather than this class trying to keep
-        /// a second copy of the truth. Space toggles it (see the render
+        /// a second copy of the truth. Space toggles it and E ascends (see the render
         /// window's key handling) and the first left click leaves it.
         /// </summary>
         public static bool FreeCamera { get; private set; }
@@ -209,7 +209,7 @@ namespace MphRead.Mods
         /// <summary>The input pass reporting the show-score button. See <see cref="ShowScoreboard"/>.</summary>
         internal static void NoteScoreboard(bool down)
         {
-            ShowScoreboard = down && IsSpectating;
+            ShowScoreboard = down && IsSpectating && Input.GamepadContexts.Focused;
         }
 
         /// <summary>The scene reporting what it did with the camera. See <see cref="FreeCamera"/>.</summary>

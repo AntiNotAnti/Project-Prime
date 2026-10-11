@@ -1,11 +1,21 @@
 # Final composite readback check
 
 Run `dotnet run --project tools/final-composite-check -c Release -- opengl`
-(or `metal` on a Mac with the supported native runtime). This requires a graphics
-session but no game files. The check deliberately uses an odd-width backbuffer,
+This uses the OpenGL-only renderer and requires a graphics session but no game files. The check deliberately uses an odd-width backbuffer,
 adds an overlay after the backdrop, changes the read framebuffer and pack
 alignment, and verifies pixels plus state restoration through the production API.
 It also verifies `ScreenCapture.SaveWindow` uses that same contract.
+
+The October 11 checks also exercise production HUD and fog entry points with a
+real GL context. Nonpositive-alpha texture layers issue zero draws/binds; visible
+layers retain their pixels, and a following mask remains active. A reproduced
+wrong-program fog upload leaves the scene uniforms stale; the corrected world
+boundary restores distinct authored fog settings after room changes and relinks.
+Set `PRIME_RENDER_CHECK_CAPTURES` to save synthetic hidden/visible HUD images.
+These checks passed on Apple M4 Pro, OpenGL 2.1 (Metal driver 91.7). Windows/Linux
+OpenGL and Android GLES device execution remain NOT RUN locally.
+
+## Historical evidence (retired backends; not current acceptance)
 
 Local evidence, October 1 2026: this check passed on Apple M4 Pro with OpenGL
 2.1 and native WebGPU Metal. The actual adapter/backend is printed. The existing

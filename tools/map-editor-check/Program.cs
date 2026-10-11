@@ -72,6 +72,8 @@ var doc = new MapDocument(new MapProject(definition));
 Check(doc.IsDirty, "new document dirty");
 string root = Path.Combine(Path.GetTempPath(), "prime-history-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
+string? previousQ3Cache = Pk3DiscoveryService.CacheDirectoryOverride;
+Pk3DiscoveryService.CacheDirectoryOverride = Path.Combine(root, "isolated-q3-cache");
 try
 {
     // Exercise the launcher/runtime entry point, including its generation lease
@@ -252,6 +254,7 @@ try
     ModelImportChecks.Run(Check, root); ModelReimportChecks.Run(Check, root); ModelCollisionChecks.Run(Check, root);
     CustomCollisionChecks.Run(Check);
     Q3ImportChecks.Run(Check, root);
+    Pk3DiscoveryChecks.Run(Check, root);
     doc.Save(Path.Combine(root, "map.json"));
     var saved = doc.CurrentStateId;
     Check(!doc.IsDirty, "save clean");
@@ -1184,7 +1187,7 @@ try
 Console.WriteLine($"Map editor: {checks} checks passed.");
     if (args.Contains("--benchmark")) Benchmarks.Run();
 }
-finally { Directory.Delete(root, true); }
+finally { Pk3DiscoveryService.CacheDirectoryOverride = previousQ3Cache; Directory.Delete(root, true); }
 sealed class Counter(Action execute, Action undo, long bytes) : IMapEditCommand
 {
     public string Label => "Counter";

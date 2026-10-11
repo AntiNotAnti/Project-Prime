@@ -195,7 +195,7 @@ namespace MphRead.Mods.MapGen
 
         private static void ValidateManifest(MapPackageManifest manifest)
         {
-            if (manifest.Format != 2 || manifest.MapId == Guid.Empty
+            if (manifest.Format is not (2 or 3) || manifest.MapId == Guid.Empty
                 || !MapValidator.ValidRuntimeName(manifest.Name)
                 || manifest.Project != "project.json" || manifest.ContentHash?.Length != 64)
                 throw new InvalidDataException("Invalid package manifest or identity.");
@@ -238,7 +238,7 @@ namespace MphRead.Mods.MapGen
             MapPackageManifest manifest, MapDefinition definition)
         {
             if (definition.MapId != manifest.MapId || definition.Name != manifest.Name
-                || definition.FormatVersion != 2)
+                || definition.FormatVersion != manifest.Format)
                 throw new InvalidDataException("Manifest and project identities differ.");
             if (definition.Version != manifest.MapVersion
                 || definition.InGameName != manifest.DisplayName

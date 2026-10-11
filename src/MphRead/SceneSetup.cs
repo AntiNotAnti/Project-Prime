@@ -16,6 +16,7 @@ namespace MphRead
             LoadGame(string name, Scene scene, int playerCount = 0, BossFlags bossFlags = BossFlags.Unspecified,
             int nodeLayerMask = 0, int entityLayerId = -1)
         {
+            Mods.MapGen.Q3Traversal.Bind(scene, name);
             if (!scene.Services.IsReplica && Mods.Network.NetSession.Active)
                 Mods.Network.NetSession.ActiveMatchDefinition?.ApplyModifiers(scene.GameState);
             (RoomMetadata? metadata, int roomId) = Metadata.GetRoomByName(name);

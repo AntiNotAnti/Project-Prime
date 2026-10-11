@@ -114,8 +114,16 @@ namespace MphRead.Mods.MapGen
             {
                 using var input = File.OpenRead(source);
                 using var output = File.Create(beside);
-                byte[] buffer = new byte[81920]; int count;
-                while ((count = input.Read(buffer)) > 0) { cancellation.ThrowIfCancellationRequested(); output.Write(buffer, 0, count); }
+                long sourceLimit = Path.GetExtension(source).Equals(".bsp", StringComparison.OrdinalIgnoreCase)
+                    ? Pk3DiscoveryService.MaxEntryBytes : Pk3DiscoveryService.MaxArchiveBytes;
+                if (input.Length > sourceLimit) throw new InvalidDataException("Quake source exceeds the import size limit.");
+                byte[] buffer = new byte[81920]; int count; long copied = 0;
+                while ((count = input.Read(buffer)) > 0)
+                {
+                    cancellation.ThrowIfCancellationRequested(); copied += count;
+                    if (copied > sourceLimit) throw new InvalidDataException("Quake source grew beyond the import size limit.");
+                    output.Write(buffer, 0, count);
+                }
             }
 
             string texturePath = Path.Combine(directory, $"{prefix}.tex");
