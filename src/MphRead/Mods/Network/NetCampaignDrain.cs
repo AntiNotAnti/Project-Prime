@@ -68,7 +68,8 @@ internal static class NetCampaignDrain
         _lastPublish = now;
         _projectiles = _bombs = _pendingRespawns = _turrets = 0;
         foreach (var player in scene.Players.Items)
-            if (player.Hunter == MphRead.Formats.Hunter.Weavel
+            if (player.LoadFlags.TestFlag(LoadFlags.Active) && player.Health > 0
+                && player.Hunter == MphRead.Formats.Hunter.Weavel
                 && player.ModCaptureForm().TurretActive && player.Halfturret.Health > 0) _turrets++;
         if (Server && scene.GameState.MatchState == MatchState.InProgress)
         {
