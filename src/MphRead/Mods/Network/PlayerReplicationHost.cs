@@ -27,6 +27,8 @@ namespace MphRead.Mods.Network
         void ReplayDeath(PlayerEntity player);
         void NoteDeath(int slot);
         int HealthFor(PlayerEntity player, int health, bool local);
+        int HealthFor(PlayerEntity player, int health, bool local, ushort sampleSequence)
+            => HealthFor(player, health, local);
         bool SamplePosition(int slot, bool presentation, out Vector3 position, out bool alt);
         void StampAcknowledgement(ref IntentPacket intent);
     }
@@ -75,6 +77,9 @@ namespace MphRead.Mods.Network
         public void NoteDeath(int slot) => NetHitPrediction.NoteDeath(slot);
         public int HealthFor(PlayerEntity player, int health, bool local) => local
             ? NetHitPrediction.LocalHealthFor(player, health) : NetHitPrediction.HealthFor(player.SlotIndex, health);
+        public int HealthFor(PlayerEntity player, int health, bool local, ushort sampleSequence) => local
+            ? NetHitPrediction.LocalHealthFor(player, health, sampleSequence)
+            : NetHitPrediction.HealthFor(player.SlotIndex, health, sampleSequence);
         public bool SamplePosition(int slot, bool presentation, out Vector3 position, out bool alt) => presentation
             ? NetSmoothing.SamplePresentation(slot, out position, out alt) : NetSmoothing.Sample(slot, out position, out alt);
         public void StampAcknowledgement(ref IntentPacket intent)

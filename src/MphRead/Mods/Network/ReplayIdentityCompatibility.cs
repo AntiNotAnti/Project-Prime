@@ -150,9 +150,9 @@ internal static class ReplayIdentityCompatibility
             Require(header.PlayerCount <= 8);
             bool fast = type == PacketType.SnapshotFast;
             int oldSize = PlayerState.LegacySize - (fast ? 7 : 0);
-            int newSize = oldSize + Mods.EnhancedHunters.EnhancedHunterNetState.Size;
+            int newSize = fast ? oldSize + Mods.EnhancedHunters.EnhancedHunterNetState.Size : PlayerState.Size;
             int oldTail = SnapshotHeader.Size + header.PlayerCount * oldSize;
-            Require(body.Length >= oldTail);
+            Require(body.Length >= oldTail + (fast ? 0 : NetMatchTimeSync.Size + NetHealthSync.HeaderSize));
             byte[] expanded = new byte[converted.Length + header.PlayerCount * (newSize - oldSize)];
             converted[..(1 + SnapshotHeader.Size)].CopyTo(expanded);
             for (int i = 0; i < header.PlayerCount; i++)
@@ -162,6 +162,25 @@ internal static class ReplayIdentityCompatibility
                 expanded[offset + oldSize + 1] = byte.MaxValue;
             }
             body[oldTail..].CopyTo(expanded.AsSpan(1 + SnapshotHeader.Size + header.PlayerCount * newSize));
+            return expanded;
+        }
+
+        if (protocol is >= 29 and < 49 && type == PacketType.Snapshot)
+        {
+            var body = converted[1..];
+            Require(body.Length >= SnapshotHeader.Size);
+            var header = SnapshotHeader.Read(body);
+            Require(header.PlayerCount <= RosterPacket.MaxSlots);
+            int oldTail = SnapshotHeader.Size + header.PlayerCount * PlayerState.Protocol48Size;
+            Require(body.Length >= oldTail + NetMatchTimeSync.Size + NetHealthSync.HeaderSize);
+            byte[] expanded = new byte[converted.Length
+                + header.PlayerCount * (PlayerState.Size - PlayerState.Protocol48Size)];
+            converted[..(1 + SnapshotHeader.Size)].CopyTo(expanded);
+            for (int i = 0; i < header.PlayerCount; i++)
+                body.Slice(SnapshotHeader.Size + i * PlayerState.Protocol48Size, PlayerState.Protocol48Size)
+                    .CopyTo(expanded.AsSpan(1 + SnapshotHeader.Size + i * PlayerState.Size));
+            // The zero tail is Form.Unknown. Preserve every historical world byte.
+            body[oldTail..].CopyTo(expanded.AsSpan(1 + SnapshotHeader.Size + header.PlayerCount * PlayerState.Size));
             return expanded;
         }
 

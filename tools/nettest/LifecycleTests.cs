@@ -64,9 +64,8 @@ namespace MphRead.NetTest
         private static void Wire()
         {
             Check(NetUnlagged.PressAgeEnabled, "recovered trigger pulls include their age by default");
-            Check(PlayerState.Size == 145, "compact player wire size includes four damage events, jump-pad sequence and enhanced state");
-            Check(1 + SnapshotHeader.Size + PlayerState.Size * PlayerEntity.SlotCapacity <= NetConfig.MaxPacketSize
-                && NetConfig.MaxPacketSize <= 1472, "eight-player snapshot fits one Ethernet UDP datagram");
+            Check(PlayerState.Protocol48Size == 145 && PlayerState.Size == 173 && PlayerFormState.Size == 28, "canonical player state appends lifecycle-fenced form to unchanged protocol48 fields");
+            Check(Protocol17Tests.SplitSnapshotBudgets(), "canonical state uses bounded internal storage and split live/bootstrap datagrams");
             byte[] buffer = new byte[NetConfig.MaxPacketSize];
             var state = State(ushort.MaxValue, 99, 65400);
             state.SpawnProtected = true;

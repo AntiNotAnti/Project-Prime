@@ -77,7 +77,7 @@ namespace MphRead.Mods.Network
             public MapAvailabilityState MapAvailability;
             public double LastMapAvailability = double.NegativeInfinity;
             public uint LastMapAvailabilitySequence;
-            public readonly byte[][] Bootstrap = { new byte[1200], new byte[512], new byte[600] };
+            public readonly byte[][] Bootstrap = { new byte[1200], new byte[1200], new byte[600] };
             public readonly int[] BootstrapLengths = new int[3];
             public byte[][] BootstrapObjectives = Array.Empty<byte[]>();
             public byte[][] BootstrapBombs = Array.Empty<byte[]>();
@@ -2227,8 +2227,9 @@ namespace MphRead.Mods.Network
                 CareerPeerJoined(peer);
                 EverOccupied = true;
                 Log($"{packet.Sender} joined as slot {slot}");
-                if (Simulating && _lastSnapshotLength != 0)
-                    _transport?.Send(peer.EndPoint, PacketType.Snapshot, _lastSnapshot.AsSpan(0, _lastSnapshotLength));
+                // WorldLoaded/WorldBootstrap delivers the split, lifecycle-fenced
+                // baseline. The combined replay snapshot is not a live datagram.
+
             }
             peer.ClientId = clientId;
             peer.Spectating = spectating;

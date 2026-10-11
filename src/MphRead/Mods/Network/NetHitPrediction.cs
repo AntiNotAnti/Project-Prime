@@ -1258,7 +1258,7 @@ namespace MphRead.Mods.Network
         /// dead. A predicted kill goes through <c>TakeDamage</c> like any
         /// other and is held by <see cref="HeldDead"/> instead.
         /// </summary>
-        public static int HealthFor(int slot, int authorityHealth)
+        public static int HealthFor(int slot, int authorityHealth, ushort? sampleSequence = null)
         {
             EnsureLife(slot);
             if (!Enabled || slot < 0 || slot >= Slots)
@@ -1267,9 +1267,17 @@ namespace MphRead.Mods.Network
             }
             if (_ackHealthValid[slot])
             {
-                ushort latest = NetSession.RemoteStates[slot].DamageEventId;
+                ushort latest = sampleSequence ?? NetSession.RemoteStates[slot].DamageEventId;
                 ushort ackSequence = (ushort)_ackHealth[slot].DamageSequence;
-                if (latest == ackSequence || NetLifecycleTracker.Newer(latest, ackSequence)) _ackHealthValid[slot] = false;
+                if (latest == ackSequence || NetLifecycleTracker.Newer(latest, ackSequence))
+                {
+                    // Body and form samples travel independently. Retain the one
+                    // bounded outcome until both have caught up; a fast body ACK
+                    // must not expose an older slow turret-health sample again.
+                    var form = NetSession.RemoteStates[slot].Form;
+                    if (form.Phase != FormPhase.Unknown && (form.DamageEventId == ackSequence
+                        || NetLifecycleTracker.Newer(form.DamageEventId, ackSequence))) _ackHealthValid[slot] = false;
+                }
                 else authorityHealth = authorityHealth > 0 ? Math.Max(1, (int)_ackHealth[slot].HealthAfter) : 0;
             }
             // Authority healing or respawn releases the local presentation floor.
@@ -1408,7 +1416,7 @@ namespace MphRead.Mods.Network
         /// This machine's own health: the authority's number plus whatever its
         /// beam has drained since the authority last spoke.
         /// </summary>
-        public static int LocalHealthFor(PlayerEntity player, int authorityHealth)
+        public static int LocalHealthFor(PlayerEntity player, int authorityHealth, ushort? sampleSequence = null)
         {
             EnsureLife(player.SlotIndex);
             ReconcileDrain(player.SlotIndex);
@@ -1417,7 +1425,7 @@ namespace MphRead.Mods.Network
                 return authorityHealth;
             }
             int credit = DrainCurrentPoints;
-            authorityHealth = HealthFor(player.SlotIndex, authorityHealth);
+            authorityHealth = HealthFor(player.SlotIndex, authorityHealth, sampleSequence);
             // A self-kill this machine has already died is not undone by a
             // snapshot that has not heard about it. The branch in ApplyState
             // that spawns a player normally returns before this line while
@@ -1612,12 +1620,22 @@ namespace MphRead.Mods.Network
         public static long CombatAcks, DamageCorrections, HealthCorrections, HeadshotCorrections;
 
         internal static int TurretHealthFor(int slot, int health)
+            => TurretHealthFor(slot, health, (uint)slot < Slots ? NetSession.RemoteStates[slot].DamageEventId : (ushort)0);
+
+        internal static int TurretHealthFor(int slot, int health, ushort sampleSequence)
         {
             EnsureLife(slot);
             if ((uint)slot >= Slots || !_ackHealthValid[slot]) return health;
-            ushort latest = NetSession.RemoteStates[slot].DamageEventId;
             ushort sequence = (ushort)_ackHealth[slot].DamageSequence;
-            return latest == sequence || NetLifecycleTracker.Newer(latest, sequence) ? health : _ackHealth[slot].HalfturretHealthAfter;
+            return sampleSequence == sequence || NetLifecycleTracker.Newer(sampleSequence, sequence)
+                ? health : _ackHealth[slot].HalfturretHealthAfter;
+        }
+
+        internal static ushort TurretEvidenceSequenceFor(int slot, ushort sampleSequence)
+        {
+            if ((uint)slot >= Slots || !_ackHealthValid[slot]) return sampleSequence;
+            ushort ack = (ushort)_ackHealth[slot].DamageSequence;
+            return NetLifecycleTracker.Newer(ack, sampleSequence) ? ack : sampleSequence;
         }
 
         /// <summary>Retire the exact named prediction and reconcile its presentation outcome.</summary>
@@ -1666,8 +1684,10 @@ namespace MphRead.Mods.Network
                 var player = PlayerEntity._players[slot];
                 if (player != null && player.Health > 0)
                 {
-                    player.Health = Math.Max(1, HealthFor(slot, NetSession.RemoteStates[slot].Health));
+                    if (player.Hunter != Hunter.Weavel || player.OwningScene.PlayerReplication.CanReconcileFormHealth(player))
+                        player.Health = Math.Max(1, HealthFor(slot, NetSession.RemoteStates[slot].Health));
                     if (player.IsAltForm && player.Halfturret != null && _ackHealthValid[slot]
+                        && player.OwningScene.PlayerReplication.CanReconcileTurretHealth(player)
                         && ((ack.Flags & CombatAckFlags.HalfturretAffected) != 0 || NetSession.RemoteStates[slot].HalfturretActive))
                     {
                         player.Halfturret.Health = TurretHealthFor(slot, player.Halfturret.Health);

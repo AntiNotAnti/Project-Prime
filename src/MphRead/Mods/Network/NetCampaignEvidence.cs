@@ -25,6 +25,7 @@ internal static class NetCampaignEvidence
         ? 1048576 : 262144;
     private static readonly List<Shot> Shots = new();
     private static readonly List<Health> States = new();
+    private static readonly List<FormObservation> Forms = new();
     private static readonly List<SlowState> SlowStates = new();
     private static readonly List<Fact> Facts = new();
     private static readonly List<Window> Windows = new();
@@ -47,6 +48,24 @@ internal static class NetCampaignEvidence
     private sealed record Shot(string Stage, ShotKey Key, uint SourceFrame, uint ObservedFrame,
         byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase, string? Reason = null,
         int OwnerHealth = -1, ushort CurrentOwnerLife = 0);
+    private sealed record FormObservation(string Stage, ulong Epoch, ushort Match, byte Slot, ushort Generation,
+        ushort Life, string Source, uint ObservedFrame, string Phase, int BodyHp, int TurretHp,
+        bool TurretActive, float X, float Y, float Z, float BodyX, float BodyY, float BodyZ, ushort ObservedDamageEvent);
+    internal static void Form(in PlayerState state, PlayerEntity? player = null, bool local = false)
+    {
+        if (!Enabled || state.Form.Phase == FormPhase.Unknown) return;
+        Span<byte> bytes = stackalloc byte[PlayerFormState.Size]; state.Form.Write(bytes);
+        var observed = player?.ModCaptureForm() ?? state.Form;
+        var body = player?.Position ?? state.Position;
+        ushort sequence = player == null ? state.Form.DamageEventId
+            : NetHitPrediction.TurretEvidenceSequenceFor(player.SlotIndex, state.Form.DamageEventId);
+        Add(Forms, new(player == null ? "authority" : local ? "owner" : "observer",
+            NetSession.AuthorityEpoch, NetSession.CurrentMatchId, state.SlotIndex, state.SlotGeneration, state.LifeId,
+            Convert.ToHexString(bytes), NetSession.NetFrame, observed.Phase.ToString(), player?.Health ?? state.Health,
+            player?.Halfturret.Health ?? state.Form.TurretHealth, observed.TurretActive,
+            observed.TurretPosition.X, observed.TurretPosition.Y, observed.TurretPosition.Z, body.X, body.Y, body.Z, sequence));
+    }
+
     private sealed record Health(ulong Epoch, ushort Match, uint Frame, byte Slot, ushort Generation,
         ushort Life, ushort Hp, ushort TurretHp, ushort Kills, ushort Deaths, uint DamageEvent);
     private sealed record SlowState(ulong Epoch, ushort Match, uint Revision, uint Frame, ulong Context, string Payload);
@@ -265,7 +284,7 @@ internal static class NetCampaignEvidence
                 ContinuousPayments = NetContinuousPayments.Capture(),
                 Bombs = NetBombEvidence.Capture(),
                 Drain = NetCampaignDrain.Capture(),
-                TransportWindows, Readiness, Windows, ServerSegments, Shots, States, SlowStates, Facts };
+                TransportWindows, Readiness, Windows, ServerSegments, Shots, States, SlowStates, Facts, Forms };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             JsonSerializer.Serialize(file, report);
             Console.WriteLine("[net2] evidence completed");

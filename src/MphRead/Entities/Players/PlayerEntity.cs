@@ -728,6 +728,7 @@ namespace MphRead.Entities
             Mods.EnhancedHunters.EnhancedHunters.OnPlayerSpawn(this);
             if (!_scene.Services.PlayerReplication.CanSpawn) return;
             _scene.Services.PlayerReplication.OnSpawn(this);
+            _modFormStartedFrame = 0;
             _scene.MatchEvents.Spawn(_scene, this);
             _scene.PlayerReplication.NoteSpawn(SlotIndex);
             if (IsMainPlayer)

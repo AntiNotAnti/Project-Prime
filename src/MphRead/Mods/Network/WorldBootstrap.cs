@@ -39,7 +39,7 @@ public static partial class NetSession
     private static byte _bootstrapMask;
     private static readonly WorldBootstrapObjectives _bootstrapObjectives = new();
     private static readonly BombStateReceiver _bootstrapBombs = new();
-    private static readonly byte[] _bootstrapSlow = new byte[512], _bootstrapWorld = new byte[1200];
+    private static readonly byte[] _bootstrapSlow = new byte[1200], _bootstrapWorld = new byte[1200];
     private static int _bootstrapSlowLength, _bootstrapWorldLength;
     internal static bool ObjectiveTickIsCurrent(uint tick) => _appliedBootstrap is not { } baseline
         || tick == baseline.AuthorityFrame || NetLifecycleTracker.Newer(tick, baseline.AuthorityFrame);
@@ -150,7 +150,7 @@ public static partial class NetSession
             var state = RemoteStates[slot]; var player = PlayerEntity.Players[slot];
             NetPlayerBridge.ApplyState(player, state, isLocal: false);
             bool alt = (state.Flags & PlayerState.FlagAltForm) != 0;
-            if (state.Health > 0)
+            if (state.Health > 0 && state.Form.Phase == FormPhase.Unknown)
             {
                 // A baseline is already the settled authoritative form. Build
                 // form-owned entities, then finish without advancing animation.

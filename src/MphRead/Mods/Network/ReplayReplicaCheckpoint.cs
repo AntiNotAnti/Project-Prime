@@ -108,10 +108,10 @@ internal sealed partial class ReplayReplicaState
             int protocol = reader.ReadByte();
             PlayerState ReadPlayer()
             {
-                if (protocol >= 29) return PlayerState.Read(Read(PlayerState.Size));
+                if (protocol >= 49) return PlayerState.Read(Read(PlayerState.Size));
                 byte[] upgraded = new byte[PlayerState.Size];
-                Read(PlayerState.LegacySize).CopyTo(upgraded, 0);
-                upgraded[PlayerState.LegacySize + 1] = byte.MaxValue;
+                Read(protocol >= 29 ? PlayerState.Protocol48Size : PlayerState.LegacySize).CopyTo(upgraded, 0);
+                if (protocol < 29) upgraded[PlayerState.LegacySize + 1] = byte.MaxValue;
                 return PlayerState.Read(upgraded);
             }
             // Replay packet compatibility reaches back to protocol 4, but this

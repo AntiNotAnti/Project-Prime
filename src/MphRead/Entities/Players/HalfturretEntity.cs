@@ -105,6 +105,16 @@ namespace MphRead.Entities
             NodeRef = nodeRef;
         }
 
+        internal void ModApplyAuthorityAnchor(Vector3 position)
+        {
+            NodeRef = _scene.UpdateNodeRef(NodeRef, Position, position);
+            Position = position;
+            _ySpeed = 0;
+            _grounded = true; // Subsequent authority samples own falling motion too.
+            ClosestNode = null;
+            UpdateLightSources(Position);
+        }
+
         public void OnTakeDamage(EntityBase attacker, uint damage)
         {
             _target = attacker;
@@ -151,7 +161,7 @@ namespace MphRead.Entities
                 // A predicted turret death must remain correctable by a newer
                 // matching snapshot. Keep the inert form-owned replica until
                 // unmorph/death; health replication never creates an entity.
-                return Mods.Network.NetHitPrediction.Predicting && Owner.IsAltForm && Owner.ModIsInPlay;
+                return Mods.Network.NetHitPrediction.Predicting && (Owner.IsAltForm || Owner.IsMorphing) && Owner.ModIsInPlay;
             }
             if (_burnTimer > 0)
             {

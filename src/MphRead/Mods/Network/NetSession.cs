@@ -1977,6 +1977,7 @@ namespace MphRead.Mods.Network
                 var state = new PlayerState
                 {
                     Enhanced = Mods.EnhancedHunters.EnhancedHunterNetState.Capture(player.EnhancedState),
+                    Form = player.ModCaptureForm(),
                     SlotIndex = (byte)i,
                     SlotGeneration = NetPlayerLifecycle.Generation(i),
                     LifeId = NetPlayerLifecycle.Get(i),
@@ -2003,6 +2004,8 @@ namespace MphRead.Mods.Network
                 state.Kills = (ushort)Math.Clamp(GameState.Kills[i], 0, UInt16.MaxValue);
                 state.Deaths = (ushort)Math.Clamp(GameState.Deaths[i], 0, UInt16.MaxValue);
                 NetDamage.Write(i, ref state);
+                state.Form.DamageEventId = state.DamageEventId;
+                NetCampaignEvidence.Form(state);
                 ReplayCapture.AcceptedState(state, NetFrame, player.OwningScene);
                 NetPlayerLifecycle.AcceptState(state, NetFrame);
                 state.Write(_scratch.AsSpan(offset));

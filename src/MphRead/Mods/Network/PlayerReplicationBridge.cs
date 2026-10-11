@@ -21,6 +21,14 @@ namespace MphRead.Mods.Network
         private readonly FormReconciliation[] _formReconciliation =
             new FormReconciliation[PlayerEntity.SlotCapacity];
 
+        private struct AuthorityForm
+        {
+            internal PlayerFormState State;
+            internal bool Known, TurretDestroyed, OwnerPending;
+            internal uint LocalStarted, PendingSince;
+        }
+        private readonly AuthorityForm[] _authorityForms = new AuthorityForm[PlayerEntity.SlotCapacity];
+
         // Retained for older diagnostic consumers. Lifecycle drop counters now
         // live in NetPlayerLifecycle; clients no longer choose spawn points.
         public int PlacementsRefused;
@@ -791,7 +799,11 @@ namespace MphRead.Mods.Network
             {
                 if (state.Health == 0 && player.Health > 0) _host.ReplayDeath(player);
                 player.Health = state.Health;
-                if (state.Health == 0) _host.NoteDeath(slot);
+                if (state.Health == 0)
+                {
+                    _host.NoteDeath(slot);
+                    _authorityForms[slot] = default;
+                }
                 player.ModSetSpectating((state.Flags & PlayerState.FlagSpectating) != 0);
                 return;
             }
@@ -802,19 +814,28 @@ namespace MphRead.Mods.Network
             {
                 Move(player, InForm(player, state.Position, (state.Flags & PlayerState.FlagAltForm) != 0));
                 player.Speed = state.Speed;
-                player.Health = _host.HealthFor(player, state.Health, local: false);
                 player.ModSetFacing(state.Facing);
                 player.ModSetWeapon((BeamType)state.CurrentWeapon);
                 player.EquipInfo.Zoomed = (state.Flags & PlayerState.FlagZoomed) != 0;
-                ApplyForm(player, (state.Flags & PlayerState.FlagAltForm) != 0);
+                if (state.Form.Phase == FormPhase.Unknown && !_authorityForms[slot].Known)
+                    ApplyForm(player, (state.Flags & PlayerState.FlagAltForm) != 0);
                 player.ModSetSpectating((state.Flags & PlayerState.FlagSpectating) != 0);
             }
-            else
+            bool formWasNew = state.Form.Phase != FormPhase.Unknown && (!_authorityForms[slot].Known
+                || NetLifecycleTracker.Newer(state.Form.Frame, _authorityForms[slot].State.Frame));
+            bool waitingForForm = ApplyAuthorityForm(player, state.Form, isLocal);
+            // Install HP after native form construction, whose split/merge is
+            // correct for simulation but must not be applied to canonical HP twice.
+            if (!waitingForForm)
             {
-                player.Health = _host.HealthFor(player, state.Health, local: true);
+                ref var form = ref _authorityForms[slot];
+                player.Health = player.Hunter == Hunter.Weavel && form.Known
+                    ? _host.HealthFor(player, form.State.BodyHealth, isLocal, form.State.DamageEventId)
+                    : _host.HealthFor(player, state.Health, local: isLocal);
             }
+            // Older replays have no transition state. Preserve their fallback.
             // Form owns existence; a health sample never creates a turret.
-            if (player.Hunter == Hunter.Weavel && player.Halfturret != null
+            if (state.Form.Phase == FormPhase.Unknown && !_authorityForms[slot].Known && player.Hunter == Hunter.Weavel && player.Halfturret != null
                 && (player.IsAltForm || player.IsMorphing))
             {
                 if (state.HalfturretActive) player.ModRestoreHalfturretFlag();
@@ -823,6 +844,65 @@ namespace MphRead.Mods.Network
             }
             player.ModSetFrozen((state.Flags & PlayerState.FlagFrozen) != 0);
             ApplyAfflictions(player, state);
+            if (formWasNew && !waitingForForm && _authorityForms[slot].Known
+                && _authorityForms[slot].State.Frame == state.Form.Frame)
+                NetCampaignEvidence.Form(state, player, isLocal);
+        }
+
+        private bool ApplyAuthorityForm(PlayerEntity player, in PlayerFormState incoming, bool isLocal)
+        {
+            int slot = player.SlotIndex;
+            ref var tracked = ref _authorityForms[slot];
+            bool localChanged = isLocal && tracked.Known && tracked.LocalStarted != player.ModFormStartedFrame;
+            if (localChanged)
+            {
+                tracked.OwnerPending = true;
+                tracked.PendingSince = _host.Frame;
+                tracked.LocalStarted = player.ModFormStartedFrame;
+            }
+            if (incoming.Phase == FormPhase.Unknown || !incoming.IsValid)
+                return tracked.OwnerPending && player.Hunter == Hunter.Weavel;
+            bool freshSample = !tracked.Known || NetLifecycleTracker.Newer(incoming.Frame, tracked.State.Frame);
+            if (freshSample && tracked.Known && incoming.StartedFrame != tracked.State.StartedFrame
+                && !NetLifecycleTracker.Newer(incoming.StartedFrame, tracked.State.StartedFrame)) freshSample = false;
+            if (isLocal && tracked.OwnerPending)
+            {
+                bool targetAlt = incoming.Phase is FormPhase.Morphing or FormPhase.Alt;
+                bool acknowledged = freshSample && incoming.StartedFrame != tracked.State.StartedFrame
+                    && targetAlt == (player.IsAltForm || player.IsMorphing);
+                if (acknowledged) tracked.OwnerPending = false;
+                else if (_host.Frame - tracked.PendingSince < 120)
+                    return player.Hunter == Hunter.Weavel;
+                else if (freshSample)
+                {
+                    // A refused/lost owner transition cannot freeze reconciliation
+                    // indefinitely. Recover once, without replaying split health.
+                    player.ModApplyAuthorityForm(incoming);
+                    tracked.OwnerPending = false;
+                }
+                else return player.Hunter == Hunter.Weavel;
+            }
+            if (!freshSample) return false;
+            bool newTransition = !tracked.Known || incoming.StartedFrame != tracked.State.StartedFrame;
+            if (newTransition) tracked.TurretDestroyed = false;
+            var form = incoming;
+            if (!form.TurretActive || form.TurretHealth == 0) tracked.TurretDestroyed = true;
+            if (tracked.TurretDestroyed) { form.TurretActive = false; form.TurretHealth = 0; }
+            if (!isLocal) player.ModApplyAuthorityForm(form);
+            else player.ModApplyAuthorityTurret(form);
+            tracked.State = form;
+            tracked.Known = true;
+            tracked.LocalStarted = player.ModFormStartedFrame;
+            return false;
+        }
+
+        internal bool CanReconcileFormHealth(PlayerEntity player)
+            => !_authorityForms[player.SlotIndex].OwnerPending;
+
+        internal bool CanReconcileTurretHealth(PlayerEntity player)
+        {
+            ref var form = ref _authorityForms[player.SlotIndex];
+            return !form.Known || (!form.TurretDestroyed && !form.OwnerPending);
         }
 
         private void ReplayJumpPadCue(PlayerEntity player, in PlayerState state, bool isLocal, bool spawned)
@@ -918,6 +998,7 @@ namespace MphRead.Mods.Network
         public void NoteRoomChanged()
         {
             Array.Clear(_formReconciliation);
+            Array.Clear(_authorityForms);
             Array.Clear(_lifeApplied);
             Array.Clear(_reportSeen);
         }
@@ -925,6 +1006,7 @@ namespace MphRead.Mods.Network
         public void Reset()
         {
             Array.Clear(_formReconciliation);
+            Array.Clear(_authorityForms);
             Array.Clear(_appliedLifeId);
             Array.Clear(_lifeApplied);
             Snaps = 0;
@@ -980,6 +1062,7 @@ namespace MphRead.Mods.Network
                 return;
             }
             _formReconciliation[slot].Reset();
+            _authorityForms[slot] = default;
             _lifeApplied[slot] = false;
             _appliedLifeId[slot] = 0;
             _jumpPadEventSeen[slot] = 0;

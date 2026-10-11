@@ -25,7 +25,7 @@ public static class NetBootstrapCheck
 
     public static int Run(string room, GameMode mode = GameMode.Battle)
     {
-        var sim = new ServerSim(); byte[] canonical = new byte[NetConfig.MaxPacketSize]; int length = 0;
+        var sim = new ServerSim(); byte[] canonical = new byte[NetConfig.MaxSnapshotSize]; int length = 0;
         if (!sim.Start(room, mode, 8, payload => { payload.CopyTo(canonical); length = payload.Length; }, () => { })) return 1;
         try
         {

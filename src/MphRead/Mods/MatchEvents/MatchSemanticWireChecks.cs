@@ -179,8 +179,9 @@ internal static class MatchSemanticWireChecks
             int at = firstPlayer;
             for (int slot = 0; slot < RosterPacket.MaxSlots; slot++)
             {
-                int prefix = 8 + PlayerState.Size;
-                historical.Write(source.AsSpan(at, prefix)); at += prefix;
+                historical.Write(source.AsSpan(at, 7 + PlayerState.Protocol48Size));
+                at += 7 + PlayerState.Size;
+                historical.Write(source.AsSpan(at, 1)); at++;
                 historical.Write(source.AsSpan(at, intentSize)); at += IntentPacket.FullSize;
                 historical.Write(source.AsSpan(at, 4)); at += 4;
             }
