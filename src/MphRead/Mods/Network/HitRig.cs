@@ -221,6 +221,8 @@ namespace MphRead.Mods.Network
 
         private static float _selfAimX, _selfAimY, _selfPitch, _selfWallDistance;
         private static int _frame;
+        private static bool _lockjawWaitingForTerminal;
+        private static ushort _lockjawOwnerLife, _lockjawVictimLife;
         private static int _stuckFrames;
         private static bool _stuckDirection;
         private static Vector3 _lastPosition;
@@ -249,6 +251,7 @@ namespace MphRead.Mods.Network
         public static void Reset()
         {
             _frame = 0; _selfAimX = _selfAimY = _selfPitch = _selfWallDistance = 0;
+            _lockjawWaitingForTerminal = false; _lockjawOwnerLife = _lockjawVictimLife = 0;
             _stuckFrames = 0;
             _lastPosition = Vector3.Zero;
             AimDeltaX = 0;
@@ -325,7 +328,11 @@ namespace MphRead.Mods.Network
                     (float turnX, _) = player.ModAimDeltaTowards(other.IsAltForm ? other.Volume.SpherePosition : other.ModAimTarget);
                     facingDestination = Single.IsFinite(turnX) && MathF.Abs(turnX) < FiringCone;
                 }
-                if (player.SlotIndex == 0)
+                if (Mode == RigMode.BombLockjaw)
+                {
+                    DriveLockjawTriangle(player, c, other);
+                }
+                else if (player.SlotIndex == 0)
                 {
                     if (!player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing)
                         c.Morph.IsDown = _frame % 20 == 0;
@@ -334,13 +341,6 @@ namespace MphRead.Mods.Network
                     // bomb volume. Chasing the victim leaves Kanden's tail
                     // placements behind and can strand the biped at a ledge.
                     c.MoveUp.IsDown = other != null && range > 4f && facingDestination;
-                    if (Mode == RigMode.BombLockjaw && other != null && range <= 4f)
-                    {
-                        int leg = _frame / 20 % 3;
-                        c.MoveLeft.IsDown = leg == 0;
-                        c.MoveRight.IsDown = leg == 1;
-                        c.MoveUp.IsDown = leg == 2;
-                    }
                     if (c.AltAttack.IsDown && _frame % 20 == 0) Triggers++;
                 }
                 else if (other != null)
@@ -418,6 +418,50 @@ namespace MphRead.Mods.Network
         /// it, and a runner that breaks line of sight only turns that into a
         /// smaller sample.
         /// </summary>
+        private static void DriveLockjawTriangle(PlayerEntity player, PlayerControls c, PlayerEntity? victim)
+        {
+            // The biped stays in the interior while the owner authors all three
+            // placements around it. No health, positions or timers are written.
+            if (player.SlotIndex != 0 || victim == null) return;
+            if (!player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing)
+                c.Morph.IsDown = _frame % 20 == 0;
+            ushort ownerLife = NetPlayerLifecycle.Get(0), victimLife = NetPlayerLifecycle.Get(1);
+            if (_lockjawOwnerLife != ownerLife || _lockjawVictimLife != victimLife)
+            {
+                _lockjawOwnerLife = ownerLife; _lockjawVictimLife = victimLife;
+                _lockjawWaitingForTerminal = false;
+            }
+            int count = 0;
+            foreach (var bomb in player.OwningScene.GetBombEntities())
+                if (bomb.BombType == BombType.Lockjaw && !bomb.Flags.TestFlag(BombFlags.Exploded)
+                    && NetBombs.SameLife(bomb.ModOwnerKey, ShotKey.For(0, 0))) count++;
+            if (count >= 3) _lockjawWaitingForTerminal = true;
+            if (_lockjawWaitingForTerminal && count == 0) _lockjawWaitingForTerminal = false;
+            if (_lockjawWaitingForTerminal) return;
+            // A radius-three equilateral triangle keeps each first/two-bomb
+            // edge 1.5 units from the target: pair contact should not retire it
+            // before the third vertex can author the native snare.
+            Vector3 offset = count switch
+            {
+                0 => new Vector3(3, 0, 0),
+                1 => new Vector3(-1.5f, 0, 2.598076f),
+                _ => new Vector3(-1.5f, 0, -2.598076f)
+            };
+            Vector3 waypoint = victim.Position + offset;
+            Vector3 delta = waypoint - player.Position;
+            float gap = MathF.Sqrt(delta.X * delta.X + delta.Z * delta.Z);
+            (float x, float y) = player.ModAimDeltaTowards(waypoint);
+            bool aligned = Single.IsFinite(x) && Single.IsFinite(y) && MathF.Abs(x) < FiringCone;
+            if (Single.IsFinite(x) && Single.IsFinite(y))
+            { AimDeltaX = Math.Clamp(x, -TurnRate, TurnRate); AimDeltaY = Math.Clamp(y, -TurnRate, TurnRate); }
+            c.MoveUp.IsDown = gap > .7f && aligned;
+            float horizontalSpeed = MathF.Sqrt(player.Speed.X * player.Speed.X + player.Speed.Z * player.Speed.Z);
+            c.AltAttack.IsDown = player.IsAltForm && gap <= .7f && horizontalSpeed < .08f && _frame % 20 < 3;
+            if (c.AltAttack.IsDown && _frame % 20 == 0) Triggers++;
+            if (_frame % 180 == 0)
+                NetLog.Event($"lockjaw triangle count={count} vertexGap={gap:F2} aligned={aligned} speed={horizontalSpeed:F3} center={victim.Position}");
+        }
+
         private static void DriveRunner(PlayerEntity player, PlayerControls c, PlayerEntity? other)
         {
             if (_continuousMorph)
