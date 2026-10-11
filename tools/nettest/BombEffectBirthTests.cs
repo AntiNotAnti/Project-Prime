@@ -51,7 +51,10 @@ internal static class BombEffectBirthTests
         var ghost = Ghost(replay, kind);
         var before = ActiveElements(replay.Scene);
         ghost.ModPresentDetonation();
-        var terminal = ActiveElements(replay.Scene).Except(before).ToArray();
+        // Initialize now creates pooled body elements; terminal spawn can reuse
+        // those same objects after unlinking them, so select authored effect ID.
+        var terminal = ActiveElements(replay.Scene)
+            .Where(e => e.EffectId == (kind == BombType.Lockjaw ? 146 : 145)).ToArray();
         Check(terminal.Length > 0 && terminal.All(e => e.ModCanonicalBirthPending),
             $"{kind} canonical terminal arms only newly created effect elements");
         float delay = terminal.Max(e => e.Lifespan) + 1;
