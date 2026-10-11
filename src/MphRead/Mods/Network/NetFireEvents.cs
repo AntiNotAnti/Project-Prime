@@ -183,6 +183,16 @@ public static class NetFireEvents
         if (free >= 0) state.TurretTerminals[free] = new() { Key = key, At = NetSession.NetFrame };
         else { state.TurretTerminalOverflow = true; state.TurretTerminalOverflowAt = NetSession.NetFrame; state.TurretTerminalOverflows++; }
     }
+    internal static bool IsPendingTurret(in ShotKey key)
+    {
+        if ((uint)key.ShooterSlot >= 8 || key.ShotId == 0) return false;
+        var state = For(key.ShooterSlot);
+        if (state.Fence != (key with { LifeId = 0, ShotId = 0 })
+            || !state.Incoming.TryGetPending(key.ShotId, out var fire)
+            || fire.Kind != FireEventKind.TurretFire) return false;
+        ushort sourceLife = fire.SourceLife != 0 ? fire.SourceLife : state.CurrentLife;
+        return key.LifeId == sourceLife;
+    }
     internal static bool IsRetiredUnemittedTurret(in ShotKey key)
     {
         if ((uint)key.ShooterSlot >= 8 || key.ShotId == 0) return false;
