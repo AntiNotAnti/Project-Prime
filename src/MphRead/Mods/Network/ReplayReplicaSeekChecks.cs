@@ -31,8 +31,10 @@ internal static class ReplayReplicaSeekChecks
                 if (player.Update() > PassiveReplayPlayer.MaximumStepsPerUpdate || ++updates > last + 2)
                     throw new InvalidDataException("Replica seek failed its bounded scheduling contract.");
             }
-            if (player.Current.Session.CurrentFrame != target || player.RejectedCheckpoints != 0)
-                throw new InvalidDataException("Replica seek did not reach its exact target.");
+            if (player.Current.Session.CurrentFrame != target)
+                throw new InvalidDataException($"Replica seek target mismatch: requested={requested}, target={target}, actual={player.Current.Session.CurrentFrame}, restore={player.SeekRestoreFrame}, steps={player.SeekSimulationSteps}, rejectedCheckpoints={player.RejectedCheckpoints}.");
+            if (player.RejectedCheckpoints != 0)
+                throw new InvalidDataException($"Replica seek reached target {target}, but rejected {player.RejectedCheckpoints} checkpoints; restore={player.SeekRestoreFrame}, steps={player.SeekSimulationSteps}. Legacy format fallback has not been exempted.");
             Compare(player.Current); comparisons++;
             Console.WriteLine($"[replayseek] {target} from {player.SeekRestoreFrame}: {player.SeekSimulationSteps} steps, {updates} updates, {player.SeekMilliseconds:F2} ms");
         }

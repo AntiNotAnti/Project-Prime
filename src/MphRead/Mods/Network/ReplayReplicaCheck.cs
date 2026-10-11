@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text;
 using MphRead.Entities;
 using MphRead.Mods.Input;
 using OpenTK.Mathematics;
@@ -57,11 +59,8 @@ namespace MphRead.Mods.Network
                 {
                     if (restored != null)
                     {
-                        if (!restored.Step() || ReplayStateHash.Compute(restored.Scene, restored.Session.CurrentFrame)
-                            != ReplayStateHash.Compute(first.Scene, first.Session.CurrentFrame)
-                            || restored.Scene.ReplayPresentationHash(restored.Session.CurrentFrame)
-                            != first.Scene.ReplayPresentationHash(first.Session.CurrentFrame))
-                            throw new InvalidDataException($"Detached world continuation differs at frame {first.Session.CurrentFrame}.");
+                        bool advanced = restored.Step();
+                        CheckWorld(first, restored, "continuation", advanced);
                         continuedFrames++;
                     }
                     bool captureProjectile = false;
@@ -81,11 +80,7 @@ namespace MphRead.Mods.Network
                         restored?.Dispose(); restored = new PassiveReplayScene(path, size);
                         checkpoint.Restore(restored);
                         double restoreMs = timer.Elapsed.TotalMilliseconds;
-                        if (ReplayStateHash.Compute(restored.Scene, restored.Session.CurrentFrame)
-                            != ReplayStateHash.Compute(first.Scene, first.Session.CurrentFrame)
-                            || restored.Scene.ReplayPresentationHash(restored.Session.CurrentFrame)
-                            != first.Scene.ReplayPresentationHash(first.Session.CurrentFrame))
-                            throw new InvalidDataException($"Detached world restore differs at frame {first.Session.CurrentFrame}.");
+                        CheckWorld(first, restored, "restore", advanced: true);
                         worldRestores++;
                         if (screenshots != null)
                         {
@@ -169,6 +164,81 @@ namespace MphRead.Mods.Network
                 window?.Dispose();
 #endif
             }
+        }
+
+        // Failure-only diagnostics: no reflection or checkpoint work on the successful path.
+        private static void CheckWorld(PassiveReplayScene expected, PassiveReplayScene actual, string operation, bool advanced)
+        {
+            uint frame = expected.Session.CurrentFrame;
+            string gameplay = ReplayStateHash.Compute(expected.Scene, frame);
+            string actualGameplay = ReplayStateHash.Compute(actual.Scene, actual.Session.CurrentFrame);
+            string presentation = expected.Scene.ReplayPresentationHash(frame);
+            string actualPresentation = actual.Scene.ReplayPresentationHash(actual.Session.CurrentFrame);
+            if (advanced && actual.Session.CurrentFrame == frame && gameplay == actualGameplay && presentation == actualPresentation) return;
+            string detail;
+            try { detail = DescribeDifferences(expected, actual); }
+            catch (Exception ex) { detail = $"diagnostic failed: {ex.GetType().Name}: {ex.Message}"; }
+            throw new InvalidDataException($"Detached world {operation} differs: expectedFrame={frame}, actualFrame={actual.Session.CurrentFrame}, advanced={advanced}; "
+                + $"gameplay expected={gameplay} actual={actualGameplay}; presentation expected={presentation} actual={actualPresentation}; {detail}");
+        }
+
+        private static string DescribeDifferences(PassiveReplayScene expected, PassiveReplayScene actual)
+        {
+            var text = new StringBuilder();
+            int differences = 0, visited = 0;
+            void Compare(object? left, object? right, string path, int depth)
+            {
+                if (differences >= 24 || ++visited > 12000 || ReferenceEquals(left, right)) return;
+                void Difference(string values) { text.Append(path).Append(": ").Append(values.Length > 240 ? values[..240] + "..." : values).Append("; "); differences++; }
+                if (left == null || right == null) { Difference($"{left?.GetType().Name ?? "null"} -> {right?.GetType().Name ?? "null"}"); return; }
+                Type type = left.GetType();
+                if (type != right.GetType()) { Difference($"type {type.Name} -> {right.GetType().Name}"); return; }
+                if (type.IsPrimitive || type.IsEnum || type == typeof(decimal) || type == typeof(string))
+                {
+                    if (!left.Equals(right)) Difference($"{left} -> {right}");
+                    return;
+                }
+                if (left is Array a && right is Array b)
+                {
+                    if (a.Length != b.Length) Difference($"length {a.Length} -> {b.Length}");
+                    if (a.Rank == 1 && b.Rank == 1)
+                        for (int i = 0; i < Math.Min(64, Math.Min(a.Length, b.Length)); i++) Compare(a.GetValue(i), b.GetValue(i), $"{path}[{i}]", depth + 1);
+                    return;
+                }
+                // References are never traversed: entity identity is useful without following cycles.
+                if (depth > 0 && !type.IsValueType)
+                {
+                    if (left is EntityBase le && right is EntityBase re && (le.Type != re.Type || le.Id != re.Id))
+                        Difference($"entity {le.Type}/{le.Id} -> {re.Type}/{re.Id}");
+                    return;
+                }
+                if (depth > 4) return;
+                for (Type? current = type; current != null; current = current.BaseType)
+                    foreach (var field in current.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly).OrderBy(f => f.Name))
+                        Compare(field.GetValue(left), field.GetValue(right), path + "." + field.Name, depth + 1);
+            }
+            Compare(expected.Scene.GameState, actual.Scene.GameState, "gameState", 0);
+            Compare(expected.Scene.Random, actual.Scene.Random, "random", 0);
+            var leftEntities = expected.Scene.Entities.ToArray();
+            var rightEntities = actual.Scene.Entities.ToArray();
+            if (leftEntities.Length != rightEntities.Length) text.Append($"entityCount {leftEntities.Length} -> {rightEntities.Length}; ");
+            for (int i = 0; i < Math.Min(leftEntities.Length, rightEntities.Length) && differences < 24; i++)
+            {
+                Compare(leftEntities[i], rightEntities[i], $"entity[{i}]({leftEntities[i].Type}/{leftEntities[i].Id})", 0);
+                var lm = leftEntities[i].ReplayModels; var rm = rightEntities[i].ReplayModels;
+                if (lm.Count != rm.Count) text.Append($"entity[{i}].modelCount {lm.Count} -> {rm.Count}; ");
+                for (int j = 0; j < Math.Min(lm.Count, rm.Count) && differences < 24; j++)
+                {
+                    Compare(lm[j], rm[j], $"entity[{i}].model[{j}]", 0);
+                    Compare(lm[j].AnimInfo, rm[j].AnimInfo, $"entity[{i}].model[{j}].AnimInfo", 0);
+                }
+            }
+            using var lc = Replay.ReplayWorldCheckpoint.Capture(expected);
+            using var rc = Replay.ReplayWorldCheckpoint.Capture(actual);
+            int offset = 0, length = Math.Min(lc.Bytes.Length, rc.Bytes.Length);
+            while (offset < length && lc.Bytes[offset] == rc.Bytes[offset]) offset++;
+            text.Append($"checkpoint lengths={lc.Bytes.Length}/{rc.Bytes.Length}, firstByteDifference={(offset < length || lc.Bytes.Length != rc.Bytes.Length ? offset : -1)}; fieldDifferences={differences}, inspected={visited} (bounded)");
+            return text.ToString();
         }
 
         private static void AssertNetworkSlotsConstructed(PassiveReplayScene replay)
