@@ -18,6 +18,8 @@ internal static class BombEffectBirthTests
     private static readonly FieldInfo Time = typeof(Scene).GetField("_elapsedTime", Private)!;
     private static readonly FieldInfo Frame = typeof(Scene).GetField("_effectFrame", Private)!;
     private static readonly MethodInfo Effects = typeof(Scene).GetMethod("ProcessEffects", Private)!;
+    private static readonly MethodInfo DrawEffects = typeof(Scene).GetMethod("PrepareEffectDraw", Private)!;
+    private static readonly FieldInfo OwedEffects = typeof(Scene).GetField("_pendingEffectSteps", Private)!;
     private static void Check(bool value, string label)
     { _checks++; if (!value) throw new InvalidOperationException(label); Console.WriteLine("BOMB EFFECT PASS " + label); }
     private static void AdvanceClock(Scene scene)
@@ -89,9 +91,23 @@ internal static class BombEffectBirthTests
             && ghost.Effect.Elements.All(e => e.ModCanonicalBirthPending),
             $"{kind} Initialize arms body before any bomb Process");
         using var initialCheckpoint = ReplayWorldCheckpoint.Capture(replay);
-        ProcessEffects(replay.Scene);
+        replay.Scene.SpawnEffect(145, ghost.Transform);
+        var unmarked = ActiveElements(replay.Scene).Where(e => !e.ModCanonicalBirthPending)
+            .Select(e => (Element: e, e.CreationTime, e.ExpirationTime, e.ParticleAmount,
+                Count: e.Particles.Count, e.Expired, e.Func39Called)).ToArray();
+        OwedEffects.SetValue(replay.Scene, 0);
+        DrawEffects.Invoke(replay.Scene, null);
+        Check(unmarked.All(v => v.Element.CreationTime == v.CreationTime
+            && v.Element.ExpirationTime == v.ExpirationTime && v.Element.ParticleAmount == v.ParticleAmount
+            && v.Element.Particles.Count == v.Count && v.Element.Expired == v.Expired
+            && v.Element.Func39Called == v.Func39Called),
+            $"{kind} zero-owed draw leaves every unmarked existing/native effect untouched");
         int particles = Particles(ghost);
-        Check(particles > 0, $"{kind} first draw effects phase emits body before any bomb Process");
+        Check(particles > 0, $"{kind} zero-owed native draw dispatch emits body before any bomb Process");
+        string once = replay.Scene.ReplayPresentationHash(replay.Session.CurrentFrame);
+        DrawEffects.Invoke(replay.Scene, null);
+        Check(replay.Scene.ReplayPresentationHash(replay.Session.CurrentFrame) == once,
+            $"{kind} repeated zero-owed draw changes no existing particles or effects");
         var effect = ghost.Effect;
         AdvanceClock(replay.Scene); ghost.Process(); ProcessEffects(replay.Scene);
         Check(ReferenceEquals(effect, ghost.Effect) && Particles(ghost) == particles,
@@ -102,7 +118,8 @@ internal static class BombEffectBirthTests
         Check(initial.Effect != null && Particles(initial) == 0
             && initial.Effect.Elements.All(e => e.ModCanonicalBirthPending),
             $"{kind} checkpoint retains Initialize-only birth without Process");
-        AdvanceClock(restored.Scene); ProcessEffects(restored.Scene);
+        AdvanceClock(restored.Scene); OwedEffects.SetValue(restored.Scene, 0);
+        DrawEffects.Invoke(restored.Scene, null);
         Check(Particles(initial) == particles,
             $"{kind} restored Initialize-only birth emits before any bomb Process at later clock");
     }
