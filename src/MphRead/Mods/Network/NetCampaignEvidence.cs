@@ -321,6 +321,7 @@ internal static class NetCampaignEvidence
                 ShotProof = NetShotProof.Capture(),
                 CombatReconciliation = NetHitPrediction.Capture(),
                 CombatPayments = NetCombatPayments.Capture(),
+                MovementValidation = NetMovementValidationShadow.Capture(),
                 ConfirmedImpacts = NetConfirmedImpacts.Capture(),
                 SelfSplash = NetSelfSplash.Capture(),
                 ContinuousPayments = NetContinuousPayments.Capture(),
