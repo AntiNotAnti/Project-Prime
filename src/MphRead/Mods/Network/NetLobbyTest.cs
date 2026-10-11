@@ -71,7 +71,7 @@ namespace MphRead.Mods.Network
             Check(!RosterPacket.TryRead(data, out _), "human cannot carry a bot level");
             roster.Flags[0] = 1; roster.Count = 2; roster.Slots[1] = 3; roster.Teams[1] = -1; roster.Write(data);
             Check(!RosterPacket.TryRead(data, out _), "duplicate bot slot rejected");
-            Check(NetConfig.ProtocolVersion == 48, "protocol 48 preserves the queue/bot wire contract");
+            Check(NetConfig.ProtocolVersion == 50, "protocol 50 preserves the queue/bot wire contract");
             var metadata = new ReplayMetadata { Players = new[] { new ReplayPlayerInfo(3, (byte)Hunter.Trace, -1, "BOT TRACE", true, 3) } };
             var decoded = ReplayFormatV3.DecodeMetadata(NetConfig.ProtocolVersion, ReplayFormatV3.EncodeMetadata(metadata));
             Check(decoded.Players[0].IsBot && decoded.Players[0].BotLevel == 3, "replay binary metadata retains bot identity");
@@ -145,6 +145,30 @@ namespace MphRead.Mods.Network
             rig.Wait(() => owner.State!.Value.Phase == SessionPhase.InMatch, "one human plus bot starts team match");
         }
 
+        private static void MixedProtocolHelloScenario()
+        {
+            using var rig = new Rig();
+            var client = new Client(rig.Server.BoundPort, 91401,
+                protocol: unchecked((byte)(NetConfig.ProtocolVersion - 1)));
+            rig.Clients.Add(client);
+            rig.Wait(() => client.Refusal.HasValue, "mixed-version Hello receives refusal");
+            var refusal = client.Refusal!.Value;
+            Check(refusal.Reason == RefusedPacket.ReasonProtocol && refusal.Players == 0
+                && client.Slot == -1 && rig.Server.PeerCount == 0,
+                "mixed-version Hello allocates no gameplay slot or admitted peer");
+            string message = refusal.Describe("test server");
+            Check(message.Contains("protocol", StringComparison.OrdinalIgnoreCase)
+                && message.Contains(NetConfig.ProtocolVersion.ToString(), StringComparison.Ordinal)
+                && message.Contains("updat", StringComparison.OrdinalIgnoreCase),
+                "protocol refusal describes mismatch, current build version and update action");
+            client.Hello();
+            rig.Wait(() => client.Slot >= 0 && client.State != null,
+                "compatible Hello after refusal is admitted");
+            client.Identify(); rig.Stable();
+            Check(client.Slot == 0 && rig.Server.PeerCount == 1,
+                "refused version did not consume slot zero or poison compatible admission");
+        }
+
         private static int _checks;
         private static int PostMatchWaitMilliseconds => (int)(DedicatedServer.EndSequenceSeconds * 1000) + 2000;
         private static void Check(bool condition, string message)
@@ -159,6 +183,7 @@ namespace MphRead.Mods.Network
             {
                 NetHealthSyncTest.Run();
                 ProtocolChecks();
+                MixedProtocolHelloScenario();
                 AdvancedRulesChecks();
                 AdvancedRulesScenario();
                 MasterFarewellScenario();
@@ -539,7 +564,7 @@ namespace MphRead.Mods.Network
                 { Flags = MatchStatePacket.FlagSpawnProtection };
             Check(!defaultMatchState.SpawnProtection && disabledMatchState.SpawnProtection,
                 "match state carries default-off spawn protection without ambiguity");
-            Check(NetConfig.ProtocolVersion == 48 && (byte)PacketType.SessionState == 36
+            Check(NetConfig.ProtocolVersion == 50 && (byte)PacketType.SessionState == 36
                 && (byte)PacketType.MapOffer == 32 && (byte)PacketType.MapDone == 35
                 && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45
                 && (byte)PacketType.HostChallenge == 65 && (byte)PacketType.HostChallengeReply == 66,
@@ -957,20 +982,21 @@ namespace MphRead.Mods.Network
             public MatchStatePacket Match;
             public int OpenMapChoices;
             public bool Refused;
+            public RefusedPacket? Refusal;
             public int BotIntents, SnapshotPlayers;
             public IntentPacket LastBotIntent;
             public readonly HashSet<int> BotIntentSlots = new();
             public readonly List<ChatPacket> Chats = new();
             public readonly Dictionary<uint, LobbyCommandResultPacket> Results = new();
             private uint _command;
-            public Client(int port, uint id, Guid token = default)
+            public Client(int port, uint id, Guid token = default, byte? protocol = null)
             {
                 Id = id; Server = new IPEndPoint(IPAddress.Loopback, port);
-                Transport.AnswerPingsImmediately(); Hello(token);
+                Transport.AnswerPingsImmediately(); Hello(token, protocol);
             }
-            public void Hello(Guid token = default)
+            public void Hello(Guid token = default, byte? protocol = null)
             {
-                byte[] bytes = new byte[22]; bytes[0] = NetConfig.ProtocolVersion; bytes[1] = Slot < 0 ? (byte)255 : (byte)Slot;
+                byte[] bytes = new byte[22]; bytes[0] = protocol ?? NetConfig.ProtocolVersion; bytes[1] = Slot < 0 ? (byte)255 : (byte)Slot;
                 BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(2), Id); token.TryWriteBytes(bytes.AsSpan(6));
                 Send(PacketType.Hello, bytes);
             }
@@ -1011,7 +1037,8 @@ namespace MphRead.Mods.Network
                         { BotIntents++; BotIntentSlots.Add(slot); LastBotIntent = botIntent; }
                     }
                     if (packet.Type == PacketType.Welcome) Slot = packet.Payload[0];
-                    if (packet.Type == PacketType.Refused) Refused = true;
+                    if (packet.Type == PacketType.Refused)
+                    { Refused = true; if (packet.Payload.Length == RefusedPacket.Size) Refusal = RefusedPacket.Read(packet.Payload); }
                     if (packet.Type == PacketType.Chat && packet.Payload.Length == ChatPacket.Size) Chats.Add(ChatPacket.Read(packet.Payload));
                     if (packet.Type == PacketType.SessionState && SessionStatePacket.TryRead(packet.Payload, out var state)
                         && (State == null || state.Revision == State.Value.Revision || SessionStatePacket.IsNewer(state.Revision, State.Value.Revision))) State = state;
