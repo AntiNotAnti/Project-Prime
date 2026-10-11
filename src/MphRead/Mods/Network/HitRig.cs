@@ -92,7 +92,8 @@ namespace MphRead.Mods.Network
             /// totals can simply be subtracted. <c>-hitrig missile</c>,
             /// <c>-hitrig magmaul</c>, <c>-hitrig judicator</c>.
             /// </summary>
-            Volley, SelfMoving, SelfWall, AltStatic, AltLateral, AltMorph, AltContact, AltCrossing
+            Volley, SelfMoving, SelfWall, AltStatic, AltLateral, AltMorph, AltContact, AltCrossing,
+            BombSamus, BombKanden, BombLockjaw
         }
 
         /// <summary>The weapon a <see cref="RigMode.Volley"/> run empties.</summary>
@@ -118,6 +119,9 @@ namespace MphRead.Mods.Network
             {
                 case "self-moving": Mode = RigMode.SelfMoving; VolleyWeapon = BeamType.Missile; return true;
                 case "self-wall": Mode = RigMode.SelfWall; VolleyWeapon = BeamType.Missile; return true;
+                case "bomb-samus": Mode = RigMode.BombSamus; return true;
+                case "bomb-kanden": Mode = RigMode.BombKanden; return true;
+                case "bomb-lockjaw": Mode = RigMode.BombLockjaw; return true;
                 case "alt-static": Mode = RigMode.AltStatic; return true;
                 case "alt":
                 case "alt-lateral": Mode = RigMode.AltLateral; return true;
@@ -305,7 +309,34 @@ namespace MphRead.Mods.Network
                 return;
             }
             PlayerEntity? other = Opponent(player);
-            if (Mode == RigMode.SelfMoving || Mode == RigMode.SelfWall)
+            if (Mode is RigMode.BombSamus or RigMode.BombKanden or RigMode.BombLockjaw)
+            {
+                // The first admitted slot owns native placements. The second
+                // walks into their real collision volume; the runner makes a
+                // third participant a spectator. No positions or damage are set.
+                AimAt(player, other, headHeight: 0);
+                float range = other == null ? Single.MaxValue : Vector3.Distance(player.Position, other.Position);
+                if (player.SlotIndex == 0)
+                {
+                    if (!player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing)
+                        c.Morph.IsDown = _frame % 20 == 0;
+                    c.AltAttack.IsDown = player.IsAltForm && _frame % 20 < 3;
+                    // Lockjaw placements need distinct positions to produce
+                    // links. Native rolling movement creates the triangle.
+                    if (Mode == RigMode.BombLockjaw)
+                    {
+                        int leg = _frame / 20 % 3;
+                        c.MoveLeft.IsDown = leg == 0;
+                        c.MoveRight.IsDown = leg == 1;
+                        c.MoveUp.IsDown = leg == 2;
+                    }
+                    else c.MoveUp.IsDown = other != null && range > 2f;
+                    if (c.AltAttack.IsDown && _frame % 20 == 0) Triggers++;
+                }
+                else c.MoveUp.IsDown = other != null && range > .35f
+                    && (Mode != RigMode.BombLockjaw || _frame % 180 >= 80);
+            }
+            else if (Mode == RigMode.SelfMoving || Mode == RigMode.SelfWall)
             {
                 if (IsSniper) DriveSelf(player, c);
                 else AimAt(player, other, headHeight: 0);

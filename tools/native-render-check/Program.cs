@@ -43,6 +43,8 @@ Vector3? VectorArg(string name)
 Vector3? camera = VectorArg("-camera"), facing = VectorArg("-facing");
 if (args.Contains("-outlinecheck") && (players < 2 || outlines == PlayerOutlineStyle.Off || shots == null))
     throw new ArgumentException("-outlinecheck requires -players 2..8, enabled -outlines and -shots.");
+if (args.Contains("-bombcheck") && (players < 4 || shots == null || outlines != PlayerOutlineStyle.Off))
+    throw new ArgumentException("-bombcheck requires -players 4..8, -shots, and -outlines Off.");
 if (players < 1 || players > 8) throw new ArgumentOutOfRangeException("Use -players 1..8.");
 if ((cap != -1 && cap < 30) || cap > 500 || seconds < 8 || seconds > 120)
     throw new ArgumentOutOfRangeException("Use -hz -1 or 30..500, -seconds 8..120.");
@@ -58,7 +60,7 @@ typeof(Scene).Assembly.GetType("MphRead.ConsoleSetup")!.GetMethod("Run")!.Invoke
 GraphicsBackendPolicy.LoadPreference();
 Paths.UpdatePaths(); Paths.ChooseMphPath(); Paths.ChooseFhPath();
 MphRead.Mods.MapGen.CustomRooms.GenerateMissing(room);
-using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"));
+using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"));
 try
 {
     window.Run();
@@ -94,16 +96,19 @@ sealed class CheckWindow : RenderWindow
     private readonly Vector3? _camera, _facing;
     private readonly bool _outlineCheck;
     private object? _outlineEvidence;
+    private readonly bool _bombCheck;
+    private BombVisibilityCheck? _bombVisibility;
+    private bool _bombChecked;
     private readonly Vector2i _requestedPixels;
     private readonly List<object> _windowEvents = new();
     private int _windowStage;
     public bool Complete { get; private set; }
 
-    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck)
+    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck)
     {
         _room = room; _seconds = seconds; _cap = cap; _shadows = shadows; _shots = shots;
         _windowCycle = windowCycle; _requestedPixels = pixels;
-        _outlines = outlines; _camera = camera; _facing = facing; _outlineCheck = outlineCheck;
+        _outlines = outlines; _camera = camera; _facing = facing; _outlineCheck = outlineCheck; _bombCheck = bombCheck;
         MinimumSize = new Vector2i(160, 90);
         double sx = FramebufferSize.X / (double)ClientSize.X, sy = FramebufferSize.Y / (double)ClientSize.Y;
         ClientSize = new Vector2i((int)Math.Round(pixels.X / sx), (int)Math.Round(pixels.Y / sy));
@@ -120,6 +125,7 @@ sealed class CheckWindow : RenderWindow
         PlayerEntity.MainPlayerIndex = 0;
         foreach (var player in PlayerEntity.Players) { player.IsBot = true; player.BotLevel = 1; }
         if (idle) Scene.Players.Main.IsBot = false;
+        if (bombCheck) foreach (var player in PlayerEntity.Players) player.IsBot = false;
         typeof(MphRead.Mods.Network.MapAudit).GetProperty("ForceEveryone")!.SetValue(null, true);
         AddRoom(room, GameMode.Battle, playerCount: players);
     }
@@ -180,7 +186,7 @@ sealed class CheckWindow : RenderWindow
                 state = WindowState.ToString(), visible = IsVisible, focused = IsFocused,
                 framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y } });
         }
-        if (_shots != null)
+        if (_shots != null && !_bombCheck)
         {
             // Capture-only runs step exactly once per picture, so paired arms
             // use identical simulation frames even if their draw costs differ.
@@ -190,6 +196,13 @@ sealed class CheckWindow : RenderWindow
         ApplyCheckCamera();
         // Actual client pacing, simulation, render and SwapBuffers all run here.
         base.OnRenderFrame(args);
+        if (_bombCheck && _bombVisibility == null && Scene.FrameCount >= 240)
+            _bombVisibility = new BombVisibilityCheck(Scene, Path.Combine(_shots!, "bomb-visibility"));
+        // Allow emitter particles to initialize before freezing every A/B arm.
+        if (_bombVisibility != null && !_bombChecked && Scene.FrameCount >= 248)
+        {
+            _bombChecked = true; _bombVisibility.Run();
+        }
         long now = Stopwatch.GetTimestamp();
         if (!_measuring && Scene.FrameCount >= 240)
         {
@@ -396,6 +409,6 @@ sealed class CheckWindow : RenderWindow
             gcCollections = Enumerable.Range(0, 3).Select(i => GC.CollectionCount(i) - _collections[i]).ToArray(),
             managedBytes = GC.GetTotalMemory(false), workingSetBytes = Environment.WorkingSet,
             simulationHz = FrameTiming.MeasuredSimulationHz, droppedSimulationSteps = FrameTiming.DroppedSteps,
-            stalls = FrameTiming.Stalls, captures = _captures, outlineOcclusion = _outlineEvidence, windowEvents = _windowEvents, complete = Complete };
+            stalls = FrameTiming.Stalls, captures = _captures, outlineOcclusion = _outlineEvidence, bombVisibility = _bombVisibility?.Evidence, windowEvents = _windowEvents, complete = Complete };
     }
 }

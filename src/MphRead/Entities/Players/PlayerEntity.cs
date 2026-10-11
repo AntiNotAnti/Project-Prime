@@ -3119,6 +3119,10 @@ namespace MphRead.Entities
                         replayImpact));
                 }
             }
+            if (bomb != null)
+                NetBombEvidence.Damage(bomb, this, replayDamageEventId,
+                    Math.Max(0, combatHealthBefore - _health),
+                    Math.Max(0, combatTurretBefore - (Halfturret?.Health ?? 0)));
             if (_health < combatHealthBefore || (Halfturret?.Health ?? 0) < combatTurretBefore)
             {
                 combatPayment.Commit(Mods.Network.NetHitClaims.CaptureOutcome(this, Math.Max(0, combatHealthBefore - _health),

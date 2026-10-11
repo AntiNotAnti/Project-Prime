@@ -475,6 +475,11 @@ internal static class ReplayWorldSchemas
             "_trailModel",
         ],
         ["MphRead.Entities.BombEntity"] = [
+            "ModOwnerKey",
+            "ModReplica",
+            "ModPlacedFrame",
+            "ModLink0",
+            "ModLink1",
             "<Flags>k__BackingField",
             "<Owner>k__BackingField",
             "<BombType>k__BackingField",

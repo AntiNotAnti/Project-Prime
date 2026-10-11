@@ -42,7 +42,8 @@ public sealed class NetPacketQueue
         PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact
             => NetPacketPriority.Background,
         PacketType.Intent or PacketType.SlotIntent or PacketType.Snapshot or PacketType.SnapshotFast or PacketType.PlayerSlowState or PacketType.WorldState or PacketType.HitClaim or PacketType.HitVerdict
-            or PacketType.ReplayWorld or PacketType.MatchStartCommit => NetPacketPriority.Realtime,
+            or PacketType.ReplayWorld or PacketType.MatchStartCommit
+            or PacketType.BombIntent or PacketType.BombEvent or PacketType.BombState => NetPacketPriority.Realtime,
         PacketType.QueueHello or PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave
             or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.QueueAccept or PacketType.QueueDecline
             or PacketType.HostChallenge or PacketType.HostChallengeReply or PacketType.HostRequest or PacketType.HostReply

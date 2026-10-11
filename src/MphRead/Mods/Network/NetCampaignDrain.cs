@@ -30,7 +30,7 @@ internal static class NetCampaignDrain
     internal sealed record QuiesceRequest(ulong Epoch, ushort Match);
     private static object? _atRelease;
     private static readonly HashSet<string> Offered = new(), Accepted = new();
-    internal sealed record Release(string Status, ulong Epoch, ushort Match, uint Semantic, uint Award);
+    internal sealed record Release(string Status, ulong Epoch, ushort Match, uint Semantic, uint Award, ulong Bomb = 0);
 
     internal static void Begin()
     {
@@ -109,7 +109,11 @@ internal static class NetCampaignDrain
                     SemanticLatest = Server ? _semantic : receiver.LatestEvent,
                     SemanticPresented = Server ? _semantic : receiver.PresentedEvent,
                     AwardLatest = Server ? _award : receiver.LatestAward,
-                    AwardPresented = Server ? _award : receiver.PresentedAward };
+                    AwardPresented = Server ? _award : receiver.PresentedAward,
+                    BombFrontier = NetBombs.LiveScene?.Bombs.Frontier ?? 0,
+                    BombPendingRequests = NetBombs.PendingCount,
+                    BombPendingEvents = (NetBombs.LiveScene?.Bombs.PendingEvents ?? 0) + NetSession.PendingBombPackets,
+                    BombFaulted = NetBombs.LiveScene?.Bombs.Faulted ?? false };
             }
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
@@ -132,7 +136,8 @@ internal static class NetCampaignDrain
     internal static bool Succeeded => !Enabled || _error == null && _release is { Status: "PASS" }
         && _release.Epoch == NetSession.AuthorityEpoch && _release.Match == NetSession.CurrentMatchId
         && NetSession.SemanticReceived.PresentedEvent >= _release.Semantic
-        && NetSession.SemanticReceived.PresentedAward >= _release.Award;
+        && NetSession.SemanticReceived.PresentedAward >= _release.Award
+        && (NetBombs.LiveScene?.Bombs.Frontier ?? 0) == _release.Bomb;
 
     internal static object Capture()
     {
@@ -145,6 +150,10 @@ internal static class NetCampaignDrain
             SemanticPresented = Server ? _semantic : receiver.PresentedEvent,
             AwardLatest = Server ? _award : receiver.LatestAward,
             AwardPresented = Server ? _award : receiver.PresentedAward,
+            BombFrontier = NetBombs.LiveScene?.Bombs.Frontier ?? 0,
+            BombPendingRequests = NetBombs.PendingCount,
+            BombPendingEvents = (NetBombs.LiveScene?.Bombs.PendingEvents ?? 0) + NetSession.PendingBombPackets,
+            BombFaulted = NetBombs.LiveScene?.Bombs.Faulted ?? false,
             ActiveProjectiles = _projectiles, ActiveBombs = _bombs, ClaimsPending = Server ? NetHitClaims.ClaimsPendingCurrent : NetHitClaims.OutgoingReceipts,
             ClaimGraceSeconds = 2.0 * NetHitClaims.MaxGraceFrames / 60,
             OfferedShotKeys = Offered.OrderBy(key => key).ToArray(), AcceptedShotKeys = Accepted.OrderBy(key => key).ToArray(),

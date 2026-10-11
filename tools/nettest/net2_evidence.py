@@ -180,6 +180,9 @@ def drain_barrier(server, peers, require_empty=True):
             return None, "authority drain error"
         if any(server[key] for key in ("ActiveProjectiles", "ActiveBombs", "ClaimsPending")):
             return None, "authority flights/bombs/claims remain"
+        bomb_frontier = server.get("BombFrontier")
+        if bomb_frontier is not None and any(server[key] for key in ("BombPendingRequests", "BombPendingEvents", "BombFaulted")):
+            return None, "authority bomb lane not settled"
         reliable = server["Reliable"]
         if not reliable or len(reliable) != len(peers) or any(p["Failed"] or p["Pending"] < 0 for p in reliable):
             return None, "authority reliable endpoints not healthy"
@@ -195,6 +198,9 @@ def drain_barrier(server, peers, require_empty=True):
                 return None, "peer flights/bombs may still generate a final claim"
             if peer["ClaimsPending"]:
                 return None, "peer claims remain pending"
+            if bomb_frontier is not None and (peer["BombFrontier"] != bomb_frontier
+                    or any(peer[key] for key in ("BombPendingRequests", "BombPendingEvents", "BombFaulted"))):
+                return None, "peer bomb lane has not caught authority frontier"
             peer_reliable = peer["Reliable"]
             if not peer_reliable or len(peer_reliable) != 1 or any(p["Failed"] or p["Pending"] < 0 for p in peer_reliable):
                 return None, "peer reliable endpoint not healthy"
@@ -209,8 +215,11 @@ def drain_barrier(server, peers, require_empty=True):
         grace = server["ClaimGraceSeconds"]
         if not isinstance(grace, (float, int)) or grace < 2.4:
             return None, "authority claim grace unavailable"
-        return {"Status": "PASS", "Epoch": identity[0], "Match": identity[1],
-                "Semantic": frontier[0], "Award": frontier[1]}, None
+        release = {"Status": "PASS", "Epoch": identity[0], "Match": identity[1],
+                   "Semantic": frontier[0], "Award": frontier[1]}
+        if bomb_frontier is not None:
+            release["Bomb"] = bomb_frontier
+        return release, None
     except (KeyError, TypeError, ValueError):
         return None, "missing/malformed drain status"
 
@@ -240,6 +249,8 @@ def drain_prepared(server, release):
         identity = release["Epoch"], release["Match"]
         expected = release["Semantic"], release["Semantic"], release["Award"], release["Award"]
         for row in (server, at):
+            if "Bomb" in release and row["BombFrontier"] != release["Bomb"]:
+                return False, "authority bomb frontier changed during release preparation"
             if (row["Epoch"], row["Match"]) != identity or tuple(row[key] for key in (
                     "SemanticLatest", "SemanticPresented", "AwardLatest", "AwardPresented")) != expected:
                 return False, "authority frontier changed during release preparation"

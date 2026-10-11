@@ -112,7 +112,7 @@ public sealed class NetConnection
             _intentByteTokens -= datagramBytes;
             return true;
         }
-        return ReceivesAuthorityFacts && type is (PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact)
+        return ReceivesAuthorityFacts && type is (PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact or PacketType.BombEvent)
             ? _authorityFactBudget.Take(nowMs, AuthorityFactRate, AuthorityFactBurst)
         : NetPacketQueue.Priority(type) == NetPacketPriority.Realtime ? _stateBudget.Take(nowMs, StateRate, StateBurst)
         : NetPacketQueue.Priority(type) == NetPacketPriority.Critical ? _controlBudget.Take(nowMs, ControlRate, ControlBurst)

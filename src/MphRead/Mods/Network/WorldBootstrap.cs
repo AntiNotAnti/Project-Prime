@@ -38,6 +38,7 @@ public static partial class NetSession
     private static int _bootstrapFastLength;
     private static byte _bootstrapMask;
     private static readonly WorldBootstrapObjectives _bootstrapObjectives = new();
+    private static readonly BombStateReceiver _bootstrapBombs = new();
     private static readonly byte[] _bootstrapSlow = new byte[512], _bootstrapWorld = new byte[1200];
     private static int _bootstrapSlowLength, _bootstrapWorldLength;
     internal static bool ObjectiveTickIsCurrent(uint tick) => _appliedBootstrap is not { } baseline
@@ -70,13 +71,14 @@ public static partial class NetSession
             && !NetLifecycleTracker.Newer(identity.Revision, previous.Revision)) return;
         if (packet.Payload.Length <= WorldBootstrapIdentity.Size) return;
         byte lane = packet.Payload[WorldBootstrapIdentity.Size];
-        if (lane > 3) return;
+        if (lane > 6) return;
         if (_receivingBootstrap != identity)
         {
             if (_receivingBootstrap is { } receiving && receiving.Start == identity.Start
                 && !NetLifecycleTracker.Newer(identity.Revision, receiving.Revision)) return;
             _receivingBootstrap = identity; _bootstrapMask = 0; _bootstrapFastLength = 0;
             _bootstrapObjectives.Reset();
+            _bootstrapBombs.Reset();
             _bootstrapReceiver.Reset(identity.Start.MatchId, identity.Start.AuthorityEpoch);
         }
         var laneData = packet.Payload[(WorldBootstrapIdentity.Size + 1)..];
@@ -86,6 +88,12 @@ public static partial class NetSession
                 || SnapshotHeader.Read(laneData).Frame != identity.AuthorityFrame) return;
             if ((_bootstrapMask & 1) != 0 && !laneData.SequenceEqual(_bootstrapFast.AsSpan(0, _bootstrapFastLength))) return;
             laneData.CopyTo(_bootstrapFast); _bootstrapFastLength = laneData.Length;
+        }
+        else if (lane >= 4)
+        {
+            if (!BombStatePage.TryRead(laneData, out var bombs) || bombs!.Page != lane - 4
+                || bombs.MatchId != identity.Start.MatchId || bombs.Epoch != identity.Start.AuthorityEpoch
+                || bombs.Frame != identity.AuthorityFrame || !_bootstrapBombs.Accept(bombs)) return;
         }
         else if (lane == 3)
         {
@@ -109,7 +117,7 @@ public static partial class NetSession
             }
         }
         _bootstrapMask |= (byte)(1 << lane);
-        if (_bootstrapMask != 15 || _bootstrapReceiver.SlowRevision != identity.SlowRevision
+        if (_bootstrapMask != 127 || _bootstrapReceiver.SlowRevision != identity.SlowRevision
             || _bootstrapReceiver.WorldRevision != identity.WorldRevision) return;
         int length = _bootstrapReceiver.Assemble(_bootstrapFast.AsSpan(0, _bootstrapFastLength),
             _laneCanonical.AsSpan(1), identity.Start.MatchId, identity.Start.AuthorityEpoch);
@@ -165,6 +173,8 @@ public static partial class NetSession
         }
         NetHealthSync.ApplyBootstrap();
         NetObjectiveSync.Apply(PlayerEntity.Players[0].OwningScene, _bootstrapObjectives.World!, bootstrap: true);
+        PlayerEntity.Players[0].OwningScene.Bombs.Begin(identity.Start.MatchId, identity.Start.AuthorityEpoch);
+        PlayerEntity.Players[0].OwningScene.Bombs.ApplyBaseline(_bootstrapBombs);
         // Spawn/form presentation may consume random values while applying.
         Rng.SetRng1(header.Rng1); Rng.SetRng2(header.Rng2);
         NoteStatesApplied();
@@ -221,12 +231,24 @@ public sealed partial class DedicatedServer
                 ? ReplayAuthorityWorld.Capture(PlayerEntity.Players[0].OwningScene, _matchId, _authorityEpoch, header.Frame)
                 : new ReplayAuthorityWorld { MatchId = _matchId, Epoch = _authorityEpoch, Tick = header.Frame };
             peer.BootstrapObjectives = WorldBootstrapObjectives.Packets(peer.BootstrapIdentity, objectives);
+            peer.BombCursor = _bombDelivery.Join();
+            var bombs = NetBombs.CaptureSnapshot(header.Frame);
+            peer.BootstrapBombs = new byte[BombStatePage.Pages][];
+            for (int page = 0; page < BombStatePage.Pages; page++)
+            {
+                var fragment = new byte[WorldBootstrapIdentity.Size + 1 + bombs[page].Length];
+                peer.BootstrapIdentity.Write(fragment); fragment[WorldBootstrapIdentity.Size] = (byte)(4 + page);
+                bombs[page].CopyTo(fragment, WorldBootstrapIdentity.Size + 1);
+                peer.BootstrapBombs[page] = fragment;
+            }
             peer.BootstrapLength = 1;
             if (peer.FirstBootstrapAt < 0) peer.FirstBootstrapAt = now;
             Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.Lifecycle, NetSession.NetFrame,
                 Player: (byte)peer.SlotIndex, Generation: _slotGenerations[peer.SlotIndex], Result: 201));
         }
         peer.BootstrapSentAt = now;
+        foreach (var fragment in peer.BootstrapBombs)
+            _transport.Send(peer.EndPoint, PacketType.WorldBootstrap, fragment);
         foreach (var fragment in peer.BootstrapObjectives)
             _transport.Send(peer.EndPoint, PacketType.WorldBootstrap, fragment);
         for (int lane = 0; lane < 3; lane++)

@@ -1,4 +1,5 @@
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.Network;
 using System;
 using System.Buffers;
 using System.Diagnostics;
@@ -11,7 +12,7 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Entities
 {
-    public class BombEntity : EntityBase
+    public partial class BombEntity : EntityBase
     {
         public BombFlags Flags { get; private set; }
         public PlayerEntity Owner { get; private set; } = null!;
@@ -73,7 +74,7 @@ namespace MphRead.Entities
                 Countdown = 900 * 2;
                 // bombStartSylux, bombStartSyluxR, bombStartSyluxP, bombStartSyluxW, bombStartSyluxO, or bombStartSyluxG
                 effectId = Metadata.SyluxBombEffects[Recolor];
-                if (Owner.SyluxBombCount == 1)
+                if (!ModReplica && Owner.SyluxBombCount == 1)
                 {
                     CollisionResult colRes = default;
                     BombEntity firstBomb = Owner.SyluxBombs[0]!;
@@ -91,7 +92,7 @@ namespace MphRead.Entities
                 Countdown = 43 * 2;
                 effectId = _scene.GameState.Multiplayer && _scene.Players.PlayerCount > 2 ? 119 : 9; // bombStartMP or bombStart
             }
-            if (effectId != 0)
+            if (effectId != 0 && !ModReplica)
             {
                 Effect = _scene.SpawnEffectGetEntry(effectId, Transform);
                 Effect?.SetElementExtension(true);
@@ -120,6 +121,14 @@ namespace MphRead.Entities
             {
                 _lockjawVisualTick++;
             }
+            if (ModReplica)
+            {
+                _soundSource.Update(Position, rangeIndex: 5);
+                UpdateNodeRefVolume();
+                Effect?.Transform(Position, Transform);
+                return base.Process();
+            }
+            if (!NetBombs.CanSimulate(this)) return false;
             EntityBase? hitEntity = null;
             _soundSource.Update(Position, rangeIndex: 5);
             UpdateNodeRefVolume();
@@ -304,30 +313,8 @@ namespace MphRead.Entities
                 {
                     return false;
                 }
-                Flags |= BombFlags.Exploded;
-                _target = null;
-                _models.Clear();
-                if (Effect != null)
-                {
-                    _scene.UnlinkEffectEntry(Effect);
-                    Effect = null;
-                }
-                if (BombType == BombType.Stinglarva)
-                {
-                    _scene.SpawnEffect(128, Transform); // bombKanden
-                }
-                else if (BombType == BombType.Lockjaw)
-                {
-                    _scene.SpawnEffect(146, Transform); // bombSylux
-                }
-                else if (BombType == BombType.MorphBall)
-                {
-                    _scene.SpawnEffect(145, Transform); // bombBlue
-                }
-                Countdown = 0;
-                _soundSource.StopSfx(SfxId.KANDEN_ALT_ATTACK);
-                _soundSource.StopSfx(SfxId.MORPH_BALL_BOMB_PLACE);
-                _soundSource.PlaySfx(SfxId.MORPH_BALL_BOMB);
+                NetBombs.Terminal(this, detonated: true);
+                ModPresentDetonation();
                 if (hitEntity == null)
                 {
                     // if an entity was hit, this message was sent elsewhere
@@ -597,7 +584,11 @@ namespace MphRead.Entities
         {
             uint rngBefore = ModAuditLockjawDrawRng && BombType == BombType.Lockjaw
                 ? _scene.Random.Rng1 : 0;
-            if (BombType == BombType.Lockjaw)
+            if (BombType == BombType.Lockjaw && ModReplica)
+            {
+                ModDrawReplicaLinks();
+            }
+            else if (BombType == BombType.Lockjaw)
             {
                 if (BombIndex == 1)
                 {
@@ -670,6 +661,7 @@ namespace MphRead.Entities
 
         public override void Destroy()
         {
+            NetBombs.Terminal(this, detonated: false);
             _soundSource.StopAllSfx();
             // Only a bomb the owner still has can correct the owner's count.
             //
@@ -741,6 +733,7 @@ namespace MphRead.Entities
                 Debug.Assert(false, "Failed to spawn bomb");
                 return null;
             }
+            bomb.ModResetPlacement();
             bomb.Owner = owner;
             bomb.ModOwnerKey = MphRead.Mods.Network.ShotKey.For(owner.SlotIndex, 0);
             bomb.BombType = type;

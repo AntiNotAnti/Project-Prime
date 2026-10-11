@@ -371,6 +371,7 @@ namespace MphRead.Mods.Network
             var identity = new MatchStartIdentity(state.MatchId, state.AuthorityEpoch, state.StartGeneration);
             ushort generation = NetPlayerLifecycle.Generation(LocalSlot);
             if (_loadedStart == identity && _loadedSlot == LocalSlot && _loadedSlotGeneration == generation) return;
+            NetBombs.Reset();
             _appliedBootstrap = _receivingBootstrap = null; _bootstrapMask = 0;
             _loadedSlot = LocalSlot; _loadedSlotGeneration = generation;
             _loadedStart = identity; _loadedMatch = state.MatchId;

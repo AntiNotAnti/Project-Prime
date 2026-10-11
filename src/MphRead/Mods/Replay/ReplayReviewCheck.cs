@@ -12,8 +12,20 @@ internal static class ReplayReviewCheck
     internal static void Run(Action<bool, string> check)
     {
         const string releaseContract = "455910DAF1D71841346B1B2692A3ACC3A4B742660CC34A485CCFF66999C2E273";
-        check(ReplayWorldCheckpoint.SupportsContract(releaseContract, "0.1.34+f0e01e09"),
-            "unchanged v0.1.34 replay layout rejected because of assembly version");
+        string historicalProducerContract = ReplayWorldCheckpoint.ComputeContract(false, "0.1.34+f0e01e09");
+        check(ReplayWorldCheckpoint.SupportsContract(historicalProducerContract, "0.1.34+f0e01e09"),
+            "same replay layout rejected because of producer assembly version");
+        check(!ReplayWorldCheckpoint.SupportsContract(releaseContract, "0.1.34+f0e01e09"),
+            "pre-canonical-bomb world layout must use safe packet reconstruction fallback");
+        using (var oldCapsule = new MemoryStream())
+        {
+            using (var writer = new BinaryWriter(oldCapsule, System.Text.Encoding.UTF8, leaveOpen: true))
+            { writer.Write(0x43575050u); writer.Write((ushort)3); writer.Write(releaseContract); }
+            bool rejectedOldLayout = false;
+            try { using var unused = ReplayWorldCheckpoint.FromBytes(oldCapsule.ToArray(), "0.1.34+f0e01e09"); }
+            catch (InvalidDataException) { rejectedOldLayout = true; }
+            check(rejectedOldLayout, "legacy incompatible world capsule fails safely before graph restoration");
+        }
         check(!ReplayWorldCheckpoint.SupportsContract(new string('0', 64), "0.1.34+f0e01e09"),
             "unknown replay layout bypassed schema validation");
         check(!ReplayWorldCheckpoint.SupportsContract("", "unknown"),

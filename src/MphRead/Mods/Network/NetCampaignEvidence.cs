@@ -261,6 +261,7 @@ internal static class NetCampaignEvidence
                 CombatPayments = NetCombatPayments.Capture(),
                 SelfSplash = NetSelfSplash.Capture(),
                 ContinuousPayments = NetContinuousPayments.Capture(),
+                Bombs = NetBombEvidence.Capture(),
                 Drain = NetCampaignDrain.Capture(),
                 TransportWindows, Readiness, Windows, ServerSegments, Shots, States, SlowStates, Facts };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);

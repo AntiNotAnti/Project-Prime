@@ -38,6 +38,7 @@ namespace MphRead.Mods.Network
             if (!string.Equals(scene.Room?.Meta.Name, match.RoomKey, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("The replica scene belongs to a different recorded room.");
             ApplyRules(scene, Session.RecordingFrame);
+            State.PrepareBombWorld(scene);
             scene.EnhancedWorld.Read(State.EnhancedWorldState);
             if (State.AuthorityWorld is { } clock)
             {
@@ -158,6 +159,8 @@ namespace MphRead.Mods.Network
                     }
                     _presentationKnown[slot] = true; _presentationLives[slot] = life;
                 }
+
+            State.ApplyBombPackets(scene);
 
             // A lethal ReplayShotFact owns the visible death frame. If the next
             // accepted snapshot is a frame or two late, hold only the replica

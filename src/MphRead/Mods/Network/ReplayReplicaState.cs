@@ -94,6 +94,7 @@ namespace MphRead.Mods.Network
         }
         public void Reset()
         {
+            _bombPackets.Clear();
             ContainsBots = false;
             Match = null;
             Configuration = null;
@@ -103,6 +104,7 @@ namespace MphRead.Mods.Network
         }
         public void Rewind()
         {
+            _bombPackets.Clear();
             ChatLines.Clear();
             _shotFacts.Clear();
             Array.Fill(_lastShotHitFrame, uint.MaxValue);
@@ -140,6 +142,10 @@ namespace MphRead.Mods.Network
             bool accepted = false;
             switch ((PacketType)packet[0])
             {
+                case PacketType.BombEvent:
+                case PacketType.BombState:
+                    accepted = AcceptBombPacket((PacketType)packet[0], payload);
+                    break;
                 case PacketType.MatchState:
                     if (payload.Length != MatchStatePacket.Size) throw Malformed();
                     var match = MatchStatePacket.Read(payload);

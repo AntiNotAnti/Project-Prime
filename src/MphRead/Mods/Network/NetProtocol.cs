@@ -27,6 +27,7 @@ namespace MphRead.Mods.Network
         QueueHello = 57, QueueWelcome = 58, QueueJoin = 59, QueueLeave = 60,
         QueueState = 61, QueueSeatOffer = 62, QueueAccept = 63, QueueDecline = 64,
         HostChallenge = 65, HostChallengeReply = 66,
+        BombIntent = 68, BombEvent = 69, BombState = 70,
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
@@ -2504,7 +2505,7 @@ namespace MphRead.Mods.Network
         // Canonical player, individual semantic and replay record widths stay unchanged.
         // Protocol 47 adds constrained owner projectile claims, exact self receipts
         // and immutable burn ownership. Packet widths and replay records are unchanged.
-        public const int ProtocolVersion = 47;
+        public const int ProtocolVersion = 48;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

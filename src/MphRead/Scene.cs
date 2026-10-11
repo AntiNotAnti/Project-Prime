@@ -37,6 +37,8 @@ namespace MphRead
         public ScenePlayerRegistry Players { get; }
         public MatchRandom Random { get; }
         public Mods.Network.PlayerReplicationBridge PlayerReplication { get; private set; }
+        private Mods.Network.NetBombWorld? _netBombs;
+        internal Mods.Network.NetBombWorld Bombs => _netBombs ??= new(this);
         internal ushort NextItemRotation { get; set; }
         public SceneCameraSequences CameraSequences => GameState.CameraSequences;
         internal BeamProjectileEntity[] EnemyBeams { get; set; } = null!;

@@ -511,6 +511,7 @@ namespace MphRead.Mods.Network
             // Peers join and leave mid-match; bring the scene's active slots
             // in line with the server's roster every frame.
             NetSlotManager.Sync();
+            NetSession.ApplyBombPackets();
             // Apply an allocated life before input is stamped or simulation
             // can hit a body still belonging to the previous life.
             if (NetSession.IsClient && !NetSession.IsAuthority && NetRoomChange.GameplayReady)
@@ -609,6 +610,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            NetBombs.AfterSimulation();
             NetBotInput.Flush();
             if (_continuousIntentPending)
             {

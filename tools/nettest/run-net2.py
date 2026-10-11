@@ -19,6 +19,7 @@ from net2_evidence import adjudicate, drain_barrier, drain_prepared, DrainStabil
 PROFILES = {"lan": (0, 0, 0, 0, 0), "moderate": (100, 20, 1, 0, 0),
             "poor": (250, 40, 2, 0, 0), "extreme": (400, 80, 5, 3, 1)}
 HUNTERS = ["Samus", "Kanden", "Trace", "Sylux", "Noxus", "Spire", "Weavel", "Samus"]
+BOMB_HUNTERS = {"bomb-samus": "Samus", "bomb-kanden": "Kanden", "bomb-lockjaw": "Sylux"}
 
 
 def digest(path):
@@ -113,6 +114,8 @@ def run(args):
             env.update(PRIME_NET2_DRAIN_SECONDS=str(args.drain_seconds), PRIME_NET2_DRAIN_ROLE=name if name == "server" else "client",
                        PRIME_NET2_DRAIN_STATUS=str(args.out / f"{name}.drain.json"),
                        PRIME_NET2_DRAIN_RELEASE=str(args.out / ("drain.server-release.json" if name == "server" else "drain.release.json")))
+        if args.scenario in BOMB_HUNTERS:
+            env["PRIME_NET2_BOMB_EVIDENCE"] = str(args.out / f"{name}.bombs.json")
         command = [dotnet, str(assembly), "-mapdir", str(maps), "-noupdate", "-noautoupdate", *extra]
         handle = open(args.out / f"{name}.log", "w", encoding="utf-8")
         handles.append(handle)
@@ -128,6 +131,8 @@ def run(args):
             "soak": args.soak})
         if args.drain_seconds:
             manifest["commands"][-1]["environment"].update({key: value for key, value in env.items() if key.startswith("PRIME_NET2_DRAIN_")})
+        if args.scenario in BOMB_HUNTERS:
+            manifest["commands"][-1]["environment"]["PRIME_NET2_BOMB_EVIDENCE"] = env["PRIME_NET2_BOMB_EVIDENCE"]
         save(args.out / "manifest.json", manifest)
         return process, record
 
@@ -151,7 +156,7 @@ def run(args):
         def client(slot, name, seconds):
             # Only affinity Shock Coil drains health. Combat roles use assigned
             # network slots, which can differ from concurrent launch order.
-            hunter = "Sylux" if args.scenario == "shockcoil-mixed" else HUNTERS[slot]
+            hunter = BOMB_HUNTERS.get(args.scenario, "Sylux" if args.scenario == "shockcoil-mixed" else HUNTERS[slot])
             extra = ["-netcheck", "127.0.0.1", "-port", str(args.port), "-name", name,
                 "-hunter", hunter, "-seconds", str(seconds), "-size", "480x270",
                 "-netlag", f"{rtt}:{jitter}", "-netloss", f"{loss}%", "-netreorder", f"{reorder}%",
@@ -166,21 +171,26 @@ def run(args):
                 extra += ["-shots", str(shots)]
             if args.scenario != "tour":
                 extra += ["-hitrig", args.scenario]
-            observer = args.players == 3 and args.rendered and slot == 2
+            observer = args.players == 3 and slot == 2 and (args.rendered or args.scenario in BOMB_HUNTERS)
             if observer:
                 extra += ["-spectate", "0"]
             if args.soak and slot == args.players - 2:
                 extra += ["-spectate", "90", "-rejoin", "150"]
-            expects = not observer and (args.soak or args.scenario in ("tour", "duel", "shockcoil-all", "shockcoil-mixed") or slot % 2 == 0)
+            expects = not observer and args.scenario not in BOMB_HUNTERS and (args.soak or args.scenario in ("tour", "duel", "shockcoil-all", "shockcoil-mixed") or slot % 2 == 0)
             p, record = launch(name, extra, seconds, expects)
+            if args.scenario in BOMB_HUNTERS:
+                record["expectsBombs"] = slot == 0
             clients.append((p, record, time.monotonic() + seconds + args.drain_seconds + 120))
 
         # Soak: one late join, then a normal departure and a fresh process/connection.
         client_start = time.monotonic()
         for slot in range(args.players - (1 if args.soak else 0)):
+            if args.observer_delay and slot == 2:
+                continue
             client(slot, f"peer-{slot}", args.seconds)
             time.sleep(.25)
         late_started = reconnect_started = False
+        observer_started = not args.observer_delay
         drain_started = None
         stability = DrainStability()
         drain_released = False
@@ -190,6 +200,9 @@ def run(args):
         drain_reason = "waiting for peer quiescence"
         while True:
             elapsed = time.monotonic() - client_start
+            if not observer_started and elapsed >= args.observer_delay:
+                client(2, "peer-2", max(1, args.seconds - elapsed))
+                observer_started = True
             bot_finished = not args.soak or "[net2] bot fill complete" in (args.out / "server.log").read_text(errors="replace")
             if args.soak and not late_started and elapsed >= 30 and (bot_finished or elapsed >= 120):
                 client(args.players - 1, "peer-late", 180)
@@ -284,7 +297,7 @@ def run(args):
             if server.poll() is not None:
                 server_record["unexpectedExit"] = True
                 raise RuntimeError("server exited before clients finished")
-            if all(r["exit"] is not None for _, r, _ in clients) and (not args.soak or reconnect_started):
+            if all(r["exit"] is not None for _, r, _ in clients) and observer_started and (not args.soak or reconnect_started):
                 break
             time.sleep(.2)
         (args.out / "server.json.stop").touch()
@@ -310,6 +323,12 @@ def run(args):
         manifest["assemblyAfterSha256"] = digest(assembly)
         save(args.out / "manifest.json", manifest)
         summary = adjudicate(args.out, records, expected_protocol=args.protocol)
+        if args.scenario in BOMB_HUNTERS:
+            summary["coverage"]["canonicalBombSequences"] = "NOT_RUN"
+            summary["coverage"]["renderedBombVisibility"] = "NOT_RUN"
+            summary["incomplete"].append("exact bomb placement/detonation/visibility audit pending; shot parity does not establish bomb coverage")
+            if summary["status"] == "PASS":
+                summary["status"] = "INCOMPLETE"
         if len(records) < args.players + 1 or manifest.get("runnerError") or manifest["assemblyAfterSha256"] != manifest["assemblySha256"]:
             summary["status"] = "FAIL"
             summary["failures"].append(manifest.get("runnerError", "missing participants or modified running assembly"))
@@ -325,7 +344,7 @@ if __name__ == "__main__":
     p.add_argument("--source", required=True, help="Exact source SHA plus dirty diff hash if applicable")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--dotnet", default="dotnet")
-    p.add_argument("--protocol", type=int, default=47, help="Expected evidence protocol (historical campaigns may specify 41)")
+    p.add_argument("--protocol", type=int, default=48, help="Expected evidence protocol (historical campaigns may specify 41)")
     p.add_argument("--shot-proof", choices=("off", "shadow", "enforce"), default="shadow",
                    help="Record and apply the explicit N4 admission mode")
     p.add_argument("--players", type=int, choices=(2, 3, 4, 8), default=2)
@@ -335,7 +354,9 @@ if __name__ == "__main__":
     p.add_argument("--port", type=int, default=27991)
     p.add_argument("--seed", type=int, default=8128)
     p.add_argument("--profile", choices=PROFILES, default="lan")
-    p.add_argument("--scenario", choices=("tour", "duel", "shockcoil", "shockcoil-all", "shockcoil-mixed", "missile", "self-moving", "self-wall"), default="tour")
+    p.add_argument("--scenario", choices=("tour", "duel", "shockcoil", "shockcoil-all", "shockcoil-mixed", "missile", "self-moving", "self-wall", *BOMB_HUNTERS), default="tour")
+    p.add_argument("--observer-delay", type=float, default=0,
+                   help="Delay the third spectator in a short three-client bomb campaign")
     p.add_argument("--rooms", default="MP1 SANCTORUS")
     p.add_argument("--round-minutes", type=float, default=30)
     p.add_argument("--rendered", action="store_true")
@@ -346,6 +367,9 @@ if __name__ == "__main__":
         p.error("duration, round length and port must be positive and valid")
     if args.drain_seconds < 0 or args.drain_seconds > 60:
         p.error("--drain-seconds must be between zero and 60")
+    if args.observer_delay < 0 or args.observer_delay >= args.seconds or (
+            args.observer_delay and (args.players != 3 or args.scenario not in BOMB_HUNTERS or args.soak)):
+        p.error("--observer-delay requires a short three-client bomb scenario and must be less than --seconds")
     if args.drain_seconds and (args.rendered or args.soak):
         p.error("--drain-seconds supports short headless campaigns only; rendered/soak is not implemented")
     if args.soak and (args.players != 8 or args.seconds < 1200 or args.seconds > 1800):
