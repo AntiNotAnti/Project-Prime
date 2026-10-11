@@ -313,6 +313,81 @@ class EvidenceTests(unittest.TestCase):
         rejection["Stage"] = "phase-skipped"
         self.write(); self.assertEqual(self.result()["status"], "FAIL")
 
+    def turret_retirement_fixture(self):
+        row = dict(self.client["Shots"][0], Key=dict(self.client["Shots"][0]["Key"], ShotId=6),
+                   SourceFrame=92, ContinuousPhase=0, Weapon=3, Kind=4, ObservedFrame=96)
+        self.client["Shots"].append(dict(row, Stage="offered"))
+        self.server["Shots"].append(dict(row, Stage="accepted"))
+        source = struct.pack("<IIB3fBHHH",96,50,1,0.,0.,0.,0,0,2,99).hex()
+        rejection = dict(row,Stage="rejected",Reason="turret source retired before native emission",
+                         OwnerHealth=99,CurrentOwnerLife=4,RetiredFormSource=source)
+        self.server["Shots"].append(rejection); self.server["Role"]="server"
+        self.server["Forms"]=[dict(Stage="authority",Epoch=111,Match=2,Slot=0,Generation=3,Life=4,
+                                   ObservedFrame=96,Source=source,BodyHp=99,TurretHp=0,TurretActive=False,Phase="Biped")]
+        self.server["CombatPayments"]=dict(PaidShotKeys=[],EvidenceOverflow=0)
+        return rejection
+
+    def test_strict_authority_turret_retirement_separate_from_emission(self):
+        self.turret_retirement_fixture();self.write();result=self.result()
+        self.assertEqual(result["status"],"PASS",result)
+        self.assertEqual(result["observations"]["server"]["authorityRetiredTurretCount"],1)
+        self.assertEqual(result["parity"]["shooter"]["committedShots"],1)
+        self.assertEqual(result["parity"]["shooter"]["acceptedShots"],2)
+        self.assertEqual(result["parity"]["shooter"]["authorityRetiredOfferedTurretCount"],1)
+        self.assertEqual(result["parity"]["shooter"]["terminalRejectedOfferedShots"],0)
+
+    def test_double_turret_context_is_exact_accepted_uint32_signature(self):
+        self.turret_retirement_fixture()
+        for report in (self.server,self.client):
+            for row in report["Shots"]:
+                if row["Key"]["ShotId"] == 6: row["ContinuousPhase"] = 1 << 29
+        self.write(); self.assertEqual(self.result()["status"],"PASS")
+        self.server["Shots"][-1]["ContinuousPhase"] = 1 << 30
+        self.write(); self.assertEqual(self.result()["status"],"FAIL")
+
+    def test_turret_retirement_bad_key_source_clock_or_form_fails(self):
+        for field,value in (("SourceFrame",91),("ObservedFrame",97),("Weapon",7),("Kind",3),
+                            ("RetiredFormSource","00"),("OwnerHealth",0),("CurrentOwnerLife",3),("ContinuousPhase",-1),("ContinuousPhase",2**32)):
+            with self.subTest(field=field):
+                self.setUp();r=self.turret_retirement_fixture();r[field]=value;self.write()
+                self.assertEqual(self.result()["status"],"FAIL")
+        self.setUp();r=self.turret_retirement_fixture();r["Key"]=dict(r["Key"],ShotId=7);self.write()
+        self.assertEqual(self.result()["status"],"FAIL")
+
+    def test_active_same_life_turret_is_not_retired(self):
+        r=self.turret_retirement_fixture();source=struct.pack("<IIB3fBHHH",96,50,3,0.,0.,0.,1,45,2,99).hex()
+        r["RetiredFormSource"]=source
+        self.server["Forms"][0].update(Source=source,Phase="Alt",TurretHp=45,TurretActive=True)
+        self.write();self.assertEqual(self.result()["status"],"FAIL")
+
+    def test_exact_newer_owner_life_proves_retired_source_without_sampled_death(self):
+        r=self.turret_retirement_fixture();r["CurrentOwnerLife"]=5;self.server["Forms"][0]["Life"]=5
+        self.write();self.assertEqual(self.result()["status"],"PASS")
+        self.server["Forms"][0]["Life"]=4;self.write();self.assertEqual(self.result()["status"],"FAIL")
+
+    def test_turret_retirement_cannot_have_payment_or_emission_or_missing_payment_proof(self):
+        for case in ("paid","committed","missing","overflow"):
+            with self.subTest(case=case):
+                self.setUp();r=self.turret_retirement_fixture()
+                if case=="paid":self.server["CombatPayments"]["PaidShotKeys"]=[r["Key"]]
+                elif case=="committed":self.server["Shots"].append(dict(r,Stage="committed"))
+                elif case=="missing":del self.server["CombatPayments"]["PaidShotKeys"]
+                else:self.server["CombatPayments"]["EvidenceOverflow"]=1
+                self.write();self.assertEqual(self.result()["status"],"FAIL")
+
+    def test_observer_turret_retirement_cannot_excuse_authority_commit(self):
+        r=self.turret_retirement_fixture();self.server["Shots"].remove(r)
+        self.server["Shots"].append(dict(r,Stage="committed"))
+        self.client["Shots"] += [dict(r,Stage="accepted"),r]
+        self.write();result=self.result();self.assertEqual(result["status"],"FAIL")
+        self.assertEqual(result["observations"]["server"]["authorityRetiredTurretCount"],0)
+        self.assertGreater(result["parity"]["shooter"]["viewMissingCommits"],0)
+
+    def test_turret_generic_expiry_remains_unexplained_loss(self):
+        r=self.turret_retirement_fixture();r["Reason"]="turret cooldown or pose refused"
+        self.write();result=self.result();self.assertEqual(result["status"],"FAIL")
+        self.assertEqual(result["observations"]["server"]["authorityRetiredTurretCount"],0)
+
     def test_duplicate_commit(self):
         self.client["Shots"].append(self.client["Shots"][0])
         self.write()

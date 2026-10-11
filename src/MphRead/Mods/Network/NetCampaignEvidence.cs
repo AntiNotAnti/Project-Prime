@@ -50,7 +50,7 @@ internal static class NetCampaignEvidence
         int OwnerHealth = -1, ushort CurrentOwnerLife = 0, string? RetiredFormSource = null);
     private sealed record FormObservation(string Stage, ulong Epoch, ushort Match, byte Slot, ushort Generation,
         ushort Life, string Source, uint ObservedFrame, string Phase, int BodyHp, int TurretHp,
-        bool TurretActive, float X, float Y, float Z, float BodyX, float BodyY, float BodyZ, ushort ObservedDamageEvent, int BodyPredictionDebit);
+        bool TurretActive, float X, float Y, float Z, float BodyX, float BodyY, float BodyZ, ushort ObservedDamageEvent, int BodyPredictionDebit, string? BodyAckSource);
     internal static void Form(in PlayerState state, PlayerEntity? player = null, bool local = false)
     {
         if (!Enabled || state.Form.Phase == FormPhase.Unknown) return;
@@ -63,7 +63,8 @@ internal static class NetCampaignEvidence
             NetSession.AuthorityEpoch, NetSession.CurrentMatchId, state.SlotIndex, state.SlotGeneration, state.LifeId,
             Convert.ToHexString(bytes), NetSession.NetFrame, observed.Phase.ToString(), player?.Health ?? state.Health,
             player?.Halfturret.Health ?? state.Form.TurretHealth, observed.TurretActive,
-            observed.TurretPosition.X, observed.TurretPosition.Y, observed.TurretPosition.Z, body.X, body.Y, body.Z, sequence, player == null ? 0 : NetHitPrediction.FormPredictionDebit(player.SlotIndex)));
+            observed.TurretPosition.X, observed.TurretPosition.Y, observed.TurretPosition.Z, body.X, body.Y, body.Z, sequence, player == null ? 0 : NetHitPrediction.FormPredictionDebit(player.SlotIndex),
+            player == null ? null : NetHitPrediction.FormAckSource(player.SlotIndex, state.SlotGeneration, state.LifeId)));
     }
 
     private sealed record Health(ulong Epoch, ushort Match, uint Frame, byte Slot, ushort Generation,

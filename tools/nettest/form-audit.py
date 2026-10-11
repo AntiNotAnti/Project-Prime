@@ -53,10 +53,27 @@ def decode(row):
                                anchor=anchor, active=bool(active), hp=hp, damage=damage, body_hp=body_hp)
 
 
+def lethal_ack_floor(row, identity, source, bases):
+    """Exact retained lethal receipt, joined to an authority death outcome."""
+    if row["BodyHp"] != 1 or source["body_hp"] <= 0: return False
+    raw = row.get("BodyAckSource")
+    if raw is None: return None
+    if not isinstance(raw,str) or len(raw)!=46: raise ValueError("invalid retained CombatAck23")
+    try: data=bytes.fromhex(raw)
+    except ValueError: raise ValueError("invalid retained CombatAck23")
+    claim,result,victim,generation,life,applied,hp,turret,sequence,flags,shot = struct.unpack("<HBBHHHHHIBI",data)
+    if not (claim>0 and shot>0 and result in (0,1,13) and (victim,generation,life)==identity[2:]
+            and applied>0 and hp==0 and 0<sequence<=65535 and sequence==row.get("ObservedDamageEvent")
+            and newer(sequence,source["damage"],16) and flags & 2 and flags & 64 and flags<=127):
+        raise ValueError("retained ACK lacks exact accepted lethal victim/outcome proof")
+    return any(newer(basis["frame"],source["frame"]) and basis["body_hp"]==0 and basis["hp"]==turret==row["TurretHp"]
+               and basis["active"]==row["TurretActive"] for basis in bases)
+
+
 def audit(server, peers, summary, manifest, owner_slot=1):
     failures, missing = [], []
     metrics = {"peers": {}, "authoritySamples": 0, "independentAnchorWitnesses": 0,
-               "healthDisagreements": [], "ownerPhaseDifferences": 0, "newerHealthJoins": 0, "predictionDebitJoins": 0, "inactiveAnchorNotLocationProofSamples": 0}
+               "healthDisagreements": [], "ownerPhaseDifferences": 0, "newerHealthJoins": 0, "predictionDebitJoins": 0, "inactiveAnchorNotLocationProofSamples": 0, "lethalAckFloorJoins": []}
     expected = {p["name"] for p in summary.get("processes", []) if p.get("name") != "server"}
     if not expected or expected != set(peers): missing.append("complete expected peer evidence unavailable")
     if summary.get("status") == "FAIL": failures.append("base campaign failed")
@@ -154,6 +171,14 @@ def audit(server, peers, summary, manifest, owner_slot=1):
                         if any(actual_health(other) == actual for other in bases):
                             metrics["newerHealthJoins"] += 1
                             if debit: metrics["predictionDebitJoins"] += 1
+                        elif key[2] == owner_slot and bases and not local and row["BodyHp"] == 1 and form["body_hp"] > 0:
+                            floor = lethal_ack_floor(row, key, form, bases)
+                            if floor is True:
+                                metrics["lethalAckFloorJoins"].append(dict(peer=name,identity=key,sourceFrame=form["frame"],
+                                    sourceDamage=form["damage"],ackDamage=observed_damage,bodyAckSource=row["BodyAckSource"]))
+                            elif floor is None:
+                                missing.append(name + ": lethal ACK floor lacks retained exact receipt evidence")
+                            else: raise ValueError("lethal ACK floor lacks matching authority death outcome")
                         elif not bases:
                             missing.append(name + ": newer health/presence lacks exact authority reconciliation")
                         elif debit is None and key[2] == owner_slot and any(actual[1:] == (other["hp"], other["active"]) for other in bases):
@@ -180,26 +205,28 @@ def audit(server, peers, summary, manifest, owner_slot=1):
             for observed, form in target_rows:
                 key = tuple(observed[f] for f in IDENTITY)
                 step = progress.get(key, 0)
-                if form["phase"] == ("Morphing", "Alt", "Unmorphing", "Biped")[step]:
+                cycle_phase = observed["Phase"] if observed["Stage"] == "owner" else form["phase"]
+                if cycle_phase == ("Morphing", "Alt", "Unmorphing", "Biped")[step]:
                     step += 1
                     if step == 4: complete_cycle = True; step = 0
                 progress[key] = step
             if not complete_cycle: missing.append(name + ": ordered same-life morph/alt/unmorph/settled cycle incomplete")
             if not active: missing.append(name + ": active Weavel turret not observed")
             if not separated: missing.append(name + ": independent turret/body anchor evidence missing")
+            late_initial = target_rows[0][1] if target_rows else None
+            late_coverage = "NOT_RUN"
             if name == "peer-2" and settings.get("observerDelay", settings.get("observer_delay", 0)):
-                if not target_rows or not target_rows[0][1]["active"]:
-                    missing.append(name + ": initial late-observer active anchor not exercised")
+                late_coverage = "ACTIVE" if late_initial and late_initial["active"] else "INACTIVE" if late_initial else "MISSING"
             metrics["peers"][name] = dict(sourceJoins=matched, targetPhases=sorted(phases), completeCycle=complete_cycle, activeSamples=active,
                                           independentAnchorWitnesses=separated,
-                                          initialTarget=target_rows[0][1] if target_rows else None)
+                                          initialTarget=late_initial, lateInitialAnchorCoverage=late_coverage)
             metrics["independentAnchorWitnesses"] += separated
         except (KeyError, TypeError, ValueError, struct.error) as error:
             failures.append(name + ": form evidence: " + str(error))
     if not authority: missing.append("nonempty authority form sources required")
     return dict(status="FAIL" if failures else "INCOMPLETE" if missing else "PASS", failures=failures,
                 incomplete=list(dict.fromkeys(missing)), metrics=metrics,
-                scope="exact accepted form-source identity, observer phase and turret anchor/presence/health; owner animation phase may lead; exact pending remote body debit may explain predicted health; inactive turret anchors are not location proof; existing base health/score/drain gates retained")
+                scope="exact accepted form-source identity, observer phase and turret anchor/presence/health; owner animation phase may lead; exact pending remote body debit may explain predicted health; inactive turret anchors are not location proof; exact lethal ACK may hold body1 until a death snapshot; initial late-observer active/inactive form is reported separately (active bootstrap tested by asset-backed form-scene fixture); existing base health/score/drain gates retained")
 
 
 def main():

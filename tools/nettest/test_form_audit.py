@@ -33,7 +33,7 @@ class FormAuditTests(unittest.TestCase):
     def audit(self): return module.audit(self.server, self.peers, self.summary, self.manifest)
 
     def test_positive_exact_sources_native_owner_phase_lead(self):
-        self.peers["peer-1"]["Forms"][0]["Phase"] = "Alt"
+        self.peers["peer-1"]["Forms"][2]["Phase"] = "Unmorphing"
         result = self.audit()
         self.assertEqual(result["status"], "PASS", result)
         self.assertEqual(result["metrics"]["ownerPhaseDifferences"], 1)
@@ -81,7 +81,9 @@ class FormAuditTests(unittest.TestCase):
                     for item in rows: item["BodyX"] = 1
                 else:
                     for item in rows: del item["BodyX"]
-                self.assertEqual(self.audit()["status"], "INCOMPLETE")
+                self.assertEqual(self.audit()["status"], "PASS" if kind == "initial" else "INCOMPLETE")
+                if kind == "initial":
+                    self.assertEqual(self.audit()["metrics"]["peers"]["peer-2"]["lateInitialAnchorCoverage"], "INACTIVE")
 
     def test_newer_health_requires_exact_authority_same_life_transition(self):
         item = self.peers["peer-0"]["Forms"][0]
@@ -179,6 +181,57 @@ class FormAuditTests(unittest.TestCase):
         self.assertEqual(self.audit()["status"], "PASS")
         sample = self.peers["peer-0"]["Forms"][0]; sample["X"] = 100
         self.assertEqual(self.audit()["status"], "FAIL")
+
+    def lethal_floor_fixture(self):
+        sample = self.peers["peer-0"]["Forms"][0]
+        sample.update(BodyHp=1, TurretHp=0, TurretActive=False, ObservedDamageEvent=1,
+            BodyAckSource=struct.pack("<HBBHHHHHIBI",1,1,1,1,1,100,0,0,1,66,5).hex())
+        self.server["Forms"].append(row(8, 3, False, hp=0, damage=1, body_hp=0))
+        return sample
+
+    def test_exact_lethal_ack_floor_needs_positive_older_source_and_authority_death(self):
+        sample=self.lethal_floor_fixture()
+        result=self.audit();self.assertEqual(result["status"],"PASS",result)
+        self.assertEqual(len(result["metrics"]["lethalAckFloorJoins"]),1)
+        del sample["BodyAckSource"]
+        self.assertEqual(self.audit()["status"],"INCOMPLETE")
+
+    def test_lethal_ack_floor_wrong_victim_result_health_flag_sequence_fail(self):
+        for offset,value in ((2,4),(3,2),(4,2),(6,2),(10,1),(14,2),(18,64),(19,0)):
+            with self.subTest(offset=offset):
+                self.setUp();sample=self.lethal_floor_fixture();raw=bytearray.fromhex(sample["BodyAckSource"])
+                raw[offset]=value;sample["BodyAckSource"]=raw.hex()
+                self.assertEqual(self.audit()["status"],"FAIL")
+        self.setUp();sample=self.lethal_floor_fixture();sample["BodyHp"]=2
+        self.assertEqual(self.audit()["status"],"FAIL")
+        self.setUp();sample=self.lethal_floor_fixture();sample["BodyAckSource"]="00"
+        self.assertEqual(self.audit()["status"],"FAIL")
+
+    def test_lethal_floor_cannot_match_different_authority_life_transition_or_outcome(self):
+        self.lethal_floor_fixture();self.server["Forms"][-1]["Life"]=2
+        self.assertEqual(self.audit()["status"],"INCOMPLETE")
+        self.setUp();self.lethal_floor_fixture()
+        raw=bytearray.fromhex(self.server["Forms"][-1]["Source"]);raw[22]=1
+        self.server["Forms"][-1].update(Source=raw.hex(),TurretHp=1)
+        self.assertEqual(self.audit()["status"],"FAIL")
+        self.setUp();self.lethal_floor_fixture()
+        self.server["Forms"][-1].update(Source=row(8,3,False,damage=1,body_hp=1)["Source"],BodyHp=1)
+        result=self.audit();self.assertEqual(result["status"],"PASS")
+        self.assertEqual(result["metrics"]["lethalAckFloorJoins"],[])
+
+    def test_observed_owner_cycle_can_lead_source_but_must_reach_actual_biped(self):
+        source=row(7,4)
+        self.server["Forms"][-1]=source
+        self.server["Forms"].append(row(8,1))
+        for name in ("peer-0","peer-2"):
+            self.peers[name]["Forms"][-1]={**row(8,1),"Stage":"observer"}
+        owner=self.peers["peer-1"]["Forms"]
+        owner[-1]={**source,"Stage":"owner","Phase":"Biped"}
+        initial={**row(2,1),"Stage":"owner"}
+        owner.insert(0,initial);self.server["Forms"].append({**initial,"Stage":"authority"})
+        self.assertEqual(self.audit()["status"],"PASS")
+        owner[-1]["Phase"]="Unmorphing"
+        self.assertEqual(self.audit()["status"],"INCOMPLETE")
 
     def test_peer_inventory_and_drain_required(self):
         del self.peers["peer-2"]

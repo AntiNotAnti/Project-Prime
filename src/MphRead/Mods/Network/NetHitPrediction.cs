@@ -1641,6 +1641,17 @@ namespace MphRead.Mods.Network
             return NetLifecycleTracker.Newer(ack, sampleSequence) ? ack : sampleSequence;
         }
 
+        // Opt-in evidence only: copy the retained receipt without changing its
+        // lifetime or reconciliation state. Bind it to the sampled victim life.
+        internal static string? FormAckSource(int slot, ushort generation, ushort life)
+        {
+            if (!NetCampaignEvidence.Enabled || (uint)slot >= Slots || !_ackHealthValid[slot]) return null;
+            var ack = _ackHealth[slot];
+            if (ack.VictimSlot != slot || ack.VictimGeneration != generation || ack.VictimLife != life) return null;
+            Span<byte> bytes = stackalloc byte[CombatAckEntry.Size]; ack.Write(bytes);
+            return Convert.ToHexString(bytes);
+        }
+
         /// <summary>Retire the exact named prediction and reconcile its presentation outcome.</summary>
         public static bool ApplyCombatAck(in CombatAckEntry ack, int latencyFrames)
         {
