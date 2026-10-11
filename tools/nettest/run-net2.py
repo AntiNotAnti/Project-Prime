@@ -168,6 +168,8 @@ def run(args):
         env.update(PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS="null",
                    MPHREAD_PHASE_SECONDS="2", PRIME_NET2_EVIDENCE=str(args.out / f"{name}.json"),
                    PRIME_SHOT_PROOF=args.shot_proof)
+        if args.movement_validation_shadow:
+            env["PRIME_MOVEMENT_VALIDATION_SHADOW"] = "1"
         if args.confirmed_impacts:
             env["PRIME_CONFIRMED_IMPACTS"] = "1"
         if args.soak:
@@ -194,6 +196,8 @@ def run(args):
             "environment": {k: env[k] for k in ("PROJECT_PRIME_USER_DATA", "ALSOFT_DRIVERS", "MPHREAD_PHASE_SECONDS", "PRIME_NET2_EVIDENCE", "PRIME_SHOT_PROOF")},
             "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
             "soak": args.soak})
+        if args.movement_validation_shadow:
+            manifest["commands"][-1]["environment"]["PRIME_MOVEMENT_VALIDATION_SHADOW"] = "1"
         if args.confirmed_impacts:
             manifest["commands"][-1]["environment"]["PRIME_CONFIRMED_IMPACTS"] = "1"
         if args.drain_seconds:
@@ -423,6 +427,8 @@ def parse_args(argv=None):
     p.add_argument("--rooms", default="MP1 SANCTORUS")
     p.add_argument("--round-minutes", type=float, default=30)
     p.add_argument("--rendered", action="store_true")
+    p.add_argument("--movement-validation-shadow", action="store_true",
+                   help="Observe accepted owner movement envelopes without correction or rejection")
     p.add_argument("--confirmed-impacts", action="store_true", help="Enable the independent optional live hit-cue lane")
     p.add_argument("--bomb-visibility",action="store_true",
                    help="Capture per-peer live bomb GPU evidence; requires --rendered and a bomb scenario")

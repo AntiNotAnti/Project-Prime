@@ -647,6 +647,7 @@ namespace MphRead.Entities
             _spawnInvulnTimer = 0;
             _matchSpawnProtectionTimer = 0;
             ModResetSpawnProtectionReplication();
+            ModResetMovementValidation();
             _abilities = AbilityFlags.None;
             _walkSfxTimer = 0;
             _walkSfxIndex = 0;
@@ -986,6 +987,7 @@ namespace MphRead.Entities
             _damageInvulnTimer = 0;
             _matchSpawnProtectionTimer = 0;
             ModResetSpawnProtectionReplication();
+            ModResetMovementValidation();
             if (IsBot && _scene.GameState.SinglePlayer)
             {
                 _spawnInvulnTimer = 0;
@@ -1256,6 +1258,7 @@ namespace MphRead.Entities
 
         public void Teleport(Vector3 position, Vector3 facing, NodeRef nodeRef)
         {
+            ModNoteMovementValidationTeleport();
             _soundSource.PlaySfx(SfxId.TELEPORT_OUT, noUpdate: true);
             Reposition(position, facing, nodeRef);
             if (IsAltForm || IsMorphing || IsUnmorphing)

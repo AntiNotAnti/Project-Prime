@@ -30,6 +30,41 @@ class FormAuditTests(unittest.TestCase):
                             coverage=dict(boundedHeadlessDrain="PASS"))
         self.manifest = dict(scenario="alt-morph", observerDelay=3)
 
+    def sample_roles(self):
+        for slot in (0, 1, 2):
+            for item in self.peers[f"peer-{slot}"]["Forms"]:
+                item.update(LocalSlot=slot, Spectating=False, AuthoritySpectating=False)
+
+    def test_sample_time_owner_before_later_spectator_window(self):
+        self.sample_roles()
+        self.peers["peer-1"]["Windows"][0]["Spectating"] = True
+        self.peers["peer-1"]["Forms"][2]["Phase"] = "Unmorphing"
+        self.assertEqual(self.audit()["status"], "PASS")
+
+    def test_sample_time_spectator_has_no_phase_waiver(self):
+        for field in ("Spectating", "AuthoritySpectating"):
+            self.setUp(); self.sample_roles()
+            self.peers["peer-1"]["Forms"][2].update({field: True, "Phase": "Unmorphing"})
+            self.assertEqual(self.audit()["status"], "FAIL")
+
+    def test_sample_time_roles_reject_partial_malformed_membership(self):
+        for field, value in (("LocalSlot", 0), ("Spectating", 1), ("AuthoritySpectating", "false"), ("Spectating", None)):
+            self.setUp(); self.sample_roles()
+            self.peers["peer-1"]["Forms"][0][field] = value
+            self.assertEqual(self.audit()["status"], "FAIL")
+
+    def test_sample_time_all_null_roles_are_not_legacy(self):
+        self.sample_roles()
+        self.peers["peer-1"]["Forms"][0].update(LocalSlot=None, Spectating=None, AuthoritySpectating=None)
+        self.assertEqual(self.audit()["status"], "FAIL")
+
+    def test_sample_time_bootstrap_self_only_first_observer(self):
+        self.sample_roles()
+        self.peers["peer-1"]["Forms"][0]["Stage"] = "observer"
+        self.assertEqual(self.audit()["status"], "PASS")
+        self.peers["peer-1"]["Forms"][1]["Stage"] = "observer"
+        self.assertEqual(self.audit()["status"], "FAIL")
+
     def audit(self): return module.audit(self.server, self.peers, self.summary, self.manifest)
 
     def test_positive_exact_sources_native_owner_phase_lead(self):

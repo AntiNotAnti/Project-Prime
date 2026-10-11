@@ -997,6 +997,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public void NoteRoomChanged()
         {
+            NetMovementValidationShadow.ResetHistory();
             Array.Clear(_formReconciliation);
             Array.Clear(_authorityForms);
             Array.Clear(_lifeApplied);
@@ -1005,6 +1006,7 @@ namespace MphRead.Mods.Network
 
         public void Reset()
         {
+            NetMovementValidationShadow.ResetHistory();
             Array.Clear(_formReconciliation);
             Array.Clear(_authorityForms);
             Array.Clear(_appliedLifeId);
@@ -1061,6 +1063,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            NetMovementValidationShadow.ResetSlot(slot);
             _formReconciliation[slot].Reset();
             _authorityForms[slot] = default;
             _lifeApplied[slot] = false;
@@ -1111,6 +1114,10 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            // Observe only the owner pose that passed all placement/life guards.
+            // The shadow never changes acceptance, position, velocity or controls.
+            if (_host.IsAuthority && !_host.IsReplica && NetRoomChange.GameplayReady)
+                NetMovementValidationShadow.ObserveAccepted(player, intent);
             Vector3 reported = InForm(player, intent.Position,
                 ((intent.Buttons & IntentButtons.AltFormState) == IntentButtons.AltFormState));
             NoteReportedVelocity(player, reported, intent.Frame);
