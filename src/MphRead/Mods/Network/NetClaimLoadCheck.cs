@@ -41,6 +41,9 @@ public static class NetClaimLoadCheck
             {
                 NetHitClaims.Reset(); NetUnlagged.Reset();
                 foreach (var player in PlayerEntity.Players) { player.Health = 20000; NetSession.SlotPing[player.SlotIndex] = rtt; }
+                // Mirror the production outbox's bounded six-send, RTT-aware
+                // interval; 80 ms can consume every retry inside a 400 ms stall.
+                int retryFrames = Math.Clamp((int)(rtt * .06f) + 6, 8, 40);
                 var queue = new NetFaultQueue<Delivery>(8128 + rtt, rtt / 2.0, rtt == 0 ? 0 : 80, rtt == 0 ? 0 : .05, .03, .01);
                 var physical = new PriorityQueue<Delivery, int>();
                 var terminal = new byte[8, hits + 1]; int verdicts = 0, suppressed = 0;
@@ -73,7 +76,7 @@ public static class NetClaimLoadCheck
                                 HitPoint = PlayerEntity.Players[victim].Position };
                             var delivery = new Delivery(shooter, claim);
                             // Six independent attempts, like the bounded client outbox.
-                            for (int attempt = 0; attempt < 6; attempt++) queue.Enqueue(now, delivery, attempt * 80);
+                            for (int attempt = 0; attempt < 6; attempt++) queue.Enqueue(now, delivery, attempt * retryFrames * (1000.0 / 60));
                             physical.Enqueue(delivery, tick + (tick % 10 == 0 ? 64 : 0));
                         }
                     // Both a client send stall and authority pump stall are modeled
@@ -107,6 +110,9 @@ public static class NetClaimLoadCheck
                     ReplayCapture.AfterSimulation(scene);
                     Check(ReplayCapture.WorldCapture.LastError == null, "after-frame replay sink remains healthy");
                 }
+                Console.WriteLine($"CLAIM LOAD FINAL rtt={rtt} verdicts={verdicts}/{8 * hits} pending={NetHitClaims.ClaimsPendingCurrent} payments={NetCombatPayments.Payments} received={NetHitClaims.Received} refused={NetHitClaims.RefusedHere} rescued={NetHitClaims.AppliedHere} suppressed={suppressed} netFrame={NetSession.NetFrame} matchPhase={scene.GameState.MatchState}");
+                foreach (var player in PlayerEntity.Players)
+                    Console.WriteLine($"CLAIM LOAD OWNER slot={player.SlotIndex} life={NetPlayerLifecycle.Get(player.SlotIndex)} hp={player.Health} component={beams[player.SlotIndex].ModComponentId} direct={beams[player.SlotIndex].EnhancedDirectHit}");
                 Check(verdicts == 8 * hits && NetHitClaims.ClaimsPendingCurrent == 0, "every declared claim terminates and drains");
                 foreach (var player in PlayerEntity.Players) Check(player.Health == 20000 - hits,
                     $"physical/rescued hit pays exactly once slot={player.SlotIndex} life={NetPlayerLifecycle.Get(player.SlotIndex)} actualHP={player.Health} expectedHP={20000 - hits} rescued={NetHitClaims.AppliedHere} suppressed={suppressed} beamPhase={beams[player.SlotIndex].ModContinuousPhase} sharedPhase={beams[player.SlotIndex].ModHasSharedContinuousPhase} beamFlags={beams[player.SlotIndex].Flags}");
