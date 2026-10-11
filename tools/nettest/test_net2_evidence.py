@@ -410,12 +410,14 @@ class EvidenceTests(unittest.TestCase):
 
     @staticmethod
     def slow(revision, frame, kills=0, deaths=0, generation=3, epoch=111, match=2, context=0,
-             protocol=41, cosmetic=None):
+             protocol=41, cosmetic=None, form=None):
         # Raw PlayerSlowState payload excludes the outer transport packet header.
         payload = struct.pack("<HQIBBH", match, epoch, revision, 1, 0, generation)
         payload += struct.pack("<BhHH", 0, 0, kills, deaths)
         if protocol >= 46:
             payload += bytes(18) if cosmetic is None else cosmetic
+        if protocol >= 49:
+            payload += bytes(28) if form is None else form
         payload += bytes(64)
         return dict(Epoch=epoch, Match=match, Revision=revision, Frame=frame,
                     Context=context, Payload=payload.hex())
@@ -463,6 +465,37 @@ class EvidenceTests(unittest.TestCase):
                           + struct.pack("<16f", float("nan"), *([1.0] * 15))).hex()
         with self.assertRaises(ValueError):
             slow_states(report)
+
+    def test_protocol49_slow_form_sidecar_preserves_scores_and_exact_payload_parity(self):
+        self.lanes()
+        for report in (self.server, self.client):
+            report["Protocol"] = 49
+            report["SlowStates"] = [self.slow(1, 6, protocol=49),
+                                    self.slow(2, 180, kills=1, protocol=49)]
+        self.assertEqual(slow_states(self.server)[-1]["scores"][(0, 3)], struct.pack("<BhHH", 0, 0, 1, 0))
+        self.write()
+        self.assertEqual(adjudicate(self.out, self.processes, expected_protocol=49)["status"], "PASS")
+        self.client["SlowStates"][-1] = self.slow(2, 180, kills=1, protocol=49, form=b"\x01" + bytes(27))
+        self.write()
+        self.assertEqual(adjudicate(self.out, self.processes, expected_protocol=49)["status"], "FAIL")
+
+    def test_protocol49_stride_cannot_masquerade_as_previous_or_legacy(self):
+        for protocol, wire in ((49, 48), (49, 45), (48, 49), (45, 49)):
+            with self.subTest(protocol=protocol, wire=wire):
+                with self.assertRaises(ValueError):
+                    slow_states(dict(Protocol=protocol, SlowStates=[self.slow(1, 6, protocol=wire)]))
+        for protocol in (45, 46, 47, 48, 49):
+            self.assertEqual(len(slow_states(dict(Protocol=protocol, SlowStates=[self.slow(1, 6, protocol=protocol)]))), 1)
+
+    def test_protocol49_multiple_entries_use_correct_time_offset(self):
+        row = self.slow(1, 6, kills=1, protocol=49)
+        data = bytearray.fromhex(row["Payload"]); data[14] = 2
+        second = struct.pack("<BH", 1, 4) + struct.pack("<BhHH", 0, 0, 2, 3) + bytes(46)
+        row["Payload"] = (data[:71] + second + struct.pack("<16f", *([1.0] * 16))).hex()
+        report = dict(Protocol=49, SlowStates=[row])
+        self.assertEqual(slow_states(report)[0]["scores"][(1, 4)], struct.pack("<BhHH", 0, 0, 2, 3))
+        row["Payload"] = (bytes.fromhex(row["Payload"])[:-64] + struct.pack("<16f", float("nan"), *([1.0] * 15))).hex()
+        with self.assertRaises(ValueError): slow_states(report)
 
     def test_schema1_score_lag_still_fails(self):
         self.server["States"][-1]["Kills"] = 1
@@ -642,6 +675,44 @@ class EvidenceTests(unittest.TestCase):
         self.client["Protocol"] = 42
         self.write()
         self.assertEqual(self.result()["status"], "FAIL")
+
+
+class RunnerRoleTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("net2_runner", Path(__file__).with_name("run-net2.py"))
+        cls.runner = importlib.util.module_from_spec(spec); spec.loader.exec_module(cls.runner)
+
+    def args(self, *extra):
+        return self.runner.parse_args(["--build", "build", "--paths", "paths.txt", "--source", "test", "--out", "out", *extra])
+
+    def test_alt_morph_headless_late_observer_and_real_shooter_roles(self):
+        args = self.args("--scenario", "alt-morph", "--players", "3", "--seconds", "20", "--observer-delay", "6", "--profile", "extreme")
+        self.assertEqual(args.protocol, 49)
+        self.assertFalse(args.rendered)
+        self.assertEqual(self.runner.client_role(args, 0), ("Samus", False, True))
+        self.assertEqual(self.runner.client_role(args, 1), ("Weavel", False, False))
+        self.assertEqual(self.runner.client_role(args, 2), ("Trace", True, False))
+        self.assertEqual(self.args("--protocol", "41").protocol, 41)
+
+    def test_existing_bomb_and_shot_roles_preserved(self):
+        bomb = self.args("--scenario", "bomb-kanden", "--players", "3", "--observer-delay", "4")
+        self.assertEqual(self.runner.client_role(bomb, 0), ("Kanden", False, False))
+        self.assertEqual(self.runner.client_role(bomb, 2), ("Kanden", True, False))
+        duel = self.args("--scenario", "duel", "--players", "3")
+        self.assertEqual(self.runner.client_role(duel, 2), ("Trace", False, True))
+        duel.rendered = True
+        self.assertEqual(self.runner.client_role(duel, 2), ("Trace", True, False))
+
+    def test_observer_delay_rejects_wrong_scenario_player_count_or_duration(self):
+        from contextlib import redirect_stderr
+        import io
+        for extra in (("--scenario", "duel", "--players", "3"),
+                      ("--scenario", "alt-morph", "--players", "2"),
+                      ("--scenario", "alt-morph", "--players", "3", "--seconds", "4")):
+            with self.subTest(extra=extra), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                self.args(*extra, "--observer-delay", "4")
 
 
 if __name__ == "__main__":
