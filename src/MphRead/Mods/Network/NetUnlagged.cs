@@ -613,6 +613,18 @@ namespace MphRead.Mods.Network
             return _targetable[target.SlotIndex, index];
         }
 
+        internal static bool TryContinuousClaimPose(PlayerEntity target, uint frame,
+            out HistoricalPlayerPose pose, out bool morphing, out int team)
+        {
+            pose = default; morphing = target.IsMorphing; team = target.TeamIndex;
+            if (frame == 0 || unchecked((int)(NetSession.NetFrame - frame)) < 0
+                || NetSession.NetFrame - frame >= HistoryFrames) return false;
+            if (!TryHistoricalPose(target, frame, out pose)) return false;
+            int index = (int)(frame % HistoryFrames);
+            morphing = _morphing[target.SlotIndex, index]; team = _targetTeam[target.SlotIndex, index];
+            return _targetable[target.SlotIndex, index];
+        }
+
         // Discrete attack state is for diagnostics; ACK time names opponents,
         // so live contact resolution must not replay this old attacker state.
         internal static bool TryHistoricalAttack(int slot, uint frame, ushort generation, ushort life,

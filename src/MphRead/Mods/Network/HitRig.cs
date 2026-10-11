@@ -1,5 +1,6 @@
 using System;
 using MphRead.Entities;
+using MphRead.Formats;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
@@ -99,6 +100,8 @@ namespace MphRead.Mods.Network
 
         private static int _continuousShooters = -1;
         private static bool _continuousMorph;
+        private static bool _continuousMixed;
+        private static int _mixedNextTap, _mixedTapUntil;
         public static RigMode Mode { get; private set; } = RigMode.Off;
         public static bool Active => Mode != RigMode.Off;
 
@@ -109,7 +112,8 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static bool Configure(string? value)
         {
-            _continuousShooters = -1; _continuousMorph = false;
+            _continuousShooters = -1; _continuousMorph = false; _continuousMixed = false;
+            _mixedNextTap = _mixedTapUntil = 0;
             switch (value?.Trim().ToLowerInvariant())
             {
                 case "alt-static": Mode = RigMode.AltStatic; return true;
@@ -152,6 +156,9 @@ namespace MphRead.Mods.Network
                     _continuousShooters = 1; _continuousMorph = true; Mode = RigMode.Volley; VolleyWeapon = BeamType.ShockCoil; return true;
                 case "shockcoil-all":
                     _continuousShooters = 8; Mode = RigMode.Volley; VolleyWeapon = BeamType.ShockCoil; return true;
+                case "shockcoil-mixed":
+                    _continuousMixed = true; _continuousShooters = 8;
+                    Mode = RigMode.Volley; VolleyWeapon = BeamType.ShockCoil; return true;
                 case "shockcoil":
                     Mode = RigMode.Volley;
                     VolleyWeapon = BeamType.ShockCoil;
@@ -386,14 +393,16 @@ namespace MphRead.Mods.Network
         /// </summary>
         private static void DriveSniper(PlayerEntity player, PlayerControls c, PlayerEntity? other)
         {
+            bool mixedSniper = _continuousMixed && player.SlotIndex % 2 != 0;
+            BeamType weapon = mixedSniper ? BeamType.Imperialist : VolleyWeapon;
             // The Imperialist, every frame, because a weapon is a pickup in a
             // match and nobody is picking anything up here. Idempotent once it
             // is held.
-            if (Mode == RigMode.Volley)
+            if (Mode == RigMode.Volley && !mixedSniper)
             {
-                if (player.CurrentWeapon != VolleyWeapon)
+                if (player.CurrentWeapon != weapon)
                 {
-                    player.ModArmWeapon(VolleyWeapon);
+                    player.ModArmWeapon(weapon);
                 }
             }
             else if (player.CurrentWeapon != BeamType.Imperialist)
@@ -418,26 +427,46 @@ namespace MphRead.Mods.Network
             // press is a toggle on the rising edge, so press towards the state
             // wanted rather than on a timer -- a fixed cadence zooms straight
             // back out again.
-            if (Mode != RigMode.Volley && player.ModCanZoom
+            if ((Mode != RigMode.Volley || mixedSniper) && player.ModCanZoom
                 && !player.EquipInfo.Zoomed && _frame % 8 == 0)
             {
                 c.Zoom.IsDown = true;
             }
-            bool onTarget = AimAt(player, other, Mode == RigMode.AltStatic || Mode == RigMode.AltLateral || Mode == RigMode.AltMorph ? 0 : HeadAimHeight);
+            // Body shots injure the coil user through real combat, leaving time
+            // for drain; periodic headshots exercise death and target reacquisition.
+            bool mixedBody = _continuousMixed && (!mixedSniper || _frame / 189 % 4 != 3);
+            bool onTarget = AimAt(player, other, mixedBody || Mode == RigMode.AltStatic || Mode == RigMode.AltLateral || Mode == RigMode.AltMorph ? 0 : HeadAimHeight);
             if (onTarget)
             {
                 FramesOnTarget++;
             }
             if (other == null)
             {
-                Square(c, 60);
+                // Wait for the paired native respawn rather than drifting away
+                // while its corpse has no targetable body.
+                if (!_continuousMixed) Square(c, 60);
                 return;
             }
             float range = (other.Position - player.Position).Length;
             RangeSum += range;
             RangeSamples++;
-            HoldRange(player, c, range, Mode == RigMode.Sniper ? LongRange
-                : Mode == RigMode.Volley && VolleyWeapon != BeamType.ShockCoil ? VolleyRange : CloseRange);
+            HoldRange(player, c, range, _continuousMixed ? 4f : Mode == RigMode.Sniper ? LongRange
+                : Mode == RigMode.Volley && !_continuousMixed && weapon != BeamType.ShockCoil ? VolleyRange : CloseRange);
+            if (_continuousMixed)
+            {
+                CollisionResult wall = default;
+                if (CollisionDetection.CheckBetweenPoints(player.ModAimTarget, other.ModAimTarget,
+                    TestFlags.Beams, player.OwningScene, ref wall))
+                {
+                    // Following a target's angle alone can hold both hunters on
+                    // opposite sides of a wall after a stock-map respawn.
+                    c.MoveUp.IsDown = true; c.MoveDown.IsDown = false;
+                    c.MoveLeft.IsDown = _frame / 90 % 2 == 0;
+                    c.MoveRight.IsDown = !c.MoveLeft.IsDown;
+                    c.Jump.IsDown = _frame % 30 < 3;
+                    onTarget = false;
+                }
+            }
             // Tapped on the weapon's own cadence, and the tap is what makes
             // it fire. Holding looked right -- the Imperialist MP carries
             // WeaponFlags.RepeatFire, which repeats at `shotCooldown` 60 --
@@ -453,8 +482,8 @@ namespace MphRead.Mods.Network
             // (doubled by the engine's frame convention), which is three times
             // faster than the Imperialist's -- and firing fast at one target
             // is the whole of the scenario.
-            int tap = Mode == RigMode.Volley
-                ? Weapons.Current[(int)VolleyWeapon].ShotCooldown * 2 + 3
+            int tap = mixedSniper ? 189 : Mode == RigMode.Volley
+                ? Weapons.Current[(int)weapon].ShotCooldown * 2 + 3
                 : 63;
             // In a duel the cadence is the *server's* clock, not this client's.
             //
@@ -469,6 +498,19 @@ namespace MphRead.Mods.Network
             int clock = Mode == RigMode.Duel && NetSession.LastSnapshotFrame != 0
                 ? (int)NetSession.LastSnapshotFrame
                 : _frame;
+            if (mixedSniper)
+            {
+                // Injure the coil user as soon as a real scoped body shot can
+                // land; waiting for the first global cadence boundary let the
+                // initial coil kill happen before any drain could be credited.
+                if (onTarget && player.EquipInfo.Zoomed && _frame >= _mixedNextTap)
+                {
+                    _mixedTapUntil = _frame + 3; _mixedNextTap = _frame + tap;
+                    Triggers++;
+                }
+                c.Shoot.IsDown = onTarget && _frame < _mixedTapUntil;
+                return;
+            }
             c.Shoot.IsDown = onTarget && clock % tap < 3;
             if (c.Shoot.IsDown && clock % tap == 0)
             {
@@ -552,6 +594,18 @@ namespace MphRead.Mods.Network
         /// <summary>The nearest living opponent. Two clients, so there is one.</summary>
         private static PlayerEntity? Opponent(PlayerEntity self)
         {
+            if (_continuousMixed)
+            {
+                int pairedSlot = self.SlotIndex ^ 1;
+                if (pairedSlot < PlayerEntity.Players.Count)
+                {
+                    PlayerEntity paired = PlayerEntity.Players[pairedSlot];
+                    if (paired.LoadFlags.TestFlag(LoadFlags.Active)
+                        && paired.LoadFlags.TestFlag(LoadFlags.Spawned) && paired.Health > 0)
+                        return paired;
+                }
+                return null;
+            }
             PlayerEntity? best = null;
             float bestDistance = Single.MaxValue;
             for (int i = 0; i < PlayerEntity.Players.Count; i++)

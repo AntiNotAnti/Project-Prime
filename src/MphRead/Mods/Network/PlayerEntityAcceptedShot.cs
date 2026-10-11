@@ -21,19 +21,24 @@ public partial class PlayerEntity
     // inventory, cooldown, zoom, charge-release, or respawn transitions.
     internal BeamResultFlags ModSpawnAcceptedShot(in FireEvent fire)
     {
-        if (!fire.HasPose || fire.Kind is FireEventKind.ContinuousTick or FireEventKind.TurretFire
+        bool continuous = fire.Kind == FireEventKind.ContinuousTick;
+        if (continuous && (fire.Weapon != (byte)BeamType.ShockCoil || fire.SourceLife != NetPlayerLifecycle.Get(SlotIndex)
+            || Health <= 0 || !ModIsInPlay || Flags2.TestFlag(PlayerFlags2.Spectating))) return BeamResultFlags.NoSpawn;
+        if (!fire.HasPose || fire.Kind == FireEventKind.TurretFire
             || fire.Weapon > (byte)BeamType.OmegaCannon
             || !Mods.Multiplayer.WeaponResourceRules.AllowsBeam((BeamType)fire.Weapon,
                 _scene.GameState.InstaGib, _scene.GameState.NoImperialist)) return BeamResultFlags.NoSpawn;
-        var weapon = _scene.WeaponRules[fire.Weapon + (fire.PrimeAtFire || fire.AffinityAtFire ? 9 : 0)];
-        if (weapon.Flags.TestFlag(WeaponFlags.Continuous)) return BeamResultFlags.NoSpawn;
+        bool affinity = continuous ? Weapons.GetAffinityBeam(Hunter) == BeamType.ShockCoil || (fire.HasContinuousContext ? fire.ContinuousPrime : IsPrimeHunter)
+            : fire.PrimeAtFire || fire.AffinityAtFire;
+        var weapon = _scene.WeaponRules[fire.Weapon + (affinity ? 9 : 0)];
+        if (weapon.Flags.TestFlag(WeaponFlags.Continuous) != continuous) return BeamResultFlags.NoSpawn;
         // Each flight retains its own equipment (including ricochet/cluster
         // children); never lend it the current weapon's mutable equipment.
         var equip = new EquipInfo(weapon, EquipInfo.Beams)
         { ChargeLevel = fire.Charge, Zoomed = fire.ScopedAtFire, InfiniteAmmo = true };
         var flags = BeamSpawnFlags.NoMuzzle;
-        if (fire.DoubleAtFire) flags |= BeamSpawnFlags.DoubleDamage;
-        else if (fire.PrimeAtFire) flags |= BeamSpawnFlags.PrimeHunter;
+        if (continuous ? (fire.HasContinuousContext ? fire.ContinuousDouble : DoubleDamage) : fire.DoubleAtFire) flags |= BeamSpawnFlags.DoubleDamage;
+        else if (continuous ? (fire.HasContinuousContext ? fire.ContinuousPrime : IsPrimeHunter) : fire.PrimeAtFire) flags |= BeamSpawnFlags.PrimeHunter;
         var direction = fire.Direction.Normalized();
         BeamResultFlags result;
         try
@@ -50,6 +55,11 @@ public partial class PlayerEntity
                     ReplayCapture.Event(ReplayEventType.WeaponFired, SlotIndex, value: fire.Weapon);
                 else _scene.ReplayShotPresented?.Invoke(SlotIndex, fire.Weapon);
             }
+            // Reused continuous beams are not "new" to EndShot's flight catch-up.
+            // Resolve this pulse before another retained pulse reuses its entity.
+            if (continuous && result != BeamResultFlags.NoSpawn)
+                foreach (var beam in equip.Beams)
+                    if (beam.Lifespan > 0 && beam.ModShotId == fire.ShotId) beam.Process();
             NetUnlagged.EndShot(this);
         }
         finally { NetUnlagged.AbortShot(); }

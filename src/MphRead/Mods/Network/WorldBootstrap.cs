@@ -38,7 +38,7 @@ public static partial class NetSession
     private static int _bootstrapFastLength;
     private static byte _bootstrapMask;
     private static readonly WorldBootstrapObjectives _bootstrapObjectives = new();
-    private static readonly byte[] _bootstrapSlow = new byte[256], _bootstrapWorld = new byte[1200];
+    private static readonly byte[] _bootstrapSlow = new byte[512], _bootstrapWorld = new byte[1200];
     private static int _bootstrapSlowLength, _bootstrapWorldLength;
     internal static bool ObjectiveTickIsCurrent(uint tick) => _appliedBootstrap is not { } baseline
         || tick == baseline.AuthorityFrame || NetLifecycleTracker.Newer(tick, baseline.AuthorityFrame);
@@ -197,7 +197,7 @@ public sealed partial class DedicatedServer
             {
                 peer.BootstrapIdentity.Write(peer.Bootstrap[lane]);
                 peer.Bootstrap[lane][WorldBootstrapIdentity.Size] = (byte)lane;
-                var data = lane == 0 ? _replication.Fast.AsSpan(0, _replication.FastLength)
+                var data = lane == 0 ? _replication.Fast.AsSpan(0, _replication.FastLength - SnapshotFast.ReceiptSize)
                     : lane == 1 ? _replication.Slow.AsSpan(0, _replication.SlowLength)
                     : _replication.World.AsSpan(0, _replication.WorldLength);
                 data.CopyTo(peer.Bootstrap[lane].AsSpan(WorldBootstrapIdentity.Size + 1));

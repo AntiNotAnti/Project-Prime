@@ -1769,6 +1769,9 @@ namespace MphRead.Mods.Network
 
     public struct PlayerState
     {
+        // Live recipient-only receipt, excluded from canonical/replay layouts.
+        public uint ContinuousPaidTick;
+        public ulong ContinuousPaidMaskLow, ContinuousPaidMaskHigh;
         public ushort SlotGeneration;
         public ushort LifeId;
         private const int HalfturretOffset = 54 + DamageEvent.Size * DamageHistory;
@@ -2495,7 +2498,7 @@ namespace MphRead.Mods.Network
         // preserves discrete shot-time modifiers, and caps live carriers at fourteen events.
         // Protocol 44 appends exact emitted-component identity to hit claims.
         // Protocol 45 adds independent per-frame controls to compact live intents only.
-        public const int ProtocolVersion = 45;
+        public const int ProtocolVersion = 46;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

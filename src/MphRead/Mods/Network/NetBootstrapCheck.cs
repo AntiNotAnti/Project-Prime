@@ -81,7 +81,7 @@ public static class NetBootstrapCheck
                     }
                     return;
                 }
-                var data = lane == 0 ? lanes.Fast.AsSpan(0, lanes.FastLength) : lane == 1
+                var data = lane == 0 ? lanes.Fast.AsSpan(0, lanes.FastLength - SnapshotFast.ReceiptSize) : lane == 1
                     ? lanes.Slow.AsSpan(0, lanes.SlowLength) : lanes.World.AsSpan(0, lanes.WorldLength);
                 byte[] wire = new byte[2 + WorldBootstrapIdentity.Size + data.Length + (malformed ? 600 : 0)]; wire[0] = (byte)PacketType.WorldBootstrap;
                 stamp.Write(wire.AsSpan(1)); wire[1 + WorldBootstrapIdentity.Size] = (byte)lane;

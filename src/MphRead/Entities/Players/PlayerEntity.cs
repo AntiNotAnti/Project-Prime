@@ -1810,6 +1810,15 @@ namespace MphRead.Entities
             {
                 return;
             }
+            var continuousBeam = NetSession.Active && !NetDamage.Replaying
+                && source is BeamProjectileEntity { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true } coil
+                && coil.Owner is PlayerEntity ? coil : null;
+            int continuousBodyBefore = _health, continuousTurretBefore = Halfturret?.Health ?? 0;
+            using var continuousPayment = continuousBeam != null && (NetSession.IsAuthority || NetSession.IsHost)
+                ? NetContinuousPayments.Begin(new ContinuousPaymentKey(continuousBeam.ModLaunchKey with { ShotId = (uint)continuousBeam.ModContinuousPhase },
+                    NetTargetIdentity.ForSlot(SlotIndex), flags.TestFlag(DamageFlags.Halfturret) ? ContinuousPaymentKey.Turret : ContinuousPaymentKey.Body))
+                : new NetContinuousPayments.Reservation(true);
+            if (!continuousPayment.Allowed) return;
             using var combatPayment = Mods.Network.NetCombatPayments.Begin(this, source, flags);
             if (!combatPayment.Allowed) return;
             bool precisionLethalHit = false;
@@ -3089,6 +3098,29 @@ namespace MphRead.Entities
                     | (flags.TestFlag(DamageFlags.Halfturret) ? Mods.Network.CombatAckFlags.HalfturretAffected : 0)));
                 if (beam != null)
                     Mods.Network.NetShotProof.Physical(this, beam, damage, flags, direction ?? Vector3.Zero, combatHealthBefore);
+            }
+            if (continuousBeam?.Owner is PlayerEntity drainOwner)
+            {
+                int bodyRemoved = Math.Max(0, continuousBodyBefore - _health);
+                int turretRemoved = Math.Max(0, continuousTurretBefore - (Halfturret?.Health ?? 0));
+                if (bodyRemoved > 0 || turretRemoved > 0)
+                {
+                    uint phase = (uint)continuousBeam.ModContinuousPhase;
+                    bool authority = NetSession.IsAuthority || NetSession.IsHost;
+                    var healed = authority || NetHitPrediction.CanPredictDrain(drainOwner, phase)
+                        ? NetContinuousPayments.Heal(drainOwner, this, bodyRemoved, turretRemoved,
+                            continuousBeam.Flags.TestFlag(BeamFlags.LifeDrain)) : default;
+                    var paid = NetHitClaims.CaptureOutcome(this, bodyRemoved,
+                        flags.TestFlag(DamageFlags.Halfturret) ? CombatAckFlags.HalfturretAffected : 0);
+                    paid.ShotId = continuousBeam.ModShotId;
+                    continuousPayment.Commit(paid, healed.Body, healed.Turret, turretRemoved);
+                    if (authority) NetContinuousPresentation.Confirm(new ContinuousPaymentKey(
+                        continuousBeam.ModLaunchKey with { ShotId = phase }, NetTargetIdentity.ForSlot(SlotIndex),
+                        flags.TestFlag(DamageFlags.Halfturret) ? ContinuousPaymentKey.Turret : ContinuousPaymentKey.Body),
+                        continuousBeam.ModResolvedHitPointValid ? continuousBeam.ModResolvedHitPoint : Position);
+                    NetHitPrediction.NoteDrain(drainOwner, healed.Body, (uint)continuousBeam.ModContinuousPhase,
+                        NetHitClaims.ContinuousClaimId(SlotIndex, (uint)continuousBeam.ModContinuousPhase));
+                }
             }
             if (combatSequence != combatSequenceBefore && beam?.EnhancedMicroSeeker != true)
                 Mods.Network.NetHitClaims.CompleteAuthorityHit(this, attacker, combatHealthBefore, flags, combatSequence, beam?.ModLaunchFrame ?? 0, beam?.Beam ?? BeamType.None);

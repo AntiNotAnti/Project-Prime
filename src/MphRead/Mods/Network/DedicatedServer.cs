@@ -1086,7 +1086,7 @@ namespace MphRead.Mods.Network
             _replication.Prepare(payload);
             for (int i = 0; i < _peers.Count; i++)
             {
-                SendLane(_peers[i], PacketType.SnapshotFast, _replication.Fast.AsSpan(0, _replication.FastLength));
+                SendLane(_peers[i], PacketType.SnapshotFast, _replication.ForRecipient(_peers[i].SlotIndex));
                 if (_replication.SendSlow) SendLane(_peers[i], PacketType.PlayerSlowState, _replication.Slow.AsSpan(0, _replication.SlowLength));
                 if (_replication.SendWorld) SendLane(_peers[i], PacketType.WorldState, _replication.World.AsSpan(0, _replication.WorldLength));
             }

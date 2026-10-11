@@ -277,26 +277,17 @@ namespace MphRead.Mods.Network
         }
 
         /// <summary>
-        /// Health this machine's own player has drained out of somebody else
-        /// and not yet been told about, as (frame, amount).
-        ///
-        /// The Shock Coil takes what it deals and gives it to the shooter, and
-        /// that is the one heal a client can work out for itself: it is the
-        /// arithmetic of a hit this machine has already resolved, not a guess
-        /// about anybody's input. Without it the beam was the one weapon in
-        /// the game whose whole point arrived a round trip late -- the victim
-        /// flinched instantly, courtesy of the prediction, and the health it
-        /// bought did not turn up until the authority said so.
-        ///
-        /// Kept as a credit on top of the authority's number rather than as an
-        /// absolute health, so damage taken while draining still shows the
-        /// moment the authority reports it. A stale credit is worth a point or
-        /// two for a fraction of a second; a stale absolute would hide a
-        /// rocket.
+        /// Exact owner continuous-tick healing credits. A credit remains until
+        /// the matching owner snapshot includes its paid tick or its deadline ends.
+        /// Settled entries retain tick identity briefly to reject local duplicates.
         /// </summary>
-        private const int HealCapacity = 48;
+        private const int HealCapacity = 128;
         private static readonly uint[] _healFrame = new uint[HealCapacity];
+        private static readonly uint[] _healPhase = new uint[HealCapacity];
         private static readonly int[] _healAmount = new int[HealCapacity];
+        private static readonly ushort[] _healClaim = new ushort[HealCapacity];
+        private static readonly ushort[] _healGeneration = new ushort[HealCapacity];
+        private static readonly ushort[] _healLife = new ushort[HealCapacity];
         private static int _healCount;
         private static int _healHead;
 
@@ -399,6 +390,25 @@ namespace MphRead.Mods.Network
 
         /// <summary>Health drained by this machine's own beam, ahead of the authority.</summary>
         public static long DrainPredicted { get; private set; }
+        public static long DrainConfirmed { get; private set; }
+        public static long DrainRejected { get; private set; }
+        public static long DrainExpired { get; private set; }
+        public static int DrainCurrentPoints
+        {
+            get
+            {
+                int points = 0;
+                int local = NetHooks.LocalSlot;
+                for (int i = 0; i < _healCount; i++)
+                {
+                    int at = (_healHead + i) % HealCapacity;
+                    if (NetSession.NetFrame - _healFrame[at] < PendingFrames
+                        && NetPlayerLifecycle.Matches(local, _healGeneration[at], _healLife[at]))
+                        points += _healAmount[at];
+                }
+                return points;
+            }
+        }
 
         /// <summary>
         /// Headshots this machine resolved on somebody else, and what the
@@ -479,7 +489,8 @@ namespace MphRead.Mods.Network
             }
         }
         internal static object Capture() => new { Predicted, Confirmed, Denied, Outstanding,
-            CombatAcks, LethalHeld, LethalConfirmed, LethalDenied, HealthDisagreed };
+            CombatAcks, LethalHeld, LethalConfirmed, LethalDenied, HealthDisagreed,
+            DrainPredicted, DrainConfirmed, DrainRejected, DrainExpired, DrainCurrentPoints };
 
         public static string LifecycleDetails(int slot) => $"pending={_pendingCount[slot]} "
             + $"debit={Debit(slot)} authorityHealth={_lastAuthorityHealth[slot]} heldDead={HeldDead(slot)}";
@@ -548,6 +559,8 @@ namespace MphRead.Mods.Network
             Array.Clear(_pendingHead);
             Array.Clear(_healFrame);
             Array.Clear(_healAmount);
+            Array.Clear(_healPhase); Array.Clear(_healClaim);
+            Array.Clear(_healGeneration); Array.Clear(_healLife);
             _healCount = 0;
             _healHead = 0;
             Predicted = 0;
@@ -581,7 +594,7 @@ namespace MphRead.Mods.Network
             FloorWorst = 0;
             DebitPoints = 0;
             DebitWorst = 0;
-            DrainPredicted = 0;
+            DrainPredicted = DrainConfirmed = DrainRejected = DrainExpired = 0;
             HeadshotsPredicted = 0;
             HeadshotsAgreed = 0;
             HeadshotsDowngraded = 0;
@@ -964,7 +977,7 @@ namespace MphRead.Mods.Network
                 _pendingSpent[slot, i] = false;
                 _pendingSelf[slot, i] = false;
             }
-            if (slot == NetHooks.LocalSlot) { _healCount = 0; _healHead = 0; }
+            if (slot == NetHooks.LocalSlot) ForgetDrain();
             _ackHealthValid[slot] = false;
             _pendingCount[slot] = 0;
             _pendingHead[slot] = 0;
@@ -1042,42 +1055,118 @@ namespace MphRead.Mods.Network
             {
                 ForgetSlot(slot);
             }
-            _healCount = 0;
-            _healHead = 0;
+            ForgetDrain();
+        }
+
+        private static void ForgetDrain()
+        {
+            for (int i = 0; i < _healCount; i++) DrainExpired += _healAmount[(_healHead + i) % HealCapacity];
+            _healCount = 0; _healHead = 0;
         }
 
         /// <summary>
-        /// Health this machine's own Shock Coil has just drained, before the
-        /// authority has said so.
-        ///
-        /// Called from the beam's life-drain branch, beside the
-        /// <c>GainHealth</c> it is reporting. Only the credit is recorded here
-        /// -- the engine has already applied the heal locally, exactly as it
-        /// does offline; this is what stops the next snapshot from assigning
-        /// it straight back off again.
+        /// Check exact local tick eligibility before speculative GainHealth.
+        /// Authority healing uses its payment transaction rather than this guard.
         /// </summary>
-        public static void NoteDrain(PlayerEntity healer, int amount)
+        public static bool CanPredictDrain(PlayerEntity healer, uint phase)
         {
-            if (!Enabled || !Predicting || amount <= 0)
-            {
-                return;
-            }
             int local = NetHooks.LocalSlot;
-            if (local < 0 || healer.SlotIndex != local)
+            if (!Enabled || !Predicting || healer.Health <= 0
+                || local < 0 || healer.SlotIndex != local) return false;
+            EnsureLife(local);
+            ReconcileDrain(local);
+            ushort generation = NetPlayerLifecycle.Generation(local);
+            ushort life = NetPlayerLifecycle.Get(local);
+            if (generation == 0 || life == 0) return false;
+            for (int i = 0; i < _healCount; i++)
             {
-                return;
+                int at = (_healHead + i) % HealCapacity;
+                if (_healPhase[at] == phase && _healGeneration[at] == generation && _healLife[at] == life) return false;
             }
+            // A snapshot can arrive before the local physical tick or its ACK.
+            // Its matching health already includes the paid tick; add no credit.
+            return !DrainIncluded(local, generation, life, phase);
+        }
+
+        /// <summary>
+        /// Record actual locally granted healing and retain zero-gain tick identity
+        /// so a full-health tick cannot heal again after intervening damage.
+        /// </summary>
+        public static void NoteDrain(PlayerEntity healer, int amount, uint phase, ushort claimId = 0)
+        {
+            if (amount < 0 || !CanPredictDrain(healer, phase)) return;
+            int local = NetHooks.LocalSlot;
+            ushort generation = NetPlayerLifecycle.Generation(local);
+            ushort life = NetPlayerLifecycle.Get(local);
             if (_healCount == HealCapacity)
             {
+                DrainExpired += _healAmount[_healHead];
                 _healHead = (_healHead + 1) % HealCapacity;
                 _healCount--;
             }
             int tail = (_healHead + _healCount) % HealCapacity;
-            _healFrame[tail] = NetSession.NetFrame;
-            _healAmount[tail] = amount;
+            _healFrame[tail] = NetSession.NetFrame; _healPhase[tail] = phase;
+            _healGeneration[tail] = generation; _healLife[tail] = life;
+            _healClaim[tail] = claimId; _healAmount[tail] = amount;
             _healCount++;
             DrainPredicted += amount;
             NetShotDiagnostics.DrainCredit[NetShotDiagnostics.Bucket(BeamType.ShockCoil)] += amount;
+        }
+
+        /// <summary>Compatibility overload; live credits require an exact owner tick.</summary>
+        public static void NoteDrain(PlayerEntity healer, int amount) { }
+
+        private static bool DrainIncluded(int slot, ushort generation, ushort life, uint phase)
+        {
+            if ((uint)slot >= Slots || !NetSession.RemoteStateValid[slot]) return false;
+            var state = NetSession.RemoteStates[slot];
+            if (state.SlotGeneration != generation || state.LifeId != life) return false;
+            uint distance = unchecked(state.ContinuousPaidTick - phase);
+            if (distance >= 128) return false;
+            return distance < 64 ? ((state.ContinuousPaidMaskLow >> (int)distance) & 1) != 0
+                : ((state.ContinuousPaidMaskHigh >> (int)(distance - 64)) & 1) != 0;
+        }
+
+        private static void ReconcileDrain(int slot)
+        {
+            uint now = NetSession.NetFrame;
+            for (int i = 0; i < _healCount; i++)
+            {
+                int at = (_healHead + i) % HealCapacity;
+                if (_healAmount[at] == 0) continue;
+                if (!NetPlayerLifecycle.Matches(slot, _healGeneration[at], _healLife[at])
+                    || now - _healFrame[at] >= PendingFrames)
+                {
+                    DrainExpired += _healAmount[at]; _healAmount[at] = 0;
+                }
+                else if (DrainIncluded(slot, _healGeneration[at], _healLife[at], _healPhase[at]))
+                {
+                    DrainConfirmed += _healAmount[at]; _healAmount[at] = 0;
+                }
+            }
+            while (_healCount > 0 && now - _healFrame[_healHead] >= PendingFrames)
+            {
+                _healHead = (_healHead + 1) % HealCapacity; _healCount--;
+            }
+        }
+
+        /// <summary>Reject only the named healing claim; acceptance awaits same-state tick proof.</summary>
+        public static void SettleDrain(ushort claimId, bool accepted)
+        {
+            if (claimId == 0) return;
+            int local = NetHooks.LocalSlot;
+            if ((uint)local >= Slots) return;
+            EnsureLife(local);
+            // A snapshot that already includes a tick takes precedence over a
+            // repeated receipt. Otherwise rejection removes only its own credit.
+            ReconcileDrain(local);
+            if (accepted) return;
+            for (int i = 0; i < _healCount; i++)
+            {
+                int at = (_healHead + i) % HealCapacity;
+                if (_healClaim[at] != claimId || _healAmount[at] == 0) continue;
+                DrainRejected += _healAmount[at]; _healAmount[at] = 0;
+            }
         }
 
         /// <summary>
@@ -1266,21 +1355,12 @@ namespace MphRead.Mods.Network
         public static int LocalHealthFor(PlayerEntity player, int authorityHealth)
         {
             EnsureLife(player.SlotIndex);
+            ReconcileDrain(player.SlotIndex);
             if (!Enabled || authorityHealth <= 0)
             {
                 return authorityHealth;
             }
-            uint now = NetSession.NetFrame;
-            int hold = HoldFrames;
-            int credit = 0;
-            for (int i = 0; i < _healCount; i++)
-            {
-                int at = (_healHead + i) % HealCapacity;
-                if (now - _healFrame[at] < (uint)hold)
-                {
-                    credit += _healAmount[at];
-                }
-            }
+            int credit = DrainCurrentPoints;
             // And less your own splash, held the same way a victim's is. The
             // debit is the mirror of the credit and has to be here, not in
             // HealthFor: nothing calls HealthFor for the local slot, and
@@ -1386,15 +1466,8 @@ namespace MphRead.Mods.Network
                     RetireHead(slot, confirmed: false);
                 }
             }
-            // The drain credit is aged on the same clock. It is only ever read
-            // through the hold window, so this is housekeeping rather than
-            // policy -- it keeps the ring from filling with entries nothing
-            // will ever count again.
-            while (_healCount > 0 && now - _healFrame[_healHead] >= PendingFrames)
-            {
-                _healHead = (_healHead + 1) % HealCapacity;
-                _healCount--;
-            }
+            // Heal credits use a fixed bounded deadline and exact owner snapshot proof.
+            if ((uint)NetHooks.LocalSlot < Slots) ReconcileDrain(NetHooks.LocalSlot);
         }
 
         /// <summary>

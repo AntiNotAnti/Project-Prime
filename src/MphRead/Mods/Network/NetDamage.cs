@@ -457,8 +457,7 @@ namespace MphRead.Mods.Network
                 {
                     PlayerEntity? owner = rescued.Owner as PlayerEntity
                         ?? (rescued.Owner as HalfturretEntity)?.Owner;
-                    if (owner != null && rescued.Beam == BeamType.ShockCoil && rescued.ModHasSharedContinuousPhase
-                        && NetHitClaims.ContinuousAlreadyResolved(owner.SlotIndex, victim.SlotIndex, (uint)rescued.ModContinuousPhase)) return true;
+                    // Continuous ticks reserve an exact damage/heal transaction in TakeDamage.
                     if (owner != null && rescued.ModComponentId == 0 && NetHitClaims.AlreadyRescued(
                         owner.SlotIndex, victim.SlotIndex, rescued.ModShotId, rescued.ModLaunchKey))
                     {
