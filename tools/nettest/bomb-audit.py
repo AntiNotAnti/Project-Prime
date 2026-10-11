@@ -343,7 +343,7 @@ def native_capture_matches(payload,canonical):
                for actual,derived in zip(vector_actual,vector_derived))
 
 
-def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,finding):
+def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,finding,authority_events):
     metrics = {}
     if live_reports is None:
         finding("INCOMPLETE","campaign","LiveVisibility","live network bomb pixels were not measured")
@@ -359,7 +359,7 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
         if report is None:
             issue("INCOMPLETE",name,"report","live pixel report unavailable")
             continue
-        bodies,links,seen = set(),set(),set()
+        bodies,links,seen,terminal_pixels = set(),set(),set(),set()
         derived_joins = []
         snapshots = parsed[name]["snapshots"]
         eligible = {identity for identity,frame,kind,_,_ in damage
@@ -384,6 +384,9 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
                 raise ValueError("invalid/beyond-bound live pixel rows")
             if not report["Rows"]:
                 issue("INCOMPLETE",name,"Rows","zero live pixel workload")
+            body_attempts={key(row["Key"]) for row in report["Rows"] if row.get("Type")=="Body"}
+            peer_births={e[4][0]:e for e in parsed[name]["events"] if e[2]=="Placed"}
+            peer_terminals={e[4][0]:e for e in parsed[name]["events"] if e[2]=="Detonated"}
             canonical = {(frame,s) for frame,_,states in snapshots for s in states}
             births = {e[4] for e in parsed[name]["events"] if e[2] == "Placed"}
             def canonical_payload(payload,snapshot_frame):
@@ -404,23 +407,38 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
                     # SnapshotFrame is the canonical bomb lane, independent of
                     # the separately reported PlayerSnapshotFrame. A birth can
                     # legitimately follow the last accepted bomb snapshot.
-                    if not canonical_payload(payload,row["SnapshotFrame"]):
-                        raise ValueError("live captured state differs from every applied canonical bomb payload")
+                    terminal = row["Type"]=="Terminal"
                     target = None
+                    if terminal:
+                        birth=peer_births.get(identity);death=peer_terminals.get(identity)
+                        if birth!=placements[identity] or death is None or death not in authority_events:
+                            raise ValueError("terminal pixel key lacks exact accepted authority birth/detonation")
+                        if (integer(row["BirthSequence"],2**64-1,1),integer(row["BirthFrame"]))!=birth[:2] or (integer(row["TerminalSequence"],2**64-1,1),integer(row["TerminalFrame"]))!=death[:2] or death[0]<=birth[0]:
+                            raise ValueError("terminal pixel sequence/frame differs from exact accepted facts")
+                        if payload!=death[4] or row.get("TargetKey") is not None or integer(row["EffectId"],65535)!={"MorphBall":145,"Stinglarva":128,"Lockjaw":146}[payload[1]]:
+                            raise ValueError("terminal pixel state/effect differs from exact native detonation")
+                        if row["Classification"]!="BirthTerminalBeforeBodyDraw" or integer(row["BodyDrawOpportunities"]) or integer(row["BodyAttempts"]) or identity in body_attempts:
+                            raise ValueError("terminal pixels cannot replace an observed/attempted bomb body")
+                        birth_draw=integer(row["AppliedBirthDrawIndex"],2**64-1)
+                        death_draw=integer(row["AppliedTerminalDrawIndex"],2**64-1)
+                        if birth_draw!=death_draw or integer(row["CaptureDrawIndex"],2**64-1)<death_draw:
+                            raise ValueError("terminal proof is not birth/detonation coalesced before a body draw")
+                    elif not canonical_payload(payload,row["SnapshotFrame"]):
+                        raise ValueError("live captured state differs from every applied canonical bomb payload")
                     if row["Type"] == "Link":
                         target = key(row["TargetKey"]);target_state = state(row["TargetState"])
                         if payload[1] != "Lockjaw" or target_state[1] != "Lockjaw" or target != target_state[0] or identity[:5] != target[:5] or target[5] not in payload[9:11]:
                             raise ValueError("live link differs from exact owner/life topology")
                         if not canonical_payload(target_state,row["SnapshotFrame"]):
                             raise ValueError("live target state lacks exact applied canonical payload")
-                    elif row["Type"] != "Body":
+                    elif row["Type"] not in ("Body","Terminal"):
                         raise ValueError("unknown live pixel row kind")
-                    row_identity = (identity,target)
+                    row_identity = (identity,"Terminal" if terminal else target)
                     if row_identity in seen:
                         raise ValueError("duplicate live body/link evidence identity")
                     seen.add(row_identity)
                     if row["Status"] == "FAIL":
-                        issue("FAIL",name,"Rows", "probe reported invisible/failed exact bomb body or link: "+str(row_identity))
+                        issue("FAIL",name,"Rows", "probe reported invisible/failed exact bomb body, link, or terminal effect: "+str(row_identity))
                         continue
                     if row["Status"] == "INCOMPLETE":
                         # No vantage or a moving baseline establishes no pixels.
@@ -437,7 +455,10 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
                     integer(row["SamplePixel"]["X"],width-1);integer(row["SamplePixel"]["Y"],height-1)
                     if changed != integer(row["ChangedPixels"]) or unstable != integer(row["UnstablePixels"]) or changed == 0 or unstable:
                         raise ValueError("live pixel bracket lacks stable positive exact-key pixels")
-                    if target is None:bodies.add(identity)
+                    if terminal:
+                        integer(row["EffectParticles"],minimum=1)
+                        terminal_pixels.add(identity)
+                    elif target is None:bodies.add(identity)
                     else:links.add((identity,target))
                 except FileNotFoundError as error:
                     issue("INCOMPLETE",name,f"Rows[{ordinal}].Captures",str(error))
@@ -447,10 +468,10 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
             issue("FAIL",name,"report",str(error))
         if not eligible:
             issue("INCOMPLETE",name,"DamageCoverage","no relevant post-bootstrap authority damaging key")
-        missing = eligible-bodies
+        missing = eligible-bodies-terminal_pixels
         no_state = {identity for identity in missing if not any(s[0] == identity for _,_,states in snapshots for s in states)}
         if missing:
-            issue("INCOMPLETE",name,"DamageKeys","positive body pixels missing for "+str(len(missing))+" exact damaging keys; "+str(len(no_state))+" had no applied live snapshot (short lifetime/batch delivery remains unproved)")
+            issue("INCOMPLETE",name,"DamageKeys","body pixels or classified coalesced terminal-effect pixels missing for "+str(len(missing))+" exact damaging keys; "+str(len(no_state))+" had no applied live snapshot")
         if "Lockjaw" in kinds:
             triangles=[]
             for _,_,states in snapshots:
@@ -465,7 +486,10 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
             if not any(edges <= links for edges in triangles):
                 issue("INCOMPLETE",name,"LockjawEdges","three exact visible links from an actual damaging triangle not established")
         metrics[name] = dict(requiredDamagingKeys=[list(k) for k in sorted(eligible)],
-            damagingKeysWithPositiveBodyPixels=len(eligible&bodies),missingDamagingKeys=[list(k) for k in sorted(missing)],
+            damagingKeysWithPositiveBodyPixels=len(eligible&bodies),
+            damagingKeysWithPositiveTerminalPixels=len(eligible&terminal_pixels),
+            terminalFallbackKeys=[list(k) for k in sorted(eligible&terminal_pixels)],
+            verifiedTerminalEffects=len(terminal_pixels),missingDamagingKeys=[list(k) for k in sorted(missing)],
             preBootstrapDamageKeysExcluded=[list(k) for k in sorted(before_bootstrap)],
             missingWithNoAppliedSnapshot=[list(k) for k in sorted(no_state)],verifiedBodies=len(bodies),verifiedLinks=len(links),
             derivedOrientationJoins=derived_joins)
@@ -753,15 +777,15 @@ def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibil
                 finding("INCOMPLETE",name,"coverage.Stinglarva.motionRotation","moving/rotating same-key poses not observed exactly")
     gameplay = "FAIL" if any(f["status"] == "FAIL" for f in findings) else "INCOMPLETE" if findings else "PASS"
     render_status = render_fixture(visibility,manifest.get("assemblySha256"),finding)
-    live_status,live_metrics = live_pixels(peers,parsed,placements,authority["damage"],kinds,manifest,live_visibility_reports,finding)
+    live_status,live_metrics = live_pixels(peers,parsed,placements,authority["damage"],kinds,manifest,live_visibility_reports,finding,authority["events"])
     return dict(status="FAIL" if any(f["status"] == "FAIL" for f in findings) else "INCOMPLETE" if any(f["status"] == "INCOMPLETE" for f in findings) else "PASS",
                 gameplayStatus=gameplay,visibilityStatus=live_status,liveVisibilityStatus=live_status,
                 liveVisibilityCoverage=live_metrics,
                 renderFixtureStatus=render_status, scope=dict(authorityMatches=1,requiredKinds=list(kinds),
                 checked="request admission, exact bomb lifecycle/event/state parity, health and bounded reliable drain",
                 independentRenderFixture="same-engine local canonical ghost fixture: five bodies and three Lockjaw edges, positive and wall-negative pixels; full fixture keys are independent of network keys",
-                livePixelScope="stable positive body pixels for every relevant post-bootstrap authority damaging key on each peer; three links of an actual damaging Lockjaw triangle; exact canonical non-orientation fields plus native float32 captured orientation (one ULP derived bound); no claim of visibility before damage or terminal-effect pixels",
-                excluded=["pre-bootstrap pixel visibility","born/terminal same-batch pixels without a body witness","terminal-effect pixels","shot parity","cross-match rotation","all maps"]),
+                livePixelScope="stable positive body pixels for relevant post-bootstrap authority damaging keys on each peer; exact accepted terminal-effect pixels may cover only classified birth/detonation before any body draw or attempt; fallback keys reported separately and do not prove persistent body pixels; three links of an actual damaging Lockjaw triangle; exact canonical non-orientation fields plus native float32 captured orientation (one ULP derived bound); no claim of visibility before damage",
+                excluded=["pre-bootstrap pixel visibility","persistent body pixels for classified terminal fallback keys","shot parity","cross-match rotation","all maps"]),
                 findings=findings,metrics=metrics)
 
 

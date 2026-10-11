@@ -295,6 +295,69 @@ class BombAuditTests(unittest.TestCase):
             report=self.live_fixture(directory);r=self.result(live={"peer-0":report})
             self.assertEqual(r["liveVisibilityStatus"],"PASS",r);self.assertEqual(r["status"],"PASS",r)
             self.assertEqual(r["liveVisibilityCoverage"]["peer-0"]["damagingKeysWithPositiveBodyPixels"],1)
+    def terminal_fixture(self,directory):
+        report=self.live_fixture(directory)
+        row=report["Rows"][0]
+        row.update(Type="Terminal",State=copy.deepcopy(self.server["Bombs"]["Rows"][5]["State"]),
+                   BirthSequence=1,BirthFrame=10,TerminalSequence=2,TerminalFrame=56,EffectId=145,
+                   BodyDrawOpportunities=0,BodyAttempts=0,Classification="BirthTerminalBeforeBodyDraw",
+                   AppliedBirthDrawIndex=3,AppliedTerminalDrawIndex=3,CaptureDrawIndex=4)
+        # Transport can deliver a long authority lifetime within one render batch.
+        self.peers["peer-0"]["Bombs"]["Rows"].pop(3)
+        return report
+    def test_coalesced_terminal_pixels_cover_key_without_claiming_body_pixels(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=self.terminal_fixture(directory);r=self.result(live={"peer-0":report})
+            self.assertEqual(r["status"],"PASS",r)
+            coverage=r["liveVisibilityCoverage"]["peer-0"]
+            self.assertEqual(coverage["damagingKeysWithPositiveBodyPixels"],0)
+            self.assertEqual(coverage["damagingKeysWithPositiveTerminalPixels"],1)
+            self.assertEqual(coverage["terminalFallbackKeys"],[list(bomb.key(key()))])
+            self.assertIn("do not prove persistent body pixels",r["scope"]["livePixelScope"])
+    def test_terminal_wrong_identity_sequence_frame_state_or_native_effect_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original=self.terminal_fixture(directory)
+            for mutate in (lambda r:r["Key"].update(LifeId=2),lambda r:r.update(BirthSequence=2),
+                           lambda r:r.update(TerminalSequence=3),lambda r:r.update(BirthFrame=11),
+                           lambda r:r.update(TerminalFrame=57),lambda r:r.update(EffectId=128),
+                           lambda r:r["State"]["Position"].update(X=1e-9),
+                           lambda r:r["State"]["Up"].update(X=1e-9)):
+                report=copy.deepcopy(original);mutate(report["Rows"][0])
+                self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+    def test_terminal_missing_or_zero_pixels_never_cover_key(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original=self.terminal_fixture(directory)
+            self.assertEqual(self.result(live={})["liveVisibilityStatus"],"INCOMPLETE")
+            for status in ("INCOMPLETE","FAIL"):
+                report=copy.deepcopy(original);report["Rows"][0]["Status"]=status
+                self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],status)
+            for field,value in (("ChangedPixels",0),("EffectParticles",0)):
+                report=copy.deepcopy(original);report["Rows"][0][field]=value
+                self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+            report=copy.deepcopy(original);report["Rows"][0]["Captures"][1]=report["Rows"][0]["Captures"][0]
+            report["Rows"][0]["ChangedPixels"]=0
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+    def test_terminal_cannot_mask_any_body_attempt_or_render_opportunity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original=self.terminal_fixture(directory)
+            for field,value in (("BodyDrawOpportunities",1),("BodyAttempts",1),("AppliedTerminalDrawIndex",4),
+                                ("CaptureDrawIndex",2),("Classification","ShortAuthorityLifetime")):
+                report=copy.deepcopy(original);report["Rows"][0][field]=value
+                self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+            for status in ("FAIL","INCOMPLETE","PASS"):
+                report=copy.deepcopy(original);body=self.live_fixture(directory)["Rows"][0];body["SnapshotFrame"]=0
+                body["Status"]=status;report["Rows"].append(body)
+                r=self.result(live={"peer-0":report})
+                self.assertEqual(r["liveVisibilityStatus"],"FAIL",r)
+                self.assertEqual(r["liveVisibilityCoverage"]["peer-0"]["terminalFallbackKeys"],[])
+    def test_terminal_requires_applied_and_authority_accepted_facts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=self.terminal_fixture(directory)
+            self.peers["peer-0"]["Bombs"]["Rows"]=[r for r in self.peers["peer-0"]["Bombs"]["Rows"] if r.get("Kind")!="Placed"]
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+            self.server,self.peers,self.manifest,self.summary=fixture()
+            report=self.terminal_fixture(directory);self.server["Bombs"]["Rows"][5]["Kind"]="Removed"
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
     def orientation_fixture(self,directory):
         # Fixed real Kanden10 shot4 packet/capture: derived Up differs one ULP.
         facing=dict(X=-.09957633,Y=.00010491182,Z=-.99503)
@@ -419,6 +482,8 @@ class BombAuditTests(unittest.TestCase):
             self.peers["peer-0"]["Bombs"]["Rows"].pop(3)
             r=self.result(live={"peer-0":report});self.assertEqual(r["liveVisibilityStatus"],"INCOMPLETE")
             self.assertEqual(len(r["liveVisibilityCoverage"]["peer-0"]["missingWithNoAppliedSnapshot"]),1)
+            self.assertEqual(r["liveVisibilityCoverage"]["peer-0"]["terminalFallbackKeys"],[])
+            self.assertEqual(r["liveVisibilityCoverage"]["peer-0"]["damagingKeysWithPositiveTerminalPixels"],0)
     def test_live_incomplete_probe_and_prebootstrap_damage_are_scoped(self):
         with tempfile.TemporaryDirectory() as directory:
             report=self.live_fixture(directory);report["Rows"][0]=dict(report["Rows"][0],Status="INCOMPLETE",Reason="no vantage")
