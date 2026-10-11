@@ -97,6 +97,12 @@ namespace MphRead.Entities
                 Effect = _scene.SpawnEffectGetEntry(effectId, Transform);
                 Effect?.SetElementExtension(true);
             }
+            else if (ModReplica)
+            {
+                // A late bootstrap can render before its first simulation step.
+                // The pending birth flag preserves emission at that first draw.
+                ModEnsurePlacementEffect();
+            }
             if (_trailModel != null)
             {
                 int recolor = Recolor;

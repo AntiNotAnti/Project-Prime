@@ -71,8 +71,8 @@ namespace MphRead.Entities
                 : BombType == BombType.MorphBall
                     ? (_scene.GameState.Multiplayer && _scene.Players.PlayerCount > 2 ? 119 : 9) : 0;
             if (effectId == 0) return;
-            // Bootstrap can materialize ghosts between simulation steps. Birth
-            // belongs to this step's native effect clock, so zero-age emitters run.
+            // Bootstrap can materialize ghosts before any simulation step. The
+            // pending flag carries zero-age emission to their first effect pass.
             Effect = _scene.SpawnEffectGetEntry(effectId, Transform);
             Effect?.SetElementExtension(true);
             if (Effect != null)
