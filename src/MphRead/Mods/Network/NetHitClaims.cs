@@ -2624,6 +2624,7 @@ namespace MphRead.Mods.Network
             CombatAckEntry answer = outcome ?? (_seenIds[slot, at] == id ? _seenOutcomes[slot, at] : new CombatAckEntry { VictimSlot = 255 });
             answer.ClaimId = id; answer.Result = result;
             if (NetPerformanceEvidence.Enabled) NetPerformanceEvidence.TerminalResult = answer.Result;
+            NetOperatorEvidence.Answer(answer.Result);
             // Native outcomes carry victim state, not the claimant's correlation
             // identity. The first answer must identify the claim just as a retry does.
             if (answer.ShotId == 0 && _seenIds[slot, at] == id) answer.ShotId = _seenKeys[slot, at].ShotId;

@@ -479,6 +479,7 @@ namespace MphRead.Mods.Network
             double hostedEmptySince = 0;
             _matchStarted = 0;
             NetPerformanceEvidence.BeginRun();
+            NetOperatorEvidence.BeginRun();
             try
             {
                 while (_running && !cancel.IsCancellationRequested)
@@ -796,6 +797,7 @@ namespace MphRead.Mods.Network
             _queuePeers.Clear();
             Telemetry.ProductionTelemetry.Shutdown();
             NetPerformanceEvidence.Write();
+            NetOperatorEvidence.Write(_phase, _transport);
             Log("shutting down");
             CancelLobbyMapPreparation();
             _hostMapRequests.Dispose();

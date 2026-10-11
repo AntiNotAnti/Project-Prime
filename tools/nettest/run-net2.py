@@ -100,6 +100,38 @@ def bomb_summary(out, records, manifest, scenario):
                               renderedBombVisibility=audit["liveVisibilityStatus"],renderFixture=audit["renderFixtureStatus"]))
 
 
+def operator_summary(out, protocol):
+    try:
+        report = json.loads((out / "server.operator.json").read_text())
+        def keys(value, fields):
+            if type(value) is not dict or set(value) != set(fields):
+                raise ValueError("operator schema allowlist mismatch")
+        keys(report, ("Schema", "Protocol", "Phase", "Queue", "Traffic", "ClaimVerdictResponses", "VerdictCountingUnit"))
+        if type(report["Schema"]) is not int or type(report["Protocol"]) is not int or report["Schema"] != 1 or report["Protocol"] != protocol:
+            raise ValueError("operator version mismatch")
+        # Enum vocabulary is checked by the C# fixture; no arbitrary nested objects are accepted.
+        if report["Phase"] not in ("Lobby", "Starting", "InMatch", "PostMatch"):
+            raise ValueError("operator phase mismatch")
+        keys(report["Queue"], ("Current", "HighWater", "Drops", "BufferExhaustions", "BufferExhaustionStatus"))
+        keys(report["Traffic"], ("ReceivedPackets", "SentPackets", "ReceivedBytes", "SentBytes"))
+        for value in [report["Queue"][f] for f in ("Current", "HighWater", "Drops")] + list(report["Traffic"].values()):
+            if type(value) is not int or value < 0: raise ValueError("operator numeric field mismatch")
+        if report["Queue"]["BufferExhaustions"] is not None or report["Queue"]["BufferExhaustionStatus"] != "UNAVAILABLE":
+            raise ValueError("unmeasured exhaustion mislabeled")
+        expected = {"Applied", "AlreadyResolved", "RejectedDeadShooter", "RejectedDeadVictim", "RejectedPlausibility", "RejectedTooOld", "RejectedLifecycle", "RejectedGeometry", "RejectedDamage", "RejectedLaunch", "RejectedNoDamage", "RejectedImpulse", "ClaimCapacity", "Corrected"}
+        rows = report["ClaimVerdictResponses"]
+        if type(rows) is not list or len(rows) != len(expected): raise ValueError("operator verdict vocabulary mismatch")
+        for row in rows:
+            keys(row, ("Outcome", "Responses"))
+            if type(row["Responses"]) is not int or row["Responses"] < 0: raise ValueError("operator verdict counter mismatch")
+        if {row["Outcome"] for row in rows} != expected: raise ValueError("operator verdict vocabulary mismatch")
+        if report["VerdictCountingUnit"] != "Authority Answer response decisions; retries included; not unique denied shots or delivered ACKs":
+            raise ValueError("operator counting unit mismatch")
+        return {"status": "PASS", "scope": "identity-free typed aggregate schema; not unique shot or delivery accounting"}
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        return {"status": "FAIL", "reason": str(error)}
+
+
 def bomb_visibility_environment(args,name):
     if not getattr(args,"bomb_visibility",False) or name == "server":
         return {}
@@ -170,6 +202,8 @@ def run(args):
         env.update(PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS="null",
                    MPHREAD_PHASE_SECONDS="2", PRIME_NET2_EVIDENCE=str(args.out / f"{name}.json"),
                    PRIME_SHOT_PROOF=args.shot_proof)
+        if args.server_operator and name == "server":
+            env["PRIME_SERVER_OPERATOR_OUTPUT"] = str(args.out / "server.operator.json")
         if args.movement_validation_shadow:
             env["PRIME_MOVEMENT_VALIDATION_SHADOW"] = "1"
         if args.confirmed_impacts:
@@ -200,6 +234,8 @@ def run(args):
             "environment": {k: env[k] for k in ("PROJECT_PRIME_USER_DATA", "ALSOFT_DRIVERS", "MPHREAD_PHASE_SECONDS", "PRIME_NET2_EVIDENCE", "PRIME_SHOT_PROOF")},
             "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
             "soak": args.soak})
+        if args.server_operator and name == "server":
+            manifest["commands"][-1]["environment"]["PRIME_SERVER_OPERATOR_OUTPUT"] = env["PRIME_SERVER_OPERATOR_OUTPUT"]
         if args.movement_validation_shadow:
             manifest["commands"][-1]["environment"]["PRIME_MOVEMENT_VALIDATION_SHADOW"] = "1"
         if args.confirmed_impacts:
@@ -416,6 +452,14 @@ def run(args):
                 summary["status"] = "FAIL"
                 summary["failures"].append("server performance evidence: " + str(error))
             save(args.out / "manifest.json", manifest)
+        if args.server_operator:
+            summary["operator"] = operator_summary(args.out, args.protocol)
+            if summary["operator"]["status"] != "PASS":
+                summary["status"] = "FAIL"
+                summary["failures"].append("server operator evidence: " + summary["operator"].get("reason", "schema failure"))
+            operator_path = args.out / "server.operator.json"
+            if operator_path.is_file(): manifest["serverOperatorSha256"] = digest(operator_path)
+            save(args.out / "manifest.json", manifest)
         save(args.out / "summary.json", summary)
         print(json.dumps({"status": summary["status"], "out": str(args.out), "failures": summary["failures"], "incomplete": summary["incomplete"]}), flush=True)
     return 0 if summary["status"] == "PASS" else 1
@@ -444,6 +488,7 @@ def parse_args(argv=None):
     p.add_argument("--rooms", default="MP1 SANCTORUS")
     p.add_argument("--round-minutes", type=float, default=30)
     p.add_argument("--rendered", action="store_true")
+    p.add_argument("--server-operator", action="store_true", help="Write identity-free server operator aggregates")
     p.add_argument("--movement-validation-shadow", action="store_true",
                    help="Observe accepted owner movement envelopes without correction or rejection")
     p.add_argument("--confirmed-impacts", action="store_true", help="Enable the independent optional live hit-cue lane")

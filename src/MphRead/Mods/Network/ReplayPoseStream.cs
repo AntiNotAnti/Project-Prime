@@ -46,7 +46,7 @@ internal sealed class ReplayPoseStream : IDisposable
     // therefore receive the fact well after ResolveTick; playback scans one
     // reliable lifetime ahead without feeding those future packets into the
     // simulation decoder.
-    private const uint ShotFactLookaheadFrames = 960;
+    internal const uint ShotFactLookaheadFrames = 960;
     private const int MaximumPoseSamples = NetUnlagged.HistoryFrames + 32;
     private const int MaximumIntentSamples = 96;
     private const int MaximumClockSamples = 512;
@@ -57,7 +57,7 @@ internal sealed class ReplayPoseStream : IDisposable
     private readonly record struct FireLife(int Slot, ushort Generation, ushort Life);
     private readonly record struct ScheduledFire(uint RecordingFrame, int Slot,
         ushort Generation, ushort Life, FireEvent Event, IntentPacket Carrier);
-    private readonly record struct ServerClockSample(uint RecordingFrame, uint ServerTick);
+    internal readonly record struct ServerClockSample(uint RecordingFrame, uint ServerTick);
     private readonly record struct PendingShotFact(uint CarrierRecordingFrame, ReplayShotFact Fact);
     private readonly record struct ShotFactIdentity(ushort MatchId, ulong Epoch,
         byte Shooter, ushort ShooterGeneration, ushort ShooterLife,
@@ -106,7 +106,17 @@ internal sealed class ReplayPoseStream : IDisposable
     internal string? LastError { get; private set; }
     internal ReplayPoseStream(PassiveReplayScene world, string path) : this(world) { _path = path; }
     internal ReplayPoseStream(PassiveReplayScene world, ReplayTimelineClip clip) : this(world)
-    { _clip = clip; _supportsFireEvents = true; _supportsShotFacts = true; _supportsAcceptedFire = true; }
+    {
+        _clip = clip;
+        SetClipCapabilities();
+    }
+    private void SetClipCapabilities()
+    {
+        int protocol = _clip?.PresentationProtocolVersion ?? 0;
+        _supportsFireEvents = protocol >= 30;
+        _supportsShotFacts = protocol >= 40;
+        _supportsAcceptedFire = protocol >= 43;
+    }
     private ReplayPoseStream(PassiveReplayScene world)
     {
         _world = world;
@@ -1041,8 +1051,6 @@ internal sealed class ReplayPoseStream : IDisposable
                 throw new InvalidDataException("Replay presentation lookahead exceeds its record bound.");
         }
 
-        if (_serverClock.Count == 0)
-            AddServerClock(frame, _world.State.ServerTick);
         AdvanceShotFactLookahead(frame, origin);
         ScheduleShotFacts(frame);
 
@@ -1231,15 +1239,8 @@ internal sealed class ReplayPoseStream : IDisposable
         for (int i = _pendingShotFacts.Count - 1; i >= 0; i--)
         {
             var pending = _pendingShotFacts[i];
-            bool mapped = TryMapServerTick(pending.Fact.ResolveTick, out uint scheduled);
-            if (!mapped && pending.CarrierRecordingFrame <= frame)
-            {
-                // Old or sparse client recordings can lack a nearby snapshot.
-                // Fall back to delivery time rather than dropping authority truth.
-                scheduled = pending.CarrierRecordingFrame;
-                mapped = true;
-            }
-            if (!mapped) continue;
+            if (!TryScheduleShotFact(_serverClock, pending.Fact.ResolveTick,
+                pending.CarrierRecordingFrame, frame, out uint scheduled)) continue;
             _pendingShotFacts.RemoveAt(i);
             if ((ulong)scheduled + PresentationHistoryFrames < frame) continue;
             if (!_resolvedShotFacts.TryGetValue(scheduled, out var list))
@@ -1260,20 +1261,25 @@ internal sealed class ReplayPoseStream : IDisposable
         }
     }
 
-    internal bool TryMapServerTick(uint serverTick, out uint recordingFrame)
+    internal static bool TryScheduleShotFact(IReadOnlyList<ServerClockSample> clock,
+        uint resolveTick, uint carrierFrame, uint currentFrame, out uint recordingFrame)
     {
-        recordingFrame = 0;
-        if (_serverClock.Count == 0) return false;
-        ServerClockSample best = _serverClock[0];
-        long bestGap = Math.Abs((long)serverTick - best.ServerTick);
-        foreach (var sample in _serverClock)
+        // Freeze a mapping only when a recorded snapshot reaches the resolve
+        // tick. Extrapolating from an earlier snapshot during lookahead made
+        // linear playback and checkpoint seeks choose different impact frames.
+        // The first upper sample stays the same as more lookahead arrives.
+        foreach (var sample in clock)
         {
-            long gap = Math.Abs((long)serverTick - sample.ServerTick);
-            if (gap < bestGap) { best = sample; bestGap = gap; }
+            if (sample.ServerTick < resolveTick) continue;
+            if ((ulong)sample.ServerTick - resolveTick <= 120
+                && TryMapServerTick(sample.RecordingFrame, sample.ServerTick,
+                    resolveTick, out recordingFrame)) return true;
+            break;
         }
-        if (bestGap > 120) return false;
-        return TryMapServerTick(best.RecordingFrame, best.ServerTick,
-            serverTick, out recordingFrame);
+        // Sparse recordings still present authority truth at delivery time.
+        // Only recorded snapshots qualify above, never a reconstructed baseline.
+        recordingFrame = carrierFrame;
+        return carrierFrame <= currentFrame;
     }
 
     internal static bool TryMapServerTick(uint sampleRecordingFrame,
@@ -1298,9 +1304,7 @@ internal sealed class ReplayPoseStream : IDisposable
         _index = _shotIndex = 0;
         _advanced = _firePrepared = _impactPrepared = null;
         _initialized = _failed = false;
-        _supportsFireEvents = _clip != null;
-        _supportsAcceptedFire = _clip != null;
-        _supportsShotFacts = _clip != null;
+        SetClipCapabilities();
         LastError = null;
         _serverClock.Clear();
         _pendingShotFacts.Clear();

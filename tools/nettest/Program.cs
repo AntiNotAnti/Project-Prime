@@ -219,6 +219,7 @@ namespace MphRead.NetTest
                 result = CompactIntentHistoryTests.Run();
                 return result != 0 ? result : CompactIntentReplayTests.Run();
             }
+            if (args.Length > 0 && args[0] == "--server-operator-evidence") return ServerOperatorEvidenceTests.Run();
             if (args.Length > 0 && args[0] == "--architecture") return NetArchitectureTests.Run();
             if (Array.IndexOf(args, "--network-benchmark") >= 0 || Array.IndexOf(args, "--network-benchmark-json") >= 0)
                 return NetworkBenchmark.Run(args);

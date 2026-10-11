@@ -18,7 +18,8 @@ internal static class NetBombs
     private static readonly BombIntent?[] Pending = new BombIntent?[8];
     private static readonly uint[] QueuedAt = new uint[8];
     private static readonly ShotKey[] LastRequest = new ShotKey[8];
-    internal static Scene? LiveScene => PlayerEntity.Players.Count > 0 ? PlayerEntity.Players[0].OwningScene : null;
+    // The fixed slot registry can exist before its native players are constructed.
+    internal static Scene? LiveScene => PlayerEntity.Players.Count > 0 ? PlayerEntity.Players[0]?.OwningScene : null;
     internal static int PendingCount => Pending.Count(p => p.HasValue) + (_outgoing.HasValue ? 1 : 0);
     internal static void Reset()
     {

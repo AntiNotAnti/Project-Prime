@@ -38,6 +38,7 @@ internal sealed class PassiveReplayPlayer : IDisposable
     internal int SeekSimulationSteps { get; private set; }
     internal double SeekMilliseconds { get; private set; }
     internal int RejectedCheckpoints { get; private set; }
+    internal int RejectedDurableCheckpoints => _rejectedDurable?.Count ?? 0;
     internal string? LastCheckpointError { get; private set; }
     internal bool Ready => !Transport.IsSeeking && !Current.Session.IsWarming;
 
