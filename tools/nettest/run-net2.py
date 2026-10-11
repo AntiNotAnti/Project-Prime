@@ -74,10 +74,14 @@ def bomb_summary(out, records, manifest, scenario):
                      findings=[dict(status="FAIL",process="campaign",field="evidence",message=str(error))],metrics={})
     save(out/"bomb-audit.json",audit)
     gameplay = [f for f in audit["findings"] if f["process"] != "render-fixture" and not f["field"].startswith("LiveVisibility")]
-    messages = lambda status: [f"{f['process']}: {f['field']}: {f['message']}" for f in gameplay if f["status"] == status]
+    requested_visibility = manifest["settings"].get("bomb_visibility",False)
+    scoped_findings = audit["findings"] if requested_visibility else gameplay
+    messages = lambda status: [f"{f['process']}: {f['field']}: {f['message']}" for f in scoped_findings if f["status"] == status]
     drain = "FAIL" if any(f["status"] == "FAIL" and "drain" in f["field"].lower() for f in gameplay) else (
         "INCOMPLETE" if not audit.get("metrics",{}).get("peers") or any("drain" in f["field"].lower() for f in gameplay) else "PASS")
-    return dict(status=audit["gameplayStatus"],scope="bomb gameplay gate; exact live pixel scope and independent render fixture reported separately",
+    return dict(status=audit["status"] if requested_visibility else audit["gameplayStatus"],
+                gameplayStatus=audit["gameplayStatus"],
+                scope="bomb gameplay and requested live pixel gate" if requested_visibility else "bomb gameplay gate; live pixels reported separately",
                 processes=records,failures=messages("FAIL"),incomplete=messages("INCOMPLETE"),
                 parity=audit.get("metrics",{}).get("peers",{}),bombAudit=audit,
                 coverage=dict(canonicalBombSequences=audit["gameplayStatus"],boundedHeadlessDrain=drain,

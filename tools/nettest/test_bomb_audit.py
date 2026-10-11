@@ -359,10 +359,19 @@ class BombAuditTests(unittest.TestCase):
             self.manifest["settings"]["bomb_visibility"]=True
             summary=runner.bomb_summary(out,self.summary["processes"],self.manifest,"bomb-samus")
             self.assertEqual(summary["coverage"]["renderedBombVisibility"],"PASS",summary)
+            self.assertEqual(summary["status"],"PASS",summary)
             self.assertEqual(json.loads((out/"bomb-audit.json").read_text())["liveVisibilityStatus"],"PASS")
+            for probe,expected in (("INCOMPLETE","INCOMPLETE"),("FAIL","FAIL")):
+                report=self.live_fixture(directory);report["Rows"][0]["Status"]=probe
+                (out/"peer-0.visibility.json").write_text(json.dumps(report))
+                summary=runner.bomb_summary(out,self.summary["processes"],self.manifest,"bomb-samus")
+                self.assertEqual(summary["status"],expected,summary)
+                self.assertEqual(summary["gameplayStatus"],"PASS",summary)
+                self.assertTrue(summary["incomplete"] if expected=="INCOMPLETE" else summary["failures"])
             self.manifest["settings"]["bomb_visibility"]=False
             summary=runner.bomb_summary(out,self.summary["processes"],self.manifest,"bomb-samus")
             self.assertEqual(summary["coverage"]["renderedBombVisibility"],"INCOMPLETE")
+            self.assertEqual(summary["status"],"PASS")
     def test_live_no_alive_snapshot_and_no_body_witness_not_fabricated(self):
         with tempfile.TemporaryDirectory() as directory:
             report=self.live_fixture(directory);report["Rows"]=[]
