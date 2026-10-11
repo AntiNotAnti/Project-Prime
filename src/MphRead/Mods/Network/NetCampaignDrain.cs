@@ -8,7 +8,7 @@ using System.Text.Json;
 
 namespace MphRead.Mods.Network;
 
-/// <summary>Opt-in headless test shutdown barrier. Never participates in normal play.</summary>
+/// <summary>Opt-in network test shutdown barrier. Never participates in normal play.</summary>
 internal static class NetCampaignDrain
 {
     private static readonly string? StatusPath = Environment.GetEnvironmentVariable("PRIME_NET2_DRAIN_STATUS");

@@ -11,6 +11,7 @@ internal static class NetBombEvidence
     private const int Capacity = 65536;
     private static readonly List<object> Rows = new();
     private static long _overflow;
+    internal static long RequestsAuthored { get; private set; }
 
     private static void Add(object row)
     {
@@ -29,6 +30,7 @@ internal static class NetBombEvidence
     internal static void Request(BombIntent request, string stage)
     {
         if (!NetCampaignEvidence.Enabled) return;
+        if (stage == "requested") RequestsAuthored++;
         Add(new { Stage = stage, Type = "Request", request.Key, Frame = NetSession.NetFrame,
             RequestFrame = request.Frame, Action = request.Action.ToString() });
     }

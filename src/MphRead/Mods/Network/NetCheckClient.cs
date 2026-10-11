@@ -235,6 +235,7 @@ namespace MphRead.Mods.Network
             SwapBuffers();
 #endif
             Scene.AfterRenderFrame();
+            NetCampaignDrain.Tick(Scene);
             base.OnRenderFrame(args);
             if (Environment.GetEnvironmentVariable("MPHREAD_CLIP_TEST") != null && _clipTests < 2
                 && _frame >= (_seconds - 12 + _clipTests * 6) * 60 && !DemoClip.IsSaving && DemoClip.Held > 0)
@@ -243,7 +244,12 @@ namespace MphRead.Mods.Network
             }
             if (_frame >= _seconds * 60)
             {
-                Close();
+                if (NetCampaignDrain.Enabled)
+                {
+                    NetCampaignDrain.Begin();
+                    if (NetCampaignDrain.Completed) Close();
+                }
+                else Close();
             }
         }
 
@@ -949,7 +955,7 @@ namespace MphRead.Mods.Network
                     NetSession.LocalColor);
                 window.Run();
                 window.Report();
-                return window.Passed && window._featureFailures == 0 ? 0 : 1;
+                return window.Passed && window._featureFailures == 0 && NetCampaignDrain.Succeeded ? 0 : 1;
             }
             catch (Exception ex)
             {
