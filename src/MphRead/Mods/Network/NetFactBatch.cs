@@ -7,7 +7,7 @@ namespace MphRead.Mods.Network;
 // envelope. Individual semantic/replay records and their identities are unchanged.
 internal static class NetFactBatch
 {
-    internal const int MaximumPayload = NetConfig.MaxPayloadSize - 4;
+    internal const int MaximumPayload = 1200 - NetHeader.Size - 4;
     internal static int Stride(PacketType type) => type switch
     {
         PacketType.MatchSemanticEvent => MatchSemanticEventPacket.Size - 1,
