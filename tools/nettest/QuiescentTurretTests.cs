@@ -58,7 +58,7 @@ internal static class QuiescentTurretTests
                 if (quiesce)
                 {
                     Vector3? flightPosition = witnessedFlight?.Position;
-                    int? flightLife = witnessedFlight?.Lifespan;
+                    float? flightLife = witnessedFlight?.Lifespan;
                     int bodyHealth = owner.Health; bool alt = owner.IsAltForm, unmorph = owner.IsUnmorphing;
                     NetTestScript.ApplyQuiescentControls(owner);
                     Check(owner.Health == bodyHealth && owner.IsAltForm == alt && owner.IsUnmorphing == unmorph,
@@ -75,6 +75,7 @@ internal static class QuiescentTurretTests
                 Check(sim.StepFailures == 0 && NetSession.NetFrame == unchecked(before + 1), "one real native scene step without exception");
             }
             for (int i = 0; i < 120; i++) Step();
+            inputMode.SetValue(scene, Enum.Parse(inputMode.FieldType, "All"));
             Check(owner.Health > 0 && owner.ModIsInPlay && !owner.IsAltForm, "native live biped spawned");
             Step(quiesce: true);
             Check(!owner.Controls.Morph.IsDown && !owner.IsMorphing && !owner.IsAltForm, "no-input biped quiescence cannot create a form transition");
