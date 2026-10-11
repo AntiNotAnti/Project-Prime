@@ -138,10 +138,11 @@ internal static class NativeDiscontinuityTests
     private static void Boundary(PlayerEntity player, Sample a, Sample b, bool hard, bool form)
     {
         Require(b.Frame == a.Frame + 1, "native event brackets are adjacent authority frames");
-        var role = NetSession.Role;
+        var role = NetSession.Role; bool authority = NetSession.IsAuthority;
         try
         {
             Session(nameof(NetSession.Role), NetRole.Client);
+            Session(nameof(NetSession.IsAuthority), false);
             NetSmoothing.Reset();
             long now = Stopwatch.GetTimestamp();
             NetSmoothing.Record(a.Frame, new[] { a.State }, now);
@@ -154,6 +155,6 @@ internal static class NativeDiscontinuityTests
             Require(NetSmoothing.Sample(player.SlotIndex, out var final, out _) && final == b.State.Position,
                 "authority upper boundary presents exact new native position");
         }
-        finally { Session(nameof(NetSession.Role), role); NetSmoothing.Reset(); }
+        finally { Session(nameof(NetSession.Role), role); Session(nameof(NetSession.IsAuthority), authority); NetSmoothing.Reset(); }
     }
 }
