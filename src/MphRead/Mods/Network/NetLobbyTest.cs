@@ -1115,7 +1115,7 @@ namespace MphRead.Mods.Network
                 {
                     SeedAuthorityFixture();
                     foreach (var client in Clients) client.Drain();
-                    if (_error != null) throw _error;
+                    if (_error != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(_error).Throw();
                     if (condition()) { Check(true, label); return; }
                     Thread.Sleep(5);
                 } while (clock.ElapsedMilliseconds < ms);
