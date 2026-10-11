@@ -177,6 +177,7 @@ namespace MphRead.Mods.Network
         private static SnapshotSink? _snapshotSink;
         internal static SnapshotSink? ReplayWorldSink { get; set; }
         internal static SnapshotSink? ReplayShotSink { get; set; }
+        internal static Action<ConfirmedImpact>? ConfirmedImpactSink { get; set; }
         internal static SemanticSink? MatchSemanticSink { get; set; }
         internal static bool SemanticLegacyPlayback => _playback;
         internal static Mods.MatchEvents.MatchSemanticReceiver SemanticReceived { get; } = new();
@@ -412,6 +413,7 @@ namespace MphRead.Mods.Network
             Chat.ChatBox.Clear();
             IsAuthority = false;
             _snapshotSink = null; ReplayWorldSink = null; ReplayShotSink = null;
+            ConfirmedImpactSink = null; NetConfirmedImpacts.Reset();
             MatchSemanticSink = null; SemanticReceived.Begin(0, 0);
             _serverMatchEnded = null;
             if (_transport != null)
@@ -812,6 +814,12 @@ namespace MphRead.Mods.Network
             }
             if (Role == NetRole.Client && !_playback
                 && (_hostEndPoint == null || !packet.Sender.Equals(_hostEndPoint))) return;
+            if (packet.Type == PacketType.ConfirmedImpact)
+            {
+                if (Role == NetRole.Client && !IsAuthority && !_playback
+                    && ConfirmedImpact.TryRead(packet.Payload, out var impact)) NetConfirmedImpacts.Accept(impact);
+                return; // Expendable cues cannot refresh connection liveness or enter recordings.
+            }
             if(packet.Type is PacketType.MapOffer or PacketType.MapChunk
                 && (Role!=NetRole.Client||_hostEndPoint==null||!packet.Sender.Equals(_hostEndPoint)))return;
             if (Role == NetRole.Client)

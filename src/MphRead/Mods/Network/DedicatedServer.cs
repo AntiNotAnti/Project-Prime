@@ -510,6 +510,7 @@ namespace MphRead.Mods.Network
                     PumpReplayShotDelivery();
                     PumpBombDelivery();
                     DropTimedOut(now);
+                    PumpImpacts();
 
                     // The server owns the match clock, not the authority client:
                     // that is what lets a joiner adopt a running match's timer
@@ -1066,6 +1067,7 @@ namespace MphRead.Mods.Network
             };
             ResetBombDelivery();
             NetSession.ReplayShotSink = AppendReplayShotDelivery;
+            NetSession.ConfirmedImpactSink = AppendImpact;
             NetSession.MatchSemanticSink = AppendSemanticDelivery;
             // Keep the bounded one-room prewarm cache for same-map rematches.
             // It is replaced automatically if the lobby selects another room.

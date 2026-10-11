@@ -2125,6 +2125,7 @@ namespace MphRead.Entities
                 dead = true;
             }
 
+            var confirmedImpact = NetConfirmedImpacts.Describe(this, attacker, beam, bomb, replayDamageEventId, flags);
             bool replayShotFactEligible = false;
             uint replayShotId = 0;
             BeamType replayWeapon = BeamType.None;
@@ -3129,6 +3130,8 @@ namespace MphRead.Entities
                 combatPayment.Commit(Mods.Network.NetHitClaims.CaptureOutcome(this, Math.Max(0, combatHealthBefore - _health),
                     (flags.TestFlag(DamageFlags.Headshot) ? Mods.Network.CombatAckFlags.Headshot : 0)
                     | (flags.TestFlag(DamageFlags.Halfturret) ? Mods.Network.CombatAckFlags.HalfturretAffected : 0)));
+                if (confirmedImpact is { } impact && combatSequence == replayDamageEventId)
+                    NetConfirmedImpacts.Publish(impact);
                 if (beam != null)
                     Mods.Network.NetShotProof.Physical(this, beam, damage, flags, direction ?? Vector3.Zero, combatHealthBefore);
             }

@@ -28,6 +28,7 @@ namespace MphRead.Mods.Network
         QueueState = 61, QueueSeatOffer = 62, QueueAccept = 63, QueueDecline = 64,
         HostChallenge = 65, HostChallengeReply = 66,
         BombIntent = 68, BombEvent = 69, BombState = 70,
+        ConfirmedImpact = 71, // optional authority-only, expendable live presentation
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
@@ -2510,7 +2511,8 @@ namespace MphRead.Mods.Network
         // Protocol 47 adds constrained owner projectile claims, exact self receipts
         // and immutable burn ownership. Packet widths and replay records are unchanged.
         // Protocol 49 adds a lifecycle-fenced slow form/turret state; fast width is unchanged.
-        public const int ProtocolVersion = 49;
+        // Protocol 50 isolates optional confirmed impacts from gameplay sequence/ACK windows.
+        public const int ProtocolVersion = 50;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

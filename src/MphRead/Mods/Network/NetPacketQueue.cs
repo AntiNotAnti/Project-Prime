@@ -4,11 +4,11 @@ using System.Threading;
 
 namespace MphRead.Mods.Network;
 
-public enum NetPacketPriority { Critical, Realtime, Background }
-public readonly record struct NetPumpBudget(int Critical, int Realtime, int Background)
+public enum NetPacketPriority { Critical, Realtime, Background, Cosmetic }
+public readonly record struct NetPumpBudget(int Critical, int Realtime, int Background, int Cosmetic = 8)
 {
     public static NetPumpBudget Default => new(128, 256, 32);
-    public static NetPumpBudget BeforeSimulation => new(128, 256, 0);
+    public static NetPumpBudget BeforeSimulation => new(128, 256, 0, 0);
     public static NetPumpBudget AfterSimulation => new(0, 0, 32);
 }
 
@@ -17,10 +17,13 @@ public readonly record struct NetPumpBudget(int Critical, int Realtime, int Back
 public sealed class NetPacketQueue
 {
     private readonly object _lock = new();
-    private readonly Queue<ReceivedPacket>[] _queues = { new(128), new(2048), new(32) };
+    public const int CosmeticCapacity = 64;
+    private readonly Queue<ReceivedPacket>[] _queues = { new(128), new(2048), new(32), new(CosmeticCapacity) };
     private readonly int _capacity, _normalLimit;
     private int _count, _high;
     private long _drops;
+    private int _cosmeticCount, _cosmeticHigh;
+    private long _cosmeticDrops;
     public NetPacketQueue(int capacity = 2048, int criticalReserve = 128)
     {
         if (capacity < 1 || criticalReserve < 0 || criticalReserve > capacity) throw new ArgumentOutOfRangeException(nameof(capacity));
@@ -29,13 +32,19 @@ public sealed class NetPacketQueue
     public int Count => Volatile.Read(ref _count);
     public int HighWater { get { lock (_lock) return _high; } }
     public long Drops { get { lock (_lock) return _drops; } }
+    public int CosmeticCount => Volatile.Read(ref _cosmeticCount);
+    public int CosmeticHighWater { get { lock (_lock) return _cosmeticHigh; } }
+    public long CosmeticDrops { get { lock (_lock) return _cosmeticDrops; } }
     public bool CanAcceptCritical { get { lock (_lock) return _count < _capacity; } }
     public bool CanAccept(PacketType type)
     {
-        lock (_lock) return _count < (Priority(type) == NetPacketPriority.Critical ? _capacity : _normalLimit);
+        var priority = Priority(type);
+        lock (_lock) return priority == NetPacketPriority.Cosmetic ? _cosmeticCount < CosmeticCapacity
+            : _count < (priority == NetPacketPriority.Critical ? _capacity : _normalLimit);
     }
     public static NetPacketPriority Priority(PacketType type) => type switch
     {
+        PacketType.ConfirmedImpact => NetPacketPriority.Cosmetic,
         // The periodically repeated full result report recovers final authority
         // counters even while cosmetic/replay facts fill the background lane.
         PacketType.PostMatchReport => NetPacketPriority.Critical,
@@ -58,6 +67,12 @@ public sealed class NetPacketQueue
         var priority = Priority(packet.Type);
         lock (_lock)
         {
+            if (priority == NetPacketPriority.Cosmetic)
+            {
+                if (_cosmeticCount >= CosmeticCapacity) { _cosmeticDrops++; return false; }
+                _queues[(int)priority].Enqueue(packet);
+                _cosmeticCount++; _cosmeticHigh = Math.Max(_cosmeticHigh, _cosmeticCount); return true;
+            }
             if (_count >= (priority == NetPacketPriority.Critical ? _capacity : _normalLimit)) { _drops++; return false; }
             _queues[(int)priority].Enqueue(packet); _count++; _high = Math.Max(_high, _count); return true;
         }
@@ -67,7 +82,9 @@ public sealed class NetPacketQueue
         lock (_lock)
         {
             if (!_queues[(int)priority].TryDequeue(out packet)) return false;
-            _count--; return true;
+            if (priority == NetPacketPriority.Cosmetic) _cosmeticCount--;
+            else _count--;
+            return true;
         }
     }
 }

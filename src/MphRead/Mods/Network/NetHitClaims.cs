@@ -1107,6 +1107,11 @@ namespace MphRead.Mods.Network
         private static uint ApplyingClaimLaunch, ApplyingClaimShotId;
         private static Vector3 ApplyingClaimHitPoint;
         private static byte ApplyingClaimFlags;
+        private static ShotKey? ApplyingClaimKey;
+        private static uint ApplyingClaimComponent;
+        internal static ShotKey? CurrentClaimKey => ApplyingClaim ? ApplyingClaimKey : null;
+        internal static uint CurrentClaimComponent => ApplyingClaim ? ApplyingClaimComponent : 0;
+        internal static uint CurrentClaimPhase => ApplyingClaim ? _applyingContinuousPhase : 0;
         internal static uint CurrentClaimShotId => ApplyingClaim ? ApplyingClaimShotId : 0;
         internal static uint CurrentClaimLaunch => ApplyingClaim ? ApplyingClaimLaunch : 0;
         internal static Vector3 CurrentClaimHitPoint => ApplyingClaim ? ApplyingClaimHitPoint : default;
@@ -1780,7 +1785,12 @@ namespace MphRead.Mods.Network
 
             uint correction = (uint)(entry.Damage - resolved);
             uint before = (uint)victim.Health;
+            var previousClaimContext = (ApplyingClaim, ApplyingClaimAck, ApplyingClaimLaunch, ApplyingClaimShotId,
+                ApplyingClaimHitPoint, ApplyingClaimFlags, _applyingContinuousPhase, ApplyingClaimKey, ApplyingClaimComponent);
             ApplyingClaim = true;
+            ApplyingClaimKey = new ShotKey(entry.AuthorityEpoch, entry.MatchId, entry.ShooterSlot,
+                entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId);
+            ApplyingClaimComponent = entry.ComponentId;
             ApplyingClaimAck = entry.AckFrame;
             ApplyingClaimLaunch = entry.LaunchFrame;
             ApplyingClaimShotId = entry.ShotId;
@@ -1797,7 +1807,9 @@ namespace MphRead.Mods.Network
             }
             finally
             {
-                ApplyingClaim = false;
+                (ApplyingClaim, ApplyingClaimAck, ApplyingClaimLaunch, ApplyingClaimShotId,
+                    ApplyingClaimHitPoint, ApplyingClaimFlags, _applyingContinuousPhase, ApplyingClaimKey, ApplyingClaimComponent)
+                    = previousClaimContext;
             }
             uint applied = before - (uint)Math.Max(0, victim.Health);
             if (applied == 0)
@@ -2343,7 +2355,12 @@ namespace MphRead.Mods.Network
             // resolved-hit ledger for every rescue: one used, one free for a later
             // claim to match against by mistake, and the pair evicting genuine
             // authority hits twice as fast as they arrived.
+            var previousClaimContext = (ApplyingClaim, ApplyingClaimAck, ApplyingClaimLaunch, ApplyingClaimShotId,
+                ApplyingClaimHitPoint, ApplyingClaimFlags, _applyingContinuousPhase, ApplyingClaimKey, ApplyingClaimComponent);
             ApplyingClaim = true;
+            ApplyingClaimKey = new ShotKey(entry.AuthorityEpoch, entry.MatchId, entry.ShooterSlot,
+                entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId);
+            ApplyingClaimComponent = entry.ComponentId;
             ApplyingClaimAck = entry.AckFrame;
             ApplyingClaimLaunch = entry.LaunchFrame;
             ApplyingClaimShotId = entry.ShotId;
@@ -2377,7 +2394,9 @@ namespace MphRead.Mods.Network
             }
             finally
             {
-                ApplyingClaim = false;
+                (ApplyingClaim, ApplyingClaimAck, ApplyingClaimLaunch, ApplyingClaimShotId,
+                    ApplyingClaimHitPoint, ApplyingClaimFlags, _applyingContinuousPhase, ApplyingClaimKey, ApplyingClaimComponent)
+                    = previousClaimContext;
             }
             if (victim.Health >= before && (victim.Halfturret?.Health ?? 0) >= turretBefore)
             {
