@@ -147,6 +147,8 @@ def run(args):
                          (("run-net2.py","net2_evidence.py","bomb-audit.py") if args.scenario in BOMB_HUNTERS else ("run-net2.py","net2_evidence.py"))},
         "settings": {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
         "commands": [], "startedUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    if args.server_performance:
+        manifest["harnessSha256"]["net13_performance.py"] = digest(Path(__file__).with_name("net13_performance.py"))
     save(args.out / "manifest.json", manifest)
     processes, handles, records = [], [], []
     server = None
@@ -182,6 +184,8 @@ def run(args):
             env["PRIME_NET2_BOMB_EVIDENCE"] = str(args.out / f"{name}.bombs.json")
         if args.bomb_triangle_fixture:
             env["PRIME_NET2_TRIANGLE_SETUP"] = "1"
+        if args.server_performance and name == "server":
+            env["PRIME_SERVER_PERF_OUTPUT"] = str(args.out / "server-performance.json")
         env.update(bomb_visibility_environment(args,name))
         command = [dotnet, str(assembly), "-mapdir", str(maps), "-noupdate", "-noautoupdate", *extra]
         handle = open(args.out / f"{name}.log", "w", encoding="utf-8")
@@ -207,6 +211,8 @@ def run(args):
         if args.bomb_triangle_fixture:
             manifest["commands"][-1]["environment"]["PRIME_NET2_TRIANGLE_SETUP"] = "1"
             manifest["triangleFixture"] = "Explicit collision-verified initial authority geometry; each participant adopts its own initial snapshot pose once. Subsequent native movement, placement, damage and timers are unchanged."
+        if args.server_performance and name == "server":
+            manifest["commands"][-1]["environment"]["PRIME_SERVER_PERF_OUTPUT"] = env["PRIME_SERVER_PERF_OUTPUT"]
         save(args.out / "manifest.json", manifest)
         return process, record
 
@@ -399,6 +405,17 @@ def run(args):
         if len(records) < args.players + 1 or manifest.get("runnerError") or manifest["assemblyAfterSha256"] != manifest["assemblySha256"]:
             summary["status"] = "FAIL"
             summary["failures"].append(manifest.get("runnerError", "missing participants or modified running assembly"))
+        if args.server_performance:
+            from net13_performance import audit
+            try:
+                manifest["serverPerformanceEvidence"] = audit(args.out / "server-performance.json")
+                counts = manifest["serverPerformanceEvidence"]["operationCounts"]
+                if any(counts[name] == 0 for name in ("Step", "PumpBefore", "PumpAfter", "Replication")):
+                    raise ValueError("requested live server stages not exercised")
+            except (OSError, ValueError, TypeError, KeyError) as error:
+                summary["status"] = "FAIL"
+                summary["failures"].append("server performance evidence: " + str(error))
+            save(args.out / "manifest.json", manifest)
         save(args.out / "summary.json", summary)
         print(json.dumps({"status": summary["status"], "out": str(args.out), "failures": summary["failures"], "incomplete": summary["incomplete"]}), flush=True)
     return 0 if summary["status"] == "PASS" else 1
@@ -434,6 +451,7 @@ def parse_args(argv=None):
                    help="Capture per-peer live bomb GPU evidence; requires --rendered and a bomb scenario")
     p.add_argument("--bomb-triangle-fixture", action="store_true",
                    help="Explicit initial collision-verified geometry for a short Combat Hall Lockjaw fixture; native subsequent controls")
+    p.add_argument("--server-performance", action="store_true", help="Opt-in aggregate server wall-time/process CPU/GC evidence; no per-player facts")
     p.add_argument("--record", action="store_true")
     p.add_argument("--soak", action="store_true")
     args = p.parse_args(argv)

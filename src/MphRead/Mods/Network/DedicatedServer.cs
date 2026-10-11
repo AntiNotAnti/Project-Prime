@@ -478,6 +478,7 @@ namespace MphRead.Mods.Network
             double lastUpdateCheck = double.NegativeInfinity;
             double hostedEmptySince = 0;
             _matchStarted = 0;
+            NetPerformanceEvidence.BeginRun();
             try
             {
                 while (_running && !cancel.IsCancellationRequested)
@@ -486,10 +487,12 @@ namespace MphRead.Mods.Network
                     if (NetCampaignEvidence.StopRequested(now)) break;
                     _now = now;
                     RefreshWaitlist(now);
-                    foreach (ReceivedPacket packet in _transport.Drain(NetPumpBudget.BeforeSimulation))
+                    long pumpStart = NetPerformanceEvidence.Start();
+                    try
                     {
-                        Handle(packet, now);
+                        foreach (ReceivedPacket packet in _transport.Drain(NetPumpBudget.BeforeSimulation)) Handle(packet, now);
                     }
+                    finally { NetPerformanceEvidence.End(NetPerformanceEvidence.Operation.PumpBefore, pumpStart); }
                     // After the packets and before anything that reads the
                     // world: the intents that arrived this pass are the input
                     // to the steps this pass owes, exactly as a client applies
@@ -502,7 +505,12 @@ namespace MphRead.Mods.Network
                     PumpBombDelivery();
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
                     EnsureCareerMatchStarted(now);
-                    foreach (ReceivedPacket packet in _transport.Drain(NetPumpBudget.AfterSimulation)) Handle(packet, now);
+                    pumpStart = NetPerformanceEvidence.Start();
+                    try
+                    {
+                        foreach (ReceivedPacket packet in _transport.Drain(NetPumpBudget.AfterSimulation)) Handle(packet, now);
+                    }
+                    finally { NetPerformanceEvidence.End(NetPerformanceEvidence.Operation.PumpAfter, pumpStart); }
                     // Pongs and load-progress heartbeats are background control.
                     // After a long synchronous room build they may already be in
                     // the inbox; consume them before deciding a peer was silent.
@@ -787,6 +795,7 @@ namespace MphRead.Mods.Network
             _waitlist?.Clear();
             _queuePeers.Clear();
             Telemetry.ProductionTelemetry.Shutdown();
+            NetPerformanceEvidence.Write();
             Log("shutting down");
             CancelLobbyMapPreparation();
             _hostMapRequests.Dispose();
@@ -1088,6 +1097,13 @@ namespace MphRead.Mods.Network
         /// </summary>
         private readonly NetReplicationLanes _replication = new();
         private void SendSnapshot(ReadOnlySpan<byte> payload)
+        {
+            long start = NetPerformanceEvidence.Start();
+            try { SendSnapshotCore(payload); }
+            finally { NetPerformanceEvidence.End(NetPerformanceEvidence.Operation.Replication, start); }
+        }
+
+        private void SendSnapshotCore(ReadOnlySpan<byte> payload)
         {
             payload.CopyTo(_lastSnapshot);
             _lastSnapshotLength = payload.Length;

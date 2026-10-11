@@ -1537,6 +1537,15 @@ namespace MphRead.Mods.Network
         /// </summary>
         private static byte Judge(int shooterSlot, in HitClaimPacket claim)
         {
+            if (!NetPerformanceEvidence.Enabled) return JudgeCore(shooterSlot, claim);
+            long start = NetPerformanceEvidence.Start();
+            int result = -1;
+            try { result = JudgeCore(shooterSlot, claim); return (byte)result; }
+            finally { NetPerformanceEvidence.End(NetPerformanceEvidence.Operation.Eligibility, start, result); }
+        }
+
+        private static byte JudgeCore(int shooterSlot, in HitClaimPacket claim)
+        {
             int victimSlot = claim.VictimSlot;
             if (Telemetry.ProductionTelemetry.Enabled)
                 LagCompensationPolicy.Study(shooterSlot, victimSlot, NetShotDiagnostics.Bucket((BeamType)claim.Beam),
@@ -2272,6 +2281,20 @@ namespace MphRead.Mods.Network
         /// </summary>
         private static void ApplyOne(ref Pending entry)
         {
+            if (!NetPerformanceEvidence.Enabled) { ApplyOneCore(ref entry); return; }
+            long start = NetPerformanceEvidence.Start();
+            int previous = NetPerformanceEvidence.TerminalResult;
+            NetPerformanceEvidence.TerminalResult = -1;
+            try { ApplyOneCore(ref entry); }
+            finally
+            {
+                NetPerformanceEvidence.End(NetPerformanceEvidence.Operation.Settlement, start, NetPerformanceEvidence.TerminalResult);
+                NetPerformanceEvidence.TerminalResult = previous;
+            }
+        }
+
+        private static void ApplyOneCore(ref Pending entry)
+        {
             int victimSlot = entry.VictimSlot;
             int shooterSlot = entry.ShooterSlot;
             if (!NetSession.MatchesStream(entry.MatchId, entry.AuthorityEpoch)
@@ -2580,6 +2603,7 @@ namespace MphRead.Mods.Network
             // must repeat the verdict, never park the already applied hit again.
             CombatAckEntry answer = outcome ?? (_seenIds[slot, at] == id ? _seenOutcomes[slot, at] : new CombatAckEntry { VictimSlot = 255 });
             answer.ClaimId = id; answer.Result = result;
+            if (NetPerformanceEvidence.Enabled) NetPerformanceEvidence.TerminalResult = answer.Result;
             // Native outcomes carry victim state, not the claimant's correlation
             // identity. The first answer must identify the claim just as a retry does.
             if (answer.ShotId == 0 && _seenIds[slot, at] == id) answer.ShotId = _seenKeys[slot, at].ShotId;
