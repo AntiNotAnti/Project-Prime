@@ -319,6 +319,12 @@ namespace MphRead.Mods.Network
                 AimAt(player, other, headHeight: 0);
                 float range = other == null ? Single.MaxValue : Vector3.Distance(player.Position, other.Position);
                 float bombGap = Single.MaxValue;
+                bool facingDestination = false;
+                if (other != null)
+                {
+                    (float turnX, _) = player.ModAimDeltaTowards(other.IsAltForm ? other.Volume.SpherePosition : other.ModAimTarget);
+                    facingDestination = Single.IsFinite(turnX) && MathF.Abs(turnX) < FiringCone;
+                }
                 if (player.SlotIndex == 0)
                 {
                     if (!player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing)
@@ -327,7 +333,7 @@ namespace MphRead.Mods.Network
                     // Hold the rendezvous while the victim enters the actual
                     // bomb volume. Chasing the victim leaves Kanden's tail
                     // placements behind and can strand the biped at a ledge.
-                    c.MoveUp.IsDown = other != null && range > 4f;
+                    c.MoveUp.IsDown = other != null && range > 4f && facingDestination;
                     if (Mode == RigMode.BombLockjaw && other != null && range <= 4f)
                     {
                         int leg = _frame / 20 % 3;
@@ -353,16 +359,18 @@ namespace MphRead.Mods.Network
                         {
                             AimDeltaX = Math.Clamp(turnX, -TurnRate, TurnRate);
                             AimDeltaY = Math.Clamp(turnY, -TurnRate, TurnRate);
+                            facingDestination = MathF.Abs(turnX) < FiringCone;
                         }
+                        else facingDestination = false;
                     }
                     float destinationGap = closest != null ? bombGap : range;
-                    c.MoveUp.IsDown = destinationGap > .35f;
+                    c.MoveUp.IsDown = destinationGap > .35f && facingDestination;
                     // Native jump gets the biped over the room's low ledges;
                     // stop jumping near bombs so contact remains grounded.
-                    c.Jump.IsDown = destinationGap > 2f && _frame % 90 < 3;
+                    c.Jump.IsDown = destinationGap > 2f && facingDestination && _frame % 90 < 3;
                 }
                 if (_frame % 180 == 0)
-                    NetLog.Event($"bomb rig slot={player.SlotIndex} range={range:F2} bombGap={bombGap:F2} pos={player.Position}");
+                    NetLog.Event($"bomb rig slot={player.SlotIndex} range={range:F2} bombGap={(bombGap == Single.MaxValue ? "none" : bombGap.ToString("F2"))} facing={facingDestination} pos={player.Position}");
             }
             else if (Mode == RigMode.SelfMoving || Mode == RigMode.SelfWall)
             {
