@@ -24,23 +24,23 @@
       "routes": 32,
       "passed": 23,
       "failed": 9,
-      "pythonChecks": 339
+      "pythonChecks": 339,
+      "recordings": [
+        {
+          "index": 0,
+          "format": "PASS",
+          "seek": "FAIL_EXPECTED_LAYOUT_FALLBACK_COUNT_CONFLATED_WITH_TARGET"
+        },
+        {
+          "index": 1,
+          "format": "PASS",
+          "continuation": "FAIL_AT_423_IN_ORIGINAL_RUN_RESOLVED_IN_FINAL07"
+        }
+      ]
     },
     "repairs": [
       "3068d388",
       "5c088850"
-    ],
-    "recordings": [
-      {
-        "index": 0,
-        "format": "PASS",
-        "seek": "FAIL_EXPECTED_LAYOUT_FALLBACK_COUNT_CONFLATED_WITH_TARGET"
-      },
-      {
-        "index": 1,
-        "format": "PASS",
-        "continuation": "UNRESOLVED_MISMATCH_423"
-      }
     ],
     "cadence": "PASS_AT_A188D1BE_REAL_GL_GAMEPLAY_INVARIANCE_NOT_STUDIO_UI",
     "next": null,
@@ -2670,7 +2670,7 @@
       4,
       5
     ],
-    "cause": "Future lookahead fact resolution against distant prior roomclock gives different linear/seek impactframes",
+    "cause": "Future lookahead facts were scheduled against an earlier server-clock snapshot before their resolve tick was covered, producing different linear and seek impact frames.",
     "diagnosticDivergence": {
       "frame": 423,
       "effect": "suppressEffect5 collision RNG"
