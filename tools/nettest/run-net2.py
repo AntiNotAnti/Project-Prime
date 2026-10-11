@@ -7,9 +7,11 @@ No public server/master, production profile, or existing process is touched.
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import signal
 import subprocess
@@ -20,6 +22,32 @@ PROFILES = {"lan": (0, 0, 0, 0, 0), "moderate": (100, 20, 1, 0, 0),
             "poor": (250, 40, 2, 0, 0), "extreme": (400, 80, 5, 3, 1)}
 HUNTERS = ["Samus", "Kanden", "Trace", "Sylux", "Noxus", "Spire", "Weavel", "Samus"]
 BOMB_HUNTERS = {"bomb-samus": "Samus", "bomb-kanden": "Kanden", "bomb-lockjaw": "Sylux"}
+
+
+def current_protocol():
+    """Read the checkout contract; historical binaries need --protocol explicitly."""
+    source = Path(__file__).resolve().parents[2] / "src/MphRead/Mods/Network/NetProtocol.cs"
+    matches = re.findall(r"public const int ProtocolVersion\s*=\s*(\d+)\s*;", source.read_text())
+    if len(matches) != 1:
+        raise ValueError("cannot determine checkout protocol; supply --protocol explicitly")
+    return int(matches[0])
+
+
+def fault_profile(args):
+    """Keep named controls reproducible while allowing independent fault sweeps."""
+    names = ("rtt_ms", "jitter_ms", "loss_percent", "reorder_percent", "duplicate_percent")
+    values = {name: getattr(args, name) if getattr(args, name, None) is not None else value
+              for name, value in zip(names, PROFILES[args.profile])}
+    return values
+
+
+def fault_arguments(args, slot):
+    values = fault_profile(args)
+    return ["-netlag", f"{values['rtt_ms']}:{values['jitter_ms']}",
+            "-netloss", f"{values['loss_percent']:g}%",
+            "-netreorder", f"{values['reorder_percent']:g}%",
+            "-netduplicate", f"{values['duplicate_percent']:g}%",
+            "-netseed", str(args.seed + slot)]
 
 
 def client_role(args, slot):
@@ -178,6 +206,9 @@ def run(args):
         "harnessSha256": {name: digest(Path(__file__).with_name(name)) for name in
                          (("run-net2.py","net2_evidence.py","bomb-audit.py") if args.scenario in BOMB_HUNTERS else ("run-net2.py","net2_evidence.py"))},
         "settings": {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
+        "faultProfile": {**fault_profile(args), "scope": "each client, inbound and outbound",
+                         "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+                         "seedRule": "base seed + client launch index"},
         "commands": [], "startedUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     if args.server_performance:
         manifest["harnessSha256"]["net13_performance.py"] = digest(Path(__file__).with_name("net13_performance.py"))
@@ -267,7 +298,6 @@ def run(args):
             raise RuntimeError("server loader/startup timeout")
         time.sleep(2)
         clients = []
-        rtt, jitter, loss, reorder, duplicate = PROFILES[args.profile]
 
         def client(slot, name, seconds):
             # Only affinity Shock Coil drains health. Combat roles use assigned
@@ -275,8 +305,7 @@ def run(args):
             hunter, observer, expects = client_role(args, slot)
             extra = ["-netcheck", "127.0.0.1", "-port", str(args.port), "-name", name,
                 "-hunter", hunter, "-seconds", str(seconds), "-size", "480x270",
-                "-netlag", f"{rtt}:{jitter}", "-netloss", f"{loss}%", "-netreorder", f"{reorder}%",
-                "-netduplicate", f"{duplicate}%", "-netseed", str(args.seed + slot)]
+                *fault_arguments(args, slot)]
             if not args.rendered:
                 extra.append("-nographics")
             if args.record:
@@ -472,7 +501,7 @@ def parse_args(argv=None):
     p.add_argument("--source", required=True, help="Exact source SHA plus dirty diff hash if applicable")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--dotnet", default="dotnet")
-    p.add_argument("--protocol", type=int, default=50, help="Expected evidence protocol (historical campaigns may specify 41)")
+    p.add_argument("--protocol", type=int, help="Expected evidence protocol; defaults to checkout, set explicitly for historical binaries")
     p.add_argument("--shot-proof", choices=("off", "shadow", "enforce"), default="shadow",
                    help="Record and apply the explicit N4 admission mode")
     p.add_argument("--players", type=int, choices=(2, 3, 4, 8), default=2)
@@ -482,6 +511,10 @@ def parse_args(argv=None):
     p.add_argument("--port", type=int, default=27991)
     p.add_argument("--seed", type=int, default=8128)
     p.add_argument("--profile", choices=PROFILES, default="lan")
+    p.add_argument("--rtt-ms", type=int, help="Override profile added round trip, 0..10000 ms")
+    p.add_argument("--jitter-ms", type=int, help="Override profile extra hold per direction, 0..5000 ms")
+    for fault in ("loss", "reorder", "duplicate"):
+        p.add_argument(f"--{fault}-percent", type=float, help=f"Override profile {fault}, 0..100 percent")
     p.add_argument("--scenario", choices=("tour", "duel", "shockcoil", "shockcoil-all", "shockcoil-mixed", "missile", "self-moving", "self-wall", "alt-morph", *BOMB_HUNTERS), default="tour")
     p.add_argument("--observer-delay", type=float, default=0,
                    help="Delay the third spectator in a short three-client bomb or alt-morph campaign")
@@ -500,6 +533,23 @@ def parse_args(argv=None):
     p.add_argument("--record", action="store_true")
     p.add_argument("--soak", action="store_true")
     args = p.parse_args(argv)
+    if args.protocol is None:
+        try:
+            args.protocol = current_protocol()
+        except (OSError, ValueError) as error:
+            p.error(str(error))
+    if not 1 <= args.protocol <= 255:
+        p.error("--protocol must fit the Hello protocol byte (1..255)")
+    for name, maximum in (("rtt_ms", 10000), ("jitter_ms", 5000),
+                          ("loss_percent", 100), ("reorder_percent", 100), ("duplicate_percent", 100)):
+        value = getattr(args, name)
+        if value is not None and (not math.isfinite(value) or not 0 <= value <= maximum):
+            p.error(f"--{name.replace('_', '-')} must be finite and between 0 and {maximum}")
+    if not -2147483648 <= args.seed <= 2147483647 - (args.players - 1):
+        p.error("--seed and all client seeds must fit signed 32-bit integers")
+    if not all(math.isfinite(value) for value in
+               (args.seconds, args.round_minutes, args.drain_seconds, args.observer_delay)):
+        p.error("durations must be finite")
     if args.seconds <= 0 or args.round_minutes <= 0 or not 1024 <= args.port <= 65535:
         p.error("duration, round length and port must be positive and valid")
     if args.drain_seconds < 0 or args.drain_seconds > 60:

@@ -1,0 +1,3547 @@
+{
+  "schemaVersion": 1,
+  "slice": "G0",
+  "status": "FAIL",
+  "scope": "Baseline evidence tooling and source audit only; no gameplay/wire changes",
+  "sourceSha": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+  "protocol": 51,
+  "planBaseline": "ec9d63f7afa7ddd1220cf9441f619c3576294014",
+  "binarySha256": "3172a329dc843f636836d982482b837c16a7a9184cea041a369411cc1a72049b",
+  "sdk": "10.0.401",
+  "capturedUtc": "2026-10-11T23:11:09.496117+00:00",
+  "build": {
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "build",
+      "tools/nettest/nettest.csproj",
+      "-c",
+      "Release"
+    ],
+    "warnings": 33,
+    "errors": 0,
+    "status": "PASS"
+  },
+  "ci": {
+    "sourceSha": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+    "build": {
+      "status": "in_progress",
+      "conclusion": "",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38182652992",
+      "jobs": [
+        {
+          "name": "HD character model contract",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "no game assets",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Windows/Linux release updater and rollback (ubuntu-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "content-free fidelity oracle (F0/F1)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Android frame pacing and governor policy",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "dedicated server compile gate",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "input regressions (macos-15-intel)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "renderer state, lifecycle and low-latency policy",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Desktop frame pacing policy",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Windows/Linux release updater and rollback (windows-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "OpenGL compatibility and retained graph smoke",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "input regressions (windows-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "input regressions (macos-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "win-x64 dedicated server",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "map editor regressions (ubuntu-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "map editor regressions (macos-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "win-x64",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "linux-x64-server",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "map editor regressions (windows-latest)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "android",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "enhanced hunter regressions",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "linux-arm64",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "macOS osx-x64",
+          "status": "in_progress",
+          "conclusion": ""
+        },
+        {
+          "name": "linux-x64",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "macOS osx-arm64",
+          "status": "in_progress",
+          "conclusion": ""
+        }
+      ]
+    },
+    "semantic": {
+      "conclusion": "success",
+      "status": "completed",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38182653006"
+    }
+  },
+  "python": {
+    "command": "python3 -m unittest discover -s tools/nettest -p 'test_*.py'",
+    "tests": 359,
+    "passed": 358,
+    "skipped": 1,
+    "failures": 0,
+    "skipReason": "Pre-existing optional immutable local campaign unavailable; not a live acceptance pass"
+  },
+  "networkContracts": {
+    "source_head": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+    "engine_path": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/ProjectPrime.dll",
+    "engine_sha256": "3172a329dc843f636836d982482b837c16a7a9184cea041a369411cc1a72049b",
+    "harness_sha256": "1974065a14982456d9e7e2b7dad4b7f3fe38accc5a129fa6474ee2895353fc46",
+    "started_utc": "2026-10-11T23:05:08.263514+00:00",
+    "tests": [
+      {
+        "name": "architecture",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--architecture"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.233,
+        "stdout_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/architecture.stdout.log",
+        "stderr_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/architecture.stderr.log",
+        "stdout_tail": "[net] server map:  (None, 0 s left)\nPASS: architecture, owner position, full snapshots and v20 byte fixture\n",
+        "stderr_tail": ""
+      },
+      {
+        "name": "protocol18",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--protocol18"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.124,
+        "stdout_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/protocol18.stdout.log",
+        "stderr_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/protocol18.stderr.log",
+        "stdout_tail": "PASS: protocol 18 lane round-trip, revision fencing, 0 decode allocations, 1172B worst-case fast datagram\n",
+        "stderr_tail": ""
+      },
+      {
+        "name": "enhanced-hunters",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--enhanced-hunters"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.134,
+        "stdout_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/enhanced-hunters.stdout.log",
+        "stderr_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/enhanced-hunters.stderr.log",
+        "stdout_tail": "ENHANCED PASS 37 checks; fast ceiling 1172 bytes\n",
+        "stderr_tail": ""
+      },
+      {
+        "name": "shot-source-journal",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--shot-source-journal"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.182,
+        "stdout_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/shot-source-journal.stdout.log",
+        "stderr_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/shot-source-journal.stderr.log",
+        "stdout_tail": "[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\n[net] server map:  (None, 0 s left)\nPASS: 84 shot source journal assertions (production code, no assets)\n",
+        "stderr_tail": ""
+      },
+      {
+        "name": "compact-intents",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--compact-intents"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.348,
+        "stdout_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/compact-intents.stdout.log",
+        "stderr_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/compact-intents.stderr.log",
+        "stdout_tail": "compact intent codec tests passed\nVIRTUAL history RTT=0ms loss=0% events=607/607 pending=0\nVIRTUAL history RTT=0ms loss=1% events=607/607 pending=0\nVIRTUAL history RTT=0ms loss=2% events=607/607 pending=0\nVIRTUAL history RTT=0ms loss=5% events=607/607 pending=0\nVIRTUAL history RTT=0ms loss=10% events=607/607 pending=0\nVIRTUAL history RTT=100ms loss=0% events=607/607 pending=0\nVIRTUAL history RTT=100ms loss=1% events=607/607 pending=0\nVIRTUAL history RTT=100ms loss=2% events=607/607 pending=0\nVIRTUAL history RTT=100ms loss=5% events=607/607 pending=0\nVIRTUAL history RTT=100ms loss=10% events=607/607 pending=0\nVIRTUAL history RTT=250ms loss=0% events=607/607 pending=0\nVIRTUAL history RTT=250ms loss=1% events=607/607 pending=0\nVIRTUAL history RTT=250ms loss=2% events=607/607 pending=0\nVIRTUAL history RTT=250ms loss=5% events=607/607 pending=0\nVIRTUAL history RTT=250ms loss=10% events=607/607 pending=0\nVIRTUAL history RTT=400ms loss=0% events=607/607 pending=0\nVIRTUAL history RTT=400ms loss=1% events=607/607 pending=0\nVIRTUAL history RTT=400ms loss=2% events=607/607 pending=0\nVIRTUAL history RTT=400ms loss=5% events=607/607 pending=0\nVIRTUAL history RTT=400ms loss=10% events=607/607 pending=0\ncompact intent replay tests passed\n",
+        "stderr_tail": ""
+      },
+      {
+        "name": "shot-lifecycle",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--shot-lifecycle"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.076,
+        "stdout_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/shot-lifecycle.stdout.log",
+        "stderr_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/shot-lifecycle.stderr.log",
+        "stdout_tail": "shot lifecycle: PASS\n",
+        "stderr_tail": ""
+      },
+      {
+        "name": "queue-budget",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--queue-budget"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.346,
+        "stdout_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/queue-budget.stdout.log",
+        "stderr_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/queue-budget.stderr.log",
+        "stdout_tail": "Wire telemetry tests passed.\nPASS: independent cosmetic capacity, flood capacity, critical reserve, per-peer rate limits and pump budgets\n",
+        "stderr_tail": ""
+      },
+      {
+        "name": "player-form-protocol",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--player-form-protocol"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.076,
+        "stdout_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/player-form-protocol.stdout.log",
+        "stderr_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/player-form-protocol.stderr.log",
+        "stdout_tail": "FORM PROTOCOL PASS roundtrip Unknown\nFORM PROTOCOL PASS truncated form rejected\nFORM PROTOCOL PASS roundtrip Biped\nFORM PROTOCOL PASS truncated form rejected\nFORM PROTOCOL PASS roundtrip Morphing\nFORM PROTOCOL PASS truncated form rejected\nFORM PROTOCOL PASS roundtrip Alt\nFORM PROTOCOL PASS truncated form rejected\nFORM PROTOCOL PASS roundtrip Unmorphing\nFORM PROTOCOL PASS truncated form rejected\nFORM PROTOCOL PASS unknown phase rejected\nFORM PROTOCOL PASS noncanonical boolean rejected\nFORM PROTOCOL PASS NaN anchor rejected\nFORM PROTOCOL PASS future transition start rejected\nFORM PROTOCOL PASS transition order supports wrap\nFORM PROTOCOL PASS canonical stride and unchanged fast MTU\nFORM PROTOCOL PASS matching form decoded\nFORM PROTOCOL PASS future morph slow form deferred\nFORM PROTOCOL PASS cached future morph becomes eligible\nFORM PROTOCOL PASS future unmorph slow form deferred\nFORM PROTOCOL PASS cached future unmorph becomes eligible\nFORM PROTOCOL PASS old life cache rejected\nFORM PROTOCOL PASS old generation cache rejected\nFORM PROTOCOL PASS frame only retains six-frame cadence\nFORM PROTOCOL PASS turret health publishes immediately\nFORM PROTOCOL PASS paired body health publishes immediately\nFORM PROTOCOL PASS turret active publishes immediately\nFORM PROTOCOL PASS phase and transition start publish immediately\nFORM PROTOCOL PASS slow codec rejects corrupted phase\nFORM PROTOCOL PASS eight complete canonical forms and split lanes remain bounded\nFORM PROTOCOL PASS eight slow form rows roundtrip without stride overlap\nFORM PROTOCOL 31 assertions PASS\n",
+        "stderr_tail": ""
+      },
+      {
+        "name": "bomb-protocol",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--bomb-protocol"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 0.076,
+        "stdout_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/bomb-protocol.stdout.log",
+        "stderr_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/bomb-protocol.stderr.log",
+        "stdout_tail": "S event truncated\nBOMB PROTOCOL PASS event Refused\nBOMB PROTOCOL PASS event truncated\nBOMB PROTOCOL PASS event Detonated\nBOMB PROTOCOL PASS event truncated\nBOMB PROTOCOL PASS event Removed\nBOMB PROTOCOL PASS event truncated\nBOMB PROTOCOL PASS event DetonateAccepted\nBOMB PROTOCOL PASS event truncated\nBOMB PROTOCOL PASS identity refusal\nBOMB PROTOCOL PASS identity detonate acceptance\nBOMB PROTOCOL PASS authority owner jump roundtrips without changing terminal size\nBOMB PROTOCOL PASS unknown detonation outcome rejected\nBOMB PROTOCOL PASS historical protocol 48-50 terminal remains readable without jump outcome\nBOMB PROTOCOL PASS nonfinite transform\nBOMB PROTOCOL PASS degenerate basis\nBOMB PROTOCOL PASS invalid life\nBOMB PROTOCOL PASS self link\nBOMB PROTOCOL PASS 24 bombs bounded MTU\nBOMB PROTOCOL PASS partial atomic\nBOMB PROTOCOL PASS out of order complete\nBOMB PROTOCOL PASS duplicate page rejected\nBOMB PROTOCOL PASS frame wrap atomic\nBOMB PROTOCOL PASS old frame rejected\nBOMB PROTOCOL PASS reset\nBOMB PROTOCOL PASS cross page duplicate key\nBOMB PROTOCOL PASS frontier conflict\nBOMB PROTOCOL PASS stream fenced until reset\nBOMB PROTOCOL PASS page truncated\nBOMB PROTOCOL PASS row bound\nBOMB PROTOCOL PASS total bound\nBOMB PROTOCOL PASS snapshot duplicate key\nBOMB PROTOCOL PASS reset has no frame-zero snapshot\nBOMB PROTOCOL PASS frame-zero partial has no snapshot\nBOMB PROTOCOL PASS partial checkpoint completes frame zero\nBOMB PROTOCOL PASS complete checkpoint roundtrip\nBOMB PROTOCOL PASS new partial after snapshot\nBOMB PROTOCOL PASS checkpoint retains previous snapshot and newer partial\nBOMB PROTOCOL PASS malformed checkpoint is atomic\nBOMB PROTOCOL PASS checkpoint boolean encoding is strict and atomic\nBOMB PROTOCOL PASS object null rows rejected\nBOMB PROTOCOL 52 assertions PASS\n",
+        "stderr_tail": ""
+      },
+      {
+        "name": "shot-proof-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--shot-proof-scene",
+          "/private/tmp/prime-polish-netprofile"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 1.25,
+        "stdout_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/shot-proof-scene.stdout.log",
+        "stderr_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/shot-proof-scene.stderr.log",
+        "stdout_tail": "able/UnknownComponent (source=Unexamined, geometry=Unexamined)\nPROOF PASS missing child lineage cannot certify a physical component evaluation never changes gameplay\nPROOF PASS actual carrier admitted\nPROOF PASS actual accepted event emitted once found=True disposition=Fired reason=projectile spawned\nPROOF PASS production projectile has shot and component identity\nPROOF PASS real world wall occludes historical target: expected Rejected/BlockedWorld, got Rejected/BlockedWorld (source=Verified, geometry=BlockedWorld)\nPROOF PASS real world wall occludes historical target evaluation never changes gameplay\nPROOF PASS actual carrier admitted\nPROOF PASS actual accepted event emitted once found=True disposition=Fired reason=projectile spawned\nPROOF PASS production projectile has shot and component identity\nPROOF PASS claim receives terminal acknowledgement\nPROOF PASS Off preserves legacy adjudication and damage result=applied health=999->998\nPROOF PASS actual carrier admitted\nPROOF PASS actual accepted event emitted once found=True disposition=Fired reason=projectile spawned\nPROOF PASS production projectile has shot and component identity\nPROOF PASS claim receives terminal acknowledgement\nPROOF PASS Shadow preserves legacy adjudication and damage result=applied health=999->998\nPROOF PASS shadow records legacy allowed claim lacking proof\nPROOF PASS actual carrier admitted\nPROOF PASS actual accepted event emitted once found=True disposition=Fired reason=projectile spawned\nPROOF PASS production projectile has shot and component identity\nPROOF PASS claim receives terminal acknowledgement\nPROOF PASS opt-in enforcement rejects forged ID through actual receive/tick\nPROOF PASS legacy claim radius remains unchanged\nPROOF PASS no simulation failures\nPASS: 324 shot proof asset assertions\n",
+        "stderr_tail": ""
+      },
+      {
+        "name": "form-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--form-scene",
+          "/private/tmp/prime-polish-netprofile"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 1.35,
+        "stdout_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/form-scene.stdout.log",
+        "stderr_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/form-scene.stderr.log",
+        "stdout_tail": "irst unmorph converges without duplicate merge\nFORM PASS slow-first morph arrival keeps body health coherent with accepted form\nFORM PASS slow-first morph converges to one native split\nFORM PASS slow-first unmorph arrival keeps merged health coherent with accepted form\nFORM PASS slow-first unmorph converges without duplicate merge\nFORM PASS first accepted life materializes slow canonical form health despite different fast health\nFORM PASS fast zero health replays native death immediately despite retained alive form sample\nFORM PASS alive form sample cannot revive dead current life\nFORM PASS new life resets accepted form frontier and materializes coherent biped health\nFORM PASS wrapped form frontier accepts new exit and rejects pre-wrap morph health and turret\nFORM PASS native turret hit creates a real pending claim for acknowledgement regression\nFORM PASS production verdict consumes the exact pending claim rather than ignoring acknowledgement\nFORM PASS newer real combat acknowledgement corrects turret health\nFORM PASS new form frame with older form damage sequence preserves newer acknowledgement turret health\nFORM PASS another delayed form sample preserves turret acknowledgement after fast damage lane catches up\nFORM PASS native turret hit creates a real pending claim for acknowledgement regression\nFORM PASS canonical turret destruction is installed in the production scene bridge\nFORM PASS production verdict consumes the exact pending claim rather than ignoring acknowledgement\nFORM PASS late positive acknowledgement cannot resurrect canonically destroyed turret\nFORM PASS newer canonical remorph permits fresh turret after old positive acknowledgement and destruction\nFORM PASS native form fixture has no engine step failures\nPASS: 59 asset-backed form lifecycle assertions\n",
+        "stderr_tail": ""
+      },
+      {
+        "name": "bomb-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--bomb-scene",
+          "/private/tmp/prime-polish-netprofile"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 1.294,
+        "stdout_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/bomb-scene.stdout.log",
+        "stderr_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/bomb-scene.stderr.log",
+        "stdout_tail": "explicit stale terminal\nBOMB SCENE PASS new-life request independently reaches form refusal rather than being swallowed\nBOMB SCENE PASS moving native Lockjaw receives authored bomb jump\nBOMB SCENE PASS native Lockjaw emits terminal for delayed owner fixture\nBOMB SCENE PASS delayed terminal accepted moving\nBOMB SCENE PASS delayed bomb jump preserves native impulse and lifecycle moving\nBOMB SCENE PASS delayed terminal accepted stationary\nBOMB SCENE PASS delayed bomb jump preserves native impulse and lifecycle stationary\nBOMB SCENE PASS delayed terminal accepted duplicate\nBOMB SCENE PASS delayed bomb jump preserves native impulse and lifecycle duplicate\nBOMB SCENE PASS duplicate terminal cannot reapply owner jump\nBOMB SCENE PASS delayed terminal accepted no-contact\nBOMB SCENE PASS delayed bomb jump preserves native impulse and lifecycle no-contact\nBOMB SCENE PASS delayed terminal accepted rising\nBOMB SCENE PASS delayed bomb jump preserves native impulse and lifecycle rising\nBOMB SCENE PASS delayed terminal accepted dead\nBOMB SCENE PASS delayed bomb jump preserves native impulse and lifecycle dead\nBOMB SCENE PASS delayed terminal accepted new-life\nBOMB SCENE PASS delayed bomb jump preserves native impulse and lifecycle new-life\nBOMB SCENE PASS delayed terminal accepted new-generation\nBOMB SCENE PASS delayed bomb jump preserves native impulse and lifecycle new-generation\nBOMB SCENE PASS delayed terminal accepted other-owner\nBOMB SCENE PASS delayed bomb jump preserves native impulse and lifecycle other-owner\nBOMB SCENE PASS delayed terminal accepted unmorphed\nBOMB SCENE PASS delayed bomb jump preserves native impulse and lifecycle unmorphed\nBOMB SCENE PASS asset authority fixture has no simulation failures\nPASS: 70 bomb scene assertions (/private/tmp/prime-polish-netprofile)\n",
+        "stderr_tail": ""
+      },
+      {
+        "name": "sylux-muzzle-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--sylux-muzzle-scene",
+          "/private/tmp/prime-polish-netprofile"
+        ],
+        "exit_code": 0,
+        "duration_seconds": 1.256,
+        "stdout_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/sylux-muzzle-scene.stdout.log",
+        "stderr_log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/contracts/sylux-muzzle-scene.stderr.log",
+        "stdout_tail": "ojectile\nSYLUX NATIVE blocked=False remote=True damage=6 wall=(11.920147, 4.841797, -17.647217) muzzle=(11.420147, 4.841797, -17.647217) body=(11.720147, 4.841797, -17.647217)\nSYLUX PASS remote open native control damages target\nSYLUX PASS remote interval fixture blocked=True\nSYLUX PASS remote native event accepted in Shadow mode\nSYLUX PASS remote open path supplies production projectile\nSYLUX NATIVE blocked=True remote=True damage=0 wall=(11.920147, 4.841797, -17.647217) muzzle=(12.070147, 4.841797, -17.647217) body=(11.320147, 4.841797, -17.647217)\nSYLUX PASS remote wall-at-muzzle prevents behind-wall damage\nSYLUX PASS owner interval fixture blocked=False\nSYLUX PASS owner native TryFireWeapon traverses actual spawn path\nSYLUX PASS owner open path supplies production projectile\nSYLUX NATIVE blocked=False remote=False damage=6 wall=(11.920147, 4.841797, -17.647217) muzzle=(11.420147, 4.841797, -17.647217) body=(11.420147, 4.841797, -17.947216)\nSYLUX PASS owner lateral cover native control damages target\nSYLUX PASS remote interval fixture blocked=False\nSYLUX PASS remote native event accepted in Shadow mode\nSYLUX PASS remote open path supplies production projectile\nSYLUX NATIVE blocked=False remote=True damage=6 wall=(11.920147, 4.841797, -17.647217) muzzle=(11.420147, 4.841797, -17.647217) body=(11.420147, 4.841797, -17.947216)\nSYLUX PASS remote lateral cover native control damages target\nSYLUX PASS native Lockjaw request creates a bomb rather than a synthetic alt beam\nSYLUX PASS native Lockjaw body-to-placement segment remains unobstructed beside wall\nSYLUX Lockjaw scope: placement uses native downward body offset; beam muzzle guard is inapplicable. Bomb radius damage/snare parity is separate.\nSYLUX PASS native scene has no step failures\nSYLUX 27 assertions, 0 failures\n",
+        "stderr_tail": ""
+      }
+    ],
+    "engine_sha256_after": "3172a329dc843f636836d982482b837c16a7a9184cea041a369411cc1a72049b",
+    "harness_sha256_after": "1974065a14982456d9e7e2b7dad4b7f3fe38accc5a129fa6474ee2895353fc46",
+    "finished_utc": "2026-10-11T23:05:15.039231+00:00"
+  },
+  "inputContracts": [
+    {
+      "name": "touchcheck",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "run",
+        "--project",
+        "tools/touchcheck",
+        "-c",
+        "Release",
+        "-p:BuildProjectReferences=false"
+      ],
+      "cwd": "/Users/jarrett/Documents/Development/Prime Hunters Online",
+      "exit_status": 0,
+      "duration_seconds": 3.436,
+      "source_sha": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+      "engine_sha256": "3172a329dc843f636836d982482b837c16a7a9184cea041a369411cc1a72049b",
+      "result": "PASS",
+      "log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/input-contracts/touchcheck.log"
+    },
+    {
+      "name": "pointercheck",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+        "-pointercheck"
+      ],
+      "cwd": "/private/tmp/prime-polish-netprofile",
+      "exit_status": 0,
+      "duration_seconds": 0.229,
+      "source_sha": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+      "engine_sha256": "3172a329dc843f636836d982482b837c16a7a9184cea041a369411cc1a72049b",
+      "result": "PASS",
+      "log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/input-contracts/pointercheck.log"
+    },
+    {
+      "name": "replayformatcheck",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+        "-replayformatcheck"
+      ],
+      "cwd": "/private/tmp/prime-polish-netprofile",
+      "exit_status": 0,
+      "duration_seconds": 0.598,
+      "source_sha": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+      "engine_sha256": "3172a329dc843f636836d982482b837c16a7a9184cea041a369411cc1a72049b",
+      "result": "PASS",
+      "log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/input-contracts/replayformatcheck.log"
+    },
+    {
+      "name": "mechanicscheck",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "run",
+        "--project",
+        "tools/mechanicscheck",
+        "-c",
+        "Release",
+        "-p:BuildProjectReferences=false",
+        "--",
+        "/private/tmp/prime-polish-netprofile",
+        "MP1 SANCTORUS"
+      ],
+      "cwd": "/Users/jarrett/Documents/Development/Prime Hunters Online",
+      "exit_status": 0,
+      "duration_seconds": 3.836,
+      "source_sha": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+      "engine_sha256": "3172a329dc843f636836d982482b837c16a7a9184cea041a369411cc1a72049b",
+      "result": "PASS",
+      "log": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/input-contracts/mechanicscheck.log"
+    }
+  ],
+  "sourceContracts": [
+    {
+      "name": "asset-guard",
+      "command": [
+        "bash",
+        "tools/check-no-game-assets.sh"
+      ],
+      "exitCode": 0,
+      "seconds": 34.139119291
+    },
+    {
+      "name": "maps-guard",
+      "command": [
+        "bash",
+        "tools/check-maps-shipped.sh"
+      ],
+      "exitCode": 0,
+      "seconds": 0.10692370799999651
+    },
+    {
+      "name": "packet-generator",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "run",
+        "--project",
+        "tools/protocol-generator-check",
+        "-c",
+        "Release"
+      ],
+      "exitCode": 0,
+      "seconds": 3.783277333000001
+    },
+    {
+      "name": "opengl-guard",
+      "source": "HEAD tracked-file archive; pre-existing ignored retired renderer tools excluded",
+      "exitCode": 0
+    }
+  ],
+  "replay": {
+    "status": "FAIL",
+    "commands": [
+      {
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-replaydeterminism",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/peer-0/exports/_demos/MP1 SANCTORUS_2026-10-11_18-05-10-595_e2f04f3340024081b547a73e72c9df37.ppdemo",
+          "-replayhashout",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/replay-current-hashes.json"
+        ],
+        "exit_status": 1,
+        "duration_seconds": 1.762,
+        "result": "FAIL",
+        "engine_sha256_before": "3172a329dc843f636836d982482b837c16a7a9184cea041a369411cc1a72049b",
+        "engine_sha256_after": "3172a329dc843f636836d982482b837c16a7a9184cea041a369411cc1a72049b",
+        "demo_sha256": "3fb7611e841de5afc2ba0d607daf06947de2661d5264ed291ffc442e7fb4f256",
+        "hash_output_exists": false,
+        "profile": "/private/tmp/prime-polish-netprofile"
+      }
+    ],
+    "historical": {
+      "classification": "HISTORICAL_ONLY_NOT_CURRENT_VALIDATION",
+      "baseline_path": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/baselines/net2-n14-20261011.json",
+      "baseline_sha256": "ab10b77b6b0da516d8faf192da77d7d7299ec9fccd5f21433e471a39d213fb82",
+      "original_source": "01292af8597a2bb1b88438390c4c9f87d953f2ef",
+      "original_protocol": 50,
+      "finalReplay": {
+        "status": "PASS_4_OF_4",
+        "source": "01292af8597a2bb1b88438390c4c9f87d953f2ef",
+        "recording1": {
+          "hashes": 2039,
+          "animationRestores": 15786,
+          "detachedWorlds": 7,
+          "continuationFrames": 1996,
+          "fileClipComparisons": 62,
+          "frozenEof": true
+        },
+        "recording0": {
+          "hashes": 1143,
+          "animationRestores": 8976,
+          "detachedWorlds": 4,
+          "continuationFrames": 1032,
+          "seekComparisons": 9
+        },
+        "controls": "PASS",
+        "formatChecks": 3013
+      },
+      "reference_artifacts": [
+        {
+          "path": "artifacts/net2-n14/attempt-07/27-recording-0-replayreplicacheck/result.json",
+          "sha256_recorded": "8cd4b90c1bceffe99d4be3229a3cbe9484f2171a3b55362fd8da276969978d62",
+          "sha256_actual": null,
+          "matches": false,
+          "exists": false
+        },
+        {
+          "path": "artifacts/net2-n14/attempt-07/27-recording-0-replayreplicacheck/output.log",
+          "sha256_recorded": "7c6637c54e045ea1bc4fa50b51910f1f9184985b307d61b72413f454f879f3d7",
+          "sha256_actual": null,
+          "matches": false,
+          "exists": false
+        },
+        {
+          "path": "artifacts/net2-n14/attempt-07/27-recording-0-replayreplicacheck/command.json",
+          "sha256_recorded": "4b3c26037684340917966ed985664f0765c03521a7151ee815a8682d9f2a1035",
+          "sha256_actual": null,
+          "matches": false,
+          "exists": false
+        },
+        {
+          "path": "artifacts/net2-n14/attempt-07/30-recording-1-replayreplicacheck/result.json",
+          "sha256_recorded": "a89672a1dd4b206e07bd81a4621440b6f6285e93945ecf221be8a90179facf06",
+          "sha256_actual": null,
+          "matches": false,
+          "exists": false
+        },
+        {
+          "path": "artifacts/net2-n14/attempt-07/30-recording-1-replayreplicacheck/output.log",
+          "sha256_recorded": "056ec5bca4d9aa30b9a6c473950c90175c878b353fa8d186bd5d813ef6b22082",
+          "sha256_actual": null,
+          "matches": false,
+          "exists": false
+        },
+        {
+          "path": "artifacts/net2-n14/attempt-07/30-recording-1-replayreplicacheck/command.json",
+          "sha256_recorded": "854391fbe4d2288bc5bae65fa80adb2efd3eaab34aff8cb313d176d221ead658",
+          "sha256_actual": null,
+          "matches": false,
+          "exists": false
+        },
+        {
+          "path": "artifacts/net2-n14/attempt-07/25-replaycontrolcheck/result.json",
+          "sha256_recorded": "41737c8b0025b1b9e0276fe79e2ba545f8f41a950748c17450c658d03e877738",
+          "sha256_actual": null,
+          "matches": false,
+          "exists": false
+        },
+        {
+          "path": "artifacts/net2-n14/attempt-07/25-replaycontrolcheck/output.log",
+          "sha256_recorded": "de363a31cb0b2063cbd530daad68e3f6a65c70029a4445e4e9033da0a94bc9bf",
+          "sha256_actual": null,
+          "matches": false,
+          "exists": false
+        },
+        {
+          "path": "artifacts/net2-n14/attempt-07/25-replaycontrolcheck/command.json",
+          "sha256_recorded": "30d73ffeca5f1c23651822312c5a86fe91d9ad8e273762458cc85b69182e1abe",
+          "sha256_actual": null,
+          "matches": false,
+          "exists": false
+        },
+        {
+          "path": "artifacts/net2-n14/attempt-07/24-replayformatcheck/result.json",
+          "sha256_recorded": "4d180844bad6b2e6c2060c13b83ec08e3da55d9e2d49bb770057b230fdf392de",
+          "sha256_actual": null,
+          "matches": false,
+          "exists": false
+        },
+        {
+          "path": "artifacts/net2-n14/attempt-07/24-replayformatcheck/output.log",
+          "sha256_recorded": "14b152895db68e8f3d3e983d4e908bd2062af0aa743a215ca1a9d2a168f5e32f",
+          "sha256_actual": null,
+          "matches": false,
+          "exists": false
+        },
+        {
+          "path": "artifacts/net2-n14/attempt-07/24-replayformatcheck/command.json",
+          "sha256_recorded": "23270a47178d6044ee8581eb7bfb55c01447517981fefc01121d79f1e30b6ecd",
+          "sha256_actual": null,
+          "matches": false,
+          "exists": false
+        }
+      ],
+      "original_source_retained": true
+    }
+  },
+  "historicalBandwidth": {
+    "status": "HISTORICAL_ONLY",
+    "reference": "docs/netcode2-n2.md:125",
+    "baselineSha256": "ee85ddd69befd3241c9e5410aacf2f1da8cb3bcf74f481a42b7fccdbe49e4a47",
+    "reductionPercent": 88.02,
+    "countingUnit": "lifetime-normalized relayed-intent bytes/second vs N1; not current total UDP throughput"
+  },
+  "campaigns": [
+    {
+      "name": "udp-2-lan",
+      "manifest": {
+        "schemaVersion": 1,
+        "slice": "G0",
+        "sourceSha": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+        "binarySha256": "3172a329dc843f636836d982482b837c16a7a9184cea041a369411cc1a72049b",
+        "config": {
+          "protocol": 51,
+          "settings": {
+            "build": "src/MphRead/bin/Release/net10.0",
+            "paths": "/private/tmp/prime-polish-netprofile/paths.txt",
+            "source": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+            "out": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan",
+            "dotnet": "/Users/jarrett/.dotnet/dotnet",
+            "protocol": 51,
+            "shot_proof": "shadow",
+            "players": 2,
+            "seconds": 25.0,
+            "drain_seconds": 20.0,
+            "port": 27991,
+            "seed": 8128,
+            "profile": "lan",
+            "rtt_ms": null,
+            "jitter_ms": null,
+            "loss_percent": null,
+            "reorder_percent": null,
+            "duplicate_percent": null,
+            "scenario": "tour",
+            "observer_delay": 0,
+            "rooms": "MP1 SANCTORUS",
+            "round_minutes": 30,
+            "rendered": false,
+            "server_operator": true,
+            "movement_validation_shadow": false,
+            "confirmed_impacts": false,
+            "bomb_visibility": false,
+            "bomb_triangle_fixture": false,
+            "server_performance": false,
+            "record": true,
+            "soak": false
+          },
+          "commands": [
+            {
+              "name": "server",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/server/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-server",
+                "-port",
+                "27991",
+                "-players",
+                "2",
+                "-nomaster",
+                "-noserverreplays",
+                "-rotation",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/rotation.txt",
+                "-netdebug"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/server",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/server.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_SERVER_OPERATOR_OUTPUT": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/server.operator.json",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "server",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/server.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/drain.server-release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-0",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/peer-0/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-0",
+                "-hunter",
+                "Samus",
+                "-seconds",
+                "25.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8128",
+                "-nographics",
+                "-recorddemo"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/peer-0",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/peer-0.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/peer-0.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-1",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/peer-1/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-1",
+                "-hunter",
+                "Kanden",
+                "-seconds",
+                "25.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8129",
+                "-nographics",
+                "-recorddemo"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/peer-1",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/peer-1.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/peer-1.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-lan/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            }
+          ],
+          "toolchain": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     Mac OS X\n OS Version:  27.0\n OS Platform: Darwin\n RID:         osx-arm64\n Base Path:   /Users/jarrett/.dotnet/sdk/10.0.401/\n\n.NET workloads installed:\n [android]\n   Installation Source: SDK 10.0.400\n   Manifest Version:    36.1.2/10.0.100\n   Manifest Path:       /Users/jarrett/.dotnet/sdk-manifests/10.0.100/microsoft.net.sdk.android/36.1.2/WorkloadManifest.json\n   Install Type:        FileBased\n\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: arm64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.100 [/Users/jarrett/.dotnet/sdk]\n  10.0.401 [/Users/jarrett/.dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.0 [/Users/jarrett/.dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.AspNetCore.App 10.0.12 [/Users/jarrett/.dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 9.0.20 [/Users/jarrett/.dotnet/shared/Microsoft.NETCore.App]\n  Microsoft.NETCore.App 10.0.0 [/Users/jarrett/.dotnet/shared/Microsoft.NETCore.App]\n  Microsoft.NETCore.App 10.0.12 [/Users/jarrett/.dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  Not set\n\nglobal.json file:\n  /Users/jarrett/Documents/Development/Prime Hunters Online/global.json\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n"
+        },
+        "seed": 8128,
+        "networkProfile": {
+          "rtt_ms": 0,
+          "jitter_ms": 0,
+          "loss_percent": 0,
+          "reorder_percent": 0,
+          "duplicate_percent": 0,
+          "scope": "each client, inbound and outbound",
+          "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+          "seedRule": "base seed + client launch index"
+        },
+        "provenance": "fresh",
+        "metrics": {
+          "claimsOffered": {
+            "countingUnit": "claimsOffered events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "claimsAccepted": {
+            "countingUnit": "claimsAccepted events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "hits": {
+            "countingUnit": "committed shot component health/turret reductions; excludes separate continuous/bomb paths",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 0,
+            "status": "NOT_RUN"
+          },
+          "pickups": {
+            "countingUnit": "pickups events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "grants": {
+            "countingUnit": "grants events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeStarts": {
+            "countingUnit": "freezeStarts events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeEnds": {
+            "countingUnit": "freezeEnds events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "touchSamplePairs": {
+            "countingUnit": "touchSamplePairs events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "altContacts": {
+            "countingUnit": "altContacts events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "deathEvents": {
+            "countingUnit": "deathEvents events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "packetLoss": {
+            "countingUnit": "packetLoss events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "queueOccupancy": {
+            "countingUnit": "server transport queued packets high water",
+            "minimum": 0,
+            "expected": 0,
+            "observed": 4,
+            "status": "PASS"
+          },
+          "replayFacts": {
+            "countingUnit": "unique authoritative (Epoch, Match, Award lane, Id) semantic facts",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 82,
+            "status": "PASS"
+          },
+          "offeredShots": {
+            "countingUnit": "unique offered ShotKey across all process reports",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 70,
+            "status": "PASS"
+          },
+          "acceptedShots": {
+            "countingUnit": "unique authority accepted ShotKey",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 70,
+            "status": "PASS"
+          }
+        },
+        "checks": {
+          "campaignIdentity": "PASS",
+          "oldCampaign": "PASS"
+        },
+        "exclusions": [
+          "No offered/accepted claim instrumentation; carriers and shots are not claims.",
+          "Pickup, grant, freeze start/end, touch sample pair, alt contact, measured packet loss and death event instrumentation unavailable.",
+          "Legacy campaign PASS does not establish G0 coverage or live hit/payment coverage.",
+          "Replay facts count authoritative semantic identities, not replay seek hash parity."
+        ],
+        "evidenceFiles": [
+          {
+            "path": "manifest.json",
+            "sha256": "2d7a447a83eff04b6edbfabf47cc5ce23e0324a727c98958a889e3a6c321a0b1"
+          },
+          {
+            "path": "summary.json",
+            "sha256": "42250533b0174f3c3ee0a7a62ceff0fdc4994a488a89792639431732586eb8e4"
+          },
+          {
+            "path": "server.json",
+            "sha256": "d8ed6dc1cab0b1fd2f402362b7e6c4bfca36ee222320f78173e28880f632bae6"
+          },
+          {
+            "path": "peer-0.json",
+            "sha256": "e9d90640a2ed3662839fa96f12c6fc5ddb22fd4d85949d4c033e5379f2bdd73d"
+          },
+          {
+            "path": "peer-1.json",
+            "sha256": "19ebcbc7a129efa4207a1b954d66ec46761d31135d355448df5530ac3bdc7d68"
+          }
+        ],
+        "exportErrors": [],
+        "startedUtc": "2026-10-11T23:05:07Z",
+        "oldCampaign": {
+          "status": "PASS",
+          "coverage": {
+            "renderedProjectileAgreement": "NOT_RUN",
+            "botFills": "NOT_RUN",
+            "spectator": "NOT_RUN",
+            "mapRotation": "NOT_RUN",
+            "shockCoilDrainKillParity": "NOT_RUN",
+            "imperialistSpawnTrapCoverage": "NOT_RUN",
+            "sustained20Minutes": "NOT_RUN",
+            "boundedHeadlessDrain": "PASS"
+          },
+          "failures": [],
+          "incomplete": []
+        }
+      },
+      "audit": {
+        "status": "INCOMPLETE",
+        "failures": [],
+        "missing": [
+          "claimsOffered: observed",
+          "claimsAccepted: observed",
+          "hits: zero observed events",
+          "pickups: observed",
+          "grants: observed",
+          "freezeStarts: observed",
+          "freezeEnds: observed",
+          "touchSamplePairs: observed",
+          "altContacts: observed",
+          "deathEvents: observed",
+          "packetLoss: observed"
+        ],
+        "incomplete": [],
+        "metrics": {
+          "claimsOffered": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "claimsAccepted": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "hits": {
+            "observed": 0,
+            "status": "NOT_RUN"
+          },
+          "pickups": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "grants": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeStarts": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeEnds": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "touchSamplePairs": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "altContacts": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "deathEvents": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "packetLoss": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "queueOccupancy": {
+            "observed": 4,
+            "status": "PASS"
+          },
+          "replayFacts": {
+            "observed": 82,
+            "status": "PASS"
+          },
+          "offeredShots": {
+            "observed": 70,
+            "status": "PASS"
+          },
+          "acceptedShots": {
+            "observed": 70,
+            "status": "PASS"
+          }
+        }
+      },
+      "transport": {
+        "PacketsReceived": 3744,
+        "PacketsSent": 18837,
+        "BytesReceived": 716456,
+        "BytesSent": 3153822,
+        "Invalid": 0,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 4,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 3545,
+        "ProcessingMilliseconds": 736.699399,
+        "SocketErrors": 0
+      },
+      "processes": [
+        {
+          "name": "server",
+          "pid": 27586,
+          "startedSeconds": 0.0026630839999999267,
+          "requestedSeconds": 25.0,
+          "expectsShots": false,
+          "exit": 0,
+          "timedOut": false
+        },
+        {
+          "name": "peer-0",
+          "pid": 27600,
+          "startedSeconds": 2.2200294589999996,
+          "requestedSeconds": 25.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 31.876298292
+        },
+        {
+          "name": "peer-1",
+          "pid": 27603,
+          "startedSeconds": 2.478486584,
+          "requestedSeconds": 25.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 32.081049209
+        }
+      ],
+      "summaryFailures": [],
+      "rawManifestSha256": "2d7a447a83eff04b6edbfabf47cc5ce23e0324a727c98958a889e3a6c321a0b1",
+      "assetManifestSha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f",
+      "harnessSha256": {
+        "run-net2.py": "ea660b6ca7114d91da7f3e1e435d4119d6515496ec31b2851f5db93edf5d1f10",
+        "net2_evidence.py": "84dd41fd6a0685f3ff935dbb04d1867ab05bf218cf4adca69defd1fb9f359f89"
+      }
+    },
+    {
+      "name": "udp-4-lan",
+      "manifest": {
+        "schemaVersion": 1,
+        "slice": "G0",
+        "sourceSha": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+        "binarySha256": "3172a329dc843f636836d982482b837c16a7a9184cea041a369411cc1a72049b",
+        "config": {
+          "protocol": 51,
+          "settings": {
+            "build": "src/MphRead/bin/Release/net10.0",
+            "paths": "/private/tmp/prime-polish-netprofile/paths.txt",
+            "source": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+            "out": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan",
+            "dotnet": "/Users/jarrett/.dotnet/dotnet",
+            "protocol": 51,
+            "shot_proof": "shadow",
+            "players": 4,
+            "seconds": 25.0,
+            "drain_seconds": 20.0,
+            "port": 27991,
+            "seed": 8128,
+            "profile": "lan",
+            "rtt_ms": null,
+            "jitter_ms": null,
+            "loss_percent": null,
+            "reorder_percent": null,
+            "duplicate_percent": null,
+            "scenario": "tour",
+            "observer_delay": 0,
+            "rooms": "MP1 SANCTORUS",
+            "round_minutes": 30,
+            "rendered": false,
+            "server_operator": true,
+            "movement_validation_shadow": false,
+            "confirmed_impacts": false,
+            "bomb_visibility": false,
+            "bomb_triangle_fixture": false,
+            "server_performance": false,
+            "record": false,
+            "soak": false
+          },
+          "commands": [
+            {
+              "name": "server",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/server/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-server",
+                "-port",
+                "27991",
+                "-players",
+                "4",
+                "-nomaster",
+                "-noserverreplays",
+                "-rotation",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/rotation.txt",
+                "-netdebug"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/server",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/server.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_SERVER_OPERATOR_OUTPUT": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/server.operator.json",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "server",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/server.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/drain.server-release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-0",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-0/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-0",
+                "-hunter",
+                "Samus",
+                "-seconds",
+                "25.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8128",
+                "-nographics"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-0",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-0.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-0.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-1",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-1/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-1",
+                "-hunter",
+                "Kanden",
+                "-seconds",
+                "25.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8129",
+                "-nographics"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-1",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-1.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-1.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-2",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-2/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-2",
+                "-hunter",
+                "Trace",
+                "-seconds",
+                "25.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8130",
+                "-nographics"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-2",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-2.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-2.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-3",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-3/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-3",
+                "-hunter",
+                "Sylux",
+                "-seconds",
+                "25.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8131",
+                "-nographics"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-3",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-3.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/peer-3.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-4-lan/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            }
+          ],
+          "toolchain": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     Mac OS X\n OS Version:  27.0\n OS Platform: Darwin\n RID:         osx-arm64\n Base Path:   /Users/jarrett/.dotnet/sdk/10.0.401/\n\n.NET workloads installed:\n [android]\n   Installation Source: SDK 10.0.400\n   Manifest Version:    36.1.2/10.0.100\n   Manifest Path:       /Users/jarrett/.dotnet/sdk-manifests/10.0.100/microsoft.net.sdk.android/36.1.2/WorkloadManifest.json\n   Install Type:        FileBased\n\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: arm64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.100 [/Users/jarrett/.dotnet/sdk]\n  10.0.401 [/Users/jarrett/.dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.0 [/Users/jarrett/.dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.AspNetCore.App 10.0.12 [/Users/jarrett/.dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 9.0.20 [/Users/jarrett/.dotnet/shared/Microsoft.NETCore.App]\n  Microsoft.NETCore.App 10.0.0 [/Users/jarrett/.dotnet/shared/Microsoft.NETCore.App]\n  Microsoft.NETCore.App 10.0.12 [/Users/jarrett/.dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  Not set\n\nglobal.json file:\n  /Users/jarrett/Documents/Development/Prime Hunters Online/global.json\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n"
+        },
+        "seed": 8128,
+        "networkProfile": {
+          "rtt_ms": 0,
+          "jitter_ms": 0,
+          "loss_percent": 0,
+          "reorder_percent": 0,
+          "duplicate_percent": 0,
+          "scope": "each client, inbound and outbound",
+          "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+          "seedRule": "base seed + client launch index"
+        },
+        "provenance": "fresh",
+        "metrics": {
+          "claimsOffered": {
+            "countingUnit": "claimsOffered events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "claimsAccepted": {
+            "countingUnit": "claimsAccepted events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "hits": {
+            "countingUnit": "committed shot component health/turret reductions; excludes separate continuous/bomb paths",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 0,
+            "status": "NOT_RUN"
+          },
+          "pickups": {
+            "countingUnit": "pickups events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "grants": {
+            "countingUnit": "grants events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeStarts": {
+            "countingUnit": "freezeStarts events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeEnds": {
+            "countingUnit": "freezeEnds events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "touchSamplePairs": {
+            "countingUnit": "touchSamplePairs events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "altContacts": {
+            "countingUnit": "altContacts events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "deathEvents": {
+            "countingUnit": "deathEvents events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "packetLoss": {
+            "countingUnit": "packetLoss events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "queueOccupancy": {
+            "countingUnit": "server transport queued packets high water",
+            "minimum": 0,
+            "expected": 0,
+            "observed": 30,
+            "status": "PASS"
+          },
+          "replayFacts": {
+            "countingUnit": "unique authoritative (Epoch, Match, Award lane, Id) semantic facts",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 164,
+            "status": "PASS"
+          },
+          "offeredShots": {
+            "countingUnit": "unique offered ShotKey across all process reports",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 148,
+            "status": "PASS"
+          },
+          "acceptedShots": {
+            "countingUnit": "unique authority accepted ShotKey",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 148,
+            "status": "PASS"
+          }
+        },
+        "checks": {
+          "campaignIdentity": "PASS",
+          "oldCampaign": "PASS"
+        },
+        "exclusions": [
+          "No offered/accepted claim instrumentation; carriers and shots are not claims.",
+          "Pickup, grant, freeze start/end, touch sample pair, alt contact, measured packet loss and death event instrumentation unavailable.",
+          "Legacy campaign PASS does not establish G0 coverage or live hit/payment coverage.",
+          "Replay facts count authoritative semantic identities, not replay seek hash parity."
+        ],
+        "evidenceFiles": [
+          {
+            "path": "manifest.json",
+            "sha256": "329104fba23028da1a49a4fc240d936ef5272dce9a191943847af1268b0f7fb2"
+          },
+          {
+            "path": "summary.json",
+            "sha256": "8474954ee0ee9d0ae39e8fcffd74a9595d6a9eddb3ffb49357eae47be5c1942f"
+          },
+          {
+            "path": "server.json",
+            "sha256": "b08f1dbc0e2a3d12c9fa5fbb05d179ea3f50b40f94e5a634b1fcf2b7a3e13984"
+          },
+          {
+            "path": "peer-0.json",
+            "sha256": "f56f7a73073e9e07adcd9d4c6d9fa7467fd1022786a43aa41114c9e6e49d9333"
+          },
+          {
+            "path": "peer-1.json",
+            "sha256": "0a41e6b3d4084843bdde4b8e8903f589f324ef0e7a4f128e9efe272c85b1d5cd"
+          },
+          {
+            "path": "peer-2.json",
+            "sha256": "6d0d7dc4c76d81b00573a16217c8ab43f4bf711544267a4f624c578c9125f0e3"
+          },
+          {
+            "path": "peer-3.json",
+            "sha256": "25d10ee34250a755dde3c1dbea248c0945644125fa065235ed07fcead70f2544"
+          }
+        ],
+        "exportErrors": [],
+        "startedUtc": "2026-10-11T23:06:01Z",
+        "oldCampaign": {
+          "status": "PASS",
+          "coverage": {
+            "renderedProjectileAgreement": "NOT_RUN",
+            "botFills": "NOT_RUN",
+            "spectator": "NOT_RUN",
+            "mapRotation": "NOT_RUN",
+            "shockCoilDrainKillParity": "NOT_RUN",
+            "imperialistSpawnTrapCoverage": "NOT_RUN",
+            "sustained20Minutes": "NOT_RUN",
+            "boundedHeadlessDrain": "PASS"
+          },
+          "failures": [],
+          "incomplete": []
+        }
+      },
+      "audit": {
+        "status": "INCOMPLETE",
+        "failures": [],
+        "missing": [
+          "claimsOffered: observed",
+          "claimsAccepted: observed",
+          "hits: zero observed events",
+          "pickups: observed",
+          "grants: observed",
+          "freezeStarts: observed",
+          "freezeEnds: observed",
+          "touchSamplePairs: observed",
+          "altContacts: observed",
+          "deathEvents: observed",
+          "packetLoss: observed"
+        ],
+        "incomplete": [],
+        "metrics": {
+          "claimsOffered": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "claimsAccepted": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "hits": {
+            "observed": 0,
+            "status": "NOT_RUN"
+          },
+          "pickups": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "grants": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeStarts": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeEnds": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "touchSamplePairs": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "altContacts": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "deathEvents": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "packetLoss": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "queueOccupancy": {
+            "observed": 30,
+            "status": "PASS"
+          },
+          "replayFacts": {
+            "observed": 164,
+            "status": "PASS"
+          },
+          "offeredShots": {
+            "observed": 148,
+            "status": "PASS"
+          },
+          "acceptedShots": {
+            "observed": 148,
+            "status": "PASS"
+          }
+        }
+      },
+      "transport": {
+        "PacketsReceived": 7485,
+        "PacketsSent": 51443,
+        "BytesReceived": 1461042,
+        "BytesSent": 11327405,
+        "Invalid": 0,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 30,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 7143,
+        "ProcessingMilliseconds": 1173.418396,
+        "SocketErrors": 0
+      },
+      "processes": [
+        {
+          "name": "server",
+          "pid": 27760,
+          "startedSeconds": 0.0036467090000003033,
+          "requestedSeconds": 25.0,
+          "expectsShots": false,
+          "exit": 0,
+          "timedOut": false
+        },
+        {
+          "name": "peer-0",
+          "pid": 27766,
+          "startedSeconds": 2.2262409169999997,
+          "requestedSeconds": 25.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 32.377693916999995
+        },
+        {
+          "name": "peer-1",
+          "pid": 27767,
+          "startedSeconds": 2.485083334,
+          "requestedSeconds": 25.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 32.174181583999996
+        },
+        {
+          "name": "peer-2",
+          "pid": 27768,
+          "startedSeconds": 2.741737834,
+          "requestedSeconds": 25.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 32.174184167
+        },
+        {
+          "name": "peer-3",
+          "pid": 27769,
+          "startedSeconds": 3.0014573749999998,
+          "requestedSeconds": 25.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 32.174185542
+        }
+      ],
+      "summaryFailures": [],
+      "rawManifestSha256": "329104fba23028da1a49a4fc240d936ef5272dce9a191943847af1268b0f7fb2",
+      "assetManifestSha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f",
+      "harnessSha256": {
+        "run-net2.py": "ea660b6ca7114d91da7f3e1e435d4119d6515496ec31b2851f5db93edf5d1f10",
+        "net2_evidence.py": "84dd41fd6a0685f3ff935dbb04d1867ab05bf218cf4adca69defd1fb9f359f89"
+      }
+    },
+    {
+      "name": "udp-8-lan-retry",
+      "manifest": {
+        "schemaVersion": 1,
+        "slice": "G0",
+        "sourceSha": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+        "binarySha256": "3172a329dc843f636836d982482b837c16a7a9184cea041a369411cc1a72049b",
+        "config": {
+          "protocol": 51,
+          "settings": {
+            "build": "src/MphRead/bin/Release/net10.0",
+            "paths": "/private/tmp/prime-polish-netprofile/paths.txt",
+            "source": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+            "out": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry",
+            "dotnet": "/Users/jarrett/.dotnet/dotnet",
+            "protocol": 51,
+            "shot_proof": "shadow",
+            "players": 8,
+            "seconds": 30.0,
+            "drain_seconds": 20.0,
+            "port": 27991,
+            "seed": 8128,
+            "profile": "lan",
+            "rtt_ms": null,
+            "jitter_ms": null,
+            "loss_percent": null,
+            "reorder_percent": null,
+            "duplicate_percent": null,
+            "scenario": "tour",
+            "observer_delay": 0,
+            "rooms": "MP1 SANCTORUS",
+            "round_minutes": 30,
+            "rendered": false,
+            "server_operator": true,
+            "movement_validation_shadow": false,
+            "confirmed_impacts": false,
+            "bomb_visibility": false,
+            "bomb_triangle_fixture": false,
+            "server_performance": false,
+            "record": false,
+            "soak": false
+          },
+          "commands": [
+            {
+              "name": "server",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/server/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-server",
+                "-port",
+                "27991",
+                "-players",
+                "8",
+                "-nomaster",
+                "-noserverreplays",
+                "-rotation",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/rotation.txt",
+                "-netdebug"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/server",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/server.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_SERVER_OPERATOR_OUTPUT": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/server.operator.json",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "server",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/server.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/drain.server-release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-0",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-0/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-0",
+                "-hunter",
+                "Samus",
+                "-seconds",
+                "30.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8128",
+                "-nographics"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-0",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-0.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-0.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-1",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-1/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-1",
+                "-hunter",
+                "Kanden",
+                "-seconds",
+                "30.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8129",
+                "-nographics"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-1",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-1.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-1.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-2",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-2/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-2",
+                "-hunter",
+                "Trace",
+                "-seconds",
+                "30.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8130",
+                "-nographics"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-2",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-2.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-2.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-3",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-3/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-3",
+                "-hunter",
+                "Sylux",
+                "-seconds",
+                "30.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8131",
+                "-nographics"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-3",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-3.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-3.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-4",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-4/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-4",
+                "-hunter",
+                "Noxus",
+                "-seconds",
+                "30.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8132",
+                "-nographics"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-4",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-4.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-4.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-5",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-5/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-5",
+                "-hunter",
+                "Spire",
+                "-seconds",
+                "30.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8133",
+                "-nographics"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-5",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-5.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-5.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-6",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-6/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-6",
+                "-hunter",
+                "Weavel",
+                "-seconds",
+                "30.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8134",
+                "-nographics"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-6",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-6.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-6.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-7",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-7/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-7",
+                "-hunter",
+                "Samus",
+                "-seconds",
+                "30.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8135",
+                "-nographics"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-7",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-7.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/peer-7.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-8-lan-retry/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            }
+          ],
+          "toolchain": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     Mac OS X\n OS Version:  27.0\n OS Platform: Darwin\n RID:         osx-arm64\n Base Path:   /Users/jarrett/.dotnet/sdk/10.0.401/\n\n.NET workloads installed:\n [android]\n   Installation Source: SDK 10.0.400\n   Manifest Version:    36.1.2/10.0.100\n   Manifest Path:       /Users/jarrett/.dotnet/sdk-manifests/10.0.100/microsoft.net.sdk.android/36.1.2/WorkloadManifest.json\n   Install Type:        FileBased\n\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: arm64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.100 [/Users/jarrett/.dotnet/sdk]\n  10.0.401 [/Users/jarrett/.dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.0 [/Users/jarrett/.dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.AspNetCore.App 10.0.12 [/Users/jarrett/.dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 9.0.20 [/Users/jarrett/.dotnet/shared/Microsoft.NETCore.App]\n  Microsoft.NETCore.App 10.0.0 [/Users/jarrett/.dotnet/shared/Microsoft.NETCore.App]\n  Microsoft.NETCore.App 10.0.12 [/Users/jarrett/.dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  Not set\n\nglobal.json file:\n  /Users/jarrett/Documents/Development/Prime Hunters Online/global.json\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n"
+        },
+        "seed": 8128,
+        "networkProfile": {
+          "rtt_ms": 0,
+          "jitter_ms": 0,
+          "loss_percent": 0,
+          "reorder_percent": 0,
+          "duplicate_percent": 0,
+          "scope": "each client, inbound and outbound",
+          "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+          "seedRule": "base seed + client launch index"
+        },
+        "provenance": "fresh",
+        "metrics": {
+          "claimsOffered": {
+            "countingUnit": "claimsOffered events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "claimsAccepted": {
+            "countingUnit": "claimsAccepted events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "hits": {
+            "countingUnit": "committed shot component health/turret reductions; excludes separate continuous/bomb paths",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 15,
+            "status": "PASS"
+          },
+          "pickups": {
+            "countingUnit": "pickups events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "grants": {
+            "countingUnit": "grants events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeStarts": {
+            "countingUnit": "freezeStarts events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeEnds": {
+            "countingUnit": "freezeEnds events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "touchSamplePairs": {
+            "countingUnit": "touchSamplePairs events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "altContacts": {
+            "countingUnit": "altContacts events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "deathEvents": {
+            "countingUnit": "deathEvents events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "packetLoss": {
+            "countingUnit": "packetLoss events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "queueOccupancy": {
+            "countingUnit": "server transport queued packets high water",
+            "minimum": 0,
+            "expected": 0,
+            "observed": 13,
+            "status": "PASS"
+          },
+          "replayFacts": {
+            "countingUnit": "unique authoritative (Epoch, Match, Award lane, Id) semantic facts",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 531,
+            "status": "PASS"
+          },
+          "offeredShots": {
+            "countingUnit": "unique offered ShotKey across all process reports",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 524,
+            "status": "PASS"
+          },
+          "acceptedShots": {
+            "countingUnit": "unique authority accepted ShotKey",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 502,
+            "status": "PASS"
+          }
+        },
+        "checks": {
+          "campaignIdentity": "PASS",
+          "oldCampaign": "FAIL"
+        },
+        "exclusions": [
+          "No offered/accepted claim instrumentation; carriers and shots are not claims.",
+          "Pickup, grant, freeze start/end, touch sample pair, alt contact, measured packet loss and death event instrumentation unavailable.",
+          "Legacy campaign PASS does not establish G0 coverage or live hit/payment coverage.",
+          "Replay facts count authoritative semantic identities, not replay seek hash parity."
+        ],
+        "evidenceFiles": [
+          {
+            "path": "manifest.json",
+            "sha256": "4a21af3083381b00d8c048a6390804dfa2b98b8ff109ee4963d20e57247d833d"
+          },
+          {
+            "path": "summary.json",
+            "sha256": "dc023da0c4f91c9afc99501a84a5b242f28f3892b0c6d134f2c3c487bfcaddd5"
+          },
+          {
+            "path": "server.json",
+            "sha256": "e1928ac7d0975e018fbd568b1a90d1c7bcf062ee7c6fb0626601380a75ef7bdc"
+          },
+          {
+            "path": "peer-0.json",
+            "sha256": "fbed96bc1e025cf31cb8498f59f363fbb8e9480c8d6cdf5175cfc33fe09198e9"
+          },
+          {
+            "path": "peer-1.json",
+            "sha256": "e1ad0e1e78c0b12c4d53735eb1bc7e02c4f3bef0931a021de41bb74c421ea82d"
+          },
+          {
+            "path": "peer-2.json",
+            "sha256": "7aa777ca2c1f4e752ffcb129a111278f94aa7edecfeae8ec98e45b70314eedb7"
+          },
+          {
+            "path": "peer-3.json",
+            "sha256": "598a8694a4b3a4ff91cc978a23ce172b57316095c3af9f7371d9114481640b7a"
+          },
+          {
+            "path": "peer-4.json",
+            "sha256": "458c4822fe76a305fa06cb19581c797ac2894dde9fddd675bd5aa4014f1ff41f"
+          },
+          {
+            "path": "peer-5.json",
+            "sha256": "bcdb6c4ccb7825b68d4973c6e1fc1f565a7cbbf7475a294c5ec68f3e369bb143"
+          },
+          {
+            "path": "peer-6.json",
+            "sha256": "6b60169a7e1610c9a9fe963b1d1111efe5dd4e721f6b0bb56564a0c86379a602"
+          },
+          {
+            "path": "peer-7.json",
+            "sha256": "6e631984e31e77ddeccc25faf76423bb9e9b52aaaed56628c9dc70d3eabde602"
+          }
+        ],
+        "exportErrors": [],
+        "startedUtc": "2026-10-11T23:07:14Z",
+        "oldCampaign": {
+          "status": "FAIL",
+          "coverage": {
+            "renderedProjectileAgreement": "NOT_RUN",
+            "botFills": "NOT_RUN",
+            "spectator": "NOT_RUN",
+            "mapRotation": "NOT_RUN",
+            "shockCoilDrainKillParity": "NOT_RUN",
+            "imperialistSpawnTrapCoverage": "NOT_RUN",
+            "sustained20Minutes": "NOT_RUN",
+            "boundedHeadlessDrain": "FAIL"
+          },
+          "failures": [
+            "peer-0: exit=1 timeout=False",
+            "peer-1: exit=1 timeout=False",
+            "peer-2: exit=1 timeout=False",
+            "peer-3: exit=1 timeout=False",
+            "peer-4: exit=1 timeout=False",
+            "peer-5: exit=1 timeout=False",
+            "peer-6: exit=1 timeout=False",
+            "peer-7: exit=1 timeout=False",
+            "peer-3: unexplained shot tail/loss: 22 unaccepted, 22 uncommitted",
+            "campaign drain: missing/malformed drain proof: bounded barrier did not pass: final offered shot has not reached authority"
+          ],
+          "incomplete": []
+        }
+      },
+      "audit": {
+        "status": "FAIL",
+        "failures": [
+          "check oldCampaign: FAIL"
+        ],
+        "missing": [
+          "claimsOffered: observed",
+          "claimsAccepted: observed",
+          "pickups: observed",
+          "grants: observed",
+          "freezeStarts: observed",
+          "freezeEnds: observed",
+          "touchSamplePairs: observed",
+          "altContacts: observed",
+          "deathEvents: observed",
+          "packetLoss: observed"
+        ],
+        "incomplete": [],
+        "metrics": {
+          "claimsOffered": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "claimsAccepted": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "hits": {
+            "observed": 15,
+            "status": "PASS"
+          },
+          "pickups": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "grants": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeStarts": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeEnds": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "touchSamplePairs": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "altContacts": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "deathEvents": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "packetLoss": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "queueOccupancy": {
+            "observed": 13,
+            "status": "PASS"
+          },
+          "replayFacts": {
+            "observed": 531,
+            "status": "PASS"
+          },
+          "offeredShots": {
+            "observed": 524,
+            "status": "PASS"
+          },
+          "acceptedShots": {
+            "observed": 502,
+            "status": "PASS"
+          }
+        }
+      },
+      "transport": {
+        "PacketsReceived": 27869,
+        "PacketsSent": 279172,
+        "BytesReceived": 4790899,
+        "BytesSent": 71992381,
+        "Invalid": 0,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 13,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 25167,
+        "ProcessingMilliseconds": 2919.067437,
+        "SocketErrors": 0
+      },
+      "processes": [
+        {
+          "name": "server",
+          "pid": 27868,
+          "startedSeconds": 0.00241491699999985,
+          "requestedSeconds": 30.0,
+          "expectsShots": false,
+          "exit": 0,
+          "timedOut": false
+        },
+        {
+          "name": "peer-0",
+          "pid": 27870,
+          "startedSeconds": 2.223954,
+          "requestedSeconds": 30.0,
+          "expectsShots": true,
+          "exit": 1,
+          "timedOut": false,
+          "endedSeconds": 54.700322708
+        },
+        {
+          "name": "peer-1",
+          "pid": 27871,
+          "startedSeconds": 2.484405292,
+          "requestedSeconds": 30.0,
+          "expectsShots": true,
+          "exit": 1,
+          "timedOut": false,
+          "endedSeconds": 54.700334
+        },
+        {
+          "name": "peer-2",
+          "pid": 27872,
+          "startedSeconds": 2.7409239579999998,
+          "requestedSeconds": 30.0,
+          "expectsShots": true,
+          "exit": 1,
+          "timedOut": false,
+          "endedSeconds": 54.905432375
+        },
+        {
+          "name": "peer-3",
+          "pid": 27873,
+          "startedSeconds": 3.0003987079999996,
+          "requestedSeconds": 30.0,
+          "expectsShots": true,
+          "exit": 1,
+          "timedOut": false,
+          "endedSeconds": 54.700339292
+        },
+        {
+          "name": "peer-4",
+          "pid": 27874,
+          "startedSeconds": 3.256198833,
+          "requestedSeconds": 30.0,
+          "expectsShots": true,
+          "exit": 1,
+          "timedOut": false,
+          "endedSeconds": 54.700342208
+        },
+        {
+          "name": "peer-5",
+          "pid": 27875,
+          "startedSeconds": 3.5125392079999997,
+          "requestedSeconds": 30.0,
+          "expectsShots": true,
+          "exit": 1,
+          "timedOut": false,
+          "endedSeconds": 54.700344083
+        },
+        {
+          "name": "peer-6",
+          "pid": 27876,
+          "startedSeconds": 3.772789792,
+          "requestedSeconds": 30.0,
+          "expectsShots": true,
+          "exit": 1,
+          "timedOut": false,
+          "endedSeconds": 54.700345833
+        },
+        {
+          "name": "peer-7",
+          "pid": 27877,
+          "startedSeconds": 4.030854,
+          "requestedSeconds": 30.0,
+          "expectsShots": true,
+          "exit": 1,
+          "timedOut": false,
+          "endedSeconds": 54.700347457999996
+        }
+      ],
+      "summaryFailures": [
+        "peer-0: exit=1 timeout=False",
+        "peer-1: exit=1 timeout=False",
+        "peer-2: exit=1 timeout=False",
+        "peer-3: exit=1 timeout=False",
+        "peer-4: exit=1 timeout=False",
+        "peer-5: exit=1 timeout=False",
+        "peer-6: exit=1 timeout=False",
+        "peer-7: exit=1 timeout=False",
+        "peer-3: unexplained shot tail/loss: 22 unaccepted, 22 uncommitted",
+        "campaign drain: missing/malformed drain proof: bounded barrier did not pass: final offered shot has not reached authority"
+      ],
+      "rawManifestSha256": "4a21af3083381b00d8c048a6390804dfa2b98b8ff109ee4963d20e57247d833d",
+      "assetManifestSha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f",
+      "harnessSha256": {
+        "run-net2.py": "ea660b6ca7114d91da7f3e1e435d4119d6515496ec31b2851f5db93edf5d1f10",
+        "net2_evidence.py": "84dd41fd6a0685f3ff935dbb04d1867ab05bf218cf4adca69defd1fb9f359f89"
+      }
+    },
+    {
+      "name": "udp-2-duel",
+      "manifest": {
+        "schemaVersion": 1,
+        "slice": "G0",
+        "sourceSha": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+        "binarySha256": "3172a329dc843f636836d982482b837c16a7a9184cea041a369411cc1a72049b",
+        "config": {
+          "protocol": 51,
+          "settings": {
+            "build": "src/MphRead/bin/Release/net10.0",
+            "paths": "/private/tmp/prime-polish-netprofile/paths.txt",
+            "source": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+            "out": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel",
+            "dotnet": "/Users/jarrett/.dotnet/dotnet",
+            "protocol": 51,
+            "shot_proof": "shadow",
+            "players": 2,
+            "seconds": 30.0,
+            "drain_seconds": 20.0,
+            "port": 27991,
+            "seed": 8128,
+            "profile": "lan",
+            "rtt_ms": null,
+            "jitter_ms": null,
+            "loss_percent": null,
+            "reorder_percent": null,
+            "duplicate_percent": null,
+            "scenario": "duel",
+            "observer_delay": 0,
+            "rooms": "MP1 SANCTORUS",
+            "round_minutes": 30,
+            "rendered": false,
+            "server_operator": true,
+            "movement_validation_shadow": false,
+            "confirmed_impacts": false,
+            "bomb_visibility": false,
+            "bomb_triangle_fixture": false,
+            "server_performance": false,
+            "record": true,
+            "soak": false
+          },
+          "commands": [
+            {
+              "name": "server",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/server/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-server",
+                "-port",
+                "27991",
+                "-players",
+                "2",
+                "-nomaster",
+                "-noserverreplays",
+                "-rotation",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/rotation.txt",
+                "-netdebug"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/server",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/server.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_SERVER_OPERATOR_OUTPUT": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/server.operator.json",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "server",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/server.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/drain.server-release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-0",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/peer-0/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-0",
+                "-hunter",
+                "Samus",
+                "-seconds",
+                "30.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8128",
+                "-nographics",
+                "-recorddemo",
+                "-hitrig",
+                "duel"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/peer-0",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/peer-0.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/peer-0.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            },
+            {
+              "name": "peer-1",
+              "argv": [
+                "/Users/jarrett/.dotnet/dotnet",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/bin/ProjectPrime.dll",
+                "-mapdir",
+                "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/peer-1/empty-maps",
+                "-noupdate",
+                "-noautoupdate",
+                "-netcheck",
+                "127.0.0.1",
+                "-port",
+                "27991",
+                "-name",
+                "peer-1",
+                "-hunter",
+                "Kanden",
+                "-seconds",
+                "30.0",
+                "-size",
+                "480x270",
+                "-netlag",
+                "0:0",
+                "-netloss",
+                "0%",
+                "-netreorder",
+                "0%",
+                "-netduplicate",
+                "0%",
+                "-netseed",
+                "8129",
+                "-nographics",
+                "-recorddemo",
+                "-hitrig",
+                "duel"
+              ],
+              "environment": {
+                "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/peer-1",
+                "ALSOFT_DRIVERS": "null",
+                "MPHREAD_PHASE_SECONDS": "2",
+                "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/peer-1.json",
+                "PRIME_SHOT_PROOF": "shadow",
+                "PRIME_NET2_DRAIN_SECONDS": "20.0",
+                "PRIME_NET2_DRAIN_ROLE": "client",
+                "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/peer-1.drain.json",
+                "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g0/udp-2-duel/drain.release.json"
+              },
+              "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+              "soak": false
+            }
+          ],
+          "toolchain": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     Mac OS X\n OS Version:  27.0\n OS Platform: Darwin\n RID:         osx-arm64\n Base Path:   /Users/jarrett/.dotnet/sdk/10.0.401/\n\n.NET workloads installed:\n [android]\n   Installation Source: SDK 10.0.400\n   Manifest Version:    36.1.2/10.0.100\n   Manifest Path:       /Users/jarrett/.dotnet/sdk-manifests/10.0.100/microsoft.net.sdk.android/36.1.2/WorkloadManifest.json\n   Install Type:        FileBased\n\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: arm64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.100 [/Users/jarrett/.dotnet/sdk]\n  10.0.401 [/Users/jarrett/.dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.0 [/Users/jarrett/.dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.AspNetCore.App 10.0.12 [/Users/jarrett/.dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 9.0.20 [/Users/jarrett/.dotnet/shared/Microsoft.NETCore.App]\n  Microsoft.NETCore.App 10.0.0 [/Users/jarrett/.dotnet/shared/Microsoft.NETCore.App]\n  Microsoft.NETCore.App 10.0.12 [/Users/jarrett/.dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  Not set\n\nglobal.json file:\n  /Users/jarrett/Documents/Development/Prime Hunters Online/global.json\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n"
+        },
+        "seed": 8128,
+        "networkProfile": {
+          "rtt_ms": 0,
+          "jitter_ms": 0,
+          "loss_percent": 0,
+          "reorder_percent": 0,
+          "duplicate_percent": 0,
+          "scope": "each client, inbound and outbound",
+          "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+          "seedRule": "base seed + client launch index"
+        },
+        "provenance": "fresh",
+        "metrics": {
+          "claimsOffered": {
+            "countingUnit": "claimsOffered events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "claimsAccepted": {
+            "countingUnit": "claimsAccepted events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "hits": {
+            "countingUnit": "committed shot component health/turret reductions; excludes separate continuous/bomb paths",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 2,
+            "status": "PASS"
+          },
+          "pickups": {
+            "countingUnit": "pickups events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "grants": {
+            "countingUnit": "grants events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeStarts": {
+            "countingUnit": "freezeStarts events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeEnds": {
+            "countingUnit": "freezeEnds events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "touchSamplePairs": {
+            "countingUnit": "touchSamplePairs events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "altContacts": {
+            "countingUnit": "altContacts events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "deathEvents": {
+            "countingUnit": "deathEvents events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "packetLoss": {
+            "countingUnit": "packetLoss events",
+            "minimum": 1,
+            "expected": 1,
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "queueOccupancy": {
+            "countingUnit": "server transport queued packets high water",
+            "minimum": 0,
+            "expected": 0,
+            "observed": 8,
+            "status": "PASS"
+          },
+          "replayFacts": {
+            "countingUnit": "unique authoritative (Epoch, Match, Award lane, Id) semantic facts",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 39,
+            "status": "PASS"
+          },
+          "offeredShots": {
+            "countingUnit": "unique offered ShotKey across all process reports",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 28,
+            "status": "PASS"
+          },
+          "acceptedShots": {
+            "countingUnit": "unique authority accepted ShotKey",
+            "minimum": 1,
+            "expected": 1,
+            "observed": 28,
+            "status": "PASS"
+          }
+        },
+        "checks": {
+          "campaignIdentity": "PASS",
+          "oldCampaign": "PASS"
+        },
+        "exclusions": [
+          "No offered/accepted claim instrumentation; carriers and shots are not claims.",
+          "Pickup, grant, freeze start/end, touch sample pair, alt contact, measured packet loss and death event instrumentation unavailable.",
+          "Legacy campaign PASS does not establish G0 coverage or live hit/payment coverage.",
+          "Replay facts count authoritative semantic identities, not replay seek hash parity."
+        ],
+        "evidenceFiles": [
+          {
+            "path": "manifest.json",
+            "sha256": "21857cb737a4e6bb0e6d896b310180d43f7001868b16365e6f843722a687bdd9"
+          },
+          {
+            "path": "summary.json",
+            "sha256": "ee769319c87376cee0a5798efe28c6f4c5e7bcbddd880c6c74e11513e77fd3e0"
+          },
+          {
+            "path": "server.json",
+            "sha256": "54c2220974a7598bbaf9be277c787149d1b4bbc37ffc7d705339846c37373b47"
+          },
+          {
+            "path": "peer-0.json",
+            "sha256": "9d6173a0d8d8a755fd799216dabe133d217893dffeee8ae7866d18e8731f89c3"
+          },
+          {
+            "path": "peer-1.json",
+            "sha256": "d08ab364fb726397935fcbe01ec524274ff2ddea64a3627a963d97094d9b6c21"
+          }
+        ],
+        "exportErrors": [],
+        "startedUtc": "2026-10-11T23:08:13Z",
+        "oldCampaign": {
+          "status": "PASS",
+          "coverage": {
+            "renderedProjectileAgreement": "NOT_RUN",
+            "botFills": "NOT_RUN",
+            "spectator": "NOT_RUN",
+            "mapRotation": "NOT_RUN",
+            "shockCoilDrainKillParity": "NOT_RUN",
+            "imperialistSpawnTrapCoverage": "NOT_RUN",
+            "sustained20Minutes": "NOT_RUN",
+            "boundedHeadlessDrain": "PASS"
+          },
+          "failures": [],
+          "incomplete": []
+        }
+      },
+      "audit": {
+        "status": "INCOMPLETE",
+        "failures": [],
+        "missing": [
+          "claimsOffered: observed",
+          "claimsAccepted: observed",
+          "pickups: observed",
+          "grants: observed",
+          "freezeStarts: observed",
+          "freezeEnds: observed",
+          "touchSamplePairs: observed",
+          "altContacts: observed",
+          "deathEvents: observed",
+          "packetLoss: observed"
+        ],
+        "incomplete": [],
+        "metrics": {
+          "claimsOffered": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "claimsAccepted": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "hits": {
+            "observed": 2,
+            "status": "PASS"
+          },
+          "pickups": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "grants": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeStarts": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "freezeEnds": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "touchSamplePairs": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "altContacts": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "deathEvents": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "packetLoss": {
+            "observed": null,
+            "status": "NOT_RUN"
+          },
+          "queueOccupancy": {
+            "observed": 8,
+            "status": "PASS"
+          },
+          "replayFacts": {
+            "observed": 39,
+            "status": "PASS"
+          },
+          "offeredShots": {
+            "observed": 28,
+            "status": "PASS"
+          },
+          "acceptedShots": {
+            "observed": 28,
+            "status": "PASS"
+          }
+        }
+      },
+      "transport": {
+        "PacketsReceived": 4260,
+        "PacketsSent": 21982,
+        "BytesReceived": 711702,
+        "BytesSent": 3423848,
+        "Invalid": 0,
+        "Oversized": 0,
+        "QueueCurrent": 0,
+        "QueueHighWater": 8,
+        "QueueDrops": 0,
+        "Coalesced": 0,
+        "Processed": 4181,
+        "ProcessingMilliseconds": 806.120955,
+        "SocketErrors": 0
+      },
+      "processes": [
+        {
+          "name": "server",
+          "pid": 27944,
+          "startedSeconds": 0.0036536250000001047,
+          "requestedSeconds": 30.0,
+          "expectsShots": false,
+          "exit": 0,
+          "timedOut": false
+        },
+        {
+          "name": "peer-0",
+          "pid": 27961,
+          "startedSeconds": 2.221458375,
+          "requestedSeconds": 30.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 36.861249292
+        },
+        {
+          "name": "peer-1",
+          "pid": 27962,
+          "startedSeconds": 2.481433667,
+          "requestedSeconds": 30.0,
+          "expectsShots": true,
+          "exit": 0,
+          "timedOut": false,
+          "endedSeconds": 36.861270209
+        }
+      ],
+      "summaryFailures": [],
+      "rawManifestSha256": "21857cb737a4e6bb0e6d896b310180d43f7001868b16365e6f843722a687bdd9",
+      "assetManifestSha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f",
+      "harnessSha256": {
+        "run-net2.py": "ea660b6ca7114d91da7f3e1e435d4119d6515496ec31b2851f5db93edf5d1f10",
+        "net2_evidence.py": "84dd41fd6a0685f3ff935dbb04d1867ab05bf218cf4adca69defd1fb9f359f89"
+      }
+    }
+  ],
+  "blockers": [
+    "Eight-client LAN final shot frontier failed bounded drain; 22 peer-3 shots not admitted, all clients exit 1.",
+    "Current recorded replay diverged in presentation at frame 901, gameplay hash matched.",
+    "Full main CI not complete at capture.",
+    "G0 requested workload/fault coverage and separate pickup/grant/freeze/touch/contact/loss/death instrumentation remain incomplete."
+  ],
+  "exclusions": [
+    "No G1 AI-client implementation or live evidence.",
+    "No hosted/spectator/server-bot or power-up-specific campaign.",
+    "No physical Android or DS trace; no new native 30 Hz consumer.",
+    "No long soak, cross-platform device run, rollout or matched performance claim.",
+    "Generic burst-loss, reconnect/rebind, old-life/nonfinite injection and authority-restart controls not implemented."
+  ],
+  "environmentIncidents": [
+    {
+      "attempt": "udp-8-lan",
+      "status": "INCOMPLETE",
+      "reason": "Disk exhausted staging build before campaign; retry separate. Only task-created duplicate bin copies removed after hashes; raw evidence and frozen source binary retained."
+    }
+  ],
+  "evidenceFiles": [
+    {
+      "path": "artifacts/net21-g0/baseline-ci.json",
+      "sha256": "f5a92c2f506ec1fee6b5e0df8a20f34d5439804c5cc12f2fce7222af61a33b96"
+    },
+    {
+      "path": "artifacts/net21-g0/build.log",
+      "sha256": "10c44049c889478b041053dd2824a4bc3186e98609cdc88711883082a9d25156"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/architecture.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/architecture.stdout.log",
+      "sha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/bomb-protocol.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/bomb-protocol.stdout.log",
+      "sha256": "435c92ad19baee0eaa8b9a7d78ad41328dad4d0e2edb714cdfcbd70ca314a88f"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/bomb-scene.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/bomb-scene.stdout.log",
+      "sha256": "14b9205c735c3b85b9bffccfa5861c2d02af30554c8d2dcdaec1b6966b661caf"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/compact-intents.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/compact-intents.stdout.log",
+      "sha256": "0fd8ae4216b2f3a4782cb4920a8bfd7fb382c22afa6d8f6c2bfab497dc4208e5"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/enhanced-hunters.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/enhanced-hunters.stdout.log",
+      "sha256": "405bd87e3127918b2ed4a92590e719c159897b93c5dad6e3911ccd83ae1a1352"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/focused-contracts.json",
+      "sha256": "465fa9fd9c9dfce8099083f095191f4af9a17d647392991d5d9082e3673a9116"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/form-scene.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/form-scene.stdout.log",
+      "sha256": "06cdda8a613f648ff9dc2986b9ba9d0c5b5cdc05d612463ae7aeef8c275425b2"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/player-form-protocol.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/player-form-protocol.stdout.log",
+      "sha256": "96169772d2d6575b263d5bfc3b3f1394aaaef0df4c2f0a06d30f49d149c96191"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/protocol18.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/protocol18.stdout.log",
+      "sha256": "768650085c1f77361be185ae9708f2e702b18e96945e8549c8a31a0e78fbf3a8"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/queue-budget.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/queue-budget.stdout.log",
+      "sha256": "15dfab687c9f45705140d159147c19f6276d675c13ca58c02498af7b00f1ee95"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/shot-lifecycle.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/shot-lifecycle.stdout.log",
+      "sha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/shot-proof-scene.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/shot-proof-scene.stdout.log",
+      "sha256": "aab59910e1e27ad7925c7da19ffb604421a49c1600d75f1e7ff4e59ebfc63298"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/shot-source-journal.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/shot-source-journal.stdout.log",
+      "sha256": "093f99ac93fbeb8a5d10cd1f6c4c8b18262f02e1661e3a3d0fa4d094e992ba24"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/sylux-muzzle-scene.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/contracts/sylux-muzzle-scene.stdout.log",
+      "sha256": "ef0f4293d009578313a67e3b5301735bb246b6b533c4a855973e3d6d417fa5f1"
+    },
+    {
+      "path": "artifacts/net21-g0/input-contracts/commands.json",
+      "sha256": "18455afac0094a39a1ce06f5bf9bc503355dadbf6fc4144879cf673b7f9c73eb"
+    },
+    {
+      "path": "artifacts/net21-g0/input-contracts/engine-identity.json",
+      "sha256": "b34aadf3919f3681cf519dd3db3aedd09eb2fe1bfaf86cfba19e22a5625443c4"
+    },
+    {
+      "path": "artifacts/net21-g0/input-contracts/mechanicscheck.log",
+      "sha256": "7dd8d1ca858c85b8009655379ecc2d0d9ed100339125fe960c472e13163530e5"
+    },
+    {
+      "path": "artifacts/net21-g0/input-contracts/pointercheck.log",
+      "sha256": "7b37aae8a07bf13b308c1b8642bb8023f5f67545cbab89a2db2955d50d7438ed"
+    },
+    {
+      "path": "artifacts/net21-g0/input-contracts/replayformatcheck.log",
+      "sha256": "14b152895db68e8f3d3e983d4e908bd2062af0aa743a215ca1a9d2a168f5e32f"
+    },
+    {
+      "path": "artifacts/net21-g0/input-contracts/touchcheck.log",
+      "sha256": "61270a0f3ab75e9ccd45f54ae49bd27738b3fb64ff1bfeac6817299191f37e03"
+    },
+    {
+      "path": "artifacts/net21-g0/python-baseline.log",
+      "sha256": "055304f55e205887eddd14eda5b2a1d637e481618475bba051a38e175f04f19f"
+    },
+    {
+      "path": "artifacts/net21-g0/python-final.log",
+      "sha256": "210a388e1df5578f82ea1025b085f3f0e92cc126f6d3115640ca71c02368dc3d"
+    },
+    {
+      "path": "artifacts/net21-g0/replay-check/commands.json",
+      "sha256": "0ed56c1c7e13fc7d75cd065f2c0240d36e6d236b25685f2cba8e7070ff5a8237"
+    },
+    {
+      "path": "artifacts/net21-g0/replay-check/determinism-0.log",
+      "sha256": "e6d37fa3e67229872150923b20cb97f9bf6a5c19473b42891398868c49c418ee"
+    },
+    {
+      "path": "artifacts/net21-g0/replay-check/historical-evidence.json",
+      "sha256": "15ffa280e017391f7dfc4c9bacbd53044823b37e92ed79a7bff719df23a22697"
+    },
+    {
+      "path": "artifacts/net21-g0/semantic-ci.json",
+      "sha256": "80ebd4a72072af7305dd4d1850f436d2fbea877cc0cca17f712c57de0f317aff"
+    },
+    {
+      "path": "artifacts/net21-g0/source-contracts/asset-guard.log",
+      "sha256": "573bc96dc332ec6c5b65efbffe3848cdcd55413dc324d2773e361c0941d75ced"
+    },
+    {
+      "path": "artifacts/net21-g0/source-contracts/commands.json",
+      "sha256": "f90197ed314b33e972bb014f0392b162e1b34040a82caa2cd81d168e0e120ade"
+    },
+    {
+      "path": "artifacts/net21-g0/source-contracts/maps-guard.log",
+      "sha256": "c2f64fd0144933d3794f2e534614a438ee68699d4069bc792f9f771efefd91f5"
+    },
+    {
+      "path": "artifacts/net21-g0/source-contracts/opengl-guard.log",
+      "sha256": "752fda073eb601e1fa740346e3d00dfc0c37188129dde833e17fe57dd9482c28"
+    },
+    {
+      "path": "artifacts/net21-g0/source-contracts/packet-generator.log",
+      "sha256": "158e10ed777b660a0bc991796020a688852c4cc085ec3bc8426a0bf92c87332a"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-duel/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-duel/drain.release.json",
+      "sha256": "0e95d7943bc685d677aaf23daf36845551f4b775b58ceae69f5231e5280385b4"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-duel/drain.server-release.json",
+      "sha256": "0e95d7943bc685d677aaf23daf36845551f4b775b58ceae69f5231e5280385b4"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-duel/manifest.json",
+      "sha256": "21857cb737a4e6bb0e6d896b310180d43f7001868b16365e6f843722a687bdd9"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-duel/net21-evidence.json",
+      "sha256": "b250efae1134340cbc44425a8e22e3c261f1fbfa15a6967811f13270a03943b6"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-duel/server/logs/ProjectPrime-20261011-180813-27944.log",
+      "sha256": "129fcab0c8e03ad26df7537de7240290f6bc023f6ca6e835ae8a341185332fee"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-duel/server/telemetry/2026-10-11/match-6ec33687fdc54e0f900cb6cbfecabc83.summary.json",
+      "sha256": "1717d4169277290649f37ec8b29446164a74c4a9f2bbd437abc0d08cef7b51b9"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-duel/server.drain.json",
+      "sha256": "24b50cdd477ef6f220129c2925d05d93fc1bb8c4a012fa74b35ce5c7891fdbdb"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-duel/server.json",
+      "sha256": "54c2220974a7598bbaf9be277c787149d1b4bbc37ffc7d705339846c37373b47"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-duel/server.log",
+      "sha256": "18c3766f637f65a4a98b2db62b2fb0bf08cecd2657e6199e61eb6e5fe1bed054"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-duel/server.operator.json",
+      "sha256": "d7f3718899eb8d366226ec7f0a58c04f6c7e3e04f6b58d18143575c166994608"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-duel/summary.json",
+      "sha256": "ee769319c87376cee0a5798efe28c6f4c5e7bcbddd880c6c74e11513e77fd3e0"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-duel.runner.log",
+      "sha256": "61d8884b5095fceacc5a1d7c3eb6ce9640e9dbdd1350936193c18584428a9c25"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-lan/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-lan/drain.release.json",
+      "sha256": "550074dfef313be48570ab43ede4e652ba4a23351bf35314e51913503ee4d5a0"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-lan/drain.server-release.json",
+      "sha256": "550074dfef313be48570ab43ede4e652ba4a23351bf35314e51913503ee4d5a0"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-lan/manifest.json",
+      "sha256": "2d7a447a83eff04b6edbfabf47cc5ce23e0324a727c98958a889e3a6c321a0b1"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-lan/net21-evidence.json",
+      "sha256": "92e8a9416615a80e203710ed0361b9c96604943ab69bb4fe02da576a1eee953b"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-lan/server/logs/ProjectPrime-20261011-180507-27586.log",
+      "sha256": "b10acbbd683ac3d03d4891dd91e9f707a698689da37bbec0abfa3cb6b85315b8"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-lan/server/telemetry/2026-10-11/match-671edec097474622ba271c80ba1274d9.summary.json",
+      "sha256": "00752c12a8bce93becfe126add79a488653ee8ec0dda56cea1506eeb2cff83f9"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-lan/server.drain.json",
+      "sha256": "0ea53227143e91bf718f4615ea0a5df5e443dafc2940c5524edecd727408b9f4"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-lan/server.json",
+      "sha256": "d8ed6dc1cab0b1fd2f402362b7e6c4bfca36ee222320f78173e28880f632bae6"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-lan/server.log",
+      "sha256": "072c605c9c6fa192ac1979d0c1aec0561893e58ad457ed25139d2b5259c51aaf"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-lan/server.operator.json",
+      "sha256": "90b55f0d139c3ff194eff54aac9dc4d106aba8d6a547ab1ee0a394f4d0cdcb05"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-lan/summary.json",
+      "sha256": "42250533b0174f3c3ee0a7a62ceff0fdc4994a488a89792639431732586eb8e4"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-2-lan-runner.log",
+      "sha256": "ae27257cb6b7e8d82674a64becd4bfc8b0fa50db5592b985691365d167cf13ff"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-4-lan/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-4-lan/drain.release.json",
+      "sha256": "963e4326e0a372e0089108731c28c70127e29134bccecd91453675f1f5a118d0"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-4-lan/drain.server-release.json",
+      "sha256": "963e4326e0a372e0089108731c28c70127e29134bccecd91453675f1f5a118d0"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-4-lan/manifest.json",
+      "sha256": "329104fba23028da1a49a4fc240d936ef5272dce9a191943847af1268b0f7fb2"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-4-lan/net21-evidence.json",
+      "sha256": "6a8fac1612593fbf6eb72453b7db2b94435f9c9458e5a8ea29473ef2a83eaeb0"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-4-lan/server/logs/ProjectPrime-20261011-180601-27760.log",
+      "sha256": "d8975fd5f8129400390d4f8be65202120cb4faea3facd90be3cf8d3a644ef690"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-4-lan/server/telemetry/2026-10-11/match-ffc26a83076b4475bd75104ee37b34d4.summary.json",
+      "sha256": "97f557841afa566748145d2113b403cc362dff1119d5d4bb94081ab8964eb4dc"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-4-lan/server.drain.json",
+      "sha256": "d556b62c42c95c92611db7b20b8d793ecc0197fbe06e98493981cd4caac249b8"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-4-lan/server.json",
+      "sha256": "b08f1dbc0e2a3d12c9fa5fbb05d179ea3f50b40f94e5a634b1fcf2b7a3e13984"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-4-lan/server.log",
+      "sha256": "adbbb07d873f1cfb6ecf1ff95d1503e4a9b2852320ffd67f8624bb8a6413f431"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-4-lan/server.operator.json",
+      "sha256": "5e37b5df08374ea24c85d0d65f7712f26833fcd66b6c1386d37fcf6e95b07bbe"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-4-lan/summary.json",
+      "sha256": "8474954ee0ee9d0ae39e8fcffd74a9595d6a9eddb3ffb49357eae47be5c1942f"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-4-lan.runner.log",
+      "sha256": "610e31144c271167445be2fec8dabe839ab21d74bb4b7b8a5e3c623808a6e447"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan-retry/assets.json",
+      "sha256": "b8084a0aaae97d95288483a7e953a80b72dfd3306a45d4a1f4d99b0e16668d3f"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan-retry/drain.release.json",
+      "sha256": "fcbb057aa0cc9ed9bdd94bd4b7645f5d7a100ca936119ccffb0721adf2f232ac"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan-retry/drain.server-release.json",
+      "sha256": "fcbb057aa0cc9ed9bdd94bd4b7645f5d7a100ca936119ccffb0721adf2f232ac"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan-retry/manifest.json",
+      "sha256": "4a21af3083381b00d8c048a6390804dfa2b98b8ff109ee4963d20e57247d833d"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan-retry/net21-evidence.json",
+      "sha256": "1186df2e09b388b4d2afd23e2fd89065e59c7a243487009292580a4d9092a188"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan-retry/server/logs/ProjectPrime-20261011-180714-27868.log",
+      "sha256": "56e21683e752323b8972bad5283dd18f811842c3a233017364a28fe152ac6229"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan-retry/server/telemetry/2026-10-11/match-90e4b637187543269c3fae5a4e2cad0b.summary.json",
+      "sha256": "024ab7d955768adb03cb150eb9b4ea757720378c159660285048029e4cd12ec1"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan-retry/server.drain.json",
+      "sha256": "aa35207c9559a69450299f05a7e7d0a251156febe535455a5b33115173d1e414"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan-retry/server.json",
+      "sha256": "e1928ac7d0975e018fbd568b1a90d1c7bcf062ee7c6fb0626601380a75ef7bdc"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan-retry/server.log",
+      "sha256": "3eff613d05a16aeeb3a11ed8257dfc5ac054620398555536bb892393cd7a11a5"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan-retry/server.operator.json",
+      "sha256": "d846a62fd8255ea99c9237c29489bea9a436314a238e8b86ce74cd99cff6613a"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan-retry/summary.json",
+      "sha256": "dc023da0c4f91c9afc99501a84a5b242f28f3892b0c6d134f2c3c487bfcaddd5"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan-retry.runner.log",
+      "sha256": "0fde9ab0fd154ed9b7fd31315f4e84b958864b6be84cb6bb783eef84dd7ed179"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-8-lan.runner.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-campaign-commands.json",
+      "sha256": "88dac677984bfd33a2290b9de22ffac68fa15a8a88bed19006efa12f894c91e3"
+    },
+    {
+      "path": "artifacts/net21-g0/udp-retry-commands.json",
+      "sha256": "fec98d86a1f78f8cad44e9971c8ebeab59e4f1a8a67ae3498896283b720de039"
+    }
+  ],
+  "implementationFiles": [
+    {
+      "path": "tools/nettest/run-net2.py",
+      "sha256": "ea660b6ca7114d91da7f3e1e435d4119d6515496ec31b2851f5db93edf5d1f10"
+    },
+    {
+      "path": "tools/nettest/net21_evidence.py",
+      "sha256": "b32e58e91f143680ee0666712f57581454b5dda20b262c8fb037840b96f21236"
+    },
+    {
+      "path": "tools/nettest/test_net21_evidence.py",
+      "sha256": "364f795757955499d4404d1848227ed0d1706e27f053a49c402f50a0ca69ea08"
+    },
+    {
+      "path": "tools/nettest/test_net2_evidence.py",
+      "sha256": "2885bf1b68d4874b1b0945622e73d557f88d23badeb09456621523252c3e726c"
+    },
+    {
+      "path": ".github/workflows/build.yml",
+      "sha256": "646f9dd569a7b72ff8e345e24afe9a7e3fb48bdad82a579429fc53a12242ac96"
+    }
+  ],
+  "blockerDiagnosis": {
+    "eightClient": {
+      "classification": "BASELINE_EVENT_AUTHORING_DEFECT_CANDIDATE",
+      "source": "ed51bc90abb9d29b019620ce70146c8833d590d1",
+      "slot": 3,
+      "life": 2,
+      "weapon": "ShockCoil",
+      "kind": "ContinuousTick",
+      "missingShotIds": [
+        [
+          147,
+          158
+        ],
+        [
+          206,
+          210
+        ],
+        [
+          244,
+          248
+        ]
+      ],
+      "sourceFrames": [
+        [
+          1581,
+          1592
+        ],
+        [
+          1652,
+          1656
+        ],
+        [
+          1696,
+          1700
+        ]
+      ],
+      "continuousPhase": 0,
+      "queueDrops": 0,
+      "interpretation": "Compact codec refuses zero phases; not evidence of insufficient drain timeout. Native phase-capture reproduction required before gameplay patch."
+    }
+  }
+}

@@ -307,6 +307,8 @@ jobs:
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
       - name: generated packet schema and malformed wire checks
         run: dotnet run --project tools/protocol-generator-check -c Release
+      - name: fail-closed network campaign and Netcode 2.1 evidence contracts
+        run: python3 -m unittest discover -s tools/nettest -p 'test_*.py'
       - name: waitlist policy and synthetic UDP wire checks
         run: dotnet run --project tools/lobby-waitlist-check -c Release
       - name: enhanced rules, state and maximum packet budgets
