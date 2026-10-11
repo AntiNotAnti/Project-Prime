@@ -1,0 +1,1905 @@
+{
+  "schema": 1,
+  "slice": "N4",
+  "date": "2026-10-10",
+  "base": "c9da1be3a12d2a07dd1c39b41929131eac5f74e9",
+  "productionCandidate": "ac8a107240ccf4441afaecf3a063b29d9de5f421",
+  "finalTestCandidate": "4ce975c0270b7b8b5c555886b76500047932a899",
+  "productionSourceEquivalent": true,
+  "platform": "macOS 27 arm64, Apple M4 Pro",
+  "sdk": "10.0.401",
+  "runtime": "10.0.12",
+  "protocol": 44,
+  "protocolDelta": "43 -> 44; HitClaim appends uint32 emitted component ID (59 -> 63 bytes); historical 59-byte reader preserves ShotId and supplies component zero",
+  "implementationStatus": "SHADOW_IMPLEMENTED",
+  "gate": "ENFORCEMENT_NOT_READY",
+  "gateScope": "Focused hostile/physical-hit proof tests and shadow gameplay controls. Not full N4 enforcement, honest-player false-reject calibration, or N5 readiness.",
+  "defaultMode": "Shadow",
+  "comparisonSwitch": "PRIME_SHOT_PROOF=off|shadow|enforce",
+  "claimRadius": 2.0,
+  "strictExperimental": true,
+  "engineSha256": "e9164a8b1ed030e27dabe8cf7020948ff2190a94ee876ed44379d37757cd2d71",
+  "testAssemblySha256": "0fc43197b0cdb8ae37b50d47ee35065abf4fb323bc87308a6cb7d9c5d3856b39",
+  "sourceSnapshot": {
+    "path": "artifacts/net2-n4/source-final-v2.json",
+    "bytes": 260,
+    "sha256": "3ad628f8f061aecb380493f37b1359e580e345bae751c30d6ea07953369d8505"
+  },
+  "sourcePatch": {
+    "path": "artifacts/net2-n4/source-final-v2.patch",
+    "bytes": 188946,
+    "sha256": "0af296eca5a8f4099d02c2986ae7b8e7556f4b61973c86e4326c344a0e14d10c"
+  },
+  "finalFocusedTests": {
+    "result": {
+      "path": "artifacts/net2-n4/proof-scene-attempt-09/result.json",
+      "bytes": 3079,
+      "sha256": "5edb10e13a4e121a9825861653db7e43d28b3d78282511719c5fb2af3b75233d"
+    },
+    "details": {
+      "buildExit": 0,
+      "sceneExit": 0,
+      "claimStressExit": 1,
+      "architectureExit": 0,
+      "combatSceneExit": 0,
+      "assertions": 241,
+      "combatAssertions": 204,
+      "sdk": "10.0.401",
+      "runtime": "10.0.12",
+      "sourceCommit": "ac8a107240ccf4441afaecf3a063b29d9de5f421",
+      "room": "MP1 SANCTORUS",
+      "failure": "New NativeOutcomeFirstAck asset-free fixture calls TrackDeaths with unregistered null registry actors, before ACK regression assertion; scene-dependent TrackDeaths was not changed",
+      "files": [
+        {
+          "path": "bin/ProjectPrime.dll",
+          "bytes": 31894016,
+          "sha256": "e9164a8b1ed030e27dabe8cf7020948ff2190a94ee876ed44379d37757cd2d71"
+        },
+        {
+          "path": "bin/nettest.dll",
+          "bytes": 323584,
+          "sha256": "202708c316fe23b3c56e6f44892291988a991739e2ee6a56d31e76ee02bc5e93"
+        },
+        {
+          "path": "ShotProofTests.cs",
+          "bytes": 30049,
+          "sha256": "3da7b160a1de6e055c857ad929c863b05d3f808b3be424493f7caf8f99702c0a"
+        },
+        {
+          "path": "ClaimStressTests.cs",
+          "bytes": 10542,
+          "sha256": "d71d51a36766a20f5ea8016997c3df22a7b9a1172bce4f3813257626f98dd945"
+        },
+        {
+          "path": "NetShotProof.cs",
+          "bytes": 30747,
+          "sha256": "e476605cef6ca4a6878d5e2d5dd21e37d076e4f6dd85b46ebce183a003815f0d"
+        },
+        {
+          "path": "NetHitClaims.cs",
+          "bytes": 131930,
+          "sha256": "cb850508c717aed340026573fea5e98a9937dc866553a1b35b5a74765846fac4"
+        },
+        {
+          "path": "NetCheckSimulation.cs",
+          "bytes": 5880,
+          "sha256": "6ffed1cedcd8def402ffceabe3e779ff74fa6b95527ed358242ce31d935529c3"
+        },
+        {
+          "path": "NetTestScript.cs",
+          "bytes": 34012,
+          "sha256": "1ab0e84829579fa6348b1773fd355bb7eaa4da7de24cf2cd1eb7e0b0688321c1"
+        },
+        {
+          "path": "NetCampaignEvidence.cs",
+          "bytes": 13262,
+          "sha256": "b01bcdc1ee14a20b5a8580d12bef7fd962a71fd5c3394a22133e0025f7760491"
+        },
+        {
+          "path": "source.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "source-commit.txt",
+          "bytes": 41,
+          "sha256": "0c962779c75e57dc528171c84f6e742ed1d94ed7a88d625ce8f1bffd4de38ec3"
+        },
+        {
+          "path": "build.log",
+          "bytes": 28999,
+          "sha256": "bdfb65333e089695f5ac8f9127aeed877d870d93d6996afaea96f9653532c1b1"
+        },
+        {
+          "path": "scene.log",
+          "bytes": 21554,
+          "sha256": "9b3cbf0002560739fbe417abdcc7c30648f390ca433863d73f15334861b4c571"
+        },
+        {
+          "path": "claim-stress.log",
+          "bytes": 1455,
+          "sha256": "819f3f939961cce4e1801f291e74ad5b4515be561be9a692230f1d30b897a61d"
+        },
+        {
+          "path": "architecture.log",
+          "bytes": 108,
+          "sha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+        },
+        {
+          "path": "combat-scene.log",
+          "bytes": 16103,
+          "sha256": "083a613f0806c6323b6b48ff0bd59a610fee25e847232f7561fb11456296232c"
+        },
+        {
+          "path": "commands.json",
+          "bytes": 1579,
+          "sha256": "c64facb638279d329e3dd372e62dc7bb6b05ed1f3243d4ace0492a44baaab175"
+        }
+      ]
+    },
+    "finalClaimStressResult": {
+      "path": "artifacts/net2-n4/proof-scene-attempt-10/result.json",
+      "bytes": 2121,
+      "sha256": "7c64e37a23e5491bcec42b8d3d4f7b3eae57568cb1ea8dbc9b0706ee49fbb77c"
+    },
+    "finalClaimStressDetails": {
+      "buildExit": 0,
+      "claimStressExit": 0,
+      "sdk": "10.0.401",
+      "runtime": "10.0.12",
+      "testSourceCommit": "4ce975c0270b7b8b5c555886b76500047932a899",
+      "engineSourceCommit": "ac8a107240ccf4441afaecf3a063b29d9de5f421",
+      "engineHashUnchanged": true,
+      "productionSourceDiffEmpty": true,
+      "unchangedControls": "Attempt09 proofscene241, architecture, combat204 all PASS against identical engine; not repeated for test-only repair",
+      "preservedFailure": "Attempt09 claim-stress first failure retained; corrected test now passes native first ACK correlation and complete existing stress checks",
+      "files": [
+        {
+          "path": "bin/ProjectPrime.dll",
+          "bytes": 31894016,
+          "sha256": "e9164a8b1ed030e27dabe8cf7020948ff2190a94ee876ed44379d37757cd2d71"
+        },
+        {
+          "path": "bin/nettest.dll",
+          "bytes": 323584,
+          "sha256": "0fc43197b0cdb8ae37b50d47ee35065abf4fb323bc87308a6cb7d9c5d3856b39"
+        },
+        {
+          "path": "ClaimStressTests.cs",
+          "bytes": 10974,
+          "sha256": "88b7f57bc11c3d7e951f426d3385c4e64351d7c9ce1ab0253c3b25c43c392bed"
+        },
+        {
+          "path": "NetHitClaims.cs",
+          "bytes": 131930,
+          "sha256": "cb850508c717aed340026573fea5e98a9937dc866553a1b35b5a74765846fac4"
+        },
+        {
+          "path": "source.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "production-source.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "source-commit.txt",
+          "bytes": 41,
+          "sha256": "0dbb680020525af7efb0013a2eace83c24359da0a361294cbde423e12381d23a"
+        },
+        {
+          "path": "build.log",
+          "bytes": 969,
+          "sha256": "7a5c11a1dd6df06ed16a5f5ee9bfdfcab19e663fb13550c2cb54bc5ac500d328"
+        },
+        {
+          "path": "claim-stress.log",
+          "bytes": 164,
+          "sha256": "1cd788e248b6fdc3ee7a66e67a22780e244ab550f6c112ca5e7ef4bfa8951475"
+        },
+        {
+          "path": "commands.json",
+          "bytes": 601,
+          "sha256": "e44bc7d1359a8fd0943814dc1323bc4d12177b320b908119ee8f62dffdef51ab"
+        }
+      ]
+    },
+    "scope": "09 proof241/combat204/architecture passed; 09 claim-stress fixture failed before ACK checks, corrected test-only in10 then passed; production engine identical."
+  },
+  "pythonTests": {
+    "count": 85,
+    "status": "PASS",
+    "log": {
+      "path": "artifacts/net2-n4/final-drain-python-tests.log",
+      "bytes": 184,
+      "sha256": "cd27503f613380f9346f6a898d61a086cf305f7c522301c6872ed4faf852cf6a"
+    }
+  },
+  "evidence": {
+    "archive": {
+      "path": "artifacts/net2-n4-evidence.tar.gz",
+      "bytes": 342661037,
+      "sha256": "3045adb2adb8f7d92fa866b069b22fb9a3fd246d47a58049efc3032fa828cb61"
+    },
+    "index": {
+      "path": "artifacts/net2-n4/evidence-index.json",
+      "bytes": 110783,
+      "sha256": "06e11b9161919da1aaac913c99d27684d65ab75c7c2a28a2fa1cb660f2179b35",
+      "files": 627,
+      "indexedBytes": 536815839
+    },
+    "verifiedArchiveMembers": true
+  },
+  "campaigns": [
+    {
+      "name": "mac-8-lan",
+      "source": "25fc4b38623888c73b8f221d76e3c82fe69c71d3",
+      "engineSha256": "d208a9be2c879e36f253c034d1e60116241a7bce39a7a25841d79005629397fa",
+      "engineUnchanged": true,
+      "manifest": {
+        "path": "artifacts/net2-n4/mac-8-lan/manifest.json",
+        "bytes": 15771,
+        "sha256": "96cefd5eccb742741c33d956cb5f54e1454c71788b7d74e7e64e78a5b9bab20b"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4/mac-8-lan/summary.json",
+        "bytes": 20037,
+        "sha256": "54d32447566274c54d210702c96a068444d450660faf00e89683c71aa687fadc"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "assetFiles": 3803,
+      "harnessSha256": {
+        "run-net2.py": "68f48aa68c0dfdb9b4027d6ab11bd9d1ddd40d20e57b37401a2861ca7283701c",
+        "net2_evidence.py": "41c0228fcc29351e9a38c4a8797842a7d92ed99253e267bb49773fcb41c601ab"
+      },
+      "settings": {
+        "source": "25fc4b38623888c73b8f221d76e3c82fe69c71d3",
+        "protocol": 44,
+        "shot_proof": "shadow",
+        "players": 8,
+        "seconds": 25.0,
+        "port": 28740,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN"
+      },
+      "allProcessExitsZero": true,
+      "authorityShotCounts": {
+        "accepted": 101,
+        "committed": 101,
+        "fired": 101
+      },
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 1968,
+          "healthMismatches": 0,
+          "offeredShots": 24,
+          "acceptedShots": 24,
+          "committedShots": 24,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 1974,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-2": {
+          "healthSamplesCompared": 1974,
+          "healthMismatches": 0,
+          "offeredShots": 28,
+          "acceptedShots": 28,
+          "committedShots": 28,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-3": {
+          "healthSamplesCompared": 1974,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 99,
+          "viewMissingCommits": 0,
+          "semanticExpected": 116,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-4": {
+          "healthSamplesCompared": 1974,
+          "healthMismatches": 0,
+          "offeredShots": 26,
+          "acceptedShots": 26,
+          "committedShots": 26,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 115,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-5": {
+          "healthSamplesCompared": 1971,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 115,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-6": {
+          "healthSamplesCompared": 1955,
+          "healthMismatches": 0,
+          "offeredShots": 23,
+          "acceptedShots": 23,
+          "committedShots": 23,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 99,
+          "viewMissingCommits": 0,
+          "semanticExpected": 114,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-7": {
+          "healthSamplesCompared": 1932,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 96,
+          "viewMissingCommits": 0,
+          "semanticExpected": 113,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4/mac-8-lan-proof-summary.json",
+        "bytes": 5759,
+        "sha256": "eec9bdaaa13cce458fbc481c2faa079f002a3e2c2e19efcc6d017c45c0299f82"
+      },
+      "proofInstrumentation": "PASS",
+      "proofCounts": {
+        "claims": {
+          "Verified": 0,
+          "Rejected": 14,
+          "Unavailable": 0
+        },
+        "emissions": {
+          "Verified": 0,
+          "Rejected": 27,
+          "Unavailable": 74
+        },
+        "uniqueClaims": 7
+      },
+      "proofInterpretation": "Instrumentation completeness is separate from full enforcement and honest false-reject readiness.",
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272728291017770,
+          "CurrentMatchId": 2,
+          "Frames": 1607,
+          "StepFailures": 0,
+          "DroppedSteps": 5,
+          "Stalls": 1,
+          "StepAllocatedBytes": 62712552,
+          "MeanMs": 0.4925242688238955,
+          "P50Ms": 0.27,
+          "P95Ms": 0.7,
+          "P99Ms": 1.32,
+          "P999Ms": 12.04,
+          "WorstMs": 170.41049999999998
+        }
+      ]
+    },
+    {
+      "name": "mac-2-extreme",
+      "source": "25fc4b38623888c73b8f221d76e3c82fe69c71d3",
+      "engineSha256": "d208a9be2c879e36f253c034d1e60116241a7bce39a7a25841d79005629397fa",
+      "engineUnchanged": true,
+      "manifest": {
+        "path": "artifacts/net2-n4/mac-2-extreme/manifest.json",
+        "bytes": 6998,
+        "sha256": "dc0a3798b0fb0a54dcb4f609b1f4aa461848a857b1790e0b8f82dbf530c6b2cd"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4/mac-2-extreme/summary.json",
+        "bytes": 6431,
+        "sha256": "d2b2b49e82766c4861c799a250ad7451aeef61b59de9d595857fdef08a2b9dd8"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "assetFiles": 3803,
+      "harnessSha256": {
+        "run-net2.py": "68f48aa68c0dfdb9b4027d6ab11bd9d1ddd40d20e57b37401a2861ca7283701c",
+        "net2_evidence.py": "41c0228fcc29351e9a38c4a8797842a7d92ed99253e267bb49773fcb41c601ab"
+      },
+      "settings": {
+        "source": "25fc4b38623888c73b8f221d76e3c82fe69c71d3",
+        "protocol": 44,
+        "shot_proof": "shadow",
+        "players": 2,
+        "seconds": 25.0,
+        "port": 28750,
+        "seed": 2128,
+        "profile": "extreme",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "FAIL",
+      "failures": [
+        "peer-1: semantic gap/conflict: 1 missing, 0 different"
+      ],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN"
+      },
+      "allProcessExitsZero": true,
+      "authorityShotCounts": {
+        "accepted": 33,
+        "committed": 33,
+        "fired": 33
+      },
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 440,
+          "healthMismatches": 0,
+          "offeredShots": 33,
+          "acceptedShots": 33,
+          "committedShots": 33,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 31,
+          "viewMissingCommits": 0,
+          "semanticExpected": 31,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 450,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 31,
+          "viewMissingCommits": 0,
+          "semanticExpected": 31,
+          "semanticMissing": 1,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "FAIL"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4/mac-2-extreme-proof-summary.json",
+        "bytes": 4592,
+        "sha256": "1fe7c82788693500776fd7071031046b995ac7243e3434426960f4cd70f12f7a"
+      },
+      "proofInstrumentation": "INCOMPLETE",
+      "proofCounts": {
+        "claims": {
+          "Verified": 0,
+          "Rejected": 0,
+          "Unavailable": 0
+        },
+        "emissions": {
+          "Verified": 0,
+          "Rejected": 14,
+          "Unavailable": 19
+        },
+        "uniqueClaims": 0
+      },
+      "proofInterpretation": "Instrumentation completeness is separate from full enforcement and honest false-reject readiness.",
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272728867524680,
+          "CurrentMatchId": 2,
+          "Frames": 1585,
+          "StepFailures": 0,
+          "DroppedSteps": 4,
+          "Stalls": 1,
+          "StepAllocatedBytes": 31437728,
+          "MeanMs": 0.30950473186119926,
+          "P50Ms": 0.12,
+          "P95Ms": 0.51,
+          "P99Ms": 1.05,
+          "P999Ms": 11.57,
+          "WorstMs": 163.9648
+        }
+      ]
+    },
+    {
+      "name": "mac-8-lan-drain",
+      "source": "3df751c17751e4a07723e4b28fe9a0eda1ddfed2",
+      "engineSha256": "960069138ed556285a11fa453ed3b50f76688f47892aa7d85c3cbaeb5820c909",
+      "engineUnchanged": true,
+      "manifest": {
+        "path": "artifacts/net2-n4/mac-8-lan-drain/manifest.json",
+        "bytes": 72734,
+        "sha256": "b10cead1bc255e172219475bcae9a283950fdc1cb3026b12b7e42f7106b09a26"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4/mac-8-lan-drain/summary.json",
+        "bytes": 20105,
+        "sha256": "faf23772fcff37b1e8028be0b849846cc466200e82848d6c0293eed73c424fd0"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "assetFiles": 3803,
+      "harnessSha256": {
+        "run-net2.py": "e7b25aff0fe2266c864532987bcaf0d49967136e3cc6e20ab7e1c11e7a81b558",
+        "net2_evidence.py": "76f25fbb2df210d6f6c5cb69b5bb6b00ab040594d6e0931828b21824133309cc"
+      },
+      "settings": {
+        "source": "3df751c17751e4a07723e4b28fe9a0eda1ddfed2",
+        "protocol": 44,
+        "shot_proof": "shadow",
+        "players": 8,
+        "seconds": 25.0,
+        "drain_seconds": 15.0,
+        "port": 28760,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "allProcessExitsZero": true,
+      "authorityShotCounts": {
+        "accepted": 115,
+        "committed": 115,
+        "fired": 115
+      },
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 2375,
+          "healthMismatches": 0,
+          "offeredShots": 25,
+          "acceptedShots": 25,
+          "committedShots": 25,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 115,
+          "viewMissingCommits": 0,
+          "semanticExpected": 129,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 2376,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 115,
+          "viewMissingCommits": 0,
+          "semanticExpected": 129,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-2": {
+          "healthSamplesCompared": 2356,
+          "healthMismatches": 0,
+          "offeredShots": 29,
+          "acceptedShots": 29,
+          "committedShots": 29,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 114,
+          "viewMissingCommits": 0,
+          "semanticExpected": 129,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-3": {
+          "healthSamplesCompared": 2353,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 113,
+          "viewMissingCommits": 0,
+          "semanticExpected": 128,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-4": {
+          "healthSamplesCompared": 2340,
+          "healthMismatches": 0,
+          "offeredShots": 33,
+          "acceptedShots": 33,
+          "committedShots": 33,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 113,
+          "viewMissingCommits": 0,
+          "semanticExpected": 126,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-5": {
+          "healthSamplesCompared": 1846,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 112,
+          "viewMissingCommits": 0,
+          "semanticExpected": 123,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-6": {
+          "healthSamplesCompared": 2304,
+          "healthMismatches": 0,
+          "offeredShots": 28,
+          "acceptedShots": 28,
+          "committedShots": 28,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 111,
+          "viewMissingCommits": 0,
+          "semanticExpected": 122,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-7": {
+          "healthSamplesCompared": 2264,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 109,
+          "viewMissingCommits": 0,
+          "semanticExpected": 120,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4/mac-8-lan-drain-proof-summary.json",
+        "bytes": 5762,
+        "sha256": "94abccc00e9b27a9214d2f4981e10de1b73ab78681c525a79726919bf84eeff9"
+      },
+      "proofInstrumentation": "PASS",
+      "proofCounts": {
+        "claims": {
+          "Verified": 2,
+          "Rejected": 18,
+          "Unavailable": 0
+        },
+        "emissions": {
+          "Verified": 49,
+          "Rejected": 32,
+          "Unavailable": 34
+        },
+        "uniqueClaims": 10
+      },
+      "proofInterpretation": "Instrumentation completeness is separate from full enforcement and honest false-reject readiness.",
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272740390735880,
+          "CurrentMatchId": 2,
+          "Frames": 1834,
+          "StepFailures": 0,
+          "DroppedSteps": 5,
+          "Stalls": 1,
+          "StepAllocatedBytes": 81336736,
+          "MeanMs": 0.4865617230098146,
+          "P50Ms": 0.26,
+          "P95Ms": 0.85,
+          "P99Ms": 1.47,
+          "P999Ms": 17.24,
+          "WorstMs": 176.88899999999998
+        }
+      ],
+      "drain": {
+        "status": "PASS",
+        "release": {
+          "Status": "PASS",
+          "Epoch": 639272740390735880,
+          "Match": 2,
+          "Semantic": 134,
+          "Award": 2
+        },
+        "stableSeconds": 2.7034477500000023,
+        "elapsedSeconds": 4.7639044580000025
+      }
+    },
+    {
+      "name": "mac-2-extreme-drain",
+      "source": "3df751c17751e4a07723e4b28fe9a0eda1ddfed2",
+      "engineSha256": "960069138ed556285a11fa453ed3b50f76688f47892aa7d85c3cbaeb5820c909",
+      "engineUnchanged": true,
+      "manifest": {
+        "path": "artifacts/net2-n4/mac-2-extreme-drain/manifest.json",
+        "bytes": 14889,
+        "sha256": "589f7aa682f441614e7a46fccba900863209cfb4cf66ced72d1a901be77e6e93"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4/mac-2-extreme-drain/summary.json",
+        "bytes": 6815,
+        "sha256": "005c3f9693b5d549e14627e0f583180fe38217eb5aeb06b470c33833a6a6f4e2"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "assetFiles": 3803,
+      "harnessSha256": {
+        "run-net2.py": "e7b25aff0fe2266c864532987bcaf0d49967136e3cc6e20ab7e1c11e7a81b558",
+        "net2_evidence.py": "76f25fbb2df210d6f6c5cb69b5bb6b00ab040594d6e0931828b21824133309cc"
+      },
+      "settings": {
+        "source": "3df751c17751e4a07723e4b28fe9a0eda1ddfed2",
+        "protocol": 44,
+        "shot_proof": "shadow",
+        "players": 2,
+        "seconds": 25.0,
+        "drain_seconds": 15.0,
+        "port": 28770,
+        "seed": 2128,
+        "profile": "extreme",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "FAIL",
+      "failures": [
+        "peer-0: exit=1 timeout=False",
+        "peer-0: timeout in peer-0/netlog-peer_0.txt",
+        "peer-1: exit=1 timeout=False",
+        "campaign drain: missing/malformed drain proof: bounded barrier did not pass: authority reliable endpoints not empty/healthy"
+      ],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "FAIL"
+      },
+      "allProcessExitsZero": false,
+      "authorityShotCounts": {
+        "accepted": 29,
+        "committed": 29,
+        "fired": 29
+      },
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 760,
+          "healthMismatches": 0,
+          "offeredShots": 29,
+          "acceptedShots": 29,
+          "committedShots": 29,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 29,
+          "viewMissingCommits": 0,
+          "semanticExpected": 31,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 724,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 29,
+          "viewMissingCommits": 0,
+          "semanticExpected": 31,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4/mac-2-extreme-drain-proof-summary.json",
+        "bytes": 5397,
+        "sha256": "87f8d153d589ee90c2fe2a48ee3f6b5805cd5b06abcc64bbc5e7badb23e935c3"
+      },
+      "proofInstrumentation": "PASS",
+      "proofCounts": {
+        "claims": {
+          "Verified": 0,
+          "Rejected": 0,
+          "Unavailable": 2
+        },
+        "emissions": {
+          "Verified": 8,
+          "Rejected": 6,
+          "Unavailable": 15
+        },
+        "uniqueClaims": 1
+      },
+      "proofInterpretation": "Instrumentation completeness is separate from full enforcement and honest false-reject readiness.",
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272740858209070,
+          "CurrentMatchId": 2,
+          "Frames": 2524,
+          "StepFailures": 0,
+          "DroppedSteps": 5,
+          "Stalls": 1,
+          "StepAllocatedBytes": 38158568,
+          "MeanMs": 0.35032484152139515,
+          "P50Ms": 0.15,
+          "P95Ms": 0.88,
+          "P99Ms": 1.68,
+          "P999Ms": 7.38,
+          "WorstMs": 181.4111
+        }
+      ],
+      "drain": {
+        "status": "FAIL",
+        "reason": "authority reliable endpoints not empty/healthy",
+        "release": {
+          "Status": "FAIL",
+          "Epoch": 639272740858209070,
+          "Match": 2,
+          "Semantic": 38,
+          "Award": 0
+        },
+        "stableSeconds": 0
+      }
+    },
+    {
+      "name": "mac-8-lan-final",
+      "source": "ac8a107240ccf4441afaecf3a063b29d9de5f421",
+      "engineSha256": "e9164a8b1ed030e27dabe8cf7020948ff2190a94ee876ed44379d37757cd2d71",
+      "engineUnchanged": true,
+      "manifest": {
+        "path": "artifacts/net2-n4/mac-8-lan-final/manifest.json",
+        "bytes": 115316,
+        "sha256": "6d4dce91328f84e032c85915e7d46497d5a2f21bc3286a5adda96c9653c40cc1"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4/mac-8-lan-final/summary.json",
+        "bytes": 20102,
+        "sha256": "62b425c8a88132d62bd1745e704a49d173fce9ec5b00618a08c3f33a1374c47c"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "assetFiles": 3803,
+      "harnessSha256": {
+        "run-net2.py": "b1778fb256dfd42a4e3d0443bbe42a426109dfc193332ae8f7a5117da7cf1192",
+        "net2_evidence.py": "8f085dffed1bf604a528fe446498324f14b2317a31fe8b663555d1d76ba2108b"
+      },
+      "settings": {
+        "source": "ac8a107240ccf4441afaecf3a063b29d9de5f421",
+        "protocol": 44,
+        "shot_proof": "shadow",
+        "players": 8,
+        "seconds": 25.0,
+        "drain_seconds": 15.0,
+        "port": 28780,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "allProcessExitsZero": true,
+      "authorityShotCounts": {
+        "accepted": 102,
+        "committed": 102,
+        "fired": 102
+      },
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 2319,
+          "healthMismatches": 0,
+          "offeredShots": 27,
+          "acceptedShots": 27,
+          "committedShots": 27,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 102,
+          "viewMissingCommits": 0,
+          "semanticExpected": 111,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 2308,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 110,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-2": {
+          "healthSamplesCompared": 2301,
+          "healthMismatches": 0,
+          "offeredShots": 23,
+          "acceptedShots": 23,
+          "committedShots": 23,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 100,
+          "viewMissingCommits": 0,
+          "semanticExpected": 110,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-3": {
+          "healthSamplesCompared": 2315,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 101,
+          "viewMissingCommits": 0,
+          "semanticExpected": 110,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-4": {
+          "healthSamplesCompared": 2314,
+          "healthMismatches": 0,
+          "offeredShots": 26,
+          "acceptedShots": 26,
+          "committedShots": 26,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 101,
+          "viewMissingCommits": 0,
+          "semanticExpected": 110,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-5": {
+          "healthSamplesCompared": 2293,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 99,
+          "viewMissingCommits": 0,
+          "semanticExpected": 109,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-6": {
+          "healthSamplesCompared": 2272,
+          "healthMismatches": 0,
+          "offeredShots": 26,
+          "acceptedShots": 26,
+          "committedShots": 26,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 99,
+          "viewMissingCommits": 0,
+          "semanticExpected": 107,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-7": {
+          "healthSamplesCompared": 2248,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 98,
+          "viewMissingCommits": 0,
+          "semanticExpected": 105,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4/mac-8-lan-final-proof-summary.json",
+        "bytes": 5658,
+        "sha256": "b75e376a5867d098d93fc4d72ef84a422949b8fadaa5f49e9a4f4ebd79bf10fc"
+      },
+      "proofInstrumentation": "PASS",
+      "proofCounts": {
+        "claims": {
+          "Verified": 0,
+          "Rejected": 8,
+          "Unavailable": 0
+        },
+        "emissions": {
+          "Verified": 59,
+          "Rejected": 25,
+          "Unavailable": 18
+        },
+        "uniqueClaims": 4
+      },
+      "proofInterpretation": "Instrumentation completeness is separate from full enforcement and honest false-reject readiness.",
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272745950246260,
+          "CurrentMatchId": 2,
+          "Frames": 1792,
+          "StepFailures": 0,
+          "DroppedSteps": 8,
+          "Stalls": 1,
+          "StepAllocatedBytes": 80743080,
+          "MeanMs": 0.4994595424107149,
+          "P50Ms": 0.24,
+          "P95Ms": 0.79,
+          "P99Ms": 1.63,
+          "P999Ms": 18.61,
+          "WorstMs": 232.6556
+        }
+      ],
+      "drain": {
+        "status": "PASS",
+        "release": {
+          "Status": "PASS",
+          "Epoch": 639272745950246260,
+          "Match": 2,
+          "Semantic": 120,
+          "Award": 0
+        },
+        "stableSeconds": 2.6605530000000037,
+        "elapsedSeconds": 4.092245291999998,
+        "prepareStableSeconds": 2.454657375,
+        "stabilityCondition": "gameplay frontier and offered keys stable; healthy queues during grace, empty at preparation and release"
+      }
+    },
+    {
+      "name": "mac-2-extreme-final",
+      "source": "ac8a107240ccf4441afaecf3a063b29d9de5f421",
+      "engineSha256": "e9164a8b1ed030e27dabe8cf7020948ff2190a94ee876ed44379d37757cd2d71",
+      "engineUnchanged": true,
+      "manifest": {
+        "path": "artifacts/net2-n4/mac-2-extreme-final/manifest.json",
+        "bytes": 22847,
+        "sha256": "05e5cf170c0e4ceb8ab43af294864de3f842945d0e79764b1cf4d87a9435840d"
+      },
+      "summary": {
+        "path": "artifacts/net2-n4/mac-2-extreme-final/summary.json",
+        "bytes": 6439,
+        "sha256": "60b6aff3f135f0c1ff44910208aa465ed9866f0583a6cdb16f684592562e443f"
+      },
+      "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "assetFiles": 3803,
+      "harnessSha256": {
+        "run-net2.py": "b1778fb256dfd42a4e3d0443bbe42a426109dfc193332ae8f7a5117da7cf1192",
+        "net2_evidence.py": "8f085dffed1bf604a528fe446498324f14b2317a31fe8b663555d1d76ba2108b"
+      },
+      "settings": {
+        "source": "ac8a107240ccf4441afaecf3a063b29d9de5f421",
+        "protocol": 44,
+        "shot_proof": "shadow",
+        "players": 2,
+        "seconds": 25.0,
+        "drain_seconds": 15.0,
+        "port": 28790,
+        "seed": 2128,
+        "profile": "extreme",
+        "scenario": "missile",
+        "rooms": "MP1 SANCTORUS",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "status": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "allProcessExitsZero": true,
+      "authorityShotCounts": {
+        "accepted": 34,
+        "committed": 34,
+        "fired": 34
+      },
+      "peerParity": {
+        "peer-0": {
+          "healthSamplesCompared": 536,
+          "healthMismatches": 0,
+          "offeredShots": 34,
+          "acceptedShots": 34,
+          "committedShots": 34,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 34,
+          "viewMissingCommits": 0,
+          "semanticExpected": 34,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        },
+        "peer-1": {
+          "healthSamplesCompared": 538,
+          "healthMismatches": 0,
+          "offeredShots": 0,
+          "acceptedShots": 0,
+          "committedShots": 0,
+          "wrongWeaponChargeKind": 0,
+          "viewExpectedCommits": 34,
+          "viewMissingCommits": 0,
+          "semanticExpected": 34,
+          "semanticMissing": 0,
+          "semanticConflicts": 0,
+          "semanticCompleteness": "PASS"
+        }
+      },
+      "proofSummary": {
+        "path": "artifacts/net2-n4/mac-2-extreme-final-proof-summary.json",
+        "bytes": 4597,
+        "sha256": "189edc19927db1083d26a9e5ce1d0201468ec7dc6f4f0a7236741618e3ef181f"
+      },
+      "proofInstrumentation": "INCOMPLETE",
+      "proofCounts": {
+        "claims": {
+          "Verified": 0,
+          "Rejected": 0,
+          "Unavailable": 0
+        },
+        "emissions": {
+          "Verified": 6,
+          "Rejected": 15,
+          "Unavailable": 13
+        },
+        "uniqueClaims": 0
+      },
+      "proofInterpretation": "Instrumentation completeness is separate from full enforcement and honest false-reject readiness.",
+      "serverStepSegments": [
+        {
+          "Room": "MP1 SANCTORUS",
+          "AuthorityEpoch": 639272746839443090,
+          "CurrentMatchId": 2,
+          "Frames": 1835,
+          "StepFailures": 0,
+          "DroppedSteps": 7,
+          "Stalls": 1,
+          "StepAllocatedBytes": 35519872,
+          "MeanMs": 0.3713339509536774,
+          "P50Ms": 0.13,
+          "P95Ms": 0.72,
+          "P99Ms": 1.69,
+          "P999Ms": 10.85,
+          "WorstMs": 214.6496
+        }
+      ],
+      "drain": {
+        "status": "PASS",
+        "release": {
+          "Status": "PASS",
+          "Epoch": 639272746839443090,
+          "Match": 2,
+          "Semantic": 40,
+          "Award": 0
+        },
+        "stableSeconds": 2.859861207999998,
+        "elapsedSeconds": 4.076746917000001,
+        "prepareStableSeconds": 2.6520158749999965,
+        "stabilityCondition": "gameplay frontier and offered keys stable; healthy queues during grace, empty at preparation and release"
+      }
+    }
+  ],
+  "preservedAttempts": [
+    {
+      "name": "proof-scene-attempt-01",
+      "result": null,
+      "summary": {},
+      "logs": [
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-01/build.log",
+          "bytes": 740,
+          "sha256": "26437dd824a00471a7398a3aebde08e89755125e0a91b5b294f7c978d35e3588"
+        }
+      ]
+    },
+    {
+      "name": "proof-scene-attempt-02",
+      "result": null,
+      "summary": {},
+      "logs": [
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-02/build.log",
+          "bytes": 29530,
+          "sha256": "75c89d8abd6dcb0c391f1ec7e3c832f78ba5d943fd219299e43aea57cac6471c"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-02/scene.log",
+          "bytes": 12604,
+          "sha256": "6bd36a52776ef1b33a5665e898bbada061197734ff90ad1ffc636135e8d9d52f"
+        }
+      ]
+    },
+    {
+      "name": "proof-scene-attempt-03",
+      "result": {
+        "path": "artifacts/net2-n4/proof-scene-attempt-03/result.json",
+        "bytes": 1240,
+        "sha256": "36a15db283ec13fde6a41b2f8291ed95774baf56c2b99df4d04d7f24a7f3c09c"
+      },
+      "summary": {
+        "buildExit": 0,
+        "sceneExit": 0,
+        "sdk": "10.0.401",
+        "runtime": "10.0.12",
+        "room": "MP1 SANCTORUS",
+        "sourceBase": "c9da1be3a12d2a07dd1c39b41929131eac5f74e9"
+      },
+      "logs": [
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-03/build.log",
+          "bytes": 29527,
+          "sha256": "68cbf0a32f2155dcc759b443025d162a2df8b80154a9e835883c205851ca285a"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-03/scene.log",
+          "bytes": 12794,
+          "sha256": "b3f2a2d4d74f4fda0d9617970f79cb966215a930cc30012c1856eb7d6a059d5e"
+        }
+      ]
+    },
+    {
+      "name": "proof-scene-attempt-04",
+      "result": {
+        "path": "artifacts/net2-n4/proof-scene-attempt-04/result.json",
+        "bytes": 1261,
+        "sha256": "5d2e19d6182f2353bf6a5df1612f8d292496c6689f63867723bbe76fddf36f30"
+      },
+      "summary": {
+        "buildExit": 0,
+        "sceneExit": 0,
+        "assertions": 172,
+        "sdk": "10.0.401",
+        "runtime": "10.0.12",
+        "room": "MP1 SANCTORUS",
+        "sourceBase": "c9da1be3a12d2a07dd1c39b41929131eac5f74e9"
+      },
+      "logs": [
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-04/build.log",
+          "bytes": 28999,
+          "sha256": "3bd2f1b54e4d577d8367c99cb7d53ba650146e4466bb30d94e6af45793404a2c"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-04/scene.log",
+          "bytes": 15093,
+          "sha256": "f8473367a841929acbb70082c130214b3c78d833d650a27fdfe5c583a7b504f9"
+        }
+      ]
+    },
+    {
+      "name": "proof-scene-attempt-05",
+      "result": {
+        "path": "artifacts/net2-n4/proof-scene-attempt-05/result.json",
+        "bytes": 1439,
+        "sha256": "2c34ed8eab798b729792bbc791b066e302dd47e16b6b1f04e0fc9b19b81122c8"
+      },
+      "summary": {
+        "buildExit": 0,
+        "sceneExit": 1,
+        "claimStressExit": 0,
+        "sdk": "10.0.401",
+        "runtime": "10.0.12",
+        "room": "MP1 SANCTORUS",
+        "failure": "Homing fixture target acquisition; real affinity and ricochet passed"
+      },
+      "logs": [
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-05/build.log",
+          "bytes": 28999,
+          "sha256": "9dd2fe9dfada2c47826bfa99b93f8150468705d5bdf67b897a5165c883903e6d"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-05/claim-stress.log",
+          "bytes": 128,
+          "sha256": "99668d19533c0e4dd905391fd6bc2f49170b21db21c43661d104eb59a306360b"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-05/scene.log",
+          "bytes": 14553,
+          "sha256": "edb1d091707be3293232ed98e8a9c48d8289fa43f911c813dbfcf1e6b3570d74"
+        }
+      ]
+    },
+    {
+      "name": "proof-scene-attempt-06",
+      "result": {
+        "path": "artifacts/net2-n4/proof-scene-attempt-06/result.json",
+        "bytes": 1838,
+        "sha256": "2d4f0460635c95e5d51a210ac92cfa847b8b561f14655171ee657f356164dcf1"
+      },
+      "summary": {
+        "buildExit": 0,
+        "sceneExit": 1,
+        "claimStressExit": 0,
+        "sdk": "10.0.401",
+        "runtime": "10.0.12",
+        "sourceCommit": "25fc4b38623888c73b8f221d76e3c82fe69c71d3",
+        "room": "MP1 SANCTORUS",
+        "failure": "Fixture source age100 exceeds accepted ledger64-frame retention before proof evaluation; cooldown negative passed"
+      },
+      "logs": [
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-06/build.log",
+          "bytes": 28999,
+          "sha256": "267e41f25dc0a970efbd24d7c6d38d4cb4b607b1eec120681d38a981b47407fa"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-06/claim-stress.log",
+          "bytes": 128,
+          "sha256": "99668d19533c0e4dd905391fd6bc2f49170b21db21c43661d104eb59a306360b"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-06/scene.log",
+          "bytes": 7781,
+          "sha256": "8c3a66c7bf63b830756c89d8a88e9acc1db2415159d4bc3be22ce496229b587f"
+        }
+      ]
+    },
+    {
+      "name": "proof-scene-attempt-07",
+      "result": {
+        "path": "artifacts/net2-n4/proof-scene-attempt-07/result.json",
+        "bytes": 2185,
+        "sha256": "46afb00b450eb3cebca4665564d84d9be192f20883cf33ae2df1650fa73d356f"
+      },
+      "summary": {
+        "buildExit": 0,
+        "sceneExit": 1,
+        "claimStressExit": 0,
+        "architectureExit": 0,
+        "combatSceneExit": 0,
+        "sdk": "10.0.401",
+        "runtime": "10.0.12",
+        "testSourceCommit": "6f6994d61253228b8e84b9cc6370f578830b3a31",
+        "engineSourceCommit": "25fc4b38623888c73b8f221d76e3c82fe69c71d3",
+        "engineHashUnchanged": true,
+        "room": "MP1 SANCTORUS",
+        "failure": "Strict exact prior-result old-life acknowledgement fails; ForgetSlot preserveFlights=true unconditionally clears native resolved ledger at shooter respawn"
+      },
+      "logs": [
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-07/architecture.log",
+          "bytes": 108,
+          "sha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-07/build.log",
+          "bytes": 969,
+          "sha256": "6f86b58e029d1ba3ee72a73f2a74b5221aa931085727da6977c29d45e265bdb8"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-07/claim-stress.log",
+          "bytes": 128,
+          "sha256": "99668d19533c0e4dd905391fd6bc2f49170b21db21c43661d104eb59a306360b"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-07/combat-scene.log",
+          "bytes": 16103,
+          "sha256": "083a613f0806c6323b6b48ff0bd59a610fee25e847232f7561fb11456296232c"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-07/scene.log",
+          "bytes": 18335,
+          "sha256": "9676bb380cf446aae5007d6678a425214ad66fd476d1f93b79de123dbabb146b"
+        }
+      ]
+    },
+    {
+      "name": "proof-scene-attempt-08",
+      "result": {
+        "path": "artifacts/net2-n4/proof-scene-attempt-08/result.json",
+        "bytes": 2955,
+        "sha256": "d031c4312205ce3fbd8f76ea071c6f2d20601cdc10a8f78c754c3bfa3e7460c8"
+      },
+      "summary": {
+        "buildExit": 0,
+        "sceneExit": 0,
+        "claimStressExit": 0,
+        "architectureExit": 0,
+        "combatSceneExit": 0,
+        "assertions": 241,
+        "combatAssertions": 204,
+        "sdk": "10.0.401",
+        "runtime": "10.0.12",
+        "sourceCommit": "3df751c17751e4a07723e4b28fe9a0eda1ddfed2",
+        "room": "MP1 SANCTORUS",
+        "strictChargedHomingGate": "Unavailable/SourceInputUnavailable with real PhysicalMatch, no independent hold/release proof",
+        "coverageGap": "No actual server continuous/turret component disguise fixture: attempted discrete ShockCoil setup removed before execution because accepted discrete playback explicitly refuses continuous rows; prior continuous/turret controls passed"
+      },
+      "logs": [
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-08/architecture.log",
+          "bytes": 108,
+          "sha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-08/build.log",
+          "bytes": 28999,
+          "sha256": "0880757ecfefac76510dee375837e675b4767941c4c0e5a7a7d3062c44ef3454"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-08/claim-stress.log",
+          "bytes": 128,
+          "sha256": "99668d19533c0e4dd905391fd6bc2f49170b21db21c43661d104eb59a306360b"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-08/combat-scene.log",
+          "bytes": 16103,
+          "sha256": "083a613f0806c6323b6b48ff0bd59a610fee25e847232f7561fb11456296232c"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-08/scene.log",
+          "bytes": 21554,
+          "sha256": "9b3cbf0002560739fbe417abdcc7c30648f390ca433863d73f15334861b4c571"
+        }
+      ]
+    },
+    {
+      "name": "proof-scene-attempt-09",
+      "result": {
+        "path": "artifacts/net2-n4/proof-scene-attempt-09/result.json",
+        "bytes": 3079,
+        "sha256": "5edb10e13a4e121a9825861653db7e43d28b3d78282511719c5fb2af3b75233d"
+      },
+      "summary": {
+        "buildExit": 0,
+        "sceneExit": 0,
+        "claimStressExit": 1,
+        "architectureExit": 0,
+        "combatSceneExit": 0,
+        "assertions": 241,
+        "combatAssertions": 204,
+        "sdk": "10.0.401",
+        "runtime": "10.0.12",
+        "sourceCommit": "ac8a107240ccf4441afaecf3a063b29d9de5f421",
+        "room": "MP1 SANCTORUS",
+        "failure": "New NativeOutcomeFirstAck asset-free fixture calls TrackDeaths with unregistered null registry actors, before ACK regression assertion; scene-dependent TrackDeaths was not changed"
+      },
+      "logs": [
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-09/architecture.log",
+          "bytes": 108,
+          "sha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-09/build.log",
+          "bytes": 28999,
+          "sha256": "bdfb65333e089695f5ac8f9127aeed877d870d93d6996afaea96f9653532c1b1"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-09/claim-stress.log",
+          "bytes": 1455,
+          "sha256": "819f3f939961cce4e1801f291e74ad5b4515be561be9a692230f1d30b897a61d"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-09/combat-scene.log",
+          "bytes": 16103,
+          "sha256": "083a613f0806c6323b6b48ff0bd59a610fee25e847232f7561fb11456296232c"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-09/scene.log",
+          "bytes": 21554,
+          "sha256": "9b3cbf0002560739fbe417abdcc7c30648f390ca433863d73f15334861b4c571"
+        }
+      ]
+    },
+    {
+      "name": "proof-scene-attempt-10",
+      "result": {
+        "path": "artifacts/net2-n4/proof-scene-attempt-10/result.json",
+        "bytes": 2121,
+        "sha256": "7c64e37a23e5491bcec42b8d3d4f7b3eae57568cb1ea8dbc9b0706ee49fbb77c"
+      },
+      "summary": {
+        "buildExit": 0,
+        "claimStressExit": 0,
+        "sdk": "10.0.401",
+        "runtime": "10.0.12",
+        "testSourceCommit": "4ce975c0270b7b8b5c555886b76500047932a899",
+        "engineSourceCommit": "ac8a107240ccf4441afaecf3a063b29d9de5f421",
+        "engineHashUnchanged": true,
+        "productionSourceDiffEmpty": true,
+        "unchangedControls": "Attempt09 proofscene241, architecture, combat204 all PASS against identical engine; not repeated for test-only repair",
+        "preservedFailure": "Attempt09 claim-stress first failure retained; corrected test now passes native first ACK correlation and complete existing stress checks"
+      },
+      "logs": [
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-10/build.log",
+          "bytes": 969,
+          "sha256": "7a5c11a1dd6df06ed16a5f5ee9bfdfcab19e663fb13550c2cb54bc5ac500d328"
+        },
+        {
+          "path": "artifacts/net2-n4/proof-scene-attempt-10/claim-stress.log",
+          "bytes": 164,
+          "sha256": "1cd788e248b6fdc3ee7a66e67a22780e244ab550f6c112ca5e7ef4bfa8951475"
+        }
+      ]
+    }
+  ],
+  "remainingGates": [
+    "Independent charge hold/scope input, ordered pickup grants, timed Prime/double modifiers and mode-specific inventory history are unavailable, with explicit conservative reasons.",
+    "Accepted client body/aim corroboration does not replace independent server movement or full native autofire reconstruction.",
+    "Charged affinity homing has a real physical witness and verified geometry but remains SourceInputUnavailable; this is not a fully verified legal charged shot.",
+    "Moving projectile knockback differences exceeded experimental strict tolerance in scripted controls; source cause and honest rejection envelope are not calibrated.",
+    "Continuous, turret and bomb/melee proof families remain explicitly unavailable; actual continuous/turret component-disguise fixture was not run.",
+    "No honest-player false-reject distribution supports enabling strict mode or changing ClaimRadius2.0.",
+    "Broader terminal ACK retry/reliability and arbitration remain N5 scope; the concrete missing first-ACK ShotId bug found here is fixed without changing retry timing."
+  ],
+  "notRun": [
+    "Windows (not needed for this platform-independent slice, per user preference)",
+    "Linux/Android or GitHub Actions",
+    "20-minute soak",
+    "Rendered projectile agreement",
+    "Full strict-mode gameplay parity",
+    "Matched CPU overhead benchmark"
+  ],
+  "performanceClaim": "None. Short independent controls are correctness evidence, not a causal performance comparison.",
+  "earlierCompatibility": {
+    "manifest": {
+      "path": "artifacts/net2-n4/compat-attempt-01/manifest.json",
+      "bytes": 17217,
+      "sha256": "32d4fed754ad5f2b6ce2cba4521f53c5ad6213e0bfd5268d06521b700d29163d"
+    },
+    "binaries": {
+      "ProjectPrime.dll": "4efc9a026dbf17f734c962fda098a543093bc97f5c00cabaf8c3ddd43654f13e",
+      "nettest.dll": "9462627ff2d77ca3cbdd99feca1ee1a59c5747ec597cada6d207f2c615373532"
+    },
+    "results": [
+      {
+        "name": "architecture",
+        "exit": 0,
+        "logSha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911",
+        "tail": [
+          "[net] server map:  (None, 0 s left)",
+          "PASS: architecture, owner position, full snapshots and v20 byte fixture"
+        ]
+      },
+      {
+        "name": "protocol17",
+        "exit": 0,
+        "logSha256": "9139e28bde8d880ea9119ad134d83c8781c8955febd0c69e14afd1c561533ac1",
+        "tail": [
+          "PASS: protocol 19 transport sequences, ACK bits, wrap, identity and UDP integration"
+        ]
+      },
+      {
+        "name": "shot-lifecycle",
+        "exit": 0,
+        "logSha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3",
+        "tail": [
+          "shot lifecycle: PASS"
+        ]
+      },
+      {
+        "name": "compact-intents",
+        "exit": 0,
+        "logSha256": "0fd8ae4216b2f3a4782cb4920a8bfd7fb382c22afa6d8f6c2bfab497dc4208e5",
+        "tail": [
+          "VIRTUAL history RTT=250ms loss=5% events=607/607 pending=0",
+          "VIRTUAL history RTT=250ms loss=10% events=607/607 pending=0",
+          "VIRTUAL history RTT=400ms loss=0% events=607/607 pending=0",
+          "VIRTUAL history RTT=400ms loss=1% events=607/607 pending=0",
+          "VIRTUAL history RTT=400ms loss=2% events=607/607 pending=0",
+          "VIRTUAL history RTT=400ms loss=5% events=607/607 pending=0",
+          "VIRTUAL history RTT=400ms loss=10% events=607/607 pending=0",
+          "compact intent replay tests passed"
+        ]
+      },
+      {
+        "name": "claim-stress",
+        "exit": 1,
+        "logSha256": "543bfc6e34c4b642b0546f6a2fbf49e294a4473dcc0630585c868e0fb46047e9",
+        "tail": [
+          "[net] server map:  (None, 0 s left)",
+          "System.Reflection.TargetParameterCountException: Parameter count mismatch.",
+          "   at System.Reflection.MethodBaseInvoker.ThrowTargetParameterCountException()",
+          "   at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)",
+          "   at MphRead.NetTest.ClaimStressTests.Call(String name, Object[] args) in /Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/tools/nettest/ClaimStressTests.cs:line 17",
+          "   at MphRead.NetTest.ClaimStressTests.Run() in /Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/tools/nettest/ClaimStressTests.cs:line 32"
+        ]
+      },
+      {
+        "name": "protocol19",
+        "exit": 0,
+        "logSha256": "a793a706c085db1c59894ce584f5c6ed6797887dabc52103431a9ca67b112fe2",
+        "tail": [
+          "V19 PASS real gzip writer completes",
+          "V19 PASS versioned compressed header/events and privacy-safe schema",
+          "V19 PASS HTTP 500 retains local summary with exponential retry",
+          "V19 PASS slow HTTP timeout retains retry without simulation work",
+          "V19 PASS offline upload retains bounded batch and retry deadline",
+          "V19 PASS next match records while previous writer drains",
+          "V19 PASS two stalled writers cap match rollover without waiting",
+          "PASS: 143 Protocol 19 combat/telemetry checks"
+        ]
+      },
+      {
+        "name": "health-shots",
+        "exit": 0,
+        "logSha256": "65d3be9467b48ff28e7312da7e5ec211804bcf48979697819fc9b5b9448ac6f1",
+        "tail": [
+          "[net] server map:  (None, 0 s left)",
+          "[net] server map:  (None, 0 s left)",
+          "[net] server map:  (None, 0 s left)",
+          "[net] server map:  (None, 0 s left)",
+          "[net] server map:  (None, 0 s left)",
+          "[net] server map:  (None, 0 s left)",
+          "Ghost input matrix: 7776 weapon/profiles, 2 delivery streams, dropped=18360 duplicated=8424 reordered=14256",
+          "PASS: 3338739 health/shot assertions"
+        ]
+      },
+      {
+        "name": "combat-scene",
+        "exit": 0,
+        "logSha256": "083a613f0806c6323b6b48ff0bd59a610fee25e847232f7561fb11456296232c",
+        "tail": [
+          "COMBAT projectile Judicator lifespan=8.50s survivesSpawn=True valid=True",
+          "COMBAT PASS ProjectileLifecycleAcrossShooterRespawn/Judicator",
+          "COMBAT PASS rescued flight cannot pay twice after respawn/Judicator",
+          "COMBAT PASS old launch still damages target/Judicator",
+          "COMBAT PASS forged launch life rejected",
+          "COMBAT PASS ricochet child keeps original fire event/Judicator",
+          "COMBAT PASS no simulation failures",
+          "COMBAT PASS 204 assertions"
+        ]
+      },
+      {
+        "name": "continuous-scene",
+        "exit": 0,
+        "logSha256": "29f6da18cd6d47582e68d0c4d1edfec8b200b58eb9d6cf7e3f26b5e4e3832b23",
+        "tail": [
+          "[net] slot 2 (Trace) wears suit 1",
+          "[net] slot 3 (Sylux) wears suit 1",
+          "[net] slot 4 (Noxus) wears suit 1",
+          "[net] slot 5 (Spire) wears suit 1",
+          "[net] slot 6 (Weavel) wears suit 1",
+          "[net] slot 7 (Samus) wears suit 2 -- asked for 1",
+          "[net] slot 1 deactivated -- player left",
+          "PASS: 63 continuous target scene assertions, all hunters, historical forms, lifecycle, zero allocations"
+        ]
+      },
+      {
+        "name": "protocol19-scene",
+        "exit": 0,
+        "logSha256": "4ee8a23947cfa4db10373047c1afa6de6b5216bd585259fb71c6bc97741c1352",
+        "tail": [
+          "V19 COMBAT PASS continuous physical hit records actual split",
+          "V19 COMBAT PASS same continuous tick settles despite different world ACK frames: answers=1 result=1 body=95/95 turret=32/32",
+          "V19 COMBAT PASS different claim ID and delayed physical copy cannot pay continuous tick twice",
+          "V19 COMBAT PASS prediction emits exact claim",
+          "V19 COMBAT PASS CombatAck corrects visible health and retires exact debit immediately",
+          "V19 COMBAT PASS repeated CombatAck is idempotent",
+          "V19 COMBAT PASS newer snapshot replaces acknowledgement presentation",
+          "PASS: 60 Protocol 19 asset-backed checks"
+        ]
+      },
+      {
+        "name": "turret-events",
+        "exit": 0,
+        "logSha256": "1eed7a3654d04f124d8f646a3a6739596108fb94d7fe7e0c4278c6e50efdc10a",
+        "tail": [
+          "TURRET PASS duplicate turret carrier accepted as history",
+          "TURRET PASS duplicate turret event cannot emit a second projectile",
+          "TURRET PASS pending turret and discrete event admitted together",
+          "TURRET PASS fixture selects turret while discrete event remains retained",
+          "TURRET PASS respawn clears selected turret policy and preserves discrete event",
+          "TURRET PASS old-life pending turret cannot reselect after respawn",
+          "TURRET PASS turret fixture has no engine step failures",
+          "PASS: 13 turret event assertions"
+        ]
+      },
+      {
+        "name": "replay-format",
+        "exit": 0,
+        "logSha256": "422ca70ab76f8771a18628b351e1e4cdd9523e019090871d652d733dd00dbb65",
+        "tail": [
+          "[replay] Recording interrupted; recover completed chunks from its .part file. Replay storage queue is full or closed.",
+          "[replay] Recording interrupted; recover completed chunks from its .part file. Replay storage queue exceeded its byte budget.",
+          "[net] server map: MP1 SANCTORUS (Battle, 300 s left)",
+          "[net] server map: MP1 SANCTORUS (Battle, 0 s left)",
+          "[replayformat] PASS 2888 checks (v2/v3/v4, order, metadata, CRC, recovery, extraction, malformed files)"
+        ]
+      }
+    ],
+    "limitation": "Earlier binary; final changed paths separately exercised by focused tests and final controls. Initial claim-stress reflection arity failure was corrected."
+  },
+  "failureDispositions": [
+    {
+      "attempt": "proof-scene-attempt-01",
+      "status": "FAIL",
+      "cause": "System dotnet had no SDK; reran with installed private SDK10.0.401."
+    },
+    {
+      "attempt": "proof-scene-attempt-02",
+      "status": "FAIL",
+      "cause": "Fixture copied prior Missile impulse into unresolved Imperialist claim; corrected fixture to correlate actual ShotKey/component before using impulse."
+    },
+    {
+      "attempt": "proof-scene-attempt-05",
+      "status": "FAIL",
+      "cause": "Homing fixture selected ordinary multiplayer Missile row with no homing; corrected to actual Samus affinity row."
+    },
+    {
+      "attempt": "proof-scene-attempt-06",
+      "status": "FAIL",
+      "cause": "Late-event negative fixture exceeded N3 retention before reaching proof; corrected100-frame gap to50, still above40-frame cooldown."
+    },
+    {
+      "attempt": "proof-scene-attempt-07",
+      "status": "FAIL",
+      "cause": "Real strict old-life exact ACK failed because legacy resolved ledger clears at shooter respawn; fixed by retaining immutable physical outcome in bounded proof payment."
+    },
+    {
+      "attempt": "compat-attempt-01/claim-stress",
+      "status": "FAIL",
+      "cause": "Reflection fixture did not supply new optional ledger arguments; corrected fixture and reran successfully."
+    },
+    {
+      "attempt": "mac-2-extreme",
+      "status": "FAIL",
+      "cause": "One semantic event remained reliable-pending at abrupt shutdown. Existing tail guard was not relaxed; bounded delivery drain added for later controls.",
+      "analysis": {
+        "path": "artifacts/net2-n4/mac-2-extreme-independent-analysis.json",
+        "bytes": 10281,
+        "sha256": "113dcaed441d10363f1b97a8a41045cf327e934043745195b82a086f7833e262"
+      }
+    },
+    {
+      "attempt": "mac-2-extreme-drain",
+      "status": "FAIL",
+      "cause": "Drain incorrectly required continuously empty reliable queues despite periodic SessionState/Roster traffic. Independent native first-ACK ShotId0 bug caused one claim verdict timeout. Both were corrected before final controls.",
+      "drainAnalysis": {
+        "path": "artifacts/net2-n4/mac-2-extreme-drain-independent-analysis.json",
+        "bytes": 13131,
+        "sha256": "8d1300a36c1833d477dd85c2bcb746f1c4f9d4978121660f23d31c2b193f3562"
+      },
+      "ackAnalysis": {
+        "path": "artifacts/net2-n4/mac-2-extreme-drain-verdict-analysis.json",
+        "bytes": 10155,
+        "sha256": "ff2a0fd521e8b78d2697de5993b0359e66e9674fe89048c8d1d1837bcb044c70"
+      }
+    },
+    {
+      "attempt": "proof-scene-attempt-09/claim-stress",
+      "status": "FAIL",
+      "cause": "New asset-free fixture called TrackDeaths without registered actors. Registered all slots and active shooter/victim; test-only attempt10 passed identical assertions and unchanged engine."
+    }
+  ],
+  "finalRuntimeAckEvidence": {
+    "path": "artifacts/net2-n4/mac-8-lan-final-ack-check.json",
+    "bytes": 2426,
+    "sha256": "8f428202a30ac17f63385515a91483d25e1335b2b14611b2a3192af7d3556c18"
+  },
+  "finalImpairedClaimCoverage": {
+    "uniqueClaims": 0,
+    "ackEvidence": {
+      "path": "artifacts/net2-n4/mac-2-extreme-final-ack-check.json",
+      "bytes": 194,
+      "sha256": "3b75a91d4c915c032f39987c8fcbf34cdb8929f963dab5ecf1bf712c0048597e"
+    },
+    "limitation": "Final impaired campaign validates shots/health/semantic delivery, not claim admission or ACK reception; native ACK regression and four observed LAN terminal ACKs supply separate coverage."
+  },
+  "strictKnockbackGap": {
+    "path": "artifacts/net2-n4/mac-8-lan-drain-claim-analysis.json",
+    "bytes": 16113,
+    "sha256": "fb341b9c2ccb197db4f9d484300de32a8d78789d3ff537d9fdc3754859cc4499"
+  }
+}

@@ -100,7 +100,7 @@ claim stages, not independent honest shots. The short scripted UDP controls
 change test loadouts and do not establish an honest-player false-reject cutoff.
 No value was copied from Fruity's independent implementation.
 
-The final eight-player scripted control recorded ten unique physical-hit claims.
+The retained `mac-8-lan-drain` control recorded ten unique physical-hit claims.
 All agreed on damage, head classification and effect bits; eight differed in
 knockback by more than the experimental 0.001 vector tolerance. Differences
 exceeded packet rounding alone. Four had otherwise verified source proof. This
@@ -114,6 +114,24 @@ Raw immutable attempts are under `artifacts/net2-n4`; the final ledger records
 source and binary hashes, all failures and the evidence archive identity.
 Validation uses Mac arm64. Windows is not required for this platform-independent
 slice. No Linux/Android testing, CI run or long soak is part of this change.
+
+Final Mac validation uses production candidate `ac8a1072` and engine SHA-256
+`e9164a8b1ed030e27dabe8cf7020948ff2190a94ee876ed44379d37757cd2d71`.
+Test-only fixture correction `4ce975c0` leaves that engine unchanged.
+
+- Release build passed; 41 existing warnings, zero errors.
+- 241 proof-scene assertions, 204 combat assertions, architecture and claim-stress passed.
+- 85 Python evidence/drain checks passed.
+- Eight-player LAN: 102 shots accepted/committed/fired, zero health or event gaps.
+- Two-player extreme (400 ±80 ms RTT, 5% loss, 3% reorder, 1% duplication):
+  34 shots accepted/committed/fired, zero health or event gaps.
+- Both controls used 25 seconds of active input and about four seconds of bounded
+  drain. Four final LAN terminal ACKs carried nonzero shot IDs. The final extreme
+  run produced no hit claims, so it does not establish impaired ACK/claim coverage.
+
+The initial native-ACK regression fixture failed before checking an ACK because
+its packet-only actors were not registered. The preserved test-only correction
+registers those actors and passes the unchanged native outcome assertions.
 
 The asset-backed scene exercises real accepted emission and native collision,
 not injected collision witnesses. It covers forged shot IDs, weapon ownership,
