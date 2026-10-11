@@ -768,7 +768,7 @@ namespace MphRead.Mods.Network
         public static void NoteHit(PlayerEntity victim, PlayerEntity? attacker,
             ref DamageFlags flags, ref uint damage, BeamType beam = BeamType.None,
             uint launchFrame = 0, float flight = 0, Vector3? direction = null,
-            Affliction afflictions = Affliction.None, uint unsplitDamage = 0, uint continuousPhase = 0, bool direct = false, uint shotId = 0, ShotKey? shotKey = null)
+            Affliction afflictions = Affliction.None, uint unsplitDamage = 0, uint continuousPhase = 0, bool direct = false, uint shotId = 0, ShotKey? shotKey = null, uint componentId = 0)
         {
             int local = NetHooks.LocalSlot;
             if (local < 0)
@@ -859,7 +859,7 @@ namespace MphRead.Mods.Network
                 {
                     ushort claimId = NetHitClaims.Declare(victim, attacker, beam, flags.TestFlag(DamageFlags.Halfturret) ? unsplitDamage : claimedDamage,
                         flags, claimedLethal, victim.Position, launchFrame,
-                        direction ?? Vector3.Zero, afflictions, predictedBodyDamage: claimedDamage, continuousPhase: continuousPhase, direct: direct, shotId: shotId, shotKey: shotKey);
+                        direction ?? Vector3.Zero, afflictions, predictedBodyDamage: claimedDamage, continuousPhase: continuousPhase, direct: direct, shotId: shotId, shotKey: shotKey, componentId: componentId);
                     StampClaim(victim.SlotIndex, at, claimId);
                 }
                 if (headshot && !self)

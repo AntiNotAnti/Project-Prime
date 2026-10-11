@@ -221,6 +221,7 @@ namespace MphRead.Mods.Network
             public uint AckFrame;
             public uint LaunchFrame;
             public uint ShotId;
+            public uint ComponentId;
             public byte VictimSlot;
             public byte Beam;
             public ushort Damage;
@@ -230,6 +231,8 @@ namespace MphRead.Mods.Network
             public Vector3 Direction;
             /// <summary>Frames since it was first sent, for the retry budget.</summary>
             public int Age;
+            public int LastSentAge;
+            public bool PredictionReleased;
             public int Sends;
             public bool Live;
         }
@@ -242,24 +245,19 @@ namespace MphRead.Mods.Network
         /// keeps trying. UDP loses packets and a lost claim is a kill that did
         /// not happen, so this is the same reasoning as
         /// <see cref="IntentPacket.PressHistory"/> -- repeat until told to
-        /// stop. Six sends over 90 frames survives three consecutive drops on
-        /// a line that is losing one datagram in twenty, and 90 frames is past
-        /// any round trip the game is worth playing on.
+        /// stop. At most six sends fit within the separate DeliveryMaxAge deadline;
+        /// the measured round trip sets the spacing between attempts.
         /// </summary>
         private const int MaxSends = 6;
-        /// <summary>
-        /// How long an unanswered claim is kept before it is given up on.
-        ///
-        /// Six sends at up to forty frames apart would run past any hold, so
-        /// this is the real bound on how long a claim is asked about: one
-        /// second, whichever of the two runs out first. It is deliberately
-        /// **shorter than the longest
-        /// <c>NetHitPrediction.HoldFrames</c>**, because giving up is what
-        /// releases the prediction the claim was holding: a lethal prediction
-        /// nobody ever answers holds a body down, and the sooner that decision
-        /// goes back to the authority the shorter the wrong picture lasts.
-        /// </summary>
+        /// <summary>Release speculative presentation after one second even if
+        /// the terminal receipt is still travelling or needs a retry.</summary>
         private const int MaxAge = 60;
+        private const int MaxResendInterval = 40;
+        // Retain identity for every bounded send opportunity, the authority's
+        // maximum pending window, and a final round trip. This is receipt-only
+        // after MaxAge; it cannot prolong or reinstate speculative health/death.
+        internal const int DeliveryMaxAge = MaxSends * MaxResendInterval
+            + 2 * MaxGraceFrames + MaxResendInterval;
         /// <summary>
         /// The least time between repeats of the same claim, in frames, when
         /// the round trip is not known yet.
@@ -285,7 +283,7 @@ namespace MphRead.Mods.Network
                 int ping = slot >= 0 && slot < NetSession.SlotPing.Length
                     ? NetSession.SlotPing[slot]
                     : 0;
-                return Math.Clamp((int)(ping * 0.06f) + 6, MinResendInterval, 40);
+                return Math.Clamp((int)(ping * 0.06f) + 6, MinResendInterval, MaxResendInterval);
             }
         }
 
@@ -353,7 +351,7 @@ namespace MphRead.Mods.Network
         /// </returns>
         public static ushort Declare(PlayerEntity victim, PlayerEntity attacker,
             BeamType beam, uint damage, DamageFlags flags, bool lethal, Vector3 hitPoint,
-            uint launchFrame, Vector3 direction, Affliction afflictions = Affliction.None, uint? predictedBodyDamage = null, uint continuousPhase = 0, bool direct = false, uint shotId = 0, ShotKey? shotKey = null)
+            uint launchFrame, Vector3 direction, Affliction afflictions = Affliction.None, uint? predictedBodyDamage = null, uint continuousPhase = 0, bool direct = false, uint shotId = 0, ShotKey? shotKey = null, uint componentId = 0)
         {
             if (!Claiming || victim == attacker || damage == 0
                 || NetPlayerLifecycle.Get(victim.SlotIndex) == 0 || NetPlayerLifecycle.Get(attacker.SlotIndex) == 0)
@@ -426,6 +424,7 @@ namespace MphRead.Mods.Network
                 AckFrame = ack,
                 LaunchFrame = launchFrame,
                 ShotId = shotId,
+                ComponentId = componentId,
                 VictimSlot = (byte)slot,
                 Beam = beam == BeamType.None ? HitClaimPacket.NoBeam : (byte)beam,
                 Damage = (ushort)Math.Min(damage, UInt16.MaxValue),
@@ -479,7 +478,7 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 if (entry.Sends > 0
-                    && (entry.Sends >= MaxSends || entry.Age % interval != 0))
+                    && (entry.Sends >= MaxSends || entry.Age - entry.LastSentAge < interval))
                 {
                     continue;
                 }
@@ -496,6 +495,7 @@ namespace MphRead.Mods.Network
                     AckFrame = entry.AckFrame,
                     LaunchFrame = entry.LaunchFrame,
                     ShotId = entry.ShotId,
+                    ComponentId = entry.ComponentId,
                     VictimSlot = entry.VictimSlot,
                     Beam = entry.Beam,
                     Damage = entry.Damage,
@@ -510,6 +510,10 @@ namespace MphRead.Mods.Network
                     Resends++;
                 }
                 entry.Sends++;
+                // Send on the first opportunity after the deadline. A skipped
+                // Compose call or a changing RTT must not miss an exact age
+                // multiple and silently suppress the remaining retry budget.
+                entry.LastSentAge = entry.Age;
                 count++;
             }
             if (count == 0)
@@ -518,6 +522,16 @@ namespace MphRead.Mods.Network
             }
             dest[0] = (byte)count;
             return offset;
+        }
+
+        internal static int OutgoingReceipts
+        {
+            get
+            {
+                int count = 0;
+                foreach (ref readonly var entry in _outbox.AsSpan()) if (entry.Live) count++;
+                return count;
+            }
         }
 
         /// <summary>Age the outbox. One call a frame from the client.</summary>
@@ -531,22 +545,18 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 entry.Age++;
-                if (entry.Age > MaxAge)
+                if (entry.Age > MaxAge && !entry.PredictionReleased)
+                {
+                    entry.PredictionReleased = true;
+                    NetHitPrediction.Settle(entry.VictimSlot, entry.Id, confirmed: false);
+                }
+                if (entry.Age > DeliveryMaxAge)
                 {
                     entry.Live = false;
                     Unanswered++;
                     if (NetLog.Enabled) NetShotDiagnostics.Trace("unanswered",
                         new ShotKey(entry.AuthorityEpoch, entry.MatchId, NetSession.LocalSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId),
                         (BeamType)entry.Beam, $"id={entry.Id} reason=verdict-timeout sends={entry.Sends}");
-                    // Six sends and no answer. The claim may still have landed
-                    // -- it is the verdict that went missing, not necessarily
-                    // the claim -- so this is not "the hit did not happen", it
-                    // is "stop holding the picture on the strength of it and
-                    // let the authority's snapshots decide", which is what
-                    // every build before claims did. A lethal prediction left
-                    // holding is a body on the floor for the whole of the hold
-                    // window.
-                    NetHitPrediction.Settle(entry.VictimSlot, entry.Id, confirmed: false);
                 }
             }
         }
@@ -596,10 +606,12 @@ namespace MphRead.Mods.Network
                     if (ack.VictimSlot != 255 && (ack.VictimSlot != entry.VictimSlot
                         || ack.VictimGeneration != entry.VictimGeneration || ack.VictimLife != entry.VictimLifeId)) continue;
                     entry.Live = false;
-                    if (!NetHitPrediction.ApplyCombatAck(ack, entry.Age))
+                    if (entry.PredictionReleased || !NetHitPrediction.ApplyCombatAck(ack, entry.Age))
                     {
                         // A snapshot often settles the hit before its claim is
-                        // answered. Retain that healthy path in the study too.
+                        // answered. After the short prediction deadline, a late
+                        // receipt also stays telemetry-only: it cannot reinstate
+                        // a debit or health/death correction.
                         bool headCorrection = ((entry.Flags & HitClaimPacket.FlagHeadshot) != 0)
                             != ((ack.Flags & CombatAckFlags.Headshot) != 0);
                         byte telemetryWeapon = (byte)(entry.Beam == HitClaimPacket.NoBeam
@@ -630,11 +642,11 @@ namespace MphRead.Mods.Network
                         // never matched, and its debit goes on being taken off
                         // a health the authority has already taken it off.
                         // NetHitPrediction._pendingClaim.
-                        NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: true);
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: true);
                         break;
                     case HitVerdictPacket.ResultDuplicate:
                         Duplicate++;
-                        NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: true);
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: true);
                         break;
                     case HitVerdictPacket.ResultDeadShooter:
                         RefusedDeadShooter++;
@@ -642,15 +654,15 @@ namespace MphRead.Mods.Network
                         // prediction this machine is holding is wrong and the
                         // sooner it is let go the shorter the wrong health bar
                         // lasts -- which is the whole reason a verdict exists.
-                        NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
                         break;
                     case HitVerdictPacket.ResultDeadVictim:
                         RefusedDeadVictim++;
-                        NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
                         break;
                     default:
                         RefusedOther++;
-                        NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
                         NetLog.Event($"claim {id} on slot {entry.VictimSlot} "
                             + $"{HitVerdictPacket.Describe(result)}");
                         break;
@@ -687,6 +699,7 @@ namespace MphRead.Mods.Network
             public uint AckFrame;
             public uint LaunchFrame;
             public uint ShotId;
+            public uint ComponentId;
             public Vector3 HitPoint;
             public Vector3 Direction;
             /// <summary>The authority frame it arrived on.</summary>
@@ -717,6 +730,7 @@ namespace MphRead.Mods.Network
         private const int SeenCapacity = 128;
         private const byte ResultPending = 255;
         private static readonly ushort[,] _seenIds = new ushort[Slots, SeenCapacity];
+        private static readonly ShotPaymentKey[,] _seenPaymentKeys = new ShotPaymentKey[Slots, SeenCapacity];
         private static readonly CombatAckEntry[,] _seenOutcomes = new CombatAckEntry[Slots, SeenCapacity];
         private static readonly CombatAckEntry[,,] _authorityOutcomes = new CombatAckEntry[Slots, Slots, LedgerDepth];
         private static readonly CombatAckEntry[] _latestOutcome = new CombatAckEntry[Slots];
@@ -744,6 +758,8 @@ namespace MphRead.Mods.Network
         /// every two frames, with room for splash and burst skew.
         /// </summary>
         public const int LedgerDepth = 64;
+        private static readonly uint[,,] _authorityComponents = new uint[Slots, Slots, LedgerDepth];
+        private static readonly byte[,,] _authorityKinds = new byte[Slots, Slots, LedgerDepth];
         private static readonly ShotKey[,,] _authorityKeys = new ShotKey[Slots, Slots, LedgerDepth];
         private static readonly ushort[,,] _victimGeneration = new ushort[Slots, Slots, LedgerDepth];
         private static readonly ushort[,,] _victimLife = new ushort[Slots, Slots, LedgerDepth];
@@ -952,7 +968,7 @@ namespace MphRead.Mods.Network
         }
 
         private static bool TakeLedger(int attacker, int victim, uint claimAck,
-            uint claimLaunch, uint arrived, int window, out int authorityDamage, uint shotId = 0, ShotKey? claimKey = null)
+            uint claimLaunch, uint arrived, int window, out int authorityDamage, uint shotId = 0, ShotKey? claimKey = null, uint componentId = 0, byte damageKind = 0)
         {
             authorityDamage = 0;
             // Pair explicit lifecycle-fenced ShotId, independently of launch/ACK clocks.
@@ -966,7 +982,10 @@ namespace MphRead.Mods.Network
                     {
                         continue;
                     }
-                    if (_authorityKeys[attacker, victim, i] == (claimKey ?? ShotKey.For(attacker, shotId)))
+                    if (_authorityKeys[attacker, victim, i] == (claimKey ?? ShotKey.For(attacker, shotId))
+                        && (NetShotProof.Mode != ShotProofMode.Enforce
+                            || componentId != 0 && _authorityComponents[attacker, victim, i] == componentId
+                                && _authorityKinds[attacker, victim, i] == damageKind))
                     {
                         _authorityHitUsed[attacker, victim, i] = true;
                         authorityDamage = _authorityHitDamage[attacker, victim, i];
@@ -1128,7 +1147,7 @@ namespace MphRead.Mods.Network
         /// for a hit it is rescuing.
         /// </summary>
         public static void NoteAuthorityHit(int attackerSlot, int victimSlot,
-            uint launchFrame = 0, int damage = 0, uint continuousPhase = 0, uint shotId = 0, ShotKey? shotKey = null)
+            uint launchFrame = 0, int damage = 0, uint continuousPhase = 0, uint shotId = 0, ShotKey? shotKey = null, uint componentId = 0, byte damageKind = 0)
         {
             if (!Arbitrating || victimSlot < 0 || victimSlot >= Slots)
             {
@@ -1155,7 +1174,11 @@ namespace MphRead.Mods.Network
                 if (_completingLedger[victimSlot] >= 0 && shotKey.HasValue && !ApplyingClaim)
                     _authorityKeys[attackerSlot, victimSlot, _completingLedger[victimSlot]] = shotKey.Value;
                 if (_completingLedger[victimSlot] >= 0)
+                {
+                    _authorityComponents[attackerSlot, victimSlot, _completingLedger[victimSlot]] = componentId;
+                    _authorityKinds[attackerSlot, victimSlot, _completingLedger[victimSlot]] = damageKind;
                     _authorityContinuousPhase[attackerSlot, victimSlot, _completingLedger[victimSlot]] = ApplyingClaim ? _applyingContinuousPhase : continuousPhase;
+                }
             }
         }
 
@@ -1275,22 +1298,34 @@ namespace MphRead.Mods.Network
                     var outcome = new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot,
                         VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId };
                     int seenAt = claim.ClaimId % SeenCapacity;
+                    CombatAckEntry physicalOutcome = default;
                     if (claim.ClaimId != 0 && _seenIds[shooterSlot, seenAt] == claim.ClaimId
                         && _seenKeys[shooterSlot, seenAt] == key
                         && _seenResults[shooterSlot, seenAt] == HitVerdictPacket.ResultDuplicate
                         && _seenOutcomes[shooterSlot, seenAt].VictimSlot == claim.VictimSlot
                         && _seenOutcomes[shooterSlot, seenAt].VictimGeneration == claim.VictimGeneration
-                        && _seenOutcomes[shooterSlot, seenAt].VictimLife == claim.VictimLifeId)
+                        && _seenOutcomes[shooterSlot, seenAt].VictimLife == claim.VictimLifeId
+                        && (NetShotProof.Mode != ShotProofMode.Enforce
+                            || _seenBeams[shooterSlot, seenAt] == (BeamType)claim.Beam
+                                && _seenPaymentKeys[shooterSlot, seenAt] == NetShotProof.PaymentKey(shooterSlot, claim)))
                     {
                         RepeatsHere++;
                         Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate,
                             remember: false, outcome: _seenOutcomes[shooterSlot, seenAt]);
                     }
                     else if (claim.ClaimId != 0 && claim.ShotId != 0
-                        && TakeLedger(shooterSlot, claim.VictimSlot, claim.AckFrame, claim.LaunchFrame,
-                            NetSession.NetFrame, MaxGraceFrames, out _, claim.ShotId, key))
+                        && (NetShotProof.Mode == ShotProofMode.Enforce
+                            ? NetShotProof.TryPhysicalOutcome(shooterSlot, claim, out physicalOutcome)
+                            : TakeLedger(shooterSlot, claim.VictimSlot, claim.AckFrame, claim.LaunchFrame,
+                                NetSession.NetFrame, MaxGraceFrames, out _, claim.ShotId, key, claim.ComponentId, NetShotProof.Kind(claim.Flags))))
                     {
                         DuplicateHere++;
+                        if (NetShotProof.Mode == ShotProofMode.Enforce)
+                        {
+                            NetShotProof.Observe(shooterSlot, claim,
+                                HitVerdictPacket.ResultDuplicate, "authority-match", final: true);
+                            NetShotProof.MarkClaim(shooterSlot, claim);
+                        }
                         // Do not replace a present-life claim's answer when an
                         // earlier life reused its ClaimId. Full shot keys remain distinct.
                         bool cache = _seenIds[shooterSlot, seenAt] != claim.ClaimId
@@ -1299,10 +1334,11 @@ namespace MphRead.Mods.Network
                         {
                             _seenKeys[shooterSlot, seenAt] = key;
                             _seenBeams[shooterSlot, seenAt] = (BeamType)claim.Beam;
+                            _seenPaymentKeys[shooterSlot, seenAt] = NetShotProof.PaymentKey(shooterSlot, claim);
                         }
                         ushort currentNewest = _newestId[shooterSlot];
                         Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate,
-                            remember: cache, outcome: _takenOutcome);
+                            remember: cache, outcome: NetShotProof.Mode == ShotProofMode.Enforce ? physicalOutcome : _takenOutcome);
                         _newestId[shooterSlot] = currentNewest;
                     }
                     else
@@ -1324,6 +1360,16 @@ namespace MphRead.Mods.Network
                 {
                     RepeatsHere++;
                     int seenAt = claim.ClaimId % SeenCapacity;
+                    if (NetShotProof.Mode == ShotProofMode.Enforce && _seenIds[shooterSlot, seenAt] == claim.ClaimId
+                        && (_seenKeys[shooterSlot, seenAt] != claimKey
+                            || _seenBeams[shooterSlot, seenAt] != (BeamType)claim.Beam
+                            || _seenPaymentKeys[shooterSlot, seenAt] != NetShotProof.PaymentKey(shooterSlot, claim)))
+                    {
+                        Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultRefused, remember: false,
+                            outcome: new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot,
+                                VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId });
+                        continue;
+                    }
                     byte result = _seenIds[shooterSlot, seenAt] == claim.ClaimId
                         ? _seenResults[shooterSlot, seenAt] : HitVerdictPacket.ResultTooOld;
                     if (result != ResultPending) Answer(shooterSlot, claim.ClaimId, result);
@@ -1331,11 +1377,17 @@ namespace MphRead.Mods.Network
                 }
                 int claimAt = claim.ClaimId % SeenCapacity;
                 _seenBeams[shooterSlot, claimAt] = (BeamType)claim.Beam;
+                _seenPaymentKeys[shooterSlot, claimAt] = NetShotProof.PaymentKey(shooterSlot, claim);
                 _seenKeys[shooterSlot, claimAt] = claimKey;
                 NetShotDiagnostics.Claims[NetShotDiagnostics.Bucket((BeamType)claim.Beam)]++;
                 Remember(shooterSlot, claim.ClaimId, ResultPending);
                 _seenOutcomes[shooterSlot, claimAt] = new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot, VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId };
                 byte immediate = Judge(shooterSlot, claim);
+                var proof = NetShotProof.Observe(shooterSlot, claim, immediate, "arrival");
+                if (NetShotProof.Mode == ShotProofMode.Enforce && AnswerPhysicalOutcome(shooterSlot, claim))
+                    continue;
+                if (NetShotProof.Mode == ShotProofMode.Enforce && proof.Status == ShotProofStatus.Rejected)
+                    immediate = HitVerdictPacket.ResultRefused;
                 if (immediate != HitVerdictPacket.ResultApplied)
                 {
                     Answer(shooterSlot, claim.ClaimId, immediate);
@@ -1673,6 +1725,28 @@ namespace MphRead.Mods.Network
                 + $"added={applied}");
         }
 
+        private static HitClaimPacket ProofClaim(in Pending entry) => new()
+        {
+            MatchId=entry.MatchId,AuthorityEpoch=entry.AuthorityEpoch,
+            ShooterGeneration=entry.ShooterGeneration,ShooterLifeId=entry.ShooterLifeId,
+            VictimGeneration=entry.VictimGeneration,VictimLifeId=entry.VictimLifeId,
+            ClaimId=entry.Id,VictimSlot=entry.VictimSlot,Beam=entry.Beam,Damage=entry.Damage,
+            Flags=entry.Flags,AckFrame=entry.AckFrame,LaunchFrame=entry.LaunchFrame,
+            ShotId=entry.ShotId,ComponentId=entry.ComponentId,HitPoint=entry.HitPoint,Direction=entry.Direction,
+            Frame=entry.ContinuousPhase
+        };
+
+        // Exact paid identity authorizes only acknowledgement of immutable native
+        // state. Claimed damage, headshot, afflictions and impulse never enter it.
+        private static bool AnswerPhysicalOutcome(int slot, in HitClaimPacket claim)
+        {
+            if (!NetShotProof.TryPhysicalOutcome(slot, claim, out var outcome)) return false;
+            NetShotProof.MarkClaim(slot, claim);
+            DuplicateHere++;
+            Answer(slot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: outcome);
+            return true;
+        }
+
         private static void Park(int shooterSlot, in HitClaimPacket claim)
         {
             int index = -1;
@@ -1717,6 +1791,7 @@ namespace MphRead.Mods.Network
                 AckFrame = claim.AckFrame,
                 LaunchFrame = claim.LaunchFrame,
                 ShotId = claim.ShotId,
+                ComponentId = claim.ComponentId,
                 HitPoint = claim.HitPoint,
                 Direction = claim.Direction,
                 Arrived = NetSession.NetFrame,
@@ -1867,20 +1942,37 @@ namespace MphRead.Mods.Network
                         NetPlayerLifecycle.OldLifeClaims++;
                         continue;
                     }
+                    var paidClaim = ProofClaim(entry);
+                    if (NetShotProof.Mode == ShotProofMode.Enforce
+                        && NetShotProof.TryPhysicalOutcome(entry.ShooterSlot, paidClaim, out var paidOutcome))
+                    {
+                        NetShotProof.Observe(entry.ShooterSlot, paidClaim,
+                            HitVerdictPacket.ResultDuplicate, "authority-match", final: true);
+                        AnswerPhysicalOutcome(entry.ShooterSlot, paidClaim);
+                        DeactivatePending(ref entry);
+                        NoteAgreement(entry.ShooterSlot, entry.VictimSlot, entry.Beam,
+                            entry.Damage, paidOutcome.DamageApplied);
+                        continue;
+                    }
                     int resolved;
                     if (entry.ContinuousPhase != 0
                         ? TakeContinuousLedger(entry.ShooterSlot, entry.VictimSlot, entry.ContinuousPhase, out resolved)
                         : TakeLedger(entry.ShooterSlot, entry.VictimSlot, entry.AckFrame,
                             entry.LaunchFrame, entry.Arrived, entry.Grace, out resolved, entry.ShotId,
                             new ShotKey(entry.AuthorityEpoch, entry.MatchId, entry.ShooterSlot,
-                                entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId)))
+                                entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId), entry.ComponentId, NetShotProof.Kind(entry.Flags)))
                     {
                         // A validated Imperialist headshot can pair with the
                         // authority's body hit when the two rewinds differ by
                         // only the narrow head band. "Duplicate" used to throw
                         // away the missing 128 damage and leave the target
                         // alive after the shooter had been told HEADSHOT.
-                        ReconcileImperialistHeadshot(ref entry, resolved);
+                        var proofClaim = ProofClaim(entry);
+                        var proof = NetShotProof.Observe(entry.ShooterSlot, proofClaim,
+                            HitVerdictPacket.ResultDuplicate, "authority-match", final: true);
+                        if (NetShotProof.Mode != ShotProofMode.Enforce)
+                            ReconcileImperialistHeadshot(ref entry, resolved);
+                        NetShotProof.MarkClaim(entry.ShooterSlot, proofClaim);
                         DeactivatePending(ref entry);
                         DuplicateHere++;
                         NoteAgreement(entry.ShooterSlot, entry.VictimSlot, entry.Beam,
@@ -2007,6 +2099,15 @@ namespace MphRead.Mods.Network
                 NetPlayerLifecycle.OldLifeClaims++;
                 return;
             }
+            var paidClaim = ProofClaim(entry);
+            if (NetShotProof.Mode == ShotProofMode.Enforce
+                && NetShotProof.TryPhysicalOutcome(shooterSlot, paidClaim, out _))
+            {
+                NetShotProof.Observe(shooterSlot, paidClaim,
+                    HitVerdictPacket.ResultDuplicate, "settlement", final: true);
+                AnswerPhysicalOutcome(shooterSlot, paidClaim);
+                return;
+            }
             if (victimSlot >= PlayerEntity.Players.Count
                 || shooterSlot >= PlayerEntity.Players.Count)
             {
@@ -2032,6 +2133,27 @@ namespace MphRead.Mods.Network
                 VoidedDeadShooter++;
                 Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultDeadShooter);
                 return;
+            }
+            var proofClaim = ProofClaim(entry);
+            var proof = NetShotProof.Observe(shooterSlot, proofClaim, HitVerdictPacket.ResultApplied, "settlement", final: true);
+            if (NetShotProof.Mode == ShotProofMode.Enforce && proof.Status != ShotProofStatus.Verified)
+            {
+                RefusedHere++;
+                Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultRefused);
+                return;
+            }
+            if (NetShotProof.Mode == ShotProofMode.Enforce)
+            {
+                // A physical witness authorizes acknowledgement of that existing
+                // resolution, never another payment after the legacy match ring expires.
+                if (proof.PhysicalMatch)
+                {
+                    if (!AnswerPhysicalOutcome(shooterSlot, proofClaim))
+                        Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultRefused);
+                    return;
+                }
+                if (!NetShotProof.MarkClaim(shooterSlot, proofClaim))
+                { Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultClaimCapacity); return; }
             }
             if (!CanRememberRescue(shooterSlot, victimSlot, entry.ShotId)
                 || (_ledgerUnsafeUntil[shooterSlot, victimSlot] != 0
@@ -2103,6 +2225,7 @@ namespace MphRead.Mods.Network
                 Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultNoDamage);
                 return;
             }
+            NetShotProof.MarkClaim(shooterSlot, proofClaim);
             if (victim.Health > 0)
             {
                 // A rescued claim has no beam entity, so its afflictions cannot
@@ -2217,7 +2340,9 @@ namespace MphRead.Mods.Network
             // must repeat the verdict, never park the already applied hit again.
             CombatAckEntry answer = outcome ?? (_seenIds[slot, at] == id ? _seenOutcomes[slot, at] : new CombatAckEntry { VictimSlot = 255 });
             answer.ClaimId = id; answer.Result = result;
-            if (!outcome.HasValue && _seenIds[slot, at] == id) answer.ShotId = _seenKeys[slot, at].ShotId;
+            // Native outcomes carry victim state, not the claimant's correlation
+            // identity. The first answer must identify the claim just as a retry does.
+            if (answer.ShotId == 0 && _seenIds[slot, at] == id) answer.ShotId = _seenKeys[slot, at].ShotId;
             Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.Claim, NetSession.NetFrame,
                 Player: (byte)slot, Victim: answer.VictimSlot, Id: id, Result: result, Flags: (int)answer.Flags,
                 A: answer.DamageApplied, B: answer.HealthAfter, ShotId: answer.ShotId));
@@ -2262,7 +2387,7 @@ namespace MphRead.Mods.Network
             Array.Clear(_pending); _claimsPendingCurrent = 0;
             Array.Clear(_seenIds);
             Array.Clear(_seenResults);
-            Array.Clear(_seenOutcomes); Array.Clear(_authorityOutcomes); Array.Clear(_latestOutcome);
+            Array.Clear(_seenPaymentKeys); Array.Clear(_seenOutcomes); Array.Clear(_authorityOutcomes); Array.Clear(_latestOutcome);
             Array.Clear(_newestId);
             Array.Clear(_lastResult);
             Array.Clear(_authorityLive); _resolvedLedgerCurrent = 0;
@@ -2357,7 +2482,7 @@ namespace MphRead.Mods.Network
         {
             Array.Clear(_seenIds);
             Array.Clear(_seenResults);
-            Array.Clear(_seenOutcomes); Array.Clear(_authorityOutcomes); Array.Clear(_latestOutcome);
+            Array.Clear(_seenPaymentKeys); Array.Clear(_seenOutcomes); Array.Clear(_authorityOutcomes); Array.Clear(_latestOutcome);
             Array.Clear(_newestId);
             Array.Clear(_verdictCount);
             _rescueIndex.Reset();

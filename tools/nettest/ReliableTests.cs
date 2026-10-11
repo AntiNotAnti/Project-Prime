@@ -18,6 +18,7 @@ internal static class ReliableTests
             BackgroundInboxRetry();
             AuthorityFactBudget();
             RetiredPeerAcknowledgesBye();
+            RetiredPeerRetriesLostByeAck();
             var endpoint = new IPEndPoint(IPAddress.Loopback, 42);
             NetConnection sender = new NetConnection(endpoint, 12), receiver = new NetConnection(endpoint, 12);
             var queue = new NetFaultQueue<Wire>(42, 160, 80, .05, .03, .01);
@@ -185,6 +186,82 @@ internal static class ReliableTests
         client.Dispose();
         NetArchitectureTests.Check(client.UnacknowledgedCloseEvents == 0,
             "retirement preserves the received Bye ACK until the socket worker sends it");
+    }
+
+    private static void RetiredPeerRetriesLostByeAck()
+    {
+        using var server = new NetTransport(0);
+        using var wire = new UdpClient(0);
+        wire.Client.ReceiveTimeout = 2000;
+        var remote = new IPEndPoint(IPAddress.Loopback, ((IPEndPoint)wire.Client.LocalEndPoint!).Port);
+        var endpoint = new IPEndPoint(IPAddress.Loopback, server.LocalPort);
+        var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var serviceAt = typeof(NetTransport).GetField("_nextConnectionService", flags)!;
+        var service = typeof(NetTransport).GetMethod("ServiceConnections", flags)!;
+        // Freeze autonomous maintenance; every service turn below is explicit.
+        serviceAt.SetValue(server, System.Diagnostics.Stopwatch.GetTimestamp()
+            + 30 * System.Diagnostics.Stopwatch.Frequency);
+        void Service() => service.Invoke(server, new object[] { true });
+        var from = new IPEndPoint(IPAddress.Any, 0);
+        server.Send(remote, PacketType.Welcome, new byte[17]);
+        byte[] welcome = wire.Receive(ref from);
+        NetArchitectureTests.Check(NetHeader.TryRead(welcome, out var header), "lost-close-ACK fixture admits UDP incarnation");
+        var sender = new NetConnection(endpoint, header.ConnectionId); sender.Receive(header, 0);
+        NetArchitectureTests.Check(sender.Reliable.TryQueue(PacketType.Bye, ReadOnlySpan<byte>.Empty, 0, out uint id),
+            "lost-close-ACK fixture queues one reliable Bye");
+        void Bye()
+        {
+            byte[] packet = new byte[NetHeader.Size + 4];
+            sender.Send(PacketType.Bye, 0, NetHeaderFlags.Reliable, id).Write(packet);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(NetHeader.Size), id);
+            wire.Send(packet, endpoint);
+        }
+        int applications = 0;
+        Bye();
+        NetArchitectureTests.Check(SpinWait.SpinUntil(() =>
+        {
+            foreach (var packet in server.Drain())
+                if (packet.Type == PacketType.Bye) { applications++; server.RetireConnection(packet.Sender); }
+            return applications == 1;
+        }, 2000), "first Bye retires the peer exactly once");
+        Service();
+        byte[] lostAck = wire.Receive(ref from);
+        NetArchitectureTests.Check(NetHeader.TryRead(lostAck, out var discarded)
+            && discarded.Flags.HasFlag(NetHeaderFlags.AckOnly), "first retired-peer ACK is deliberately blackholed");
+        // Do NOT deliver lostAck to sender.Receive. An empty sender queue and a
+        // cleared ACK flag must not destroy the receiver's retirement tombstone.
+        Service();
+        NetArchitectureTests.Check(server.ConnectionStats(remote) != null && sender.Reliable.HasPending(PacketType.Bye),
+            "retired peer survives lost first ACK with no outgoing pending events");
+        Bye();
+        NetArchitectureTests.Check(SpinWait.SpinUntil(() => { Service(); return wire.Available > 0; }, 2000),
+            "retired peer re-ACKs a fresh datagram retry of the same Bye");
+        byte[] retryAck = wire.Receive(ref from);
+        NetArchitectureTests.Check(NetHeader.TryRead(retryAck, out var acknowledged)
+            && acknowledged.Flags.HasFlag(NetHeaderFlags.AckOnly), "retry produces a transport ACK");
+        sender.Receive(acknowledged, 1);
+        foreach (var packet in server.Drain()) if (packet.Type == PacketType.Bye) applications++;
+        NetArchitectureTests.Check(!sender.Reliable.HasPending(PacketType.Bye) && applications == 1,
+            "lost-ACK retry confirms close without duplicate Bye application");
+        // Advance only the logical retirement age; do not wait 15 seconds.
+        var connections = (Dictionary<IPEndPoint, NetConnection>)typeof(NetTransport).GetField("_connections", flags)!.GetValue(server)!;
+        var connectionLock = typeof(NetTransport).GetField("_connectionLock", flags)!.GetValue(server)!;
+        lock (connectionLock)
+            connections[remote].RetiredAt = System.Diagnostics.Stopwatch.GetTimestamp() * 1000.0
+                / System.Diagnostics.Stopwatch.Frequency - NetReliableChannel.LifetimeMilliseconds - 1;
+        Service();
+        NetArchitectureTests.Check(server.ConnectionStats(remote) == null, "retirement tombstone expires at its bounded lifetime");
+        server.Send(remote, PacketType.Welcome, new byte[17]);
+        byte[] replacement = wire.Receive(ref from);
+        NetArchitectureTests.Check(NetHeader.TryRead(replacement, out var newer)
+            && newer.ConnectionId != header.ConnectionId, "replacement endpoint receives a fresh incarnation");
+        long invalid = server.Telemetry.Capture().Invalid;
+        Bye();
+        NetArchitectureTests.Check(SpinWait.SpinUntil(() => server.Telemetry.Capture().Invalid > invalid, 2000),
+            "retired incarnation cannot close its replacement");
+        foreach (var packet in server.Drain()) if (packet.Type == PacketType.Bye) applications++;
+        NetArchitectureTests.Check(applications == 1 && server.ConnectionStats(remote)?.ConnectionId == newer.ConnectionId,
+            "replacement survives stale Bye and retired application remains exactly once");
     }
 
     private static void FullStateStartupBurst()

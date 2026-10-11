@@ -396,6 +396,7 @@ namespace MphRead.Mods.Network
                     // Match/life identity and room readiness exclude reports
                     // captured in the previous room.
                     NetPlayerBridge.ApplyReportedPosition(player, NetSession.RemoteIntents[slot]);
+                    NetShotProof.ObservePose(player, NetSession.RemoteIntents[slot]);
                 }
                 NetTelemetry.ConsumedIntent(slot, NetSession.RemoteIntentAge(slot));
                 NetPlayerBridge.ApplyIntent(player, NetSession.RemoteIntents[slot]);
@@ -636,6 +637,7 @@ namespace MphRead.Mods.Network
                         _continuousIntent.ContinuousFireTick = owner.ModContinuousFireTick;
                         _continuousIntent.HasContinuousFireTick = true;
                     }
+                    NetShotInputHistory.Fill(NetSession.NetFrame, ShotKey.For(owner.SlotIndex, 0), ref _continuousIntent);
                     NetSession.SendIntent(_continuousIntent);
                 }
             }

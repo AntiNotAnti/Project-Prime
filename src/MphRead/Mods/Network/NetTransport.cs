@@ -885,10 +885,12 @@ namespace MphRead.Mods.Network
                     try
                     {
                         if (!_connections.TryGetValue(endpoint, out var connection)) continue;
+                        // Constructing the final ACK does not prove it arrived.
+                        // Keep this incarnation's receive/dedup state for the
+                        // retry horizon so a lost Bye ACK can be answered again.
                         if (connection.RetiredAt.HasValue
-                            && (!connection.AckPending && connection.Reliable.Capture(now).Pending == 0
-                                || now - connection.RetiredAt.Value
-                                    >= NetReliableChannel.LifetimeMilliseconds))
+                            && now - connection.RetiredAt.Value
+                                >= NetReliableChannel.LifetimeMilliseconds)
                         {
                             _connections.Remove(endpoint);
                             expired = true;

@@ -87,6 +87,7 @@ internal sealed class SceneMatchEvents
         PlayerEntity? target = null, int entity = -1, int value = 0, int weapon = -1, MatchSemanticEventFlags flags = 0)
     {
         if (!Prepare(scene)) return;
+        if (type == MatchSemanticEventType.PrimeChanged) NetShotSourceJournal.PrimeChanged(scene);
         if (!Bus.TryEmit(Tick(scene), type, Actor(actor), Actor(target), weapon: weapon, flags: flags, entity: entity, value: value)) RejectedEvents++;
         else MatchReportStats.AcceptSemantic(scene, Bus.LastEvent, Bus.Awards);
     }

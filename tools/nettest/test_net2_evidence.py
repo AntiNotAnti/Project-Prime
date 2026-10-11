@@ -1,6 +1,7 @@
 """Regression checks for false-green campaigns. Run with python -m unittest discover."""
 import copy
 import json
+import struct
 from pathlib import Path
 import tempfile
 import unittest
@@ -340,6 +341,168 @@ class EvidenceTests(unittest.TestCase):
         explicit_new = adjudicate(self.out, self.processes, expected_protocol=42)
         self.assertEqual(explicit_new["status"], "FAIL")
         self.assertIn("server: schema/protocol mismatch", explicit_new["failures"])
+
+    @staticmethod
+    def slow(revision, frame, kills=0, deaths=0, generation=3, epoch=111, match=2, context=0):
+        # Raw PlayerSlowState payload excludes the outer transport packet header.
+        payload = struct.pack("<HQIBBH", match, epoch, revision, 1, 0, generation)
+        payload += struct.pack("<BhHH", 0, 0, kills, deaths) + bytes(64)
+        return dict(Epoch=epoch, Match=match, Revision=revision, Frame=frame,
+                    Context=context, Payload=payload.hex())
+
+    def lanes(self):
+        for report in (self.server, self.client):
+            report["Schema"] = 2
+            report["SlowStates"] = [self.slow(1, 6), self.slow(2, 180, kills=1)]
+            report["States"][-1]["Kills"] = 1
+
+    def test_schema1_score_lag_still_fails(self):
+        self.server["States"][-1]["Kills"] = 1
+        self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_matching_independent_lanes_allow_cached_score_lag(self):
+        self.lanes()
+        self.client["States"][-1]["Kills"] = 0
+        # Client-local reception clock is not an authority-frame join key.
+        self.client["SlowStates"][-1]["Frame"] = 9999
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["parity"]["shooter"]["healthMismatches"], 0)
+        self.assertEqual(result["parity"]["shooter"]["slowSamplesCompared"], 2)
+        self.assertEqual(result["parity"]["shooter"]["finalScoreConvergence"], "PASS")
+
+    def test_schema2_fast_health_lag_still_fails(self):
+        self.lanes(); self.client["States"][-1]["Hp"] = 50
+        self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_wrong_slow_score_payload_fails(self):
+        self.lanes(); self.client["SlowStates"][-1] = self.slow(2, 180, kills=2)
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "FAIL")
+        self.assertEqual(result["parity"]["shooter"]["slowLaneCompleteness"], "FAIL")
+
+    def test_schema2_full_slow_payload_not_just_scores_must_match(self):
+        self.lanes()
+        row = self.client["SlowStates"][-1]; payload = bytearray.fromhex(row["Payload"])
+        struct.pack_into("<f", payload, len(payload) - 4, 1)
+        row["Payload"] = payload.hex(); self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_missing_and_empty_slow_lanes_fail(self):
+        for endpoint in ("server", "client"):
+            for missing in (True, False):
+                with self.subTest(endpoint=endpoint, missing=missing):
+                    self.lanes(); report = getattr(self, endpoint)
+                    if missing: del report["SlowStates"]
+                    else: report["SlowStates"] = []
+                    self.write(); self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_unknown_slow_revision_fails(self):
+        self.lanes(); self.client["SlowStates"][-1] = self.slow(3, 180, kills=1)
+        self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_row_payload_identity_mismatch_fails(self):
+        self.lanes(); self.client["SlowStates"][-1]["Revision"] = 3
+        self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_other_stream_cannot_supply_slow_scores(self):
+        self.lanes(); self.client["SlowStates"] = [self.slow(1, 6, epoch=222), self.slow(2, 180, kills=1, epoch=222)]
+        self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_final_stale_score_fails_even_if_received_payload_is_exact(self):
+        self.lanes(); self.client["SlowStates"] = self.client["SlowStates"][:1]
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "FAIL")
+        self.assertEqual(result["parity"]["shooter"]["slowLaneCompleteness"], "PASS")
+        self.assertEqual(result["parity"]["shooter"]["finalScoreConvergence"], "FAIL")
+
+    def test_schema2_terminal_score_uses_server_frame_not_ever_matching_revision(self):
+        self.lanes(); self.server["SlowStates"].append(self.slow(3, 180, kills=2))
+        self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_future_authority_score_cannot_rewrite_terminal_expected_score(self):
+        self.lanes(); self.server["SlowStates"].append(self.slow(3, 181, kills=2))
+        self.write()
+        self.assertEqual(self.result()["status"], "PASS")
+
+    def test_schema2_terminal_generation_must_be_present_in_slow_lane(self):
+        self.lanes()
+        for report in (self.server, self.client):
+            report["SlowStates"] = [self.slow(1, 6, generation=4), self.slow(2, 180, kills=1, generation=4)]
+        self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_malformed_slow_payloads_fail(self):
+        self.lanes(); good = self.client["SlowStates"][-1]["Payload"]
+        for payload in ("bad", good[:-2], good + "00", "ZZ", good[:28] + "09" + good[30:]):
+            with self.subTest(payload=payload[:30]):
+                self.lanes(); self.client["SlowStates"][-1]["Payload"] = payload
+                self.write(); self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_duplicate_revision_fails(self):
+        self.lanes(); self.server["SlowStates"].append(self.server["SlowStates"][-1])
+        self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_new_context_reapplication_with_exact_payload_and_recovery_passes(self):
+        self.lanes()
+        self.client["SlowStates"] += [self.slow(1, 181, context=1),
+                                      self.slow(2, 182, kills=1, context=1)]
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["parity"]["shooter"]["slowSamplesCompared"], 4)
+
+    def test_schema2_final_bootstrap_reseed_to_stale_scores_fails(self):
+        self.lanes(); self.client["SlowStates"].append(self.slow(1, 181, context=1))
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "FAIL")
+        self.assertEqual(result["parity"]["shooter"]["slowLaneCompleteness"], "PASS")
+        self.assertEqual(result["parity"]["shooter"]["finalScoreConvergence"], "FAIL")
+
+    def test_schema2_same_context_reapplication_fails(self):
+        self.lanes(); self.client["SlowStates"].append(self.slow(2, 181, kills=1))
+        self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_new_context_does_not_authorize_forged_payload(self):
+        self.lanes(); self.client["SlowStates"].append(self.slow(2, 181, kills=2, context=1))
+        self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_context_required_and_bounded(self):
+        self.lanes()
+        for context in (None, -1, 2**31, True, "1"):
+            with self.subTest(context=context):
+                self.lanes(); row = self.client["SlowStates"][-1]
+                if context is None: del row["Context"]
+                else: row["Context"] = context
+                self.write(); self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_authority_context_must_remain_zero(self):
+        self.lanes(); self.server["SlowStates"][-1]["Context"] = 1
+        self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_schema2_does_not_waive_semantic_gap(self):
+        self.lanes(); self.server["Facts"].append(dict(self.server["Facts"][0], Id=2, Payload="DEAD"))
+        self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_mixed_evidence_schemas_fail(self):
+        self.lanes(); self.client["Schema"] = 1
+        self.write()
+        self.assertEqual(self.result()["status"], "FAIL")
 
     def test_wrong_protocol(self):
         self.client["Protocol"] = 42

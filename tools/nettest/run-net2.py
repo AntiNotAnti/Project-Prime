@@ -14,7 +14,7 @@ import shutil
 import signal
 import subprocess
 import time
-from net2_evidence import adjudicate
+from net2_evidence import adjudicate, drain_barrier, drain_prepared, DrainStability
 
 PROFILES = {"lan": (0, 0, 0, 0, 0), "moderate": (100, 20, 1, 0, 0),
             "poor": (250, 40, 2, 0, 0), "extreme": (400, 80, 5, 3, 1)}
@@ -31,6 +31,12 @@ def digest(path):
 
 def save(path, value):
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+
+
+def release_drain(path, value):
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    save(temporary, value)
+    temporary.replace(path)
 
 
 def stop(process):
@@ -99,9 +105,14 @@ def run(args):
         env = {key: value for key, value in os.environ.items()
                if not key.startswith(("PRIME_", "MPHREAD_", "PROJECT_PRIME_"))}
         env.update(PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS="null",
-                   MPHREAD_PHASE_SECONDS="2", PRIME_NET2_EVIDENCE=str(args.out / f"{name}.json"))
+                   MPHREAD_PHASE_SECONDS="2", PRIME_NET2_EVIDENCE=str(args.out / f"{name}.json"),
+                   PRIME_SHOT_PROOF=args.shot_proof)
         if args.soak:
             env["PRIME_NET2_SOAK"] = "1"
+        if args.drain_seconds:
+            env.update(PRIME_NET2_DRAIN_SECONDS=str(args.drain_seconds), PRIME_NET2_DRAIN_ROLE=name if name == "server" else "client",
+                       PRIME_NET2_DRAIN_STATUS=str(args.out / f"{name}.drain.json"),
+                       PRIME_NET2_DRAIN_RELEASE=str(args.out / ("drain.server-release.json" if name == "server" else "drain.release.json")))
         command = [dotnet, str(assembly), "-mapdir", str(maps), "-noupdate", "-noautoupdate", *extra]
         handle = open(args.out / f"{name}.log", "w", encoding="utf-8")
         handles.append(handle)
@@ -112,9 +123,11 @@ def run(args):
                   "requestedSeconds": duration, "expectsShots": expects_shots, "exit": None, "timedOut": False}
         records.append(record)
         manifest["commands"].append({"name": name, "argv": command,
-            "environment": {k: env[k] for k in ("PROJECT_PRIME_USER_DATA", "ALSOFT_DRIVERS", "MPHREAD_PHASE_SECONDS", "PRIME_NET2_EVIDENCE")},
+            "environment": {k: env[k] for k in ("PROJECT_PRIME_USER_DATA", "ALSOFT_DRIVERS", "MPHREAD_PHASE_SECONDS", "PRIME_NET2_EVIDENCE", "PRIME_SHOT_PROOF")},
             "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
             "soak": args.soak})
+        if args.drain_seconds:
+            manifest["commands"][-1]["environment"].update({key: value for key, value in env.items() if key.startswith("PRIME_NET2_DRAIN_")})
         save(args.out / "manifest.json", manifest)
         return process, record
 
@@ -157,7 +170,7 @@ def run(args):
                 extra += ["-spectate", "90", "-rejoin", "150"]
             expects = not observer and (args.soak or args.scenario in ("tour", "duel", "shockcoil-all") or slot % 2 == 0)
             p, record = launch(name, extra, seconds, expects)
-            clients.append((p, record, time.monotonic() + seconds + 120))
+            clients.append((p, record, time.monotonic() + seconds + args.drain_seconds + 120))
 
         # Soak: one late join, then a normal departure and a fresh process/connection.
         client_start = time.monotonic()
@@ -165,6 +178,12 @@ def run(args):
             client(slot, f"peer-{slot}", args.seconds)
             time.sleep(.25)
         late_started = reconnect_started = False
+        drain_started = None
+        stability = DrainStability()
+        drain_released = False
+        prepared_release = None
+        preparation = None
+        drain_reason = "waiting for peer quiescence"
         while True:
             elapsed = time.monotonic() - client_start
             bot_finished = not args.soak or "[net2] bot fill complete" in (args.out / "server.log").read_text(errors="replace")
@@ -175,6 +194,58 @@ def run(args):
             if args.soak and late_started and not reconnect_started and elapsed >= late_started_seconds + 210:
                 client(args.players - 1, "peer-reconnect", max(1, args.seconds - elapsed))
                 reconnect_started = True
+            if args.drain_seconds and not drain_released:
+                statuses = {}
+                for name in ("server", *(record["name"] for _, record, _ in clients)):
+                    path = args.out / f"{name}.drain.json"
+                    try:
+                        # Atomic publication makes partial JSON impossible; stale processes cannot pass.
+                        if time.time() - path.stat().st_mtime <= 1:
+                            statuses[name] = json.loads(path.read_text(encoding="utf-8"))
+                    except (OSError, ValueError):
+                        pass
+                peers = {name: row for name, row in statuses.items() if name != "server"}
+                if any(row.get("Quiescing") for row in peers.values()) and drain_started is None:
+                    drain_started = time.monotonic()
+                release = None
+                if "server" in statuses and len(peers) == args.players:
+                    quiet, drain_reason, stable_seconds = stability.observe(statuses["server"], peers, time.monotonic())
+                    release, drain_reason = drain_barrier(statuses["server"], list(peers.values()))
+                else:
+                    drain_reason = "missing/frozen process drain statuses"
+                    _, _, stable_seconds = stability.observe({}, {}, time.monotonic())
+                if prepared_release is None and release and stable_seconds >= statuses["server"]["ClaimGraceSeconds"]:
+                    prepared_release = release
+                    preparation = {"prepareServer": statuses["server"], "preparePeers": peers,
+                        "prepareStableSeconds": stable_seconds,
+                        "stabilityCondition": "gameplay frontier and offered keys stable; healthy queues during grace, empty at preparation and release"}
+                    # Prepare authority first. Clients cannot see this isolated token,
+                    # so no Bye/PlayerLeft event can race its saved AtRelease frontier.
+                    release_drain(args.out / "drain.server-release.json", release)
+                    manifest["drain"] = {"status": "PREPARING", "release": release,
+                        "server": statuses["server"], "peers": peers, "stableSeconds": stable_seconds, **preparation}
+                    save(args.out / "manifest.json", manifest)
+                prepared, prepared_reason = drain_prepared(statuses.get("server", {}), prepared_release) if prepared_release else (False, None)
+                if prepared and release == prepared_release and stable_seconds >= statuses["server"]["ClaimGraceSeconds"]:
+                    manifest["drain"] = {"status": "PASS", "release": release, "server": statuses["server"],
+                        "peers": peers, "stableSeconds": stable_seconds, "elapsedSeconds": time.monotonic() - drain_started,
+                        **preparation}
+                    drain_released = True
+                elif drain_started is not None and time.monotonic() - drain_started >= args.drain_seconds:
+                    authority = statuses.get("server", {})
+                    release = {"Status": "FAIL", "Epoch": authority.get("Epoch", 0), "Match": authority.get("Match", 0),
+                               "Semantic": authority.get("SemanticLatest", 0), "Award": authority.get("AwardLatest", 0)}
+                    timeout_reason = (prepared_reason or drain_reason) if prepared_release else drain_reason or "claim-grace stability not reached"
+                    manifest["drain"] = {"status": "FAIL", "reason": timeout_reason,
+                        "release": release, "server": authority, "peers": peers, "stableSeconds": stable_seconds,
+                        **(preparation or {})}
+                    # A server that cached preparation PASS will retain that token;
+                    # client FAIL and manifest FAIL still fail closed on export.
+                    release_drain(args.out / "drain.server-release.json", release)
+                    drain_released = True
+                if drain_released:
+                    release_drain(args.out / "drain.release.json", release)
+                    save(args.out / "manifest.json", manifest)
             for process, record, limit in clients:
                 if record["exit"] is not None:
                     continue
@@ -228,9 +299,13 @@ if __name__ == "__main__":
     p.add_argument("--source", required=True, help="Exact source SHA plus dirty diff hash if applicable")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--dotnet", default="dotnet")
-    p.add_argument("--protocol", type=int, default=43, help="Expected evidence protocol (historical campaigns may specify 41)")
+    p.add_argument("--protocol", type=int, default=45, help="Expected evidence protocol (historical campaigns may specify 41)")
+    p.add_argument("--shot-proof", choices=("off", "shadow", "enforce"), default="shadow",
+                   help="Record and apply the explicit N4 admission mode")
     p.add_argument("--players", type=int, choices=(2, 3, 4, 8), default=2)
     p.add_argument("--seconds", type=float, default=90)
+    p.add_argument("--drain-seconds", type=float, default=0,
+                   help="Opt-in bounded headless quiescence/frontier/empty-reliable-queue barrier; zero preserves legacy shutdown")
     p.add_argument("--port", type=int, default=27991)
     p.add_argument("--seed", type=int, default=8128)
     p.add_argument("--profile", choices=PROFILES, default="lan")
@@ -243,6 +318,10 @@ if __name__ == "__main__":
     args = p.parse_args()
     if args.seconds <= 0 or args.round_minutes <= 0 or not 1024 <= args.port <= 65535:
         p.error("duration, round length and port must be positive and valid")
+    if args.drain_seconds < 0 or args.drain_seconds > 60:
+        p.error("--drain-seconds must be between zero and 60")
+    if args.drain_seconds and (args.rendered or args.soak):
+        p.error("--drain-seconds supports short headless campaigns only; rendered/soak is not implemented")
     if args.soak and (args.players != 8 or args.seconds < 1200 or args.seconds > 1800):
         p.error("--soak requires eight slots and 1200–1800 seconds")
     raise SystemExit(run(args))

@@ -63,13 +63,28 @@ internal static class NetArchitectureTests
             Check(output.SequenceEqual(fixture), "protocol 38 legacy intent fixture remains readable");
             Check(intent.AckFrame == 0x87654321 && intent.AckSubFrame == 128 && IntentPacket.PressHistory == 8,
                 "displayed world ACK and eight-frame edge retention");
-            Check(NetConfig.ProtocolVersion == 43
+            Check(NetConfig.ProtocolVersion == 45
                 && IntentPacket.Protocol38FullSize == 423
                 && IntentPacket.FullSize == 1287 && intent.HasAnalogMove
                 && intent.MoveX == 64 && intent.MoveY == -96
                 && intent.HasContinuousFireTick && intent.ContinuousFireTick == 0xCAFEBABE
                 && Math.Abs(IntentPacket.UnpackMoveAxis(intent.MoveX) - 64 / 127f) < .00001f,
-                "protocol 43 preserves protocol-40 Balanced ability semantics and exact FireEvent pose");
+                "protocol 45 preserves protocol-40 Balanced ability semantics and exact FireEvent pose");
+            Span<byte> claimBytes = stackalloc byte[63];
+            claimBytes.Clear();
+            BinaryPrimitives.WriteUInt16LittleEndian(claimBytes, 7);
+            BinaryPrimitives.WriteUInt32LittleEndian(claimBytes[55..], 0x87654321);
+            BinaryPrimitives.WriteUInt32LittleEndian(claimBytes[59..], 0x12345678);
+            var componentClaim = HitClaimPacket.Read(claimBytes);
+            Check(HitClaimPacket.Size == 63 && componentClaim.ClaimId == 7
+                && componentClaim.ShotId == 0x87654321 && componentClaim.ComponentId == 0x12345678,
+                "protocol 44 independent shot/component claim offsets");
+            Span<byte> claimRoundtrip = stackalloc byte[63];
+            componentClaim.Write(claimRoundtrip);
+            Check(claimRoundtrip.SequenceEqual(claimBytes), "shot/component claim byte roundtrip");
+            var legacyClaim = HitClaimPacket.Read(claimBytes[..59]);
+            Check(legacyClaim.ShotId == 0x87654321 && legacyClaim.ComponentId == 0,
+                "protocol 43 claim retains ShotId with absent component identity");
             var posed = new FireEvent(7, 99, 80, 64, FireEventKind.PressFire,
                 (byte)BeamType.Imperialist, 0, 0,
                 (byte)(FireEvent.FlagPose | FireEvent.FlagReticle),

@@ -252,6 +252,14 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            if (NetCampaignDrain.Quiescing)
+            {
+                AimDeltaX = AimDeltaY = 0;
+                Clear(player.Controls);
+                // Preserve the ordinary release edge, including a final charged shot.
+                Finish(player, player.Controls);
+                return;
+            }
             ApplyCampaignPhase();
             // The headshot rig replaces the tour rather than being a phase of
             // it. A phase would still be one fifteenth of the run, and what it

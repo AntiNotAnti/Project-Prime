@@ -9,8 +9,9 @@ internal static class Protocol18Tests
         try
         {
             NetArchitectureTests.Check(SnapshotFast.MaximumEncodedSize <= 1200, "worst-case fast datagram MTU");
-            NetArchitectureTests.Check(NetHeader.Size + IntentPacket.FullSize <= 1200
-                && NetHeader.Size + 1 + IntentPacket.FullSize <= 1200
+            int maximumLiveIntentSize = CompactIntentCodec.Size(new IntentPacket { FireEventCount = NetFireEvents.LiveCapacity });
+            NetArchitectureTests.Check(NetHeader.Size + maximumLiveIntentSize <= 1200
+                && NetHeader.Size + 1 + maximumLiveIntentSize <= 1200
                 && NetHeader.Size + 1 + HitClaimPacket.MaxPerPacket * HitClaimPacket.Size <= 1200
                 && NetHeader.Size + HitVerdictPacket.HeaderSize + HitVerdictPacket.MaxPerPacket * HitVerdictPacket.EntrySize <= 1200,
                 "intent/slot-intent, full claim batch and full verdict batch MTU");

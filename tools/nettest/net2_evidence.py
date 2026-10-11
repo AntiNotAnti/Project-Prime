@@ -1,8 +1,10 @@
 """Offline, fail-closed adjudication of N0 process evidence (no game imports)."""
 from collections import Counter
 import json
+import math
 from pathlib import Path
 import re
+import struct
 
 FATAL = re.compile(r"semantic history overrun|reliable (?:channel |control )?(?:failed|gap)|"
                    r"timed out|\btimeout\b|\[sim\] step failed|could not (?:join|load|spectate)|"
@@ -19,8 +21,247 @@ def state_key(row):
     return tuple(row[k] for k in ("Epoch", "Match", "Frame", "Slot", "Generation", "Life"))
 
 
-def health_value(row):
-    return tuple(row[k] for k in ("Hp", "TurretHp", "Kills", "Deaths", "DamageEvent"))
+def health_value(row, schema=1):
+    fields = ("Hp", "TurretHp", "DamageEvent") if schema == 2 else (
+        "Hp", "TurretHp", "Kills", "Deaths", "DamageEvent")
+    return tuple(row[k] for k in fields)
+
+
+def slow_states(report, authority=False):
+    """Validate exact PlayerSlowState payloads; its revision has its own clock."""
+    rows = report.get("SlowStates")
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("missing/nonempty slow-lane evidence")
+    result, seen = [], set()
+    for row in rows:
+        limits = {"Epoch": (1, 2**64 - 1), "Match": (1, 65535),
+                  "Revision": (1, 2**32 - 1), "Frame": (0, 2**32 - 1),
+                  "Context": (0, 2**31 - 1)}
+        for field, (low, high) in limits.items():
+            if type(row[field]) is not int or not low <= row[field] <= high:
+                raise ValueError("invalid slow-lane " + field)
+        if authority and row["Context"] != 0:
+            raise ValueError("authority slow-lane Context must be zero")
+        payload = row["Payload"]
+        if not isinstance(payload, str) or not re.fullmatch(r"(?:[0-9A-Fa-f]{2})+", payload):
+            raise ValueError("invalid slow-lane payload hex")
+        data = bytes.fromhex(payload)
+        key = row["Epoch"], row["Match"], row["Revision"]
+        observation = (*key, row["Context"])
+        if len(data) < 15 or struct.unpack_from("<HQI", data) != (key[1], key[0], key[2]):
+            raise ValueError("slow-lane row/payload identity mismatch")
+        count = data[14]
+        if count > 8 or len(data) != 15 + count * 10 + 64 or observation in seen:
+            raise ValueError("invalid slow-lane length/count/duplicate revision/context")
+        seen.add(observation)
+        scores = {}
+        for at in range(15, 15 + count * 10, 10):
+            slot, generation = data[at], struct.unpack_from("<H", data, at + 1)[0]
+            if slot >= 8 or generation == 0 or any(s == slot for s, _ in scores):
+                raise ValueError("invalid slow-lane slot/generation")
+            scores[slot, generation] = data[at + 3:at + 10]
+        if any(not math.isfinite(value) or value < -1
+               for value in struct.unpack_from("<16f", data, 15 + count * 10)):
+            raise ValueError("invalid slow-lane time state")
+        result.append(dict(key=key, context=row["Context"], frame=row["Frame"], payload=data, scores=scores))
+    return result
+
+
+def slow_lane_parity(authority, peer):
+    """No fast-frame pairing of cached scores; require exact lane receipts and final scores."""
+    errors = []
+    try:
+        server, client = slow_states(authority, authority=True), slow_states(peer)
+    except (KeyError, TypeError, ValueError, struct.error) as error:
+        return {"slowSamplesCompared": 0, "slowLaneCompleteness": "FAIL",
+                "finalScoreConvergence": "FAIL"}, ["malformed/missing slow-lane evidence: " + str(error)]
+    indexed = {row["key"]: row for row in server}
+    matched = 0
+    for row in client:
+        reference = indexed.get(row["key"])
+        if reference is None:
+            errors.append("unknown authority slow-lane revision " + str(row["key"]))
+        elif reference["payload"] != row["payload"]:
+            errors.append("slow-lane full payload mismatch " + str(row["key"]))
+        else:
+            matched += 1
+    lane_ok = not errors
+    known_fast = {state_key(row) for row in authority["States"]}
+    streams = {(row["Epoch"], row["Match"]) for row in peer["States"]}
+    for stream in streams:
+        fast = [row for row in peer["States"] if (row["Epoch"], row["Match"]) == stream
+                and state_key(row) in known_fast]
+        if not fast:
+            errors.append("no matched terminal fast state for slow-lane stream " + str(stream))
+            continue
+        end = max(row["Frame"] for row in fast)
+        references = [row for row in server if row["key"][:2] == stream and row["frame"] <= end]
+        receipts = [row for row in client if row["key"][:2] == stream]
+        if not references or not receipts:
+            errors.append("missing terminal slow-lane stream " + str(stream))
+            continue
+        # Receiver reset/bootstrap assignments can roll revision backwards in a new
+        # context. The last recorded cache assignment, not the highest revision,
+        # determines the terminal scores actually available to that client.
+        reference = max(enumerate(references), key=lambda pair: (pair[1]["frame"], pair[0]))[1]
+        latest = receipts[-1]
+        active = {(row["Slot"], row["Generation"]) for row in peer["States"]
+                  if (row["Epoch"], row["Match"]) == stream and row["Frame"] == end}
+        if any(identity not in reference["scores"] or identity not in latest["scores"]
+               or reference["scores"][identity] != latest["scores"][identity] for identity in active):
+            errors.append("stale/missing terminal slow-lane scores " + str(stream) + " at " + str(end))
+    return {"slowSamplesCompared": matched, "slowLaneCompleteness": "PASS" if lane_ok else "FAIL",
+            "finalScoreConvergence": "PASS" if not errors else "FAIL"}, errors
+
+
+def drain_barrier(server, peers, require_empty=True):
+    """Check gameplay quiescence; preparation/release additionally require empty queues."""
+    try:
+        identity = server["Epoch"], server["Match"]
+        frontier = server["SemanticLatest"], server["AwardLatest"]
+        if not server["Enabled"] or server["Role"] != "server" or not all(identity):
+            return None, "authority drain status unavailable"
+        if server["Error"] or server["ConnectionLost"]:
+            return None, "authority drain error"
+        if any(server[key] for key in ("ActiveProjectiles", "ActiveBombs", "ClaimsPending")):
+            return None, "authority flights/bombs/claims remain"
+        reliable = server["Reliable"]
+        if not reliable or len(reliable) != len(peers) or any(p["Failed"] or p["Pending"] < 0 for p in reliable):
+            return None, "authority reliable endpoints not healthy"
+        if require_empty and any(p["Pending"] for p in reliable):
+            return None, "authority reliable endpoints not empty/healthy"
+        offered = set()
+        for peer in peers:
+            if not peer["Enabled"] or peer["Role"] != "client" or not peer["Quiescing"]:
+                return None, "scripted actions still active"
+            if peer["Error"] or peer["ConnectionLost"] or (peer["Epoch"], peer["Match"]) != identity:
+                return None, "peer error or authority identity differs"
+            if peer["ActiveProjectiles"] or peer["ActiveBombs"]:
+                return None, "peer flights/bombs may still generate a final claim"
+            if peer["ClaimsPending"]:
+                return None, "peer claims remain pending"
+            peer_reliable = peer["Reliable"]
+            if not peer_reliable or len(peer_reliable) != 1 or any(p["Failed"] or p["Pending"] < 0 for p in peer_reliable):
+                return None, "peer reliable endpoint not healthy"
+            if require_empty and any(p["Pending"] for p in peer_reliable):
+                return None, "peer reliable endpoint not empty"
+            if (peer["SemanticLatest"], peer["SemanticPresented"]) != (frontier[0], frontier[0]) or (
+                    peer["AwardLatest"], peer["AwardPresented"]) != (frontier[1], frontier[1]):
+                return None, "peer presentation has not caught authority frontier"
+            offered.update(peer["OfferedShotKeys"])
+        if not offered <= set(server["AcceptedShotKeys"]):
+            return None, "final offered shot has not reached authority"
+        grace = server["ClaimGraceSeconds"]
+        if not isinstance(grace, (float, int)) or grace < 2.4:
+            return None, "authority claim grace unavailable"
+        return {"Status": "PASS", "Epoch": identity[0], "Match": identity[1],
+                "Semantic": frontier[0], "Award": frontier[1]}, None
+    except (KeyError, TypeError, ValueError):
+        return None, "missing/malformed drain status"
+
+
+class DrainStability:
+    """Grace follows actual gameplay frontiers, independent of periodic reliable state traffic."""
+    def __init__(self):
+        self.fingerprint = None
+        self.started = None
+
+    def observe(self, server, peers, now):
+        candidate, reason = drain_barrier(server, list(peers.values()), require_empty=False)
+        fingerprint = (tuple(candidate.values()), tuple((name, tuple(row["OfferedShotKeys"]))
+                        for name, row in sorted(peers.items()))) if candidate else None
+        if fingerprint != self.fingerprint or not candidate:
+            self.fingerprint = fingerprint
+            self.started = now if candidate else None
+        return candidate, reason, now - self.started if self.started is not None else 0
+
+
+def drain_prepared(server, release):
+    """Authority must record the exact frontier before any peer receives its exit token."""
+    try:
+        at = server["AtRelease"]
+        if server["Release"] != release or release["Status"] != "PASS":
+            return False, "waiting for authority preparation acknowledgement"
+        identity = release["Epoch"], release["Match"]
+        expected = release["Semantic"], release["Semantic"], release["Award"], release["Award"]
+        for row in (server, at):
+            if (row["Epoch"], row["Match"]) != identity or tuple(row[key] for key in (
+                    "SemanticLatest", "SemanticPresented", "AwardLatest", "AwardPresented")) != expected:
+                return False, "authority frontier changed during release preparation"
+        return True, None
+    except (KeyError, TypeError):
+        return False, "missing authority preparation acknowledgement"
+
+
+def drain_coverage(manifest, reports):
+    """Check saved barrier and full frozen interval, without changing N0 tail guards."""
+    if not manifest.get("settings", {}).get("drain_seconds", 0):
+        return "NOT_RUN", []
+    gaps = []
+    try:
+        if manifest["settings"].get("rendered") or manifest["settings"].get("soak"):
+            raise ValueError("rendered/soak drain unsupported")
+        drain = manifest["drain"]
+        if drain["status"] != "PASS":
+            raise ValueError("bounded barrier did not pass: " + drain.get("reason", "unknown"))
+        release = drain["release"]
+        peers = drain["peers"]
+        if len(peers) != manifest["settings"]["players"]:
+            raise ValueError("missing independent peer statuses")
+        candidate, reason = drain_barrier(drain["server"], list(peers.values()))
+        if candidate != release:
+            raise ValueError(reason or "saved release differs from observed barrier")
+        if "prepareServer" in drain:
+            candidate, reason = drain_barrier(drain["prepareServer"], list(drain["preparePeers"].values()))
+            if candidate != release:
+                raise ValueError(reason or "preparation did not observe the frozen empty-queue barrier")
+            if drain["prepareStableSeconds"] < drain["prepareServer"]["ClaimGraceSeconds"]:
+                raise ValueError("preparation preceded the full gameplay claim grace")
+        prepared, reason = drain_prepared(drain["server"], release)
+        if not prepared:
+            raise ValueError(reason)
+        if drain["stableSeconds"] < drain["server"]["ClaimGraceSeconds"]:
+            raise ValueError("barrier did not retain the maximum claim grace")
+        identity = release["Epoch"], release["Match"]
+        authority = reports["server"]
+        for name in ("server", *peers):
+            exported = reports[name]["Drain"]
+            if not exported["Enabled"] or exported["Error"] or exported["Release"] != release:
+                gaps.append(f"{name}: missing/error/different exported release token")
+                continue
+            at = exported["AtRelease"]
+            if (at["Epoch"], at["Match"]) != identity or (
+                    at["SemanticLatest"], at["SemanticPresented"], at["AwardLatest"], at["AwardPresented"]) != (
+                    release["Semantic"], release["Semantic"], release["Award"], release["Award"]):
+                gaps.append(f"{name}: frontier changed or was not presented at release")
+            if name == "server":
+                continue
+            if not exported["Quiescing"]:
+                gaps.append(f"{name}: exported script was not quiesced")
+            report = reports[name]
+            baselines = [f for f in report["Facts"] if f["Baseline"] and (f["Epoch"], f["Match"]) == identity]
+            if len(baselines) != 1:
+                gaps.append(f"{name}: missing/ambiguous frozen-match baseline")
+                continue
+            baseline = baselines[0]
+            expected = {(f["Award"], f["Id"]): f["Payload"] for f in authority["Facts"]
+                        if not f["Baseline"] and (f["Epoch"], f["Match"]) == identity
+                        and (baseline["AwardFrontier"] if f["Award"] else baseline["Id"]) < f["Id"]
+                        <= (release["Award"] if f["Award"] else release["Semantic"])}
+            received = {(f["Award"], f["Id"]): f["Payload"] for f in report["Facts"]
+                        if not f["Baseline"] and (f["Epoch"], f["Match"]) == identity}
+            for award, start, end in ((False, baseline["Id"], release["Semantic"]),
+                                      (True, baseline["AwardFrontier"], release["Award"])):
+                ids = sorted(key[1] for key in expected if key[0] == award)
+                if start > end or len(ids) != end - start or any(value != start + index + 1 for index, value in enumerate(ids)):
+                    gaps.append(f"{name}: authority frozen {'award' if award else 'semantic'} interval incomplete")
+            missing = expected.keys() - received.keys()
+            conflicts = sum(payload != received[key] for key, payload in expected.items() if key in received)
+            if missing or conflicts:
+                gaps.append(f"{name}: frozen semantic interval {len(missing)} missing, {conflicts} different")
+    except (KeyError, TypeError, ValueError) as error:
+        gaps.append("missing/malformed drain proof: " + str(error))
+    return ("FAIL" if gaps else "PASS"), gaps
 
 
 def rotation_coverage(reports, processes, settings):
@@ -109,6 +350,7 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
     if len(processes) < 2 or not any(p["name"] == "server" for p in processes):
         incomplete.append("no server/client campaign")
     settings = {}
+    manifest = {}
     if (out / "manifest.json").exists():
         try:
             manifest = json.loads((out / "manifest.json").read_text())
@@ -138,7 +380,7 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 failures.append(f"{name}: {match.group(0)} in {log.relative_to(out)}")
         try:
             report = json.loads((out / f"{name}.json").read_text())
-            if report["Schema"] != 1 or report["Protocol"] != expected_protocol:
+            if report["Schema"] not in (1, 2) or report["Protocol"] != expected_protocol:
                 failures.append(f"{name}: schema/protocol mismatch")
             for field in ("Overflow", "ConnectionLost", "SemanticOverrun", "SemanticDisconnects", "LastError"):
                 if report[field]:
@@ -184,7 +426,8 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
             incomplete.append("server: no step distribution")
         if any(s["StepFailures"] for s in authority["ServerSegments"]):
             failures.append("server: simulation step failures")
-        states = {state_key(s): health_value(s) for s in authority["States"]}
+        schema = authority["Schema"]
+        states = {state_key(s): health_value(s, schema) for s in authority["States"]}
         committed = {shot_key(s): (s["Weapon"], s["Charge"], s["Kind"]) for s in authority["Shots"] if s["Stage"] == "committed"}
         authority_shots = {shot_key(s): s for s in authority["Shots"] if s["Stage"] == "committed"}
         authority_accepted = {shot_key(s): s for s in authority["Shots"] if s["Stage"] == "accepted"}
@@ -200,7 +443,13 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
             if name == "server":
                 continue
             common = [(s, states[state_key(s)]) for s in report["States"] if state_key(s) in states]
-            mismatch = sum(health_value(s) != value for s, value in common)
+            if report["Schema"] != schema:
+                failures.append(f"{name}: evidence schema differs from authority")
+            slow_parity = {}
+            if schema == 2:
+                slow_parity, slow_errors = slow_lane_parity(authority, report)
+                failures.extend(f"{name}: {error}" for error in slow_errors)
+            mismatch = sum(health_value(s, schema) != value for s, value in common)
             if not common:
                 incomplete.append(f"{name}: no health samples with identical authority identity/frame")
             if mismatch:
@@ -254,6 +503,7 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
             if not expected_commits:
                 incomplete.append(f"{name}: no comparable shooter/observer shot interval")
             parity[name] = {"healthSamplesCompared": len(common), "healthMismatches": mismatch,
+                **slow_parity,
                 "offeredShots": len(offered), "acceptedShots": len(offered.keys() & accepted),
                 "committedShots": len(offered.keys() & committed.keys()), "wrongWeaponChargeKind": wrong,
                 "unacceptedKeys": [list(k) for k in sorted(missing_accepted)[:32]],
@@ -286,9 +536,13 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
         "mapRotation": rotation,
         "shockCoilDrainKillParity": "NOT_RUN", "imperialistSpawnTrapCoverage": "NOT_RUN",
         "sustained20Minutes": "PASS" if sustained else "INCOMPLETE" if soak else "NOT_RUN"}
+    drain_status, drain_gaps = drain_coverage(manifest, reports)
+    coverage["boundedHeadlessDrain"] = drain_status
+    failures.extend("campaign drain: " + gap for gap in drain_gaps)
     if soak and (not sustained or any(coverage[k] != "PASS" for k in ("botFills", "spectator", "mapRotation"))):
         incomplete.append("soak duration, load, bot, spectator or map-rotation coverage missing")
     return {"status": "FAIL" if failures else "INCOMPLETE" if incomplete else "PASS", "coverage": coverage,
             "mapRotationEvidenceGaps": rotation_gaps,
+            "campaignDrainEvidenceGaps": drain_gaps,
             "failures": failures, "incomplete": incomplete, "processes": processes,
             "observations": observations, "parity": parity}

@@ -537,7 +537,7 @@ namespace MphRead.Mods.Network
         /// <summary>Called by the authority for every hit it resolves.</summary>
         public static ushort Note(PlayerEntity victim, PlayerEntity? attacker, BeamType beam,
             DamageFlags flags, Vector3? direction, uint amount = 0, bool fromBomb = false,
-            uint launchFrame = 0, ShotKey? launchKey = null, uint continuousPhase = 0, bool enhancedChild = false)
+            uint launchFrame = 0, ShotKey? launchKey = null, uint continuousPhase = 0, bool enhancedChild = false, uint componentId = 0, byte damageKind = 0)
         {
             if (beam == BeamType.None && _claimedBeam != BeamType.None)
             {
@@ -607,7 +607,7 @@ namespace MphRead.Mods.Network
             // which of them pulled the trigger in the earlier world, and this
             // is where that stamp is taken. NetHitClaims.
             if (!enhancedChild && !Mods.EnhancedHunters.EnhancedHunters.ApplyingBonus) NetHitClaims.NoteAuthorityHit(
-                attacker != null ? attacker.SlotIndex : -1, slot, launchFrame, (int)amount, continuousPhase, ApplyingClaim ? NetHitClaims.CurrentClaimShotId : launchKey?.ShotId ?? 0, launchKey);
+                attacker != null ? attacker.SlotIndex : -1, slot, launchFrame, (int)amount, continuousPhase, ApplyingClaim ? NetHitClaims.CurrentClaimShotId : launchKey?.ShotId ?? 0, launchKey, componentId, damageKind);
             _attacker[slot] = attacker != null && attacker.SlotIndex >= 0 && attacker.SlotIndex < Slots
                 ? (byte)attacker.SlotIndex
                 : NoSlot;

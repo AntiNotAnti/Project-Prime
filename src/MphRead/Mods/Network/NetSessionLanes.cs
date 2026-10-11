@@ -9,7 +9,9 @@ public static partial class NetSession
     {
         if (packet.Type != PacketType.SnapshotFast)
         {
-            _laneReceiver.Receive(packet.Type, packet.Payload, CurrentMatchId, AuthorityEpoch);
+            if (_laneReceiver.Receive(packet.Type, packet.Payload, CurrentMatchId, AuthorityEpoch)
+                && packet.Type == PacketType.PlayerSlowState)
+                NetCampaignEvidence.SlowSnapshot(packet.Payload, NetFrame, _laneReceiver.EvidenceContext);
             return;
         }
         if (FreezeGameplay) return;

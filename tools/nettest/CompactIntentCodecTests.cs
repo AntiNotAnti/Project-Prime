@@ -21,7 +21,7 @@ internal static class CompactIntentCodecTests
                 MoveX = -127, MoveY = 127, ChargeLevel = 17, ContinuousFireTick = 91 };
             bytes.Fill(0xCC);
             int idle = CompactIntentCodec.Write(packet, bytes);
-            Check(idle == 103 && bytes[idle] == 0xCC, "idle uses 103 bytes and leaves unused capacity untouched");
+            Check(idle == 136 && bytes[idle] == 0xCC, "idle uses 136 bytes and leaves unused capacity untouched");
             Check(CompactIntentCodec.TryRead(bytes[..idle], out var decoded) && decoded.HasFireEvents
                 && decoded.FireEventCount == 0 && decoded.MatchId == packet.MatchId
                 && decoded.AuthorityEpoch == packet.AuthorityEpoch && decoded.SlotGeneration == 2
@@ -34,7 +34,10 @@ internal static class CompactIntentCodecTests
             packet.FireEvents[1] = packet.FireEvents[0] with { ShotId = 1, Kind = FireEventKind.ReleaseFire };
             int size = CompactIntentCodec.Write(packet, bytes);
             packet.Write(canonical);
-            Check(bytes[..size].SequenceEqual(canonical[..size]), "compact posed shots preserve canonical event bytes");
+            Check(bytes[..(IntentPacket.LegacyFullSize + 1)].SequenceEqual(canonical[..(IntentPacket.LegacyFullSize + 1)])
+                && bytes.Slice(CompactIntentCodec.HeaderSize, size - CompactIntentCodec.HeaderSize)
+                    .SequenceEqual(canonical.Slice(IntentPacket.LegacyFullSize + 1, size - CompactIntentCodec.HeaderSize)),
+                "compact posed shots preserve canonical base and event bytes around live-only input extension");
             Check(CompactIntentCodec.TryRead(bytes[..size], out decoded)
                 && decoded.FireEventCount == 2 && decoded.FireEvents[0].ShotId == uint.MaxValue
                 && decoded.FireEvents[1].ShotId == 1 && decoded.FireEvents[0].Origin == new Vector3(3, 4, 5)
@@ -64,7 +67,7 @@ internal static class CompactIntentCodecTests
             packet.FireEventCount = NetFireEvents.LiveCapacity;
             for (int i = 0; i < NetFireEvents.LiveCapacity; i++) packet.FireEvents[i] = packet.FireEvents[0] with { ShotId = (uint)(i + 1) };
             size = CompactIntentCodec.Write(packet, bytes);
-            Check(size == 1139 && size + 24 + 1 == 1164
+            Check(size == 1172 && size + 24 + 1 == 1197
                 && CompactIntentCodec.TryRead(bytes[..size], out decoded) && decoded.FireEventCount == NetFireEvents.LiveCapacity,
                 "maximum SlotIntent fits 1200-byte datagram");
             packet.Write(canonical);
@@ -79,8 +82,8 @@ internal static class CompactIntentCodecTests
             oldPosed.Clear(); canonical[..IntentPacket.LegacyFullSize].CopyTo(oldPosed);
             oldPosed[IntentPacket.LegacyFullSize] = packet.FireEventCount;
             for (int i = 0; i < packet.FireEventCount; i++)
-                canonical.Slice(CompactIntentCodec.HeaderSize + i * FireEvent.Size, FireEvent.PoseSize)
-                    .CopyTo(oldPosed.Slice(CompactIntentCodec.HeaderSize + i * FireEvent.PoseSize));
+                canonical.Slice(IntentPacket.LegacyFullSize + 1 + i * FireEvent.Size, FireEvent.PoseSize)
+                    .CopyTo(oldPosed.Slice(IntentPacket.LegacyFullSize + 1 + i * FireEvent.PoseSize));
             var oldRead = IntentPacket.Read(oldPosed);
             Check(IntentPacket.Protocol42FullSize == 1175 && oldRead.FireEventCount == packet.FireEventCount
                 && oldRead.FireEvents[1].ShotId == 2 && oldRead.FireEvents[1].Origin == new Vector3(3, 4, 5)
@@ -100,8 +103,8 @@ internal static class CompactIntentCodecTests
             old38.Clear(); canonical[..IntentPacket.LegacyFullSize].CopyTo(old38);
             old38[IntentPacket.LegacyFullSize] = 2;
             for (int i = 0; i < 2; i++)
-                canonical.Slice(CompactIntentCodec.HeaderSize + i * FireEvent.Size, FireEvent.LegacySize)
-                    .CopyTo(old38.Slice(CompactIntentCodec.HeaderSize + i * FireEvent.LegacySize));
+                canonical.Slice(IntentPacket.LegacyFullSize + 1 + i * FireEvent.Size, FireEvent.LegacySize)
+                    .CopyTo(old38.Slice(IntentPacket.LegacyFullSize + 1 + i * FireEvent.LegacySize));
             var old38Read = IntentPacket.Read(old38);
             Check(old38Read.FireEvents[1].ShotId == 2 && old38Read.FireEvents[1].SourceLife == packet.LifeId
                 && old38Read.FireEvents[1].PoseFlags == 0, "protocol 38 retains legacy stride and absent pose");
