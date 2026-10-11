@@ -361,6 +361,7 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
             continue
         bodies,links,seen,terminal_pixels = set(),set(),set(),set()
         derived_joins = []
+        terminal_classifications = []
         snapshots = parsed[name]["snapshots"]
         eligible = {identity for identity,frame,kind,_,_ in damage
                     if kind in kinds and snapshots and frame >= snapshots[0][0]}
@@ -417,7 +418,7 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
                             raise ValueError("terminal pixel sequence/frame differs from exact accepted facts")
                         if payload!=death[4] or row.get("TargetKey") is not None or integer(row["EffectId"],65535)!={"MorphBall":145,"Stinglarva":128,"Lockjaw":146}[payload[1]]:
                             raise ValueError("terminal pixel state/effect differs from exact native detonation")
-                        if row["Classification"]!="BirthTerminalBeforeBodyDraw" or integer(row["BodyDrawOpportunities"]) or integer(row["BodyAttempts"]) or identity in body_attempts or row["MissingExpectedGhost"] is not False:
+                        if integer(row["BodyDrawOpportunities"]) or integer(row["BodyAttempts"]) or identity in body_attempts or row["MissingExpectedGhost"] is not False:
                             raise ValueError("terminal pixels cannot replace an observed/attempted/missing bomb body")
                         if vector(row["EffectPosition"],32768)!=payload[3]:
                             raise ValueError("actual native terminal effect position differs from exact terminal packet")
@@ -433,8 +434,35 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
                             raise ValueError("terminal capture exceeds recorded renderer draw index")
                         birth_draw=integer(row["AppliedBirthDrawIndex"],2**64-1)
                         death_draw=integer(row["AppliedTerminalDrawIndex"],2**64-1)
-                        if birth_draw!=death_draw or integer(row["CaptureDrawIndex"],2**64-1)<death_draw:
-                            raise ValueError("terminal proof is not birth/detonation coalesced before a body draw")
+                        if integer(row["CaptureDrawIndex"],2**64-1)<death_draw:
+                            raise ValueError("terminal pixels preceded accepted detonation")
+                        if row["Classification"]=="BirthTerminalBeforeBodyDraw":
+                            if birth_draw!=death_draw:
+                                raise ValueError("terminal proof is not birth/detonation coalesced before a body draw")
+                        elif row["Classification"]=="ExpiredBeforeFirstBodyDraw":
+                            retirement_fields=("RetirementSnapshotFrame","RetirementSnapshotFrontier","RetirementSnapshotKeyAbsent","RetirementDrawIndex","RetirementWitnessStage")
+                            if any(matching[0][field]!=row[field] for field in retirement_fields):
+                                raise ValueError("retirement witness differs from lifecycle ledger")
+                            retirement_frame=integer(row["RetirementSnapshotFrame"])
+                            retirement_frontier=integer(row["RetirementSnapshotFrontier"],2**64-1)
+                            integer(matching[0]["RetirementSnapshotFrame"])
+                            integer(matching[0]["RetirementSnapshotFrontier"],2**64-1)
+                            integer(matching[0]["RetirementDrawIndex"],2**64-1)
+                            if row["RetirementSnapshotKeyAbsent"] is not True or matching[0]["RetirementSnapshotKeyAbsent"] is not True or integer(row["RetirementDrawIndex"],2**64-1)!=birth_draw or not birth_draw<death_draw or retirement_frame<death[1] or retirement_frontier<death[0]:
+                                raise ValueError("retirement snapshot does not cover detonation before first body draw")
+                            journal=peer["Bombs"]["Rows"]
+                            birth_order=next(i for i,r in enumerate(journal) if r.get("Type")=="Event" and r.get("Sequence")==birth[0])
+                            death_order=next(i for i,r in enumerate(journal) if r.get("Type")=="Event" and r.get("Sequence")==death[0])
+                            stage=row["RetirementWitnessStage"]
+                            if stage=="AtBirth":
+                                prior=[r for r in journal[:birth_order] if r.get("Type")=="Snapshot" and r.get("Stage")=="applied"]
+                                witness=prior[-1] if prior else None
+                            elif stage=="SubsequentSnapshot":
+                                witness=next((r for r in journal[birth_order+1:death_order] if r.get("Type")=="Snapshot" and r.get("Stage")=="applied" and not any(key(s["Key"])==identity for s in r["States"])),None)
+                            else:raise ValueError("unknown retirement witness stage")
+                            if witness is None or witness["Frame"]!=retirement_frame or witness["Frontier"]!=retirement_frontier or any(key(s["Key"])==identity for s in witness["States"]):
+                                raise ValueError("retirement does not match exact ordered accepted snapshot/key absence")
+                        else:raise ValueError("unknown terminal pixel classification")
                     elif not canonical_payload(payload,row["SnapshotFrame"]):
                         raise ValueError("live captured state differs from every applied canonical bomb payload")
                     if row["Type"] == "Link":
@@ -470,6 +498,9 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
                     if terminal:
                         integer(row["EffectParticles"],minimum=1)
                         terminal_pixels.add(identity)
+                        terminal_classifications.append(dict(key=list(identity),classification=row["Classification"],
+                            retirementWitnessStage=row.get("RetirementWitnessStage"),retirementSnapshotFrame=row.get("RetirementSnapshotFrame"),
+                            retirementSnapshotFrontier=row.get("RetirementSnapshotFrontier")))
                     elif target is None:bodies.add(identity)
                     else:links.add((identity,target))
                 except FileNotFoundError as error:
@@ -501,6 +532,7 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
             damagingKeysWithPositiveBodyPixels=len(eligible&bodies),
             damagingKeysWithPositiveTerminalPixels=len(eligible&terminal_pixels),
             terminalFallbackKeys=[list(k) for k in sorted(eligible&terminal_pixels)],
+            terminalFallbackProofs=[p for p in terminal_classifications if tuple(p["key"]) in eligible],
             verifiedTerminalEffects=len(terminal_pixels),missingDamagingKeys=[list(k) for k in sorted(missing)],
             preBootstrapDamageKeysExcluded=[list(k) for k in sorted(before_bootstrap)],
             missingWithNoAppliedSnapshot=[list(k) for k in sorted(no_state)],verifiedBodies=len(bodies),verifiedLinks=len(links),
@@ -796,7 +828,7 @@ def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibil
                 renderFixtureStatus=render_status, scope=dict(authorityMatches=1,requiredKinds=list(kinds),
                 checked="request admission, exact bomb lifecycle/event/state parity, health and bounded reliable drain",
                 independentRenderFixture="same-engine local canonical ghost fixture: five bodies and three Lockjaw edges, positive and wall-negative pixels; full fixture keys are independent of network keys",
-                livePixelScope="stable positive body pixels for relevant post-bootstrap authority damaging keys on each peer; exact accepted terminal-effect pixels may cover only classified birth/detonation before any body draw or attempt; fallback keys reported separately and do not prove persistent body pixels; three links of an actual damaging Lockjaw triangle; exact canonical non-orientation fields plus native float32 captured orientation (one ULP derived bound); no claim of visibility before damage",
+                livePixelScope="stable positive body pixels for relevant post-bootstrap authority damaging keys on each peer; exact accepted terminal-effect pixels may cover only classified birth/detonation or exact accepted snapshot retirement before any body draw or attempt; fallback keys reported separately and do not prove persistent body pixels; three links of an actual damaging Lockjaw triangle; exact canonical non-orientation fields plus native float32 captured orientation (one ULP derived bound); no claim of visibility before damage",
                 excluded=["pre-bootstrap pixel visibility","persistent body pixels for classified terminal fallback keys","shot parity","cross-match rotation","all maps"]),
                 findings=findings,metrics=metrics)
 

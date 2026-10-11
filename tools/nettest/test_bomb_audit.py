@@ -354,6 +354,67 @@ class BombAuditTests(unittest.TestCase):
                 r=self.result(live={"peer-0":report})
                 self.assertEqual(r["liveVisibilityStatus"],"FAIL",r)
                 self.assertEqual(r["liveVisibilityCoverage"]["peer-0"]["terminalFallbackKeys"],[])
+    def retired_terminal_fixture(self,directory,stage="SubsequentSnapshot"):
+        report=self.terminal_fixture(directory);row=report["Rows"][0]
+        row.update(Classification="ExpiredBeforeFirstBodyDraw",AppliedTerminalDrawIndex=7,CaptureDrawIndex=8,
+                   RetirementSnapshotFrame=56,RetirementSnapshotFrontier=2,RetirementSnapshotKeyAbsent=True,
+                   RetirementDrawIndex=3,RetirementWitnessStage=stage)
+        report["DrawIndex"]=8
+        for field in ("AppliedTerminalDrawIndex","RetirementSnapshotFrame","RetirementSnapshotFrontier","RetirementSnapshotKeyAbsent","RetirementDrawIndex","RetirementWitnessStage"):
+            report["Lifecycles"][0][field]=row[field]
+        snap=snapshot(56,2,[]);self.server["Bombs"]["Rows"].insert(6,snap)
+        snap=copy.deepcopy(snap);snap["Stage"]="applied"
+        self.peers["peer-0"]["Bombs"]["Rows"].insert(2 if stage=="AtBirth" else 3,snap)
+        return report
+    def test_retirement_has_two_exact_ordered_snapshot_witnesses(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for stage in ("AtBirth","SubsequentSnapshot"):
+                self.server,self.peers,self.manifest,self.summary=fixture()
+                report=self.retired_terminal_fixture(directory,stage);r=self.result(live={"peer-0":report})
+                self.assertEqual(r["status"],"PASS",r)
+                proof=r["liveVisibilityCoverage"]["peer-0"]["terminalFallbackProofs"][0]
+                self.assertEqual(proof["classification"],"ExpiredBeforeFirstBodyDraw")
+                self.assertEqual(proof["retirementWitnessStage"],stage)
+    def test_retirement_rejects_late_draw_wrong_snapshot_or_frontier(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original=self.retired_terminal_fixture(directory)
+            for field,value in (("RetirementDrawIndex",4),("RetirementSnapshotFrame",55),
+                                ("RetirementSnapshotFrame",57),("RetirementSnapshotFrontier",1),
+                                ("RetirementSnapshotFrontier",3),("RetirementSnapshotKeyAbsent",False),
+                                ("RetirementWitnessStage","Unknown"),("BodyDrawOpportunities",1),("BodyAttempts",1)):
+                report=copy.deepcopy(original);report["Rows"][0][field]=value;report["Lifecycles"][0][field]=value
+                self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+            report=copy.deepcopy(original);report["Lifecycles"][0]["RetirementSnapshotFrame"]=57
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+    def test_retirement_requires_first_absent_snapshot_and_no_present_key(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for stage in ("AtBirth","SubsequentSnapshot"):
+                self.server,self.peers,self.manifest,self.summary=fixture()
+                report=self.retired_terminal_fixture(directory,stage)
+                index=2 if stage=="AtBirth" else 3
+                self.peers["peer-0"]["Bombs"]["Rows"][index]["States"]=[state()]
+                self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+            self.server,self.peers,self.manifest,self.summary=fixture()
+            report=self.retired_terminal_fixture(directory)
+            earlier=dict(snapshot(55,1,[]),Stage="applied")
+            self.peers["peer-0"]["Bombs"]["Rows"].insert(3,earlier)
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+    def test_atbirth_retirement_cannot_select_old_snapshot_or_later_witness(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=self.retired_terminal_fixture(directory,"AtBirth")
+            self.peers["peer-0"]["Bombs"]["Rows"].insert(3,dict(snapshot(57,2,[state()]),Stage="applied"))
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+            self.server,self.peers,self.manifest,self.summary=fixture()
+            report=self.retired_terminal_fixture(directory)
+            report["Rows"][0]["RetirementWitnessStage"]="AtBirth";report["Lifecycles"][0]["RetirementWitnessStage"]="AtBirth"
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+    def test_retirement_still_cannot_mask_incomplete_body_or_missing_pixels(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=self.retired_terminal_fixture(directory)
+            report["Rows"].append(dict(self.live_fixture(directory)["Rows"][0],Status="INCOMPLETE",SnapshotFrame=0))
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+            report["Rows"].pop();report["Rows"][0]["Status"]="INCOMPLETE"
+            self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"INCOMPLETE")
     def test_terminal_actual_effect_and_lifecycle_draw_ledger_are_exact(self):
         with tempfile.TemporaryDirectory() as directory:
             original=self.terminal_fixture(directory)
