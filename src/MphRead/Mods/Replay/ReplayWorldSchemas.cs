@@ -1023,7 +1023,7 @@ internal static class ReplayWorldSchemas
             "_generations",
             "_rngTick",
         ],
-        ["MphRead.Entities.RoomEntity"] = [],
+        ["MphRead.Entities.RoomEntity"] = ["_authoredMaterialFrame"],
         ["MphRead.Mods.EnhancedHunters.EnhancedHunterState"] = [
             "TargetSlot", "TargetLifeId", "TargetGeneration", "ValueA", "ValueB", "Flags",
             "TimerA", "TimerB", "ContactFrames", "LastContactFrame", "MovementCooldown",

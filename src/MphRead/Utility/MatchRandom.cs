@@ -9,6 +9,7 @@ namespace MphRead
 
         public uint Rng1 { get; private set; } = Rng1StartValue;
         public uint Rng2 { get; private set; } = Rng2StartValue;
+        internal Action<uint, uint>? DiagnosticRng1Trace;
 
         public static uint CallRng(ref uint rng, uint value)
         {
@@ -29,8 +30,10 @@ namespace MphRead
 
         public uint GetRandomInt1(uint value)
         {
+            uint before = Rng1;
             Rng1 *= 0x7FF8A3ED;
             Rng1 += 0x2AA01D31;
+            DiagnosticRng1Trace?.Invoke(before, Rng1);
             return (uint)((Rng1 >> 16) * (long)value / 0x10000L);
         }
 
