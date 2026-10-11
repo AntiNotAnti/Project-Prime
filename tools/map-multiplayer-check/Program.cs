@@ -34,13 +34,13 @@ if(args.Length>0&&args[0]=="--worker")
 string root=args.Length>0?Path.GetFullPath(args[0]):Path.Combine(Path.GetTempPath(),"prime-multiplayer-"+Guid.NewGuid().ToString("N"));
 if(Directory.Exists(root)&&Directory.EnumerateFileSystemEntries(root).Any())throw new IOException("Use an empty acceptance output folder.");Directory.CreateDirectory(root);
 var children=new List<(Process Process,Task Log)>();
-Process Spawn(string role,string folder,string address)
+Process Spawn(string role,string folder,string address,string? logName=null)
 {
     var start=new ProcessStartInfo(Environment.ProcessPath!){UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true};
     if((Path.GetFileNameWithoutExtension(Environment.ProcessPath)??"").Equals("dotnet",StringComparison.OrdinalIgnoreCase))start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
     foreach(string argument in new[]{"--worker",role,folder,address})start.ArgumentList.Add(argument);
     var process=Process.Start(start)??throw new IOException("Cannot start acceptance worker.");
-    var log=Task.Run(async()=>{var stdout=process.StandardOutput.ReadToEndAsync();var stderr=process.StandardError.ReadToEndAsync();await Task.WhenAll(stdout,stderr);await File.WriteAllTextAsync(Path.Combine(folder,role+".log"),stdout.Result+stderr.Result);});
+    var log=Task.Run(async()=>{var stdout=process.StandardOutput.ReadToEndAsync();var stderr=process.StandardError.ReadToEndAsync();await Task.WhenAll(stdout,stderr);await File.WriteAllTextAsync(Path.Combine(folder,(logName??role)+".log"),stdout.Result+stderr.Result);});
     children.Add((process,log));return process;
 }
 async Task Finished(Process process,string name)
@@ -135,10 +135,41 @@ try
             fault+" rejected with retries served instead of a stalled socket");
     }
     var concurrent=await Task.WhenAll(client.PrepareExactAsync(required,default),client.PrepareExactAsync(required,default));foreach(var prepared in concurrent){Check(prepared.Identity.Matches(required),"duplicate concurrent download preserves identity");prepared.Dispose();}
-    File.WriteAllText(Path.Combine(root,"community.stop"),"");await Finished(community,"Community");File.Delete(Path.Combine(root,"community.stop"));community=Spawn("community",root,hub);
-    waiting.Restart();while(true){try{using var response=await http.GetAsync("health");if(response.IsSuccessStatusCode)break;}catch(HttpRequestException){}if(waiting.Elapsed.TotalSeconds>15)throw new TimeoutException("Community restart did not become ready.");await Task.Delay(50);}
-    Check((await client.GetPackageAsync(maps[0].Hash,default))?.Hash==maps[0].Hash,"historical version survives Community restart");
-    await Finished(Spawn("replay",root,hub),"Historical replay");
+    // This checks durable Community storage across a full service restart, not
+    // whether HttpListener can immediately rebind the same ephemeral test port.
+    // .NET's Linux HttpListener can abort in ProcessAccept during rapid reuse of
+    // that just-closed endpoint. A fresh port also prevents the previous probe's
+    // pooled HTTP connection from being mistaken for a live restarted service.
+    File.WriteAllText(Path.Combine(root,"community.stop"),"");
+    await Finished(community,"Community");
+    File.Delete(Path.Combine(root,"community.stop"));
+    string restartedHub;
+    do
+    {
+        using var restartPort=new TcpListener(IPAddress.Loopback,0);
+        restartPort.Start();
+        restartedHub="http://127.0.0.1:"+((IPEndPoint)restartPort.LocalEndpoint).Port+"/";
+    } while(restartedHub==hub);
+    community=Spawn("community",root,restartedHub,"community-restart");
+    using var restartedHttp=new HttpClient{BaseAddress=new Uri(restartedHub)};
+    waiting.Restart();
+    while(true)
+    {
+        if(community.HasExited)
+        {
+            await Finished(community,"Community restart");
+            throw new IOException("Community restart exited before health check; inspect community-restart.log in "+root);
+        }
+        try{using var response=await restartedHttp.GetAsync("health");if(response.IsSuccessStatusCode)break;}
+        catch(HttpRequestException){}
+        if(waiting.Elapsed.TotalSeconds>15)
+            throw new TimeoutException("Community restart did not become ready; inspect community-restart.log in "+root);
+        await Task.Delay(50);
+    }
+    using var restartedClient=new MapCommunityClient(restartedHub,fixtureToken);
+    Check((await restartedClient.GetPackageAsync(maps[0].Hash,default))?.Hash==maps[0].Hash,
+        "historical version survives Community restart");
+    await Finished(Spawn("replay",root,restartedHub),"Historical replay");
     Console.WriteLine("PASS: map multiplayer acceptance. Logs: "+root);
 }
 finally
