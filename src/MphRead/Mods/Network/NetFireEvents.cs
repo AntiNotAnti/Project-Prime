@@ -146,11 +146,47 @@ public static class NetFireEvents
         public ShotKey ActiveKey, TurretRetiredLife;
         public uint TurretRetiredThrough;
         public bool HasTurretRetirement;
+        public readonly TurretTerminal[] TurretTerminals = new TurretTerminal[256];
+        public bool TurretTerminalOverflow;
+        public uint TurretTerminalOverflowAt;
         public readonly TurretRecovery[] TurretRecovery = new TurretRecovery[NetIncomingFireHistory.Capacity];
         public AcceptedShotLedger Ledger = NewLedger();
         public FireEvent Active;
         public readonly NetOutgoingFireHistory Outgoing = new();
         public readonly NetIncomingFireHistory Incoming = new();
+    }
+    private struct TurretTerminal { internal ShotKey Key; internal uint At; }
+    // Use authority observation time exclusively. Retain beyond both late delivery
+    // and parked-claim settlement; never evict a still-live terminal identity.
+    internal const int TurretTerminalRetentionFrames = NetHitClaims.DeliveryMaxAge
+        + NetUnlagged.HistoryFrames + NetHitClaims.MaxGraceFrames;
+    internal static void RememberRetiredUnemittedTurret(in ShotKey key)
+    {
+        if (!NetSession.IsAuthority || (uint)key.ShooterSlot >= 8 || key.ShotId == 0) return;
+        var state = For(key.ShooterSlot);
+        if (state.Fence != (key with { LifeId = 0, ShotId = 0 })) return;
+        int free = -1;
+        for (int i = 0; i < state.TurretTerminals.Length; i++)
+        {
+            ref var terminal = ref state.TurretTerminals[i];
+            if (terminal.Key == key) return;
+            if (terminal.Key.ShotId == 0
+                || unchecked((int)(NetSession.NetFrame - terminal.At)) > TurretTerminalRetentionFrames) free = i;
+        }
+        if (free >= 0) state.TurretTerminals[free] = new() { Key = key, At = NetSession.NetFrame };
+        else { state.TurretTerminalOverflow = true; state.TurretTerminalOverflowAt = NetSession.NetFrame; }
+    }
+    internal static bool IsRetiredUnemittedTurret(in ShotKey key)
+    {
+        if ((uint)key.ShooterSlot >= 8 || key.ShotId == 0) return false;
+        var state = For(key.ShooterSlot);
+        if (state.Fence != (key with { LifeId = 0, ShotId = 0 })) return false;
+        if (state.TurretTerminalOverflow
+            && unchecked((int)(NetSession.NetFrame - state.TurretTerminalOverflowAt)) <= TurretTerminalRetentionFrames) return true;
+        foreach (ref var terminal in state.TurretTerminals.AsSpan())
+            if (terminal.Key == key
+                && unchecked((int)(NetSession.NetFrame - terminal.At)) <= TurretTerminalRetentionFrames) return true;
+        return false;
     }
     private struct TurretRecovery { internal ShotKey Key; internal uint AcceptedAt; internal PlayerFormState Form; internal bool EverAvailable; }
     private static AcceptedShotLedger NewLedger() => new() { OnDisposition = NetCampaignEvidence.Disposition };
@@ -176,7 +212,7 @@ public static class NetFireEvents
                     if (NetCampaignEvidence.Enabled && owner.SlotIndex == slot && owner.Hunter == Hunter.Weavel && proof.Key == key
                         && TurretRecoveryElapsed(proof.AcceptedAt, NetSession.NetFrame, proof.EverAvailable)
                         && ExpiredTurretUnavailable(key, ShotKey.For(slot, 0), owner.ModCaptureForm()))
-                    { NetCampaignEvidence.TurretRecoveryUnavailable(owner, key, fire, proof.AcceptedAt, proof.Form, proof.EverAvailable); return; }
+                    { RememberRetiredUnemittedTurret(key); NetCampaignEvidence.TurretRecoveryUnavailable(owner, key, fire, proof.AcceptedAt, proof.Form, proof.EverAvailable); return; }
                 }
                 NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Expired,
                     "fire-event recovery retention elapsed");
@@ -218,7 +254,7 @@ public static class NetFireEvents
         if (state.Fence != fence)
         { state.Ledger.Retire(fence.AuthorityEpoch, fence.MatchId, slot, fence.Generation);
           state.Ledger.ResetObservationClock();
-          state.EventStream = false; state.Fence = fence; state.Outgoing.Clear(); state.Incoming.Clear(); Array.Clear(state.TurretRecovery); state.NextId = 0; state.Selected = false; state.Active = default; }
+          state.EventStream = false; state.Fence = fence; state.Outgoing.Clear(); state.Incoming.Clear(); Array.Clear(state.TurretRecovery); Array.Clear(state.TurretTerminals); state.TurretTerminalOverflow = false; state.NextId = 0; state.Selected = false; state.Active = default; }
         ObserveTurretRecovery(state, slot);
         ushort life = NetPlayerLifecycle.Get(slot);
         if (state.CurrentLife != life)
@@ -248,7 +284,7 @@ public static class NetFireEvents
         }
     }
     public static void Reset()
-    { NetShotProof.Reset(); foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.HasTurretRetirement = slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); Array.Clear(slot.TurretRecovery); slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
+    { NetShotProof.Reset(); foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.HasTurretRetirement = slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); Array.Clear(slot.TurretRecovery); Array.Clear(slot.TurretTerminals); slot.TurretTerminalOverflow = false; slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
     internal static bool Accept(int slot, in IntentPacket intent)
     {
         if ((uint)slot >= 8 || !Validate(intent)) return false;
@@ -330,6 +366,7 @@ public static class NetFireEvents
                 && !player.IsAltForm && !player.IsMorphing))
         {
             var key = ShotKey.For(player.SlotIndex, retired.ShotId) with { LifeId = retired.SourceLife };
+            RememberRetiredUnemittedTurret(key);
             NetCampaignEvidence.TurretUnavailable(player, key, retired);
             state.Incoming.Consume(retired.ShotId);
             state.Selected = false; state.Active = default;
@@ -397,7 +434,7 @@ public static class NetFireEvents
         var state = _slots[slot]; state.Fence = default;
         state.Ledger.Retire(0, 0, -1, 0);
         state.Ledger.ResetObservationClock(); state.EventStream = false;
-        state.Outgoing.Clear(); state.Incoming.Clear(); Array.Clear(state.TurretRecovery); state.NextId = 0;
+        state.Outgoing.Clear(); state.Incoming.Clear(); Array.Clear(state.TurretRecovery); Array.Clear(state.TurretTerminals); state.TurretTerminalOverflow = false; state.NextId = 0;
         state.Selected = false; state.Active = default;
     }
     internal static object CaptureHistory() => Array.ConvertAll(_slots, state => new

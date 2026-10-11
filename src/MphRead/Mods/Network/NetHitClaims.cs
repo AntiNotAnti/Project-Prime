@@ -1331,6 +1331,20 @@ namespace MphRead.Mods.Network
                         remember: false, outcome: _seenOutcomes[shooterSlot, receiptAt]);
                     continue;
                 }
+                // A source explicitly retired before emission cannot be rescued by
+                // optional Shadow proof. Existing immutable paid receipts still ACK.
+                var terminalKey = NetShotProof.Key(shooterSlot, claim);
+                if (NetFireEvents.IsRetiredUnemittedTurret(terminalKey))
+                {
+                    if (TryPaidOutcome(shooterSlot, claim, out var paidTerminal))
+                        Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: paidTerminal);
+                    else
+                    {
+                        RefusedHere++;
+                        Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultInvalidLaunch, remember: false);
+                    }
+                    continue;
+                }
                 if (!NetPlayerLifecycle.Matches(claim.VictimSlot, claim.VictimGeneration, claim.VictimLifeId))
                 {
                     NetPlayerLifecycle.OldLifeClaims++;
@@ -2249,6 +2263,14 @@ namespace MphRead.Mods.Network
                 return;
             }
             if (AnswerPaidPending(ref entry)) return;
+            var terminalKey = new ShotKey(entry.AuthorityEpoch, entry.MatchId, shooterSlot,
+                entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId);
+            if (NetFireEvents.IsRetiredUnemittedTurret(terminalKey))
+            {
+                RefusedHere++;
+                Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch);
+                return;
+            }
             var paidClaim = ProofClaim(entry);
             if (NetShotProof.Mode == ShotProofMode.Enforce
                 && NetShotProof.TryPhysicalOutcome(shooterSlot, paidClaim, out _))
