@@ -919,6 +919,7 @@ internal static class ReplayWorldSchemas
             "<Elements>k__BackingField",
         ],
         ["MphRead.Effects.EffectElementEntry"] = [
+            "ModCanonicalBirthPending",
             "<EffectId>k__BackingField",
             "<EffectName>k__BackingField",
             "<ElementName>k__BackingField",
