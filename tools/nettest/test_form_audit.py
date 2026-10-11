@@ -8,11 +8,11 @@ spec = importlib.util.spec_from_file_location("form_audit", Path(__file__).with_
 module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
 
 
-def row(frame, phase, active=False, body=(0, 0, 0), hp=100, damage=0, started=2):
+def row(frame, phase, active=False, body=(0, 0, 0), hp=100, damage=0, started=2, body_hp=100):
     anchor = (0., 0., 0.)
-    source = struct.pack("<IIB3fBHH", frame, started, phase, *anchor, active, hp if active else 0, damage).hex()
+    source = struct.pack("<IIB3fBHHH", frame, started, phase, *anchor, active, hp if active else 0, damage, body_hp).hex()
     return dict(Stage="authority", Epoch=111, Match=2, Slot=1, Generation=1, Life=1,
-                Source=source, ObservedFrame=frame, Phase=module.PHASES[phase], BodyHp=100,
+                Source=source, ObservedFrame=frame, Phase=module.PHASES[phase], BodyHp=body_hp,
                 TurretHp=hp if active else 0, TurretActive=active, X=0., Y=0., Z=0.,
                 BodyX=body[0], BodyY=body[1], BodyZ=body[2], ObservedDamageEvent=damage)
 
@@ -38,6 +38,12 @@ class FormAuditTests(unittest.TestCase):
         self.assertEqual(result["status"], "PASS", result)
         self.assertEqual(result["metrics"]["ownerPhaseDifferences"], 1)
         self.assertGreater(result["metrics"]["independentAnchorWitnesses"], 0)
+
+    def test_obsolete_form26_and_source_body_health_mismatch_fail(self):
+        self.peers["peer-0"]["Forms"][0]["Source"] = self.peers["peer-0"]["Forms"][0]["Source"][:-4]
+        self.assertEqual(self.audit()["status"], "FAIL")
+        self.setUp(); self.server["Forms"][0]["BodyHp"] = 99
+        self.assertEqual(self.audit()["status"], "FAIL")
 
     def test_wrong_full_key_source_or_missing_source_fail(self):
         for field, value in (("Life", 2), ("Epoch", 222), ("Source", "00")):
@@ -81,7 +87,7 @@ class FormAuditTests(unittest.TestCase):
         item = self.peers["peer-0"]["Forms"][0]
         item.update(TurretHp=90, BodyHp=95, ObservedDamageEvent=1)
         self.assertEqual(self.audit()["status"], "INCOMPLETE")
-        newer = row(8, 3, True, hp=90, damage=1); newer["BodyHp"] = 95
+        newer = row(8, 3, True, hp=90, damage=1, body_hp=95)
         self.server["Forms"].append(newer)
         self.assertEqual(self.audit()["status"], "PASS")
         newer["Life"] = 2

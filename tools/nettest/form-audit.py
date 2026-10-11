@@ -35,12 +35,12 @@ def decode(row):
     identity = tuple(integer(row[f], 0 if f == "Slot" else 1,
                              7 if f == "Slot" else 2**64-1 if f == "Epoch" else 65535) for f in IDENTITY)
     source = row["Source"]
-    if not isinstance(source, str) or len(source) != 52:
-        raise ValueError("missing/invalid 26-byte source")
+    if not isinstance(source, str) or len(source) != 56:
+        raise ValueError("missing/invalid 28-byte source")
     raw = bytes.fromhex(source)
     frame, started, phase = struct.unpack_from("<IIB", raw)
     anchor = struct.unpack_from("<3f", raw, 9)
-    active, hp, damage = struct.unpack_from("<BHH", raw, 21)
+    active, hp, damage, body_hp = struct.unpack_from("<BHHH", raw, 21)
     if phase not in PHASES or phase == 0 or active > 1 or newer(started, frame):
         raise ValueError("invalid canonical form")
     if not all(math.isfinite(v) and abs(v) <= 32768 for v in anchor):
@@ -50,7 +50,7 @@ def decode(row):
     if type(row["TurretActive"]) is not bool or row["Phase"] not in PHASES.values():
         raise ValueError("invalid observed phase/presence")
     return identity, raw, dict(frame=frame, started=started, phase=PHASES[phase],
-                               anchor=anchor, active=bool(active), hp=hp, damage=damage)
+                               anchor=anchor, active=bool(active), hp=hp, damage=damage, body_hp=body_hp)
 
 
 def audit(server, peers, summary, manifest, owner_slot=1):
@@ -71,7 +71,7 @@ def audit(server, peers, summary, manifest, owner_slot=1):
         for row in server["Forms"]:
             key, raw, form = decode(row)
             if row["Stage"] != "authority": raise ValueError("invalid authority stage")
-            if vector(row, ("X", "Y", "Z")) != form["anchor"] or row["TurretHp"] != form["hp"] or row["TurretActive"] != form["active"] or row["Phase"] != form["phase"]:
+            if vector(row, ("X", "Y", "Z")) != form["anchor"] or row["BodyHp"] != form["body_hp"] or row["TurretHp"] != form["hp"] or row["TurretActive"] != form["active"] or row["Phase"] != form["phase"]:
                 raise ValueError("authority observed state differs from its source")
             full = (key, raw)
             if full in authority and authority[full]["BodyHp"] != row["BodyHp"]:
@@ -102,7 +102,7 @@ def audit(server, peers, summary, manifest, owner_slot=1):
                 if vector(row, ("X", "Y", "Z")) != form["anchor"]: raise ValueError("observed turret anchor mismatch")
                 if row["Stage"] == "observer" and row["Phase"] != form["phase"]: raise ValueError("observer phase mismatch")
                 if row["Stage"] == "owner" and row["Phase"] != form["phase"]: metrics["ownerPhaseDifferences"] += 1
-                hp_diff = (row["BodyHp"], row["TurretHp"], row["TurretActive"]) != (source["BodyHp"], form["hp"], form["active"])
+                hp_diff = (row["BodyHp"], row["TurretHp"], row["TurretActive"]) != (form["body_hp"], form["hp"], form["active"])
                 if hp_diff:
                     observed_damage = row.get("ObservedDamageEvent")
                     detail = dict(peer=name, identity=key, sourceFrame=form["frame"], sourceDamage=form["damage"],
@@ -113,7 +113,7 @@ def audit(server, peers, summary, manifest, owner_slot=1):
                     elif not newer(integer(observed_damage, high=65535), form["damage"], 16):
                         raise ValueError("health/presence mismatch at same damage revision")
                     elif any(other["started"] == form["started"] and other["damage"] == observed_damage
-                             and (candidate["BodyHp"], other["hp"], other["active"]) ==
+                             and (other["body_hp"], other["hp"], other["active"]) ==
                                  (row["BodyHp"], row["TurretHp"], row["TurretActive"])
                              for candidate, other in by_life.get(key, [])):
                         metrics["newerHealthJoins"] += 1

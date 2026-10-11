@@ -77,7 +77,7 @@ def slow_states(report, authority=False):
     # Protocols 46–48 append the continuous endpoint sidecar; protocol 49
     # adds observed form/turret state. Scores remain in the first 10 bytes.
     protocol = report.get("Protocol", 0)
-    stride = 56 if protocol >= 49 else 28 if protocol >= 46 else 10
+    stride = 58 if protocol >= 49 else 28 if protocol >= 46 else 10
     rows = report.get("SlowStates")
     if not isinstance(rows, list) or not rows:
         raise ValueError("missing/nonempty slow-lane evidence")

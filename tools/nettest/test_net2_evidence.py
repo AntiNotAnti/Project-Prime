@@ -417,7 +417,7 @@ class EvidenceTests(unittest.TestCase):
         if protocol >= 46:
             payload += bytes(18) if cosmetic is None else cosmetic
         if protocol >= 49:
-            payload += bytes(28) if form is None else form
+            payload += bytes(30) if form is None else form
         payload += bytes(64)
         return dict(Epoch=epoch, Match=match, Revision=revision, Frame=frame,
                     Context=context, Payload=payload.hex())
@@ -475,7 +475,7 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(slow_states(self.server)[-1]["scores"][(0, 3)], struct.pack("<BhHH", 0, 0, 1, 0))
         self.write()
         self.assertEqual(adjudicate(self.out, self.processes, expected_protocol=49)["status"], "PASS")
-        self.client["SlowStates"][-1] = self.slow(2, 180, kills=1, protocol=49, form=b"\x01" + bytes(27))
+        self.client["SlowStates"][-1] = self.slow(2, 180, kills=1, protocol=49, form=b"\x01" + bytes(29))
         self.write()
         self.assertEqual(adjudicate(self.out, self.processes, expected_protocol=49)["status"], "FAIL")
 
@@ -487,11 +487,16 @@ class EvidenceTests(unittest.TestCase):
         for protocol in (45, 46, 47, 48, 49):
             self.assertEqual(len(slow_states(dict(Protocol=protocol, SlowStates=[self.slow(1, 6, protocol=protocol)]))), 1)
 
+    def test_protocol49_rejects_obsolete_56byte_slow_entry(self):
+        old = self.slow(1, 6, protocol=49, form=bytes(28))
+        with self.assertRaises(ValueError):
+            slow_states(dict(Protocol=49, SlowStates=[old]))
+
     def test_protocol49_multiple_entries_use_correct_time_offset(self):
         row = self.slow(1, 6, kills=1, protocol=49)
         data = bytearray.fromhex(row["Payload"]); data[14] = 2
-        second = struct.pack("<BH", 1, 4) + struct.pack("<BhHH", 0, 0, 2, 3) + bytes(46)
-        row["Payload"] = (data[:71] + second + struct.pack("<16f", *([1.0] * 16))).hex()
+        second = struct.pack("<BH", 1, 4) + struct.pack("<BhHH", 0, 0, 2, 3) + bytes(48)
+        row["Payload"] = (data[:73] + second + struct.pack("<16f", *([1.0] * 16))).hex()
         report = dict(Protocol=49, SlowStates=[row])
         self.assertEqual(slow_states(report)[0]["scores"][(1, 4)], struct.pack("<BhHH", 0, 0, 2, 3))
         row["Payload"] = (bytes.fromhex(row["Payload"])[:-64] + struct.pack("<16f", float("nan"), *([1.0] * 15))).hex()
