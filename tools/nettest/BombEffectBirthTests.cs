@@ -41,6 +41,54 @@ internal static class BombEffectBirthTests
         foreach (var bomb in replay.Scene.GetBombEntities()) if (bomb.ModReplica) return bomb;
         throw new InvalidOperationException("Restored canonical ghost is missing.");
     }
+    private static void ManagerCheckpoint(string replayPath)
+    {
+        using var source = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+        var ghost = Ghost(source, BombType.MorphBall);
+        var state = ghost.ModCaptureState();
+        var receiver = new BombStateReceiver();
+        foreach (var page in BombStatePage.PackSnapshot(state.Key.MatchId, state.Key.AuthorityEpoch, 0, 7, new[] { state }))
+            receiver.Accept(page);
+        source.Scene.Bombs.ApplyBaseline(receiver);
+        var terminal = new BombEvent(8, 1, BombEventKind.Detonated, 0, state);
+        Check(source.Scene.Bombs.ReceiveEvent(terminal) && source.Scene.Bombs.Frontier == 8,
+            "canonical exact terminal advances baseline frontier once");
+        var next = state with { Key = state.Key with { ShotId = 2 } };
+        Check(source.Scene.Bombs.ReceiveEvent(new BombEvent(10, 3, BombEventKind.Placed, 0, next))
+            && source.Scene.Bombs.Frontier == 8 && source.Scene.Bombs.PendingEvents == 1,
+            "canonical out-of-order birth remains pending behind exact sequence gap");
+        using var checkpoint = ReplayWorldCheckpoint.Capture(source);
+        using var restored = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+        checkpoint.Restore(restored);
+        Check(restored.Scene.Bombs.Canonical && restored.Scene.Bombs.Frontier == 8
+            && restored.Scene.Bombs.PendingEvents == 1,
+            "world checkpoint preserves canonical stream baseline frontier and ordered pending event");
+        var before = restored.Scene.ReplayPresentationHash(restored.Session.CurrentFrame);
+        Check(!restored.Scene.Bombs.ReceiveEvent(terminal)
+            && restored.Scene.ReplayPresentationHash(restored.Session.CurrentFrame) == before,
+            "restored terminal retry produces no additional ghost or terminal effect");
+        var refused = new BombState(state.Key with { ShotId = 3 }, default, 0,
+            default, default, default, default, 0, 0, 0, 0, 0);
+        Check(restored.Scene.Bombs.ReceiveEvent(new BombEvent(9, 2, BombEventKind.Refused, 0, refused))
+            && restored.Scene.Bombs.Frontier == 10 && restored.Scene.Bombs.PendingEvents == 0,
+            "restored baseline admits missing sequence then drains pending birth exactly");
+        int nextCount = 0, oldCount = 0;
+        foreach (var bomb in restored.Scene.GetBombEntities())
+        {
+            if (bomb.ModReplica && bomb.ModOwnerKey == next.Key) nextCount++;
+            if (bomb.ModReplica && bomb.ModOwnerKey == state.Key) oldCount++;
+        }
+        Check(nextCount == 1 && oldCount == 0,
+            "restored canonical terminal stays removed while pending birth materializes once");
+        var resurrect = new BombEvent(11, 4, BombEventKind.Placed, 0, state);
+        Check(restored.Scene.Bombs.ReceiveEvent(resurrect) && restored.Scene.Bombs.Frontier == 11,
+            "restored terminal tombstone consumes later birth without replaying terminal identity");
+        oldCount = 0;
+        foreach (var bomb in restored.Scene.GetBombEntities())
+            if (bomb.ModReplica && bomb.ModOwnerKey == state.Key) oldCount++;
+        Check(oldCount == 0, "restored exact terminal tombstone prevents ghost resurrection");
+    }
+
     internal static int Run(string replayPath)
     {
         Headless.Enter();
@@ -83,6 +131,7 @@ internal static class BombEffectBirthTests
                 Check(ReferenceEquals(existingEffect, existing.Effect) && Particles(existing) == restoredParticles,
                     $"{kind} post-emission restore does not emit duplicate body");
             }
+            ManagerCheckpoint(replayPath);
             Console.WriteLine($"PASS: {_checks} bomb effect birth/checkpoint assertions"); return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
