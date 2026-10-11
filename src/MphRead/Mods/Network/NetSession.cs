@@ -93,9 +93,15 @@ namespace MphRead.Mods.Network
         public static uint SnapshotArrived { get; private set; }
 
         /// <summary>Frames since the newest snapshot, or a large number before the first.</summary>
-        public static uint SnapshotAge => SnapshotArrived == 0
-            ? UInt32.MaxValue
-            : NetFrame >= SnapshotArrived ? NetFrame - SnapshotArrived : 0;
+        public static uint SnapshotAge
+        {
+            get
+            {
+                if (!_hasSnapshot) return UInt32.MaxValue;
+                int age = unchecked((int)(NetFrame - SnapshotArrived));
+                return age >= 0 ? (uint)age : 0;
+            }
+        }
         public static string? LastError { get; private set; }
 
         /// <summary>Latest authoritative state per slot, applied by clients.</summary>
@@ -1769,7 +1775,7 @@ namespace MphRead.Mods.Network
             }
             _hasSnapshot = true;
             _lastSnapshotFrame = header.Frame;
-            SnapshotArrived = Math.Max(NetFrame, 1);
+            SnapshotArrived = NetFrame;
             if (direct) ReplayCapture.ObserveSnapshot(header, decoded[..header.PlayerCount], timeState, worldState);
             else ReplayCapture.Observe(packet.Data.AsSpan(0, packet.Length));
             SnapshotsReceived++;

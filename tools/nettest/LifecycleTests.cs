@@ -39,6 +39,7 @@ namespace MphRead.NetTest
                 PresentationTimingDiagnostics();
                 ReportedVelocityWrap();
                 RemoteIntentAgeWrap();
+                SnapshotAgeWrap();
                 HistoryBoundaries();
                 ClaimBoundaries();
                 FaultStream();
@@ -789,6 +790,27 @@ namespace MphRead.NetTest
             typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, 100.5);
             Check(NetSmoothing.Sample(1, out var pose, out _) && pose == Vector3.Zero,
                 "valid received origin pose remains available to smoothing");
+        }
+
+        private static void SnapshotAgeWrap()
+        {
+            Session();
+            Check(NetSession.SnapshotAge == uint.MaxValue, "snapshot age unknown before acceptance");
+            var clock = typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!;
+            clock.SetValue(null, 0u);
+            Deliver(Packet(100, State(7)));
+            Check(NetSession.SnapshotArrived == 0 && NetSession.SnapshotAge == 0,
+                "real snapshot acceptance preserves valid receiver frame zero");
+            clock.SetValue(null, 20u);
+            Check(NetSession.SnapshotAge == 20, "frame-zero snapshot becomes stale normally");
+            clock.SetValue(null, uint.MaxValue - 1);
+            Deliver(Packet(101, State(7)));
+            clock.SetValue(null, 1u);
+            Check(NetSession.SnapshotAge == 3, "snapshot age crosses receiver frame wrap");
+            clock.SetValue(null, 200u);
+            Check(NetSession.SnapshotAge == 202, "wrapped snapshot continues aging through stale cutoff");
+            Session();
+            Check(NetSession.SnapshotAge == uint.MaxValue, "new session resets snapshot known state");
         }
 
         private static void RemoteIntentAgeWrap()
