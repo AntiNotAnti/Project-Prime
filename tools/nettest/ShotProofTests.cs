@@ -222,6 +222,13 @@ internal static class ShotProofTests
     }
     private static void WeaponVariants()
     {
+        Prepare(Source(charges: 0));
+        var tap = Emit(BeamType.Missile, charge: 1);
+        Check(!tap.Flags.TestFlag(BeamFlags.Charged), "native charge1 Missile tap remains uncharged without charge upgrade");
+        Collide(tap); var tapProof = NetShotProof.Evaluate(0, Claim(tap), final: true);
+        Check(tapProof.Source == ShotProofReason.Verified && tapProof.Geometry == ShotProofReason.Verified
+            && tapProof.PhysicalMatch && tapProof.Status == ShotProofStatus.Verified,
+            $"actual charge1 uncharged Missile tap source={tapProof.Source} geometry={tapProof.Geometry} status={tapProof.Status}");
         Prepare();
         var affinity = Weapons.GetAffinityBeam(_shooter.Hunter);
         Check(affinity == BeamType.Missile, "spawn authority fixture uses Samus Missile affinity");

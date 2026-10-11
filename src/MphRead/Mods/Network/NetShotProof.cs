@@ -42,7 +42,7 @@ public static class NetShotProof
         public FireEvent Fire;
         public uint Observed;
         public int Cost, AmmoType, Cooldown;
-        public bool Chargeable;
+        public bool Chargeable, RequiresChargeInput;
         public ShotProofReason Pose;
     }
     private struct Source
@@ -169,7 +169,11 @@ public static class NetShotProof
             if(oldSource.Live && SameLife(oldSource.Life,evicted.Key))oldSource.Incomplete=true;
         }
         _shots[key.ShooterSlot,free]=new Shot { Live=true,Key=key,Fire=fire,Observed=NetSession.NetFrame,
-            Cost=cost,AmmoType=mechanics.AmmoType,Cooldown=mechanics.ShotCooldown*2,Chargeable=mechanics.Flags.TestFlag(WeaponFlags.CanCharge),Pose=poseReason };
+            Cost=cost,AmmoType=mechanics.AmmoType,Cooldown=mechanics.ShotCooldown*2,
+            Chargeable=mechanics.Flags.TestFlag(WeaponFlags.CanCharge),
+            RequiresChargeInput=mechanics.Flags.TestFlag(WeaponFlags.CanCharge)
+                && fire.Charge >= (mechanics.Flags.TestFlag(WeaponFlags.PartialCharge) ? mechanics.MinCharge : mechanics.FullCharge)*2,
+            Pose=poseReason };
     }
     internal static void Fired(in ShotKey key) { int i=Find(key);if(i>=0)_shots[key.ShooterSlot,i].Fired=true; }
     internal static ShotProofReason SourceReason(in ShotKey key)
@@ -183,7 +187,8 @@ public static class NetShotProof
         if(source.Incomplete)return ShotProofReason.SourceHistoryIncomplete;
         var state=source.State;
         if((state.Weapons & (1<<fire.Weapon))==0)return ShotProofReason.UnownedWeapon;
-        if(fire.Charge>0 && (!shot.Chargeable || (state.Charges & (1<<fire.Weapon))==0))return ShotProofReason.InvalidCharge;
+        if(fire.Charge>0 && !shot.Chargeable
+            || shot.RequiresChargeInput && (state.Charges & (1<<fire.Weapon))==0)return ShotProofReason.InvalidCharge;
         bool affinity=Weapons.GetAffinityBeam(state.Hunter)==(BeamType)fire.Weapon;
         if(fire.PrimeAtFire!=state.Prime || fire.DoubleAtFire!=state.Double
             || fire.AffinityAtFire && !affinity && !state.Prime) return ShotProofReason.ModifierMismatch;
@@ -205,7 +210,9 @@ public static class NetShotProof
             return ShotProofReason.Ammunition;
         // Spawn facts do not prove owner button hold/zoom transitions or later
         // timed powerup state. Those need an independently reconstructed input history.
-        if(fire.Charge>0 || fire.ScopedAtFire)return ShotProofReason.SourceInputUnavailable;
+        // Native taps can retain Charge=1 while still emitting the uncharged
+        // weapon row. Only an effective charge tier needs hold/release proof.
+        if(shot.RequiresChargeInput || fire.ScopedAtFire)return ShotProofReason.SourceInputUnavailable;
         if(fire.PrimeAtFire || fire.DoubleAtFire)return ShotProofReason.UnverifiedModifier;
         return ShotProofReason.Verified;
     }

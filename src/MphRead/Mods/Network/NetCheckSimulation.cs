@@ -28,9 +28,15 @@ internal static class NetCheckSimulation
         var positions = new Vector3[PlayerEntity.SlotCapacity];
         var moved = new bool[PlayerEntity.SlotCapacity];
         bool spectated = false, rejoined = false;
-        while (Stopwatch.GetElapsedTime(start).TotalSeconds < seconds)
+        while (true)
         {
             double now = Stopwatch.GetElapsedTime(start).TotalSeconds;
+            if (now >= seconds)
+            {
+                if (!NetCampaignDrain.Enabled) break;
+                NetCampaignDrain.Begin();
+                if (NetCampaignDrain.Completed) break;
+            }
             if (now < next) { Thread.Sleep(1); continue; }
             if (now - next > 0.25) next = now;
             next += 1.0 / 60;
@@ -54,6 +60,7 @@ internal static class NetCheckSimulation
             // virtual presentation at 60 Hz, ACK stays on the initial snapshot
             // and every headless shot eventually asks for the rewind ceiling.
             NetSmoothing.PreparePresentation(1);
+            NetCampaignDrain.Tick(scene);
             steps++;
             foreach (var player in scene.Players.Items)
             {
@@ -90,7 +97,9 @@ internal static class NetCheckSimulation
         bool scenario = (!contactAttacker || NetContactLagComp.AttacksAttempted > 0)
             && (!HitRig.Active || !HitRig.IsSniper || HitRig.Triggers > 0);
         Console.WriteLine($"[netchecksim] altScenarioExercised={scenario} stationaryTarget={stationaryTarget}");
-        return steps > 0 && remoteFrames > 0 && (moving > 0 || stationaryTarget) && scenario && clipsPassed && DemoRecorder.LastError == null
+        if (NetCampaignDrain.Enabled)
+            Console.WriteLine($"[net2-drain] completed={NetCampaignDrain.Completed} passed={NetCampaignDrain.Succeeded}");
+        return NetCampaignDrain.Succeeded && steps > 0 && remoteFrames > 0 && (moving > 0 || stationaryTarget) && scenario && clipsPassed && DemoRecorder.LastError == null
             && ReplayCapture.WorldCapture.LastError == null ? 0 : 1;
     }
 }

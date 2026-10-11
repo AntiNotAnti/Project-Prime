@@ -12,7 +12,7 @@ using MphRead.Mods.MatchEvents;
 namespace MphRead.Mods.Network;
 
 /// <summary>N0 opt-in, process-owned evidence. Never feeds a gameplay decision.
-/// Bounded buffers fail closed on overflow; no disk I/O in simulation hooks.
+/// Bounded buffers fail closed on overflow; only the opt-in headless drain publishes live status.
 /// Wire/replay formats and normal play are unchanged.</summary>
 internal static class NetCampaignEvidence
 {
@@ -70,6 +70,7 @@ internal static class NetCampaignEvidence
             if (seen.Contains(key)) continue;
             if (seen.Count >= RowLimit) { _overflow++; continue; }
             seen.Add(key);
+            NetCampaignDrain.Shot(key, offered);
             Add(Shots, new(offered ? "offered" : "accepted", key, fire.SourceFrame,
                 NetSession.NetFrame, fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase));
         }
@@ -117,16 +118,23 @@ internal static class NetCampaignEvidence
         // Exact, already-validated authority bytes retain event, actor and victim identities.
         if (Facts.Count >= RowLimit) { _overflow++; return; }
         if (type == PacketType.MatchSemanticEvent && MatchSemanticEventPacket.TryRead(payload, out var fact))
+        {
             Facts.Add(new((byte)type, fact.AuthorityEpoch, fact.MatchId, fact.EventId, fact.Tick,
                 fact.IsBaseline, false, fact.AwardFrontier, Convert.ToHexString(payload)));
+            NetCampaignDrain.Fact(fact.AuthorityEpoch, fact.MatchId, fact.EventId, false, fact.IsBaseline);
+        }
         else if (type == PacketType.MatchAward && MatchAwardPacket.TryRead(payload, out var award))
+        {
             Facts.Add(new((byte)type, award.AuthorityEpoch, award.MatchId, award.AwardId, award.Tick,
                 false, true, 0, Convert.ToHexString(payload)));
+            NetCampaignDrain.Fact(award.AuthorityEpoch, award.MatchId, award.AwardId, true, false);
+        }
     }
 
     internal static void Tick(Scene scene)
     {
         if (!Enabled || scene.Services.IsReplica) return;
+        if (NetSession.IsAuthority) NetCampaignDrain.Tick(scene);
         long now = Stopwatch.GetTimestamp();
         if (_start == 0) _start = _lastWindow = now;
         _frames++;
@@ -161,6 +169,7 @@ internal static class NetCampaignEvidence
     internal static void Transport(NetTransport? transport)
     {
         if (!Enabled || transport == null) return;
+        NetCampaignDrain.Transport(transport);
         // One report/second; supports the existing 30-minute maximum campaign.
         // No per-packet history and no file I/O until process shutdown.
         if (TransportWindows.Count < 2048) TransportWindows.Add(transport.CaptureBudget());
@@ -219,6 +228,7 @@ internal static class NetCampaignEvidence
                 AdmissionBudgets = NetTransport.AdmissionBudgets,
                 IntentHistory = NetFireEvents.CaptureHistory(),
                 ShotProof = NetShotProof.Capture(),
+                Drain = NetCampaignDrain.Capture(),
                 TransportWindows, Readiness, Windows, ServerSegments, Shots, States, Facts };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             JsonSerializer.Serialize(file, report);

@@ -36,6 +36,8 @@ A new claim ID does not create new payment eligibility.
 Source facts come from the authority's native spawn loadout before client
 inventory is applied. Ownership, charge permission, ammo cost, minimum cooldown
 and captured affinity/modifier consistency are checked against those facts.
+A tap can retain charge counter 1 without entering a native charged tier; this
+remains an ordinary uncharged shot, including without a charge upgrade.
 Both source-time orderings are checked: an older retained event arriving late
 cannot bypass a newer admitted shot's cooldown or spend its ammo again. Once
 retained expenditure history is incomplete, the result becomes unavailable.
@@ -58,6 +60,8 @@ quantized knockback. A physical hit cannot legitimize an invalid source or
 forged muzzle. Strict old-life acknowledgements require exact physical
 component/weapon/kind identity, preserve the original cached identity and never
 rescue damage or perform a new head correction against a present-life body.
+Their immutable physical outcome survives the legacy ledger reset on shooter
+respawn, retaining original shot ID, damage, health, flags and damage sequence.
 
 Straight-shot inspection uses the emitted ray, historical victim rig/head band,
 weapon reach and historical walls, doors and force fields. Claim `HitPoint` is
@@ -111,6 +115,18 @@ Run the proof scene with `nettest --shot-proof-scene PROFILE 'MP1 SANCTORUS'`.
 clears inherited game experiment flags. `tools/nettest/net4_evidence.py CAMPAIGN`
 checks row/counter completeness and reports source, geometry and stage summaries.
 Its instrumentation PASS is deliberately separate from enforcement readiness.
+
+The original short impaired run remains a failure: semantic event 38 was still
+reliable-pending when the peer exported and closed, while event 39 was buffered.
+The one-second comparison tail did not cover retransmission backoff. The final
+headless controls use an opt-in bounded drain, with scripts quiesced while real
+simulation and transport continue. Every offered shot must reach authority;
+flights, bombs and claims must settle; reliable queues must empty; and every peer
+must present the saved semantic/award frontier for the full claim grace. A
+server-first release handshake records that frontier before clients disconnect.
+Offline checks compare the entire baseline-to-frontier payload interval without
+relaxing existing tail guards. Timeout is a failure. Default runner shutdown and
+ordinary gameplay are unchanged; rendered/soak drain combinations are unsupported.
 
 Primary reference reviews: [Fruity #109](https://github.com/liveteklol/Fruity-Prime/pull/109)
 and [Fruity #112](https://github.com/liveteklol/Fruity-Prime/pull/112). No retired
