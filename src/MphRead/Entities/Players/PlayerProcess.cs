@@ -2157,6 +2157,7 @@ namespace MphRead.Entities
 
         public void ExitAltForm()
         {
+            NetFireEvents.RetireTurret(this);
             _modFormStartedFrame = Mods.Network.NetSession.NetFrame;
             if (Flags2.TestFlag(PlayerFlags2.Halfturret))
             {

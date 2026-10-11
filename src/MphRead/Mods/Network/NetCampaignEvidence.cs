@@ -47,7 +47,7 @@ internal static class NetCampaignEvidence
                 : Offered.Any(key => key.ShooterSlot == NetSession.LocalSlot)));
     private sealed record Shot(string Stage, ShotKey Key, uint SourceFrame, uint ObservedFrame,
         byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase, string? Reason = null,
-        int OwnerHealth = -1, ushort CurrentOwnerLife = 0);
+        int OwnerHealth = -1, ushort CurrentOwnerLife = 0, string? RetiredFormSource = null);
     private sealed record FormObservation(string Stage, ulong Epoch, ushort Match, byte Slot, ushort Generation,
         ushort Life, string Source, uint ObservedFrame, string Phase, int BodyHp, int TurretHp,
         bool TurretActive, float X, float Y, float Z, float BodyX, float BodyY, float BodyZ, ushort ObservedDamageEvent, int BodyPredictionDebit);
@@ -134,6 +134,18 @@ internal static class NetCampaignEvidence
         Add(Shots, new("rejected", key, fire.SourceFrame, NetSession.NetFrame, fire.Weapon, fire.Charge,
             fire.Kind, fire.ContinuousPhase, life != key.LifeId ? "continuous owner life retired" : "continuous owner dead",
             owner.Health, life));
+    }
+    internal static void TurretUnavailable(PlayerEntity owner, ShotKey key, FireEvent fire)
+    {
+        if (!Enabled || !NetSession.IsAuthority) return;
+        var form = owner.ModCaptureForm();
+        form.DamageEventId = NetDamage.Sequence(owner.SlotIndex);
+        Span<byte> source = stackalloc byte[PlayerFormState.Size]; form.Write(source);
+        Form(new PlayerState { SlotIndex = (byte)owner.SlotIndex, SlotGeneration = NetPlayerLifecycle.Generation(owner.SlotIndex),
+            LifeId = NetPlayerLifecycle.Get(owner.SlotIndex), Health = (ushort)owner.Health, Position = owner.Position, Form = form });
+        Add(Shots, new("rejected", key, fire.SourceFrame, NetSession.NetFrame, fire.Weapon, fire.Charge,
+            fire.Kind, fire.ContinuousPhase, "turret source retired before native emission", owner.Health,
+            NetPlayerLifecycle.Get(owner.SlotIndex), Convert.ToHexString(source)));
     }
     internal static void AdmissionRejected(ShotKey key, FireEvent fire, string reason)
     {

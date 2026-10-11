@@ -143,7 +143,9 @@ public static class NetFireEvents
         public ushort CurrentLife;
         public uint NextId, SelectedAt;
         public bool Selected, PlayingAccepted, EventStream;
-        public ShotKey ActiveKey;
+        public ShotKey ActiveKey, TurretRetiredLife;
+        public uint TurretRetiredThrough;
+        public bool HasTurretRetirement;
         public AcceptedShotLedger Ledger = NewLedger();
         public FireEvent Active;
         public readonly NetOutgoingFireHistory Outgoing = new();
@@ -151,20 +153,6 @@ public static class NetFireEvents
     }
     private static AcceptedShotLedger NewLedger() => new() { OnDisposition = NetCampaignEvidence.Disposition };
     private static readonly Slot[] _slots = CreateSlots();
-    // The native cooldown bottoms at 14 ticks (12 with the enhanced bonus).
-    // Retain source times, so arrival bursts cannot accelerate that cadence.
-    private static readonly (ShotKey Key, uint Frame)[,] _turretFrames = new (ShotKey, uint)[8, 64];
-    private static readonly int[] _turretFrameHead = new int[8];
-    private static bool TurretCadenceAvailable(ShotKey key, uint frame)
-    {
-        for (int i = 0; i < 64; i++)
-        {
-            var prior = _turretFrames[key.ShooterSlot, i];
-            if (prior.Key.ShotId != 0 && prior.Key with { ShotId = 0 } == key with { ShotId = 0 }
-                && (unchecked(frame - prior.Frame) < 12 || unchecked(prior.Frame - frame) < 12)) return false;
-        }
-        return true;
-    }
     private static Slot[] CreateSlots()
     {
         var result = new Slot[8];
@@ -204,12 +192,15 @@ public static class NetFireEvents
             if (fire.Kind == FireEventKind.ContinuousTick && (uint)slot < PlayerEntity.Players.Count
                 && (PlayerEntity.Players[slot].Health <= 0 || key.LifeId != NetPlayerLifecycle.Get(slot)))
                 CompleteUnavailableContinuous(PlayerEntity.Players[slot], key, fire);
+            else if (fire.Kind == FireEventKind.TurretFire && NetSession.IsAuthority
+                && (uint)slot < PlayerEntity.Players.Count)
+                NetCampaignEvidence.TurretUnavailable(PlayerEntity.Players[slot], key, fire);
             else NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Rejected, reason);
             state.Incoming.Consume(fire.ShotId);
         }
     }
     public static void Reset()
-    { NetShotProof.Reset(); Array.Clear(_turretFrames); Array.Clear(_turretFrameHead); foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
+    { NetShotProof.Reset(); foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.HasTurretRetirement = slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
     internal static bool Accept(int slot, in IntentPacket intent)
     {
         if ((uint)slot >= 8 || !Validate(intent)) return false;
@@ -227,7 +218,7 @@ public static class NetFireEvents
         {
             var fire = intent.FireEvents[i];
             ushort life = fire.SourceLife != 0 ? fire.SourceLife : intent.LifeId;
-            if (fire.Kind is FireEventKind.ContinuousTick or FireEventKind.TurretFire)
+            if (fire.Kind == FireEventKind.ContinuousTick || fire.Kind == FireEventKind.TurretFire && NetSession.IsAuthority)
             {
                 if (life == NetPlayerLifecycle.Get(slot))
                     special.FireEvents[special.FireEventCount++] = fire;
@@ -253,20 +244,39 @@ public static class NetFireEvents
         if (!state.PlayingAccepted) return false;
         key = state.ActiveKey; return true;
     }
+    internal static void RetireTurret(PlayerEntity player)
+    {
+        int slot = player.SlotIndex;
+        if (!NetSession.IsAuthority || (uint)slot >= 8 || !NetSession.RemoteIntentValid[slot]) return;
+        var state = For(slot);
+        state.HasTurretRetirement = true;
+        state.TurretRetiredLife = ShotKey.For(slot, 0);
+        state.TurretRetiredThrough = NetSession.RemoteIntents[slot].Frame;
+    }
     internal static void DrainAccepted(PlayerEntity player)
     {
         if (!AcceptedPlaybackEnabled || !NetSession.Active || player.SceneServices.IsReplica
             || player.IsBot || player.SlotIndex == NetSession.LocalSlot || (uint)player.SlotIndex >= 8) return;
         var state = For(player.SlotIndex);
-        while (state.Incoming.TryPeek(out var fire) && fire.Kind is FireEventKind.ContinuousTick or FireEventKind.TurretFire)
+        // An owner offer is not an authority emission. Native turret target,
+        // freeze, health and cooldown checks remain authoritative. Retire only
+        // a source whose actual form is gone; do not silently age that offer out.
+        while (NetSession.IsAuthority && state.Incoming.TryPeek(out var retired)
+            && retired.Kind == FireEventKind.TurretFire
+            && (player.Health <= 0 || state.HasTurretRetirement
+                && state.TurretRetiredLife == ShotKey.For(player.SlotIndex, 0)
+                && !NetLifecycleTracker.Newer(retired.SourceFrame, state.TurretRetiredThrough)
+                && !player.IsAltForm && !player.IsMorphing))
+        {
+            var key = ShotKey.For(player.SlotIndex, retired.ShotId) with { LifeId = retired.SourceLife };
+            NetCampaignEvidence.TurretUnavailable(player, key, retired);
+            state.Incoming.Consume(retired.ShotId);
+            state.Selected = false; state.Active = default;
+        }
+        while (state.Incoming.TryPeek(out var fire) && fire.Kind == FireEventKind.ContinuousTick)
         {
             var key = ShotKey.For(player.SlotIndex, fire.ShotId) with { LifeId = fire.SourceLife };
-            if (fire.Kind == FireEventKind.TurretFire)
-            {
-                if (PlayAccepted(player, key, fire) == BeamResultFlags.NoSpawn)
-                    NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Rejected, "turret lifecycle, cadence or authored pose refused");
-            }
-            else if (fire.SourceLife != NetPlayerLifecycle.Get(player.SlotIndex) || player.Health <= 0)
+            if (fire.SourceLife != NetPlayerLifecycle.Get(player.SlotIndex) || player.Health <= 0)
                 CompleteUnavailableContinuous(player, key, fire);
             else if (PlayAccepted(player, key, fire) == BeamResultFlags.NoSpawn)
                 NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Rejected, "continuous tick spawn refused");
@@ -306,16 +316,9 @@ public static class NetFireEvents
         state.Active = fire; state.ActiveKey = key; state.PlayingAccepted = true;
         try
         {
-            // Turret cadence is authored by the native turret; its accepted
-            // emission must not wait on a second local target/cooldown cycle.
-            if (fire.Kind == FireEventKind.TurretFire)
-            {
-                if (!TurretCadenceAvailable(key, fire.SourceFrame)) return BeamResultFlags.NoSpawn;
-                var turretResult = player.ModSpawnAcceptedTurret(fire);
-                if (turretResult != BeamResultFlags.NoSpawn)
-                    _turretFrames[key.ShooterSlot, (_turretFrameHead[key.ShooterSlot]++ & 63)] = (key, fire.SourceFrame);
-                return turretResult;
-            }
+            // Clients predict owner-authored turret flights just as other N2
+            // discrete projectiles. This path cannot authorize server damage.
+            if (fire.Kind == FireEventKind.TurretFire) return player.ModSpawnAcceptedTurret(fire);
             NetShotProof.Admit(player, key, fire);
             var admission = NetShotProof.ObserveEmission(key);
             if (NetHitClaims.Arbitrating && NetShotProof.Mode == ShotProofMode.Enforce
@@ -397,7 +400,7 @@ public static class NetFireEvents
     }
     internal static bool CanFireTurret(PlayerEntity player)
     {
-        if (TryAcceptedKey(player, out _)) return _slots[player.SlotIndex].Active.Kind == FireEventKind.TurretFire;
+        if (TryAcceptedKey(player, out _)) return !NetSession.IsAuthority && _slots[player.SlotIndex].Active.Kind == FireEventKind.TurretFire;
         if (player.SceneServices.IsReplica)
         {
             FireEvent fire = default;
@@ -450,7 +453,7 @@ public static class NetFireEvents
         {
             // Continuous ticks are pumped after intent/death reconciliation,
             // independently of present-life trigger/cooldown animation gates.
-            if (AcceptedPlaybackEnabled && e.Kind is FireEventKind.ContinuousTick or FireEventKind.TurretFire) return;
+            if (e.Kind == FireEventKind.ContinuousTick && AcceptedPlaybackEnabled) return;
             state.Active = e; state.Selected = true; state.SelectedAt = NetSession.NetFrame;
             if (e.Kind == FireEventKind.TurretFire) return;
             player.ModSetWeapon((BeamType)e.Weapon);
