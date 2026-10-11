@@ -173,6 +173,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            NetBombVisibilityProbe.Observe(Scene);
             _frame++;
             bool killcamVisible = Mods.KillCam.Presentation(Scene) != null;
             if (killcamVisible)
