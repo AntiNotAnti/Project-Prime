@@ -442,6 +442,7 @@ internal static class SelfSplashTests
                 { _direction = direction; break; }
             Check(_direction.LengthSquared == 1, "asset fixture provides clear production collision lane");
 
+            SelfPredictionTests.RunReplay(_shooter);
             SupportedPolicy(); ForgedClaims(); ActualExplosions(); JudicatorAffinityPolicy(); ProtectedAndReplacement(); MovingJumpAndSelfKill(); ChainedAndTeamSplash(); SplitNativeHookRescue(); BombLifecycleFence(); BurnOwnership();
             long lifetimePayments = NetCombatPayments.LifetimePayments;
             long lifetimeSuppressed = NetCombatPayments.LifetimeSuppressed;

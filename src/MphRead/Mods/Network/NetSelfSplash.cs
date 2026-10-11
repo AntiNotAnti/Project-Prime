@@ -34,13 +34,13 @@ internal static class NetSelfSplash
         Receipts.Add(new { Key = key, AuthorityFrame = NetSession.NetFrame, Outcome = Outcome(outcome) });
     }
     internal static void RecordFeedback(int slot, ushort generation, ushort life, ushort sequence,
-        Vector3 predicted, Vector3 authority, Vector3 before, Vector3 after)
+        Vector3 predicted, Vector3 authority, Vector3 before, Vector3 after, bool alreadyApplied = false)
     {
         if (!NetCampaignEvidence.Enabled) return;
         if (Feedback.Count >= 8192) { EvidenceOverflow++; return; }
         Feedback.Add(new { NetSession.AuthorityEpoch, MatchId = NetSession.CurrentMatchId,
             VictimSlot = slot, Generation = generation, Life = life, DamageSequence = sequence,
-            Predicted = Vector(predicted), Authority = Vector(authority), Before = Vector(before), After = Vector(after) });
+            Predicted = Vector(predicted), Authority = Vector(authority), PreviouslyApplied = Vector(alreadyApplied ? authority : Vector3.Zero), Before = Vector(before), After = Vector(after) });
     }
     internal static void RecordPayment(in ShotPaymentKey key, in CombatAckEntry outcome)
     {

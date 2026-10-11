@@ -419,7 +419,9 @@ namespace MphRead.Mods.Network
             // A continuous pulse is instantaneous in its authored historical
             // world. Keep the fire event's stamped ACK through collision; a
             // fresh smoothing read may move either side of that launch frame.
-            uint ack = (claimFlags & HitClaimPacket.FlagContinuousTick) != 0
+            // Self splash validates a captured authority body at impact, not a
+            // remote playout body. Keep its admitted launch clock as well.
+            uint ack = (claimFlags & HitClaimPacket.FlagContinuousTick) != 0 || victim == attacker
                 ? launchFrame
                 : NetSmoothing.AckPoint(out uint readFrame, out _) ? readFrame : NetSession.AppliedSnapshotFrame;
             _outbox[index] = new Outgoing

@@ -22,7 +22,8 @@ class SelfAuditTests(unittest.TestCase):
         self.peers["peer-0"]["CombatReconciliation"].update(SelfPredicted=1, SelfConfirmed=1)
         self.peers["peer-0"]["SelfSplash"]["Receipts"] = [dict(paid, Outcome=dict(self.ack, ClaimId=1, Result=1))]
         self.peers["peer-0"]["SelfSplash"]["Feedback"] = [dict(AuthorityEpoch=1, MatchId=2, VictimSlot=0, Generation=1, Life=1,
-            DamageSequence=1, Predicted=[0, 1, 0], Authority=[0, 2, 0], Before=[0, 4, 0], After=[0, 5, 0])]
+            DamageSequence=1, Predicted=[0, 1, 0], Authority=[0, 2, 0], PreviouslyApplied=[0, 0, 0],
+            Before=[0, 4, 0], After=[0, 5, 0])]
         self.summary = dict(status="PASS", processes=[dict(name=n) for n in ("server", *self.peers)],
             coverage=dict(boundedHeadlessDrain="PASS"),
             parity={n: dict(healthMismatches=0, healthSamplesCompared=20) for n in self.peers})
@@ -125,6 +126,30 @@ class SelfAuditTests(unittest.TestCase):
 
     def test_impulse_added_twice_fails(self):
         self.peers["peer-0"]["SelfSplash"]["Feedback"][0]["After"] = [0, 6, 0]
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_authority_event_before_prediction_subtracts_already_applied_impulse(self):
+        feedback = self.peers["peer-0"]["SelfSplash"]["Feedback"][0]
+        feedback.update(PreviouslyApplied=[0, 2, 0], After=[0, 3, 0])
+        self.assertEqual(self.result()["status"], "PASS")
+
+    def test_deferred_prediction_with_already_applied_authority_adds_no_impulse(self):
+        feedback = self.peers["peer-0"]["SelfSplash"]["Feedback"][0]
+        feedback.update(PreviouslyApplied=[0, 2, 0], Predicted=[0, 0, 0], After=[0, 4, 0])
+        self.assertEqual(self.result()["status"], "PASS")
+
+    def test_already_applied_authority_cannot_be_repaid(self):
+        feedback = self.peers["peer-0"]["SelfSplash"]["Feedback"][0]
+        feedback.update(PreviouslyApplied=[0, 2, 0], Predicted=[0, 0, 0], After=[0, 6, 0])
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_partial_previously_applied_impulse_fails(self):
+        feedback = self.peers["peer-0"]["SelfSplash"]["Feedback"][0]
+        feedback.update(PreviouslyApplied=[0, 1, 0], After=[0, 4, 0])
+        self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_missing_previously_applied_evidence_fails(self):
+        del self.peers["peer-0"]["SelfSplash"]["Feedback"][0]["PreviouslyApplied"]
         self.assertEqual(self.result()["status"], "FAIL")
 
     def test_impulse_identity_or_value_mismatch_fails(self):

@@ -2098,13 +2098,20 @@ namespace MphRead.Entities
             // *this* player is not -- a fall into the void or a rocket jump at
             // low health kills on the frame it happens.
             // Mods.Network.NetHitPrediction.
+            // An authority self event may beat its local projectile collision.
+            // Until the exact claim receipt pairs them, avoid another HP debit
+            // or jump impulse. The full claim is still authored for settlement.
+            bool deferSelf = NetHitPrediction.Predicting && attacker == this && beam != null
+                && NetSelfSplash.Claimable(beam.Beam, flags, beam.EnhancedDirectHit, beam.ModShotId, beam.ModComponentId)
+                && NetDamage.HasUnclaimedSelfEvent((byte)beam.Beam);
             Mods.Network.NetHitPrediction.NoteHit(this, attacker, ref flags, ref damage,
                 beam?.Beam ?? BeamType.None, beam?.ModLaunchFrame ?? 0, beam?.Age ?? 0, direction, shotId: beam?.ModShotId ?? 0, shotKey: beam?.ModLaunchKey, componentId: beam?.ModComponentId ?? 0,
                 direct: beam?.EnhancedDirectHit == true || source is PlayerEntity && attacker?.IsAltForm == true && !flags.TestFlag(DamageFlags.Burn)
                     || bomb?.BombType == BombType.Stinglarva,
                 afflictions: beam != null && !ignoreDamage && !flags.TestFlag(DamageFlags.Halfturret)
                     ? beam.Afflictions : Affliction.None, unsplitDamage: combatUnsplitDamage,
-                continuousPhase: beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true } ? (uint)beam.ModContinuousPhase : 0);
+                continuousPhase: beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true } ? (uint)beam.ModContinuousPhase : 0, deferSelf: deferSelf);
+            if (deferSelf) return;
             if (attacker != this)
                 Mods.Input.AimAssist.AimAssistTelemetry.Hit(attacker, beam?.Beam ?? BeamType.None, damage, flags);
             bool dead = false;

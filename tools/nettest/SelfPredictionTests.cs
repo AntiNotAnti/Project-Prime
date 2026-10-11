@@ -121,6 +121,84 @@ internal static class SelfPredictionTests
         Check(!NetHitPrediction.Predicts(_owner, beam, DamageFlags.Burn),
             "burn ticks remain authority resolved even for local original owner");
     }
+    internal static void RunReplay(PlayerEntity owner)
+    {
+        var role = NetSession.Role; bool authority = NetSession.IsAuthority; int local = NetSession.LocalSlot;
+        var savedState = NetSession.RemoteStates[owner.SlotIndex]; bool valid = NetSession.RemoteStateValid[owner.SlotIndex];
+        try
+        {
+            typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, NetRole.Client);
+            typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, false);
+            typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, owner.SlotIndex);
+            foreach (string order in new[] { "event-before-prediction", "snapshot-before-ACK", "ACK-before-snapshot" })
+            {
+                NetHitClaims.Reset(); NetHitPrediction.Reset(); NetDamage.ForgetSlot(owner.SlotIndex);
+                owner.Health = 99; owner.Speed = Vector3.Zero; owner.ModReleaseSpawnProtection();
+                HealthShotTests.Field(owner, "_spawnInvulnTimer", (ushort)0);
+                HealthShotTests.Field(owner, "_damageInvulnTimer", (ushort)0);
+                ushort generation = NetPlayerLifecycle.Generation(owner.SlotIndex), life = NetPlayerLifecycle.Get(owner.SlotIndex);
+                var baseline = HealthShotTests.State(life); baseline.SlotIndex = owner.SlotIndex;
+                baseline.SlotGeneration = generation; baseline.AttackerSlot = (byte)owner.SlotIndex;
+                NetSession.RemoteStates[owner.SlotIndex] = baseline; NetSession.RemoteStateValid[owner.SlotIndex] = true;
+                NetDamage.BeginLife(owner.SlotIndex, baseline);
+                var hit = baseline; hit.Health = 79; hit.DamageEventId = 11;
+                hit.DamageBeam = (byte)BeamType.Missile; hit.HitDirection = Vector3.UnitY * .2f;
+                hit.DamageFlags = (byte)DamageFlags.NoSfx;
+                hit.Damage0 = new DamageEvent { EventId = 11, AttackerSlot = (byte)owner.SlotIndex,
+                    AttackerGeneration = generation, Beam = (byte)BeamType.Missile,
+                    Damage = 20, Direction = hit.HitDirection, Flags = hit.DamageFlags };
+                if (order == "event-before-prediction")
+                {
+                    NetDamage.Replay(owner, hit); NetSession.RemoteStates[owner.SlotIndex] = hit; owner.Health = 79;
+                    Check(NetDamage.HasUnclaimedSelfEvent((byte)BeamType.Missile),
+                        "actual Replay retains self event arriving before any local prediction");
+                    Check(Vector3.Distance(owner.Speed, hit.HitDirection) < .000001f,
+                        "event-first actual Replay applies authority impulse once");
+                }
+                bool defer = NetDamage.HasUnclaimedSelfEvent((byte)BeamType.Missile);
+                uint damage = 20; DamageFlags flags = 0; var predictedImpulse = defer ? Vector3.Zero : Vector3.UnitY * .1f;
+                uint shot = 701;
+                NetHitPrediction.NoteHit(owner, owner, ref flags, ref damage, BeamType.Missile,
+                    launchFrame: 1, direction: predictedImpulse, shotId: shot,
+                    shotKey: ShotKey.For(owner.SlotIndex, shot), componentId: 17, deferSelf: defer);
+                owner.Health -= (int)damage; owner.Speed += predictedImpulse;
+                Check(owner.Health == 79, $"{order}: local collision cannot double-debit event-first health");
+                byte[] claims = new byte[4096]; Check(NetHitClaims.Compose(claims) > 0, "real Replay race still emits exact self claim");
+                var claim = HitClaimPacket.Read(claims.AsSpan(1));
+                Check(claim.Damage == 20 && claim.ShotId == shot && claim.ComponentId == 17,
+                    "deferred prediction preserves full claim damage and emitted identity");
+                if (order == "snapshot-before-ACK")
+                {
+                    NetSession.RemoteStates[owner.SlotIndex] = hit; NetDamage.Replay(owner, hit);
+                    Check(Vector3.Distance(owner.Speed, predictedImpulse) < .000001f,
+                        "snapshot before ACK defers exact feedback rather than doubling predicted impulse");
+                }
+                var ack = Ack(claim); ack.VictimSlot = (byte)owner.SlotIndex;
+                ack.VictimGeneration = generation; ack.VictimLife = life;
+                byte[] verdict = new byte[HitVerdictPacket.HeaderSize + CombatAckEntry.Size];
+                HitVerdictPacket.Write(verdict, new[] { ack }, NetSession.CurrentMatchId, NetSession.AuthorityEpoch, generation, life);
+                NetHitClaims.ApplyVerdicts(verdict);
+                if (order == "ACK-before-snapshot")
+                { NetSession.RemoteStates[owner.SlotIndex] = hit; NetDamage.Replay(owner, hit); }
+                NetDamage.FlushSelfFeedback();
+                Check(NetHitPrediction.LocalHealthFor(owner, 79) == 79 && owner.Health == 79,
+                    $"{order}: exact ACK and full Replay converge without health dip or refund");
+                Check(Vector3.Distance(owner.Speed, hit.HitDirection) < .000001f,
+                    $"{order}: exact full Replay converges to one authority impulse");
+                var speed = owner.Speed; NetDamage.Replay(owner, hit); NetDamage.FlushSelfFeedback();
+                Check(owner.Speed == speed && owner.Health == 79,
+                    "duplicate snapshot and feedback flush cannot repay event-first impulse or health");
+            }
+        }
+        finally
+        {
+            typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, role);
+            typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, authority);
+            typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, local);
+            NetSession.RemoteStates[owner.SlotIndex] = savedState; NetSession.RemoteStateValid[owner.SlotIndex] = valid;
+            NetHitClaims.Reset(); NetHitPrediction.Reset(); NetDamage.ForgetSlot(owner.SlotIndex);
+        }
+    }
     public static int Run()
     {
         var saved = (PlayerEntity[])PlayerEntity._players.Clone();

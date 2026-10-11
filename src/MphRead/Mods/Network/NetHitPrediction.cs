@@ -726,7 +726,7 @@ namespace MphRead.Mods.Network
         public static void NoteHit(PlayerEntity victim, PlayerEntity? attacker,
             ref DamageFlags flags, ref uint damage, BeamType beam = BeamType.None,
             uint launchFrame = 0, float flight = 0, Vector3? direction = null,
-            Affliction afflictions = Affliction.None, uint unsplitDamage = 0, uint continuousPhase = 0, bool direct = false, uint shotId = 0, ShotKey? shotKey = null, uint componentId = 0)
+            Affliction afflictions = Affliction.None, uint unsplitDamage = 0, uint continuousPhase = 0, bool direct = false, uint shotId = 0, ShotKey? shotKey = null, uint componentId = 0, bool deferSelf = false)
         {
             int local = NetHooks.LocalSlot;
             if (local < 0)
@@ -771,7 +771,8 @@ namespace MphRead.Mods.Network
                 if (flags.TestFlag(DamageFlags.Headshot)) NetShotDiagnostics.LocalHeadshots[weapon]++;
                 if (attacker != null && NetLog.Enabled) NetShotDiagnostics.Trace("prediction",
                     ShotKey.For(attacker.SlotIndex, shotId), beam, $"victim={victim.SlotIndex} damage={damage}");
-                bool claimedLethal = lethal;
+                bool claimedLethal = lethal && !deferSelf;
+                if (deferSelf) { damage = 0; lethal = false; }
                 bool exactSelf = self && attacker != null && NetSelfSplash.Claimable(beam, flags, direct, shotId, componentId);
                 if (lethal && (!self || exactSelf))
                 {
@@ -799,7 +800,7 @@ namespace MphRead.Mods.Network
                 if (at >= 0)
                 {
                     _pendingHeld[victim.SlotIndex, at] = claimedLethal && (!self || exactSelf);
-                    _pendingImpulse[victim.SlotIndex, at] = direction ?? Vector3.Zero;
+                    _pendingImpulse[victim.SlotIndex, at] = deferSelf ? Vector3.Zero : direction ?? Vector3.Zero;
                     if (self)
                     {
                         _shownHealth[victim.SlotIndex] = Math.Max(1, victim.Health - (int)damage);
@@ -968,7 +969,7 @@ namespace MphRead.Mods.Network
                     && NetSession.NetFrame - _receiptFrame[slot, i] < PendingFrames) return true;
             return false;
         }
-        internal static bool ConfirmSelfEvent(int slot, ushort generation, ushort life, ushort eventId, Vector3 impulse)
+        internal static bool ConfirmSelfEvent(int slot, ushort generation, ushort life, ushort eventId, Vector3 impulse, bool alreadyApplied = false)
         {
             if ((uint)slot >= Slots || !NetPlayerLifecycle.Matches(slot, generation, life)) return false;
             for (int i = 0; i < ReceiptCapacity; i++)
@@ -979,8 +980,8 @@ namespace MphRead.Mods.Network
                     if (PlayerEntity._players[slot] is { Health: > 0 } player)
                     {
                         var before = player.Speed;
-                        player.Speed += impulse - _receiptImpulse[slot, i];
-                        NetSelfSplash.RecordFeedback(slot, generation, life, eventId, _receiptImpulse[slot, i], impulse, before, player.Speed);
+                        player.Speed += (alreadyApplied ? Vector3.Zero : impulse) - _receiptImpulse[slot, i];
+                        NetSelfSplash.RecordFeedback(slot, generation, life, eventId, _receiptImpulse[slot, i], impulse, before, player.Speed, alreadyApplied);
                     }
                     return true;
                 }

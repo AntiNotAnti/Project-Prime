@@ -179,11 +179,15 @@ def audit(server, peers, summary, scenario="self-moving", verdicts=None):
                     missing.append(name + ": self feedback lacks unambiguous authority sequence/payment")
                     continue
                 key, impulse = candidates[0]
-                authority, predicted, before, after = (vector(row[f]) for f in ("Authority", "Predicted", "Before", "After"))
+                authority, predicted, previous, before, after = (vector(row[f]) for f in
+                    ("Authority", "Predicted", "PreviouslyApplied", "Before", "After"))
                 if target[2] != slot or not same_vector(authority, impulse):
                     failures.append(name + ": self feedback impulse/owner differs from authority payment")
+                if not (same_vector(previous, [0, 0, 0]) or same_vector(previous, authority)):
+                    failures.append(name + ": previously applied impulse is neither zero nor exact authority impulse")
                 # Capture emits feedback only in the alive/applied branch.
-                if not same_vector([a-b for a,b in zip(after,before)], [a-b for a,b in zip(authority,predicted)]):
+                if not same_vector([a-b for a,b in zip(after,before)],
+                                   [a-p-v for a,p,v in zip(authority,predicted,previous)]):
                     failures.append(name + ": self impulse correction delta differs")
                 applied_feedback += 1
             metrics["feedback"][name] = dict(rows=len(seen_feedback), applied=applied_feedback)

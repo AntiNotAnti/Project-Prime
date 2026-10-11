@@ -842,13 +842,13 @@ namespace MphRead.Mods.Network
 
         private struct DeferredSelf
         {
-            internal bool Live;
+            internal bool Live, Applied;
             internal PlayerState State;
             internal ushort Event;
             internal uint Frame;
         }
         private static readonly DeferredSelf[] SelfFeedback = new DeferredSelf[128];
-        private static void DeferSelf(in PlayerState state, ushort eventId)
+        private static void DeferSelf(in PlayerState state, ushort eventId, bool applied = false)
         {
             int empty = -1;
             for (int i = 0; i < SelfFeedback.Length; i++)
@@ -858,7 +858,17 @@ namespace MphRead.Mods.Network
                     && SelfFeedback[i].State.SlotGeneration == state.SlotGeneration) return;
                 if (!SelfFeedback[i].Live && empty < 0) empty = i;
             }
-            if (empty >= 0) SelfFeedback[empty] = new() { Live = true, State = state, Event = eventId, Frame = NetSession.NetFrame };
+            if (empty >= 0) SelfFeedback[empty] = new() { Live = true, Applied = applied, State = state, Event = eventId, Frame = NetSession.NetFrame };
+        }
+        internal static bool HasUnclaimedSelfEvent(byte beam)
+        {
+            foreach (var entry in SelfFeedback)
+                if (entry.Live && entry.Applied && entry.State.DamageBeam == beam
+                    && entry.State.SlotIndex == NetHooks.LocalSlot
+                    && NetPlayerLifecycle.Matches(entry.State.SlotIndex, entry.State.SlotGeneration, entry.State.LifeId)
+                    && NetSession.NetFrame - entry.Frame < 240
+                    && !NetHitPrediction.HasEventReceipt(entry.State.SlotIndex, entry.Event)) return true;
+            return false;
         }
         internal static void FlushSelfFeedback()
         {
@@ -869,6 +879,16 @@ namespace MphRead.Mods.Network
                 int slot = entry.State.SlotIndex;
                 if (!NetSession.Active || !NetPlayerLifecycle.Matches(slot, entry.State.SlotGeneration, entry.State.LifeId))
                 { SelfFeedback[i] = default; continue; }
+                if (entry.Applied)
+                {
+                    // This event was already presented before its local claim
+                    // existed. Only its exact receipt can reconcile a later
+                    // prediction; never apply the authority impulse twice.
+                    if (NetHitPrediction.ConfirmSelfEvent(slot, entry.State.SlotGeneration, entry.State.LifeId,
+                        entry.Event, entry.State.HitDirection, alreadyApplied: true)
+                        || NetSession.NetFrame - entry.Frame >= 240) SelfFeedback[i] = default;
+                    continue;
+                }
                 if (!NetHitPrediction.HasEventReceipt(slot, entry.Event) && NetHitPrediction.HasSelfClaims(entry.State.DamageBeam)
                     && NetSession.NetFrame - entry.Frame < 240) continue;
                 SelfFeedback[i] = default;
@@ -979,6 +999,8 @@ namespace MphRead.Mods.Network
             try
             {
                 player.TakeDamage((uint)amount, flags, direction, attacker);
+                if (self && !predicted && !waitingSelf && !lethal)
+                    DeferSelf(state, eventId, applied: true);
                 if (feedbackOnly) player.Health = savedHealth;
             }
             finally
