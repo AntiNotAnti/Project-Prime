@@ -31,6 +31,49 @@ internal static class BombSceneTests
     { foreach (var bomb in scene.GetBombEntities()) yield return bomb; }
     private static BombEntity[] Native(PlayerEntity player) => Bombs(player.OwningScene)
         .Where(b => !b.ModReplica && b.Owner == player && !b.Flags.TestFlag(BombFlags.Exploded)).ToArray();
+    private static void NativeTriangle(PlayerEntity owner, PlayerEntity victim)
+    {
+        // Isolated native physics fixture: explicit initial/vertex geometry and
+        // controlled inventory replace navigation, not admission or damage.
+        owner.Hunter = Hunter.Sylux; owner.Health = victim.Health = 99;
+        owner.ModReleaseSpawnProtection(); victim.ModReleaseSpawnProtection();
+        Set(owner, "_spawnInvulnTimer", (ushort)0); Set(victim, "_spawnInvulnTimer", (ushort)0);
+        Set(owner, "_damageInvulnTimer", (ushort)0); Set(victim, "_damageInvulnTimer", (ushort)0);
+        Check(HitRig.TrySetupLockjawTriangleFixture(owner, victim, out Vector3 center),
+            "native collision verifies supported clear triangle fixture geometry");
+        Console.WriteLine($"BOMB TRIANGLE INITIAL GEOMETRY center={center} owner={owner.Position}");
+        var offsets = new[] { new Vector3(3, 0, 0), new Vector3(-1.5f, 0, 2.598076f), new Vector3(-1.5f, 0, -2.598076f) };
+        var keys = new ShotKey[3];
+        for (int i = 0; i < 3; i++)
+        {
+            owner.ModPlaceAt(center - Vector3.UnitY * .25f + offsets[i]); owner.Speed = Vector3.Zero;
+            Set(owner, "_bombAmmo", (byte)3); Set(owner, "_bombCooldown", (ushort)0);
+            var request = Request(owner); keys[i] = request.Key;
+            var bomb = Native(owner).Single(b => b.ModOwnerKey == request.Key);
+            Check(bomb.BombType == BombType.Lockjaw && owner.SyluxBombs[i] == bomb && bomb.BombIndex == i,
+                $"native admission registers exact triangle vertex {i}");
+        }
+        var triangle = Native(owner);
+        Check(owner.SyluxBombCount == 3 && triangle.Length == 3 && triangle.Single(b => b.BombIndex == 2).ModCaptureState().Link0 == keys[0].ShotId
+            && triangle.Single(b => b.BombIndex == 2).ModCaptureState().Link1 == keys[1].ShotId,
+            "native admitted triad has both exact links before any damage");
+        int health = victim.Health; ushort sequence = NetDamage.Sequence(victim.SlotIndex);
+        ulong frontier = owner.OwningScene.Bombs.Frontier;
+        // Native processing owns snare targeting, damage60, countdown44 and
+        // terminal publication. The fixture never writes any of those values.
+        for (int frame = 0; frame < 100 && Native(owner).Length != 0; frame++)
+        {
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, NetSession.NetFrame + 1);
+            foreach (var bomb in triangle) bomb.Process();
+        }
+        Check(victim.Health < health && NetDamage.Sequence(victim.SlotIndex) != sequence,
+            "actual native three-bomb snare removes victim health with authority damage sequence");
+        Check(triangle.All(b => b.ModOwnerKey == keys[b.BombIndex] && b.Flags.TestFlag(BombFlags.Exploded))
+            && Native(owner).Length == 0 && owner.OwningScene.Bombs.LiveCount == 0
+            && owner.OwningScene.Bombs.Frontier == frontier + 3,
+            "native damaging triad publishes one terminal per exact admitted placement");
+        owner.ModForceForm(false); owner.Hunter = Hunter.Samus;
+    }
     private static void Admission(PlayerEntity player)
     {
         player.Health = 99; player.ModReleaseSpawnProtection(); player.ModForceForm(false);
@@ -199,6 +242,7 @@ internal static class BombSceneTests
             NetSession.ApplyRoster(roster); for (int i = 0; i < 120; i++) sim.Step();
             NetBombs.Reset(); _sequence = 0;
             var player = PlayerEntity.Players[1]; player.Hunter = Hunter.Samus;
+            NativeTriangle(player, PlayerEntity.Players[0]);
             Admission(player); Presentation(player); NativeEntityLifecycle(player); DetonationGates(player); PendingLifeReplacement(player);
             Check(sim.StepFailures == 0, "asset authority fixture has no simulation failures");
             Console.WriteLine($"PASS: {_checks} bomb scene assertions ({profile})"); return 0;
