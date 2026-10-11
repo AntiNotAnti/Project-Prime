@@ -269,7 +269,7 @@ internal static class TurretEventTests
             var packet = new byte[1 + HitClaimPacket.Size]; packet[0] = 1;
             claim.Write(packet.AsSpan(1)); NetHitClaims.Receive(owner.SlotIndex, packet); NetHitClaims.Tick();
         }
-        IntentPacket Offer(bool zeroSourceLife = false)
+        IntentPacket Offer(bool zeroSourceLife = false, bool positiveFlight = false)
         {
             foreach (var beam in owner.EquipInfo.Beams) beam.Lifespan = 0;
             if (owner.IsAltForm || owner.Flags2.TestFlag(PlayerFlags2.Halfturret)) owner.ExitAltForm();
@@ -286,6 +286,19 @@ internal static class TurretEventTests
             owner.ModStartFormSwitch(); owner.ModForceForm(true);
             var turret = owner.Halfturret;
             Check(owner.IsAltForm && turret.Health > 0 && ContainsEntity(scene, turret), "retirement regression starts with actual native turret");
+            Vector3 authorOrigin = turret.Position + Vector3.UnitY * .4f, authorDirection = Vector3.UnitY;
+            if (positiveFlight)
+            {
+                Vector3 lane = Vector3.Zero;
+                Record();
+                foreach (var ray in new[] { Vector3.UnitX, -Vector3.UnitX, Vector3.UnitZ, -Vector3.UnitZ })
+                    if (NetDynamicGeometryHistory.TryTraceDistanceAtFrame(scene, authorOrigin, authorOrigin + ray * 3,
+                        NetSession.NetFrame, out float wall) && wall == 1) { lane = ray; break; }
+                Check(lane.LengthSquared == 1, "native turret regression finds clear asset collision lane before authoring");
+                victim.ModPlaceAt(authorOrigin + lane * 3 - Vector3.UnitY * .5f);
+                Check(HalfturretEntity.UpdateAim(authorOrigin, victim.Position, turret.EquipInfo, out authorDirection),
+                    "native turret ballistic aiming supplies positive authored launch");
+            }
             NetRole role = NetSession.Role; bool authority = NetSession.IsAuthority; int local = NetSession.LocalSlot;
             void Session(string property, object value) => typeof(NetSession).GetProperty(property)!.SetValue(null, value);
             FireEvent fire;
@@ -293,8 +306,8 @@ internal static class TurretEventTests
             {
                 Session(nameof(NetSession.Role), NetRole.Client); Session(nameof(NetSession.IsAuthority), false);
                 Session(nameof(NetSession.LocalSlot), owner.SlotIndex);
-                Check(BeamProjectileEntity.Spawn(turret, turret.EquipInfo, turret.Position + Vector3.UnitY * .4f,
-                    Vector3.UnitY, BeamSpawnFlags.NoMuzzle, owner.NodeRef, scene) != BeamResultFlags.NoSpawn,
+                Check(BeamProjectileEntity.Spawn(turret, turret.EquipInfo, authorOrigin,
+                    authorDirection, BeamSpawnFlags.NoMuzzle, owner.NodeRef, scene) != BeamResultFlags.NoSpawn,
                     "actual client native turret authors the offered projectile");
                 var outgoing = new IntentPacket { Frame = NetSession.NetFrame }; NetFireEvents.Fill(ref outgoing, owner.SlotIndex);
                 Check(outgoing.FireEventCount == 1 && outgoing.FireEvents[0].Kind == FireEventKind.TurretFire,
@@ -377,14 +390,8 @@ internal static class TurretEventTests
                 "native death and respawn cancel pending old-life offer without recursive queue transition");
             Check(!NetFireEvents.IsRetiredUnemittedTurret(ShotKey.For(owner.SlotIndex, key.ShotId)),
                 "same numeric shot ID in actual new life is isolated from canceled old offer");
-            carrier = Offer();
-            var source = owner.Halfturret.Position + Vector3.UnitY * .4f;
-            Vector3 direction = Vector3.Zero;
-            foreach (var ray in new[] { Vector3.UnitX, -Vector3.UnitX, Vector3.UnitZ, -Vector3.UnitZ })
-                if (NetDynamicGeometryHistory.TryTraceDistanceAtFrame(scene, source, source + ray * 3, NetSession.NetFrame, out float wall) && wall == 1)
-                { direction = ray; break; }
-            Check(direction.LengthSquared == 1, "native turret regression finds clear asset collision lane");
-            victim.ModPlaceAt(source + direction * 3 - Vector3.UnitY * .5f); Record();
+            carrier = Offer(positiveFlight: true);
+            var source = carrier.FireEvents[0].Origin; Record();
             owner.TimeSinceShot = 1000; NetFireEvents.Prepare(owner, carrier);
             Check(NetFireEvents.CanFireTurret(owner), "native authority selects committed-flight control offer");
             owner.Halfturret.Process();
@@ -393,12 +400,23 @@ internal static class TurretEventTests
             Check(emitted.Length == 1 && ReferenceEquals(emitted[0].Owner, owner.Halfturret)
                 && emitted[0].ModComponentId != 0 && !NetFireEvents.CanFireTurret(owner),
                 "actual native target and cooldown path commits exact turret component once");
+            // A genuinely old flight has left its own body before native unmorph.
+            // Advance actual projectile physics while the live turret owner is skipped;
+            // do not teleport the projectile or move the victim to make a hit.
+            health = victim.Health;
+            for (int i = 0; i < 8 && (emitted[0].Position - source).LengthSquared < 1; i++) emitted[0].Process();
+            Check((emitted[0].Position - source).LengthSquared >= 1 && victim.Health == health
+                && emitted[0].Lifespan > 0 && !emitted[0].Flags.TestFlag(BeamFlags.Collided),
+                "actual committed turret flight leaves shooter body before unmorph and before victim payment");
+            Console.WriteLine($"TURRET old flight source={source} authoredRay={carrier.FireEvents[0].Direction} "
+                + $"nativeRay={emitted[0].Direction} position={emitted[0].Position} victim={victim.Position}");
             Retire();
             Check(!NetFireEvents.IsRetiredUnemittedTurret(key) && NetPlayerLifecycle.CurrentProjectile(emitted[0]),
                 "unmorph preserves genuinely committed old turret flight");
             health = victim.Health;
             for (int i = 0; i < 60 && victim.Health == health && emitted[0].Lifespan > 0; i++) emitted[0].Process();
-            Check(victim.Health < health, "committed old turret flight actually collides after native unmorph");
+            Check(victim.Health < health, $"committed old turret flight actually collides after native unmorph "
+                + $"position={emitted[0].Position} flags={emitted[0].Flags} lifespan={emitted[0].Lifespan} victim={victim.Position}");
             var committed = Claim(carrier, emitted[0].ModComponentId); Record();
             Check(NetShotProof.TryPhysicalOutcome(owner.SlotIndex, committed, out var physical) && physical.DamageApplied > 0,
                 "native old flight has exact component physical payment");
