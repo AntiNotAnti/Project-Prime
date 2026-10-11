@@ -88,6 +88,7 @@ internal sealed class NetIncomingFireHistory
     internal long Conflicts { get; private set; }
     internal long StaleCarriers { get; private set; }
     internal long ExpiredPending { get; private set; }
+    internal Action<FireEvent>? OnExpired { get; set; }
     internal void Clear()
     { Array.Clear(_entries); Pending = 0; _seen = false; _latestFrame = _latestId = 0; }
     internal bool Accept(in IntentPacket intent)
@@ -123,7 +124,7 @@ internal sealed class NetIncomingFireHistory
         for (int i = 0; Pending > 0 && i < Capacity; i++)
             if (_entries[i].Present && !_entries[i].Consumed
                 && unchecked(frame - _entries[i].Fire.SourceFrame) > RecoveryFrames)
-            { _entries[i].Consumed = true; Pending--; ExpiredPending++; }
+            { OnExpired?.Invoke(_entries[i].Fire); _entries[i].Consumed = true; Pending--; ExpiredPending++; }
         for (int i = 0; i < intent.FireEventCount; i++)
         {
             var fire = intent.FireEvents[i];

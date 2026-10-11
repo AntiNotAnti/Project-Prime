@@ -26,6 +26,8 @@ internal static class NetCampaignDrain
     private static int _projectiles, _bombs;
     private static string? _error;
     private static Release? _release;
+    private static QuiesceRequest? _quiesceRequest;
+    internal sealed record QuiesceRequest(ulong Epoch, ushort Match);
     private static object? _atRelease;
     private static readonly HashSet<string> Offered = new(), Accepted = new();
     internal sealed record Release(string Status, ulong Epoch, ushort Match, uint Semantic, uint Award);
@@ -71,8 +73,27 @@ internal static class NetCampaignDrain
             // The bus includes generated events even before retained fanout admits them.
             _semantic = Math.Max(_semantic, scene.MatchEvents.Bus.LastEvent.EventId);
         }
+        ReadQuiesceRequest();
         ReadRelease();
         Publish();
+    }
+
+    private static void ReadQuiesceRequest()
+    {
+        if (!Server || !Enabled || Quiescing || _quiesceRequest != null) return;
+        try
+        {
+            string path = ReleasePath + ".quiesce";
+            if (!File.Exists(path)) return;
+            var request = JsonSerializer.Deserialize<QuiesceRequest>(File.ReadAllText(path));
+            if (request == null || request.Epoch == 0 || request.Match == 0
+                || request.Epoch != NetSession.AuthorityEpoch || request.Match != NetSession.CurrentMatchId)
+            { _error = "server quiesce request has wrong context"; return; }
+            _quiesceRequest = request;
+            Begin();
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        { _error = "server quiesce request unreadable: " + ex.Message; }
     }
 
     private static void ReadRelease()
@@ -129,7 +150,8 @@ internal static class NetCampaignDrain
             OfferedShotKeys = Offered.OrderBy(key => key).ToArray(), AcceptedShotKeys = Accepted.OrderBy(key => key).ToArray(),
             Reliable = transport?.Endpoints.Select(peer => new { peer.Endpoint, peer.Connection.ConnectionId,
                 peer.Reliable.Pending, peer.Reliable.Failed }).ToArray(),
-            ConnectionLost = NetSession.ConnectionLost, Error = _error, Release = _release, AtRelease = _atRelease };
+            ConnectionLost = NetSession.ConnectionLost, Error = _error, QuiesceRequest = _quiesceRequest,
+            Release = _release, AtRelease = _atRelease };
     }
 
     private static void Publish()

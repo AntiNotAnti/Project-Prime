@@ -600,13 +600,27 @@ namespace MphRead.Mods.Network
         {
             pose = default; morphing = target.IsMorphing; team = target.TeamIndex;
             // Reuse the same fractional ACK, age and hard ceiling as the shot world.
-            double frame = _inProgress && _shooter == owner ? _shotTargetFrame
-                : NetSession.NetFrame - (Enabled ? RewindFor(owner.SlotIndex, false, out _, out _) : 0);
+            double frame = ContinuousTargetFrame(owner);
             if (frame >= NetSession.NetFrame)
             {
                 pose = new(target.Position, target.ModCollisionIsAltForm, default);
                 return target.ModIsInPlay && target.GetTargetable();
             }
+            if (!TryHistoricalPose(target, frame, out pose)) return false;
+            int index = (int)((uint)Math.Floor(frame) % HistoryFrames);
+            morphing = _morphing[target.SlotIndex, index]; team = _targetTeam[target.SlotIndex, index];
+            return _targetable[target.SlotIndex, index];
+        }
+
+        internal static double ContinuousTargetFrame(PlayerEntity owner) => _inProgress && _shooter == owner ? _shotTargetFrame
+            : NetSession.NetFrame - (Enabled ? RewindFor(owner.SlotIndex, false, out _, out _) : 0);
+
+        internal static bool TryContinuousClaimPose(PlayerEntity target, double frame,
+            out HistoricalPlayerPose pose, out bool morphing, out int team)
+        {
+            pose = default; morphing = target.IsMorphing; team = target.TeamIndex;
+            if (!double.IsFinite(frame) || frame <= 0 || frame > NetSession.NetFrame
+                || NetSession.NetFrame - frame >= HistoryFrames) return false;
             if (!TryHistoricalPose(target, frame, out pose)) return false;
             int index = (int)((uint)Math.Floor(frame) % HistoryFrames);
             morphing = _morphing[target.SlotIndex, index]; team = _targetTeam[target.SlotIndex, index];

@@ -50,9 +50,9 @@ public sealed partial class DedicatedServer
             }
 
             peer.ReplayShotCursor ??= _replayShotDelivery.Join();
-            if (!_replayShotDelivery.Pump(peer.ReplayShotCursor,
-                fact => _transport?.TrySendSemantic(peer.EndPoint,
-                    fact.Type, fact.Payload) == true, budget: 16))
+            if (!_replayShotDelivery.PumpBatched(peer.ReplayShotCursor,
+                (type, payload) => _transport?.TrySendSemantic(peer.EndPoint,
+                    type, payload) == true))
             {
                 // Recorder evidence is expendable under pathological backpressure.
                 // Gameplay, semantic match events and the connection itself are not.

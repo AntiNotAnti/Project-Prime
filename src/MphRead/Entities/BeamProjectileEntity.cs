@@ -45,6 +45,7 @@ namespace MphRead.Entities
         // Spawn's firing phase must survive until a Shock Coil beam tests an enemy.
         public ulong ModContinuousPhase { get; set; }
         public bool ModHasSharedContinuousPhase { get; set; }
+        public NetTargetIdentity ModContinuousTarget { get; set; }
         public ushort ModLaunchMatch { get; set; }
         public ulong ModLaunchAuthority { get; set; }
         public ushort ModLaunchGeneration { get; set; }
@@ -732,14 +733,15 @@ namespace MphRead.Entities
                                 finally { EnhancedDirectHit = false; }
                             }
                             int actualDamageDealt = Math.Max(0, targetHealthBefore - player.Health);
-                            if (Flags.TestFlag(BeamFlags.LifeDrain) && Owner.Type == EntityType.Player)
+                            if (Flags.TestFlag(BeamFlags.LifeDrain) && Owner.Type == EntityType.Player
+                                && !(NetSession.Active && Beam == BeamType.ShockCoil && ModHasSharedContinuousPhase))
                             {
                                 var ownerPlayer = (PlayerEntity)Owner;
                                 if (ownerPlayer != player && !ownerPlayer.IsPrimeHunter
                                     && !TeamRules.AreAllies(ownerPlayer.TeamIndex, player.TeamIndex))
                                 {
                                     int before = ownerPlayer.Health;
-                                    uint drainHeal = wholeDamage;
+                                    uint drainHeal = (uint)actualDamageDealt;
                                     if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
                                         && ownerPlayer.Hunter == Hunter.Sylux
                                         && BalancedModeRules.IsAffinity(ownerPlayer.Hunter, BeamType.ShockCoil))
@@ -1385,7 +1387,8 @@ namespace MphRead.Entities
             {
                 if (Target != null)
                 {
-                    DrawTrail4(height: 0.15f, range: 0.5f, segments: 10);
+                    DrawTrail4(height: 0.15f, range: 0.5f, segments: 10,
+                        endpoint: NetSession.TryContinuousEndpoint(this, out var confirmed) ? confirmed : null);
                 }
                 else if (Owner == _scene.Players.Main)
                 {
@@ -1492,7 +1495,7 @@ namespace MphRead.Entities
                 material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(PastPositions[0]), uvsAndVerts, _bindingId);
         }
 
-        private void DrawTrail4(float height, float range, int segments)
+        private void DrawTrail4(float height, float range, int segments, Vector3? endpoint = null)
         {
             Debug.Assert(_trailModel != null);
             if (segments < 2)
@@ -1502,10 +1505,10 @@ namespace MphRead.Entities
             int count = 4 * segments;
 
             int frames = (int)_scene.LiveFrames / 2;
-            uint rng = (uint)(frames + (int)(Position.X * 4096));
+            uint rng = (uint)(frames + (int)((endpoint ?? Position).X * 4096));
             int index = frames & 15;
             float halfRange = range / 2;
-            Vector3 vec = Position - PastPositions[8];
+            Vector3 vec = (endpoint ?? Position) - PastPositions[8];
             Texture texture = _trailModel.Model.Recolors[0].Textures[0];
             float uvT = (texture.Height - (1 / 16f)) / texture.Height;
             Vector3[] uvsAndVerts = ArrayPool<Vector3>.Shared.Rent(count);
@@ -1648,6 +1651,17 @@ namespace MphRead.Entities
             }
             BeamResultFlags result = BeamResultFlags.Spawned;
             WeaponInfo weapon = equip.Weapon;
+            bool authoredCoilPrime = false;
+            if (weapon.Beam == BeamType.ShockCoil && owner is PlayerEntity coilOwner
+                && NetFireEvents.TryTiming(coilOwner, out var authoredCoil) && authoredCoil.HasContinuousContext)
+            {
+                authoredCoilPrime = authoredCoil.ContinuousPrime;
+                bool affinity = Weapons.GetAffinityBeam(coilOwner.Hunter) == BeamType.ShockCoil || authoredCoil.ContinuousPrime;
+                weapon = scene.WeaponRules[(int)BeamType.ShockCoil + (affinity ? 9 : 0)];
+                spawnFlags &= ~(BeamSpawnFlags.DoubleDamage | BeamSpawnFlags.PrimeHunter);
+                if (authoredCoil.ContinuousDouble) spawnFlags |= BeamSpawnFlags.DoubleDamage;
+                else if (authoredCoil.ContinuousPrime) spawnFlags |= BeamSpawnFlags.PrimeHunter;
+            }
             bool charged = false;
             float chargePct = 0;
             if (weapon.Flags.TestFlag(WeaponFlags.CanCharge))
@@ -1688,8 +1702,7 @@ namespace MphRead.Entities
             bool freshContinuousTick = true;
             if (weapon.Flags.TestFlag(WeaponFlags.Continuous) && owner is PlayerEntity firingPlayer)
             {
-                if (scene.Services.IsReplica
-                    && NetFireEvents.TryTiming(firingPlayer, out FireEvent replayFire)
+                if (NetFireEvents.TryTiming(firingPlayer, out FireEvent replayFire)
                     && replayFire.Kind == FireEventKind.ContinuousTick)
                 {
                     // The repeated FireEvent owns the phase of this exact pulse.
@@ -2024,6 +2037,7 @@ namespace MphRead.Entities
                 beam.BattlehammerClusterChild = battlehammerCluster;
                 beam.ModContinuousPhase = phase;
                 beam.ModHasSharedContinuousPhase = sharedPhase;
+                beam.ModContinuousTarget = NetTargetIdentity.None;
                 beam.ModLaunchFrame = beam.ModShotId = 0;
                 beam.ModComponentId = componentId; beam._modChildOrdinal = 0;
                 beam.ModLaunchMatch = 0;
@@ -2065,7 +2079,7 @@ namespace MphRead.Entities
                 beam.Beam = weapon.Beam;
                 beam.BeamKind = weapon.BeamKind;
                 if (!scene.Services.IsReplica && NetLog.Enabled) NetShotDiagnostics.Trace("spawn", beam.ModLaunchKey, beam.Beam);
-                beam.Flags = flags;
+                beam.Flags = authoredCoilPrime ? flags & ~BeamFlags.LifeDrain : flags;
                 beam.NodeRef = nodeRef;
                 beam.Age = 0;
                 beam.InitialSpeed = beam.Speed = speed;
@@ -2201,24 +2215,14 @@ namespace MphRead.Entities
                     if (!scene.Services.IsReplica && beam.Beam == BeamType.ShockCoil && owner.Type == EntityType.Player)
                     {
                         var ownerPlayer = (PlayerEntity)owner;
-                        if ((scene.GameState.Multiplayer || !ownerPlayer.IsBot) && ownerPlayer.ShockCoilTarget == beam.Target
-                            && phase % 2 == 0) // todo: FPS stuff
-                        {
-                            // todo: FPS stuff
-                            ushort timer = ownerPlayer.ShockCoilTimer;
-                            if (timer >= 120 * 2)
-                            {
-                                beam.Damage += 4;
-                                beam.SplashDamage += 4;
-                                beam.HeadshotDamage += 4;
-                            }
-                            else
-                            {
-                                beam.Damage += timer / (30 * 2);
-                                beam.SplashDamage += timer / (30 * 2);
-                                beam.HeadshotDamage += timer / (30 * 2);
-                            }
-                        }
+                        int ramp = 0;
+                        if (NetFireEvents.TryTiming(ownerPlayer, out var pulse) && pulse.HasContinuousContext)
+                            ramp = pulse.ContinuousRamp;
+                        else if ((scene.GameState.Multiplayer || !ownerPlayer.IsBot) && ownerPlayer.ShockCoilTarget == beam.Target
+                            && phase % 2 == 0)
+                            ramp = Math.Min(4, ownerPlayer.ShockCoilTimer / 60);
+                        beam.Damage += ramp; beam.SplashDamage += ramp; beam.HeadshotDamage += ramp;
+                        NetFireEvents.NoteContinuousRamp(ownerPlayer, ramp);
                     }
                 }
                 // A continuous homing beam with no target does nothing at all,
@@ -2227,6 +2231,12 @@ namespace MphRead.Entities
                 // moment the answer is known.
                 if (!scene.Services.IsReplica && beam.Beam == BeamType.ShockCoil && owner.Type == EntityType.Player)
                 {
+                    beam.ModContinuousTarget = beam.Target switch
+                    {
+                        PlayerEntity body => NetTargetIdentity.ForSlot(body.SlotIndex),
+                        HalfturretEntity turret => NetTargetIdentity.ForSlot(turret.Owner.SlotIndex),
+                        _ => NetTargetIdentity.None
+                    };
                     NetDamage.ShockCoilSpawned++;
                     if (beam.Target != null)
                     {

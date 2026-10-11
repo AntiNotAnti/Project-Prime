@@ -1769,6 +1769,9 @@ namespace MphRead.Mods.Network
 
     public struct PlayerState
     {
+        // Live recipient-only receipt, excluded from canonical/replay layouts.
+        public uint ContinuousPaidTick;
+        public ulong ContinuousPaidMaskLow, ContinuousPaidMaskHigh;
         public ushort SlotGeneration;
         public ushort LifeId;
         private const int HalfturretOffset = 54 + DamageEvent.Size * DamageHistory;
@@ -2316,6 +2319,7 @@ namespace MphRead.Mods.Network
                 ResultImpulseLimit => "impact impulse exceeds weapon limit",
                 ResultApplied => "applied",
                 ResultDuplicate => "already resolved",
+                (byte)CombatAckResult.Corrected => "corrected",
                 ResultDeadShooter => "shooter was already dead when it fired",
                 ResultDeadVictim => "victim was already down",
                 ResultRefused => "refused",
@@ -2495,7 +2499,10 @@ namespace MphRead.Mods.Network
         // preserves discrete shot-time modifiers, and caps live carriers at fourteen events.
         // Protocol 44 appends exact emitted-component identity to hit claims.
         // Protocol 45 adds independent per-frame controls to compact live intents only.
-        public const int ProtocolVersion = 45;
+        // Protocol 46 adds personalized continuous payment receipts, confirmed
+        // endpoint sidecars, and bounded batches of reliable authority facts.
+        // Canonical player, individual semantic and replay record widths stay unchanged.
+        public const int ProtocolVersion = 46;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

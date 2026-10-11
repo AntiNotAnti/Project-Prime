@@ -838,6 +838,8 @@ namespace MphRead.Mods.Network
                     HandleLane(packet); break;
                 case PacketType.WorldBootstrap when Role == NetRole.Client:
                     HandleWorldBootstrap(packet); break;
+                case PacketType.WorldReady when Role == NetRole.Client:
+                    HandleWorldReadyConfirmation(packet); break;
                 case PacketType.MatchStartCommit when Role == NetRole.Client:
                     if (MatchStartCommitPacket.TryRead(packet.Payload, out var commit))
                         ApplyStartCommit(commit, _playback ? null : packet.ArrivedAt / (double)Stopwatch.Frequency);

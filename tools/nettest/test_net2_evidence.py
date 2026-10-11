@@ -5,7 +5,7 @@ import struct
 from pathlib import Path
 import tempfile
 import unittest
-from net2_evidence import adjudicate
+from net2_evidence import adjudicate, slow_states
 
 
 class EvidenceTests(unittest.TestCase):
@@ -247,6 +247,72 @@ class EvidenceTests(unittest.TestCase):
         self.write()
         self.assertEqual(self.result()["status"], "FAIL")
 
+    def continuous_terminal_fixture(self, observer=False):
+        row = dict(self.client["Shots"][0], Key=dict(self.client["Shots"][0]["Key"], ShotId=6),
+                   SourceFrame=92, ContinuousPhase=92, Weapon=7, Kind=3)
+        self.client["Shots"].append(dict(row, Stage="offered"))
+        self.server["Shots"].append(dict(row, Stage="accepted"))
+        rejection = dict(row, Stage="rejected", Reason="continuous owner dead",
+                         OwnerHealth=0, CurrentOwnerLife=row["Key"]["LifeId"])
+        if observer:
+            self.server["Shots"].append(dict(row, Stage="committed"))
+            self.client["Shots"].append(dict(row, Stage="accepted"))
+            self.client["Shots"].append(rejection)
+        else:
+            self.server["Shots"].append(rejection)
+        return rejection
+
+    def test_exact_dead_continuous_terminal_disposition_accounts_for_source(self):
+        self.continuous_terminal_fixture(); self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["parity"]["shooter"]["terminalRejectedOfferedShots"], 1)
+        self.assertEqual(result["observations"]["server"]["continuousTerminalRejectedCount"], 1)
+
+    def test_exact_life_retired_continuous_disposition_accounts_for_observer(self):
+        rejection = self.continuous_terminal_fixture(observer=True)
+        rejection.update(Reason="continuous owner life retired", CurrentOwnerLife=5)
+        self.write(); result = self.result()
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["parity"]["shooter"]["terminalRejectedViewShots"], 1)
+
+    def test_invalid_continuous_terminal_evidence_never_excludes_source_loss(self):
+        for field, value in [("Kind", 0), ("Weapon", 4), ("ContinuousPhase", 94),
+                             ("SourceFrame", 93), ("Charge", 1), ("OwnerHealth", 1),
+                             ("CurrentOwnerLife", 5), ("Reason", "expired")]:
+            with self.subTest(field=field):
+                before_server, before_client = copy.deepcopy(self.server), copy.deepcopy(self.client)
+                rejection = self.continuous_terminal_fixture(); rejection[field] = value
+                self.write(); self.assertEqual(self.result()["status"], "FAIL")
+                self.server, self.client = before_server, before_client
+
+    def test_terminal_wrong_key_or_missing_local_acceptance_fails(self):
+        rejection = self.continuous_terminal_fixture(observer=True)
+        rejection["Key"] = dict(rejection["Key"], ShotId=7)
+        self.write(); self.assertEqual(self.result()["status"], "FAIL")
+        rejection["Key"]["ShotId"] = 6
+        self.client["Shots"] = [s for s in self.client["Shots"] if not (s["Stage"] == "accepted" and s["Key"]["ShotId"] == 6)]
+        self.write(); self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_terminal_retired_reason_requires_changed_life(self):
+        rejection = self.continuous_terminal_fixture()
+        rejection["Reason"] = "continuous owner life retired"
+        self.write(); self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_terminal_committed_or_paid_continuous_tick_is_conflict(self):
+        rejection = self.continuous_terminal_fixture()
+        self.server["Shots"].append(dict(rejection, Stage="committed"))
+        self.write(); self.assertEqual(self.result()["status"], "FAIL")
+        self.server["Shots"].pop()
+        owner = dict(rejection["Key"], ShotId=rejection["ContinuousPhase"])
+        self.server["ContinuousPayments"] = dict(Rows=[dict(Key=dict(OwnerTick=owner))])
+        self.write(); self.assertEqual(self.result()["status"], "FAIL")
+
+    def test_phase_skipped_without_exact_terminal_proof_remains_failure(self):
+        rejection = self.continuous_terminal_fixture()
+        rejection["Stage"] = "phase-skipped"
+        self.write(); self.assertEqual(self.result()["status"], "FAIL")
+
     def test_duplicate_commit(self):
         self.client["Shots"].append(self.client["Shots"][0])
         self.write()
@@ -343,10 +409,14 @@ class EvidenceTests(unittest.TestCase):
         self.assertIn("server: schema/protocol mismatch", explicit_new["failures"])
 
     @staticmethod
-    def slow(revision, frame, kills=0, deaths=0, generation=3, epoch=111, match=2, context=0):
+    def slow(revision, frame, kills=0, deaths=0, generation=3, epoch=111, match=2, context=0,
+             protocol=41, cosmetic=None):
         # Raw PlayerSlowState payload excludes the outer transport packet header.
         payload = struct.pack("<HQIBBH", match, epoch, revision, 1, 0, generation)
-        payload += struct.pack("<BhHH", 0, 0, kills, deaths) + bytes(64)
+        payload += struct.pack("<BhHH", 0, 0, kills, deaths)
+        if protocol >= 46:
+            payload += bytes(18) if cosmetic is None else cosmetic
+        payload += bytes(64)
         return dict(Epoch=epoch, Match=match, Revision=revision, Frame=frame,
                     Context=context, Payload=payload.hex())
 
@@ -355,6 +425,44 @@ class EvidenceTests(unittest.TestCase):
             report["Schema"] = 2
             report["SlowStates"] = [self.slow(1, 6), self.slow(2, 180, kills=1)]
             report["States"][-1]["Kills"] = 1
+
+    def test_protocol46_slow_sidecar_preserves_scores_and_exact_payload_parity(self):
+        self.lanes()
+        for report in (self.server, self.client):
+            report["Protocol"] = 46
+            report["SlowStates"] = [self.slow(1, 6, protocol=46),
+                                     self.slow(2, 180, kills=1, protocol=46)]
+        self.assertEqual(slow_states(self.server)[-1]["scores"][(0, 3)],
+                         struct.pack("<BhHH", 0, 0, 1, 0))
+        self.write()
+        result = adjudicate(self.out, self.processes, expected_protocol=46)
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["coverage"]["shockCoilDrainKillParity"], "NOT_RUN")
+        self.client["SlowStates"][-1] = self.slow(2, 180, kills=1, protocol=46,
+                                                  cosmetic=b"\x01" + bytes(17))
+        self.write()
+        self.assertEqual(adjudicate(self.out, self.processes, expected_protocol=46)["status"], "FAIL")
+
+    def test_protocol46_slow_stride_cannot_masquerade_as_legacy_or_reverse(self):
+        for protocol, wire_protocol in [(46, 45), (45, 46)]:
+            with self.subTest(protocol=protocol):
+                report = dict(Protocol=protocol, SlowStates=[self.slow(1, 6, protocol=wire_protocol)])
+                with self.assertRaises(ValueError):
+                    slow_states(report)
+
+    def test_protocol46_slow_multiple_entries_and_time_offset(self):
+        row = self.slow(1, 6, kills=1, protocol=46)
+        data = bytearray.fromhex(row["Payload"])
+        data[14] = 2
+        second = struct.pack("<BH", 1, 4) + struct.pack("<BhHH", 0, 0, 2, 3) + bytes(18)
+        row["Payload"] = (data[:43] + second + struct.pack("<16f", *([1.0] * 16))).hex()
+        report = dict(Protocol=46, SlowStates=[row])
+        self.assertEqual(slow_states(report)[0]["scores"][(1, 4)],
+                         struct.pack("<BhHH", 0, 0, 2, 3))
+        row["Payload"] = (bytes.fromhex(row["Payload"])[:-64]
+                          + struct.pack("<16f", float("nan"), *([1.0] * 15))).hex()
+        with self.assertRaises(ValueError):
+            slow_states(report)
 
     def test_schema1_score_lag_still_fails(self):
         self.server["States"][-1]["Kills"] = 1

@@ -28,7 +28,7 @@ internal static class Protocol18Tests
             for (int i = 0; i < 56; i++) BinaryPrimitives.WriteInt16LittleEndian(canonical.AsSpan(world + 3 + i * 7), (short)i);
             var lanes = new NetReplicationLanes(); lanes.Prepare(canonical);
             NetArchitectureTests.Check(lanes.SlowLength + NetHeader.Size <= 1200 && lanes.WorldLength + NetHeader.Size <= 1200
-                && SnapshotFast.MaximumEncodedSize + WorldBootstrapIdentity.Size + 1 + 4 <= 1200,
+                && SnapshotFast.BootstrapMaximumEncodedSize + WorldBootstrapIdentity.Size + 1 + 4 <= 1200,
                 "all lanes and reliable bootstrap envelope fit the MTU budget");
             var receiver = new NetReplicationReceiver();
             NetArchitectureTests.Check(receiver.Receive(PacketType.WorldState, lanes.World.AsSpan(0, lanes.WorldLength), 65535, ulong.MaxValue), "world independent");

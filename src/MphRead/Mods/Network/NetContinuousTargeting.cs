@@ -59,12 +59,22 @@ public static class NetContinuousTargeting
         var replication = scene.Services.PlayerReplication;
         if (!replication.Active || owner.SlotIndex == replication.LocalSlot) return false;
         trace.Authority = replication.IsAuthority || replication.IsHost;
-        if (!replication.TryGetIntent(owner.SlotIndex, out var intent))
+        bool authored = NetFireEvents.TryTiming(owner, out var fire) && fire.Kind == FireEventKind.ContinuousTick && fire.HasPose;
+        if (!replication.TryGetIntent(owner.SlotIndex, out var intent) && !authored)
         { trace.Rejection = ContinuousTargetRejection.MissingDecision; return true; }
+        if (authored)
+        {
+            intent.MatchId = NetSession.CurrentMatchId; intent.AuthorityEpoch = NetSession.AuthorityEpoch;
+            intent.SlotGeneration = NetPlayerLifecycle.Generation(owner.SlotIndex); intent.LifeId = fire.SourceLife;
+            intent.HasState = true; intent.Frame = fire.SourceFrame;
+            intent.Target = fire.Target; intent.ContinuousFireTick = fire.ContinuousPhase;
+            intent.AckFrame = fire.AckFrame; intent.AckSubFrame = fire.AckSubFrame;
+            intent.WeaponSelect = fire.Weapon; intent.Buttons |= IntentButtons.Shoot;
+        }
         trace.Reported = intent.Target; trace.ReportFrame = intent.Frame;
         if (!scene.Services.IsReplica && !NetPlayerLifecycle.AcceptIntent(owner.SlotIndex, intent))
         { trace.Rejection = ContinuousTargetRejection.Stream; return true; }
-        if (intent.Frame == 0 || replication.IntentAge(owner.SlotIndex) > ContinuousWeaponPhase.MaxIntentAge)
+        if (intent.Frame == 0 || !authored && replication.IntentAge(owner.SlotIndex) > ContinuousWeaponPhase.MaxIntentAge)
         { trace.Rejection = ContinuousTargetRejection.Stale; return true; }
         if (intent.WeaponSelect != (byte)BeamType.ShockCoil || (intent.Buttons & IntentButtons.Shoot) == 0
             || !owner.ModIsInPlay || owner.Flags2.TestFlag(PlayerFlags2.Spectating))

@@ -569,13 +569,15 @@ namespace MphRead.Mods.Network
                         // Order matters only in that the roster carries the last
                         // measurement: ping first, publish second.
                         PingPeers(now);
-                        BroadcastSessionState();
+                        if (!(NetCampaignDrain.Enabled && NetCampaignDrain.Quiescing))
+                            BroadcastSessionState();
                         if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch)
                         {
                             BroadcastMatchState(now);
                             if (_phase == SessionPhase.PostMatch) BroadcastPostMatchReports();
                         }
-                        BroadcastRoster();
+                        if (!(NetCampaignDrain.Enabled && NetCampaignDrain.Quiescing))
+                            BroadcastRoster();
                         // A vote nobody finishes answering has to time out,
                         // and a client that missed a VoteState packet has to
                         // get another one. Both are this cadence's job.
@@ -1086,7 +1088,7 @@ namespace MphRead.Mods.Network
             _replication.Prepare(payload);
             for (int i = 0; i < _peers.Count; i++)
             {
-                SendLane(_peers[i], PacketType.SnapshotFast, _replication.Fast.AsSpan(0, _replication.FastLength));
+                SendLane(_peers[i], PacketType.SnapshotFast, _replication.ForRecipient(_peers[i].SlotIndex));
                 if (_replication.SendSlow) SendLane(_peers[i], PacketType.PlayerSlowState, _replication.Slow.AsSpan(0, _replication.SlowLength));
                 if (_replication.SendWorld) SendLane(_peers[i], PacketType.WorldState, _replication.World.AsSpan(0, _replication.WorldLength));
             }
@@ -2520,8 +2522,8 @@ namespace MphRead.Mods.Network
                     if (_transport?.TrySendSemantic(peer.EndPoint, PacketType.MatchSemanticEvent, peer.SemanticBaseline) != true) continue;
                     peer.SemanticBaseline = null;
                 }
-                if (!_semanticDelivery.Pump(peer.SemanticCursor,
-                    fact => _transport?.TrySendSemantic(peer.EndPoint, fact.Type, fact.Payload) == true))
+                if (!_semanticDelivery.PumpBatched(peer.SemanticCursor,
+                    (type, payload) => _transport?.TrySendSemantic(peer.EndPoint, type, payload) == true))
                 {
                     _semanticSlowPeerDisconnects++;
                     _transport?.Send(peer.EndPoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);

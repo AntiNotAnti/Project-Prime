@@ -18,6 +18,13 @@ public readonly record struct FireEvent(uint ShotId, uint SourceFrame, uint AckF
     public const int Size = 74;
     public const byte FlagPose = 1 << 0;
     public const byte FlagReticle = 1 << 1;
+    // Protocol46 uses otherwise spare pose bits for Shock Coil source strength.
+    // Canonical/replay record sizes stay unchanged; old recordings lack this bit.
+    internal const byte FlagContinuousContext = 128, FlagContinuousPrime = 4, FlagContinuousDouble = 8;
+    internal bool HasContinuousContext => Kind == FireEventKind.ContinuousTick && (PoseFlags & FlagContinuousContext) != 0;
+    internal bool ContinuousPrime => HasContinuousContext && (PoseFlags & FlagContinuousPrime) != 0;
+    internal bool ContinuousDouble => HasContinuousContext && (PoseFlags & FlagContinuousDouble) != 0;
+    internal int ContinuousRamp => HasContinuousContext ? (PoseFlags >> 4) & 7 : 0;
     // Non-continuous Imperialist events do not use ContinuousPhase. Preserve
     // shot-time scope in its high bit so a repeated/recovered fire event cannot
     // inherit the scope state of a later carrier packet.
@@ -144,7 +151,18 @@ public static class NetFireEvents
     }
     private static AcceptedShotLedger NewLedger() => new() { OnDisposition = NetCampaignEvidence.Disposition };
     private static readonly Slot[] _slots = CreateSlots();
-    private static Slot[] CreateSlots() { var result = new Slot[8]; for (int i = 0; i < 8; i++) result[i] = new(); return result; }
+    private static Slot[] CreateSlots()
+    {
+        var result = new Slot[8];
+        for (int i = 0; i < 8; i++)
+        {
+            var state = result[i] = new(); int slot = i;
+            state.Incoming.OnExpired = fire => NetCampaignEvidence.Disposition(new(
+                state.Fence with { ShooterSlot = slot, LifeId = fire.SourceLife != 0 ? fire.SourceLife : state.CurrentLife, ShotId = fire.ShotId }, fire),
+                ShotDisposition.Expired, "fire-event recovery retention elapsed");
+        }
+        return result;
+    }
     private static Slot For(int slot)
     {
         var state = _slots[slot]; var fence = ShotKey.For(slot, 0) with { LifeId = 0 };
@@ -169,7 +187,10 @@ public static class NetFireEvents
         {
             var key = state.Fence with { ShooterSlot = slot,
                 LifeId = fire.SourceLife != 0 ? fire.SourceLife : state.CurrentLife, ShotId = fire.ShotId };
-            NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Rejected, reason);
+            if (fire.Kind == FireEventKind.ContinuousTick && (uint)slot < PlayerEntity.Players.Count
+                && (PlayerEntity.Players[slot].Health <= 0 || key.LifeId != NetPlayerLifecycle.Get(slot)))
+                CompleteUnavailableContinuous(PlayerEntity.Players[slot], key, fire);
+            else NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Rejected, reason);
             state.Incoming.Consume(fire.ShotId);
         }
     }
@@ -178,6 +199,7 @@ public static class NetFireEvents
     internal static bool Accept(int slot, in IntentPacket intent)
     {
         if ((uint)slot >= 8 || !Validate(intent)) return false;
+        NetContinuousAdmission.Observe(slot, intent);
         NetShotInputProof.Observe(slot, intent);
         NetShotSourceJournal.Observe(slot, intent);
         var state = For(slot);
@@ -222,6 +244,16 @@ public static class NetFireEvents
         if (!AcceptedPlaybackEnabled || !NetSession.Active || player.SceneServices.IsReplica
             || player.IsBot || player.SlotIndex == NetSession.LocalSlot || (uint)player.SlotIndex >= 8) return;
         var state = For(player.SlotIndex);
+        while (state.Incoming.TryPeek(out var fire) && fire.Kind == FireEventKind.ContinuousTick)
+        {
+            var key = ShotKey.For(player.SlotIndex, fire.ShotId) with { LifeId = fire.SourceLife };
+            if (fire.SourceLife != NetPlayerLifecycle.Get(player.SlotIndex) || player.Health <= 0)
+                CompleteUnavailableContinuous(player, key, fire);
+            else if (PlayAccepted(player, key, fire) == BeamResultFlags.NoSpawn)
+                NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Rejected, "continuous tick spawn refused");
+            state.Incoming.Consume(fire.ShotId);
+            state.Selected = false; state.Active = default;
+        }
         while (state.Ledger.TryPeek(out var shot))
         {
             if (shot.Key.Generation != NetPlayerLifecycle.Generation(player.SlotIndex)
@@ -233,6 +265,18 @@ public static class NetFireEvents
             state.Ledger.Complete(shot.Key, result == BeamResultFlags.NoSpawn
                 ? ShotDisposition.Rejected : ShotDisposition.Fired,
                 result == BeamResultFlags.NoSpawn ? "projectile spawn refused" : "projectile spawned");
+        }
+    }
+    private static void CompleteUnavailableContinuous(PlayerEntity player, ShotKey key, FireEvent fire)
+    {
+        // A rescued pulse can finish before its queued native playback. Its
+        // payment remains final even if the owner died in the meantime.
+        if (NetContinuousPayments.WasPaid(key, fire.ContinuousPhase, fire.Target))
+            NetCampaignEvidence.Committed(key, fire);
+        else
+        {
+            NetContinuousAdmission.Reject(key, fire);
+            NetCampaignEvidence.ContinuousUnavailable(player, key, fire);
         }
     }
     internal static BeamResultFlags PlayAccepted(PlayerEntity player, ShotKey key, FireEvent fire)
@@ -283,8 +327,10 @@ public static class NetFireEvents
             var e = intent.FireEvents[i];
             if (e.ShotId == 0 || (byte)e.Kind > (byte)FireEventKind.TurretFire || e.Weapon > (byte)BeamType.OmegaCannon
                 || unchecked(intent.Frame - e.SourceFrame) > RetentionFrames
+                || e.Kind == FireEventKind.ContinuousTick && (e.ContinuousPhase == 0 || e.ContinuousPhase != e.SourceFrame)
                 || i > 0 && !NetLifecycleTracker.Newer(e.ShotId, previous)
-                || (e.PoseFlags & ~(FireEvent.FlagPose | FireEvent.FlagReticle)) != 0
+                || (e.HasContinuousContext ? e.Weapon != (byte)BeamType.ShockCoil || e.ContinuousRamp > 4
+                    : (e.PoseFlags & ~(FireEvent.FlagPose | FireEvent.FlagReticle)) != 0)
                 || e.Target != default && !e.Target.IsWellFormed
                 || e.HasReticle && !e.HasPose
                 || e.HasPose && (!Finite(e.Origin) || Math.Abs(e.Origin.X) >= 100000
@@ -333,7 +379,8 @@ public static class NetFireEvents
     }
     private static bool CanAuthor(PlayerEntity player) => !NetSession.Active
         || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8
-        || For(player.SlotIndex).Outgoing.CanAdd(NetSession.NetFrame);
+        || (!NetSession.FreezeGameplay && NetSession.WorldAdmissionConfirmed
+            && For(player.SlotIndex).Outgoing.CanAdd(NetSession.NetFrame));
     internal static bool CanFire(PlayerEntity player) => UsesEvents(player) ? HasPending(player) : CanAuthor(player);
     /// <summary>
     /// Scope belongs to the authored Imperialist shot, not necessarily to the
@@ -371,11 +418,9 @@ public static class NetFireEvents
         // older ID still inside the bounded recovery window.
         while (state.Incoming.TryPeek(out var e))
         {
-            if (e.Kind == FireEventKind.ContinuousTick && e.ContinuousPhase != intent.ContinuousFireTick)
-            {
-                NetCampaignEvidence.SkippedContinuousPhase(player, e);
-                state.Incoming.Consume(e.ShotId); continue;
-            }
+            // Continuous ticks are pumped after intent/death reconciliation,
+            // independently of present-life trigger/cooldown animation gates.
+            if (e.Kind == FireEventKind.ContinuousTick && AcceptedPlaybackEnabled) return;
             state.Active = e; state.Selected = true; state.SelectedAt = NetSession.NetFrame;
             if (e.Kind == FireEventKind.TurretFire) return;
             player.ModSetWeapon((BeamType)e.Weapon);
@@ -408,6 +453,7 @@ public static class NetFireEvents
             state.Selected = false;
             return;
         }
+        if (!CanAuthor(player)) { state.Active = default; return; }
         uint id = unchecked(++state.NextId); if (id == 0) id = ++state.NextId;
         var kind = turret ? FireEventKind.TurretFire : player.EquipInfo.Weapon.Flags.TestFlag(WeaponFlags.Continuous)
             ? FireEventKind.ContinuousTick : player.EquipInfo.ChargeLevel >= player.EquipInfo.Weapon.MinCharge * 2
@@ -434,6 +480,12 @@ public static class NetFireEvents
             && view.LengthSquared >= 0.000001f;
         byte poseFlags = poseValid ? FireEvent.FlagPose : (byte)0;
         if (poseValid && reticleValid) poseFlags |= FireEvent.FlagReticle;
+        if (kind == FireEventKind.ContinuousTick && player.CurrentWeapon == BeamType.ShockCoil)
+        {
+            poseFlags |= FireEvent.FlagContinuousContext;
+            if (player.IsPrimeHunter) poseFlags |= FireEvent.FlagContinuousPrime;
+            if (player.DoubleDamage) poseFlags |= FireEvent.FlagContinuousDouble;
+        }
         state.Active = new(id, NetSession.NetFrame, ack, sub, kind, (byte)(firedEquip?.Weapon.Beam ?? player.CurrentWeapon),
             (byte)Math.Clamp((int)(firedEquip?.ChargeLevel ?? player.EquipInfo.ChargeLevel), 0, 255), shotState,
             poseFlags,
@@ -444,6 +496,13 @@ public static class NetFireEvents
             poseValid && reticleValid ? reticle : default,
             NetPlayerLifecycle.Get(player.SlotIndex), player.ModCaptureFireTarget());
         NetShotProof.Admit(player, ShotKey.For(player.SlotIndex, id), state.Active);
+    }
+    internal static void NoteContinuousRamp(PlayerEntity player, int ramp)
+    {
+        if (!NetSession.Active || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8 || UsesEvents(player)) return;
+        var state = For(player.SlotIndex);
+        if (state.Active.HasContinuousContext)
+            state.Active = state.Active with { PoseFlags = (byte)((state.Active.PoseFlags & ~112) | Math.Clamp(ramp, 0, 4) << 4) };
     }
     internal static void Commit(PlayerEntity player)
     {
@@ -457,7 +516,8 @@ public static class NetFireEvents
         if (state.Active.ShotId == 0) return;
         uint phaseOrState = state.Active.Kind == FireEventKind.ContinuousTick
             ? player.ModContinuousFireTick : state.Active.ContinuousPhase;
-        state.Outgoing.Add(state.Active with { ContinuousPhase = phaseOrState });
+        state.Outgoing.Add(state.Active with { ContinuousPhase = phaseOrState,
+            Target = state.Active.Kind == FireEventKind.ContinuousTick ? player.ModContinuousNetworkTarget : state.Active.Target });
         NetShotProof.Fired(ShotKey.For(player.SlotIndex, state.Active.ShotId));
     }
     internal static void Fill(ref IntentPacket intent, int slot)
@@ -475,6 +535,15 @@ public static class NetFireEvents
         }
         e = (uint)player.SlotIndex < 8 ? For(player.SlotIndex).Active : default;
         return UsesEvents(player) && e.ShotId != 0;
+    }
+
+    internal static bool TryContinuousTiming(PlayerEntity player, uint shotId, uint phase, out FireEvent fire)
+    {
+        fire = default;
+        if (!NetSession.Active || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8) return false;
+        fire = _slots[player.SlotIndex].Active;
+        return shotId != 0 && fire.ShotId == shotId && fire.Kind == FireEventKind.ContinuousTick
+            && fire.SourceFrame == phase && fire.AckFrame != 0;
     }
 
     internal static bool TryAuthoredPose(PlayerEntity player, out Vector3 origin,

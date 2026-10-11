@@ -43,7 +43,8 @@ internal static class NetCampaignEvidence
         && (SpectatorMode.IsSpectating || !HitRig.IsSniper
             || Offered.Any(key => key.ShooterSlot == NetSession.LocalSlot));
     private sealed record Shot(string Stage, ShotKey Key, uint SourceFrame, uint ObservedFrame,
-        byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase, string? Reason = null);
+        byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase, string? Reason = null,
+        int OwnerHealth = -1, ushort CurrentOwnerLife = 0);
     private sealed record Health(ulong Epoch, ushort Match, uint Frame, byte Slot, ushort Generation,
         ushort Life, ushort Hp, ushort TurretHp, ushort Kills, ushort Deaths, uint DamageEvent);
     private sealed record SlowState(ulong Epoch, ushort Match, uint Revision, uint Frame, ulong Context, string Payload);
@@ -89,8 +90,13 @@ internal static class NetCampaignEvidence
     internal static void Committed(PlayerEntity player, in FireEvent fire)
     {
         if (!Enabled || fire.ShotId == 0 || player.SceneServices.IsReplica) return;
-        Add(Shots, new("committed", NetFireEvents.TryAcceptedKey(player, out var accepted) ? accepted
-            : ShotKey.For(player.SlotIndex, fire.ShotId), fire.SourceFrame,
+        Committed(NetFireEvents.TryAcceptedKey(player, out var accepted) ? accepted
+            : ShotKey.For(player.SlotIndex, fire.ShotId), fire);
+    }
+    internal static void Committed(ShotKey key, in FireEvent fire)
+    {
+        if (!Enabled || fire.ShotId == 0) return;
+        Add(Shots, new("committed", key, fire.SourceFrame,
             NetSession.NetFrame, fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase));
     }
 
@@ -99,6 +105,14 @@ internal static class NetCampaignEvidence
         if (!Enabled) return;
         Add(Shots, new(disposition.ToString().ToLowerInvariant(), shot.Key, shot.Fire.SourceFrame,
             NetSession.NetFrame, shot.Fire.Weapon, shot.Fire.Charge, shot.Fire.Kind, shot.Fire.ContinuousPhase, reason));
+    }
+    internal static void ContinuousUnavailable(PlayerEntity owner, ShotKey key, FireEvent fire)
+    {
+        if (!Enabled) return;
+        ushort life = NetPlayerLifecycle.Get(owner.SlotIndex);
+        Add(Shots, new("rejected", key, fire.SourceFrame, NetSession.NetFrame, fire.Weapon, fire.Charge,
+            fire.Kind, fire.ContinuousPhase, life != key.LifeId ? "continuous owner life retired" : "continuous owner dead",
+            owner.Health, life));
     }
     internal static void AdmissionRejected(ShotKey key, FireEvent fire, string reason)
     {
@@ -245,6 +259,7 @@ internal static class NetCampaignEvidence
                 ShotProof = NetShotProof.Capture(),
                 CombatReconciliation = NetHitPrediction.Capture(),
                 CombatPayments = NetCombatPayments.Capture(),
+                ContinuousPayments = NetContinuousPayments.Capture(),
                 Drain = NetCampaignDrain.Capture(),
                 TransportWindows, Readiness, Windows, ServerSegments, Shots, States, SlowStates, Facts };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);

@@ -61,6 +61,22 @@ public static class NetBootstrapCheck
             typeof(NetSession).GetField("_loadedSlot", flags)!.SetValue(null, 0);
             typeof(NetSession).GetField("_loadedSlotGeneration", flags)!.SetValue(null, (ushort)1);
             typeof(NetSession).GetField("_appliedBootstrap", flags)!.SetValue(null, null);
+            typeof(NetSession).GetField("_confirmedBootstrap", flags)!.SetValue(null, null);
+            void CheckAuthoring(bool available, string message)
+            {
+                var owner = PlayerEntity.Players[0];
+                Check(NetFireEvents.CanFire(owner) == available, message + " (availability)");
+                NetFireEvents.Begin(owner, owner.Position, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ);
+                Check((NetFireEvents.ActiveShotId(owner) != 0) == available, message + " (Begin)");
+            }
+            void DeliverConfirmation(WorldBootstrapIdentity stamp)
+            {
+                byte[] wire = new byte[1 + WorldBootstrapIdentity.Size]; wire[0] = (byte)PacketType.WorldReady;
+                stamp.Write(wire.AsSpan(1));
+                typeof(NetSession).GetMethod("HandleWorldReadyConfirmation", flags)!.Invoke(null,
+                    new object[] { new ReceivedPacket(new IPEndPoint(IPAddress.Loopback, 1), wire, wire.Length) });
+            }
+            CheckAuthoring(false, "local shot cannot author before bootstrap or authority confirmation");
             uint frameBefore = NetSession.NetFrame;
             var position = PlayerState.Read(canonical.AsSpan(SnapshotHeader.Size)).Position;
             PlayerEntity.Players[0].Position += new Vector3(100, 100, 100);
@@ -81,7 +97,7 @@ public static class NetBootstrapCheck
                     }
                     return;
                 }
-                var data = lane == 0 ? lanes.Fast.AsSpan(0, lanes.FastLength) : lane == 1
+                var data = lane == 0 ? lanes.Fast.AsSpan(0, lanes.FastLength - SnapshotFast.ReceiptSize) : lane == 1
                     ? lanes.Slow.AsSpan(0, lanes.SlowLength) : lanes.World.AsSpan(0, lanes.WorldLength);
                 byte[] wire = new byte[2 + WorldBootstrapIdentity.Size + data.Length + (malformed ? 600 : 0)]; wire[0] = (byte)PacketType.WorldBootstrap;
                 stamp.Write(wire.AsSpan(1)); wire[1 + WorldBootstrapIdentity.Size] = (byte)lane;
@@ -102,6 +118,19 @@ public static class NetBootstrapCheck
             Deliver(3, identity);
             Check(GameState.PrimeHunter == 1, "Prime ownership applied before readiness");
             Check(NetSession.WorldIsReady && NetSession.FreezeGameplay, "complete baseline applied, countdown still required");
+            Check(!NetSession.WorldAdmissionConfirmed, "applied bootstrap alone does not confirm authority admission");
+            CheckAuthoring(false, "applied baseline cannot author before confirmation");
+            foreach (var wrong in new[] { identity with { Start = new(1, 1, 2) },
+                identity with { Revision = 2 }, identity with { SlotGeneration = 2 } })
+            {
+                DeliverConfirmation(wrong);
+                Check(!NetSession.WorldAdmissionConfirmed, "wrong start, revision or recipient generation cannot confirm admission");
+                CheckAuthoring(false, "mismatched confirmation cannot authorize a local shot");
+            }
+            DeliverConfirmation(identity);
+            Check(NetSession.WorldAdmissionConfirmed && NetSession.FreezeGameplay,
+                "exact admission confirmation preserves countdown barrier");
+            CheckAuthoring(false, "exact confirmation cannot fire during countdown");
             Check(NetSession.AppliedSnapshotFrame == identity.AuthorityFrame && NetSession.NetFrame == frameBefore,
                 "authoritative ACK initialized without advancing simulation");
             Check(PlayerEntity.Players[0].Position == position, "owner starts at authoritative spawn");
@@ -118,6 +147,7 @@ public static class NetBootstrapCheck
             // Late-join release and a newer life can arrive in one loading
             // pump. There is no simulation step before its first rendered view.
             session.Phase = SessionPhase.InMatch; session.Revision++; NetSession.ApplySessionState(session);
+            CheckAuthoring(true, "confirmed owner can author after InMatch transition");
             var nextHeader = SnapshotHeader.Read(canonical); nextHeader.Frame++;
             nextHeader.Write(canonical);
             var nextLife = PlayerState.Read(canonical.AsSpan(SnapshotHeader.Size + 2 * PlayerState.Size));
@@ -155,12 +185,21 @@ public static class NetBootstrapCheck
             Check(!NetSession.WorldIsReady && NetSession.FreezeGameplay
                 && (ushort)typeof(NetSession).GetField("_loadedSlotGeneration", flags)!.GetValue(null)! == 2,
                 "re-admission reports the loaded scene for the new occupant and requires a new bootstrap");
+            Check(!NetSession.WorldAdmissionConfirmed, "re-admission retires prior authority confirmation");
+            CheckAuthoring(false, "re-admission cannot author using prior bootstrap confirmation");
             var newOwner = PlayerState.Read(canonical.AsSpan(SnapshotHeader.Size)); newOwner.SlotGeneration = 2;
             newOwner.Write(canonical.AsSpan(SnapshotHeader.Size)); lanes.Prepare(canonical.AsSpan(0, length));
             var readmitted = identity with { Revision = 2, SlotGeneration = 2, AuthorityFrame = nextHeader.Frame,
                 SlowRevision = lanes.SlowRevision, WorldRevision = lanes.WorldRevision };
             Deliver(0, readmitted); Deliver(1, readmitted); Deliver(2, readmitted); Deliver(3, readmitted);
             Check(NetSession.WorldIsReady && !NetSession.FreezeGameplay, "same-match re-admission resumes after its new bootstrap");
+            Check(!NetSession.WorldAdmissionConfirmed, "fresh baseline still requires its exact authority confirmation");
+            DeliverConfirmation(identity);
+            Check(!NetSession.WorldAdmissionConfirmed, "old baseline confirmation cannot unlock fresh admission");
+            CheckAuthoring(false, "fresh bootstrap cannot author from stale confirmation");
+            DeliverConfirmation(readmitted);
+            Check(NetSession.WorldAdmissionConfirmed, "fresh exact confirmation unlocks the readmitted owner");
+            CheckAuthoring(true, "readmitted owner authors after new exact confirmation");
             Admit();
             Check(NetSession.WorldIsReady, "duplicate same-generation Welcome does not restart bootstrap");
             session.Phase = SessionPhase.Starting;
