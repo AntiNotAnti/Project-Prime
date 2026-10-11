@@ -55,24 +55,11 @@ namespace MphRead.Mods.Network
                 Replay.ReplayWorldCheckpoint? clipCheckpoint = null;
                 int steps = 0, projectileFrames = 0, modelRestores = 0, worldRestores = 0, continuedFrames = 0;
                 bool projectileCheckpoint = false;
-                uint.TryParse(Environment.GetEnvironmentVariable("PRIME_REPLAY_RNG_TRACE_FRAME"), out uint traceFrame);
-                bool TraceStep(PassiveReplayScene replica, string label)
-                {
-                    int calls = 0;
-                    if (traceFrame != 0 && replica.Session.CurrentFrame + 1 == traceFrame)
-                        replica.Scene.Random.DiagnosticRng1Trace = (before, after) =>
-                        {
-                            if (++calls <= 64)
-                                Console.WriteLine($"[rngtrace] {label} frame={traceFrame} call={calls} {before}->{after}\n{new System.Diagnostics.StackTrace(1, false)}");
-                        };
-                    try { return replica.Step(); }
-                    finally { replica.Scene.Random.DiagnosticRng1Trace = null; }
-                }
-                while (TraceStep(first, "linear"))
+                while (first.Step())
                 {
                     if (restored != null)
                     {
-                        bool advanced = TraceStep(restored, "restored");
+                        bool advanced = restored.Step();
                         CheckWorld(first, restored, "continuation", advanced);
                         continuedFrames++;
                     }

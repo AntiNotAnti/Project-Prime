@@ -37,8 +37,8 @@ namespace MphRead.Entities
         internal bool ModDoubleAtLaunch, ModEnhancedSelfJump;
 
         // Replay impact reconciliation is presentation-only. It never changes
-        // projectile collision/lifespan, so checkpoint/RNG/gameplay state stays
-        // exactly where the replica simulation put it.
+        // projectile collision/lifespan. The visibility state is checkpointed
+        // because it also suppresses duplicate native collision effects.
         private bool _replayImpactPending;
         private bool _replayImpactHidden;
         private ulong _replayImpactDrawFrame;

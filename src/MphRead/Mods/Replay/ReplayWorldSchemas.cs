@@ -420,6 +420,13 @@ internal static class ReplayWorldSchemas
             "_pickHits",
         ],
         ["MphRead.Entities.BeamProjectileEntity"] = [
+            // Pool anchors may already contain a later projectile lifetime.
+            // Impact visibility also gates collision effects and their RNG calls.
+            "_replayImpactPending", "_replayImpactHidden", "_replayImpactDrawFrame", "_replayImpactPosition",
+            "<ModComponentId>k__BackingField", "_modChildOrdinal",
+            "ModOwnerHunter", "ModDoubleAtLaunch", "ModEnhancedSelfJump",
+            "<ModContinuousTarget>k__BackingField", "EnhancedDirectHit",
+            "_targetGeneration", "_targetLife", "_targetLifeBound",
             "EnhancedBounceCount", "EnhancedMicroSeeker", "EnhancedFullCharge", "EnhancedSiegeRound",
             "BattlehammerClusterChild",
             "<Flags>k__BackingField",

@@ -57,7 +57,7 @@ internal sealed class ReplayPoseStream : IDisposable
     private readonly record struct FireLife(int Slot, ushort Generation, ushort Life);
     private readonly record struct ScheduledFire(uint RecordingFrame, int Slot,
         ushort Generation, ushort Life, FireEvent Event, IntentPacket Carrier);
-    private readonly record struct ServerClockSample(uint RecordingFrame, uint ServerTick);
+    internal readonly record struct ServerClockSample(uint RecordingFrame, uint ServerTick);
     private readonly record struct PendingShotFact(uint CarrierRecordingFrame, ReplayShotFact Fact);
     private readonly record struct ShotFactIdentity(ushort MatchId, ulong Epoch,
         byte Shooter, ushort ShooterGeneration, ushort ShooterLife,
@@ -1041,8 +1041,6 @@ internal sealed class ReplayPoseStream : IDisposable
                 throw new InvalidDataException("Replay presentation lookahead exceeds its record bound.");
         }
 
-        if (_serverClock.Count == 0)
-            AddServerClock(frame, _world.State.ServerTick);
         AdvanceShotFactLookahead(frame, origin);
         ScheduleShotFacts(frame);
 
@@ -1231,15 +1229,8 @@ internal sealed class ReplayPoseStream : IDisposable
         for (int i = _pendingShotFacts.Count - 1; i >= 0; i--)
         {
             var pending = _pendingShotFacts[i];
-            bool mapped = TryMapServerTick(pending.Fact.ResolveTick, out uint scheduled);
-            if (!mapped && pending.CarrierRecordingFrame <= frame)
-            {
-                // Old or sparse client recordings can lack a nearby snapshot.
-                // Fall back to delivery time rather than dropping authority truth.
-                scheduled = pending.CarrierRecordingFrame;
-                mapped = true;
-            }
-            if (!mapped) continue;
+            if (!TryScheduleShotFact(_serverClock, pending.Fact.ResolveTick,
+                pending.CarrierRecordingFrame, frame, out uint scheduled)) continue;
             _pendingShotFacts.RemoveAt(i);
             if ((ulong)scheduled + PresentationHistoryFrames < frame) continue;
             if (!_resolvedShotFacts.TryGetValue(scheduled, out var list))
@@ -1260,20 +1251,25 @@ internal sealed class ReplayPoseStream : IDisposable
         }
     }
 
-    internal bool TryMapServerTick(uint serverTick, out uint recordingFrame)
+    internal static bool TryScheduleShotFact(IReadOnlyList<ServerClockSample> clock,
+        uint resolveTick, uint carrierFrame, uint currentFrame, out uint recordingFrame)
     {
-        recordingFrame = 0;
-        if (_serverClock.Count == 0) return false;
-        ServerClockSample best = _serverClock[0];
-        long bestGap = Math.Abs((long)serverTick - best.ServerTick);
-        foreach (var sample in _serverClock)
+        // Freeze a mapping only when a recorded snapshot reaches the resolve
+        // tick. Extrapolating from an earlier snapshot during lookahead made
+        // linear playback and checkpoint seeks choose different impact frames.
+        // The first upper sample stays the same as more lookahead arrives.
+        foreach (var sample in clock)
         {
-            long gap = Math.Abs((long)serverTick - sample.ServerTick);
-            if (gap < bestGap) { best = sample; bestGap = gap; }
+            if (sample.ServerTick < resolveTick) continue;
+            if ((ulong)sample.ServerTick - resolveTick <= 120
+                && TryMapServerTick(sample.RecordingFrame, sample.ServerTick,
+                    resolveTick, out recordingFrame)) return true;
+            break;
         }
-        if (bestGap > 120) return false;
-        return TryMapServerTick(best.RecordingFrame, best.ServerTick,
-            serverTick, out recordingFrame);
+        // Sparse recordings still present authority truth at delivery time.
+        // Only recorded snapshots qualify above, never a reconstructed baseline.
+        recordingFrame = carrierFrame;
+        return carrierFrame <= currentFrame;
     }
 
     internal static bool TryMapServerTick(uint sampleRecordingFrame,
