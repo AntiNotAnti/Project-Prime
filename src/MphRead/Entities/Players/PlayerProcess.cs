@@ -1,3 +1,4 @@
+using MphRead.Mods.Network;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -1290,12 +1291,12 @@ namespace MphRead.Entities
             if (_burnTimer > 0)
             {
                 _burnTimer--;
-                bool balancedSpireBurn = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                bool balancedSpireBurn = ModBurnSource?.Balanced ?? (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
                     && _burnedBy is PlayerEntity burnOwner
                     && burnOwner.Hunter == Hunter.Spire
-                    && BalancedModeRules.IsAffinity(burnOwner.Hunter, BeamType.Magmaul);
-                int burnTickFrames = balancedSpireBurn
-                    ? BalancedModeRules.SpireBurnTickFrames : 8 * 2;
+                    && BalancedModeRules.IsAffinity(burnOwner.Hunter, BeamType.Magmaul));
+                int burnTickFrames = ModBurnSource?.TickFrames ?? (balancedSpireBurn
+                    ? BalancedModeRules.SpireBurnTickFrames : 8 * 2);
                 if (_burnTimer % burnTickFrames == 0) // todo:FPS stuff
                 {
                     bool lethalBurn = balancedSpireBurn && Health <= 1;
@@ -1303,7 +1304,8 @@ namespace MphRead.Entities
                     {
                         BalancedModeTelemetry.NoteSpireBurnDamage(this, lethalBurn);
                     }
-                    TakeDamage(1, DamageFlags.NoSfx | DamageFlags.Burn | DamageFlags.NoDmgInvuln, direction: null, _burnedBy);
+                    if (ModBurnSource is { } burnSource) burnSource.Apply(this);
+                    else TakeDamage(1, DamageFlags.NoSfx | DamageFlags.Burn | DamageFlags.NoDmgInvuln, direction: null, _burnedBy);
                 }
                 if (_burnEffect != null)
                 {

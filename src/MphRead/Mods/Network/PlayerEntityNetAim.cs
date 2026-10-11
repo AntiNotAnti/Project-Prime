@@ -2209,6 +2209,7 @@ namespace MphRead.Entities
         /// </summary>
         internal void ModSetBurning(bool burning)
         {
+            if (!burning) ModBurnSource = null;
             if (_health <= 0)
             {
                 return;

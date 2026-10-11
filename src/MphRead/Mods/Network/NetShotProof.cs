@@ -59,6 +59,7 @@ public static class NetShotProof
         public Vector3 Origin, Direction;
         public float Radius, Speed, Reach, Damage, HeadDamage;
         public ShotProofFamily Family;
+        public NetBurnSource? Burn;
     }
     private struct Payment
     { public bool Live, Physical, Claimed; public ShotPaymentKey Key; public uint Frame; public int Damage; public bool Head; public byte Effects; public Vector3 Impulse; public CombatAckEntry Outcome; }
@@ -244,11 +245,39 @@ public static class NetShotProof
             : beam.Homing>0?ShotProofFamily.Homing
             : beam.Flags.TestFlag(BeamFlags.Ricochet) || beam.RicochetWeapon!=null || beam.EnhancedBounceCount>0?ShotProofFamily.Ricochet
             : beam.Beam==BeamType.Imperialist?ShotProofFamily.Straight:ShotProofFamily.Projectile;
+        bool balancedBurn = beam.OwningScene.GameState.Multiplayer && beam.OwningScene.GameState.BalancedMode
+            && beam.ModOwnerHunter == Hunter.Spire && beam.Beam == BeamType.Magmaul;
         _components[slot,free]=new Component { Live=true,Key=beam.ModLaunchKey,Id=beam.ModComponentId,
             Observed=NetSession.NetFrame,Weapon=(byte)beam.Beam,Origin=beam.Position,Direction=beam.Velocity.LengthSquared>0.000001f ? beam.Velocity.Normalized() : beam.Direction,
             Radius=beam.CylinderRadius,Speed=beam.Speed,Reach=beam.MaxDistance,Damage=beam.Damage,
-            HeadDamage=beam.HeadshotDamage,Family=family };
+            HeadDamage=beam.HeadshotDamage,Family=family,
+            Burn=beam.Afflictions.TestFlag(Affliction.Burn) && (!balancedBurn || beam.Flags.TestFlag(BeamFlags.Charged))
+                ? NetBurnSource.From(beam, 300, balancedBurn) : null };
     }
+    // Immutable fire and emitted component evidence; a client cannot manufacture
+    // an explosion or burn merely by naming an otherwise valid shot.
+    internal static bool TryEmittedFire(in ShotKey key, uint component, byte weapon,
+        out FireEvent fire, bool requireVerified = true)
+    {
+        fire = default;
+        int at = Find(key);
+        if (!Active || at < 0 || !_shots[key.ShooterSlot, at].Fired
+            || !FindComponent(key, component, out var emitted) || emitted.Weapon != weapon
+            || requireVerified && EmissionReason(key) != ShotProofReason.Verified) return false;
+        fire = _shots[key.ShooterSlot, at].Fire;
+        return true;
+    }
+
+    internal static bool TryBurnSource(int slot, in HitClaimPacket claim, out NetBurnSource source)
+    {
+        source = default;
+        var key = Key(slot, claim);
+        if (!TryEmittedFire(key, claim.ComponentId, claim.Beam, out var fire)
+            || !FindComponent(key, claim.ComponentId, out var component) || component.Burn is not { } burn
+            || burn.Balanced && ((claim.Flags & HitClaimPacket.FlagDirect) == 0 || fire.Charge == 0)) return false;
+        source = burn; return true;
+    }
+
     private static bool FindComponent(in ShotKey key, uint id, out Component component)
     {
         component = default;

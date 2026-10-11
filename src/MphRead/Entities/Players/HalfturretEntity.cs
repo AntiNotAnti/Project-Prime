@@ -1,4 +1,5 @@
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.Network;
 using System;
 using System.Diagnostics;
 using MphRead.Effects;
@@ -24,6 +25,7 @@ namespace MphRead.Entities
         private ushort _timeSinceFrozen = 0;
         private ushort _freezeTimer = 0;
         private ushort _burnTimer = 0;
+        private NetBurnSource? _modBurnSource;
         private EffectEntry? _burnEffect = null;
 
         public int Health { get => _health; set => _health = value; }
@@ -127,9 +129,12 @@ namespace MphRead.Entities
             }
         }
 
-        public void OnSetOnFire()
+        internal void OnSetOnFire(NetBurnSource? source = null)
         {
-            _burnTimer = 150 * 2; // todo: FPS stuff
+            if (source is { } incoming && incoming.Key.ShotId != 0 && _modBurnSource is { } previous
+                && incoming.Key == previous.Key && incoming.Component == previous.Component) return;
+            _modBurnSource = source;
+            _burnTimer = source?.Duration ?? (ushort)(150 * 2); // todo: FPS stuff
             if (_burnEffect != null)
             {
                 _scene.UnlinkEffectEntry(_burnEffect);
@@ -151,9 +156,10 @@ namespace MphRead.Entities
             if (_burnTimer > 0)
             {
                 _burnTimer--;
-                if (_burnTimer % (8 * 2) == 0) // todo: FPS stuff
+                if (_burnTimer % (_modBurnSource?.TickFrames ?? 8 * 2) == 0) // todo: FPS stuff
                 {
-                    Owner.TakeDamage(1, DamageFlags.NoSfx | DamageFlags.Burn | DamageFlags.NoDmgInvuln | DamageFlags.Halfturret,
+                    if (_modBurnSource is { } burnSource) burnSource.Apply(Owner, DamageFlags.Halfturret);
+                    else if (!NetSession.Active) Owner.TakeDamage(1, DamageFlags.NoSfx | DamageFlags.Burn | DamageFlags.NoDmgInvuln | DamageFlags.Halfturret,
                         direction: null, Owner.BurnedBy);
                 }
                 if (_burnEffect != null)
@@ -378,6 +384,8 @@ namespace MphRead.Entities
 
         public override void Destroy()
         {
+            _modBurnSource = null;
+            _burnTimer = 0;
             if (_burnEffect != null)
             {
                 _scene.UnlinkEffectEntry(_burnEffect);

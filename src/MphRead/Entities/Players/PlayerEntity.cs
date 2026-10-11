@@ -400,6 +400,17 @@ namespace MphRead.Entities
         public MorphCameraEntity? MorphCamera { get; set; }
         public OctolithFlagEntity? OctolithFlag { get; set; }
         private JumpPadEntity? _lastJumpPad = null;
+        internal bool ModSelfSplashEligible => _health > 0 && ModIsInPlay
+            && _spawnInvulnTimer == 0 && !ModMatchSpawnProtectionActive;
+        internal NetBurnSource? ModBurnSource;
+        internal void ModStartBurn(NetBurnSource source)
+        {
+            if (source.Key.ShotId != 0 && ModBurnSource is { } previous && previous.Key == source.Key && previous.Component == source.Component) return;
+            ModBurnSource = source;
+            _burnedBy = source.ResolveOwner(_scene);
+            _burnTimer = source.Duration;
+            CreateBurnEffect();
+        }
         private EntityBase? _burnedBy = null;
         public EntityBase? BurnedBy => _burnedBy;
         private EntityBase? _lastTarget = null;
@@ -850,6 +861,7 @@ namespace MphRead.Entities
             _targetAlpha = 1;
             _disruptedTimer = 0;
             _burnedBy = null;
+            ModBurnSource = null;
             _burnTimer = 0;
             ModResetBalancedAffinityState();
             _modPendingHomingTarget = default;
@@ -1309,6 +1321,7 @@ namespace MphRead.Entities
         // todo: visualize
         public bool CheckHitByBomb(BombEntity bomb, bool halfturret)
         {
+            if (!NetDamage.CurrentBomb(bomb)) return false;
             if (bomb.Owner == this
                 && (!bomb.Flags.TestFlag(BombFlags.Exploding) && !bomb.Flags.TestFlag(BombFlags.Exploded) || halfturret))
             {
@@ -1916,7 +1929,7 @@ namespace MphRead.Entities
                     // machine already doubled it before it sent the number.
                     // Mods.Network.NetDamage.ApplyingClaim.
                     if (attacker._doubleDmgTimer > 0 && !Mods.Network.NetDamage.ApplyingClaim
-                        && !Mods.EnhancedHunters.EnhancedHunters.ApplyingBonus)
+                        && !Mods.EnhancedHunters.EnhancedHunters.ApplyingBonus && NetBurnSource.Current == null)
                     {
                         damage *= 2;
                     }
@@ -1924,7 +1937,9 @@ namespace MphRead.Entities
                 else if (source.Type == EntityType.Bomb)
                 {
                     bomb = (BombEntity)source;
-                    attacker = bomb.Owner;
+                    attacker = !NetSession.Active || NetSession.MatchesStream(bomb.ModOwnerKey.MatchId, bomb.ModOwnerKey.AuthorityEpoch)
+                        && bomb.ModOwnerKey.Generation == NetPlayerLifecycle.Generation(bomb.ModOwnerKey.ShooterSlot)
+                        ? bomb.Owner : null;
                 }
             }
             bool ignoreDamage = false;
@@ -2001,8 +2016,7 @@ namespace MphRead.Entities
             {
                 _halfturret.OnTakeDamage(attacker, damage);
             }
-            if (beam != null && attacker == this && Hunter == Hunter.Samus
-                && Mods.EnhancedHunters.EnhancedHunters.UsingAffinity(this, beam.Beam) && !beam.EnhancedMicroSeeker)
+            if (beam != null && attacker == this && beam.ModEnhancedSelfJump)
             {
                 damage = (uint)System.Math.Ceiling(damage * .25f);
                 if (direction.HasValue) direction *= 1.35f;
@@ -2070,7 +2084,7 @@ namespace MphRead.Entities
             if (beam?.EnhancedSiegeRound == true && direction.HasValue) direction *= 1.2f;
             ushort replayDamageEventId = Mods.Network.NetDamage.Note(this, attacker,
                 beam?.Beam ?? BeamType.None, flags, direction,
-                damage, bomb != null, beam?.ModLaunchFrame ?? 0, launchKey: beam?.ModLaunchKey,
+                damage, bomb != null, beam?.ModLaunchFrame ?? 0, launchKey: beam?.ModLaunchKey ?? (bomb != null ? bomb.ModOwnerKey : NetBurnSource.Current?.Key),
                 enhancedChild: beam?.EnhancedMicroSeeker == true, componentId: beam?.ModComponentId ?? 0,
                 damageKind: (byte)((beam?.EnhancedDirectHit == true ? 1 : 2) | (flags.TestFlag(DamageFlags.Halfturret) ? 4 : 0)),
                 continuousPhase: beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true }
@@ -2084,13 +2098,20 @@ namespace MphRead.Entities
             // *this* player is not -- a fall into the void or a rocket jump at
             // low health kills on the frame it happens.
             // Mods.Network.NetHitPrediction.
+            // An authority self event may beat its local projectile collision.
+            // Until the exact claim receipt pairs them, avoid another HP debit
+            // or jump impulse. The full claim is still authored for settlement.
+            bool deferSelf = NetHitPrediction.Predicting && attacker == this && beam != null
+                && NetSelfSplash.Claimable(beam.Beam, flags, beam.EnhancedDirectHit, beam.ModShotId, beam.ModComponentId)
+                && NetDamage.HasUnclaimedSelfEvent((byte)beam.Beam);
             Mods.Network.NetHitPrediction.NoteHit(this, attacker, ref flags, ref damage,
                 beam?.Beam ?? BeamType.None, beam?.ModLaunchFrame ?? 0, beam?.Age ?? 0, direction, shotId: beam?.ModShotId ?? 0, shotKey: beam?.ModLaunchKey, componentId: beam?.ModComponentId ?? 0,
                 direct: beam?.EnhancedDirectHit == true || source is PlayerEntity && attacker?.IsAltForm == true && !flags.TestFlag(DamageFlags.Burn)
                     || bomb?.BombType == BombType.Stinglarva,
                 afflictions: beam != null && !ignoreDamage && !flags.TestFlag(DamageFlags.Halfturret)
                     ? beam.Afflictions : Affliction.None, unsplitDamage: combatUnsplitDamage,
-                continuousPhase: beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true } ? (uint)beam.ModContinuousPhase : 0);
+                continuousPhase: beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true } ? (uint)beam.ModContinuousPhase : 0, deferSelf: deferSelf);
+            if (deferSelf) return;
             if (attacker != this)
                 Mods.Input.AimAssist.AimAssistTelemetry.Hit(attacker, beam?.Beam ?? BeamType.None, damage, flags);
             bool dead = false;
@@ -2187,6 +2208,7 @@ namespace MphRead.Entities
                 {
                     beamType = beam.Beam;
                 }
+                else if (NetBurnSource.Current is { } deathBurn) beamType = deathBurn.Weapon;
                 else if (Mods.Network.NetDamage.ReplayBeam != BeamType.None)
                 {
                     // Replaying a kill the authority resolved: the beam entity
@@ -2194,7 +2216,7 @@ namespace MphRead.Entities
                     // banner comes over the wire instead of being guessed.
                     beamType = Mods.Network.NetDamage.ReplayBeam;
                 }
-                if (source == attacker || fromHalfturret || bomb != null)
+                if (!flags.TestFlag(DamageFlags.Burn) && (source == attacker || fromHalfturret || bomb != null))
                 {
                     // halfturret, bomb, or direct hit by player (not beam)
                     // --> also if there's no source and no attacker
@@ -2204,7 +2226,7 @@ namespace MphRead.Entities
                 {
                     _scene.MatchEvents.Death(_scene, attacker, this,
                         beam == null && Mods.Network.NetDamage.ClaimedBeam != BeamType.None ? Mods.Network.NetDamage.ClaimedBeam : beamType,
-                        flags, beam?.ModLaunchKey, bomb != null, fromHalfturret);
+                        flags, beam?.ModLaunchKey ?? NetBurnSource.Current?.Key ?? (bomb != null ? bomb.ModOwnerKey : null), bomb != null, fromHalfturret);
                     _scene.KillFeed.Record(_scene, attacker, this, beamType, flags, fromHalfturret, bomb);
                 }
                 _scene.SendMessage(Message.Destroyed, this, null, 0, 0, delay: 1);
@@ -2244,6 +2266,7 @@ namespace MphRead.Entities
                 _frozenGfxTimer = 0;
                 _disruptedTimer = 0;
                 _burnTimer = 0;
+                ModBurnSource = null;
                 if (_furlEffect != null)
                 {
                     _scene.UnlinkEffectEntry(_furlEffect);
@@ -2814,8 +2837,8 @@ namespace MphRead.Entities
                         && attacker is { Hunter: Hunter.Noxus }
                         && BalancedModeRules.IsAffinity(attacker.Hunter, beam.Beam);
                     bool balancedSpireBurn = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
-                        && attacker is { Hunter: Hunter.Spire }
-                        && BalancedModeRules.IsAffinity(attacker.Hunter, beam.Beam);
+                        && beam.ModOwnerHunter == Hunter.Spire
+                        && BalancedModeRules.IsAffinity(beam.ModOwnerHunter, beam.Beam);
 
                     if (applyBeamAfflictions && beam.Afflictions.TestFlag(Affliction.Freeze))
                     {
@@ -2903,7 +2926,7 @@ namespace MphRead.Entities
                             }
                             if (flags.TestFlag(DamageFlags.Halfturret))
                             {
-                                _halfturret.OnSetOnFire();
+                                _halfturret.OnSetOnFire(NetBurnSource.From(beam, (ushort)(150 * 2), balancedSpireBurn));
                             }
                             else
                             {
@@ -2919,9 +2942,7 @@ namespace MphRead.Entities
                                         time = 75 * 2;
                                     }
                                 }
-                                _burnedBy = beam.Owner;
-                                _burnTimer = time;
-                                CreateBurnEffect();
+                                ModStartBurn(NetBurnSource.From(beam, time, balancedSpireBurn));
                             }
                         }
                     }
@@ -3130,7 +3151,7 @@ namespace MphRead.Entities
                 }
             }
             if (combatSequence != combatSequenceBefore && beam?.EnhancedMicroSeeker != true)
-                Mods.Network.NetHitClaims.CompleteAuthorityHit(this, attacker, combatHealthBefore, flags, combatSequence, beam?.ModLaunchFrame ?? 0, beam?.Beam ?? BeamType.None);
+                Mods.Network.NetHitClaims.CompleteAuthorityHit(this, attacker, combatHealthBefore, flags, combatSequence, beam?.ModLaunchFrame ?? NetBurnSource.Current?.LaunchFrame ?? 0, beam?.Beam ?? NetBurnSource.Current?.Weapon ?? BeamType.None);
             if (attacker != null && _health < combatHealthBefore && !Mods.Network.NetDamage.ApplyingClaim)
                 Mods.EnhancedHunters.EnhancedHunters.OnConfirmedHit(attacker, this, beam?.Beam ?? BeamType.None,
                     beam?.EnhancedDirectHit == true || source is PlayerEntity && attacker.IsAltForm && !flags.TestFlag(DamageFlags.Burn) || bomb?.BombType == BombType.Stinglarva,

@@ -284,9 +284,9 @@ internal static class ContinuousSnapshotTests
         for (int i = 0; i < types.Length; i++)
         {
             var type = types[i]; var record = records[i];
-            Check(NetFactBatch.Validate(type, record), "protocol 46 admits one canonical fact");
+            Check(NetFactBatch.Validate(type, record), "protocol 47 admits one canonical fact");
             byte[] pair = new byte[record.Length * 2]; record.CopyTo(pair, 0); record.CopyTo(pair, record.Length);
-            Check(NetFactBatch.Validate(type, pair), "protocol 46 admits multiple same-type canonical facts");
+            Check(NetFactBatch.Validate(type, pair), "protocol 47 admits multiple same-type canonical facts");
             Check(!NetFactBatch.Validate(type, pair.AsSpan(0, pair.Length - 1)), "truncated final fact refuses envelope");
             byte[] extra = new byte[pair.Length + 1]; pair.CopyTo(extra, 0);
             Check(!NetFactBatch.Validate(type, extra), "unframed tail refuses envelope");

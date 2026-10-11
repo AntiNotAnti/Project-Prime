@@ -33,6 +33,8 @@ namespace MphRead.Entities
         public uint ModComponentId { get; internal set; }
         private int _modChildOrdinal;
         public ShotKey ModLaunchKey { get; internal set; }
+        internal Hunter ModOwnerHunter;
+        internal bool ModDoubleAtLaunch, ModEnhancedSelfJump;
 
         // Replay impact reconciliation is presentation-only. It never changes
         // projectile collision/lifespan, so checkpoint/RNG/gameplay state stays
@@ -1058,8 +1060,8 @@ namespace MphRead.Entities
                 return false;
             }
 
-            bool weavelAffinity = owner.Hunter == Hunter.Weavel
-                && BalancedModeRules.IsAffinity(owner.Hunter, BeamType.Battlehammer);
+            bool weavelAffinity = ModOwnerHunter == Hunter.Weavel
+                && BalancedModeRules.IsAffinity(ModOwnerHunter, BeamType.Battlehammer);
             float powerScale = Damage > 0 ? Damage / 18f : 1f;
             powerScale = Math.Max(0, powerScale);
 
@@ -1190,6 +1192,7 @@ namespace MphRead.Entities
 
         private void CheckSplashDamage(EntityBase? colWith, Vector3 splashOrigin)
         {
+            NetSelfSplash.Observe(this, splashOrigin, colWith);
             foreach (PlayerEntity player in _scene.GetPlayerEntities())
             {
                 if (player == colWith)
@@ -1264,7 +1267,7 @@ namespace MphRead.Entities
             }
         }
 
-        private float GetInterpolatedValue(int type, float value1, float value2, float ratio)
+        internal static float GetInterpolatedValue(int type, float value1, float value2, float ratio)
         {
             if (type == 3)
             {
@@ -2028,6 +2031,11 @@ namespace MphRead.Entities
                     }
                 }
                 beam.Owner = owner;
+                PlayerEntity? capturedOwner = owner as PlayerEntity ?? (owner as HalfturretEntity)?.Owner;
+                beam.ModOwnerHunter = parent?.ModOwnerHunter ?? capturedOwner?.Hunter ?? default;
+                beam.ModDoubleAtLaunch = parent?.ModDoubleAtLaunch ?? spawnFlags.TestFlag(BeamSpawnFlags.DoubleDamage);
+                beam.ModEnhancedSelfJump = parent?.ModEnhancedSelfJump ?? (capturedOwner is { Hunter: Hunter.Samus }
+                    && Mods.EnhancedHunters.EnhancedHunters.UsingAffinity(capturedOwner, weapon.Beam) && !enhancedMicro);
                 beam.TrainingShotId = parent?.TrainingShotId ?? scene.AimTrainer?.CurrentShotId ?? 0;
                 beam.EnhancedDirectHit = false;
                 beam.EnhancedBounceCount = parent?.EnhancedBounceCount ?? 0;
@@ -2655,7 +2663,7 @@ namespace MphRead.Entities
             return Vector3.Dot(toward, direction) > angleCos;
         }
 
-        private Vector3 GetDamageDirection(Vector3 beamPos, Vector3 targetPos)
+        internal Vector3 GetDamageDirection(Vector3 beamPos, Vector3 targetPos)
         {
             if (DamageDirType == 1)
             {

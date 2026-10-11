@@ -259,6 +259,7 @@ internal static class NetCampaignEvidence
                 ShotProof = NetShotProof.Capture(),
                 CombatReconciliation = NetHitPrediction.Capture(),
                 CombatPayments = NetCombatPayments.Capture(),
+                SelfSplash = NetSelfSplash.Capture(),
                 ContinuousPayments = NetContinuousPayments.Capture(),
                 Drain = NetCampaignDrain.Capture(),
                 TransportWindows, Readiness, Windows, ServerSegments, Shots, States, SlowStates, Facts };

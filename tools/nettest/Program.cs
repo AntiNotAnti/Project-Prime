@@ -46,6 +46,13 @@ namespace MphRead.NetTest
                 return ContinuousCombatTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
             if (args.Length > 0 && args[0] == "--combat-reconciliation") return CombatReconciliationTests.Run();
+            if (args.Length > 0 && args[0] == "--self-prediction") return SelfPredictionTests.Run();
+            if (args.Length > 1 && args[0] == "--self-splash-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return SelfSplashTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
             if (args.Length > 1 && args[0] == "--combat-arbitration-scene")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
