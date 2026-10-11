@@ -93,12 +93,17 @@ public sealed class ReplayTimelineClip : IDisposable
     public IReadOnlyList<ReplayTimelineRecord> Records { get; }
     public uint StartRecordingFrame { get; }
     public uint EndRecordingFrame { get; }
-    internal ReplayTimelineClip(ReplayRestorePoint restore, ReplayTimelineRecord[] records, uint start, uint end)
+    // Packets are canonical, but a clip imported from an older recording must
+    // keep that recording's firing/presentation semantics.
+    internal int PresentationProtocolVersion { get; }
+    internal ReplayTimelineClip(ReplayRestorePoint restore, ReplayTimelineRecord[] records, uint start, uint end,
+        int presentationProtocolVersion = NetConfig.ProtocolVersion)
     {
         RestorePoint = new(restore.RecordingFrame, restore.ServerTick, restore.Kind, restore.Records);
         foreach (var record in records) record.Retain();
         Records = Array.AsReadOnly(records);
         StartRecordingFrame = start; EndRecordingFrame = end;
+        PresentationProtocolVersion = presentationProtocolVersion;
     }
     private bool _disposed;
     public void Dispose()

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using MphRead.Mods.Replay;
 using OpenTK.Mathematics;
 
@@ -11,11 +12,12 @@ internal static class ReplayReplicaSeekChecks
     internal static void Run(string path, Vector2i size, IReadOnlyDictionary<uint, (string Gameplay, string Presentation)> frames,
         ReplayWorldCheckpoint? checkpoint, bool comparePresentation)
     {
-        void Compare(PassiveReplayScene scene)
+        void Compare(PassiveReplayScene scene, uint frameOffset = 0)
         {
-            var expected = frames[scene.Session.CurrentFrame];
-            if (ReplayStateHash.Compute(scene.Scene, scene.Session.CurrentFrame) != expected.Gameplay
-                || comparePresentation && scene.Scene.ReplayPresentationHash(scene.Session.CurrentFrame) != expected.Presentation)
+            uint frame = checked(scene.Session.CurrentFrame - frameOffset);
+            var expected = frames[frame];
+            if (ReplayStateHash.Compute(scene.Scene, frame) != expected.Gameplay
+                || comparePresentation && scene.Scene.ReplayPresentationHash(frame) != expected.Presentation)
                 throw new InvalidDataException($"Checkpoint seek differs from linear playback at {scene.Session.CurrentFrame}.");
         }
         using var player = new PassiveReplayPlayer(path, size);
@@ -51,22 +53,35 @@ internal static class ReplayReplicaSeekChecks
 
         if (checkpoint != null && last >= 1200)
         {
+            // File playback exposes visible frames; frozen clips use the
+            // original recording clock, including a nonzero archive origin.
+            uint frameOffset = checked(checkpoint.Frame - 900);
+            uint start = checked(1150 + frameOffset), end = checked(1200 + frameOffset);
+            uint retainedEnd = (uint)Math.Min((ulong)last + frameOffset,
+                (ulong)end + ReplayPoseStream.ShotFactLookaheadFrames);
             var timeline = new RollingReplayTimeline();
             timeline.AppendRestorePoint(new(checkpoint.Frame, checkpoint.Frame, ReplayRestoreKind.ReplicaCheckpoint,
                 [new(checkpoint.Frame, checkpoint.Frame, ReplayFactKind.World, checkpoint.Bytes)]));
             using var reader = DemoReader.Open(path, out var result) ?? throw new InvalidDataException(result.ToString());
             while (reader.ReadNext() is DemoRecord record)
             {
-                if (record.Frame <= checkpoint.Frame) continue;
-                if (record.Frame > 1200) break;
+                uint recordingFrame = checked(record.Frame + (reader.Metadata?.OriginRecordingFrame ?? 0));
+                if (recordingFrame <= checkpoint.Frame) continue;
+                if (recordingFrame > retainedEnd) break;
                 // A frozen timeline contains current canonical facts, unlike a
                 // file reader whose payloads still use its advertised protocol.
                 ReadOnlySpan<byte> canonical = ReplayIdentityCompatibility.Convert(record.Data, reader.ProtocolVersion);
                 if (!canonical.IsEmpty)
-                    timeline.Append(new(record.Frame, record.Frame, ReplayFactKind.Snapshot, canonical));
+                    timeline.Append(new(recordingFrame, recordingFrame, ReplayFactKind.Snapshot, canonical));
             }
-            timeline.Append(new(1200, 1200, ReplayFactKind.Event, ReadOnlySpan<byte>.Empty));
-            if (!timeline.TryFreeze(1150, 1200, out var clip) || clip == null) throw new InvalidDataException("Could not freeze the replica clip.");
+            timeline.Append(new(retainedEnd, retainedEnd, ReplayFactKind.Event, ReadOnlySpan<byte>.Empty));
+            if (!timeline.TryFreeze(start, retainedEnd, out var retained) || retained == null)
+                throw new InvalidDataException("Could not freeze the replica clip.");
+            using var retainedClip = retained;
+            // Match the file's bounded presentation lookahead while keeping the
+            // visible end fixed. Future carriers are never fed to simulation.
+            using var clip = new ReplayTimelineClip(retained.RestorePoint, retained.Records.ToArray(),
+                start, end, reader.ProtocolVersion);
             timeline.Reset(); // frozen bytes and references must survive eviction/reset
             using var frozen = new PassiveReplayPlayer(clip, size);
             int warmup = 0;
@@ -75,13 +90,18 @@ internal static class ReplayReplicaSeekChecks
                 warmup += frozen.Update();
                 if (warmup > 300) throw new InvalidDataException("Frozen clip warmup did not finish.");
             }
-            if (frozen.Current.Session.CurrentFrame != 1150) throw new InvalidDataException("Frozen clip start differs.");
-            Compare(frozen.Current); comparisons++;
-            while (!frozen.Current.Session.AtEnd) { frozen.Update(); Compare(frozen.Current); comparisons++; }
-            if (frozen.Current.Session.CurrentFrame != 1200) throw new InvalidDataException("Frozen clip end differs.");
-            frozen.Seek(1160);
+            if (frozen.Current.Session.CurrentFrame != start) throw new InvalidDataException("Frozen clip start differs.");
+            Compare(frozen.Current, frameOffset); comparisons++;
+            while (!frozen.Current.Session.AtEnd) { frozen.Update(); Compare(frozen.Current, frameOffset); comparisons++; }
+            if (frozen.Current.Session.CurrentFrame != end) throw new InvalidDataException("Frozen clip end differs.");
+            long acceptedAtEnd = frozen.Current.State.AcceptedPackets;
+            for (int i = 0; i < 10; i++) frozen.Update();
+            if (frozen.Current.Session.CurrentFrame != end || frozen.Current.State.AcceptedPackets != acceptedAtEnd)
+                throw new InvalidDataException("Frozen clip consumed presentation lookahead past its visible end.");
+            Compare(frozen.Current, frameOffset); comparisons++;
+            frozen.Seek(checked(1160 + frameOffset));
             while (!frozen.Ready) frozen.Update();
-            Compare(frozen.Current); comparisons++;
+            Compare(frozen.Current, frameOffset); comparisons++;
             Console.WriteLine($"[replayseek] frozen clip: {warmup} bounded warmup steps, frames 1150–1200, backward seek, source timeline reset");
         }
         Console.WriteLine($"[replayseek] PASS: {comparisons} file/clip comparisons, {player.CheckpointCount} checkpoints, {player.CheckpointBytes} retained bytes, frozen EOF.");

@@ -46,7 +46,7 @@ internal sealed class ReplayPoseStream : IDisposable
     // therefore receive the fact well after ResolveTick; playback scans one
     // reliable lifetime ahead without feeding those future packets into the
     // simulation decoder.
-    private const uint ShotFactLookaheadFrames = 960;
+    internal const uint ShotFactLookaheadFrames = 960;
     private const int MaximumPoseSamples = NetUnlagged.HistoryFrames + 32;
     private const int MaximumIntentSamples = 96;
     private const int MaximumClockSamples = 512;
@@ -106,7 +106,17 @@ internal sealed class ReplayPoseStream : IDisposable
     internal string? LastError { get; private set; }
     internal ReplayPoseStream(PassiveReplayScene world, string path) : this(world) { _path = path; }
     internal ReplayPoseStream(PassiveReplayScene world, ReplayTimelineClip clip) : this(world)
-    { _clip = clip; _supportsFireEvents = true; _supportsShotFacts = true; _supportsAcceptedFire = true; }
+    {
+        _clip = clip;
+        SetClipCapabilities();
+    }
+    private void SetClipCapabilities()
+    {
+        int protocol = _clip?.PresentationProtocolVersion ?? 0;
+        _supportsFireEvents = protocol >= 30;
+        _supportsShotFacts = protocol >= 40;
+        _supportsAcceptedFire = protocol >= 43;
+    }
     private ReplayPoseStream(PassiveReplayScene world)
     {
         _world = world;
@@ -1294,9 +1304,7 @@ internal sealed class ReplayPoseStream : IDisposable
         _index = _shotIndex = 0;
         _advanced = _firePrepared = _impactPrepared = null;
         _initialized = _failed = false;
-        _supportsFireEvents = _clip != null;
-        _supportsAcceptedFire = _clip != null;
-        _supportsShotFacts = _clip != null;
+        SetClipCapabilities();
         LastError = null;
         _serverClock.Clear();
         _pendingShotFacts.Clear();

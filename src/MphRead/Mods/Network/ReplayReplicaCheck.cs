@@ -75,7 +75,9 @@ namespace MphRead.Mods.Network
                         using (var reference = Replay.ReplayWorldCheckpoint.Capture(first, boundAccessors: false))
                             if (!checkpoint.Bytes.SequenceEqual(reference.Bytes))
                                 throw new InvalidDataException("Bound checkpoint capture changed serialized bytes.");
-                        if (checkpoint.Frame == 900) clipCheckpoint = checkpoint;
+                        if (checkpoint.Frame == 900)
+                            clipCheckpoint = Replay.ReplayWorldCheckpoint.Capture(first,
+                                recordingFrame: first.Session.RecordingFrame);
                         double captureMs = timer.Elapsed.TotalMilliseconds; timer.Restart();
                         restored?.Dispose(); restored = new PassiveReplayScene(path, size);
                         checkpoint.Restore(restored);
@@ -92,7 +94,7 @@ namespace MphRead.Mods.Network
                                 throw new InvalidDataException($"Detached world picture differs at frame {checkpoint.Frame}.");
                         }
                         Console.WriteLine($"[replayreplica] restored frame {checkpoint.Frame}: {checkpoint.Bytes.Length} bytes; capture {captureMs:F2} ms, create/restore {restoreMs:F2} ms");
-                        if (checkpoint != clipCheckpoint) checkpoint.Dispose();
+                        checkpoint.Dispose();
                     }
                     hashes.Enqueue((ReplayStateHash.Compute(first.Scene, first.Session.CurrentFrame),
                         first.Scene.ReplayPresentationHash(first.Session.CurrentFrame), first.State.CaptureCheckpoint()));
