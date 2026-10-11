@@ -303,7 +303,8 @@ internal sealed class NetBombWorld
             _frontier = fact.Sequence;
             var state = fact.State;
             using var diagnostic = NetBombVisibilityProbe.AcceptedEvent(_scene, fact,
-                !_hasSnapshot || NetLifecycleTracker.Newer(fact.Frame, _snapshotFrame) || _snapshotKeys.Contains(state.Key));
+                !_hasSnapshot || NetLifecycleTracker.Newer(fact.Frame, _snapshotFrame) || _snapshotKeys.Contains(state.Key),
+                _hasSnapshot, _snapshotFrame, _snapshotFrontier, _snapshotKeys.Contains(state.Key));
             switch (fact.Kind)
             {
                 case BombEventKind.Placed:

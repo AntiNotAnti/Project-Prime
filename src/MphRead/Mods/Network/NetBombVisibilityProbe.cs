@@ -36,6 +36,7 @@ internal static class NetBombVisibilityProbe
         internal uint? RetirementSnapshotFrame;
         internal ulong? RetirementSnapshotFrontier;
         internal bool RetirementSnapshotKeyAbsent;
+        internal string? RetirementWitnessStage;
         internal int BodyDrawOpportunities, BodyAttempts;
         internal bool ExpectedAlive, MissingExpectedGhost;
     }
@@ -79,6 +80,7 @@ internal static class NetBombVisibilityProbe
                     life.RetirementSnapshotFrame = frame;
                     life.RetirementSnapshotFrontier = frontier;
                     life.RetirementSnapshotKeyAbsent = true;
+                    life.RetirementWitnessStage = "SubsequentSnapshot";
                     life.RetirementDrawIndex = DrawIndex;
                 }
                 life.ExpectedAlive = false;
@@ -86,13 +88,25 @@ internal static class NetBombVisibilityProbe
         foreach (var state in states)
             if (GetLife(scene, state.Key) is { } life && life.Terminal == null) life.ExpectedAlive = true;
     }
-    internal static IDisposable? AcceptedEvent(Scene scene, BombEvent fact, bool birthExpected)
+    internal static IDisposable? AcceptedEvent(Scene scene, BombEvent fact, bool birthExpected, bool hasSnapshot, uint snapshotFrame, ulong snapshotFrontier, bool snapshotHasKey)
     {
         if (!Enabled(scene) || fact.Kind is not (BombEventKind.Placed or BombEventKind.Detonated or BombEventKind.Removed)) return null;
         var life = GetLife(scene, fact.State.Key);
         if (life == null) return null;
         if (fact.Kind == BombEventKind.Placed)
-        { life.Birth = fact; life.BirthDrawIndex = DrawIndex; life.ExpectedAlive = birthExpected; return null; }
+        {
+            life.Birth = fact; life.BirthDrawIndex = DrawIndex; life.ExpectedAlive = birthExpected;
+            if (!birthExpected && hasSnapshot && !snapshotHasKey && snapshotFrame >= fact.Frame
+                && life.RetirementSnapshotFrame == null && life.BodyDrawOpportunities == 0 && life.BodyAttempts == 0)
+            {
+                life.RetirementSnapshotFrame = snapshotFrame;
+                life.RetirementSnapshotFrontier = snapshotFrontier;
+                life.RetirementSnapshotKeyAbsent = true;
+                life.RetirementWitnessStage = "AtBirth";
+                life.RetirementDrawIndex = DrawIndex;
+            }
+            return null;
+        }
         life.Terminal = fact; life.TerminalDrawIndex = DrawIndex; life.ExpectedAlive = false;
         if (fact.Kind != BombEventKind.Detonated) return null;
         TerminalContext = life;
@@ -295,6 +309,7 @@ internal static class NetBombVisibilityProbe
                 ["BodyDrawOpportunities"] = life.BodyDrawOpportunities, ["BodyAttempts"] = life.BodyAttempts,
                 ["MissingExpectedGhost"] = life.MissingExpectedGhost,
                 ["Classification"] = sameDraw ? "BirthTerminalBeforeBodyDraw" : "ExpiredBeforeFirstBodyDraw",
+                ["RetirementWitnessStage"] = life.RetirementWitnessStage,
                 ["RetirementSnapshotFrame"] = life.RetirementSnapshotFrame,
                 ["RetirementSnapshotFrontier"] = life.RetirementSnapshotFrontier,
                 ["RetirementSnapshotKeyAbsent"] = life.RetirementSnapshotKeyAbsent,
@@ -422,7 +437,7 @@ internal static class NetBombVisibilityProbe
                 AppliedBirthDrawIndex = l.BirthDrawIndex, AppliedTerminalDrawIndex = l.TerminalDrawIndex,
                 l.BodyDrawOpportunities, l.BodyAttempts, l.MissingExpectedGhost,
                 l.RetirementSnapshotFrame, l.RetirementSnapshotFrontier,
-                l.RetirementSnapshotKeyAbsent, l.RetirementDrawIndex }).ToArray() };
+                l.RetirementSnapshotKeyAbsent, l.RetirementDrawIndex, l.RetirementWitnessStage }).ToArray() };
         File.WriteAllText(Output!, JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true }) + "\n");
     }
 }
