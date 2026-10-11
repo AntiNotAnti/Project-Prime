@@ -303,6 +303,46 @@ def pixel_bracket(captures):
     return difference(images[0][2],images[1][2]),difference(images[0][2],images[2][2]),images[0][:2]
 
 
+def float32(value):
+    return struct.unpack("<f",struct.pack("<f",value))[0]
+
+
+def capture_orientation(facing,up):
+    """EntityBase.GetTransformMatrix followed by normalized vector getters."""
+    def cross(a,b):
+        return tuple(float32(float32(a[i]*b[j])-float32(a[j]*b[i]))
+                     for i,j in ((1,2),(2,0),(0,1)))
+    def normalize(a):
+        squares=[float32(x*x) for x in a]
+        length=float32(math.sqrt(float32(float32(squares[0]+squares[1])+squares[2])))
+        if not length:raise ValueError("degenerate live capture orientation")
+        inverse=float32(1/length)
+        return tuple(float32(x*inverse) for x in a)
+    facing,up=(tuple(float32(x) for x in v) for v in (facing,up))
+    right=normalize(cross(up,facing))
+    return normalize(facing),normalize(cross(facing,right))
+
+
+def native_capture_matches(payload,canonical):
+    """LIVE ONLY: reconstruct orientation; every other decoded field is exact.
+
+    A single binary32 step around the derived components covers native/JIT
+    operation rounding. Kanden10 reproduced 8/11 changed rows bit-exact;
+    the other three had exactly one ULP residual in derived Up only. This
+    is not a tolerance around the transmitted pose or world coordinates.
+    Wire snapshot/event comparisons elsewhere remain tuple equality.
+    """
+    if payload==canonical:return True
+    if payload[:4]!=canonical[:4] or payload[6:]!=canonical[6:]:return False
+    expected=capture_orientation(canonical[4],canonical[5])
+    def ordered(value):
+        bits=struct.unpack("<I",struct.pack("<f",value))[0]
+        return 0x80000000-bits if bits&0x80000000 else bits
+    return all(abs(ordered(actual)-ordered(derived))<=1
+               for vector_actual,vector_derived in zip(payload[4:6],expected)
+               for actual,derived in zip(vector_actual,vector_derived))
+
+
 def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,finding):
     metrics = {}
     if live_reports is None:
@@ -320,6 +360,7 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
             issue("INCOMPLETE",name,"report","live pixel report unavailable")
             continue
         bodies,links,seen = set(),set(),set()
+        derived_joins = []
         snapshots = parsed[name]["snapshots"]
         eligible = {identity for identity,frame,kind,_,_ in damage
                     if kind in kinds and snapshots and frame >= snapshots[0][0]}
@@ -346,7 +387,13 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
             canonical = {(frame,s) for frame,_,states in snapshots for s in states}
             births = {e[4] for e in parsed[name]["events"] if e[2] == "Placed"}
             def canonical_payload(payload,snapshot_frame):
-                return (snapshot_frame,payload) in canonical or (payload in births and payload[2] > snapshot_frame)
+                candidates=[s for frame,s in canonical if frame==snapshot_frame and s[0]==payload[0]]
+                candidates.extend(s for s in births if s[0]==payload[0] and s[2]>snapshot_frame)
+                for source in candidates:
+                    if native_capture_matches(payload,source):
+                        if payload!=source:derived_joins.append(dict(key=list(payload[0]),snapshotFrame=snapshot_frame))
+                        return True
+                return False
             for ordinal,row in enumerate(report["Rows"]):
                 try:
                     identity = key(row["Key"]);payload = state(row["State"])
@@ -420,7 +467,8 @@ def live_pixels(peers,parsed,placements,damage,kinds,manifest,live_reports,findi
         metrics[name] = dict(requiredDamagingKeys=[list(k) for k in sorted(eligible)],
             damagingKeysWithPositiveBodyPixels=len(eligible&bodies),missingDamagingKeys=[list(k) for k in sorted(missing)],
             preBootstrapDamageKeysExcluded=[list(k) for k in sorted(before_bootstrap)],
-            missingWithNoAppliedSnapshot=[list(k) for k in sorted(no_state)],verifiedBodies=len(bodies),verifiedLinks=len(links))
+            missingWithNoAppliedSnapshot=[list(k) for k in sorted(no_state)],verifiedBodies=len(bodies),verifiedLinks=len(links),
+            derivedOrientationJoins=derived_joins)
     return ("FAIL" if "FAIL" in verdicts else "INCOMPLETE" if verdicts else "PASS"),metrics
 
 
@@ -712,7 +760,7 @@ def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibil
                 renderFixtureStatus=render_status, scope=dict(authorityMatches=1,requiredKinds=list(kinds),
                 checked="request admission, exact bomb lifecycle/event/state parity, health and bounded reliable drain",
                 independentRenderFixture="same-engine local canonical ghost fixture: five bodies and three Lockjaw edges, positive and wall-negative pixels; full fixture keys are independent of network keys",
-                livePixelScope="stable positive body pixels for every relevant post-bootstrap authority damaging key on each peer; three links of an actual damaging Lockjaw triangle; exact canonical payload joins; no claim of visibility before damage or terminal-effect pixels",
+                livePixelScope="stable positive body pixels for every relevant post-bootstrap authority damaging key on each peer; three links of an actual damaging Lockjaw triangle; exact canonical non-orientation fields plus native float32 captured orientation (one ULP derived bound); no claim of visibility before damage or terminal-effect pixels",
                 excluded=["pre-bootstrap pixel visibility","born/terminal same-batch pixels without a body witness","terminal-effect pixels","shot parity","cross-match rotation","all maps"]),
                 findings=findings,metrics=metrics)
 

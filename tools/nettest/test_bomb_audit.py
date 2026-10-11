@@ -295,6 +295,47 @@ class BombAuditTests(unittest.TestCase):
             report=self.live_fixture(directory);r=self.result(live={"peer-0":report})
             self.assertEqual(r["liveVisibilityStatus"],"PASS",r);self.assertEqual(r["status"],"PASS",r)
             self.assertEqual(r["liveVisibilityCoverage"]["peer-0"]["damagingKeysWithPositiveBodyPixels"],1)
+    def orientation_fixture(self,directory):
+        # Fixed real Kanden10 shot4 packet/capture: derived Up differs one ULP.
+        facing=dict(X=-.09957633,Y=.00010491182,Z=-.99503)
+        canonical_up=dict(X=1.0446733e-05,Y=1,Z=.0001043904)
+        captured_up=dict(X=1.0446732e-05,Y=1,Z=.000104390405)
+        for report in (self.server,self.peers["peer-0"]):
+            for row in report["Bombs"]["Rows"]:
+                values=row["States"] if row["Type"]=="Snapshot" else [row["State"]] if row["Type"]=="Event" else []
+                for value in values:value.update(Facing=copy.deepcopy(facing),Up=copy.deepcopy(canonical_up))
+        report=self.live_fixture(directory)
+        report["Rows"][0]["State"].update(Facing=facing,Up=captured_up)
+        return report
+    def test_live_float32_native_transform_golden_capture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report=self.orientation_fixture(directory)
+            r=self.result(live={"peer-0":report})
+            self.assertEqual(r["status"],"PASS",r)
+            self.assertEqual(len(r["liveVisibilityCoverage"]["peer-0"]["derivedOrientationJoins"]),1)
+            # Rounding is centered on the reconstructed transform, not raw pose.
+            captured=bomb.state(report["Rows"][0]["State"])
+            canonical=bomb.state(self.peers["peer-0"]["Bombs"]["Rows"][3]["States"][0])
+            self.assertNotEqual(captured,canonical)
+            self.assertTrue(bomb.native_capture_matches(captured,canonical))
+            derived=list(bomb.capture_orientation(canonical[4],canonical[5])[1])
+            bits=struct.unpack("<I",struct.pack("<f",derived[2]))[0]
+            derived[2]=struct.unpack("<f",struct.pack("<I",bits+2))[0]
+            mutated=tuple(list(captured[:5])+[tuple(derived)]+list(captured[6:]))
+            self.assertFalse(bomb.native_capture_matches(mutated,canonical))
+    def test_live_transform_keeps_identity_time_position_speed_and_pose_strict(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original=self.orientation_fixture(directory)
+            for mutate in (lambda r:r.update(SnapshotFrame=12),lambda r:r["Key"].update(LifeId=2),
+                           lambda r:r["State"]["Position"].update(X=1e-9),
+                           lambda r:r["State"]["Speed"].update(Z=1e-9),
+                           lambda r:r["State"]["Facing"].update(X=-.0995),
+                           lambda r:r["State"]["Up"].update(Z=.000105)):
+                report=copy.deepcopy(original);mutate(report["Rows"][0])
+                self.assertEqual(self.result(live={"peer-0":report})["liveVisibilityStatus"],"FAIL")
+            self.peers["peer-0"]["Bombs"]["Rows"][3]["States"][0]["Up"]=original["Rows"][0]["State"]["Up"]
+            # Wire authority/client snapshot comparison remains bit-for-bit.
+            self.assertEqual(self.result(live={"peer-0":original})["gameplayStatus"],"FAIL")
     def test_live_missing_report_rows_or_damaging_body_incomplete(self):
         self.assertEqual(self.result(live={})["liveVisibilityStatus"],"INCOMPLETE")
         with tempfile.TemporaryDirectory() as directory:
