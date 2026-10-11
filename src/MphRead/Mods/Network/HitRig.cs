@@ -418,6 +418,63 @@ namespace MphRead.Mods.Network
         /// it, and a runner that breaks line of sight only turns that into a
         /// smaller sample.
         /// </summary>
+        /// <summary>
+        /// Explicit initial-geometry setup for the isolated asset fixture only.
+        /// Never called by ordinary campaigns or gameplay. The caller must use
+        /// fresh native players before bomb admission; all later controls,
+        /// placement, snare damage and retirement remain native simulation.
+        /// </summary>
+        internal static bool TrySetupLockjawTriangleFixture(PlayerEntity owner, PlayerEntity victim, out Vector3 center)
+        {
+            center = default;
+            if (owner.OwningScene != victim.OwningScene || owner.Hunter != Hunter.Sylux) return false;
+            var scene = owner.OwningScene;
+            bool Floor(Vector3 horizontal, out float height)
+            {
+                CollisionResult hit = default;
+                bool found = CollisionDetection.CheckBetweenPoints(horizontal.WithY(32), horizontal.WithY(-8),
+                    TestFlags.Players, scene, ref hit);
+                height = hit.Position.Y;
+                return found && hit.Plane.Y > .9f && Single.IsFinite(height);
+            }
+            bool Clear(Vector3 from, Vector3 to)
+            {
+                CollisionResult hit = default;
+                return !CollisionDetection.CheckBetweenPoints(from, to, TestFlags.Players, scene, ref hit);
+            }
+            // Search the actual Combat Hall collision, rather than assuming
+            // a spawn has enough floor around it for the native triangle.
+            for (int z = -12; z <= 12; z += 4)
+                for (int x = -12; x <= 12; x += 4)
+                {
+                    var candidate = new Vector3(x, 0, z);
+                    if (!Floor(candidate, out float floor)) continue;
+                    bool valid = true;
+                    for (int ring = 0; ring < 2 && valid; ring++)
+                        for (int sample = 0; sample < 12 && valid; sample++)
+                        {
+                            float angle = sample * MathF.PI / 6;
+                            float radius = ring == 0 ? 2 : 3.8f;
+                            Vector3 point = candidate + new Vector3(MathF.Cos(angle) * radius, 0, MathF.Sin(angle) * radius);
+                            valid = Floor(point, out float otherFloor) && MathF.Abs(otherFloor - floor) < .1f
+                                && Clear(point.WithY(floor + .1f), point.WithY(floor + 2.5f))
+                                && Clear(candidate.WithY(floor + .3f), point.WithY(floor + .3f));
+                        }
+                    if (!valid || !Clear(candidate.WithY(floor + .1f), candidate.WithY(floor + 2.5f))) continue;
+                    center = candidate.WithY(floor + .5f);
+                    victim.ModForceForm(false); owner.ModForceForm(true);
+                    victim.ModPlaceAt(center);
+                    owner.ModPlaceAt(candidate.WithY(floor + .25f) + Vector3.UnitX * 3);
+                    victim.Speed = owner.Speed = Vector3.Zero;
+                    victim.Controls.ClearAll(); owner.Controls.ClearAll();
+                    _lockjawWaitingForTerminal = false;
+                    _lockjawOwnerLife = _lockjawVictimLife = 0;
+                    NetLog.Event($"explicit native triangle fixture center={center} owner={owner.Position} radius=3 collision=verified");
+                    return true;
+                }
+            return false;
+        }
+
         private static void DriveLockjawTriangle(PlayerEntity player, PlayerControls c, PlayerEntity? victim)
         {
             // The biped stays in the interior while the owner authors all three
