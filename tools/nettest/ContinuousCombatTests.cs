@@ -421,6 +421,74 @@ internal static class ContinuousCombatTests
             }
         }
     }
+    private static void FractionalHistoricalTarget()
+    {
+        Prepare(); _owner.Hunter = Hunter.Sylux; var beam = Beam();
+        uint first = _frame;
+        Vector3 center = _base + _direction * 3;
+        Vector3 side = Vector3.Cross(_direction, Vector3.UnitY).Normalized();
+        var weapon = _owner.OwningScene.WeaponRules[(int)BeamType.ShockCoil + 9];
+        Vector3 origin = _owner.Position + Vector3.UnitY * .5f;
+        float offset = .1f;
+        while (offset < 8 && NetContinuousTargeting.Evaluate(origin, _direction,
+            center + side * offset + Vector3.UnitY * .5f, true, true, false, false, false,
+            Fixed.ToFloat(weapon.HomingRange), Fixed.ToFloat(weapon.HomingTolerance), out _, out _, out _)
+            == ContinuousTargetRejection.None) offset += .1f;
+        Check(offset < 8, "moving historical fixture locates integer pose outside authored cone");
+        _victim.ModPlaceAt(center + side * offset); NetUnlagged.Record(first);
+        Frame(first + 1); _victim.ModPlaceAt(center - side * offset);
+        NetUnlagged.Record(_frame); NetDynamicGeometryHistory.RecordWorld(_frame);
+        Check(NetUnlagged.TryContinuousClaimPose(_victim, first + .5, out var half, out _, out _)
+            && Vector3.Distance(half.Position, center) < .001f,
+            "continuous claim pose samples fractional moving-target midpoint");
+        var claim = JournalClaim(beam, publish: false); claim.AckFrame = first;
+        var fire = new FireEvent(beam.ModShotId, claim.Frame, claim.AckFrame, 128,
+            FireEventKind.ContinuousTick, (byte)BeamType.ShockCoil, 0, claim.Frame,
+            FireEvent.FlagPose, origin, _direction, _direction, _direction,
+            SourceLife: NetPlayerLifecycle.Get(0), Target: NetTargetIdentity.ForSlot(1));
+        var carrier = NetSession.RemoteIntents[0]; carrier.HasFireEvents = true;
+        carrier.FireEventCount = 1; carrier.FireEvents[0] = fire;
+        Check(NetFireEvents.Accept(0, carrier), "fractional target source enters exact journal");
+        Check(NetContinuousAdmission.Validate(0, claim, out _),
+            "uncaptured admission world includes authored ACK fraction");
+        NetContinuousAdmission.CaptureWorld(beam.ModLaunchKey, first);
+        Check(!NetContinuousAdmission.Validate(0, claim, out _),
+            "integer historical endpoint outside cone refuses claim");
+
+        // A fresh source captures the fractional world once, independently of its later carrier.
+        NetFireEvents.Reset(); NetHitClaims.Reset();
+        Check(NetFireEvents.Accept(0, carrier), "fractional source re-admitted for immutable capture fixture");
+        NetContinuousAdmission.CaptureWorld(beam.ModLaunchKey, first + .5);
+        Check(NetContinuousAdmission.Validate(0, claim, out _),
+            "fractional historical midpoint inside cone admits exact claim");
+        Frame(first + 2); _victim.ModPlaceAt(center + side * (offset + 2));
+        NetUnlagged.Record(_frame); NetDynamicGeometryHistory.RecordWorld(_frame);
+        NetContinuousAdmission.CaptureWorld(beam.ModLaunchKey, _frame);
+        Check(NetContinuousAdmission.Validate(0, claim, out _),
+            "captured fractional world remains immutable after later frame and current pose change");
+    }
+    private static void PendingSourceSettlement()
+    {
+        foreach (bool nativeWins in new[] { false, true })
+        {
+            Prepare(); _owner.Hunter = Hunter.Sylux; var beam = Beam();
+            var claim = JournalClaim(beam, publish: false);
+            byte[] packet = new byte[1 + HitClaimPacket.Size]; packet[0] = 1; claim.Write(packet.AsSpan(1));
+            NetHitClaims.Receive(0, packet);
+            Check(NetHitClaims.ClaimsPendingCurrent == 1 && _victim.Health == 99 && _owner.Health == 50,
+                "continuous missing source parks on arrival without damage or early terminal refusal");
+            long payments = NetContinuousPayments.LifetimePayments;
+            if (nativeWins) Native(beam, 1);
+            byte result = Receive(claim);
+            Check(nativeWins ? result == HitVerdictPacket.ResultDuplicate && _ack.DamageApplied == 1
+                    && _victim.Health == 98 && _owner.Health == 51
+                    && NetContinuousPayments.LifetimePayments == payments + 1
+                : result == HitVerdictPacket.ResultInvalidLaunch && _victim.Health == 99
+                    && _owner.Health == 50 && NetContinuousPayments.LifetimePayments == payments,
+                nativeWins ? "valid native payment before rescue returns immutable outcome despite missing source"
+                    : "still-invalid continuous source refuses at grace settlement without payment");
+        }
+    }
     private static void RefusedSources()
     {
         for (int variant = 0; variant < 6; variant++)
@@ -525,7 +593,7 @@ internal static class ContinuousCombatTests
                     _base + direction * 4 + Vector3.UnitY * .5f, _frame, out float wall) && wall == 1)
                 { _direction = direction; break; }
             Check(_direction.LengthSquared == 1, "asset fixture provides clear continuous collision lane");
-            NativePaymentOnce(); SelectedTargetFence(); DeclinedAndCapped(); SplitAndBalanced(); ActualCollision(); ReservationAndLifetime(); ClaimAndNativeOrdering(); LocalAuthoredClock(); TerminalDeathOrdering(false); TerminalDeathOrdering(true); RampAfterFractionalDither(); RefusedSources(); ExpiryCallback(); RetainedCarrierEvent(); RetainedCarrierEvent(latest: true); RetainedCarrierEvent(latest: true, dead: true);
+            NativePaymentOnce(); SelectedTargetFence(); DeclinedAndCapped(); SplitAndBalanced(); ActualCollision(); ReservationAndLifetime(); ClaimAndNativeOrdering(); LocalAuthoredClock(); TerminalDeathOrdering(false); TerminalDeathOrdering(true); RampAfterFractionalDither(); FractionalHistoricalTarget(); PendingSourceSettlement(); RefusedSources(); ExpiryCallback(); RetainedCarrierEvent(); RetainedCarrierEvent(latest: true); RetainedCarrierEvent(latest: true, dead: true);
             Check(sim.StepFailures == 0, "continuous asset simulation has no step failures");
             Console.WriteLine($"PASS: {_checks} continuous combat asset assertions ({profile})"); return 0;
         }

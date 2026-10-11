@@ -569,13 +569,15 @@ namespace MphRead.Mods.Network
                         // Order matters only in that the roster carries the last
                         // measurement: ping first, publish second.
                         PingPeers(now);
-                        BroadcastSessionState();
+                        if (!(NetCampaignDrain.Enabled && NetCampaignDrain.Quiescing))
+                            BroadcastSessionState();
                         if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch)
                         {
                             BroadcastMatchState(now);
                             if (_phase == SessionPhase.PostMatch) BroadcastPostMatchReports();
                         }
-                        BroadcastRoster();
+                        if (!(NetCampaignDrain.Enabled && NetCampaignDrain.Quiescing))
+                            BroadcastRoster();
                         // A vote nobody finishes answering has to time out,
                         // and a client that missed a VoteState packet has to
                         // get another one. Both are this cadence's job.

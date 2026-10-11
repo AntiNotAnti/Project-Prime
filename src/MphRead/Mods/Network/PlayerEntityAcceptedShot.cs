@@ -44,6 +44,8 @@ public partial class PlayerEntity
         try
         {
             NetUnlagged.BeginShot(this, fire.Origin, direction, equip);
+            if (continuous && NetFireEvents.TryAcceptedKey(this, out var sourceKey))
+                NetContinuousAdmission.CaptureWorld(sourceKey, NetUnlagged.ContinuousTargetFrame(this));
             result = BeamProjectileEntity.Spawn(this, equip, fire.Origin, direction,
                 flags, NodeRef, _scene);
             if (result != BeamResultFlags.NoSpawn)

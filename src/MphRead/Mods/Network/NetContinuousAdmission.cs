@@ -17,6 +17,8 @@ internal static class NetContinuousAdmission
         public ShotKey Key;
         public FireEvent Fire;
         public uint Arrived;
+        public double WorldFrame;
+        public bool WorldCaptured;
     }
     private static readonly Entry[,] Entries = new Entry[8, Capacity];
     private static bool Expired(in Entry e) => !e.Live || NetSession.NetFrame - e.Arrived > Retention
@@ -49,21 +51,34 @@ internal static class NetContinuousAdmission
                 if (prior.Key != key || prior.Fire != fire) prior.Conflict = true;
             }
             else if (free >= 0) Entries[slot, free] = new Entry
-                { Live = true, Key = key, Fire = fire, Arrived = NetSession.NetFrame };
+                { Live = true, Key = key, Fire = fire, Arrived = NetSession.NetFrame,
+                    WorldFrame = NetSession.NetFrame - (NetUnlagged.Enabled
+                        ? LagCompensationPolicy.Applied(LagCompensationPolicy.Evaluate(slot, NetSession.NetFrame,
+                            fire.AckFrame, fire.AckSubFrame, 0).Timing) : 0) };
         }
     }
-    private static bool Find(int slot, in HitClaimPacket claim, out FireEvent fire)
+    private static bool Find(int slot, in HitClaimPacket claim, out FireEvent fire, out double worldFrame)
     {
-        fire = default;
+        fire = default; worldFrame = 0;
         if ((uint)slot >= 8) return false;
         var key = NetShotProof.Key(slot, claim);
         for (int i = 0; i < Capacity; i++)
         {
             ref var e = ref Entries[slot, i];
             if (!Expired(e) && !e.Conflict && !e.Rejected && e.Key == key && e.Fire.ContinuousPhase == claim.Frame)
-            { fire = e.Fire; return true; }
+            { fire = e.Fire; worldFrame = e.WorldFrame; return true; }
         }
         return false;
+    }
+    internal static void CaptureWorld(in ShotKey key, double frame)
+    {
+        if ((uint)key.ShooterSlot >= 8 || !double.IsFinite(frame)) return;
+        for (int i = 0; i < Capacity; i++)
+        {
+            ref var entry = ref Entries[key.ShooterSlot, i];
+            if (!Expired(entry) && entry.Key == key && !entry.WorldCaptured)
+            { entry.WorldFrame = frame; entry.WorldCaptured = true; return; }
+        }
     }
     internal static void Reject(in ShotKey key, in FireEvent fire)
     {
@@ -76,11 +91,11 @@ internal static class NetContinuousAdmission
     }
     // Arrival may precede its repeated fire-event carrier. Grace permits recovery;
     // settlement below still requires the exact immutable decision.
-    internal static bool Known(int slot, in HitClaimPacket claim) => Find(slot, claim, out _);
+    internal static bool Known(int slot, in HitClaimPacket claim) => Find(slot, claim, out _, out _);
     internal static bool Validate(int slot, in HitClaimPacket claim, out bool lifeDrain)
     {
         lifeDrain = false;
-        if (!Find(slot, claim, out var fire) || (claim.Flags & HitClaimPacket.FlagContinuousTick) == 0
+        if (!Find(slot, claim, out var fire, out double worldFrame) || (claim.Flags & HitClaimPacket.FlagContinuousTick) == 0
             || (claim.Flags & HitClaimPacket.FlagHeadshot) != 0 || claim.Frame % 2 != 0
             || fire.Target != new NetTargetIdentity((byte)(NetTargetIdentity.Valid | (claim.VictimSlot + 1)),
                 claim.VictimGeneration, claim.VictimLifeId)
@@ -92,7 +107,7 @@ internal static class NetContinuousAdmission
         var weapon = scene.WeaponRules[(int)BeamType.ShockCoil + (affinity ? 9 : 0)];
         bool charged = weapon.Flags.TestFlag(WeaponFlags.CanCharge)
             && fire.Charge >= (weapon.Flags.TestFlag(WeaponFlags.PartialCharge) ? weapon.MinCharge : weapon.FullCharge) * 2;
-        if (!NetUnlagged.TryContinuousClaimPose(victim, fire.AckFrame, out var pose, out bool morphing, out int team)) return false;
+        if (!NetUnlagged.TryContinuousClaimPose(victim, worldFrame, out var pose, out bool morphing, out int team)) return false;
         Vector3 target = pose.Position.AddY(pose.AltForm ? 0 : .5f);
         if (NetContinuousTargeting.Evaluate(fire.Origin, fire.Direction, target,
             victim != owner && victim.ModIsInPlay && victim.LoadFlags.TestFlag(LoadFlags.Active)
@@ -100,7 +115,7 @@ internal static class NetContinuousAdmission
             TeamRules.AreAllies(owner.TeamIndex, team), pose.AltForm, morphing,
             Fixed.ToFloat(weapon.HomingRange), Fixed.ToFloat(weapon.HomingTolerance), out _, out _, out _)
                 != ContinuousTargetRejection.None) return false;
-        if (!NetDynamicGeometryHistory.TryTraceDistanceAtFrame(scene, fire.Origin, target, fire.AckFrame, out float wall)
+        if (!NetDynamicGeometryHistory.TryTraceDistanceAtFrame(scene, fire.Origin, target, worldFrame, out float wall)
             || wall < .999f) return false;
         // Keep the native fractional pulse boundary. Modifier/source enforcement
         // remains N4 shadow policy; this ceiling never invents an odd-frame tick.

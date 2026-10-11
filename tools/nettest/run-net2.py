@@ -184,6 +184,7 @@ def run(args):
         drain_started = None
         stability = DrainStability()
         drain_released = False
+        server_quiesce_requested = False
         prepared_release = None
         preparation = None
         drain_reason = "waiting for peer quiescence"
@@ -210,6 +211,28 @@ def run(args):
                 peers = {name: row for name, row in statuses.items() if name != "server"}
                 if any(row.get("Quiescing") for row in peers.values()) and drain_started is None:
                     drain_started = time.monotonic()
+                # Freeze only periodic authority refreshes once every expected
+                # live peer has freshly reported quiescence in this same stream.
+                expected = {record["name"] for process, record, _ in clients if process.poll() is None}
+                authority = statuses.get("server", {})
+                context = authority.get("Epoch"), authority.get("Match")
+                if (not server_quiesce_requested and len(expected) == args.players
+                        and expected.issubset(peers) and all(context)
+                        and all(peers[name].get("Quiescing")
+                            and (peers[name].get("Epoch"), peers[name].get("Match")) == context
+                            and not peers[name].get("ConnectionLost") and not peers[name].get("Error")
+                            for name in expected)):
+                    request = {"Epoch": context[0], "Match": context[1]}
+                    path = args.out / "drain.server-release.json.quiesce"
+                    if path.exists():
+                        raise RuntimeError("immutable server quiesce request already exists")
+                    release_drain(path, request)
+                    server_quiesce_requested = True
+                    manifest["serverQuiesceRequest"] = {"path": str(path), "request": request,
+                        "peerNames": sorted(expected), "requestedSeconds": time.monotonic() - started,
+                        "serverFrame": authority.get("Frame"),
+                        "peerFrames": {name: peers[name].get("Frame") for name in sorted(expected)}}
+                    save(args.out / "manifest.json", manifest)
                 release = None
                 if "server" in statuses and len(peers) == args.players:
                     quiet, drain_reason, stable_seconds = stability.observe(statuses["server"], peers, time.monotonic())

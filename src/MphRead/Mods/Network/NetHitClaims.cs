@@ -1578,9 +1578,9 @@ namespace MphRead.Mods.Network
             if (shooter.OwningScene.GameState.OneInTheChamber && claim.Beam == (byte)BeamType.Imperialist
                 && !shooter.KnowsChamberShot(claim.ShotId)) return HitVerdictPacket.ResultInvalidLaunch;
             PlayerEntity victim = PlayerEntity.Players[victimSlot];
-            if (claim.Beam == (byte)BeamType.ShockCoil && claim.ShotId != 0
-                && NetContinuousAdmission.Known(shooterSlot, claim)
-                && !NetContinuousAdmission.Validate(shooterSlot, claim, out _)) return HitVerdictPacket.ResultInvalidLaunch;
+            // Continuous source geometry is settled after native playback's
+            // grace, using its retained fractional world. An early check can
+            // otherwise reject a tick immediately before native payment.
             if (!victim.LoadFlags.TestFlag(LoadFlags.Active) || !victim.ModIsInPlay)
             {
                 VoidedDeadVictim++;
