@@ -1,0 +1,443 @@
+{
+  "milestone": "N9",
+  "date": "2026-10-11",
+  "status": "VERIFIED_READY_FOR_PR_AND_MERGE",
+  "source": "3847b83f741ceea2d21d9982d16071b8149afe65",
+  "protocol": 49,
+  "wireBytes": {
+    "canonicalPlayer": 173,
+    "form": 28,
+    "slowPlayer": 58,
+    "fastPlayer": 138,
+    "maximumEightPlayerSnapshotFastDatagram": 1172
+  },
+  "platform": "macOS arm64",
+  "runtime": {
+    "sdk": "10.0.401",
+    "runtime": "10.0.12"
+  },
+  "evidence": [
+    {
+      "path": "artifacts/net2-n9/attempt-02/focused/manifest.json",
+      "sha256": "2440fb8f3a2183453feb0fccb0bca4af9687820c72c0d1ed1e893f3be56385cf"
+    },
+    {
+      "path": "artifacts/net2-n9/attempt-05/replay/manifest.json",
+      "sha256": "b4baba1b838af5fe9f58fac0cadde395a34f224c8d0f8a3d8bb5995c7957f0c8"
+    },
+    {
+      "path": "artifacts/net2-n9/attempt-06/focused-agent/manifest.json",
+      "sha256": "b7c3b4f6f24ec0c16227334947f411322ca30119c7a17f75a4e9752c08124c51"
+    },
+    {
+      "path": "artifacts/net2-n9/attempt-06/mac-weavel-extreme/manifest.json",
+      "sha256": "9ee4a774e2b61c8df31d6da284d47cb28a108da4ff6716412d828401faf9f2b4"
+    },
+    {
+      "path": "artifacts/net2-n9/attempt-06/mac-weavel-extreme/summary.json",
+      "sha256": "adf62630918b8617d039f9d489646ddd9128653a5f87cf20b075a6b672292184"
+    },
+    {
+      "path": "artifacts/net2-n9/attempt-06/form-audit-initial.json",
+      "sha256": "4470b3952fd50eaf4e41fb9af9d7e70dd8acb11ef9f17537295710812cb949a8"
+    },
+    {
+      "path": "artifacts/net2-n9/attempt-07/focused-agent/manifest.json",
+      "sha256": "7a39162053c69164f435a2d9718ee2fd7f873e93231149dcf96e981742ab0bdd"
+    },
+    {
+      "path": "artifacts/net2-n9/attempt-07/mac-weavel-lan/manifest.json",
+      "sha256": "22d89b4c906559d357278f012893d0a9969ed0fb8f963b02a76ca20fec88e1cb"
+    },
+    {
+      "path": "artifacts/net2-n9/attempt-07/mac-weavel-lan/summary.json",
+      "sha256": "b9c18ae9740616eaeac11dd96d4fb2c4c2ad2aada2369c8d969bfa0bd9a55ee1"
+    },
+    {
+      "path": "artifacts/net2-n9/attempt-07/form-audit.json",
+      "sha256": "794d2cefa3e50a39cb0f50f3e2b654c8dd984734863a667bfa5e898fe7b211d8"
+    },
+    {
+      "path": "artifacts/net2-n9/attempt-06/mac-weavel-extreme/form-audit-owner-cycle-diagnostic.json",
+      "sha256": "e6c0cbd541536978d583aa529fe3da516cae2da3c02517e509d36451cd13ce0b"
+    },
+    {
+      "path": "artifacts/net2-n9/harness/python-body-ack-final.log",
+      "sha256": "424482cdabdbe8d727dd13a8c201f511251ee39ede9ec28195617db0009f1877"
+    }
+  ],
+  "attempt06": {
+    "engineSha256": "c42f032d9bdccf47aa4eef448b6a00a9e0928b5d76547a47546c84bff792126b",
+    "binaryUnchanged": true,
+    "focusedStatus": "PASS",
+    "focusedCounts": {
+      "turretEvents": 34,
+      "formScene": 59,
+      "lifecycle": 3690,
+      "protocol19": 143
+    },
+    "campaignSettings": {
+      "build": "artifacts/net2-n9/attempt-06/bin",
+      "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+      "source": "17425ec6",
+      "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n9/attempt-06/mac-weavel-extreme",
+      "dotnet": "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+      "protocol": 49,
+      "shot_proof": "shadow",
+      "players": 3,
+      "seconds": 24.0,
+      "drain_seconds": 24.0,
+      "port": 47696,
+      "seed": 8128,
+      "profile": "extreme",
+      "scenario": "alt-morph",
+      "observer_delay": 5.5,
+      "rooms": "MP3 PROVING GROUND",
+      "round_minutes": 30,
+      "rendered": false,
+      "bomb_visibility": false,
+      "bomb_triangle_fixture": false,
+      "record": false,
+      "soak": false
+    },
+    "baseCampaignStatus": "PASS",
+    "baseFailures": [],
+    "baseIncomplete": [],
+    "coverage": {
+      "renderedProjectileAgreement": "NOT_RUN",
+      "botFills": "NOT_RUN",
+      "spectator": "PASS",
+      "mapRotation": "NOT_RUN",
+      "shockCoilDrainKillParity": "NOT_RUN",
+      "imperialistSpawnTrapCoverage": "NOT_RUN",
+      "sustained20Minutes": "NOT_RUN",
+      "boundedHeadlessDrain": "PASS"
+    },
+    "serverSegments": [
+      {
+        "Room": "MP3 PROVING GROUND",
+        "AuthorityEpoch": 639273128798570210,
+        "CurrentMatchId": 2,
+        "Frames": 1699,
+        "StepFailures": 0,
+        "DroppedSteps": 6,
+        "Stalls": 1,
+        "StepAllocatedBytes": 59129216,
+        "MeanMs": 0.4828542672160095,
+        "P50Ms": 0.2,
+        "P95Ms": 0.84,
+        "P99Ms": 2.33,
+        "P999Ms": 23.97,
+        "WorstMs": 190.0951
+      }
+    ],
+    "authorityRetiredTurretCount": 2,
+    "initialFormAudit": {
+      "status": "INCOMPLETE",
+      "reason": "Immediate-owner prediction cycle differs from canonical observer sequence; peer-1 local Biped frame270 while canonical Unmorphing frame240. Strict observed-owner cycle and exact ACK-floor producer/auditor pending."
+    },
+    "processCount": 4,
+    "clientCount": 3,
+    "resolvedFormAudit": {
+      "status": "PASS",
+      "sourceJoins": 1224,
+      "peers": 3,
+      "metrics": {
+        "peers": {
+          "peer-0": {
+            "sourceJoins": 471,
+            "targetPhases": [
+              "Alt",
+              "Biped",
+              "Morphing",
+              "Unmorphing"
+            ],
+            "completeCycle": true,
+            "activeSamples": 81,
+            "independentAnchorWitnesses": 68,
+            "initialTarget": {
+              "frame": 76,
+              "started": 0,
+              "phase": "Biped",
+              "anchor": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "active": false,
+              "hp": 0,
+              "damage": 0,
+              "body_hp": 99
+            },
+            "lateInitialAnchorCoverage": "NOT_RUN"
+          },
+          "peer-1": {
+            "sourceJoins": 407,
+            "targetPhases": [
+              "Alt",
+              "Biped",
+              "Morphing",
+              "Unmorphing"
+            ],
+            "completeCycle": true,
+            "activeSamples": 61,
+            "independentAnchorWitnesses": 49,
+            "initialTarget": {
+              "frame": 70,
+              "started": 0,
+              "phase": "Biped",
+              "anchor": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "active": false,
+              "hp": 0,
+              "damage": 0,
+              "body_hp": 99
+            },
+            "lateInitialAnchorCoverage": "NOT_RUN"
+          },
+          "peer-2": {
+            "sourceJoins": 346,
+            "targetPhases": [
+              "Alt",
+              "Biped",
+              "Morphing",
+              "Unmorphing"
+            ],
+            "completeCycle": true,
+            "activeSamples": 59,
+            "independentAnchorWitnesses": 46,
+            "initialTarget": {
+              "frame": 398,
+              "started": 325,
+              "phase": "Alt",
+              "anchor": [
+                -0.8173105716705322,
+                7.0540289878845215,
+                23.71158790588379
+              ],
+              "active": true,
+              "hp": 49,
+              "damage": 0,
+              "body_hp": 50
+            },
+            "lateInitialAnchorCoverage": "ACTIVE"
+          }
+        },
+        "authoritySamples": 4790,
+        "independentAnchorWitnesses": 163,
+        "healthDisagreements": [],
+        "ownerPhaseDifferences": 45,
+        "newerHealthJoins": 0,
+        "predictionDebitJoins": 11,
+        "inactiveAnchorNotLocationProofSamples": 1023,
+        "lethalAckFloorJoins": []
+      },
+      "note": "Initial INCOMPLETE retained. Strict observed-owner cycle handles immediate owner prediction lead without requiring its local animation to match delayed canonical phase."
+    }
+  },
+  "earlierGreen": {
+    "attempt02": "All 12 focused commands exit0; form55, formprotocol31, alt1000, protocol19143, continuoussnapshot337/maxSnapshotFast1172B, lifecycle3690, turret13, protocol19scene60, bootstrap, architecture, protocol17, continuous targets20profiles.",
+    "attempt05Replay": {
+      "status": "PASS",
+      "formatChecks": 3013,
+      "replicaHashes": 1801,
+      "animationRestores": 13624,
+      "detachedWorlds": 7,
+      "continuationFrames": 1500,
+      "projectileFrames": 793,
+      "seekComparisons": 61,
+      "checkpoints": 7,
+      "sourceReplaySha256": "342ec112bc02014a3dc185cddd17ba73929128079166449f3090a6f7e86783c3"
+    }
+  },
+  "failedAttemptsRetained": [
+    "attempt-01/focused",
+    "attempt-01/focused-independent",
+    "attempt-03/mac-weavel-extreme",
+    "attempt-05/focused",
+    "attempt-05/mac-weavel-extreme"
+  ],
+  "behaviorScope": [
+    "Authority turret remains subject to native target/cooldown/form gates.",
+    "Predictive observer playback uses exact accepted authored turret events and full ownership identity; it does not confer authority damage.",
+    "Source events retired by authority are explicitly accounted by exact full keys rather than silently discarded.",
+    "Accepted semantic baselines count as known authority frontiers without inventing individual history or replay announcements."
+  ],
+  "notRun": [
+    "pixel/rendered agreement",
+    "Windows",
+    "20-minute soak",
+    "CI"
+  ],
+  "readiness": "Verified within documented Mac scope; ready for PR review and merge. Not merged.",
+  "finalAttempt07": {
+    "source": "3847b83f741ceea2d21d9982d16071b8149afe65",
+    "binaryHashes": {
+      "ProjectPrime.dll": "11973e803f950384e9d2459720e99c85b59951d92bef44b5ffed609098a89e37",
+      "nettest.dll": "1d35674d6659d765b4aeafc32f833ac007cf9ad74f2a6fb538f0e10087716d0b"
+    },
+    "binaryUnchanged": true,
+    "focusedStatus": "PASS",
+    "focusedCounts": {
+      "turretEvents": 34,
+      "formScene": 59
+    },
+    "campaignSettings": {
+      "build": "artifacts/net2-n9/attempt-07/bin",
+      "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+      "source": "3847b83f",
+      "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n9/attempt-07/mac-weavel-lan",
+      "dotnet": "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+      "protocol": 49,
+      "shot_proof": "shadow",
+      "players": 3,
+      "seconds": 20.0,
+      "drain_seconds": 20.0,
+      "port": 47697,
+      "seed": 8128,
+      "profile": "lan",
+      "scenario": "alt-morph",
+      "observer_delay": 5.5,
+      "rooms": "MP3 PROVING GROUND",
+      "round_minutes": 30,
+      "rendered": false,
+      "bomb_visibility": false,
+      "bomb_triangle_fixture": false,
+      "record": false,
+      "soak": false
+    },
+    "baseCampaignStatus": "PASS",
+    "failures": [],
+    "incomplete": [],
+    "coverage": {
+      "renderedProjectileAgreement": "NOT_RUN",
+      "botFills": "NOT_RUN",
+      "spectator": "PASS",
+      "mapRotation": "NOT_RUN",
+      "shockCoilDrainKillParity": "NOT_RUN",
+      "imperialistSpawnTrapCoverage": "NOT_RUN",
+      "sustained20Minutes": "NOT_RUN",
+      "boundedHeadlessDrain": "PASS"
+    },
+    "serverSegments": [
+      {
+        "Room": "MP3 PROVING GROUND",
+        "AuthorityEpoch": 639273131977876370,
+        "CurrentMatchId": 2,
+        "Frames": 1424,
+        "StepFailures": 0,
+        "DroppedSteps": 5,
+        "Stalls": 1,
+        "StepAllocatedBytes": 55348672,
+        "MeanMs": 0.5981241573033704,
+        "P50Ms": 0.26,
+        "P95Ms": 1.06,
+        "P99Ms": 2.86,
+        "P999Ms": 20.38,
+        "WorstMs": 176.1762
+      }
+    ],
+    "formAuditStatus": "PASS",
+    "formAuditMetrics": {
+      "peers": {
+        "peer-0": {
+          "sourceJoins": 443,
+          "targetPhases": [
+            "Alt",
+            "Biped",
+            "Morphing",
+            "Unmorphing"
+          ],
+          "completeCycle": true,
+          "activeSamples": 88,
+          "independentAnchorWitnesses": 79,
+          "initialTarget": {
+            "frame": 26,
+            "started": 0,
+            "phase": "Biped",
+            "anchor": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "active": false,
+            "hp": 0,
+            "damage": 0,
+            "body_hp": 99
+          },
+          "lateInitialAnchorCoverage": "NOT_RUN"
+        },
+        "peer-1": {
+          "sourceJoins": 443,
+          "targetPhases": [
+            "Alt",
+            "Biped",
+            "Morphing",
+            "Unmorphing"
+          ],
+          "completeCycle": true,
+          "activeSamples": 88,
+          "independentAnchorWitnesses": 79,
+          "initialTarget": {
+            "frame": 26,
+            "started": 0,
+            "phase": "Biped",
+            "anchor": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "active": false,
+            "hp": 0,
+            "damage": 0,
+            "body_hp": 99
+          },
+          "lateInitialAnchorCoverage": "NOT_RUN"
+        },
+        "peer-2": {
+          "sourceJoins": 355,
+          "targetPhases": [
+            "Alt",
+            "Biped",
+            "Morphing",
+            "Unmorphing"
+          ],
+          "completeCycle": true,
+          "activeSamples": 68,
+          "independentAnchorWitnesses": 64,
+          "initialTarget": {
+            "frame": 337,
+            "started": 331,
+            "phase": "Unmorphing",
+            "anchor": [
+              -5.656505584716797,
+              0.44999998807907104,
+              15.984871864318848
+            ],
+            "active": false,
+            "hp": 0,
+            "damage": 0,
+            "body_hp": 99
+          },
+          "lateInitialAnchorCoverage": "INACTIVE"
+        }
+      },
+      "authoritySamples": 3955,
+      "independentAnchorWitnesses": 222,
+      "healthDisagreements": [],
+      "ownerPhaseDifferences": 10,
+      "newerHealthJoins": 0,
+      "predictionDebitJoins": 0,
+      "inactiveAnchorNotLocationProofSamples": 997,
+      "lethalAckFloorJoins": []
+    }
+  },
+  "pythonHarness": {
+    "status": "PASS",
+    "tests": 285,
+    "log": "artifacts/net2-n9/harness/python-body-ack-final.log"
+  }
+}
