@@ -124,6 +124,9 @@ internal static class QuiescentTurretTests
                 Vector3 blockedStart = owner.Position;
                 bool startedEscapeUnmorph = false;
                 int escapeTicks = 0;
+                int gatesClearTick = -1;
+                bool previousCamera = owner.MorphCamera != null;
+                bool previousBlocked = owner.Flags1.TestFlag(PlayerFlags1.NoUnmorph);
                 foreach (Keys move in new[] { Keys.W, Keys.D, Keys.S, Keys.A })
                 {
                     Console.WriteLine("ESCAPE DIRECTION " + move + " " + JsonSerializer.Serialize(Gate()));
@@ -131,13 +134,20 @@ internal static class QuiescentTurretTests
                     {
                         Step(quiesce: true, move: move); escapeTicks++;
                         startedEscapeUnmorph |= owner.IsUnmorphing;
-                        if (i % 12 == 0 || owner.IsUnmorphing)
+                        bool camera = owner.MorphCamera != null;
+                        bool blocked = owner.Flags1.TestFlag(PlayerFlags1.NoUnmorph);
+                        if (i % 12 == 0 || owner.IsUnmorphing || camera != previousCamera || blocked != previousBlocked)
                             Console.WriteLine("ESCAPE NATIVE " + move + " tick=" + escapeTicks + " " + JsonSerializer.Serialize(Gate()));
+                        previousCamera = camera; previousBlocked = blocked;
+                        if (!camera && !blocked) { gatesClearTick = escapeTicks; break; }
                     }
-                    if (owner.IsUnmorphing || !owner.IsAltForm) break;
+                    if (gatesClearTick >= 0 || owner.IsUnmorphing || !owner.IsAltForm) break;
                 }
-                Console.WriteLine("ESCAPE MOVEMENT END ticks=" + escapeTicks + " " + JsonSerializer.Serialize(Gate()));
+                Console.WriteLine("ESCAPE MOVEMENT END ticks=" + escapeTicks + " gatesClearTick=" + gatesClearTick + " " + JsonSerializer.Serialize(Gate()));
                 Check(owner.Position != blockedStart, "ordinary Move input moves the actual blocked native body");
+                Check(gatesClearTick > 0, "ordinary movement clears both native expansion gates before neutral input resumes");
+                for (int i = 0; i < 24 && owner.IsAltForm && !owner.IsUnmorphing; i++)
+                { Step(quiesce: true); startedEscapeUnmorph |= owner.IsUnmorphing; }
                 Check(startedEscapeUnmorph, "bounded ordinary cardinal movement permits native unmorph without forced form changes");
                 for (int i = 0; i < 180 && (owner.IsAltForm || owner.IsUnmorphing); i++) Step(quiesce: true);
                 Check(!owner.IsAltForm && !owner.IsUnmorphing && !owner.Flags2.TestFlag(PlayerFlags2.Halfturret),
