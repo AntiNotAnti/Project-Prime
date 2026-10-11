@@ -2319,6 +2319,7 @@ namespace MphRead.Mods.Network
                 ResultImpulseLimit => "impact impulse exceeds weapon limit",
                 ResultApplied => "applied",
                 ResultDuplicate => "already resolved",
+                (byte)CombatAckResult.Corrected => "corrected",
                 ResultDeadShooter => "shooter was already dead when it fired",
                 ResultDeadVictim => "victim was already down",
                 ResultRefused => "refused",
