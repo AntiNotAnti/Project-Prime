@@ -196,6 +196,7 @@ namespace MphRead.Mods.Network
         /// splash.
         /// </summary>
         private static readonly bool[,] _pendingSelf = new bool[Slots, PendingCapacity];
+        private static readonly bool[,] _pendingDeferred = new bool[Slots, PendingCapacity];
 
         private static readonly int[] _pendingCount = new int[Slots];
         private static readonly int[] _pendingHead = new int[Slots];
@@ -565,7 +566,7 @@ namespace MphRead.Mods.Network
             Array.Clear(_pendingShot);
             Array.Clear(_receiptSequence); Array.Clear(_receiptFrame); Array.Clear(_receiptNext);
             Array.Clear(_pendingSpent);
-            Array.Clear(_pendingSelf);
+            Array.Clear(_pendingSelf); Array.Clear(_pendingDeferred);
             Array.Clear(_beamPredicted);
             Array.Clear(_beamConfirmed);
             Array.Clear(_beamDenied);
@@ -800,6 +801,7 @@ namespace MphRead.Mods.Network
                 if (at >= 0)
                 {
                     _pendingHeld[victim.SlotIndex, at] = claimedLethal && (!self || exactSelf);
+                    _pendingDeferred[victim.SlotIndex, at] = deferSelf;
                     _pendingImpulse[victim.SlotIndex, at] = deferSelf ? Vector3.Zero : direction ?? Vector3.Zero;
                     if (self)
                     {
@@ -1026,7 +1028,7 @@ namespace MphRead.Mods.Network
                 _pendingClaim[slot, i] = 0;
                 _pendingShot[slot, i] = 0;
                 _pendingSpent[slot, i] = false;
-                _pendingSelf[slot, i] = false;
+                _pendingSelf[slot, i] = false; _pendingDeferred[slot, i] = false;
             }
             if (slot == NetHooks.LocalSlot) ForgetDrain();
             _ackHealthValid[slot] = false;
@@ -1546,7 +1548,7 @@ namespace MphRead.Mods.Network
             _pendingClaim[slot, tail] = 0;
             _pendingShot[slot, tail] = 0;
             _pendingSpent[slot, tail] = false;
-            _pendingSelf[slot, tail] = self;
+            _pendingSelf[slot, tail] = self; _pendingDeferred[slot, tail] = false;
             _pendingCount[slot]++;
             if (!self)
             {
@@ -1595,7 +1597,7 @@ namespace MphRead.Mods.Network
             }
             _pendingClaim[slot, head] = 0;
             _pendingSpent[slot, head] = false;
-            _pendingSelf[slot, head] = false;
+            _pendingSelf[slot, head] = false; _pendingDeferred[slot, head] = false;
             _pendingHead[slot] = (head + 1) % PendingCapacity;
             _pendingCount[slot]--;
             return answered ? -1 : head;
@@ -1642,7 +1644,7 @@ namespace MphRead.Mods.Network
                     else if (head) HeadshotsDowngraded++;
                     else if (authorityHeadshot) HeadshotsUpgraded++;
                 }
-                bool wasSelf = _pendingSelf[slot, at];
+                bool wasSelf = _pendingSelf[slot, at], wasDeferred = _pendingDeferred[slot, at];
                 int selfFloor = _shownHealth[slot];
                 ResolveHeld(slot, at, ack.Accepted && (ack.Flags & CombatAckFlags.Lethal) != 0);
                 RememberEvent(ack, _pendingSelf[slot, at] ? _pendingImpulse[slot, at] : Vector3.Zero);
@@ -1652,7 +1654,7 @@ namespace MphRead.Mods.Network
                 _pendingDamage[slot, at] = 0;
                 _pendingLethal[slot, at] = _pendingHeadshot[slot, at] = false;
                 _shownHealth[slot] = wasSelf && HasSelfClaims() && selfFloor > 0
-                    ? Math.Max(1, selfFloor + predicted - (ack.Accepted ? ack.DamageApplied : 0)) : 0;
+                    ? wasDeferred ? selfFloor : Math.Max(1, selfFloor + predicted - (ack.Accepted ? ack.DamageApplied : 0)) : 0;
                 if (ack.Accepted && (ack.Flags & CombatAckFlags.OutcomePresent) != 0)
                 {
                     ushort sequence = (ushort)ack.DamageSequence;

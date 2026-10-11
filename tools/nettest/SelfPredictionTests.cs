@@ -19,11 +19,11 @@ internal static class SelfPredictionTests
         var state = HealthShotTests.State(2); state.SlotIndex = 0; state.SlotGeneration = 9;
         NetSession.RemoteStates[0] = state; NetSession.RemoteStateValid[0] = true;
     }
-    private static HitClaimPacket Predict(uint shot = 501, uint damage = 20)
+    private static HitClaimPacket Predict(uint shot = 501, uint damage = 20, bool defer = false)
     {
-        DamageFlags flags = 0; Vector3 impulse = Vector3.UnitY * .1f;
+        DamageFlags flags = 0; Vector3 impulse = defer ? Vector3.Zero : Vector3.UnitY * .1f;
         NetHitPrediction.NoteHit(_owner, _owner, ref flags, ref damage, BeamType.Missile,
-            launchFrame: 1, direction: impulse, shotId: shot, shotKey: ShotKey.For(0, shot), componentId: 17);
+            launchFrame: 1, direction: impulse, shotId: shot, shotKey: ShotKey.For(0, shot), componentId: 17, deferSelf: defer);
         _owner.Health -= (int)damage; _owner.Speed += impulse;
         byte[] bytes = new byte[4096]; Check(NetHitClaims.Compose(bytes) > 0, "legitimate self prediction emits claim");
         var claim = HitClaimPacket.Read(bytes.AsSpan(1));
@@ -108,6 +108,36 @@ internal static class SelfPredictionTests
             && NetHitPrediction.LocalHealthFor(_owner, 99) == 89,
             "later self rejection retires only its debit and retains accepted corrected health");
     }
+    private static void DeferredAckWithLaterPrediction()
+    {
+        foreach (bool accepted in new[] { true, false })
+        {
+            Prepare(); _owner.Health = 79;
+            var state = NetSession.RemoteStates[0]; state.Health = 79; state.DamageEventId = 11;
+            NetSession.RemoteStates[0] = state;
+            var first = Predict(801, 20, defer: true);
+            Check(_owner.Health == 79 && first.Damage == 20,
+                "authority-first deferred claim retains full damage with zero local debit");
+            var later = Predict(802, 10);
+            Check(_owner.Health == 69 && NetHitPrediction.LocalHealthFor(_owner, 79) == 69,
+                "new self prediction after deferred claim establishes independent ten-point floor");
+            var firstAck = Ack(first);
+            if (!accepted)
+            { firstAck.Result = HitVerdictPacket.ResultInvalidLaunch; firstAck.Flags = 0;
+              firstAck.DamageApplied = 0; firstAck.DamageSequence = 0; }
+            Deliver(firstAck);
+            Check(NetHitPrediction.HasSelfClaims((byte)BeamType.Missile)
+                && _owner.Health == 69 && NetHitPrediction.LocalHealthFor(_owner, 79) == 69,
+                accepted ? "deferred accepted ACK cannot charge twenty again against later prediction floor"
+                    : "deferred rejected ACK cannot refund already-applied authority damage or later debit");
+            var laterAck = Ack(later); laterAck.DamageApplied = 10;
+            laterAck.HealthAfter = 69; laterAck.DamageSequence = 12;
+            Deliver(laterAck);
+            Check(!NetHitPrediction.HasSelfClaims((byte)BeamType.Missile)
+                && _owner.Health == 69 && NetHitPrediction.LocalHealthFor(_owner, 79) == 69,
+                "later exact ACK settles ten-point prediction at stable authority health");
+        }
+    }
     private static void LethalAndEnvironment()
     {
         Prepare(); var claim = Predict(damage: 120);
@@ -123,6 +153,7 @@ internal static class SelfPredictionTests
     }
     internal static void RunReplay(PlayerEntity owner)
     {
+        int checksBefore = _checks;
         var role = NetSession.Role; bool authority = NetSession.IsAuthority; int local = NetSession.LocalSlot;
         var savedState = NetSession.RemoteStates[owner.SlotIndex]; bool valid = NetSession.RemoteStateValid[owner.SlotIndex];
         try
@@ -199,13 +230,14 @@ internal static class SelfPredictionTests
             NetSession.RemoteStates[owner.SlotIndex] = savedState; NetSession.RemoteStateValid[owner.SlotIndex] = valid;
             NetHitClaims.Reset(); NetHitPrediction.Reset(); NetDamage.ForgetSlot(owner.SlotIndex);
         }
+        Console.WriteLine($"PASS: {_checks - checksBefore} self prediction full Replay assertions");
     }
     public static int Run()
     {
         var saved = (PlayerEntity[])PlayerEntity._players.Clone();
         try
         {
-            Ordering(false); Ordering(true); MultipleOutstanding(); LethalAndEnvironment();
+            Ordering(false); Ordering(true); MultipleOutstanding(); DeferredAckWithLaterPrediction(); LethalAndEnvironment();
             Console.WriteLine($"PASS: {_checks} self prediction assertions"); return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
