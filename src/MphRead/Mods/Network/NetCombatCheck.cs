@@ -400,6 +400,9 @@ namespace MphRead.Mods.Network
                 Check(victim.Health == before - 1, "authority applies recovered physical hit once");
                 var claim = Claim(0, now); claim.Beam = (byte)BeamType.Missile;
                 claim.ShotId = 41; claim.LaunchFrame = source.AckFrame;
+                claim.ComponentId = beam.ModComponentId;
+                if (beam.EnhancedDirectHit) claim.Flags |= HitClaimPacket.FlagDirect;
+                else claim.Flags &= unchecked((byte)~HitClaimPacket.FlagDirect);
                 Receive(0, claim); NetHitClaims.Tick();
                 Check(victim.Health == before - 1 && NetHitClaims.DuplicateHere == 1 && NetHitClaims.AppliedHere == 0,
                     "recovered shot later claim never rescues duplicate physical damage");
@@ -471,6 +474,9 @@ namespace MphRead.Mods.Network
                 var oldClaim = Claim(0, now); oldClaim.ClaimId = 50;
                 oldClaim.ShotId = 47; oldClaim.Beam = (byte)BeamType.Missile;
                 oldClaim.ShooterLifeId = sourceLife; oldClaim.LaunchFrame = now - 2;
+                oldClaim.ComponentId = beam.ModComponentId;
+                if (beam.EnhancedDirectHit) oldClaim.Flags |= HitClaimPacket.FlagDirect;
+                else oldClaim.Flags &= unchecked((byte)~HitClaimPacket.FlagDirect);
                 byte oldVerdict = 255;
                 var savedSink = NetHitClaims.CombatAckSink;
                 NetHitClaims.CombatAckSink = (_, entries) =>
