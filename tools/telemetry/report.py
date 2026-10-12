@@ -151,7 +151,7 @@ $('balance').innerHTML='<p>Balance revision <strong>'+esc(b.revision)+'</strong>
 table(['Hunter','Picks','Seconds','Kills','Deaths','K/D','Damage dealt','Damage taken'],hunterRows)+
 '<h3>Weapons</h3>'+table(['Weapon','Shots','Hits','Accuracy','Kills','Damage','Direct dmg','Splash dmg','Close dmg','Mid dmg','Far dmg'],weaponRows)+
 '<h3>Mechanic diagnostics</h3>'+table(['Measure','Value'],[
-['BH parent direct hits',n(bh[0])],['BH terrain impacts',n(bh[1])],['BH children spawned',n(bh[2])],['BH child hits',n(bh[3])],['BH child damage',n(bh[4])],['BH child kills',n(bh[5])],
+['BH round direct hits',n(bh[0])],['BH round splash hits',n(bh[1])],['BH concussion direct hits',n(bh[2])],['BH concussion splash hits',n(bh[3])],['BH concussion damage',n(bh[4])],['BH concussion kills',n(bh[5])],
 ['Kanden disrupt applied / rejected',n(af[0])+' / '+n(af[1])],['Noxus freeze applied / rejected',n(af[2])+' / '+n(af[3])],['Spire burns / damage / kills',n(af[4])+' / '+n(af[5])+' / '+n(af[6])],
 ['Sylux drain requested / actual / capped',n(af[7])+' / '+n(af[8])+' / '+n(af[9])],
 ['Imperialist ammo acquired / fired / wasted',n(imp[0])+' / '+n(imp[1])+' / '+n(imp[2])],['Imperialist body / headshot kills',n(imp[3])+' / '+n(imp[4])]])}
