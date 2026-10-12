@@ -890,7 +890,8 @@ public partial class PlayerEntity
             // Hard/Insane plans a short committed positional goal. A goal is
             // picked from safe local endpoints, then followed for several
             // frames instead of reversing direction on every tactical tick.
-            bool moved = _tacticalEscapeFrames == 0 && _player.BotLevel >= 2
+            bool moved = _scene.GameState.Multiplayer
+                && _tacticalEscapeFrames == 0 && _player.BotLevel >= 2
                 && BotPlanCombatMove(target, ideal, lowHealth);
             if (!moved && _tacticalEscapeFrames > 0)
             {

@@ -2354,6 +2354,13 @@ namespace MphRead.Entities
                 {
                     return beam == BeamType.Imperialist && _player._availableWeapons[beam];
                 }
+                // Preserve native scripted-encounter weapon policy in Adventure.
+                if (_scene.GameState.SinglePlayer)
+                {
+                    WeaponInfo native = _scene.WeaponRules[(int)beam];
+                    return _player._availableWeapons[beam]
+                        && _player._ammo[native.AmmoType] >= native.AmmoCost;
+                }
                 // The old bot gate checked raw UA, so Balanced Imperialist
                 // appeared usable even after its private five-shot reserve ran
                 // dry. Use the same actual rules as native shot payment.
@@ -2370,6 +2377,13 @@ namespace MphRead.Entities
                 if (_scene.GameState.InstaGib)
                 {
                     return false;
+                }
+                if (_scene.GameState.SinglePlayer)
+                {
+                    WeaponInfo native = _scene.WeaponRules[(int)beam];
+                    return native.Flags.TestFlag(WeaponFlags.CanCharge)
+                        && _player._ammo[native.AmmoType] >= native.ChargeCost
+                        && _player._availableCharges[beam];
                 }
                 int affinityIndex = Weapons.GetAffinityBeam(_player.Hunter) == beam ? 9 : 0;
                 WeaponInfo info = _scene.WeaponRules[(int)beam + affinityIndex];
