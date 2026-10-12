@@ -282,6 +282,10 @@ namespace MphRead.Entities
                 _replayImpactHidden = true;
             }
             ValidateHomingTarget();
+            if (Lifespan <= 0)
+            {
+                return false;
+            }
             // Negative Age is a deterministic launch delay for the second and
             // third rounds. It already belongs to the replay checkpoint schema.
             // Delayed bullets must neither collide nor age their flight time.
@@ -298,10 +302,6 @@ namespace MphRead.Entities
                 Age = 0f;
                 ModStartBeamVisual();
                 ModResetDrawState();
-            }
-            if (Lifespan <= 0)
-            {
-                return false;
             }
             Lifespan -= _scene.FrameTime;
             if (Flags.TestFlag(BeamFlags.Collided))
