@@ -203,7 +203,7 @@ namespace MphRead.Mods.Network
 
                 Check(Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.VoltDriver, charged: false), 1.20f)
                     && Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.VoltDriver, charged: true), 10f / 7f)
-                    && Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.Battlehammer, charged: false), 1.25f)
+                    && Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.Battlehammer, charged: false), 8192f / 4915f)
                     && Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.Judicator, charged: false), 1.25f)
                     && Near(BalancedModeRules.ScaleProjectileSpeed(BeamType.Magmaul, charged: false, 6963), 7680),
                     "Balanced projectile speed table matches the first tuning pass");
@@ -222,18 +222,23 @@ namespace MphRead.Mods.Network
                 float judgeBase = scene.WeaponRules[(int)BeamType.Judicator].UnchargedSpeed / 4096f / 2;
                 float magmaBase = scene.WeaponRules[(int)BeamType.Magmaul].UnchargedSpeed / 4096f / 2;
                 Check(Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
-                        BeamType.Battlehammer, charged: false, battleBase), battleBase * 1.25f)
+                        BeamType.Battlehammer, charged: false, battleBase), 8192f / 4096f / 2f)
                     && Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
                         BeamType.Judicator, charged: false, judgeBase), judgeBase * 1.25f)
                     && Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
                         BeamType.Magmaul, charged: false, magmaBase), 7680f / 4096f / 2),
                     "Balanced prediction weapons receive their configured runtime speed increases");
 
-                int direct = 14, headshot = 14, splash = 6; byte splashType = 0;
+                int direct = 12, headshot = 12, splash = 4; byte splashType = 0;
                 BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Battlehammer,
                     false, ref direct, ref headshot, ref splash, ref splashType);
-                Check(direct == 18 && headshot == 18 && splash == 5 && splashType == 0,
-                    "Balanced Battlehammer shell is 18 direct and 5 max splash");
+                Check(direct == 12 && headshot == 12 && splash == 4 && splashType == 0,
+                    "Balanced burst rifle preserves authored bullet damage and linear falloff");
+                Check(BalancedModeRules.BattlehammerBurstRounds == 3
+                    && BalancedModeRules.BattlehammerBulletSpacingFrames == 3
+                    && BalancedModeRules.BattlehammerBurstCooldownFrames == 27
+                    && BalancedModeRules.BattlehammerBurstAmmoCost == 12,
+                    "Battlehammer burst has three 50-ms rounds, 450-ms cadence and one 12-UA charge");
 
                 Vector3 projectileOrigin = new(1, 2, 3);
                 Vector3 impactOrigin = new(4, 5, 6);
@@ -246,8 +251,8 @@ namespace MphRead.Mods.Network
                 direct = headshot = 3; splash = 4; splashType = 0;
                 BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Battlehammer,
                     true, ref direct, ref headshot, ref splash, ref splashType);
-                Check(direct == 5 && headshot == 5 && splash == 3,
-                    "Balanced Battlehammer impact child rewards direct contact over splash");
+                Check(direct == 3 && headshot == 3 && splash == 4,
+                    "retired Battlehammer cluster flag never amplifies burst damage");
 
                 direct = headshot = 32; splash = 16; splashType = 3;
                 BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Magmaul,
@@ -531,35 +536,66 @@ namespace MphRead.Mods.Network
                 pickup.Invoke(weavel, new object[] { ItemType.Battlehammer });
                 weavel.ModSetWeapon(BeamType.Battlehammer);
                 Check(ReferenceEquals(weavel.EquipInfo.Weapon, scene.WeaponRules[(int)BeamType.Battlehammer]),
-                    "Balanced Weavel uses stock Battlehammer ammo and cadence metadata");
+                    "Balanced Weavel uses stock inventory metadata with explicit burst overrides");
 
-                BeamProjectileEntity.Spawn(weavel, weavel.EquipInfo, weavel.Position.AddY(1), Vector3.UnitZ,
-                    BeamSpawnFlags.NoMuzzle, weavel.NodeRef, scene);
-                BeamProjectileEntity? parent = weavel.EquipInfo.Beams.FirstOrDefault(b =>
-                    b.Owner == weavel && b.Beam == BeamType.Battlehammer
-                    && !b.BattlehammerClusterChild && b.Lifespan > 0);
-                Check(parent != null && parent.Damage == 18 && parent.SplashDamage == 5,
-                    "Balanced Weavel Battlehammer shares the normal 18/5 damage budget");
-                var impact = new global::MphRead.Formats.CollisionResult
-                {
-                    Position = parent!.Position + Vector3.UnitZ,
-                    Plane = new Vector4(Vector3.UnitY, 0)
-                };
-                Check(parent.TryBattlehammerImpactCluster(impact), "Battlehammer terrain hit creates an impact cluster");
-                var children = weavel.EquipInfo.Beams.Where(b => b.Owner == weavel
-                    && b.BattlehammerClusterChild && b.Lifespan > 0).ToArray();
-                Check(children.Length == 3 && children.All(b => b.Damage == 5 && b.SplashDamage == 3
-                    && MathF.Abs(b.Lifespan - 0.40f) < 0.001f),
-                    "impact cluster creates three short-hop 5-direct/3-splash children");
-                Check(children.All(b => MathF.Abs(b.SplashRadius - 1.38f) < 0.01f
-                    && MathF.Abs(b.DamageDirMag - 0.216f) < 0.01f),
-                    "Weavel affinity widens cluster coverage and adds 20 percent knockback without extra damage");
+                int weavelAmmoBefore = weavel.EquipInfo.Ammo;
+                Check(BeamProjectileEntity.Spawn(weavel, weavel.EquipInfo, weavel.Position.AddY(1), Vector3.UnitZ,
+                    BeamSpawnFlags.NoMuzzle, weavel.NodeRef, scene) != BeamResultFlags.NoSpawn,
+                    "Weavel emits one complete burst");
+                var affinityRounds = weavel.EquipInfo.Beams
+                    .Where(b => b.Owner == weavel && b.Beam == BeamType.Battlehammer && b.Lifespan > 0)
+                    .OrderByDescending(b => b.Age).ToArray();
+                Check(affinityRounds.Length == 3
+                    && affinityRounds.All(b => b.Damage == 14 && b.HeadshotDamage == 14
+                        && b.SplashDamage == 5 && b.SplashDamageType == 0
+                        && MathF.Abs(b.SplashRadius - 1.65f) < .001f
+                        && MathF.Abs(b.Speed - 1f) < .001f && b.Acceleration == Vector3.Zero)
+                    && weavelAmmoBefore - weavel.EquipInfo.Ammo == 12,
+                    "Weavel burst spends 12 UA for 3 fast, gravity-free 14/5 rounds");
+                Check(affinityRounds.Length == 3
+                    && MathF.Abs(affinityRounds[0].Age) < .001f
+                    && MathF.Abs(affinityRounds[1].Age + .05f) < .001f
+                    && MathF.Abs(affinityRounds[2].Age + .10f) < .001f
+                    && MathF.Abs(affinityRounds[0].DamageDirMag - .24f) < .001f
+                    && MathF.Abs(affinityRounds[1].DamageDirMag - .24f) < .001f
+                    && MathF.Abs(affinityRounds[2].DamageDirMag
+                        - BalancedModeRules.BattlehammerThirdRoundConcussion) < .001f,
+                    "Weavel's third bullet activates after 100 ms with enhanced concussion knockback");
+                Check(!affinityRounds.Any(b => b.BattlehammerClusterChild),
+                    "Balanced burst cannot spawn legacy terrain-cluster children");
+                int weavelHealthBefore = weavel.Health;
+                typeof(BeamProjectileEntity).GetMethod("CheckSplashDamage",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(
+                        affinityRounds[0], new object?[] { null, weavel.Position });
+                Check(weavel.Health == weavelHealthBefore,
+                    "Weavel is immune to point-blank splash from his affinity burst");
+
+                pickup.Invoke(samus, new object[] { ItemType.Battlehammer });
+                samus.ModSetWeapon(BeamType.Battlehammer);
+                int normalAmmoBefore = samus.EquipInfo.Ammo;
+                Check(BeamProjectileEntity.Spawn(samus, samus.EquipInfo, samus.Position.AddY(1), Vector3.UnitZ,
+                    BeamSpawnFlags.NoMuzzle, samus.NodeRef, scene) != BeamResultFlags.NoSpawn,
+                    "non-affinity user emits one complete burst");
+                var normalRounds = samus.EquipInfo.Beams
+                    .Where(b => b.Owner == samus && b.Beam == BeamType.Battlehammer && b.Lifespan > 0)
+                    .OrderByDescending(b => b.Age).ToArray();
+                Check(normalRounds.Length == 3
+                    && normalRounds.All(b => b.Damage == 12 && b.HeadshotDamage == 12
+                        && b.SplashDamage == 4 && MathF.Abs(b.SplashRadius - 1.5f) < .001f
+                        && MathF.Abs(b.Speed - 1f) < .001f && b.Acceleration == Vector3.Zero)
+                    && normalAmmoBefore - samus.EquipInfo.Ammo == 12,
+                    "normal Battlehammer fires three straight 12/4 rounds for 12 UA");
+                Check(normalRounds.Length == 3
+                    && normalRounds.All(b => MathF.Abs(b.DamageDirMag - .20f) < .001f)
+                    && MathF.Abs(normalRounds[1].Age + .05f) < .001f
+                    && MathF.Abs(normalRounds[2].Age + .10f) < .001f,
+                    "normal Battlehammer has the same burst pacing without Weavel's concussion");
 
                 var balance = BalancedModeTelemetry.Capture();
                 Check(balance.Revision == BalancedModeRules.BalanceRevision
                     && balance.HunterPicks.Sum() == 7
-                    && balance.Battlehammer[1] >= 1 && balance.Battlehammer[2] >= 3,
-                    "Balanced telemetry captures revision, hunter picks and impact-cluster activity");
+                    && balance.Battlehammer.Length == BalancedModeTelemetry.BattlehammerMetrics,
+                    "Balanced telemetry captures revision and the revised burst diagnostics");
                 Check(balance.Affinity[0] >= 1 && balance.Affinity[1] >= 1
                     && balance.Affinity[2] >= 1 && balance.Affinity[3] >= 1
                     && balance.Affinity[4] >= 1,
@@ -574,6 +610,7 @@ namespace MphRead.Mods.Network
 
                 pickup.Invoke(samus, new object[] { ItemType.Battlehammer });
                 samus.ModSetWeapon(BeamType.Battlehammer);
+                foreach (var previous in samus.EquipInfo.Beams) previous.Lifespan = 0;
                 BeamProjectileEntity.Spawn(samus, samus.EquipInfo, samus.Position.AddY(1), Vector3.UnitZ,
                     BeamSpawnFlags.NoMuzzle, samus.NodeRef, scene);
                 BeamProjectileEntity? stock = samus.EquipInfo.Beams.FirstOrDefault(b =>
@@ -581,13 +618,9 @@ namespace MphRead.Mods.Network
                 Check(stock != null && stock.Damage == 12 && stock.SplashDamage == 8
                     && MathF.Abs(stock.SplashRadius - 1.5f) < 0.001f,
                     "Battlehammer is fully stock outside Balanced Mode");
-                var stockImpact = new global::MphRead.Formats.CollisionResult
-                {
-                    Position = stock!.Position + Vector3.UnitZ,
-                    Plane = new Vector4(Vector3.UnitY, 0)
-                };
-                Check(!stock.TryBattlehammerImpactCluster(stockImpact),
-                    "stock Battlehammer never creates impact-cluster children");
+                Check(stock!.Age == 0 && stock.Acceleration.Y < 0
+                    && !stock.BattlehammerClusterChild,
+                    "stock Battlehammer retains its single arcing shell outside Balanced Mode");
             }
             finally { sim.Stop(); NetSession.Stop(); }
         }
@@ -610,7 +643,7 @@ namespace MphRead.Mods.Network
                 && balanceSummary.BalancedMode.WeaponDamage.Sum() == 123,
                 "telemetry schema v6 routes bounded Balanced Mode counters by revision");
 
-            Check(BalancedModeRules.BalanceRevision == 2,
+            Check(BalancedModeRules.BalanceRevision == 3,
                 "Hunter ability refinement advances Balanced telemetry revision");
             int kandenStockCooldown = unchecked((ushort)(
                 Metadata.PlayerValues[(int)Hunter.Kanden].BombCooldown * 2));

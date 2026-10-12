@@ -1281,9 +1281,14 @@ namespace MphRead.Entities
                 return false;
             }
             bool pressed = Controls.Shoot.IsPressed;
+            bool balancedBurst = BalancedModeRules.IsBattlehammerBurst(
+                _scene.GameState.Multiplayer, _scene.GameState.BalancedMode, CurrentWeapon);
+            int shotCooldownFrames = balancedBurst
+                ? BalancedModeRules.BattlehammerBurstCooldownFrames : EquipWeapon.ShotCooldown * 2;
             if (pressed || CurrentWeapon != BeamType.PowerBeam)
             {
-                _autofireCooldown = (ushort)(EquipWeapon.AutofireCooldown * 2); // todo: FPS stuff
+                _autofireCooldown = (ushort)(balancedBurst
+                    ? shotCooldownFrames : EquipWeapon.AutofireCooldown * 2); // todo: FPS stuff
                 _powerBeamAutofire = 0;
             }
             else
@@ -1300,9 +1305,9 @@ namespace MphRead.Entities
             }
             if (!exactReplayFire
                 && _scene.AimTrainer?.SkipImperialistReload(this) != true
-                && (_timeSinceShot < EquipWeapon.ShotCooldown * 2 // todo: FPS stuff
+                && (_timeSinceShot < shotCooldownFrames
                 || !pressed && _timeSinceShot < _autofireCooldown)
-                && (!IsBot || !AiData.Flags2.TestFlag(AiFlags2.Bit20)))
+                && (balancedBurst || !IsBot || !AiData.Flags2.TestFlag(AiFlags2.Bit20)))
             {
                 return false;
             }

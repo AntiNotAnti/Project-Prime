@@ -19,7 +19,7 @@ public readonly record struct BalancedHunterProfile(
 
 public static class BalancedModeRules
 {
-    public const int BalanceRevision = 2;
+    public const int BalanceRevision = 3;
     public const float MidRange = 12f;
     public const float FarRange = 24f;
 
@@ -30,8 +30,30 @@ public static class BalancedModeRules
     public const float SyluxLifeDrainFraction = 0.40f;
     public const int SyluxLifeDrainPerSecondCap = 8;
     public const float TraceScopeVisualSpeedMultiplier = 1.20f;
-    public const float WeavelClusterRadiusMultiplier = 1.20f;
-    public const float WeavelClusterKnockbackMultiplier = 1.20f;
+    // One authored shot pays for three independently colliding, staggered bullets.
+    // The delays are stored in projectile Age so replay checkpoints preserve them
+    // without adding a new serialized checkpoint field.
+    public const int BattlehammerBurstRounds = 3;
+    public const int BattlehammerBulletSpacingFrames = 3; // 50 ms at 60 Hz
+    public const int BattlehammerBurstCooldownFrames = 27; // 450 ms between bursts
+    public const int BattlehammerBurstAmmoCost = 12;
+    public const float BattlehammerBulletLifetimeSeconds = 1.20f;
+    public const int BattlehammerNormalDirectDamage = 12;
+    public const int BattlehammerWeavelDirectDamage = 14;
+    public const int BattlehammerNormalSplashDamage = 4;
+    public const int BattlehammerWeavelSplashDamage = 5;
+    public const float BattlehammerNormalSplashRadius = 1.50f;
+    public const float BattlehammerWeavelSplashRadius = 1.65f;
+    public const float BattlehammerNormalKnockback = 0.20f;
+    public const float BattlehammerWeavelKnockback = 0.24f;
+    public const float BattlehammerThirdRoundConcussion = 0.42f;
+
+    public static bool IsBattlehammerBurst(bool multiplayer, bool balancedMode, BeamType beam)
+        => multiplayer && balancedMode && beam == BeamType.Battlehammer;
+
+    public static bool IsWeavelBattlehammer(Hunter hunter, BeamType beam)
+        => hunter == Hunter.Weavel && IsAffinity(hunter, beam);
+
 
     public static bool IsAffinity(Hunter hunter, BeamType beam)
         => (int)hunter >= 0 && (int)hunter < Weapons.AffinityWeapons.Count
@@ -138,9 +160,8 @@ public static class BalancedModeRules
             // (7168 -> 10240) so a committed long-range shot is not a slow orb.
             BeamType.VoltDriver => charged ? 10f / 7f : 1.20f,
 
-            // Prediction weapons become more credible against modern movement
-            // without approaching the Imperialist's near-hitscan identity.
-            BeamType.Battlehammer => 1.25f,
+            // Battlehammer bursts travel at the stock Judicator's 8192 speed.
+            BeamType.Battlehammer => 8192f / 4915f,
             BeamType.Judicator => 1.25f,
 
             // Keep Magmaul dodgeable. Its reward comes mainly from the close
@@ -154,12 +175,10 @@ public static class BalancedModeRules
         => speed * ProjectileSpeedMultiplier(beam, charged);
 
     public static float DirectHitMultiplier(BeamType beam, bool battlehammerCluster = false)
-        => beam == BeamType.Battlehammer
-            ? battlehammerCluster ? 1.50f : 1.25f
-            : 1f;
+        => 1f;
 
     public static float SplashDamageMultiplier(BeamType beam)
-        => beam is BeamType.Battlehammer or BeamType.Magmaul or BeamType.Judicator
+        => beam is BeamType.Magmaul or BeamType.Judicator
             ? 0.75f : 1f;
 
     public static float ScaleDirectHitDamage(BeamType beam, float damage,

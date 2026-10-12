@@ -20,8 +20,8 @@ namespace MphRead.Entities
         public byte EnhancedBounceCount;
         public bool EnhancedMicroSeeker;
         public bool EnhancedFullCharge, EnhancedSiegeRound;
-        // True only for the three bomblets created by a Battlehammer airburst.
-        // They are real projectiles, but may not themselves be manually burst.
+        // Retained for old replay checkpoint compatibility; the terrain
+        // cluster was retired when Balanced Battlehammer became a burst rifle.
         public bool BattlehammerClusterChild;
         /// <summary>
         /// The original fire event's world ACK, used only for historical timing.
@@ -282,6 +282,16 @@ namespace MphRead.Entities
                 _replayImpactHidden = true;
             }
             ValidateHomingTarget();
+            // Negative Age is a deterministic launch delay for the second and
+            // third rounds. It already belongs to the replay checkpoint schema.
+            // Delayed bullets must neither collide nor age their flight time.
+            if (Age < 0)
+            {
+                Age = MathF.Min(0f, Age + _scene.FrameTime);
+                if (Age < 0) return true;
+                ModStartBeamVisual();
+                ModResetDrawState();
+            }
             if (Lifespan <= 0)
             {
                 return false;
@@ -972,7 +982,6 @@ namespace MphRead.Entities
                         {
                             _soundSource.PlaySfx(SfxId.GENERIC_HIT, noUpdate: true);
                         }
-                        TryBattlehammerImpactCluster(anyRes);
                         OnCollision(anyRes, colWith: null);
                         ricochet = false;
                     }
@@ -1073,77 +1082,6 @@ namespace MphRead.Entities
             }
         }
 
-        /// <summary>
-        /// Balanced Mode Battlehammer terrain identity: a parent shell that
-        /// commits into room geometry creates three short-hop submunitions.
-        /// Player/direct hits deliberately skip the cluster and keep the full
-        /// direct-hit reward.
-        /// </summary>
-        internal bool TryBattlehammerImpactCluster(CollisionResult colRes)
-        {
-            if (!_scene.GameState.Multiplayer || !_scene.GameState.BalancedMode
-                || Beam != BeamType.Battlehammer || BattlehammerClusterChild
-                || Owner is not PlayerEntity owner || Flags.TestFlag(BeamFlags.Collided)
-                || colRes.Terrain > Terrain.Lava)
-            {
-                return false;
-            }
-
-            bool weavelAffinity = ModOwnerHunter == Hunter.Weavel
-                && BalancedModeRules.IsAffinity(ModOwnerHunter, BeamType.Battlehammer);
-            float powerScale = Damage > 0 ? Damage / 18f : 1f;
-            powerScale = Math.Max(0, powerScale);
-
-            // Terrain impact itself is pressure, not the payoff. The three
-            // children own the area-control follow-up.
-            Damage = 0;
-            HeadshotDamage = 0;
-            SplashDamage = 3f * powerScale;
-            SplashRadius = 1.5f;
-            SplashDamageType = 0;
-            DamageDirType = 2;
-            DamageDirMag = weavelAffinity ? 0.30f : 0.25f;
-
-            WeaponInfo clusterWeapon = _scene.WeaponRules[(int)BeamType.Battlehammer];
-            var clusterEquip = new EquipInfo(clusterWeapon, Equip!.Beams)
-            {
-                InfiniteAmmo = true
-            };
-
-            Vector3 normal = colRes.Plane.Xyz;
-            if (!Single.IsFinite(normal.X) || !Single.IsFinite(normal.Y)
-                || !Single.IsFinite(normal.Z) || normal.LengthSquared <= 0.0001f)
-            {
-                normal = Vector3.UnitY;
-            }
-            else
-            {
-                normal = normal.Normalized();
-            }
-
-            Vector3 forward = Direction - normal * Vector3.Dot(Direction, normal);
-            if (forward.LengthSquared <= 0.0001f)
-            {
-                forward = Vector3.Cross(normal,
-                    MathF.Abs(normal.Y) < 0.9f ? Vector3.UnitY : Vector3.UnitX);
-            }
-            forward = forward.Normalized();
-            Vector3 right = Vector3.Cross(normal, forward).Normalized();
-            Vector3 baseHop = (forward * 0.72f + normal * 0.48f).Normalized();
-            Vector3 spawnPosition = colRes.Position + normal * 0.08f;
-
-            ReadOnlySpan<float> spread = stackalloc float[] { -0.45f, 0f, 0.45f };
-            BalancedModeTelemetry.NoteBattlehammerTerrainImpact(owner, spread.Length);
-            for (int i = 0; i < spread.Length; i++)
-            {
-                Vector3 childDirection = (baseHop + right * spread[i]).Normalized();
-                Spawn(owner, clusterEquip, spawnPosition, childDirection,
-                    BeamSpawnFlags.NoMuzzle, NodeRef, _scene, parent: this,
-                    battlehammerCluster: true, battlehammerClusterScale: powerScale);
-            }
-            return true;
-        }
-
         public void OnCollision(CollisionResult colRes, EntityBase? colWith, bool enhancedImpact = true)
         {
             if (!Flags.TestFlag(BeamFlags.Collided))
@@ -1224,7 +1162,12 @@ namespace MphRead.Entities
             NetSelfSplash.Observe(this, splashOrigin, colWith);
             foreach (PlayerEntity player in _scene.GetPlayerEntities())
             {
-                if (player == colWith)
+                // Weavel's Balanced affinity is immune to its own blast, even
+                // when a later projectile returns near the shooter. Other
+                // hunters retain ordinary Battlehammer self splash.
+                if (player == colWith || _scene.GameState.Multiplayer
+                    && _scene.GameState.BalancedMode && Beam == BeamType.Battlehammer
+                    && ModOwnerHunter == Hunter.Weavel && player == Owner)
                 {
                     continue;
                 }
@@ -1324,7 +1267,7 @@ namespace MphRead.Entities
 
         public override void GetDrawInfo()
         {
-            if (_scene.Services.IsReplica && _replayImpactHidden) return;
+            if (Age < 0 || _scene.Services.IsReplica && _replayImpactHidden) return;
 
             bool anchored = _scene.Services.IsReplica && _replayImpactPending
                 && _replayImpactDrawFrame == _scene.FrameCount;
@@ -1579,6 +1522,21 @@ namespace MphRead.Entities
                 material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(PastPositions[8]), uvsAndVerts, _bindingId, trailCount: count);
         }
 
+        // Creating the trail effect on activation (instead of on the trigger
+        // frame) prevents the two delayed rounds from drawing prematurely.
+        private void ModStartBeamVisual()
+        {
+            if (Effect != null) return;
+            int effectId = Metadata.BeamDrawEffects[DrawFuncId];
+            if (effectId == 0) return;
+            Vector3 effUp = Direction;
+            Vector3 effFacing = GetCrossVector(effUp);
+            Matrix4 transform = GetTransformMatrix(effFacing, effUp);
+            transform.Row3.Xyz = Position;
+            Effect = _scene.SpawnEffectGetEntry(effectId, transform);
+            Effect?.SetElementExtension(true);
+        }
+
         protected override Matrix4 GetModelTransform(ModelInstance inst, int index)
         {
             if (DrawFuncId == 3)
@@ -1659,7 +1617,7 @@ namespace MphRead.Entities
 
         public static BeamResultFlags Spawn(EntityBase owner, EquipInfo equip, Vector3 position, Vector3 direction,
             BeamSpawnFlags spawnFlags, NodeRef nodeRef, Scene scene, BeamProjectileEntity? parent = null,
-            bool enhancedMicro = false, bool battlehammerCluster = false, float battlehammerClusterScale = 1f)
+            bool enhancedMicro = false)
         {
             bool finitePosition = Single.IsFinite(position.X) && Single.IsFinite(position.Y)
                 && Single.IsFinite(position.Z);
@@ -1695,6 +1653,11 @@ namespace MphRead.Entities
                 if (authoredCoil.ContinuousDouble) spawnFlags |= BeamSpawnFlags.DoubleDamage;
                 else if (authoredCoil.ContinuousPrime) spawnFlags |= BeamSpawnFlags.PrimeHunter;
             }
+            bool battlehammerBurst = parent == null && owner is PlayerEntity
+                && BalancedModeRules.IsBattlehammerBurst(
+                    scene.GameState.Multiplayer, scene.GameState.BalancedMode, weapon.Beam);
+            bool weavelBattlehammer = battlehammerBurst && owner is PlayerEntity bhPlayer
+                && BalancedModeRules.IsWeavelBattlehammer(bhPlayer.Hunter, weapon.Beam);
             bool charged = false;
             float chargePct = 0;
             if (weapon.Flags.TestFlag(WeaponFlags.CanCharge))
@@ -1729,7 +1692,8 @@ namespace MphRead.Entities
                     && NetFireEvents.TryTiming(homingOwner, out var acceptedFire)
                     ? acceptedFire.Target : homingOwner.ModConsumePendingHomingTarget();
             }
-            int cost = (int)GetAmount(weapon.AmmoCost, weapon.MinChargeCost, weapon.ChargeCost);
+            int cost = battlehammerBurst ? BalancedModeRules.BattlehammerBurstAmmoCost
+                : (int)GetAmount(weapon.AmmoCost, weapon.MinChargeCost, weapon.ChargeCost);
             ulong phase = scene.FrameCount;
             bool sharedPhase = false;
             bool freshContinuousTick = true;
@@ -1776,6 +1740,16 @@ namespace MphRead.Entities
             {
                 return BeamResultFlags.NoSpawn;
             }
+            // Reserve all three bullets before spending ammunition. The normal
+            // pool is 16 per player; a full burst must never evict a live beam.
+            if (battlehammerBurst)
+            {
+                int free = 0;
+                foreach (var candidate in equip.Beams)
+                    if (candidate.Lifespan <= 0) free++;
+                if (free < BalancedModeRules.BattlehammerBurstRounds)
+                    return BeamResultFlags.NoSpawn;
+            }
             // Sylux's barrel can extend through a nearby surface even while its
             // body is in front. Resolve only the finite native muzzle interval,
             // after the ammo gate, through the same obstacle and impact kernel as
@@ -1803,7 +1777,8 @@ namespace MphRead.Entities
                     }
                 }
             }
-            int projectiles = (int)GetAmount(weapon.Projectiles, weapon.MinChargeProjectiles, weapon.ChargedProjectiles);
+            int projectiles = battlehammerBurst ? BalancedModeRules.BattlehammerBurstRounds
+                : (int)GetAmount(weapon.Projectiles, weapon.MinChargeProjectiles, weapon.ChargedProjectiles);
             if (owner is PlayerEntity acceptedPlayer && NetFireEvents.TryAcceptedKey(acceptedPlayer, out _))
             {
                 int free = 0;
@@ -1843,16 +1818,10 @@ namespace MphRead.Entities
                 speed = 10240f / 4096f / 2f;
                 finalSpeed = speed;
             }
-            if (battlehammerCluster)
-            {
-                // Short hop, not a second full-range mortar shell.
-                speed *= 0.65f;
-                finalSpeed *= 0.65f;
-            }
             float speedDecayTime = weapon.SpeedDecayTimes[charged ? 1 : 0] * (1 / 30f);
             ushort speedInterpolation = weapon.SpeedInterpolations[charged ? 1 : 0];
             float gravity = GetAmount(weapon.UnchargedGravity, weapon.MinChargeGravity, weapon.ChargedGravity) / 4096f;
-            Vector3 acceleration = new Vector3(0, gravity, 0) / 2;
+            Vector3 acceleration = battlehammerBurst ? Vector3.Zero : new Vector3(0, gravity, 0) / 2;
             float homing = GetAmount(weapon.UnchargedHoming, weapon.MinChargeHoming, weapon.ChargedHoming) / 4096f / 2;
             if (homing > 0)
             {
@@ -1954,45 +1923,34 @@ namespace MphRead.Entities
                 hsDamage *= 4;
                 splashDmg *= 4;
             }
-            // Balanced Mode Battlehammer rework. Outside Balanced Mode the
-            // metadata table is used untouched, restoring stock MPH behavior.
-            if (scene.GameState.Multiplayer && scene.GameState.BalancedMode
-                && weapon.Beam == BeamType.Battlehammer)
+            // Both Balanced Battlehammers are straight, 3-round burst rifles.
+            // Only Weavel receives 14/5 damage, 10% more splash coverage and
+            // immunity to self splash; modifiers remain tied to the fire event.
+            if (battlehammerBurst)
             {
-                bool weavelAffinity = owner is PlayerEntity bhOwner
-                    && bhOwner.Hunter == Hunter.Weavel
-                    && BalancedModeRules.IsAffinity(bhOwner.Hunter, BeamType.Battlehammer);
-                // Weavel equips the stock Battlehammer metadata in Balanced
-                // Mode, so both affinity and non-affinity shells share the same
-                // damage/ammo/cadence budget. Utility lives in cluster geometry.
-                float powerScale = damage / 12f;
-                damage = (int)MathF.Round(14f * powerScale);
-                hsDamage = damage;
-                splashDmg = (int)MathF.Round(6f * powerScale);
-                splashRadius = 1.75f;
+                float directScale = damage / (float)Math.Max(1, (int)equip.UnchargedDamage);
+                float splashScale = splashDmg / (float)Math.Max(1, (int)equip.SplashDamage);
+                damage = (int)MathF.Round((weavelBattlehammer
+                    ? BalancedModeRules.BattlehammerWeavelDirectDamage
+                    : BalancedModeRules.BattlehammerNormalDirectDamage) * directScale);
+                hsDamage = damage; // No Battlehammer precision/headshot bonus.
+                splashDmg = (int)MathF.Round((weavelBattlehammer
+                    ? BalancedModeRules.BattlehammerWeavelSplashDamage
+                    : BalancedModeRules.BattlehammerNormalSplashDamage) * splashScale);
+                splashRadius = weavelBattlehammer
+                    ? BalancedModeRules.BattlehammerWeavelSplashRadius
+                    : BalancedModeRules.BattlehammerNormalSplashRadius;
                 splashDmgType = 0;
                 dmgDirType = 2;
-                dmgDirMag = weavelAffinity ? 0.24f : 0.20f;
-
-                if (battlehammerCluster)
-                {
-                    float scale = Math.Max(0, battlehammerClusterScale);
-                    // Hit tuning below converts 3 direct to 5 and 4 splash to 3.
-                    damage = hsDamage = (int)MathF.Round(3f * scale);
-                    splashDmg = (int)MathF.Round(4f * scale);
-                    splashRadius = 1.15f * (weavelAffinity
-                        ? BalancedModeRules.WeavelClusterRadiusMultiplier : 1f);
-                    splashDmgType = 0;
-                    dmgDirType = 2;
-                    dmgDirMag = 0.18f * (weavelAffinity
-                        ? BalancedModeRules.WeavelClusterKnockbackMultiplier : 1f);
-                }
+                dmgDirMag = weavelBattlehammer
+                    ? BalancedModeRules.BattlehammerWeavelKnockback
+                    : BalancedModeRules.BattlehammerNormalKnockback;
             }
 
             // Accuracy should beat floor spam. Apply this after charge,
             // affinity and powerup damage have already been authored so those
             // multipliers keep their existing semantics.
-            ModBalancedHitTuning(scene, owner, weapon.Beam, battlehammerCluster,
+            ModBalancedHitTuning(scene, owner, weapon.Beam, battlehammerCluster: false,
                 ref damage, ref hsDamage, ref splashDmg, ref splashDmgType);
             ushort damageInterpolation = weapon.DamageInterpolations[charged ? 1 : 0];
             float maxDist = GetAmount(weapon.UnchargedDistance, weapon.MinChargeDistance, weapon.ChargedDistance) / 4096f;
@@ -2006,10 +1964,8 @@ namespace MphRead.Entities
                 splashDmg = 0;
                 splashRadius = 0;
             }
-            if (battlehammerCluster)
-            {
-                lifespan = 0.40f;
-            }
+            if (battlehammerBurst)
+                lifespan = BalancedModeRules.BattlehammerBulletLifetimeSeconds;
             if (weapon.Flags.TestFlag(WeaponFlags.Continuous))
             {
                 flags |= BeamFlags.Continuous;
@@ -2083,7 +2039,7 @@ namespace MphRead.Entities
                 beam.EnhancedMicroSeeker = enhancedMicro;
                 beam.EnhancedFullCharge = chargePct >= 1;
                 beam.EnhancedSiegeRound = false;
-                beam.BattlehammerClusterChild = battlehammerCluster;
+                beam.BattlehammerClusterChild = false;
                 beam.ModContinuousPhase = phase;
                 beam.ModHasSharedContinuousPhase = sharedPhase;
                 beam.ModContinuousTarget = NetTargetIdentity.None;
@@ -2131,7 +2087,10 @@ namespace MphRead.Entities
                 if (!scene.Services.IsReplica && NetLog.Enabled) NetShotDiagnostics.Trace("spawn", beam.ModLaunchKey, beam.Beam);
                 beam.Flags = authoredCoilPrime ? flags & ~BeamFlags.LifeDrain : flags;
                 beam.NodeRef = nodeRef;
-                beam.Age = 0;
+                // Age doubles as the existing serialized replay delay state.
+                // Bullet 1 fires immediately; bullets 2 and 3 follow at +3/+6 ticks.
+                beam.Age = battlehammerBurst
+                    ? -i * BalancedModeRules.BattlehammerBulletSpacingFrames / 60f : 0;
                 beam.InitialSpeed = beam.Speed = speed;
                 beam.FinalSpeed = finalSpeed;
                 beam.SpeedDecayTime = speedDecayTime;
@@ -2143,7 +2102,9 @@ namespace MphRead.Entities
                 beam.CollisionEffect = colEffect;
                 beam.DamageDirType = dmgDirType;
                 beam.SplashDamageType = splashDmgType;
-                beam.DamageDirMag = dmgDirMag;
+                beam.DamageDirMag = weavelBattlehammer
+                    && i == BalancedModeRules.BattlehammerBurstRounds - 1
+                    ? BalancedModeRules.BattlehammerThirdRoundConcussion : dmgDirMag;
                 // Balanced range damage is measured from the original firing
                 // point. Magmaul can ricochet, so carrying its parent's origin
                 // prevents a wall bounce from resetting a long-range shot into
@@ -2243,18 +2204,9 @@ namespace MphRead.Entities
                     beam.Transform = transform;
                     model.AnimInfo.Frame[0] = (int)scene.FrameCount / 2 % model.AnimInfo.FrameCount[0];
                 }
-                else
+                else if (beam.Age >= 0)
                 {
-                    int effectId = Metadata.BeamDrawEffects[beam.DrawFuncId];
-                    if (effectId != 0)
-                    {
-                        Vector3 effUp = beam.Direction;
-                        Vector3 effFacing = GetCrossVector(effUp);
-                        Matrix4 transform = GetTransformMatrix(effFacing, effUp);
-                        transform.Row3.Xyz = beam.Position;
-                        beam.Effect = scene.SpawnEffectGetEntry(effectId, transform);
-                        beam.Effect?.SetElementExtension(true);
-                    }
+                    beam.ModStartBeamVisual();
                 }
                 if (spawnFlags.TestFlag(BeamSpawnFlags.DestroyMuzzle))
                 {
