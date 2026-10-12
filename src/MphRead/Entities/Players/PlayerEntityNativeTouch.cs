@@ -36,7 +36,10 @@ namespace MphRead.Entities
         }
 
         private bool ModIsLocalTouchOwner => IsMainPlayer
-            && (!_scene.Services.PlayerReplication.Active
+            // Netcode's synthetic players can be constructed before the
+            // service host is wired; missing host means local/offline input.
+            && (_scene.Services?.PlayerReplication == null
+                || !_scene.Services.PlayerReplication.Active
                 || _scene.Services.PlayerReplication.LocalSlot == SlotIndex);
 
         internal bool ModUsesClassicTouch => Hunter == Hunter.Samus && !IsBot
@@ -47,8 +50,13 @@ namespace MphRead.Entities
 
         internal void ModReceiveNativeTouch(in NativeTouchReport report, ushort generation, ushort life, uint sourceFrame)
         {
-            if (IsMainPlayer && (!_scene.Services.PlayerReplication.Active
-                || _scene.Services.PlayerReplication.LocalSlot == SlotIndex)) return;
+            // Packet-only netcode tests deliberately construct a player with
+            // RuntimeHelpers.GetUninitializedObject. No constructor or field
+            // initializer runs on that shell; it cannot simulate Morph Ball
+            // touch and must not dereference absent sample/boost state.
+            // Real players always construct both objects normally.
+            if (_nativeTouch is null || _nativeBoost is null) return;
+            if (ModIsLocalTouchOwner) return;
             if (_nativeRemoteGeneration != generation || _nativeRemoteLife != life)
             {
                 _nativeBoost.Reset();
