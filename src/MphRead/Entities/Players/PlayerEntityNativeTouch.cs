@@ -36,7 +36,10 @@ namespace MphRead.Entities
         }
 
         private bool ModIsLocalTouchOwner => IsMainPlayer
-            && (!_scene.Services.PlayerReplication.Active
+            // Netcode's synthetic players can be constructed before the
+            // service host is wired; missing host means local/offline input.
+            && (_scene.Services?.PlayerReplication == null
+                || !_scene.Services.PlayerReplication.Active
                 || _scene.Services.PlayerReplication.LocalSlot == SlotIndex);
 
         internal bool ModUsesClassicTouch => Hunter == Hunter.Samus && !IsBot
@@ -47,8 +50,7 @@ namespace MphRead.Entities
 
         internal void ModReceiveNativeTouch(in NativeTouchReport report, ushort generation, ushort life, uint sourceFrame)
         {
-            if (IsMainPlayer && (!_scene.Services.PlayerReplication.Active
-                || _scene.Services.PlayerReplication.LocalSlot == SlotIndex)) return;
+            if (ModIsLocalTouchOwner) return;
             if (_nativeRemoteGeneration != generation || _nativeRemoteLife != life)
             {
                 _nativeBoost.Reset();
