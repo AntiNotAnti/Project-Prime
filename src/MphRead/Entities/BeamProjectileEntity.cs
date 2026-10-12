@@ -1818,7 +1818,7 @@ namespace MphRead.Entities
                 speed = 10240f / 4096f / 2f;
                 finalSpeed = speed;
             }
-             float speedDecayTime = weapon.SpeedDecayTimes[charged ? 1 : 0] * (1 / 30f);
+            float speedDecayTime = weapon.SpeedDecayTimes[charged ? 1 : 0] * (1 / 30f);
             ushort speedInterpolation = weapon.SpeedInterpolations[charged ? 1 : 0];
             float gravity = GetAmount(weapon.UnchargedGravity, weapon.MinChargeGravity, weapon.ChargedGravity) / 4096f;
             Vector3 acceleration = battlehammerBurst ? Vector3.Zero : new Vector3(0, gravity, 0) / 2;
@@ -1928,8 +1928,8 @@ namespace MphRead.Entities
             // immunity to self splash; modifiers remain tied to the fire event.
             if (battlehammerBurst)
             {
-                float directScale = damage / (float)Math.Max(1, equip.UnchargedDamage);
-                float splashScale = splashDmg / (float)Math.Max(1, equip.SplashDamage);
+                float directScale = damage / (float)Math.Max(1, (int)equip.UnchargedDamage);
+                float splashScale = splashDmg / (float)Math.Max(1, (int)equip.SplashDamage);
                 damage = (int)MathF.Round((weavelBattlehammer
                     ? BalancedModeRules.BattlehammerWeavelDirectDamage
                     : BalancedModeRules.BattlehammerNormalDirectDamage) * directScale);
