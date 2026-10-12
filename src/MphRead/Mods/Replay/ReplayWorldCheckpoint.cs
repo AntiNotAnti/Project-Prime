@@ -22,13 +22,20 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     internal const int MaximumBytes = 8 * 1024 * 1024;
     private const int MaximumObjects = 32768;
     private const uint Magic = 0x43575050; // PPWC
-    private const ushort Version = 5;
+    private const ushort Version = 6;
     private readonly ReplayPayload _data;
     internal ReadOnlySpan<byte> Bytes => _data.Span;
     internal ReplayPayload Payload => _data;
     internal uint Frame { get; }
+    internal bool IndexedFirePresentation { get; }
+    internal bool HasPresentationContract { get; }
     private readonly string _sourceContract;
-    private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null) { _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract; }
+    private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null,
+        bool indexedFirePresentation = false, bool hasPresentationContract = true)
+    {
+        _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract;
+        IndexedFirePresentation = indexedFirePresentation; HasPresentationContract = hasPresentationContract;
+    }
     private bool _disposed;
     public void Dispose() { if (!_disposed) { _disposed = true; _data.Release(); GC.SuppressFinalize(this); } }
     ~ReplayWorldCheckpoint() => Dispose();
@@ -39,13 +46,15 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         try
         {
             using var stream = data.OpenRead(); using var reader = new BinaryReader(stream);
-            if (reader.ReadUInt32() != Magic || reader.ReadUInt16() is < 1 or > Version)
-                throw new InvalidDataException("Unsupported replay world checkpoint format.");
+            if (reader.ReadUInt32() != Magic) throw new InvalidDataException("Unsupported replay world checkpoint format.");
+            ushort version = reader.ReadUInt16();
+            if (version is < 1 or > Version) throw new InvalidDataException("Unsupported replay world checkpoint format.");
+            if (version >= 6 && bytes[^1] > 1) throw new InvalidDataException("Invalid replay presentation contract marker.");
             string sourceContract = reader.ReadString();
             if (!SupportsContract(sourceContract, producerBuild))
                 throw new InvalidDataException("This replay uses a different saved-world layout. Open it with the game version that recorded it.");
             reader.ReadString(); reader.ReadInt32(); reader.ReadUInt64();
-            return new(data, reader.ReadUInt32(), sourceContract);
+            return new(data, reader.ReadUInt32(), sourceContract, indexedFirePresentation: version >= 6 && bytes[^1] == 1, hasPresentationContract: version >= 6);
         }
         catch { data.Release(); throw; }
     }
@@ -214,8 +223,13 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             long traversal = ReplayCheckpointWriter.BeginComponent(writer);
             foreach (var player in replay.Scene.Players.Items) player.ModWriteQ3Traversal(writer);
             ReplayCheckpointWriter.EndComponent(writer, traversal);
+            // Posed discrete firing (protocol 43+) changes world reconstruction.
+            // A live canonical world has no indexed cursor; its capsule remains
+            // a valid recording baseline, but cannot accelerate indexed seeks.
+            bool indexedFirePresentation = replay.Scene.ReplayPoses is { } poses && poses.Prepare() && poses.IndexedFirePresentation;
+            writer.Write(indexedFirePresentation);
             ReplayPerfTelemetry.CheckpointBytes = stream.Length;
-            return new(stream.Detach(), frame);
+            return new(stream.Detach(), frame, indexedFirePresentation: indexedFirePresentation);
         }
         finally { graph.Clear(); }
     }
@@ -337,6 +351,8 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         byte[]? cosmetics = version >= 3 ? ReadBytes(reader, 4096) : null;
         byte[]? bombs = version >= 4 ? ReadBytes(reader, MaximumBytes) : null;
         byte[]? traversal = version >= 5 ? ReadBytes(reader, 256 * 1024) : null;
+        bool indexedFirePresentation = version >= 6 && reader.ReadBoolean();
+        if (indexedFirePresentation != IndexedFirePresentation) throw new InvalidDataException("Replay presentation contract marker differs.");
         if (stream.Position != stream.Length || frame != Frame) throw new InvalidDataException("Invalid replay world capsule length/frame.");
         // Allocate and bind every object before following any link. Only this new
         // replica is modified; its caller disposes it if any validation fails.

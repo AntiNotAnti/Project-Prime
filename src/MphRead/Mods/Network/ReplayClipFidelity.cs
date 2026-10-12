@@ -33,9 +33,14 @@ internal static class ReplayClipFidelity
                     if (trace.Position != normalized * 64L) throw new InvalidDataException("Source skipped a frame.");
                     trace.Write(ReplayDeterminism.Projection(scene, normalized));
                 }
-                Capture(original.Current.Scene); original.Stepped += Capture;
-                original.Seek(sourceEnd);
-                while (!original.Ready) original.Update();
+                Capture(original.Current.Scene);
+                // A later seek may restore an acceleration capsule and skip
+                // intermediate frames. This trace requires every source frame.
+                while (original.Current.Session.CurrentFrame < sourceEnd)
+                {
+                    if (!original.Current.Step()) throw new InvalidDataException("Source ended before the clip range.");
+                    Capture(original.Current.Scene);
+                }
             }
             trace.Position = 0;
             void Compare(Scene scene)

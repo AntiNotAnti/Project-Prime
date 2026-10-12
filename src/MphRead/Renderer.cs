@@ -4101,6 +4101,8 @@ namespace MphRead
             EffectParticle particle = _inactiveParticles.Dequeue();
             particle.Position = Vector3.Zero;
             particle.Speed = Vector3.Zero;
+            // A pooled particle must not inherit the previous effect's angle.
+            particle.Rotation = 0;
             particle.ParticleId = 0;
             particle.RoField1 = 0;
             particle.RoField2 = 0;

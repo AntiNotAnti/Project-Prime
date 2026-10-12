@@ -103,19 +103,21 @@ internal sealed class ReplayPoseStream : IDisposable
     private int _index, _shotIndex;
     private uint? _advanced, _firePrepared, _impactPrepared;
     private bool _initialized, _failed, _supportsFireEvents, _supportsShotFacts, _supportsAcceptedFire;
+    private readonly bool? _indexedFirePresentation;
+    internal bool IndexedFirePresentation => _indexedFirePresentation != false;
     internal string? LastError { get; private set; }
-    internal ReplayPoseStream(PassiveReplayScene world, string path) : this(world) { _path = path; }
-    internal ReplayPoseStream(PassiveReplayScene world, ReplayTimelineClip clip) : this(world)
+    internal ReplayPoseStream(PassiveReplayScene world, string path, bool? indexedFirePresentation = null) : this(world) { _path = path; _indexedFirePresentation = indexedFirePresentation; }
+    internal ReplayPoseStream(PassiveReplayScene world, ReplayTimelineClip clip, bool? indexedFirePresentation = null) : this(world)
     {
-        _clip = clip;
+        _clip = clip; _indexedFirePresentation = indexedFirePresentation;
         SetClipCapabilities();
     }
     private void SetClipCapabilities()
     {
         int protocol = _clip?.PresentationProtocolVersion ?? 0;
-        _supportsFireEvents = protocol >= 30;
-        _supportsShotFacts = protocol >= 40;
-        _supportsAcceptedFire = protocol >= 43;
+        _supportsFireEvents = IndexedFirePresentation && protocol >= 30;
+        _supportsShotFacts = IndexedFirePresentation && protocol >= 40;
+        _supportsAcceptedFire = IndexedFirePresentation && protocol >= 43;
     }
     private ReplayPoseStream(PassiveReplayScene world)
     {
@@ -1003,9 +1005,9 @@ internal sealed class ReplayPoseStream : IDisposable
             {
                 _reader = DemoReader.Open(_path, out var result)
                     ?? throw new InvalidDataException(result.ToString());
-                _supportsFireEvents = _reader.ProtocolVersion >= 30;
-                _supportsAcceptedFire = _reader.ProtocolVersion >= 43;
-                _supportsShotFacts = _reader.ProtocolVersion >= 40;
+                _supportsFireEvents = IndexedFirePresentation && _reader.ProtocolVersion >= 30;
+                _supportsAcceptedFire = IndexedFirePresentation && _reader.ProtocolVersion >= 43;
+                _supportsShotFacts = IndexedFirePresentation && _reader.ProtocolVersion >= 40;
                 _pending = from > origin ? _reader.SeekAfter(from - origin - 1) : _reader.ReadNext();
                 if (_supportsShotFacts)
                 {
@@ -1106,14 +1108,18 @@ internal sealed class ReplayPoseStream : IDisposable
         }
     }
 
-    private void Accept(uint frame, ReadOnlySpan<byte> packet)
+    internal void Accept(uint frame, ReadOnlySpan<byte> packet)
     {
-        if (packet.Length == 0 || packet[0] is 253 or 254 or 255) return;
+        if (packet.Length == 0) return;
+        // This decoder serves pose/fire lookahead only. World and presentation
+        // facts belong to the simulation decoder (shot facts have their own
+        // lookahead below); accepting bombs here creates an undrained queue.
+        PacketType type = (PacketType)packet[0];
+        if (type is not (PacketType.MatchState or PacketType.Roster or PacketType.Snapshot or PacketType.SlotIntent)) return;
         long accepted = _decoder.AcceptedPackets;
         _decoder.Accept(packet, frame);
         if (accepted == _decoder.AcceptedPackets) return;
 
-        PacketType type = (PacketType)packet[0];
         if (type == PacketType.SlotIntent)
         {
             if (packet.Length < 2 + IntentPacket.Size) return;

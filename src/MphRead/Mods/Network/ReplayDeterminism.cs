@@ -40,6 +40,7 @@ internal static class ReplayDeterminism
                 void Capture(Scene scene)
                 {
                     uint frame = linear.Current.Session.CurrentFrame;
+                    RequireCursor(scene, frame);
                     if (trace.Position != frame * 64L) throw new InvalidDataException($"Missing/duplicate frame {frame}.");
                     byte[] projection = Projection(scene, frame); trace.Write(projection);
                     if (frame % 300 == 0 || frame == duration) expected.Add(new(frame, Convert.ToHexString(projection.AsSpan(0, 32))));
@@ -51,13 +52,16 @@ internal static class ReplayDeterminism
             trace.Flush();
             void Compare(Scene scene, uint frame)
             {
+                RequireCursor(scene, frame);
                 trace.Position = frame * 64L;
                 Span<byte> reference = stackalloc byte[64]; trace.ReadExactly(reference);
                 byte[] actual = Projection(scene, frame);
                 if (!actual.AsSpan().SequenceEqual(reference))
+                {
                     throw new InvalidOperationException($"First gameplay/presentation divergence at frame {frame}. "
                         + $"gameplay equal={actual.AsSpan(0, 32).SequenceEqual(reference[..32])}, "
                         + $"presentation equal={actual.AsSpan(32).SequenceEqual(reference[32..])}.");
+                }
             }
             var random = new Random(2718);
             uint[] targets = new[] { 0u, Math.Min(60u, duration), Math.Min(300u, duration), duration / 3, duration * 2 / 3, duration }
@@ -116,4 +120,10 @@ internal static class ReplayDeterminism
         }
         catch (Exception ex) { Console.WriteLine("[replaydeterminism] FAIL: " + ex); return 1; }
     }
+    private static void RequireCursor(Scene scene, uint frame)
+    {
+        if (scene.ReplayPoses is { } poses && !poses.Prepare())
+            throw new InvalidDataException($"Replay presentation cursor failed at frame {frame}: {poses.LastError}");
+    }
+
 }

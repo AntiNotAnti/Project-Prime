@@ -52,11 +52,15 @@ namespace MphRead.Mods.Network
                 var hashes = new Queue<(string Gameplay, string Presentation, ReplayReplicaCheckpoint Decoder)>();
                 var drawnCheckpointFrames = new HashSet<uint>();
                 var referenceFrames = new Dictionary<uint, (string Gameplay, string Presentation)>();
+                if (first.Session.HasSimulatedFrame)
+                    referenceFrames[first.Session.CurrentFrame] = (ReplayStateHash.Compute(first.Scene, first.Session.CurrentFrame),
+                        first.Scene.ReplayPresentationHash(first.Session.CurrentFrame));
                 Replay.ReplayWorldCheckpoint? clipCheckpoint = null;
                 int steps = 0, projectileFrames = 0, modelRestores = 0, worldRestores = 0, continuedFrames = 0;
                 bool projectileCheckpoint = false;
                 while (first.Step())
                 {
+                    RequireCursor(first);
                     if (restored != null)
                     {
                         bool advanced = restored.Step();
@@ -83,6 +87,10 @@ namespace MphRead.Mods.Network
                         checkpoint.Restore(restored);
                         double restoreMs = timer.Elapsed.TotalMilliseconds;
                         CheckWorld(first, restored, "restore", advanced: true);
+                        for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
+                            if ((first.Scene.ReplayPoses?.UsesFireEvents(first.Scene.Players.Items[slot]) == true)
+                                != (restored.Scene.ReplayPoses?.UsesFireEvents(restored.Scene.Players.Items[slot]) == true))
+                                throw new InvalidDataException($"Restored firing capability differs for slot {slot} at frame {checkpoint.Frame}.");
                         worldRestores++;
                         if (screenshots != null)
                         {
@@ -171,6 +179,7 @@ namespace MphRead.Mods.Network
         // Failure-only diagnostics: no reflection or checkpoint work on the successful path.
         private static void CheckWorld(PassiveReplayScene expected, PassiveReplayScene actual, string operation, bool advanced)
         {
+            RequireCursor(expected); RequireCursor(actual);
             uint frame = expected.Session.CurrentFrame;
             string gameplay = ReplayStateHash.Compute(expected.Scene, frame);
             string actualGameplay = ReplayStateHash.Compute(actual.Scene, actual.Session.CurrentFrame);
@@ -245,6 +254,12 @@ namespace MphRead.Mods.Network
             while (offset < length && lc.Bytes[offset] == rc.Bytes[offset]) offset++;
             text.Append($"checkpoint lengths={lc.Bytes.Length}/{rc.Bytes.Length}, firstByteDifference={(offset < length || lc.Bytes.Length != rc.Bytes.Length ? offset : -1)}; fieldDifferences={differences}, inspected={visited} (bounded)");
             return text.ToString();
+        }
+
+        private static void RequireCursor(PassiveReplayScene world)
+        {
+            if (world.Scene.ReplayPoses is { } poses && !poses.Prepare())
+                throw new InvalidDataException($"Replay presentation cursor failed at frame {world.Session.CurrentFrame}: {poses.LastError}");
         }
 
         private static void AssertNetworkSlotsConstructed(PassiveReplayScene replay)

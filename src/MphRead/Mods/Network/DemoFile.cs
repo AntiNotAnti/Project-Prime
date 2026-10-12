@@ -223,7 +223,7 @@ namespace MphRead.Mods.Network
                     result = ReplayOpenResult.InvalidMagic;
                     return null;
                 }
-                if (header[4] is not (1 or 2 or 3 or 4))
+                if (header[4] is not (1 or 2 or 3 or 4 or 5))
                 {
                     stream.Dispose();
                     result = ReplayOpenResult.UnsupportedFormat;

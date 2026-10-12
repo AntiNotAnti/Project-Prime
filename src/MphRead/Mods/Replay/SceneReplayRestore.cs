@@ -43,7 +43,14 @@ public partial class Scene
                 Material material = model.Materials[particle.MaterialId];
                 element.TextureBindingIds.Add(BindGetTexture(model, material.TextureId, material.PaletteId, 0));
             }
-            foreach (EffectParticle particle in element.Particles) particle.Random = Random;
+            foreach (EffectParticle particle in element.Particles)
+            {
+                particle.Random = Random;
+                // Historical capsules can retain an unrelated pooled particle's
+                // angle. Effects with a rotation action own their saved angle;
+                // effects without one use the same zero angle as a fresh birth.
+                if (!element.Actions.ContainsKey(FuncAction.SetParticleRotation)) particle.Rotation = 0;
+            }
         }
         foreach (EffectParticle particle in _inactiveParticles) particle.Random = Random;
     }
