@@ -567,7 +567,7 @@ namespace MphRead.Mods.Network
                 // a spectator is not a peer who has left.
                 if (!Mods.SpectatorMode.IsSpectating)
                 {
-                    NetTestScript.Apply(player);
+                    if (!NetAiClient.Drives(player)) NetTestScript.Apply(player);
                 }
                 // Edges every frame, packets every other one. With N players
                 // the server relays N*(N-1) updates per frame, and at six

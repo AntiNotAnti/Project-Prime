@@ -199,7 +199,7 @@ namespace MphRead.Mods.Network
             int differences = 0, visited = 0;
             void Compare(object? left, object? right, string path, int depth)
             {
-                if (differences >= 24 || ++visited > 12000 || ReferenceEquals(left, right)) return;
+                if (differences >= 24 || ++visited > 50000 || ReferenceEquals(left, right)) return;
                 void Difference(string values) { text.Append(path).Append(": ").Append(values.Length > 240 ? values[..240] + "..." : values).Append("; "); differences++; }
                 if (left == null || right == null) { Difference($"{left?.GetType().Name ?? "null"} -> {right?.GetType().Name ?? "null"}"); return; }
                 Type type = left.GetType();
@@ -237,6 +237,37 @@ namespace MphRead.Mods.Network
             var leftEntities = leftList.ToArray();
             var rightEntities = rightList.ToArray();
             if (leftEntities.Length != rightEntities.Length) text.Append($"entityCount {leftEntities.Length} -> {rightEntities.Length}; ");
+            // Prioritize hashed presentation values over excluded draw history.
+            for (int i = 0; i < Math.Min(leftEntities.Length, rightEntities.Length) && differences < 24; i++)
+            {
+                var left = leftEntities[i]; var right = rightEntities[i];
+                string name = $"presentation[{i}]({left.Type}/{(left is PlayerEntity player ? player.SlotIndex : left.Id)})";
+                Compare(left.Transform, right.Transform, name + ".Transform", 0);
+                Compare(left.Alpha, right.Alpha, name + ".Alpha", 0);
+                Compare(left.Hidden, right.Hidden, name + ".Hidden", 0);
+                Compare(left.Initialized, right.Initialized, name + ".Initialized", 0);
+                Compare(left.Recolor, right.Recolor, name + ".Recolor", 0);
+                for (int j = 0; j < Math.Min(left.ReplayModels.Count, right.ReplayModels.Count); j++)
+                    Compare(left.ReplayModels[j].AnimInfo, right.ReplayModels[j].AnimInfo, name + $".animation[{j}]", 0);
+                if (left is BeamProjectileEntity lb && right is BeamProjectileEntity rb)
+                {
+                    Compare(lb.DrawFuncId, rb.DrawFuncId, name + ".DrawFuncId", 0);
+                    Compare(lb.Color, rb.Color, name + ".Color", 0);
+                    Compare(lb.BackPosition, rb.BackPosition, name + ".BackPosition", 0);
+                    Compare(lb.PastPositions, rb.PastPositions, name + ".PastPositions", 0);
+                }
+            }
+            // Particle presentation is simulation-owned too; entity-only diagnostics
+            // miss recycled effect state that first diverges after a restored step.
+            var effects = typeof(Scene).GetField("_activeElements", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var leftEffects = ((System.Collections.IEnumerable)effects.GetValue(expected.Scene)!).Cast<Effects.EffectElementEntry>().ToArray();
+            var rightEffects = ((System.Collections.IEnumerable)effects.GetValue(actual.Scene)!).Cast<Effects.EffectElementEntry>().ToArray();
+            for (int i = 0; i < Math.Min(leftEffects.Length, rightEffects.Length) && differences < 24; i++)
+            {
+                Compare(leftEffects[i], rightEffects[i], $"effect[{i}]", 0);
+                for (int j = 0; j < Math.Min(leftEffects[i].Particles.Count, rightEffects[i].Particles.Count) && differences < 24; j++)
+                    Compare(leftEffects[i].Particles[j], rightEffects[i].Particles[j], $"effect[{i}].particle[{j}]", 0);
+            }
             for (int i = 0; i < Math.Min(leftEntities.Length, rightEntities.Length) && differences < 24; i++)
             {
                 Compare(leftEntities[i], rightEntities[i], $"entity[{i}]({leftEntities[i].Type}/{leftEntities[i].Id})", 0);

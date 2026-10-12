@@ -1,0 +1,5294 @@
+{
+  "schemaVersion": 1,
+  "slice": "G1",
+  "sourceSha": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+  "status": "FAIL",
+  "failures": [
+    "udp-8-impaired-7b932686: runner failed",
+    "udp-8-impaired-7b932686: campaign failed",
+    "udp-8-impaired-7b932686: AI failed",
+    "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-8-impaired-7b932686/peer-3.json: Expecting value: line 1 column 1 (char 0)"
+  ],
+  "incomplete": [
+    "udp-8-impaired-7b932686: paid AI source shot denominator absent/zero",
+    "udp-8-impaired-7b932686: canonical lifecycle not measured",
+    "udp-8-impaired-7b932686/peer-0: exact client lifecycle not measured",
+    "udp-8-impaired-7b932686/peer-1: exact client lifecycle not measured",
+    "udp-8-impaired-7b932686/peer-2: exact client lifecycle not measured"
+  ],
+  "campaigns": [
+    {
+      "name": "udp-2-bot-lan-7b932686",
+      "status": "PASS",
+      "manifest": {
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "platform": "macOS-27.0-arm64-arm-64bit",
+        "assemblySha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "assemblyAfterSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+        "harnessSha256": {
+          "run-net2.py": "e5f02dcd3592c5f3ea42a9babf9c00ce4786de69841643a4248b92268d319b9f",
+          "net2_evidence.py": "84dd41fd6a0685f3ff935dbb04d1867ab05bf218cf4adca69defd1fb9f359f89",
+          "net_ai_evidence.py": "14a41263624bfc925666d23a72413e48ec3c3e3ca37863d7f9d822439a920a3f"
+        },
+        "settings": {
+          "build": "src/MphRead/bin/Release/net10.0",
+          "paths": "/private/tmp/prime-polish-netprofile/paths.txt",
+          "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+          "out": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-bot-lan-7b932686",
+          "dotnet": "/Users/jarrett/.dotnet/dotnet",
+          "protocol": 51,
+          "shot_proof": "shadow",
+          "players": 2,
+          "ai_net_client": 2,
+          "ai_seed": 1729,
+          "server_bot": true,
+          "seconds": 60.0,
+          "drain_seconds": 35.0,
+          "port": 27991,
+          "seed": 8128,
+          "profile": "lan",
+          "rtt_ms": null,
+          "jitter_ms": null,
+          "loss_percent": null,
+          "reorder_percent": null,
+          "duplicate_percent": null,
+          "scenario": "ai",
+          "observer_delay": 0,
+          "rooms": "MP1 SANCTORUS",
+          "round_minutes": 30,
+          "rendered": false,
+          "server_operator": true,
+          "movement_validation_shadow": false,
+          "confirmed_impacts": false,
+          "bomb_visibility": false,
+          "bomb_triangle_fixture": false,
+          "server_performance": false,
+          "record": true,
+          "soak": false
+        },
+        "faultProfile": {
+          "rtt_ms": 0,
+          "jitter_ms": 0,
+          "loss_percent": 0,
+          "reorder_percent": 0,
+          "duplicate_percent": 0,
+          "scope": "each client, inbound and outbound",
+          "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+          "seedRule": "base seed + client launch index"
+        },
+        "elapsedSeconds": 68.60163575000001
+      },
+      "summary": {
+        "status": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "parity": {
+          "peer-0": {
+            "healthSamplesCompared": 1884,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 680,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 6,
+            "acceptedShots": 6,
+            "committedShots": 6,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 405,
+            "viewExpectedCommits": 80,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 405,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-1": {
+            "healthSamplesCompared": 1544,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 682,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 80,
+            "acceptedShots": 80,
+            "committedShots": 80,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 405,
+            "viewExpectedCommits": 82,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 405,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          }
+        }
+      },
+      "ai": {
+        "status": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "clients": [
+          {
+            "name": "peer-0",
+            "slot": 0,
+            "inputFrames": 3786,
+            "decisionFrames": 3582,
+            "travel": 428.7427851521643,
+            "offeredShots": 6,
+            "declaredClaims": 1,
+            "nativePickupConsumptions": 8,
+            "spawnedLives": 1,
+            "altFrames": 1448,
+            "weapons": [
+              0,
+              2
+            ],
+            "lifecycleEvidence": {
+              "spawnedLives": {
+                "observed": 1,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+              },
+              "altForms": {
+                "observed": 1448,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision frames where the local player is in an alternative form"
+              },
+              "deathEvents": {
+                "observed": 0,
+                "status": "NOT_RUN",
+                "countingUnit": "unique canonical death fact"
+              },
+              "respawnEvents": {
+                "observed": 0,
+                "status": "NOT_RUN",
+                "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+              },
+              "altTransitions": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+              }
+            },
+            "paidSourceShotKeys": 2
+          },
+          {
+            "name": "peer-1",
+            "slot": 1,
+            "inputFrames": 3796,
+            "decisionFrames": 3223,
+            "travel": 357.4828531469684,
+            "offeredShots": 80,
+            "declaredClaims": 24,
+            "nativePickupConsumptions": 5,
+            "spawnedLives": 3,
+            "altFrames": 0,
+            "weapons": [
+              0,
+              2,
+              1
+            ],
+            "lifecycleEvidence": {
+              "spawnedLives": {
+                "observed": 3,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+              },
+              "altForms": {
+                "observed": 0,
+                "status": "NOT_RUN",
+                "countingUnit": "AI decision frames where the local player is in an alternative form"
+              },
+              "deathEvents": {
+                "observed": 2,
+                "status": "OBSERVED",
+                "countingUnit": "unique canonical death fact"
+              },
+              "respawnEvents": {
+                "observed": 2,
+                "status": "OBSERVED",
+                "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+              },
+              "altTransitions": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+              }
+            },
+            "paidSourceShotKeys": 27
+          }
+        ],
+        "metrics": {
+          "declaredClientClaims": 25,
+          "authorityClaimReceiptsIncludingRetries": 28,
+          "authorityAppliedClaims": 0,
+          "componentPayments": 43,
+          "ownerNativePickupConsumptions": 13,
+          "paidAiSourceShotKeys": 29,
+          "canonicalLifecycle": {
+            "deathEvents": {
+              "observed": 3,
+              "status": "OBSERVED"
+            },
+            "spawnEvents": {
+              "observed": 7,
+              "status": "OBSERVED"
+            },
+            "respawnEvents": {
+              "observed": 3,
+              "status": "OBSERVED"
+            }
+          },
+          "serverBotSlots": [
+            2
+          ],
+          "serverBotShotKeys": 296
+        },
+        "scope": "Each campaign is one bounded activity phase; native pickup consumption is not an admitted grant. Claim receipts include retries. Component payments exclude bomb/continuous paths. Paid AI source shot keys count distinct source shots, not component payments; canonical respawns require a joined preceding death. Lifecycle evidence is descriptive and does not add an activity gate; OBSERVED is not lifecycle parity PASS. Seeded gameplay RNG does not make UDP scheduling deterministic."
+      },
+      "runnerResult": {
+        "name": "udp-2-bot-lan-7b932686",
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "command": [
+          "python3",
+          "tools/nettest/run-net2.py",
+          "--build",
+          "src/MphRead/bin/Release/net10.0",
+          "--paths",
+          "/private/tmp/prime-polish-netprofile/paths.txt",
+          "--source",
+          "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+          "--out",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-bot-lan-7b932686",
+          "--dotnet",
+          "/Users/jarrett/.dotnet/dotnet",
+          "--seconds",
+          "60",
+          "--drain-seconds",
+          "35",
+          "--profile",
+          "lan",
+          "--ai-net-client",
+          "2",
+          "--ai-seed",
+          "1729",
+          "--server-operator",
+          "--players",
+          "2",
+          "--server-bot",
+          "--record"
+        ],
+        "exit": 0,
+        "seconds": 71.48787141700001,
+        "removedDuplicateStagingSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4"
+      },
+      "processMetrics": {
+        "server": {
+          "transport": {
+            "PacketsReceived": 8114,
+            "PacketsSent": 50579,
+            "BytesReceived": 1441400,
+            "BytesSent": 9625487,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 6,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 8021,
+            "ProcessingMilliseconds": 1084.243944,
+            "SocketErrors": 0
+          },
+          "serverSegments": [
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639273629997139840,
+              "CurrentMatchId": 2,
+              "Frames": 3854,
+              "StepFailures": 0,
+              "DroppedSteps": 9,
+              "Stalls": 1,
+              "StepAllocatedBytes": 91554552,
+              "MeanMs": 0.7410589776855203,
+              "P50Ms": 0.46,
+              "P95Ms": 1.67,
+              "P99Ms": 3.17,
+              "P999Ms": 17.62,
+              "WorstMs": 233.6525
+            }
+          ],
+          "allocatedBytes": 5681891664,
+          "heapBytes": 69376280,
+          "workingSet": 265617408,
+          "frames": 3854,
+          "campaignClaims": {
+            "Received": 28,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": false,
+            "Level": 0,
+            "Seed": 0,
+            "InitialRng1": 0,
+            "InitialRng2": 0,
+            "CurrentAiRng1": 0,
+            "CurrentAiRng2": 0,
+            "LocalSlot": 0,
+            "InputFrames": 0,
+            "DecisionFrames": 0,
+            "Travel": 0,
+            "SpawnedLives": 0,
+            "AltFrames": 0,
+            "Weapons": [],
+            "IsBot": null,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-0": {
+          "transport": {
+            "PacketsReceived": 25212,
+            "PacketsSent": 4009,
+            "BytesReceived": 4891431,
+            "BytesSent": 627374,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 81,
+            "QueueDrops": 0,
+            "Coalesced": 60,
+            "Processed": 21306,
+            "ProcessingMilliseconds": 499.3686,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 288469216,
+          "heapBytes": 145636760,
+          "workingSet": 307888128,
+          "frames": 3786,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1729,
+            "InitialRng1": 1729,
+            "InitialRng2": 3891867948,
+            "CurrentAiRng1": 1729,
+            "CurrentAiRng2": 2108644872,
+            "LocalSlot": 0,
+            "InputFrames": 3786,
+            "DecisionFrames": 3582,
+            "Travel": 428.7427851521643,
+            "SpawnedLives": 1,
+            "AltFrames": 1448,
+            "Weapons": [
+              0,
+              2
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-1": {
+          "transport": {
+            "PacketsReceived": 25289,
+            "PacketsSent": 4103,
+            "BytesReceived": 4721425,
+            "BytesSent": 813970,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 79,
+            "QueueDrops": 0,
+            "Coalesced": 399,
+            "Processed": 21374,
+            "ProcessingMilliseconds": 354.419089,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 287329272,
+          "heapBytes": 144300184,
+          "workingSet": 296943616,
+          "frames": 3796,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1730,
+            "InitialRng1": 1730,
+            "InitialRng2": 3893532473,
+            "CurrentAiRng1": 1730,
+            "CurrentAiRng2": 1702698716,
+            "LocalSlot": 1,
+            "InputFrames": 3796,
+            "DecisionFrames": 3223,
+            "Travel": 357.4828531469684,
+            "SpawnedLives": 3,
+            "AltFrames": 0,
+            "Weapons": [
+              0,
+              2,
+              1
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        }
+      },
+      "drainStatus": "PASS"
+    },
+    {
+      "name": "udp-2-bot-rendered-7b932686",
+      "status": "PASS",
+      "manifest": {
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "platform": "macOS-27.0-arm64-arm-64bit",
+        "assemblySha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "assemblyAfterSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+        "harnessSha256": {
+          "run-net2.py": "e5f02dcd3592c5f3ea42a9babf9c00ce4786de69841643a4248b92268d319b9f",
+          "net2_evidence.py": "84dd41fd6a0685f3ff935dbb04d1867ab05bf218cf4adca69defd1fb9f359f89",
+          "net_ai_evidence.py": "14a41263624bfc925666d23a72413e48ec3c3e3ca37863d7f9d822439a920a3f",
+          "net13_performance.py": "23ad8686337059893c0c1216ffd51924f13391b0e893f081b0c3cf1241c1aff2"
+        },
+        "settings": {
+          "build": "src/MphRead/bin/Release/net10.0",
+          "paths": "/private/tmp/prime-polish-netprofile/paths.txt",
+          "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+          "out": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-bot-rendered-7b932686",
+          "dotnet": "/Users/jarrett/.dotnet/dotnet",
+          "protocol": 51,
+          "shot_proof": "shadow",
+          "players": 2,
+          "ai_net_client": 2,
+          "ai_seed": 1729,
+          "server_bot": true,
+          "seconds": 60.0,
+          "drain_seconds": 35.0,
+          "port": 27991,
+          "seed": 8128,
+          "profile": "lan",
+          "rtt_ms": null,
+          "jitter_ms": null,
+          "loss_percent": null,
+          "reorder_percent": null,
+          "duplicate_percent": null,
+          "scenario": "ai",
+          "observer_delay": 0,
+          "rooms": "MP1 SANCTORUS",
+          "round_minutes": 30,
+          "rendered": true,
+          "server_operator": true,
+          "movement_validation_shadow": false,
+          "confirmed_impacts": false,
+          "bomb_visibility": false,
+          "bomb_triangle_fixture": false,
+          "server_performance": true,
+          "record": true,
+          "soak": false
+        },
+        "faultProfile": {
+          "rtt_ms": 0,
+          "jitter_ms": 0,
+          "loss_percent": 0,
+          "reorder_percent": 0,
+          "duplicate_percent": 0,
+          "scope": "each client, inbound and outbound",
+          "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+          "seedRule": "base seed + client launch index"
+        },
+        "elapsedSeconds": 70.992805375
+      },
+      "summary": {
+        "status": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "parity": {
+          "peer-0": {
+            "healthSamplesCompared": 1887,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 747,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 16,
+            "acceptedShots": 16,
+            "committedShots": 16,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 808,
+            "viewExpectedCommits": 81,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 808,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-1": {
+            "healthSamplesCompared": 1905,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 747,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 67,
+            "acceptedShots": 67,
+            "committedShots": 67,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 808,
+            "viewExpectedCommits": 78,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 808,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          }
+        }
+      },
+      "ai": {
+        "status": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "clients": [
+          {
+            "name": "peer-0",
+            "slot": 0,
+            "inputFrames": 3794,
+            "decisionFrames": 3303,
+            "travel": 364.093555755564,
+            "offeredShots": 16,
+            "declaredClaims": 4,
+            "nativePickupConsumptions": 6,
+            "spawnedLives": 3,
+            "altFrames": 571,
+            "weapons": [
+              0,
+              2,
+              4
+            ],
+            "lifecycleEvidence": {
+              "spawnedLives": {
+                "observed": 3,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+              },
+              "altForms": {
+                "observed": 571,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision frames where the local player is in an alternative form"
+              },
+              "deathEvents": {
+                "observed": 2,
+                "status": "OBSERVED",
+                "countingUnit": "unique canonical death fact"
+              },
+              "respawnEvents": {
+                "observed": 2,
+                "status": "OBSERVED",
+                "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+              },
+              "altTransitions": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+              }
+            },
+            "paidSourceShotKeys": 4
+          },
+          {
+            "name": "peer-1",
+            "slot": 1,
+            "inputFrames": 3848,
+            "decisionFrames": 3079,
+            "travel": 336.4144038531231,
+            "offeredShots": 67,
+            "declaredClaims": 21,
+            "nativePickupConsumptions": 4,
+            "spawnedLives": 4,
+            "altFrames": 61,
+            "weapons": [
+              0,
+              1,
+              2
+            ],
+            "lifecycleEvidence": {
+              "spawnedLives": {
+                "observed": 4,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+              },
+              "altForms": {
+                "observed": 61,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision frames where the local player is in an alternative form"
+              },
+              "deathEvents": {
+                "observed": 3,
+                "status": "OBSERVED",
+                "countingUnit": "unique canonical death fact"
+              },
+              "respawnEvents": {
+                "observed": 3,
+                "status": "OBSERVED",
+                "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+              },
+              "altTransitions": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+              }
+            },
+            "paidSourceShotKeys": 24
+          }
+        ],
+        "metrics": {
+          "declaredClientClaims": 25,
+          "authorityClaimReceiptsIncludingRetries": 27,
+          "authorityAppliedClaims": 1,
+          "componentPayments": 47,
+          "ownerNativePickupConsumptions": 10,
+          "paidAiSourceShotKeys": 28,
+          "canonicalLifecycle": {
+            "deathEvents": {
+              "observed": 5,
+              "status": "OBSERVED"
+            },
+            "spawnEvents": {
+              "observed": 9,
+              "status": "OBSERVED"
+            },
+            "respawnEvents": {
+              "observed": 5,
+              "status": "OBSERVED"
+            }
+          },
+          "serverBotSlots": [
+            2
+          ],
+          "serverBotShotKeys": 688
+        },
+        "scope": "Each campaign is one bounded activity phase; native pickup consumption is not an admitted grant. Claim receipts include retries. Component payments exclude bomb/continuous paths. Paid AI source shot keys count distinct source shots, not component payments; canonical respawns require a joined preceding death. Lifecycle evidence is descriptive and does not add an activity gate; OBSERVED is not lifecycle parity PASS. Seeded gameplay RNG does not make UDP scheduling deterministic."
+      },
+      "runnerResult": {
+        "name": "udp-2-bot-rendered-7b932686",
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "command": [
+          "python3",
+          "tools/nettest/run-net2.py",
+          "--build",
+          "src/MphRead/bin/Release/net10.0",
+          "--paths",
+          "/private/tmp/prime-polish-netprofile/paths.txt",
+          "--source",
+          "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+          "--out",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-bot-rendered-7b932686",
+          "--dotnet",
+          "/Users/jarrett/.dotnet/dotnet",
+          "--seconds",
+          "60",
+          "--drain-seconds",
+          "35",
+          "--profile",
+          "lan",
+          "--ai-net-client",
+          "2",
+          "--ai-seed",
+          "1729",
+          "--server-operator",
+          "--players",
+          "2",
+          "--server-bot",
+          "--record",
+          "--rendered",
+          "--server-performance"
+        ],
+        "exit": 0,
+        "seconds": 74.342344542,
+        "removedDuplicateStagingSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4"
+      },
+      "processMetrics": {
+        "server": {
+          "transport": {
+            "PacketsReceived": 8994,
+            "PacketsSent": 53542,
+            "BytesReceived": 1464049,
+            "BytesSent": 10418354,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 6,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 8103,
+            "ProcessingMilliseconds": 908.799546,
+            "SocketErrors": 0
+          },
+          "serverSegments": [
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639273630820233200,
+              "CurrentMatchId": 2,
+              "Frames": 4056,
+              "StepFailures": 0,
+              "DroppedSteps": 7,
+              "Stalls": 1,
+              "StepAllocatedBytes": 96109920,
+              "MeanMs": 0.45243397435897514,
+              "P50Ms": 0.29,
+              "P95Ms": 0.79,
+              "P99Ms": 1.52,
+              "P999Ms": 12.1,
+              "WorstMs": 214.9255
+            }
+          ],
+          "allocatedBytes": 6732724304,
+          "heapBytes": 77241880,
+          "workingSet": 262356992,
+          "frames": 4056,
+          "campaignClaims": {
+            "Received": 27,
+            "Applied": 1,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": false,
+            "Level": 0,
+            "Seed": 0,
+            "InitialRng1": 0,
+            "InitialRng2": 0,
+            "CurrentAiRng1": 0,
+            "CurrentAiRng2": 0,
+            "LocalSlot": 0,
+            "InputFrames": 0,
+            "DecisionFrames": 0,
+            "Travel": 0,
+            "SpawnedLives": 0,
+            "AltFrames": 0,
+            "Weapons": [],
+            "IsBot": null,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-0": {
+          "transport": {
+            "PacketsReceived": 26760,
+            "PacketsSent": 4442,
+            "BytesReceived": 5270375,
+            "BytesSent": 663923,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 9,
+            "QueueHighWater": 218,
+            "QueueDrops": 0,
+            "Coalesced": 263,
+            "Processed": 22630,
+            "ProcessingMilliseconds": 331.905398,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 844897464,
+          "heapBytes": 277212296,
+          "workingSet": 594182144,
+          "frames": 3794,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1729,
+            "InitialRng1": 1729,
+            "InitialRng2": 3891867948,
+            "CurrentAiRng1": 1729,
+            "CurrentAiRng2": 259815699,
+            "LocalSlot": 0,
+            "InputFrames": 3794,
+            "DecisionFrames": 3303,
+            "Travel": 364.093555755564,
+            "SpawnedLives": 3,
+            "AltFrames": 571,
+            "Weapons": [
+              0,
+              2,
+              4
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-1": {
+          "transport": {
+            "PacketsReceived": 26717,
+            "PacketsSent": 4549,
+            "BytesReceived": 5136286,
+            "BytesSent": 800046,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 14,
+            "QueueHighWater": 99,
+            "QueueDrops": 0,
+            "Coalesced": 210,
+            "Processed": 22583,
+            "ProcessingMilliseconds": 325.85591,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 858658712,
+          "heapBytes": 302773008,
+          "workingSet": 582467584,
+          "frames": 3848,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1730,
+            "InitialRng1": 1730,
+            "InitialRng2": 3893532473,
+            "CurrentAiRng1": 1730,
+            "CurrentAiRng2": 756496690,
+            "LocalSlot": 1,
+            "InputFrames": 3848,
+            "DecisionFrames": 3079,
+            "Travel": 336.4144038531231,
+            "SpawnedLives": 4,
+            "AltFrames": 61,
+            "Weapons": [
+              0,
+              1,
+              2
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        }
+      },
+      "drainStatus": "PASS"
+    },
+    {
+      "name": "udp-2-impaired-7b932686",
+      "status": "PASS",
+      "manifest": {
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "platform": "macOS-27.0-arm64-arm-64bit",
+        "assemblySha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "assemblyAfterSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+        "harnessSha256": {
+          "run-net2.py": "e5f02dcd3592c5f3ea42a9babf9c00ce4786de69841643a4248b92268d319b9f",
+          "net2_evidence.py": "84dd41fd6a0685f3ff935dbb04d1867ab05bf218cf4adca69defd1fb9f359f89",
+          "net_ai_evidence.py": "14a41263624bfc925666d23a72413e48ec3c3e3ca37863d7f9d822439a920a3f",
+          "net13_performance.py": "23ad8686337059893c0c1216ffd51924f13391b0e893f081b0c3cf1241c1aff2"
+        },
+        "settings": {
+          "build": "src/MphRead/bin/Release/net10.0",
+          "paths": "/private/tmp/prime-polish-netprofile/paths.txt",
+          "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+          "out": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-impaired-7b932686",
+          "dotnet": "/Users/jarrett/.dotnet/dotnet",
+          "protocol": 51,
+          "shot_proof": "shadow",
+          "players": 2,
+          "ai_net_client": 2,
+          "ai_seed": 1729,
+          "server_bot": false,
+          "seconds": 60.0,
+          "drain_seconds": 35.0,
+          "port": 27991,
+          "seed": 8128,
+          "profile": "lan",
+          "rtt_ms": 150,
+          "jitter_ms": 20,
+          "loss_percent": 5.0,
+          "reorder_percent": 5.0,
+          "duplicate_percent": 2.0,
+          "scenario": "ai",
+          "observer_delay": 0,
+          "rooms": "MP1 SANCTORUS",
+          "round_minutes": 30,
+          "rendered": false,
+          "server_operator": true,
+          "movement_validation_shadow": false,
+          "confirmed_impacts": false,
+          "bomb_visibility": false,
+          "bomb_triangle_fixture": false,
+          "server_performance": true,
+          "record": false,
+          "soak": false
+        },
+        "faultProfile": {
+          "rtt_ms": 150,
+          "jitter_ms": 20,
+          "loss_percent": 5.0,
+          "reorder_percent": 5.0,
+          "duplicate_percent": 2.0,
+          "scope": "each client, inbound and outbound",
+          "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+          "seedRule": "base seed + client launch index"
+        },
+        "elapsedSeconds": 68.580549167
+      },
+      "summary": {
+        "status": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "parity": {
+          "peer-0": {
+            "healthSamplesCompared": 1158,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 601,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 7,
+            "acceptedShots": 7,
+            "committedShots": 7,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 51,
+            "viewExpectedCommits": 41,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 51,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-1": {
+            "healthSamplesCompared": 1170,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 596,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 38,
+            "acceptedShots": 38,
+            "committedShots": 38,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 53,
+            "viewExpectedCommits": 45,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 53,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          }
+        }
+      },
+      "ai": {
+        "status": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "clients": [
+          {
+            "name": "peer-0",
+            "slot": 0,
+            "inputFrames": 3788,
+            "decisionFrames": 3373,
+            "travel": 390.1278040459147,
+            "offeredShots": 7,
+            "declaredClaims": 5,
+            "nativePickupConsumptions": 7,
+            "spawnedLives": 2,
+            "altFrames": 860,
+            "weapons": [
+              0,
+              2
+            ],
+            "lifecycleEvidence": {
+              "spawnedLives": {
+                "observed": 2,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+              },
+              "altForms": {
+                "observed": 860,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision frames where the local player is in an alternative form"
+              },
+              "deathEvents": {
+                "observed": 1,
+                "status": "OBSERVED",
+                "countingUnit": "unique canonical death fact"
+              },
+              "respawnEvents": {
+                "observed": 1,
+                "status": "OBSERVED",
+                "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+              },
+              "altTransitions": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+              }
+            },
+            "paidSourceShotKeys": 6
+          },
+          {
+            "name": "peer-1",
+            "slot": 1,
+            "inputFrames": 3815,
+            "decisionFrames": 3402,
+            "travel": 296.07883734581856,
+            "offeredShots": 38,
+            "declaredClaims": 11,
+            "nativePickupConsumptions": 5,
+            "spawnedLives": 2,
+            "altFrames": 62,
+            "weapons": [
+              0,
+              1,
+              2
+            ],
+            "lifecycleEvidence": {
+              "spawnedLives": {
+                "observed": 2,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+              },
+              "altForms": {
+                "observed": 62,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision frames where the local player is in an alternative form"
+              },
+              "deathEvents": {
+                "observed": 1,
+                "status": "OBSERVED",
+                "countingUnit": "unique canonical death fact"
+              },
+              "respawnEvents": {
+                "observed": 1,
+                "status": "OBSERVED",
+                "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+              },
+              "altTransitions": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+              }
+            },
+            "paidSourceShotKeys": 12
+          }
+        ],
+        "metrics": {
+          "declaredClientClaims": 16,
+          "authorityClaimReceiptsIncludingRetries": 21,
+          "authorityAppliedClaims": 0,
+          "componentPayments": 18,
+          "ownerNativePickupConsumptions": 12,
+          "paidAiSourceShotKeys": 18,
+          "canonicalLifecycle": {
+            "deathEvents": {
+              "observed": 2,
+              "status": "OBSERVED"
+            },
+            "spawnEvents": {
+              "observed": 5,
+              "status": "OBSERVED"
+            },
+            "respawnEvents": {
+              "observed": 2,
+              "status": "OBSERVED"
+            }
+          },
+          "serverBotSlots": [],
+          "serverBotShotKeys": 0
+        },
+        "scope": "Each campaign is one bounded activity phase; native pickup consumption is not an admitted grant. Claim receipts include retries. Component payments exclude bomb/continuous paths. Paid AI source shot keys count distinct source shots, not component payments; canonical respawns require a joined preceding death. Lifecycle evidence is descriptive and does not add an activity gate; OBSERVED is not lifecycle parity PASS. Seeded gameplay RNG does not make UDP scheduling deterministic."
+      },
+      "runnerResult": {
+        "name": "udp-2-impaired-7b932686",
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "command": [
+          "python3",
+          "tools/nettest/run-net2.py",
+          "--build",
+          "src/MphRead/bin/Release/net10.0",
+          "--paths",
+          "/private/tmp/prime-polish-netprofile/paths.txt",
+          "--source",
+          "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+          "--out",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-impaired-7b932686",
+          "--dotnet",
+          "/Users/jarrett/.dotnet/dotnet",
+          "--seconds",
+          "60",
+          "--drain-seconds",
+          "35",
+          "--profile",
+          "lan",
+          "--ai-net-client",
+          "2",
+          "--ai-seed",
+          "1729",
+          "--server-operator",
+          "--players",
+          "2",
+          "--rtt-ms",
+          "150",
+          "--jitter-ms",
+          "20",
+          "--loss-percent",
+          "5",
+          "--duplicate-percent",
+          "2",
+          "--reorder-percent",
+          "5",
+          "--server-performance"
+        ],
+        "exit": 0,
+        "seconds": 70.155862834,
+        "removedDuplicateStagingSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4"
+      },
+      "processMetrics": {
+        "server": {
+          "transport": {
+            "PacketsReceived": 7751,
+            "PacketsSent": 41884,
+            "BytesReceived": 1302059,
+            "BytesSent": 6504046,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 7,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 7586,
+            "ProcessingMilliseconds": 989.357734,
+            "SocketErrors": 0
+          },
+          "serverSegments": [
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639273631690346680,
+              "CurrentMatchId": 2,
+              "Frames": 3881,
+              "StepFailures": 0,
+              "DroppedSteps": 6,
+              "Stalls": 1,
+              "StepAllocatedBytes": 77086744,
+              "MeanMs": 0.4535955939190947,
+              "P50Ms": 0.27,
+              "P95Ms": 1.08,
+              "P99Ms": 1.94,
+              "P999Ms": 7.83,
+              "WorstMs": 197.5278
+            }
+          ],
+          "allocatedBytes": 4895547888,
+          "heapBytes": 71235080,
+          "workingSet": 261898240,
+          "frames": 3881,
+          "campaignClaims": {
+            "Received": 21,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": false,
+            "Level": 0,
+            "Seed": 0,
+            "InitialRng1": 0,
+            "InitialRng2": 0,
+            "CurrentAiRng1": 0,
+            "CurrentAiRng2": 0,
+            "LocalSlot": 0,
+            "InputFrames": 0,
+            "DecisionFrames": 0,
+            "Travel": 0,
+            "SpawnedLives": 0,
+            "AltFrames": 0,
+            "Weapons": [],
+            "IsBot": null,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-0": {
+          "transport": {
+            "PacketsReceived": 20862,
+            "PacketsSent": 3862,
+            "BytesReceived": 3281416,
+            "BytesSent": 612269,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 47,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 18852,
+            "ProcessingMilliseconds": 291.306,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 152860528,
+          "heapBytes": 59530920,
+          "workingSet": 245809152,
+          "frames": 3788,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1729,
+            "InitialRng1": 1729,
+            "InitialRng2": 3891867948,
+            "CurrentAiRng1": 1729,
+            "CurrentAiRng2": 2497349402,
+            "LocalSlot": 0,
+            "InputFrames": 3788,
+            "DecisionFrames": 3373,
+            "Travel": 390.1278040459147,
+            "SpawnedLives": 2,
+            "AltFrames": 860,
+            "Weapons": [
+              0,
+              2
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-1": {
+          "transport": {
+            "PacketsReceived": 20924,
+            "PacketsSent": 3875,
+            "BytesReceived": 3207966,
+            "BytesSent": 687814,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 42,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 18944,
+            "ProcessingMilliseconds": 303.235072,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 153847888,
+          "heapBytes": 60482352,
+          "workingSet": 246317056,
+          "frames": 3815,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1730,
+            "InitialRng1": 1730,
+            "InitialRng2": 3893532473,
+            "CurrentAiRng1": 1730,
+            "CurrentAiRng2": 1489196144,
+            "LocalSlot": 1,
+            "InputFrames": 3815,
+            "DecisionFrames": 3402,
+            "Travel": 296.07883734581856,
+            "SpawnedLives": 2,
+            "AltFrames": 62,
+            "Weapons": [
+              0,
+              1,
+              2
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        }
+      },
+      "drainStatus": "PASS"
+    },
+    {
+      "name": "udp-4-impaired-7b932686",
+      "status": "PASS",
+      "manifest": {
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "platform": "macOS-27.0-arm64-arm-64bit",
+        "assemblySha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "assemblyAfterSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+        "harnessSha256": {
+          "run-net2.py": "e5f02dcd3592c5f3ea42a9babf9c00ce4786de69841643a4248b92268d319b9f",
+          "net2_evidence.py": "84dd41fd6a0685f3ff935dbb04d1867ab05bf218cf4adca69defd1fb9f359f89",
+          "net_ai_evidence.py": "14a41263624bfc925666d23a72413e48ec3c3e3ca37863d7f9d822439a920a3f",
+          "net13_performance.py": "23ad8686337059893c0c1216ffd51924f13391b0e893f081b0c3cf1241c1aff2"
+        },
+        "settings": {
+          "build": "src/MphRead/bin/Release/net10.0",
+          "paths": "/private/tmp/prime-polish-netprofile/paths.txt",
+          "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+          "out": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-4-impaired-7b932686",
+          "dotnet": "/Users/jarrett/.dotnet/dotnet",
+          "protocol": 51,
+          "shot_proof": "shadow",
+          "players": 4,
+          "ai_net_client": 2,
+          "ai_seed": 1729,
+          "server_bot": false,
+          "seconds": 60.0,
+          "drain_seconds": 35.0,
+          "port": 27991,
+          "seed": 8128,
+          "profile": "lan",
+          "rtt_ms": 150,
+          "jitter_ms": 20,
+          "loss_percent": 5.0,
+          "reorder_percent": 5.0,
+          "duplicate_percent": 2.0,
+          "scenario": "ai",
+          "observer_delay": 0,
+          "rooms": "MP1 SANCTORUS",
+          "round_minutes": 30,
+          "rendered": false,
+          "server_operator": true,
+          "movement_validation_shadow": false,
+          "confirmed_impacts": false,
+          "bomb_visibility": false,
+          "bomb_triangle_fixture": false,
+          "server_performance": true,
+          "record": false,
+          "soak": false
+        },
+        "faultProfile": {
+          "rtt_ms": 150,
+          "jitter_ms": 20,
+          "loss_percent": 5.0,
+          "reorder_percent": 5.0,
+          "duplicate_percent": 2.0,
+          "scope": "each client, inbound and outbound",
+          "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+          "seedRule": "base seed + client launch index"
+        },
+        "elapsedSeconds": 69.707069375
+      },
+      "summary": {
+        "status": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "parity": {
+          "peer-0": {
+            "healthSamplesCompared": 2292,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 673,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 20,
+            "acceptedShots": 20,
+            "committedShots": 20,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 772,
+            "viewExpectedCommits": 731,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 772,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-1": {
+            "healthSamplesCompared": 2292,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 671,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 124,
+            "acceptedShots": 124,
+            "committedShots": 124,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 770,
+            "viewExpectedCommits": 731,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 770,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-2": {
+            "healthSamplesCompared": 2280,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 678,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 54,
+            "acceptedShots": 54,
+            "committedShots": 54,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 772,
+            "viewExpectedCommits": 731,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 772,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-3": {
+            "healthSamplesCompared": 2324,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 663,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 533,
+            "acceptedShots": 533,
+            "committedShots": 533,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 770,
+            "viewExpectedCommits": 731,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 770,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          }
+        }
+      },
+      "ai": {
+        "status": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "clients": [
+          {
+            "name": "peer-0",
+            "slot": 0,
+            "inputFrames": 3827,
+            "decisionFrames": 3230,
+            "travel": 354.1161880376178,
+            "offeredShots": 20,
+            "declaredClaims": 9,
+            "nativePickupConsumptions": 4,
+            "spawnedLives": 3,
+            "altFrames": 731,
+            "weapons": [
+              0,
+              2
+            ],
+            "lifecycleEvidence": {
+              "spawnedLives": {
+                "observed": 3,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+              },
+              "altForms": {
+                "observed": 731,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision frames where the local player is in an alternative form"
+              },
+              "deathEvents": {
+                "observed": 2,
+                "status": "OBSERVED",
+                "countingUnit": "unique canonical death fact"
+              },
+              "respawnEvents": {
+                "observed": 2,
+                "status": "OBSERVED",
+                "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+              },
+              "altTransitions": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+              }
+            },
+            "paidSourceShotKeys": 11
+          },
+          {
+            "name": "peer-1",
+            "slot": 1,
+            "inputFrames": 3819,
+            "decisionFrames": 3203,
+            "travel": 347.00277001853533,
+            "offeredShots": 124,
+            "declaredClaims": 39,
+            "nativePickupConsumptions": 4,
+            "spawnedLives": 3,
+            "altFrames": 63,
+            "weapons": [
+              0,
+              1,
+              2
+            ],
+            "lifecycleEvidence": {
+              "spawnedLives": {
+                "observed": 3,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+              },
+              "altForms": {
+                "observed": 63,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision frames where the local player is in an alternative form"
+              },
+              "deathEvents": {
+                "observed": 2,
+                "status": "OBSERVED",
+                "countingUnit": "unique canonical death fact"
+              },
+              "respawnEvents": {
+                "observed": 2,
+                "status": "OBSERVED",
+                "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+              },
+              "altTransitions": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+              }
+            },
+            "paidSourceShotKeys": 41
+          },
+          {
+            "name": "peer-2",
+            "slot": 2,
+            "inputFrames": 3825,
+            "decisionFrames": 3053,
+            "travel": 326.87262273437045,
+            "offeredShots": 54,
+            "declaredClaims": 19,
+            "nativePickupConsumptions": 3,
+            "spawnedLives": 4,
+            "altFrames": 645,
+            "weapons": [
+              0,
+              2,
+              4
+            ],
+            "lifecycleEvidence": {
+              "spawnedLives": {
+                "observed": 4,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+              },
+              "altForms": {
+                "observed": 645,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision frames where the local player is in an alternative form"
+              },
+              "deathEvents": {
+                "observed": 3,
+                "status": "OBSERVED",
+                "countingUnit": "unique canonical death fact"
+              },
+              "respawnEvents": {
+                "observed": 3,
+                "status": "OBSERVED",
+                "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+              },
+              "altTransitions": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+              }
+            },
+            "paidSourceShotKeys": 19
+          },
+          {
+            "name": "peer-3",
+            "slot": 3,
+            "inputFrames": 3831,
+            "decisionFrames": 3411,
+            "travel": 394.02606684865896,
+            "offeredShots": 533,
+            "declaredClaims": 90,
+            "nativePickupConsumptions": 6,
+            "spawnedLives": 2,
+            "altFrames": 388,
+            "weapons": [
+              0,
+              7,
+              2
+            ],
+            "lifecycleEvidence": {
+              "spawnedLives": {
+                "observed": 2,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+              },
+              "altForms": {
+                "observed": 388,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision frames where the local player is in an alternative form"
+              },
+              "deathEvents": {
+                "observed": 1,
+                "status": "OBSERVED",
+                "countingUnit": "unique canonical death fact"
+              },
+              "respawnEvents": {
+                "observed": 1,
+                "status": "OBSERVED",
+                "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+              },
+              "altTransitions": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+              }
+            },
+            "paidSourceShotKeys": 9
+          }
+        ],
+        "metrics": {
+          "declaredClientClaims": 157,
+          "authorityClaimReceiptsIncludingRetries": 189,
+          "authorityAppliedClaims": 3,
+          "componentPayments": 82,
+          "ownerNativePickupConsumptions": 17,
+          "paidAiSourceShotKeys": 80,
+          "canonicalLifecycle": {
+            "deathEvents": {
+              "observed": 8,
+              "status": "OBSERVED"
+            },
+            "spawnEvents": {
+              "observed": 16,
+              "status": "OBSERVED"
+            },
+            "respawnEvents": {
+              "observed": 8,
+              "status": "OBSERVED"
+            }
+          },
+          "serverBotSlots": [],
+          "serverBotShotKeys": 0
+        },
+        "scope": "Each campaign is one bounded activity phase; native pickup consumption is not an admitted grant. Claim receipts include retries. Component payments exclude bomb/continuous paths. Paid AI source shot keys count distinct source shots, not component payments; canonical respawns require a joined preceding death. Lifecycle evidence is descriptive and does not add an activity gate; OBSERVED is not lifecycle parity PASS. Seeded gameplay RNG does not make UDP scheduling deterministic."
+      },
+      "runnerResult": {
+        "name": "udp-4-impaired-7b932686",
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "command": [
+          "python3",
+          "tools/nettest/run-net2.py",
+          "--build",
+          "src/MphRead/bin/Release/net10.0",
+          "--paths",
+          "/private/tmp/prime-polish-netprofile/paths.txt",
+          "--source",
+          "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+          "--out",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-4-impaired-7b932686",
+          "--dotnet",
+          "/Users/jarrett/.dotnet/dotnet",
+          "--seconds",
+          "60",
+          "--drain-seconds",
+          "35",
+          "--profile",
+          "lan",
+          "--ai-net-client",
+          "2",
+          "--ai-seed",
+          "1729",
+          "--server-operator",
+          "--players",
+          "4",
+          "--rtt-ms",
+          "150",
+          "--jitter-ms",
+          "20",
+          "--loss-percent",
+          "5",
+          "--duplicate-percent",
+          "2",
+          "--reorder-percent",
+          "5",
+          "--server-performance"
+        ],
+        "exit": 0,
+        "seconds": 71.954609417,
+        "removedDuplicateStagingSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4"
+      },
+      "processMetrics": {
+        "server": {
+          "transport": {
+            "PacketsReceived": 15793,
+            "PacketsSent": 116318,
+            "BytesReceived": 3278781,
+            "BytesSent": 25116950,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 7,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 15434,
+            "ProcessingMilliseconds": 1898.40413,
+            "SocketErrors": 0
+          },
+          "serverSegments": [
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639273632470530010,
+              "CurrentMatchId": 2,
+              "Frames": 3893,
+              "StepFailures": 0,
+              "DroppedSteps": 6,
+              "Stalls": 1,
+              "StepAllocatedBytes": 112726056,
+              "MeanMs": 0.470565348060621,
+              "P50Ms": 0.3,
+              "P95Ms": 1.04,
+              "P99Ms": 1.86,
+              "P999Ms": 9.04,
+              "WorstMs": 186.3921
+            }
+          ],
+          "allocatedBytes": 7222749424,
+          "heapBytes": 81088472,
+          "workingSet": 262897664,
+          "frames": 3893,
+          "campaignClaims": {
+            "Received": 189,
+            "Applied": 3,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": false,
+            "Level": 0,
+            "Seed": 0,
+            "InitialRng1": 0,
+            "InitialRng2": 0,
+            "CurrentAiRng1": 0,
+            "CurrentAiRng2": 0,
+            "LocalSlot": 0,
+            "InputFrames": 0,
+            "DecisionFrames": 0,
+            "Travel": 0,
+            "SpawnedLives": 0,
+            "AltFrames": 0,
+            "Weapons": [],
+            "IsBot": null,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-0": {
+          "transport": {
+            "PacketsReceived": 28981,
+            "PacketsSent": 3906,
+            "BytesReceived": 6417858,
+            "BytesSent": 648699,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 41,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 26049,
+            "ProcessingMilliseconds": 297.564367,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 181123720,
+          "heapBytes": 68662368,
+          "workingSet": 247414784,
+          "frames": 3827,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1729,
+            "InitialRng1": 1729,
+            "InitialRng2": 3891867948,
+            "CurrentAiRng1": 1729,
+            "CurrentAiRng2": 4188474854,
+            "LocalSlot": 0,
+            "InputFrames": 3827,
+            "DecisionFrames": 3230,
+            "Travel": 354.1161880376178,
+            "SpawnedLives": 3,
+            "AltFrames": 731,
+            "Weapons": [
+              0,
+              2
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-1": {
+          "transport": {
+            "PacketsReceived": 28983,
+            "PacketsSent": 3937,
+            "BytesReceived": 6197978,
+            "BytesSent": 892677,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 39,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 26094,
+            "ProcessingMilliseconds": 295.988666,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 181526336,
+          "heapBytes": 68938176,
+          "workingSet": 248430592,
+          "frames": 3819,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1730,
+            "InitialRng1": 1730,
+            "InitialRng2": 3893532473,
+            "CurrentAiRng1": 1730,
+            "CurrentAiRng2": 1042613049,
+            "LocalSlot": 1,
+            "InputFrames": 3819,
+            "DecisionFrames": 3203,
+            "Travel": 347.00277001853533,
+            "SpawnedLives": 3,
+            "AltFrames": 63,
+            "Weapons": [
+              0,
+              1,
+              2
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-2": {
+          "transport": {
+            "PacketsReceived": 29031,
+            "PacketsSent": 3916,
+            "BytesReceived": 6344433,
+            "BytesSent": 729838,
+            "Invalid": 19,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 36,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 26014,
+            "ProcessingMilliseconds": 293.639852,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 189339880,
+          "heapBytes": 69903168,
+          "workingSet": 252149760,
+          "frames": 3825,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1731,
+            "InitialRng1": 1731,
+            "InitialRng2": 3895196998,
+            "CurrentAiRng1": 1731,
+            "CurrentAiRng2": 3912755864,
+            "LocalSlot": 2,
+            "InputFrames": 3825,
+            "DecisionFrames": 3053,
+            "Travel": 326.87262273437045,
+            "SpawnedLives": 4,
+            "AltFrames": 645,
+            "Weapons": [
+              0,
+              2,
+              4
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-3": {
+          "transport": {
+            "PacketsReceived": 29049,
+            "PacketsSent": 4001,
+            "BytesReceived": 6100737,
+            "BytesSent": 1003359,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 40,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 26152,
+            "ProcessingMilliseconds": 326.893833,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 181692400,
+          "heapBytes": 68690224,
+          "workingSet": 248627200,
+          "frames": 3831,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1732,
+            "InitialRng1": 1732,
+            "InitialRng2": 3896861523,
+            "CurrentAiRng1": 1732,
+            "CurrentAiRng2": 3220205092,
+            "LocalSlot": 3,
+            "InputFrames": 3831,
+            "DecisionFrames": 3411,
+            "Travel": 394.02606684865896,
+            "SpawnedLives": 2,
+            "AltFrames": 388,
+            "Weapons": [
+              0,
+              7,
+              2
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        }
+      },
+      "drainStatus": "PASS"
+    },
+    {
+      "name": "udp-8-impaired-7b932686",
+      "status": "INCOMPLETE",
+      "manifest": {
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "platform": "macOS-27.0-arm64-arm-64bit",
+        "assemblySha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "assemblyAfterSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+        "harnessSha256": {
+          "run-net2.py": "e5f02dcd3592c5f3ea42a9babf9c00ce4786de69841643a4248b92268d319b9f",
+          "net2_evidence.py": "84dd41fd6a0685f3ff935dbb04d1867ab05bf218cf4adca69defd1fb9f359f89",
+          "net_ai_evidence.py": "14a41263624bfc925666d23a72413e48ec3c3e3ca37863d7f9d822439a920a3f",
+          "net13_performance.py": "23ad8686337059893c0c1216ffd51924f13391b0e893f081b0c3cf1241c1aff2"
+        },
+        "settings": {
+          "build": "src/MphRead/bin/Release/net10.0",
+          "paths": "/private/tmp/prime-polish-netprofile/paths.txt",
+          "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+          "out": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-8-impaired-7b932686",
+          "dotnet": "/Users/jarrett/.dotnet/dotnet",
+          "protocol": 51,
+          "shot_proof": "shadow",
+          "players": 8,
+          "ai_net_client": 2,
+          "ai_seed": 1729,
+          "server_bot": false,
+          "seconds": 60.0,
+          "drain_seconds": 35.0,
+          "port": 27991,
+          "seed": 8128,
+          "profile": "lan",
+          "rtt_ms": 250,
+          "jitter_ms": 40,
+          "loss_percent": 5.0,
+          "reorder_percent": 5.0,
+          "duplicate_percent": 2.0,
+          "scenario": "ai",
+          "observer_delay": 0,
+          "rooms": "MP1 SANCTORUS",
+          "round_minutes": 30,
+          "rendered": false,
+          "server_operator": true,
+          "movement_validation_shadow": false,
+          "confirmed_impacts": false,
+          "bomb_visibility": false,
+          "bomb_triangle_fixture": false,
+          "server_performance": true,
+          "record": false,
+          "soak": false
+        },
+        "faultProfile": {
+          "rtt_ms": 250,
+          "jitter_ms": 40,
+          "loss_percent": 5.0,
+          "reorder_percent": 5.0,
+          "duplicate_percent": 2.0,
+          "scope": "each client, inbound and outbound",
+          "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+          "seedRule": "base seed + client launch index"
+        },
+        "elapsedSeconds": 72.670367291
+      },
+      "summary": {
+        "status": "FAIL",
+        "failures": [
+          "peer-3: exit=1 timeout=False",
+          "peer-6: unexplained shot tail/loss: 0 unaccepted, 2 uncommitted",
+          "peer-7: 3 authority shots not committed in this view",
+          "campaign drain: missing/malformed drain proof: 'peer-3'",
+          "malformed or missing AI evidence: Expecting value: line 1 column 1 (char 0)"
+        ],
+        "incomplete": [
+          "peer-3: missing/malformed evidence (Expecting value: line 1 column 1 (char 0))",
+          "not every independent process supplied valid evidence"
+        ],
+        "parity": {
+          "peer-0": {
+            "healthSamplesCompared": 4736,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 742,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 28,
+            "acceptedShots": 28,
+            "committedShots": 28,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 813,
+            "viewExpectedCommits": 577,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 813,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-1": {
+            "healthSamplesCompared": 4766,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 740,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 63,
+            "acceptedShots": 63,
+            "committedShots": 63,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 1,
+            "terminalRejectedViewKeys": [
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                219
+              ]
+            ],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 821,
+            "viewExpectedCommits": 587,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 821,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-2": {
+            "healthSamplesCompared": 4880,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 735,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 250,
+            "acceptedShots": 250,
+            "committedShots": 235,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 15,
+            "terminalRejectedOfferedKeys": [
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                228
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                229
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                230
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                231
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                232
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                233
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                234
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                235
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                236
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                237
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                238
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                239
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                240
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                241
+              ],
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                242
+              ]
+            ],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 814,
+            "viewExpectedCommits": 586,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 814,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-4": {
+            "healthSamplesCompared": 4856,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 727,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 92,
+            "acceptedShots": 92,
+            "committedShots": 92,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 819,
+            "viewExpectedCommits": 584,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 819,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-5": {
+            "healthSamplesCompared": 4720,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 732,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 87,
+            "acceptedShots": 87,
+            "committedShots": 87,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 793,
+            "viewExpectedCommits": 580,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 793,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-6": {
+            "healthSamplesCompared": 4568,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 734,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 53,
+            "acceptedShots": 53,
+            "committedShots": 47,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 4,
+            "authorityRetiredOfferedTurretKeys": [
+              [
+                639273633234814240,
+                2,
+                6,
+                1,
+                2,
+                19
+              ],
+              [
+                639273633234814240,
+                2,
+                6,
+                1,
+                2,
+                23
+              ],
+              [
+                639273633234814240,
+                2,
+                6,
+                1,
+                2,
+                24
+              ],
+              [
+                639273633234814240,
+                2,
+                6,
+                1,
+                2,
+                28
+              ]
+            ],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [
+              [
+                639273633234814240,
+                2,
+                6,
+                1,
+                2,
+                11
+              ],
+              [
+                639273633234814240,
+                2,
+                6,
+                1,
+                2,
+                12
+              ]
+            ],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 2,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {
+                "3:4": 2
+              },
+              "examples": [
+                {
+                  "key": [
+                    639273633234814240,
+                    2,
+                    6,
+                    1,
+                    2,
+                    11
+                  ],
+                  "arrivalRecorded": true,
+                  "phaseSkipRecorded": false,
+                  "authorityObservationStage": "accepted",
+                  "authorityObservedFrame": 742,
+                  "authorityFirstDeadFrame": null
+                },
+                {
+                  "key": [
+                    639273633234814240,
+                    2,
+                    6,
+                    1,
+                    2,
+                    12
+                  ],
+                  "arrivalRecorded": true,
+                  "phaseSkipRecorded": false,
+                  "authorityObservationStage": "accepted",
+                  "authorityObservedFrame": 770,
+                  "authorityFirstDeadFrame": null
+                }
+              ]
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 797,
+            "viewExpectedCommits": 563,
+            "viewMissingCommits": 0,
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 797,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-7": {
+            "healthSamplesCompared": 4768,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 727,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 35,
+            "acceptedShots": 35,
+            "committedShots": 35,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 1,
+            "terminalRejectedViewKeys": [
+              [
+                639273633234814240,
+                2,
+                2,
+                1,
+                6,
+                227
+              ]
+            ],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 3,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {
+                "0:0": 3
+              },
+              "examples": [
+                {
+                  "key": [
+                    639273633234814240,
+                    2,
+                    1,
+                    1,
+                    2,
+                    3
+                  ],
+                  "arrivalRecorded": false,
+                  "phaseSkipRecorded": false,
+                  "authorityObservationStage": "committed",
+                  "authorityObservedFrame": 118,
+                  "authorityFirstDeadFrame": 582
+                },
+                {
+                  "key": [
+                    639273633234814240,
+                    2,
+                    1,
+                    1,
+                    2,
+                    4
+                  ],
+                  "arrivalRecorded": false,
+                  "phaseSkipRecorded": false,
+                  "authorityObservationStage": "committed",
+                  "authorityObservedFrame": 128,
+                  "authorityFirstDeadFrame": 582
+                },
+                {
+                  "key": [
+                    639273633234814240,
+                    2,
+                    4,
+                    1,
+                    2,
+                    1
+                  ],
+                  "arrivalRecorded": false,
+                  "phaseSkipRecorded": false,
+                  "authorityObservationStage": "committed",
+                  "authorityObservedFrame": 131,
+                  "authorityFirstDeadFrame": 546
+                }
+              ]
+            },
+            "matchingSemanticFacts": 803,
+            "viewExpectedCommits": 585,
+            "viewMissingCommits": 3,
+            "viewMissingKeys": [
+              [
+                639273633234814240,
+                2,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                639273633234814240,
+                2,
+                1,
+                1,
+                2,
+                4
+              ],
+              [
+                639273633234814240,
+                2,
+                4,
+                1,
+                2,
+                1
+              ]
+            ],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 803,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          }
+        }
+      },
+      "ai": {
+        "status": "FAIL",
+        "failures": [
+          "malformed or missing AI evidence: Expecting value: line 1 column 1 (char 0)"
+        ],
+        "incomplete": [],
+        "clients": [
+          {
+            "name": "peer-0",
+            "slot": 0,
+            "inputFrames": 3964,
+            "decisionFrames": 2641,
+            "travel": 283.96718288375996,
+            "offeredShots": 28,
+            "declaredClaims": 14,
+            "nativePickupConsumptions": 4,
+            "spawnedLives": 5,
+            "altFrames": 130,
+            "weapons": [
+              0,
+              2
+            ],
+            "lifecycleEvidence": {
+              "spawnedLives": {
+                "observed": 5,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+              },
+              "altForms": {
+                "observed": 130,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision frames where the local player is in an alternative form"
+              },
+              "deathEvents": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "Sampled States Hp/Deaths are snapshots, not an exact discrete death event ledger."
+              },
+              "respawnEvents": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "SpawnedLives includes initial life and observed LifeId changes; it does not distinguish respawns from other lifecycle changes."
+              },
+              "altTransitions": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+              }
+            }
+          },
+          {
+            "name": "peer-1",
+            "slot": 1,
+            "inputFrames": 4032,
+            "decisionFrames": 2861,
+            "travel": 257.08616804233316,
+            "offeredShots": 63,
+            "declaredClaims": 15,
+            "nativePickupConsumptions": 0,
+            "spawnedLives": 5,
+            "altFrames": 0,
+            "weapons": [
+              0,
+              2
+            ],
+            "lifecycleEvidence": {
+              "spawnedLives": {
+                "observed": 5,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+              },
+              "altForms": {
+                "observed": 0,
+                "status": "NOT_RUN",
+                "countingUnit": "AI decision frames where the local player is in an alternative form"
+              },
+              "deathEvents": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "Sampled States Hp/Deaths are snapshots, not an exact discrete death event ledger."
+              },
+              "respawnEvents": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "SpawnedLives includes initial life and observed LifeId changes; it does not distinguish respawns from other lifecycle changes."
+              },
+              "altTransitions": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+              }
+            }
+          },
+          {
+            "name": "peer-2",
+            "slot": 2,
+            "inputFrames": 4017,
+            "decisionFrames": 2684,
+            "travel": 290.9487988331821,
+            "offeredShots": 250,
+            "declaredClaims": 47,
+            "nativePickupConsumptions": 3,
+            "spawnedLives": 6,
+            "altFrames": 69,
+            "weapons": [
+              0,
+              2,
+              7
+            ],
+            "lifecycleEvidence": {
+              "spawnedLives": {
+                "observed": 6,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+              },
+              "altForms": {
+                "observed": 69,
+                "status": "OBSERVED",
+                "countingUnit": "AI decision frames where the local player is in an alternative form"
+              },
+              "deathEvents": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "Sampled States Hp/Deaths are snapshots, not an exact discrete death event ledger."
+              },
+              "respawnEvents": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "SpawnedLives includes initial life and observed LifeId changes; it does not distinguish respawns from other lifecycle changes."
+              },
+              "altTransitions": {
+                "observed": null,
+                "status": "NOT_RUN",
+                "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+              }
+            }
+          }
+        ],
+        "metrics": {},
+        "scope": "Each campaign is one bounded activity phase; native pickup consumption is not an admitted grant. Claim receipts include retries. Component payments exclude bomb/continuous paths. Paid AI source shot keys count distinct source shots, not component payments; canonical respawns require a joined preceding death. Lifecycle evidence is descriptive and does not add an activity gate; OBSERVED is not lifecycle parity PASS. Seeded gameplay RNG does not make UDP scheduling deterministic."
+      },
+      "runnerResult": {
+        "name": "udp-8-impaired-7b932686",
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "command": [
+          "python3",
+          "tools/nettest/run-net2.py",
+          "--build",
+          "src/MphRead/bin/Release/net10.0",
+          "--paths",
+          "/private/tmp/prime-polish-netprofile/paths.txt",
+          "--source",
+          "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+          "--out",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-8-impaired-7b932686",
+          "--dotnet",
+          "/Users/jarrett/.dotnet/dotnet",
+          "--seconds",
+          "60",
+          "--drain-seconds",
+          "35",
+          "--profile",
+          "lan",
+          "--ai-net-client",
+          "2",
+          "--ai-seed",
+          "1729",
+          "--server-operator",
+          "--players",
+          "8",
+          "--rtt-ms",
+          "250",
+          "--jitter-ms",
+          "40",
+          "--loss-percent",
+          "5",
+          "--duplicate-percent",
+          "2",
+          "--reorder-percent",
+          "5",
+          "--server-performance"
+        ],
+        "exit": 1,
+        "seconds": 77.320459167,
+        "removedDuplicateStagingSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4"
+      },
+      "processMetrics": {
+        "server": {
+          "transport": {
+            "PacketsReceived": 32570,
+            "PacketsSent": 362916,
+            "BytesReceived": 6254863,
+            "BytesSent": 95161129,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 10,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 31756,
+            "ProcessingMilliseconds": 2321.419164,
+            "SocketErrors": 0
+          },
+          "serverSegments": [
+            {
+              "Room": "MP1 SANCTORUS",
+              "AuthorityEpoch": 639273633234814240,
+              "CurrentMatchId": 2,
+              "Frames": 4160,
+              "StepFailures": 0,
+              "DroppedSteps": 6,
+              "Stalls": 1,
+              "StepAllocatedBytes": 157686632,
+              "MeanMs": 0.5199332692307701,
+              "P50Ms": 0.36,
+              "P95Ms": 0.99,
+              "P99Ms": 1.53,
+              "P999Ms": 9.3,
+              "WorstMs": 195.3572
+            }
+          ],
+          "allocatedBytes": 9894024536,
+          "heapBytes": 98405968,
+          "workingSet": 276660224,
+          "frames": 4160,
+          "campaignClaims": {
+            "Received": 287,
+            "Applied": 14,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": false,
+            "Level": 0,
+            "Seed": 0,
+            "InitialRng1": 0,
+            "InitialRng2": 0,
+            "CurrentAiRng1": 0,
+            "CurrentAiRng2": 0,
+            "LocalSlot": -1,
+            "InputFrames": 0,
+            "DecisionFrames": 0,
+            "Travel": 0,
+            "SpawnedLives": 0,
+            "AltFrames": 0,
+            "Weapons": [],
+            "IsBot": null,
+            "RosterBot": null,
+            "ActivityPassed": true
+          }
+        },
+        "peer-0": {
+          "transport": {
+            "PacketsReceived": 45300,
+            "PacketsSent": 4076,
+            "BytesReceived": 11987210,
+            "BytesSent": 689171,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 43,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 40615,
+            "ProcessingMilliseconds": 372.889063,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 234718192,
+          "heapBytes": 76799824,
+          "workingSet": 251101184,
+          "frames": 3964,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1729,
+            "InitialRng1": 1729,
+            "InitialRng2": 3891867948,
+            "CurrentAiRng1": 1729,
+            "CurrentAiRng2": 4095990360,
+            "LocalSlot": 0,
+            "InputFrames": 3964,
+            "DecisionFrames": 2641,
+            "Travel": 283.96718288375996,
+            "SpawnedLives": 5,
+            "AltFrames": 130,
+            "Weapons": [
+              0,
+              2
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-1": {
+          "transport": {
+            "PacketsReceived": 45415,
+            "PacketsSent": 4109,
+            "BytesReceived": 11884059,
+            "BytesSent": 781618,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 50,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 40860,
+            "ProcessingMilliseconds": 354.884753,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 236246368,
+          "heapBytes": 71220608,
+          "workingSet": 259883008,
+          "frames": 4032,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1730,
+            "InitialRng1": 1730,
+            "InitialRng2": 3893532473,
+            "CurrentAiRng1": 1730,
+            "CurrentAiRng2": 3882254532,
+            "LocalSlot": 1,
+            "InputFrames": 4032,
+            "DecisionFrames": 2861,
+            "Travel": 257.08616804233316,
+            "SpawnedLives": 5,
+            "AltFrames": 0,
+            "Weapons": [
+              0,
+              2
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-2": {
+          "transport": {
+            "PacketsReceived": 45294,
+            "PacketsSent": 4158,
+            "BytesReceived": 11800362,
+            "BytesSent": 878541,
+            "Invalid": 10,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 44,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 40582,
+            "ProcessingMilliseconds": 358.04846,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 235404688,
+          "heapBytes": 77044408,
+          "workingSet": 253607936,
+          "frames": 4017,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1731,
+            "InitialRng1": 1731,
+            "InitialRng2": 3895196998,
+            "CurrentAiRng1": 1731,
+            "CurrentAiRng2": 3719465884,
+            "LocalSlot": 2,
+            "InputFrames": 4017,
+            "DecisionFrames": 2684,
+            "Travel": 290.9487988331821,
+            "SpawnedLives": 6,
+            "AltFrames": 69,
+            "Weapons": [
+              0,
+              2,
+              7
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-4": {
+          "transport": {
+            "PacketsReceived": 45274,
+            "PacketsSent": 4104,
+            "BytesReceived": 11789455,
+            "BytesSent": 844863,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 45,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 40681,
+            "ProcessingMilliseconds": 353.761749,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 235500536,
+          "heapBytes": 70225048,
+          "workingSet": 253460480,
+          "frames": 3996,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1733,
+            "InitialRng1": 1733,
+            "InitialRng2": 3898526048,
+            "CurrentAiRng1": 1733,
+            "CurrentAiRng2": 426694608,
+            "LocalSlot": 4,
+            "InputFrames": 3996,
+            "DecisionFrames": 2914,
+            "Travel": 334.0858339679544,
+            "SpawnedLives": 4,
+            "AltFrames": 0,
+            "Weapons": [
+              0,
+              2
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-5": {
+          "transport": {
+            "PacketsReceived": 45126,
+            "PacketsSent": 4008,
+            "BytesReceived": 11814854,
+            "BytesSent": 816155,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 63,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 40513,
+            "ProcessingMilliseconds": 333.542817,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 234159360,
+          "heapBytes": 73080624,
+          "workingSet": 253493248,
+          "frames": 3921,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1734,
+            "InitialRng1": 1734,
+            "InitialRng2": 3900190573,
+            "CurrentAiRng1": 1734,
+            "CurrentAiRng2": 4172962373,
+            "LocalSlot": 5,
+            "InputFrames": 3921,
+            "DecisionFrames": 2985,
+            "Travel": 333.23775346192997,
+            "SpawnedLives": 4,
+            "AltFrames": 319,
+            "Weapons": [
+              0,
+              2,
+              7,
+              6
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-6": {
+          "transport": {
+            "PacketsReceived": 45007,
+            "PacketsSent": 3994,
+            "BytesReceived": 11841695,
+            "BytesSent": 735466,
+            "Invalid": 0,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 57,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 40460,
+            "ProcessingMilliseconds": 336.395912,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 234500120,
+          "heapBytes": 72923376,
+          "workingSet": 258916352,
+          "frames": 3897,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1735,
+            "InitialRng1": 1735,
+            "InitialRng2": 3901855098,
+            "CurrentAiRng1": 1735,
+            "CurrentAiRng2": 3695688358,
+            "LocalSlot": 6,
+            "InputFrames": 3897,
+            "DecisionFrames": 3334,
+            "Travel": 345.5734732648016,
+            "SpawnedLives": 2,
+            "AltFrames": 723,
+            "Weapons": [
+              0,
+              2,
+              4
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        },
+        "peer-7": {
+          "transport": {
+            "PacketsReceived": 44909,
+            "PacketsSent": 3960,
+            "BytesReceived": 11887935,
+            "BytesSent": 654662,
+            "Invalid": 29,
+            "Oversized": 0,
+            "QueueCurrent": 0,
+            "QueueHighWater": 68,
+            "QueueDrops": 0,
+            "Coalesced": 0,
+            "Processed": 40332,
+            "ProcessingMilliseconds": 319.962845,
+            "SocketErrors": 0
+          },
+          "serverSegments": [],
+          "allocatedBytes": 232770400,
+          "heapBytes": 71374560,
+          "workingSet": 258654208,
+          "frames": 3909,
+          "campaignClaims": {
+            "Received": 0,
+            "Applied": 0,
+            "CountingUnit": "Process-lifetime authority claim entries received including retries; applied claim decisions"
+          },
+          "aiClient": {
+            "Enabled": true,
+            "Level": 2,
+            "Seed": 1736,
+            "InitialRng1": 1736,
+            "InitialRng2": 3903519623,
+            "CurrentAiRng1": 1736,
+            "CurrentAiRng2": 1621420051,
+            "LocalSlot": 7,
+            "InputFrames": 3909,
+            "DecisionFrames": 3369,
+            "Travel": 411.40524394763634,
+            "SpawnedLives": 2,
+            "AltFrames": 1236,
+            "Weapons": [
+              0,
+              2,
+              7
+            ],
+            "IsBot": false,
+            "RosterBot": false,
+            "ActivityPassed": true
+          }
+        }
+      },
+      "drainStatus": "PASS"
+    }
+  ],
+  "contracts": {
+    "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+    "engineSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+    "fixtureSha256": "bebc0dfe385d1c9b5e646c06ab0ca55699fea71d9ec88da171e2b40fa75b7300",
+    "environment": {
+      "PROJECT_PRIME_USER_DATA": "/private/tmp/prime-polish-netprofile",
+      "ALSOFT_DRIVERS": "null"
+    },
+    "results": [
+      {
+        "name": "campaign-claims",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--campaign-claims"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.145445458,
+        "logSha256": "0b1c12a62f8008bfd3160bbd89269db148f088a89231351bf34d43847fb11722"
+      },
+      {
+        "name": "replay-form-history",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--replay-form-history"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.06894633399999997,
+        "logSha256": "2acb76c376cf70deb089ca8cb9bdfffcd5d60021b07699a2b6e1997f92485c57"
+      },
+      {
+        "name": "ai-driver",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--ai-client-driver"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.08779545799999999,
+        "logSha256": "4c60f96b6e9898c0f634386f14105585012533196d042ff10366a8c4b075a74c"
+      },
+      {
+        "name": "bot-ai",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--bot-ai"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.045991167,
+        "logSha256": "88d4139990f907b0f2a49a2e968e819cae3ed72bc7d2096b4d8afab47d107d99"
+      },
+      {
+        "name": "input-edges",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--input-edges"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.03869504200000001,
+        "logSha256": "04a8dc7b96a21e79ec59feffba5707bd2759f7e3dd7a36f6cde87ceab4cc866d"
+      },
+      {
+        "name": "muzzle",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--sylux-muzzle-scene",
+          "/private/tmp/prime-polish-netprofile"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.715751458,
+        "logSha256": "f30bbf5c41992701746948f247d8a93940cb5efc4dd888b05082f65ac7eb0a67"
+      },
+      {
+        "name": "continuous",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--continuous-combat-scene",
+          "/private/tmp/prime-polish-netprofile"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 1.1941656250000001,
+        "logSha256": "5e8d2c378425163a409f0115bef7f9d00d0664dae6c9601f20ec4ab2ff7a77f3"
+      },
+      {
+        "name": "compact",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--compact-intents"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.35494045799999974,
+        "logSha256": "0fd8ae4216b2f3a4782cb4920a8bfd7fb382c22afa6d8f6c2bfab497dc4208e5"
+      },
+      {
+        "name": "shot-lifecycle",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--shot-lifecycle"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.04054933400000005,
+        "logSha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3"
+      },
+      {
+        "name": "source-journal",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--shot-source-journal"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.21728291599999983,
+        "logSha256": "093f99ac93fbeb8a5d10cd1f6c4c8b18262f02e1661e3a3d0fa4d094e992ba24"
+      },
+      {
+        "name": "queue-budget",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--queue-budget"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.307333458,
+        "logSha256": "15dfab687c9f45705140d159147c19f6276d675c13ca58c02498af7b00f1ee95"
+      },
+      {
+        "name": "replay-format",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-replayformatcheck",
+          "-mapdir",
+          "/private/tmp/prime-polish-netprofile/empty-maps",
+          "-noupdate",
+          "-noautoupdate"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.49879029100000016,
+        "logSha256": "3dfbfd2247f3a9a2e8254f02f1f82f98f84d3d34c0e62b3520970fb59e32505a"
+      }
+    ],
+    "engineSha256After": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+    "fixtureSha256After": "bebc0dfe385d1c9b5e646c06ab0ca55699fea71d9ec88da171e2b40fa75b7300",
+    "binaryHashesUnchanged": true
+  },
+  "python": {
+    "raw": {
+      "path": "artifacts/net21-g1/python-suite-7b932686-g0manifest-20261012.log",
+      "sha256": "7fc18a5416a488a292d1f82c3fa4d277ae4552a70dae0a9c0b84bbe8d77d956a",
+      "bytes": 500
+    },
+    "sourceBinding": "explicit immutable-source test invocation; filename retains source prefix",
+    "tests": 388,
+    "status": "PASS"
+  },
+  "ci": {
+    "headRefOid": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:50:20Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619033930",
+        "name": "no game assets",
+        "startedAt": "2026-10-12T00:49:57Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:50:15Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189511845/job/114619032754",
+        "name": "content-free",
+        "startedAt": "2026-10-12T00:49:56Z",
+        "status": "COMPLETED",
+        "workflowName": "semantic event foundation"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:50:18Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189508503/job/114619022653",
+        "name": "content-free",
+        "startedAt": "2026-10-12T00:49:54Z",
+        "status": "COMPLETED",
+        "workflowName": "semantic event foundation"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:50:32Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619033811",
+        "name": "Windows/Linux release updater and rollback (ubuntu-latest)",
+        "startedAt": "2026-10-12T00:49:57Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:51:06Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619033860",
+        "name": "Windows/Linux release updater and rollback (windows-latest)",
+        "startedAt": "2026-10-12T00:49:57Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:51:59Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619033925",
+        "name": "dedicated server compile gate",
+        "startedAt": "2026-10-12T00:49:57Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:51:56Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619033912",
+        "name": "HD character model contract",
+        "startedAt": "2026-10-12T00:49:57Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:51:47Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619033960",
+        "name": "content-free fidelity oracle (F0/F1)",
+        "startedAt": "2026-10-12T00:49:57Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:52:31Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619034091",
+        "name": "OpenGL compatibility and retained graph smoke",
+        "startedAt": "2026-10-12T00:49:57Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:50:22Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619033771",
+        "name": "Android frame pacing and governor policy",
+        "startedAt": "2026-10-12T00:49:57Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:52:08Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619033877",
+        "name": "Desktop frame pacing policy",
+        "startedAt": "2026-10-12T00:49:57Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:52:28Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619033937",
+        "name": "renderer state, lifecycle and low-latency policy",
+        "startedAt": "2026-10-12T00:49:57Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:54:08Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619033908",
+        "name": "input regressions (windows-latest)",
+        "startedAt": "2026-10-12T00:49:57Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:52:26Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619033933",
+        "name": "input regressions (macos-latest)",
+        "startedAt": "2026-10-12T00:50:00Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:56:25Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619034007",
+        "name": "input regressions (macos-15-intel)",
+        "startedAt": "2026-10-12T00:49:59Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:54:09Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619121132",
+        "name": "enhanced hunter regressions",
+        "startedAt": "2026-10-12T00:50:23Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:54:02Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619121123",
+        "name": "map editor regressions (ubuntu-latest)",
+        "startedAt": "2026-10-12T00:50:22Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:55:33Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619121213",
+        "name": "map editor regressions (windows-latest)",
+        "startedAt": "2026-10-12T00:50:23Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:55:04Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619121170",
+        "name": "map editor regressions (macos-latest)",
+        "startedAt": "2026-10-12T00:50:26Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:54:48Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619121188",
+        "name": "win-x64",
+        "startedAt": "2026-10-12T00:50:23Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T01:00:36Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619121201",
+        "name": "linux-x64",
+        "startedAt": "2026-10-12T00:50:22Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:55:13Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619121135",
+        "name": "linux-x64-server",
+        "startedAt": "2026-10-12T00:50:22Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:55:19Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619121191",
+        "name": "linux-arm64",
+        "startedAt": "2026-10-12T00:50:22Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:58:26Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619121107",
+        "name": "macOS osx-arm64",
+        "startedAt": "2026-10-12T00:50:29Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T01:04:31Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619121140",
+        "name": "macOS osx-x64",
+        "startedAt": "2026-10-12T00:50:24Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T01:02:29Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619121169",
+        "name": "android",
+        "startedAt": "2026-10-12T00:50:22Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T00:54:52Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38189512033/job/114619121128",
+        "name": "win-x64 dedicated server",
+        "startedAt": "2026-10-12T00:50:23Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      }
+    ]
+  },
+  "ciRequirement": {
+    "sourceSha": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+    "expectedCheckCount": 27,
+    "requiredStatus": "COMPLETED",
+    "requiredConclusion": "SUCCESS",
+    "skippedOrOmittedAllowed": false
+  },
+  "replays": {
+    "acceptance-lan-7b932686": [
+      {
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "engineSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "unchanged": true,
+        "demoSha256": "0959f5fc275e2ed3b6b3920e9d848de254c19cf7ad59de133608aa497332c4c2",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-replaydeterminism",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-bot-lan-7b932686/peer-0/exports/_demos/MP1 SANCTORUS_2026-10-11_19-50-02-768_d00748ed4f484e0db8d4b5901a1ba202.ppdemo",
+          "-mapdir",
+          "/private/tmp/prime-polish-netprofile/empty-maps",
+          "-noupdate",
+          "-noautoupdate"
+        ],
+        "exit": 0,
+        "seconds": 13.533218625,
+        "logSha256": "9e2516b4aec9b0ea5e7f229c6a2fce279bdbc955162a4f8bee03e601cabed01e"
+      },
+      {
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "engineSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "unchanged": true,
+        "demoSha256": "0959f5fc275e2ed3b6b3920e9d848de254c19cf7ad59de133608aa497332c4c2",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-replayreplicacheck",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-bot-lan-7b932686/peer-0/exports/_demos/MP1 SANCTORUS_2026-10-11_19-50-02-768_d00748ed4f484e0db8d4b5901a1ba202.ppdemo",
+          "-mapdir",
+          "/private/tmp/prime-polish-netprofile/empty-maps",
+          "-noupdate",
+          "-noautoupdate"
+        ],
+        "exit": 0,
+        "seconds": 7.248930333000001,
+        "logSha256": "958d4cebcdc0ca42ea9e0172e06d5410e51e78501be7cb3462b2a622e63f45ea"
+      },
+      {
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "engineSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "unchanged": true,
+        "demoSha256": "3a25c4730c58796126b3d969d1fa52131e6bab98080730e02a8606de5b869fdb",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-replaydeterminism",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-bot-lan-7b932686/peer-1/exports/_demos/MP1 SANCTORUS_2026-10-11_19-50-02-759_d6175567d18a41deb2167975aab8b3a4.ppdemo",
+          "-mapdir",
+          "/private/tmp/prime-polish-netprofile/empty-maps",
+          "-noupdate",
+          "-noautoupdate"
+        ],
+        "exit": 0,
+        "seconds": 13.501793375000002,
+        "logSha256": "11c8fb7237e0bf2306c76695c98633592e3e5a5e609567db04050cdda27d8066"
+      },
+      {
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "engineSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "unchanged": true,
+        "demoSha256": "3a25c4730c58796126b3d969d1fa52131e6bab98080730e02a8606de5b869fdb",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-replayreplicacheck",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-bot-lan-7b932686/peer-1/exports/_demos/MP1 SANCTORUS_2026-10-11_19-50-02-759_d6175567d18a41deb2167975aab8b3a4.ppdemo",
+          "-mapdir",
+          "/private/tmp/prime-polish-netprofile/empty-maps",
+          "-noupdate",
+          "-noautoupdate"
+        ],
+        "exit": 0,
+        "seconds": 7.244448667,
+        "logSha256": "cddc37287bf4a9ece6a994cd7e41268145b60a93eecc5937548f1f8db4e90bc9"
+      }
+    ],
+    "acceptance-rendered-7b932686": [
+      {
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "engineSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "unchanged": true,
+        "demoSha256": "e38bfff95b76469035f184031c2807baea91507fedb409a554e177de87723220",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-replaydeterminism",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-bot-rendered-7b932686/peer-0/exports/_demos/MP1 SANCTORUS_2026-10-11_19-51-24-949_98fb367768454f0fa0632a3e5910210c.ppdemo",
+          "-mapdir",
+          "/private/tmp/prime-polish-netprofile/empty-maps",
+          "-noupdate",
+          "-noautoupdate"
+        ],
+        "exit": 0,
+        "seconds": 13.907555958,
+        "logSha256": "4ec9202c8ce14a465d3013bcfe6871a29adacecc2a7ad0156da90445321dc9a0"
+      },
+      {
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "engineSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "unchanged": true,
+        "demoSha256": "e38bfff95b76469035f184031c2807baea91507fedb409a554e177de87723220",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-replayreplicacheck",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-bot-rendered-7b932686/peer-0/exports/_demos/MP1 SANCTORUS_2026-10-11_19-51-24-949_98fb367768454f0fa0632a3e5910210c.ppdemo",
+          "-mapdir",
+          "/private/tmp/prime-polish-netprofile/empty-maps",
+          "-noupdate",
+          "-noautoupdate"
+        ],
+        "exit": 0,
+        "seconds": 8.172419875,
+        "logSha256": "5b30d1412c21720b6a07e503ed76ecc808135a5975ac052067a593e21bfc612e"
+      },
+      {
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "engineSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "unchanged": true,
+        "demoSha256": "3b967e57912ad2af53b367b8940db3df211f901ce36e128173e2827f5c259457",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-replaydeterminism",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-bot-rendered-7b932686/peer-1/exports/_demos/MP1 SANCTORUS_2026-10-11_19-51-24-947_2ec3666e4fa34dc4b1daa970fbacc753.ppdemo",
+          "-mapdir",
+          "/private/tmp/prime-polish-netprofile/empty-maps",
+          "-noupdate",
+          "-noautoupdate"
+        ],
+        "exit": 0,
+        "seconds": 15.102615791000002,
+        "logSha256": "be55e8b84886270938116d67b8e40b843a77ee470e0c2e37aa0f1c1224b7cae9"
+      },
+      {
+        "source": "7b93268638c35a70a0fdaeb3817c0c392b8c4215",
+        "engineSha256": "a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4",
+        "unchanged": true,
+        "demoSha256": "3b967e57912ad2af53b367b8940db3df211f901ce36e128173e2827f5c259457",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-replayreplicacheck",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-2-bot-rendered-7b932686/peer-1/exports/_demos/MP1 SANCTORUS_2026-10-11_19-51-24-947_2ec3666e4fa34dc4b1daa970fbacc753.ppdemo",
+          "-mapdir",
+          "/private/tmp/prime-polish-netprofile/empty-maps",
+          "-noupdate",
+          "-noautoupdate"
+        ],
+        "exit": 0,
+        "seconds": 8.284069207999998,
+        "logSha256": "28ae72547054f588aca52f1f0f39b2033c234b03e0106359afb0879698019198"
+      }
+    ]
+  },
+  "historical": {
+    "source": "8ddfc4b8374547c0856a3dade9a6f1caf48e437e",
+    "status": "INCOMPLETE",
+    "reason": "Authority receipt snapshot reset and original replay continuation failures; original raw artifacts retained in rawEvidence."
+  },
+  "rawEvidence": [
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-7b932686/manifest.json",
+      "sha256": "f07d1b482ac6a661a0642b9ef0731c44e64bd8939ac8243f176f33a9df5e4809",
+      "bytes": 90937
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-7b932686/summary.json",
+      "sha256": "7e4b6877d990ec7eb4cd34513b3ab8f8e6b45a237a5715c6bfd73ce420f64331",
+      "bytes": 11748
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-7b932686/ai-summary.json",
+      "sha256": "a54f082ab70dd05fec1454884c99f8b9f3adefc5ae2fadd64d6287f5367b2950",
+      "bytes": 3832
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-7b932686-result.json",
+      "sha256": "55757a7e9bb56e002c1c693d55bebec929584e8d4a4f4a1f9fea712089438030",
+      "bytes": 906
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-7b932686-runner.log",
+      "sha256": "5d04ddef7fb109953a85a7d50685f76373a1e2b545b26cdfe5211b8888c735c1",
+      "bytes": 163
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-7b932686/server.json",
+      "sha256": "db403bc70475e9f6fdf1bf038d7ce280e7fe5062994ebb671638b4a161459b48",
+      "bytes": 8138248
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-7b932686/server.log",
+      "sha256": "2c41a05427a65a71cef2b7bf5b71a3119ad82718be3b084494868be2a20da811",
+      "bytes": 145157
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-7b932686/peer-0.json",
+      "sha256": "9a1fa624444eb4d608b25af38ca3dc509005c607f4e26989ae96a2b2b3651559",
+      "bytes": 4325606
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-7b932686/peer-0.log",
+      "sha256": "0eb0cdcac7209818a2b95adf0dc19e585ce71041fb8e9cfbae0eabc1e62f2640",
+      "bytes": 4231
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-7b932686/peer-1.json",
+      "sha256": "f223ffe095b4caf82977eccf0711926a2a7f7a561cf72b4ba564072a9b07c731",
+      "bytes": 4297004
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-7b932686/peer-1.log",
+      "sha256": "54064a59c06d858dc878c743d68e1a4592f4d3a2c40377a65ce750fb10b234ca",
+      "bytes": 4311
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-rendered-7b932686/manifest.json",
+      "sha256": "b208bf035daf30e686bbb4a596f86bd64a3e1cbe93c43f2c33d30909bc085d31",
+      "bytes": 159960
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-rendered-7b932686/summary.json",
+      "sha256": "a93ad4fb0232819bbe470624b6a8ab382917bf9f8e10e9c52a17159d727bc986",
+      "bytes": 11773
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-rendered-7b932686/ai-summary.json",
+      "sha256": "84b9a207fc969479eabf1a8d09a61cf0f4f6bb3c3eebd9bc4de52dec9b3dfa77",
+      "bytes": 3846
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-rendered-7b932686-result.json",
+      "sha256": "ec89087d7f54553bff6aebca063b01e8624985d57c911f94847705aa8bfac07c",
+      "bytes": 957
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-rendered-7b932686-runner.log",
+      "sha256": "3be09a1957d50c41818310049e6ce665c6147984015a4d2e436963a2c8d6a2dc",
+      "bytes": 168
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-rendered-7b932686/server.json",
+      "sha256": "15cec1cc620e98f711fc819f558f458debf48850de29ed28d101ccf86cc88fad",
+      "bytes": 8768063
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-rendered-7b932686/server.log",
+      "sha256": "d513b4674e6c47499e4f962513ea3897d9b0c5ec807129a2e95099559a423f06",
+      "bytes": 152117
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-rendered-7b932686/peer-0.json",
+      "sha256": "8726b091911e949b6c416dc434c6c00ad35e4200d3bbb3d974a52c3b0a0e195b",
+      "bytes": 4985536
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-rendered-7b932686/peer-0.log",
+      "sha256": "e5acf9baa42a5cc5166d7090cc20f8fa13b2b7f7a7bbe69a98b1e9320598f70a",
+      "bytes": 7090
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-rendered-7b932686/peer-1.json",
+      "sha256": "d6ec346d0eda76e47cc21a1ad4aacb9b69c13fbfbe31464043317f638b8195d9",
+      "bytes": 5007178
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-rendered-7b932686/peer-1.log",
+      "sha256": "e8fbc2d7bc479d431d450f0e41415474d52644040eb9ea3db50b4501fe8aecb2",
+      "bytes": 7302
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-impaired-7b932686/manifest.json",
+      "sha256": "7faebb8ae3b22332c82065f4a12e9d03ed6498e0c58a76eb8d196313798a3417",
+      "bytes": 29527
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-impaired-7b932686/summary.json",
+      "sha256": "e7634c7fc279db113f5aa3dfe79e7166ba320d411cbd5f8678e1d467cf0920f5",
+      "bytes": 11709
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-impaired-7b932686/ai-summary.json",
+      "sha256": "135acd3532a9e373b61adbd159aa9b27b5b5ecf9a5dac16626c13000995d641b",
+      "bytes": 3821
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-impaired-7b932686-result.json",
+      "sha256": "81a2c86a270048c0522194cc1508c4341e0f00fdbbb1931141fe9f001f64d937",
+      "bytes": 1052
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-impaired-7b932686-runner.log",
+      "sha256": "97917fb613298226ccae61ac5f5b15244c83e63575fdc392fd6913e8b0365a86",
+      "bytes": 164
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-impaired-7b932686/server.json",
+      "sha256": "60177516b5712a830c2ba7a54cff7083cc4f95a1f096f33227422334dfa02b05",
+      "bytes": 6017491
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-impaired-7b932686/server.log",
+      "sha256": "7257e61545c1ee91302fdfebb2ea45aad22c79891249e62f24f0f5e2bd8342c6",
+      "bytes": 142476
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-impaired-7b932686/peer-0.json",
+      "sha256": "e39221cdb98145a85659eb88dad07cd9dbce8fd325e6307e30f0fa8776d49e11",
+      "bytes": 2404267
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-impaired-7b932686/peer-0.log",
+      "sha256": "e7c031f4432c8e95a85a896a5300bec1eafc23e4c4457fc8440f3e28dee5331b",
+      "bytes": 3848
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-impaired-7b932686/peer-1.json",
+      "sha256": "5b219f331d863233acfaba199dc87deb9717cd6ac6ec5e3fa0bb32d7f8f93b7e",
+      "bytes": 2428560
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-impaired-7b932686/peer-1.log",
+      "sha256": "f86c31a7e5df8a803dd7cc14d3ffe790223762c64452f31bd3e3b3a46e738939",
+      "bytes": 3814
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686/manifest.json",
+      "sha256": "cddfe20437d49a2978c3269eccf455c047329181f1734c60161f8b9df53408ab",
+      "bytes": 342399
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686/summary.json",
+      "sha256": "0246733551c58ddfe029e86942e87438d1a33198c29ea2da6203ec46da41abb9",
+      "bytes": 19852
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686/ai-summary.json",
+      "sha256": "894604d5c20894441d673f519e2bab9ba6f6f0dfd1b6671a30c3bfdd2f652ec4",
+      "bytes": 6511
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686-result.json",
+      "sha256": "227a48367b1481a934bccbc82d10ab22054b3fc575a01e1c319f483d6677b593",
+      "bytes": 1052
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686-runner.log",
+      "sha256": "b9700399abb3013260317fef685bae9ab25341a79cecb4b581762cd2cdf639ea",
+      "bytes": 164
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686/server.json",
+      "sha256": "4c1683cdaab7aef507ee94ad1b7b582844a4adc5a7c6e9bb6024c712313e1a19",
+      "bytes": 11854947
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686/server.log",
+      "sha256": "a75c70dbce5ef67a44fe63653dcb862701b73622bf2d01117539bbe99308586a",
+      "bytes": 164468
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686/peer-0.json",
+      "sha256": "eb5d5e6c8c9f71b51a8a5d862af8338e8979e4a493b03fb13f249865087021ce",
+      "bytes": 4200905
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686/peer-0.log",
+      "sha256": "64fd024c9fb2502ffab473996c3e18004ceb228dbc8cf2dfd8f97edcb74d8dc2",
+      "bytes": 4048
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686/peer-1.json",
+      "sha256": "9fca19b43b6936fc61b9d14c2e5ab6d6fdbb4a7d76f4854aad3a30f8b3fea6de",
+      "bytes": 4153542
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686/peer-1.log",
+      "sha256": "c918503893014cebcf06476cce170c5a091bfaa24ee6830ed8ed14cf2b2e0d19",
+      "bytes": 4075
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686/peer-2.json",
+      "sha256": "3946e172ded58ce9e6415ca3a013f4ff3a3e7b056768278ff8047dac1a9a76a0",
+      "bytes": 4209395
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686/peer-2.log",
+      "sha256": "45c41d30af2822280a87f2edfa1da528daae89ad07b2a1e0eed8cc7159fc9332",
+      "bytes": 4003
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686/peer-3.json",
+      "sha256": "d00ffcb63ea2a9dac96cb435b0c1eec6c65ec00d360e349c5131414caa1451cf",
+      "bytes": 4172342
+    },
+    {
+      "path": "artifacts/net21-g1/udp-4-impaired-7b932686/peer-3.log",
+      "sha256": "bc569a4b3f95f1c228495fe283be41ff33526da670897844473017a306a88dd5",
+      "bytes": 4136
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/manifest.json",
+      "sha256": "2195f1606b166fd9d1a0f328564b8b9b44a0a5decefa97d9f2848226a5c4deca",
+      "bytes": 584286
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/summary.json",
+      "sha256": "5a008aa39aa1d56a41b7333d7def60ffbe286771991cf75a1d98773a13ecc066",
+      "bytes": 34345
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/ai-summary.json",
+      "sha256": "5c44f116ee308cb0acdd95471025c93e6efe607943136ea6441831674d44a857",
+      "bytes": 4876
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686-result.json",
+      "sha256": "369466b5ac9de67a29e1d92c05ce7f127e82fa0247b160b0256fa9fe630d850a",
+      "bytes": 1052
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686-runner.log",
+      "sha256": "f305f635c599bf141d3f7aee0cdf158f4c66bc6d8da46b44ba512ddab2cfe18a",
+      "bytes": 592
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/server.json",
+      "sha256": "6c0fa1f985a0f1ead151c126ede663955ccc7ccb925ebb9f64773f0db9f3bf21",
+      "bytes": 22368663
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/server.log",
+      "sha256": "0085739989563a7cc24067b82c87ec00fbf0d07676683669a9b0b7d107f25b95",
+      "bytes": 216513
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-0.json",
+      "sha256": "b3126f593147ac48acb6d1654e172b31f07a1a6f1a2fd46bde7d582f0f0a73a7",
+      "bytes": 6168499
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-0.log",
+      "sha256": "33a71a4cd4b349f9acc9b4b21095b6d87876ac43a61811f6c4d3aab5ce049bbe",
+      "bytes": 4509
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-1.json",
+      "sha256": "787cd7560ec6efc317c558bd97fd59961f1973cab19f3988d21e03c09c067d2a",
+      "bytes": 6262244
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-1.log",
+      "sha256": "5bb6153649a93ef4d64800efa549f2161f2790ee9c87402cab13972bfbd5f8a6",
+      "bytes": 4670
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-2.json",
+      "sha256": "2bdf854a58950d3308dca173dca740fab4a94d99e630ba2351b56c0495ff5713",
+      "bytes": 6232429
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-2.log",
+      "sha256": "b4b7cc85cad7ab6df8164db27f490ea85b6891c2e875dacdb5007b728f14a8b6",
+      "bytes": 4603
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-3.json",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-3.log",
+      "sha256": "9c733b75cd91ff659329196dfa39830bb0ecd2dcbd3fc98435c827cf4e55a07f",
+      "bytes": 4396
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-4.json",
+      "sha256": "9da7b66c55ae6441b19c5395a8aa2919086467a10fd0454b3be044064de4816c",
+      "bytes": 6145288
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-4.log",
+      "sha256": "1b2f80d58483745370129451c0c28227e2af1a37eaaae2cb895ec93b40aedc7a",
+      "bytes": 4460
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-5.json",
+      "sha256": "c706f173624154e9e8bf21f3aa636a14e916221d9c109426461aec748c2df5df",
+      "bytes": 6084093
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-5.log",
+      "sha256": "e1c65201bf52558666e755426c7dfce81ec771c82c0e0f5a5db22f72f62dfaaf",
+      "bytes": 4512
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-6.json",
+      "sha256": "563bdf0a3290a150ed2b7370d3d698513cf45a830cd9fc99cd9615592e4ebd4b",
+      "bytes": 6012003
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-6.log",
+      "sha256": "61fefe588f1f4600f3e8a19d1c1dc3339f812099c35721fbf601c2934d9a0ea4",
+      "bytes": 4373
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-7.json",
+      "sha256": "8f7cec46c023b44c5603ce30440b519cefe790ac9ba51566a95b5e265a779e38",
+      "bytes": 6097828
+    },
+    {
+      "path": "artifacts/net21-g1/udp-8-impaired-7b932686/peer-7.log",
+      "sha256": "88d7a1055c70905698de4608b5f995ac9cd0e247769ec6d5e4b558433841d343",
+      "bytes": 4407
+    },
+    {
+      "path": "artifacts/net21-g1/contracts-7b932686/results.json",
+      "sha256": "8d39372818cdc964e2e41232099edef96d0e29da0231b3c60cd2d856e66d664b",
+      "bytes": 6165
+    },
+    {
+      "path": "artifacts/net21-g1/contracts-7b932686/campaign-claims.log",
+      "sha256": "0b1c12a62f8008bfd3160bbd89269db148f088a89231351bf34d43847fb11722",
+      "bytes": 150
+    },
+    {
+      "path": "artifacts/net21-g1/contracts-7b932686/replay-form-history.log",
+      "sha256": "2acb76c376cf70deb089ca8cb9bdfffcd5d60021b07699a2b6e1997f92485c57",
+      "bytes": 143
+    },
+    {
+      "path": "artifacts/net21-g1/contracts-7b932686/ai-driver.log",
+      "sha256": "4c60f96b6e9898c0f634386f14105585012533196d042ff10366a8c4b075a74c",
+      "bytes": 609
+    },
+    {
+      "path": "artifacts/net21-g1/contracts-7b932686/bot-ai.log",
+      "sha256": "88d4139990f907b0f2a49a2e968e819cae3ed72bc7d2096b4d8afab47d107d99",
+      "bytes": 1315
+    },
+    {
+      "path": "artifacts/net21-g1/contracts-7b932686/input-edges.log",
+      "sha256": "04a8dc7b96a21e79ec59feffba5707bd2759f7e3dd7a36f6cde87ceab4cc866d",
+      "bytes": 121
+    },
+    {
+      "path": "artifacts/net21-g1/contracts-7b932686/muzzle.log",
+      "sha256": "f30bbf5c41992701746948f247d8a93940cb5efc4dd888b05082f65ac7eb0a67",
+      "bytes": 5513
+    },
+    {
+      "path": "artifacts/net21-g1/contracts-7b932686/continuous.log",
+      "sha256": "5e8d2c378425163a409f0115bef7f9d00d0664dae6c9601f20ec4ab2ff7a77f3",
+      "bytes": 68214
+    },
+    {
+      "path": "artifacts/net21-g1/contracts-7b932686/compact.log",
+      "sha256": "0fd8ae4216b2f3a4782cb4920a8bfd7fb382c22afa6d8f6c2bfab497dc4208e5",
+      "bytes": 1243
+    },
+    {
+      "path": "artifacts/net21-g1/contracts-7b932686/shot-lifecycle.log",
+      "sha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3",
+      "bytes": 21
+    },
+    {
+      "path": "artifacts/net21-g1/contracts-7b932686/source-journal.log",
+      "sha256": "093f99ac93fbeb8a5d10cd1f6c4c8b18262f02e1661e3a3d0fa4d094e992ba24",
+      "bytes": 717
+    },
+    {
+      "path": "artifacts/net21-g1/contracts-7b932686/queue-budget.log",
+      "sha256": "15dfab687c9f45705140d159147c19f6276d675c13ca58c02498af7b00f1ee95",
+      "bytes": 138
+    },
+    {
+      "path": "artifacts/net21-g1/contracts-7b932686/replay-format.log",
+      "sha256": "3dfbfd2247f3a9a2e8254f02f1f82f98f84d3d34c0e62b3520970fb59e32505a",
+      "bytes": 451
+    },
+    {
+      "path": "artifacts/net21-g1/python-suite-7b932686-g0manifest-20261012.log",
+      "sha256": "7fc18a5416a488a292d1f82c3fa4d277ae4552a70dae0a9c0b84bbe8d77d956a",
+      "bytes": 500
+    },
+    {
+      "path": "artifacts/net21-g1/ci-7b932686-final.json",
+      "sha256": "37bcdf4184fa21ee3811a649caf558e5aa50c652e1b6b77d78ce569a0c5f75cf",
+      "bytes": 8349
+    },
+    {
+      "path": "artifacts/net21-g1/acceptance-lan-7b932686-replays.json",
+      "sha256": "246182b0b89548d2527251b5e2f4c4f36786e6f2e5f7862f6a56f2f9140e885d",
+      "bytes": 3707
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-7b932686/peer-0/exports/_demos/MP1 SANCTORUS_2026-10-11_19-50-02-768_d00748ed4f484e0db8d4b5901a1ba202.ppdemo",
+      "sha256": "0959f5fc275e2ed3b6b3920e9d848de254c19cf7ad59de133608aa497332c4c2",
+      "bytes": 3083712
+    },
+    {
+      "path": "artifacts/net21-g1/acceptance-lan-7b932686-replaydeterminism-0.log",
+      "sha256": "9e2516b4aec9b0ea5e7f229c6a2fce279bdbc955162a4f8bee03e601cabed01e",
+      "bytes": 13946
+    },
+    {
+      "path": "artifacts/net21-g1/acceptance-lan-7b932686-replayreplicacheck-0.log",
+      "sha256": "958d4cebcdc0ca42ea9e0172e06d5410e51e78501be7cb3462b2a622e63f45ea",
+      "bytes": 6926
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-7b932686/peer-1/exports/_demos/MP1 SANCTORUS_2026-10-11_19-50-02-759_d6175567d18a41deb2167975aab8b3a4.ppdemo",
+      "sha256": "3a25c4730c58796126b3d969d1fa52131e6bab98080730e02a8606de5b869fdb",
+      "bytes": 3049154
+    },
+    {
+      "path": "artifacts/net21-g1/acceptance-lan-7b932686-replaydeterminism-1.log",
+      "sha256": "11c8fb7237e0bf2306c76695c98633592e3e5a5e609567db04050cdda27d8066",
+      "bytes": 13946
+    },
+    {
+      "path": "artifacts/net21-g1/acceptance-lan-7b932686-replayreplicacheck-1.log",
+      "sha256": "cddc37287bf4a9ece6a994cd7e41268145b60a93eecc5937548f1f8db4e90bc9",
+      "bytes": 6926
+    },
+    {
+      "path": "artifacts/net21-g1/acceptance-rendered-7b932686-replays.json",
+      "sha256": "999c54951231bd63a81b87523156fc4242b5221f5a1d034ef86a10a08d1089f8",
+      "bytes": 3727
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-rendered-7b932686/peer-0/exports/_demos/MP1 SANCTORUS_2026-10-11_19-51-24-949_98fb367768454f0fa0632a3e5910210c.ppdemo",
+      "sha256": "e38bfff95b76469035f184031c2807baea91507fedb409a554e177de87723220",
+      "bytes": 3115814
+    },
+    {
+      "path": "artifacts/net21-g1/acceptance-rendered-7b932686-replaydeterminism-0.log",
+      "sha256": "4ec9202c8ce14a465d3013bcfe6871a29adacecc2a7ad0156da90445321dc9a0",
+      "bytes": 12818
+    },
+    {
+      "path": "artifacts/net21-g1/acceptance-rendered-7b932686-replayreplicacheck-0.log",
+      "sha256": "5b30d1412c21720b6a07e503ed76ecc808135a5975ac052067a593e21bfc612e",
+      "bytes": 6926
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-rendered-7b932686/peer-1/exports/_demos/MP1 SANCTORUS_2026-10-11_19-51-24-947_2ec3666e4fa34dc4b1daa970fbacc753.ppdemo",
+      "sha256": "3b967e57912ad2af53b367b8940db3df211f901ce36e128173e2827f5c259457",
+      "bytes": 3119614
+    },
+    {
+      "path": "artifacts/net21-g1/acceptance-rendered-7b932686-replaydeterminism-1.log",
+      "sha256": "be55e8b84886270938116d67b8e40b843a77ee470e0c2e37aa0f1c1224b7cae9",
+      "bytes": 13946
+    },
+    {
+      "path": "artifacts/net21-g1/acceptance-rendered-7b932686-replayreplicacheck-1.log",
+      "sha256": "28ae72547054f588aca52f1f0f39b2033c234b03e0106359afb0879698019198",
+      "bytes": 6926
+    },
+    {
+      "path": "artifacts/net21-g1/8ddfc4b8-replays.json",
+      "sha256": "f282c8593f45ffc1c81f6a41358b247f50ab46723f672a70b8343ea83f387676",
+      "bytes": 3707
+    },
+    {
+      "path": "artifacts/net21-g1/ci-8ddfc4b8-checks.json",
+      "sha256": "34ad9483689eb7d436a01ece49f37bf53ca427bb1c80e59ce5ca704f36dcf3f6",
+      "bytes": 1566
+    },
+    {
+      "path": "artifacts/net21-g1/ci-8ddfc4b8-final.json",
+      "sha256": "f9fdda1496d8751f452cdf043a9e774fe6c08f94534759416a8aeab4d57e2464",
+      "bytes": 1562
+    },
+    {
+      "path": "artifacts/net21-g1/ci-8ddfc4b8.json",
+      "sha256": "5b29197616cfc33af26d224513f4671e548b6a151ee858bb2a9b227fe29932c4",
+      "bytes": 69893
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8-result.json",
+      "sha256": "363db296907488b684d3000f8152bd06b3dcae31981b4d8766971869c545f357",
+      "bytes": 906
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/manifest.json",
+      "sha256": "f56aabc7b184a2d7d9ec6d693e77e1858a6599321842b58f9356a51a55611044",
+      "bytes": 29993
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/summary.json",
+      "sha256": "1507d408de22e06344e973639f9d0fc61c0ba7bf9e9de982b08b00eb372772bb",
+      "bytes": 11569
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/ai-summary.json",
+      "sha256": "a041ab49878d5f41419ed2f0fc90f65ed149188f578f7929652895826a6f306c",
+      "bytes": 3614
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/server.json",
+      "sha256": "11172655958a400d22ad77d09bfb90e45475d2f7aa8288ec4c907c609db457d2",
+      "bytes": 7808227
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/assets.json",
+      "sha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095",
+      "bytes": 693708
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/drain.release.json",
+      "sha256": "852007ed81898f16c7c2f355db5ea2bef56c85506fb7e870c131085fd29860a5",
+      "bytes": 113
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/drain.server-release.json",
+      "sha256": "852007ed81898f16c7c2f355db5ea2bef56c85506fb7e870c131085fd29860a5",
+      "bytes": 113
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/peer-0.drain.json",
+      "sha256": "d9ba612987d4392cc6e147af3ba91a9a57b8a0bb885cff0f1bec990240c48be0",
+      "bytes": 2563
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/peer-0.json",
+      "sha256": "d4e2ec0206c661f93358c8f7ae5905a64539a2236d5a10e2f2aa27bd437b4c7d",
+      "bytes": 3851030
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/peer-1.drain.json",
+      "sha256": "ea503fbbfb5fe266d4cff3de43c6cb09213dc91d3a70f9d10f675ce0ef61487d",
+      "bytes": 2563
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/peer-1.json",
+      "sha256": "f8af09683de5fc00bc0c37ffb056aabfd189f61f0f85ddc66a6f71f1c9229893",
+      "bytes": 3866925
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/server.drain.json",
+      "sha256": "2df9698685f5a0523f93b76dbaf52294a458906c3994f6d427b4aabfb8a2a2c1",
+      "bytes": 2381
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/server.operator.json",
+      "sha256": "9289f5f28d977393c0ff3644368ad8cb2e7ac5d711f505b2c1cd669bd43e8958",
+      "bytes": 1471
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/peer-0.log",
+      "sha256": "463679facd96f0f6dafb80eadae45fd1b0a43edb5c40064e71027f78eeb8e994",
+      "bytes": 4228
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/peer-1.log",
+      "sha256": "ed1bbe7248b6afbb761b16d94ac366c21dd7dbb9c104a8fdc247f29fd4daaf88",
+      "bytes": 4228
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8/server.log",
+      "sha256": "aae866a1a4fdd4d1e885cbf51e2011bafa4e6fb00e990a47d78940b8b73ba5d1",
+      "bytes": 142643
+    },
+    {
+      "path": "artifacts/net21-g1/8ddfc4b8-build.log",
+      "sha256": "2608c8b6fdf95d87ed65001647c1eef02b21bf79bd90a108708efe134041b9f7",
+      "bytes": 19750
+    },
+    {
+      "path": "artifacts/net21-g1/8ddfc4b8-old-duel-control.log",
+      "sha256": "e6e1b39191e7f5c7603809e196b074ed70bd992b89b1af9e603f578580a8e8ad",
+      "bytes": 7601
+    },
+    {
+      "path": "artifacts/net21-g1/8ddfc4b8-replaydeterminism-0.log",
+      "sha256": "fa21a2de1d12d482ce357f8ba16d7d6de0ec5b713621a9da001e7579cf4c1427",
+      "bytes": 14389
+    },
+    {
+      "path": "artifacts/net21-g1/8ddfc4b8-replaydeterminism-1.log",
+      "sha256": "5598431fc9905997ae01bb32337272394453968e5407e818065c9592d625e2de",
+      "bytes": 14389
+    },
+    {
+      "path": "artifacts/net21-g1/8ddfc4b8-replayreplicacheck-0.log",
+      "sha256": "50e1723a879b2da0aa8355ec7e716f728e4b8f55b091e1e4b60dc8ab48b08a55",
+      "bytes": 3130
+    },
+    {
+      "path": "artifacts/net21-g1/8ddfc4b8-replayreplicacheck-1.log",
+      "sha256": "a613da35af63c4e56ddc71d945e4c4d3a2f965e967b4a0c2b7d83131cc5ec4fb",
+      "bytes": 3130
+    },
+    {
+      "path": "artifacts/net21-g1/udp-2-bot-lan-8ddfc4b8-runner.log",
+      "sha256": "b715d174999fa18ef7c2fc9db55c1ff2ac97603cef4e608b33ee45a137940d04",
+      "bytes": 229
+    }
+  ],
+  "performance": {
+    "status": "DESCRIPTIVE_ONLY",
+    "matchedImprovement": null,
+    "reason": "No matched before/after gameplay/performance comparison supplied."
+  },
+  "exclusions": [
+    "No realistic human responsiveness claim.",
+    "No exact alt entry/exit event ledger.",
+    "Lifecycle counts are exact retained semantic event observations; missing/unobserved phases remain NOT_RUN.",
+    "Native pickup consumption is not authority grant acceptance."
+  ],
+  "scope": "G1 acceptance attempt and retained blockers; not G1 acceptance or Netcode 2.1 release readiness",
+  "diagnosticFollowup": {
+    "source": "7bbdf4c8a70ad0edae2307446bede130012af166",
+    "engineSha256": "714e22cd5b8b3f873a46eb33da842ee3d727a60246830ca03aeb1935e193ab1f",
+    "status": "FAIL",
+    "failures": [
+      "peer-6: unexplained shot tail/loss: 0 unaccepted, 2 uncommitted",
+      "existing cross-process network parity/drain checks did not pass"
+    ],
+    "incomplete": [],
+    "ai": {
+      "status": "FAIL",
+      "failures": [
+        "existing cross-process network parity/drain checks did not pass"
+      ],
+      "incomplete": [],
+      "clients": [
+        {
+          "name": "peer-0",
+          "slot": 0,
+          "inputFrames": 3933,
+          "decisionFrames": 3014,
+          "travel": 297.60340746868826,
+          "offeredShots": 31,
+          "declaredClaims": 7,
+          "nativePickupConsumptions": 6,
+          "spawnedLives": 4,
+          "altFrames": 185,
+          "weapons": [
+            0,
+            2,
+            1
+          ],
+          "lifecycleEvidence": {
+            "spawnedLives": {
+              "observed": 4,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+            },
+            "altForms": {
+              "observed": 185,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision frames where the local player is in an alternative form"
+            },
+            "deathEvents": {
+              "observed": 3,
+              "status": "OBSERVED",
+              "countingUnit": "unique canonical death fact"
+            },
+            "respawnEvents": {
+              "observed": 3,
+              "status": "OBSERVED",
+              "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+            },
+            "altTransitions": {
+              "observed": null,
+              "status": "NOT_RUN",
+              "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+            }
+          },
+          "invalidPositionSamples": 0,
+          "invalidDistanceSamples": 0,
+          "paidSourceShotKeys": 8
+        },
+        {
+          "name": "peer-1",
+          "slot": 1,
+          "inputFrames": 3944,
+          "decisionFrames": 3002,
+          "travel": 318.78731643984327,
+          "offeredShots": 111,
+          "declaredClaims": 32,
+          "nativePickupConsumptions": 6,
+          "spawnedLives": 4,
+          "altFrames": 72,
+          "weapons": [
+            0,
+            1,
+            2,
+            4
+          ],
+          "lifecycleEvidence": {
+            "spawnedLives": {
+              "observed": 4,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+            },
+            "altForms": {
+              "observed": 72,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision frames where the local player is in an alternative form"
+            },
+            "deathEvents": {
+              "observed": 4,
+              "status": "OBSERVED",
+              "countingUnit": "unique canonical death fact"
+            },
+            "respawnEvents": {
+              "observed": 4,
+              "status": "OBSERVED",
+              "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+            },
+            "altTransitions": {
+              "observed": null,
+              "status": "NOT_RUN",
+              "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+            }
+          },
+          "invalidPositionSamples": 0,
+          "invalidDistanceSamples": 0,
+          "paidSourceShotKeys": 31
+        },
+        {
+          "name": "peer-2",
+          "slot": 2,
+          "inputFrames": 3956,
+          "decisionFrames": 3224,
+          "travel": 368.6848650924079,
+          "offeredShots": 67,
+          "declaredClaims": 31,
+          "nativePickupConsumptions": 4,
+          "spawnedLives": 3,
+          "altFrames": 434,
+          "weapons": [
+            0,
+            2
+          ],
+          "lifecycleEvidence": {
+            "spawnedLives": {
+              "observed": 3,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+            },
+            "altForms": {
+              "observed": 434,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision frames where the local player is in an alternative form"
+            },
+            "deathEvents": {
+              "observed": 2,
+              "status": "OBSERVED",
+              "countingUnit": "unique canonical death fact"
+            },
+            "respawnEvents": {
+              "observed": 2,
+              "status": "OBSERVED",
+              "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+            },
+            "altTransitions": {
+              "observed": null,
+              "status": "NOT_RUN",
+              "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+            }
+          },
+          "invalidPositionSamples": 0,
+          "invalidDistanceSamples": 0,
+          "paidSourceShotKeys": 31
+        },
+        {
+          "name": "peer-3",
+          "slot": 3,
+          "inputFrames": 3949,
+          "decisionFrames": 3041,
+          "travel": 335.1676819022185,
+          "offeredShots": 920,
+          "declaredClaims": 173,
+          "nativePickupConsumptions": 4,
+          "spawnedLives": 4,
+          "altFrames": 68,
+          "weapons": [
+            0,
+            2,
+            7
+          ],
+          "lifecycleEvidence": {
+            "spawnedLives": {
+              "observed": 4,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+            },
+            "altForms": {
+              "observed": 68,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision frames where the local player is in an alternative form"
+            },
+            "deathEvents": {
+              "observed": 3,
+              "status": "OBSERVED",
+              "countingUnit": "unique canonical death fact"
+            },
+            "respawnEvents": {
+              "observed": 3,
+              "status": "OBSERVED",
+              "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+            },
+            "altTransitions": {
+              "observed": null,
+              "status": "NOT_RUN",
+              "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+            }
+          },
+          "invalidPositionSamples": 0,
+          "invalidDistanceSamples": 0,
+          "paidSourceShotKeys": 9
+        },
+        {
+          "name": "peer-4",
+          "slot": 4,
+          "inputFrames": 3927,
+          "decisionFrames": 3042,
+          "travel": 328.09049019671824,
+          "offeredShots": 63,
+          "declaredClaims": 17,
+          "nativePickupConsumptions": 8,
+          "spawnedLives": 4,
+          "altFrames": 0,
+          "weapons": [
+            0,
+            2
+          ],
+          "lifecycleEvidence": {
+            "spawnedLives": {
+              "observed": 4,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+            },
+            "altForms": {
+              "observed": 0,
+              "status": "NOT_RUN",
+              "countingUnit": "AI decision frames where the local player is in an alternative form"
+            },
+            "deathEvents": {
+              "observed": 3,
+              "status": "OBSERVED",
+              "countingUnit": "unique canonical death fact"
+            },
+            "respawnEvents": {
+              "observed": 3,
+              "status": "OBSERVED",
+              "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+            },
+            "altTransitions": {
+              "observed": null,
+              "status": "NOT_RUN",
+              "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+            }
+          },
+          "invalidPositionSamples": 0,
+          "invalidDistanceSamples": 0,
+          "paidSourceShotKeys": 18
+        },
+        {
+          "name": "peer-5",
+          "slot": 5,
+          "inputFrames": 3867,
+          "decisionFrames": 3177,
+          "travel": 357.76922561278525,
+          "offeredShots": 375,
+          "declaredClaims": 99,
+          "nativePickupConsumptions": 7,
+          "spawnedLives": 3,
+          "altFrames": 507,
+          "weapons": [
+            0,
+            2,
+            7
+          ],
+          "lifecycleEvidence": {
+            "spawnedLives": {
+              "observed": 3,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+            },
+            "altForms": {
+              "observed": 507,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision frames where the local player is in an alternative form"
+            },
+            "deathEvents": {
+              "observed": 2,
+              "status": "OBSERVED",
+              "countingUnit": "unique canonical death fact"
+            },
+            "respawnEvents": {
+              "observed": 2,
+              "status": "OBSERVED",
+              "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+            },
+            "altTransitions": {
+              "observed": null,
+              "status": "NOT_RUN",
+              "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+            }
+          },
+          "invalidPositionSamples": 0,
+          "invalidDistanceSamples": 0,
+          "paidSourceShotKeys": 11
+        },
+        {
+          "name": "peer-6",
+          "slot": 6,
+          "inputFrames": 3844,
+          "decisionFrames": 2986,
+          "travel": 305.73579193697236,
+          "offeredShots": 50,
+          "declaredClaims": 12,
+          "nativePickupConsumptions": 6,
+          "spawnedLives": 4,
+          "altFrames": 440,
+          "weapons": [
+            0,
+            2
+          ],
+          "lifecycleEvidence": {
+            "spawnedLives": {
+              "observed": 4,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+            },
+            "altForms": {
+              "observed": 440,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision frames where the local player is in an alternative form"
+            },
+            "deathEvents": {
+              "observed": 3,
+              "status": "OBSERVED",
+              "countingUnit": "unique canonical death fact"
+            },
+            "respawnEvents": {
+              "observed": 3,
+              "status": "OBSERVED",
+              "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+            },
+            "altTransitions": {
+              "observed": null,
+              "status": "NOT_RUN",
+              "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+            }
+          },
+          "invalidPositionSamples": 0,
+          "invalidDistanceSamples": 0,
+          "paidSourceShotKeys": 12
+        },
+        {
+          "name": "peer-7",
+          "slot": 7,
+          "inputFrames": 3880,
+          "decisionFrames": 3044,
+          "travel": 331.4249092992109,
+          "offeredShots": 39,
+          "declaredClaims": 23,
+          "nativePickupConsumptions": 3,
+          "spawnedLives": 4,
+          "altFrames": 302,
+          "weapons": [
+            0,
+            2
+          ],
+          "lifecycleEvidence": {
+            "spawnedLives": {
+              "observed": 4,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+            },
+            "altForms": {
+              "observed": 302,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision frames where the local player is in an alternative form"
+            },
+            "deathEvents": {
+              "observed": 3,
+              "status": "OBSERVED",
+              "countingUnit": "unique canonical death fact"
+            },
+            "respawnEvents": {
+              "observed": 3,
+              "status": "OBSERVED",
+              "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+            },
+            "altTransitions": {
+              "observed": null,
+              "status": "NOT_RUN",
+              "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+            }
+          },
+          "invalidPositionSamples": 0,
+          "invalidDistanceSamples": 0,
+          "paidSourceShotKeys": 21
+        }
+      ],
+      "metrics": {
+        "declaredClientClaims": 394,
+        "authorityClaimReceiptsIncludingRetries": 482,
+        "authorityAppliedClaims": 9,
+        "componentPayments": 145,
+        "ownerNativePickupConsumptions": 44,
+        "paidAiSourceShotKeys": 141,
+        "canonicalLifecycle": {
+          "deathEvents": {
+            "observed": 23,
+            "status": "OBSERVED"
+          },
+          "spawnEvents": {
+            "observed": 37,
+            "status": "OBSERVED"
+          },
+          "respawnEvents": {
+            "observed": 23,
+            "status": "OBSERVED"
+          }
+        },
+        "serverBotSlots": [],
+        "serverBotShotKeys": 0
+      },
+      "scope": "Each campaign is one bounded activity phase; native pickup consumption is not an admitted grant. Claim receipts include retries. Component payments exclude bomb/continuous paths. Paid AI source shot keys count distinct source shots, not component payments; canonical respawns require a joined preceding death. Lifecycle evidence is descriptive and does not add an activity gate; OBSERVED is not lifecycle parity PASS. Seeded gameplay RNG does not make UDP scheduling deterministic."
+    },
+    "faultProfile": {
+      "rtt_ms": 250,
+      "jitter_ms": 40,
+      "loss_percent": 5.0,
+      "reorder_percent": 5.0,
+      "duplicate_percent": 2.0,
+      "scope": "each client, inbound and outbound",
+      "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+      "seedRule": "base seed + client launch index"
+    },
+    "artifacts": [
+      {
+        "path": "artifacts/net21-g1/udp-8-impaired-7bbdf4c8/manifest.json",
+        "sha256": "0664bab8d569584b253eed38675b4b1ca17a23ffa2a67c9a62f027f4e1477bcb",
+        "bytes": 1337584
+      },
+      {
+        "path": "artifacts/net21-g1/udp-8-impaired-7bbdf4c8/summary.json",
+        "sha256": "2bf5f0f3043f08c2b06bf4824537cb6b661046c8b5569d17d18797ca15b4fec3",
+        "bytes": 39319
+      },
+      {
+        "path": "artifacts/net21-g1/udp-8-impaired-7bbdf4c8/ai-summary.json",
+        "sha256": "d74081e8b0f4bca09804f7fada11f2fc3a4dadfbe35d17a9d204ba84f1ad2a2a",
+        "bytes": 12486
+      },
+      {
+        "path": "artifacts/net21-g1/udp-8-impaired-7bbdf4c8/server.log",
+        "sha256": "f2af20c6dd9b0c5b2932758b90bee2063f4b31fbada0794a39998dfe8377b668",
+        "bytes": 269404
+      },
+      {
+        "path": "artifacts/net21-g1/udp-8-impaired-7bbdf4c8/server.json",
+        "sha256": "f60956f0f0b0f066e0794289d54a97647a306bb8e264072ddb8fde3fd8a95122",
+        "bytes": 23559341
+      }
+    ],
+    "interpretation": "All processes supplied finite evidence. Two authority Weavel emissions remained unresolved: native target absent, and cooldown pending before turret death. No gate was weakened; further authority outcome repair required."
+  },
+  "laterAuditChange": "Explicit initial world admission frames now fence only verified pre-admission observer offers. Unit tests pass; historical raw campaign results are retained without reclassification."
+}

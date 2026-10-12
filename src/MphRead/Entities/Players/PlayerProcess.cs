@@ -1591,6 +1591,7 @@ namespace MphRead.Entities
                 }
                 if (pickedUp)
                 {
+                    Mods.Network.NetCampaignEvidence.Pickup(this, item);
                     item.OnPickedUp(this);
                 }
             }

@@ -2086,8 +2086,21 @@ namespace MphRead.Mods
 
             // The same client, running to a script and reporting what it saw.
             string? check = ValueAfter(args, "netcheck");
+            if ((HasFlag(args, "ai-net-client") || HasFlag(args, "ai-seed")) && check == null)
+            {
+                Console.Error.WriteLine("-ai-net-client requires -netcheck HOST.");
+                Environment.ExitCode = 1; return true;
+            }
             if (check != null)
             {
+                string? aiLevel = ValueAfter(args, "ai-net-client");
+                // The level is optional; a following named option is not its value.
+                // Keep negative numbers intact so configuration rejects them.
+                if (aiLevel is { Length: > 1 } && aiLevel[0] == '-'
+                    && (aiLevel[1] == '-' || Char.IsLetter(aiLevel[1]))) aiLevel = null;
+                if (!Network.NetAiClient.Configure(HasFlag(args, "ai-net-client"), aiLevel,
+                    ValueAfter(args, "ai-seed"), out string aiError))
+                { Console.Error.WriteLine(aiError); Environment.ExitCode = 1; return true; }
                 string? shots = ValueAfter(args, "shots");
                 double seconds = 30;
                 string? secondsValue = ValueAfter(args, "seconds");

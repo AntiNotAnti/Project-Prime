@@ -75,13 +75,13 @@ internal static class ReplayPoseChecks
         { Console.WriteLine("[replayposes] NOT_RUN: full-match world baseline needed for the export policy regression."); return; }
         byte[] baseline = metadata.WorldCheckpoint;
         ushort version = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(baseline.AsSpan(4));
-        if (version is not (5 or 6))
-        { Console.WriteLine("[replayposes] NOT_RUN: version 5/6 baseline needed for the export policy regression."); return; }
+        if (version is not (5 or 6 or 7))
+        { Console.WriteLine("[replayposes] NOT_RUN: version 5/6/7 baseline needed for the export policy regression."); return; }
         // Preserve every value of the recorded baseline. An unindexed producer
         // is conservative provenance; full-match consumers still use indexing.
         baseline = baseline.AsSpan().ToArray();
         if (version == 5) Array.Resize(ref baseline, baseline.Length + 1);
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(baseline.AsSpan(4), 6);
+        if (version == 5) System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(baseline.AsSpan(4), 6);
         baseline[^1] = 0;
         string directory = Path.Combine(Path.GetTempPath(), "prime-export-contract-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);

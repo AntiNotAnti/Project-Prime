@@ -29,7 +29,8 @@ namespace MphRead.Formats
         public static void Load(PlayerEntity player, GameMode mode)
         {
             player.AiData.Reset();
-            if (!player.IsBot)
+            if (Mods.Network.NetAiClient.Drives(player)) player.BotLevel = Mods.Network.NetAiClient.Level;
+            if (!player.IsBot && !Mods.Network.NetAiClient.Drives(player))
             {
                 return;
             }

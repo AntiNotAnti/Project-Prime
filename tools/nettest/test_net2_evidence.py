@@ -5,7 +5,7 @@ import struct
 from pathlib import Path
 import tempfile
 import unittest
-from net2_evidence import adjudicate, slow_states
+from net2_evidence import adjudicate, slow_states, initial_world_admission
 
 
 class EvidenceTests(unittest.TestCase):
@@ -45,6 +45,114 @@ class EvidenceTests(unittest.TestCase):
 
     def test_complete_matching_run(self):
         self.assertEqual(self.result()["status"], "PASS")
+
+    def admission_fixture(self, remote_frame=90):
+        # An independently offered remote shot was committed during the local
+        # observer's preload. Its own later shot still requires normal delivery.
+        for row in self.server['Shots'] + self.client['Shots']:
+            row['ObservedFrame'] = 110
+        remote_key = dict(AuthorityEpoch=111, MatchId=2, ShooterSlot=1,
+                          Generation=3, LifeId=4, ShotId=6)
+        remote = dict(Stage='committed', Key=remote_key, Weapon=2, Charge=0,
+                      Kind=0, ObservedFrame=remote_frame)
+        self.server['Shots'] += [remote, dict(remote, Stage='accepted')]
+        other = copy.deepcopy(self.client)
+        other['Shots'] = [copy.deepcopy(row) for row in self.server['Shots'] if row['Stage'] == 'committed']
+        other['Shots'].append(dict(remote, Stage='offered'))
+        other['Windows'] = [dict(Epoch=111, Match=2, LocalSlot=1)]
+        self.processes.append(dict(name='other', exit=0, timedOut=False, expectsShots=True))
+        self.manifest['settings']['players'] = 2
+        (self.out / 'manifest.json').write_text(json.dumps(self.manifest))
+        (self.out / 'other.json').write_text(json.dumps(other))
+        (self.out / 'other.log').write_text('RESULT: PASS\n')
+        self.client['Windows'] = [dict(Epoch=111, Match=2, LocalSlot=0)]
+        self.server['Readiness'] = [dict(AuthorityEpoch=111, CurrentMatchId=2,
+            Slot=0, Generation=3, InitialAdmission=True, Rejoining=False,
+            AuthorityFrame=100, BaselineAuthorityFrame=80, BootstrapRevision=1)]
+        self.write()
+        return self.server['Readiness'][0]
+
+    def test_before_initial_admission_is_reported_but_not_expected(self):
+        self.admission_fixture()
+        result = self.result()
+        self.assertEqual(result['status'], 'PASS', result['failures'])
+        parity = result['parity']['shooter']
+        self.assertEqual(parity['viewBeforeInitialAdmissionCount'], 1)
+        self.assertEqual(parity['viewBeforeInitialAdmissionKeys'][0][-1], 6)
+        self.assertEqual(parity['viewExpectedCommits'], 1)
+        self.assertEqual(parity['viewMissingCommits'], 0)
+
+    def test_at_and_after_admission_missing_commit_still_fails(self):
+        for frame in (100, 101):
+            with self.subTest(frame=frame):
+                self.setUp()
+                self.admission_fixture(frame)
+                result = self.result()
+                self.assertEqual(result['status'], 'FAIL')
+                self.assertEqual(result['parity']['shooter']['viewBeforeInitialAdmissionCount'], 0)
+                self.assertEqual(result['parity']['shooter']['viewMissingCommits'], 1)
+
+    def test_legacy_readiness_never_manufactures_admission_exemption(self):
+        for case in ('absent', 'no_fields'):
+            with self.subTest(case=case):
+                self.setUp()
+                ready = self.admission_fixture()
+                if case == 'absent':
+                    del self.server['Readiness']
+                else:
+                    for key in ('AuthorityFrame', 'BaselineAuthorityFrame', 'BootstrapRevision'):
+                        del ready[key]
+                self.write()
+                self.assertEqual(self.result()['status'], 'FAIL')
+
+    def test_admission_identity_mismatch_never_exempts_shot(self):
+        for field, value in (('Slot', 1), ('Generation', 4), ('AuthorityEpoch', 222), ('CurrentMatchId', 3)):
+            with self.subTest(field=field):
+                self.setUp()
+                ready = self.admission_fixture()
+                ready[field] = value
+                self.write()
+                result = self.result()
+                self.assertEqual(result['status'], 'FAIL')
+                self.assertEqual(result['parity']['shooter']['viewBeforeInitialAdmissionCount'], 0)
+
+    def test_admission_identity_wrong_types_cannot_create_exemption(self):
+        for field, value in (('Slot', False), ('Generation', 3.0),
+                             ('AuthorityEpoch', 111.0), ('CurrentMatchId', 2.0)):
+            with self.subTest(field=field):
+                self.setUp()
+                ready = self.admission_fixture()
+                ready[field] = value
+                self.write()
+                self.assertEqual(self.result()['status'], 'FAIL')
+
+    def test_malformed_partial_conflicting_reversed_boundary_fails(self):
+        for case in ('partial', 'bool', 'reversed', 'conflict', 'malformed_row'):
+            with self.subTest(case=case):
+                self.setUp()
+                ready = self.admission_fixture()
+                if case == 'partial':
+                    del ready['BootstrapRevision']
+                elif case == 'bool':
+                    ready['AuthorityFrame'] = True
+                elif case == 'reversed':
+                    ready['BaselineAuthorityFrame'] = 101
+                elif case == 'malformed_row':
+                    self.server['Readiness'] = ['not an authority receipt object']
+                else:
+                    self.server['Readiness'].append(dict(ready, AuthorityFrame=101))
+                self.write()
+                result = self.result()
+                self.assertEqual(result['status'], 'FAIL')
+                self.assertTrue(any('invalid world admission evidence' in value for value in result['failures']))
+
+    def test_admission_frame_wrap_uses_uint_serial_order(self):
+        ready = self.admission_fixture()
+        ready.update(AuthorityFrame=5, BaselineAuthorityFrame=0xfffffffe)
+        self.assertEqual(initial_world_admission(self.server, self.client, (111, 2)), 5)
+        ready.update(AuthorityFrame=0xfffffffe, BaselineAuthorityFrame=5)
+        with self.assertRaises(ValueError):
+            initial_world_admission(self.server, self.client, (111, 2))
 
     def test_missing_identity_manifest_is_incomplete(self):
         (self.out / "manifest.json").unlink()

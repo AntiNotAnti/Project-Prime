@@ -1322,6 +1322,7 @@ namespace MphRead.Mods.Network
                 }
                 HitClaimPacket claim = HitClaimPacket.Read(payload[at..]);
                 Received++;
+                NetCampaignEvidence.ClaimReceived();
                 if (claim.ShooterLifeId == 0 || claim.VictimLifeId == 0
                     || !NetSession.MatchesStream(claim.MatchId, claim.AuthorityEpoch)
                     || claim.ShooterGeneration == 0 || claim.ShooterGeneration != NetPlayerLifecycle.Generation(shooterSlot))
@@ -2520,6 +2521,7 @@ namespace MphRead.Mods.Network
                 (entry.Flags & (HitClaimPacket.FlagFrozen | HitClaimPacket.FlagDisrupted)) != 0,
                 (entry.Flags & HitClaimPacket.FlagHeadshot) != 0, wasFrozen: enhancedWasFrozen);
             AppliedHere++;
+            NetCampaignEvidence.ClaimApplied();
             if (entry.RescueStudy.Type == Telemetry.TelemetryEventType.LagStudy)
                 Telemetry.ProductionTelemetry.Emit(entry.RescueStudy);
             // Remember the shot, so the authority's own copy of it -- which

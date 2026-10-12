@@ -332,6 +332,7 @@ namespace MphRead
                 global::MphRead.GameState.Current = GameState;
                 Rng.Current = Random;
             }
+            Mods.Network.NetAiClient.Bind(this);
             Size = size;
             _keyboardState = keyboardState;
             _mouseState = mouseState;
@@ -414,10 +415,8 @@ namespace MphRead
             for (int i = 0; i < this.Players.Items.Count; i++)
             {
                 PlayerEntity player = this.Players.Items[i];
-                if (player.IsBot)
-                {
-                    player.AiData.InitializeAtLoad();
-                }
+                if (Mods.Network.NetAiClient.Drives(player)) Mods.Network.NetAiClient.InitializeAtLoad(player);
+                else if (player.IsBot) player.AiData.InitializeAtLoad();
             }
             // the game has a redundant/early call for playing room track 0 in bounty/nodes
             // Roam on a headless simulation, always, and this is load-bearing
@@ -5122,10 +5121,10 @@ namespace MphRead
                 for (int i = 0; i < this.Players.Items.Count; i++)
                 {
                     PlayerEntity player = this.Players.Items[i];
-                    if (player.IsBot && player.Health != 0)
-                    {
+                    if (Mods.Network.NetAiClient.Drives(player) && player.Health != 0)
+                        Mods.Network.NetAiClient.Decide(player);
+                    else if (player.IsBot && player.Health != 0 && !Mods.Network.NetCampaignDrain.Quiescing)
                         player.AiData.Process();
-                    }
                 }
                 if (playerActive)
                 {

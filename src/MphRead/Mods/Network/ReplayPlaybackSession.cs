@@ -45,6 +45,11 @@ namespace MphRead.Mods.Network
         internal Replay.ReplayWorldCheckpoint LoadCheckpoint(ReplayCheckpointIndex index, bool requireIndexedFirePresentation = true)
         {
             var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(_reader!.ReadCheckpoint(index), _reader.Metadata?.BuildId);
+            if (!checkpoint.HasAuthorityFormHistory)
+            {
+                checkpoint.Dispose();
+                throw new InvalidDataException("Durable world has no authority form history; reconstructing from the recording baseline.");
+            }
             // Protocol 43 introduced posed discrete shots. Legacy/live capsules
             // use native held-input firing and cannot substitute for the indexed
             // consumer world after the recording's exact initial baseline.

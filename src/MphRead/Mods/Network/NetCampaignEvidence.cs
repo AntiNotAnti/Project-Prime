@@ -25,6 +25,7 @@ internal static class NetCampaignEvidence
     private static readonly int RowLimit = Environment.GetEnvironmentVariable("PRIME_NET2_SOAK") == "1"
         ? 1048576 : 262144;
     private static readonly List<Shot> Shots = new();
+    private static readonly List<PickupObservation> Pickups = new();
     private static readonly List<Health> States = new();
     private static readonly List<FormObservation> Forms = new();
     private static readonly List<SlowState> SlowStates = new();
@@ -40,12 +41,35 @@ internal static class NetCampaignEvidence
     private static bool _connectionLost, _semanticOverrun;
     private static string? _lastError;
     private static double _lastStopCheck;
+    // Process-lifetime observations survive normal empty-server world teardown.
+    // NetHitClaims' diagnostic counters reset when that world is disposed.
+    private static long _claimReceipts, _claimsApplied;
+    internal static void ClaimReceived() { if (Enabled) _claimReceipts++; }
+    internal static void ClaimApplied() { if (Enabled) _claimsApplied++; }
+    internal static object CaptureClaims() => new { Received = _claimReceipts, Applied = _claimsApplied,
+        CountingUnit = "Process-lifetime authority claim entries received including retries; applied claim decisions" };
     private static readonly long AllocatedAtStart = GC.GetTotalAllocatedBytes();
     internal static bool RigHasEvidence => _frames >= 60 && States.Count > 0
         && (SpectatorMode.IsSpectating || !HitRig.IsSniper
             || (HitRig.Mode is HitRig.RigMode.BombSamus or HitRig.RigMode.BombKanden or HitRig.RigMode.BombLockjaw
                 ? NetBombEvidence.RequestsAuthored > 0
                 : Offered.Any(key => key.ShooterSlot == NetSession.LocalSlot)));
+    private sealed record PickupObservation(string Stage, ulong Epoch, ushort Match, uint Frame,
+        byte Slot, ushort Generation, ushort Life, int ItemId, int? SpawnerId, ushort? SpawnCount,
+        ItemType Type, bool IsBot, float X, float Y, float Z);
+
+    internal static void Pickup(PlayerEntity player, ItemInstanceEntity item)
+    {
+        if (!Enabled || !NetSession.Active || player.SceneServices.IsReplica
+            || (!NetSession.IsAuthority && player.SlotIndex != NetSession.LocalSlot)) return;
+        var position = player.Position;
+        Add(Pickups, new(NetSession.IsAuthority ? "authority-native-consumption" : "owner-native-consumption",
+            NetSession.AuthorityEpoch, NetSession.CurrentMatchId, NetSession.NetFrame, (byte)player.SlotIndex,
+            NetPlayerLifecycle.Generation(player.SlotIndex), NetPlayerLifecycle.Get(player.SlotIndex),
+            item.Id, item.Owner?.Id, item.Owner?.ModHealthState.SpawnCount, item.ItemType, player.IsBot,
+            position.X, position.Y, position.Z));
+    }
+
     private sealed record Shot(string Stage, ShotKey Key, uint SourceFrame, uint ObservedFrame,
         byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase, string? Reason = null,
         int OwnerHealth = -1, ushort CurrentOwnerLife = 0, string? RetiredFormSource = null, uint? AcceptedObservedFrame = null, string? AcceptedFormSource = null,
@@ -272,13 +296,16 @@ internal static class NetCampaignEvidence
     }
 
     internal static void Ready(int slot, ushort generation, bool rejoining, bool lateJoin,
-        bool admitted, double admissionMs, double loadMs, double bootstrapMs)
+        bool admitted, double admissionMs, double loadMs, double bootstrapMs,
+        uint? authorityFrame = null, uint? baselineAuthorityFrame = null, uint? bootstrapRevision = null)
     {
         if (!Enabled) return;
         Add(Readiness, new { NetSession.AuthorityEpoch, NetSession.CurrentMatchId, Slot = slot,
             Generation = generation, Rejoining = rejoining, LateJoin = lateJoin,
             InitialAdmission = !admitted, AdmissionMilliseconds = admitted ? (double?)null : admissionMs,
-            LoadMilliseconds = loadMs, BootstrapMilliseconds = bootstrapMs < 0 ? (double?)null : bootstrapMs });
+            LoadMilliseconds = loadMs, BootstrapMilliseconds = bootstrapMs < 0 ? (double?)null : bootstrapMs,
+            AuthorityFrame = authorityFrame, BaselineAuthorityFrame = baselineAuthorityFrame,
+            BootstrapRevision = bootstrapRevision });
     }
 
     internal static void ServerSegment(ServerSim sim, string room)
@@ -325,6 +352,14 @@ internal static class NetCampaignEvidence
                 ShotProof = NetShotProof.Capture(),
                 CombatReconciliation = NetHitPrediction.Capture(),
                 CombatPayments = NetCombatPayments.Capture(),
+                AiClient = NetAiClient.Capture(),
+                CampaignClaims = CaptureClaims(),
+                HitClaims = new { NetHitClaims.Declared, NetHitClaims.Applied, NetHitClaims.Duplicate,
+                    NetHitClaims.RefusedDeadShooter, NetHitClaims.RefusedDeadVictim, NetHitClaims.RefusedOther,
+                    NetHitClaims.Unanswered, NetHitClaims.Resends, NetHitClaims.Received, NetHitClaims.AppliedHere,
+                    NetHitClaims.DuplicateHere, NetHitClaims.VoidedDeadShooter, NetHitClaims.VoidedDeadVictim,
+                    NetHitClaims.RefusedHere, NetHitClaims.TooOldHere, NetHitClaims.RepeatsHere },
+                Pickups,
                 MovementValidation = NetMovementValidationShadow.Capture(),
                 ConfirmedImpacts = NetConfirmedImpacts.Capture(),
                 SelfSplash = NetSelfSplash.Capture(),
@@ -333,10 +368,19 @@ internal static class NetCampaignEvidence
                 Drain = NetCampaignDrain.Capture(),
                 TransportWindows, Readiness, Windows, ServerSegments, Shots, States, SlowStates, Facts, Forms };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
-            JsonSerializer.Serialize(file, report);
+            try { JsonSerializer.Serialize(file, report); }
+            catch (ArgumentException)
+            {
+                // Keep the failed report inspectable without making it acceptable
+                // evidence. The strict primary report remains missing/partial.
+                using var invalid = new FileStream(Path + ".invalid.json", FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+                JsonSerializer.Serialize(invalid, report, new JsonSerializerOptions
+                { NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals });
+                throw;
+            }
             Console.WriteLine("[net2] evidence completed");
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
         {
             // Missing/partial evidence is INCOMPLETE in the runner, never a green run.
             Console.WriteLine($"[net2] evidence failed: {ex.Message}");

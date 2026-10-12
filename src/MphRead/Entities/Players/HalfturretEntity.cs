@@ -16,6 +16,39 @@ namespace MphRead.Entities
         public PlayerEntity Owner { get; }
         private EntityBase? _target = null;
         public EntityBase? Target => _target;
+        internal object ModNativeFiringGateSnapshot()
+        {
+            float? distance = null;
+            if (_target != null)
+            {
+                float value = (_target.Position - Position).Length;
+                if (float.IsFinite(value)) distance = value;
+            }
+            float? cooldown = null;
+            bool enhanced = Mods.EnhancedHunters.EnhancedHunters.Enabled(Owner) && Owner.EnhancedState.TimerB > 0;
+            if (EquipInfo.Weapon != null)
+            {
+                float value = EquipInfo.Weapon.ShotCooldown * _cooldownFactor;
+                if (value < 7.5f) value = 7;
+                if (enhanced) value /= 1.25f;
+                if (float.IsFinite(value)) cooldown = value;
+            }
+            int? targetHealth = _target switch
+            {
+                PlayerEntity player => player.Health,
+                HalfturretEntity turret => turret.Health,
+                EnemyInstanceEntity enemy => enemy.Health,
+                _ => null
+            };
+            return new { Health = _health, OwnerHalfturret = Owner.Flags2.TestFlag(PlayerFlags2.Halfturret),
+                FreezeTimer = _freezeTimer, TargetSlot = (_target as PlayerEntity)?.SlotIndex,
+                TargetId = _target?.Id, TargetType = _target?.Type.ToString(), TargetHealth = targetHealth,
+                TargetAlive = targetHealth.HasValue ? targetHealth > 0 : (bool?)null,
+                TargetTeam = (_target as PlayerEntity)?.TeamIndex, TargetAlpha = (_target as PlayerEntity)?.CurAlpha,
+                TargetDistance = distance, CooldownFactor = _cooldownFactor, ComputedCooldown = cooldown,
+                RequiredTimeSinceShot = cooldown * 2, EnhancedCooldown = enhanced,
+                Owner.TimeSinceShot, CooldownTimer = _cooldownTimer, TargetTimer = _targetTimer };
+        }
         internal void ModEnhancedTarget(PlayerEntity target)
         { _target = target; _targetTimer = 36; }
         public NodeData3? ClosestNode { get; set; } = null;
