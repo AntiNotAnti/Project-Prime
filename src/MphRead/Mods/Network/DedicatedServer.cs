@@ -331,6 +331,8 @@ namespace MphRead.Mods.Network
         /// </summary>
         public bool AffinityWeapons { get; set; }
         public bool EnhancedHunters { get; set; }
+        /// <summary>Enable native power-up pickups for server rotation defaults. Off unless -powerups is supplied.</summary>
+        public bool EnablePowerups { get; init; } = false;
 
         /// <summary>
         /// Whether the shadow freeze glitch is allowed here. Off by default;

@@ -1,6 +1,6 @@
 # A1 authority-owned timed power-up grants
 
-Status: implementation candidate with passing development fixtures and Python checks; full focused regression, immutable live acceptance and CI remain pending. This slice adds bounded authority ownership evidence for Double Damage, Cloak and Death Alt. It does not close A2 verified pickup claims, A3 client reconciliation, A4 shot authorization, later gameplay slices, or R0 release readiness. G1's bounded harness acceptance remains a separate result.
+Status: implementation candidate. The first immutable candidate passed all 30 focused contracts, 27 CI checks and recorded UDP regression campaigns, but live grants were unexercised because dedicated rotation defaults disabled power-ups. An explicit opt-in now enables that missing acceptance scenario; fresh validation is pending. This slice adds bounded authority ownership evidence for Double Damage, Cloak and Death Alt. It does not close A2 verified pickup claims, A3 client reconciliation, A4 shot authorization, later gameplay slices, or R0 release readiness. G1's bounded harness acceptance remains a separate result.
 
 ## Ownership and native contact
 
@@ -47,13 +47,17 @@ Offline play and ordinary client prediction follow their existing pickup callbac
 
 Remote native contact still uses movement positions supplied through existing client reports. Authority reservation prevents duplicate consumption of a known incarnation; it does not establish independently authoritative movement or provide anti-teleport/anti-cheat guarantees. A2 must define historical item availability and pickup claim verification, A3 must define reconciliation, and A4 must connect accepted shots to grant evidence. These remain pending.
 
+## Dedicated server opt-in
+
+Dedicated rotation matches previously hardcoded `DisablePowerups = true`. The explicit server flag `-powerups` now enables native timed pickups in the initial match definition; omission preserves the disabled default. The campaign runner forwards `--powerups` only to the server and records the option in its manifest. This uses ordinary match configuration and native spawned items, with no injected pickup, forced position or fabricated match-state packet. Existing lobby rule changes remain available.
+
 ## Development validation and remaining gates
 
 `TimedGrantTests` (`--timed-grants`) passed 1,422 pure assertions in `artifacts/net21-a1/pure-dev-3.log`. They cover distinct clocks and phase boundaries, renewal, contention, all three types, lifecycle retirement, slot reuse, stream/room fences, rollover, retention, eight-slot isolation, capacity recovery and exact evidence callbacks.
 
 `PowerUpLedgerSceneTests` (`--powerup-ledger-scene <paths-directory> [profile] [room]`) passed 16,510 asset-backed native contact/ledger assertions in each of four profiles: prime (stock), balanced, enhanced and prime-hunter. Results are retained in `artifacts/net21-a1/scene-prime-dev-4.log`, `scene-balanced-dev-4.log`, `scene-enhanced-dev-4.log` and `scene-prime-hunter-dev-4.log`. The checks use real item entities and pickup callbacks for all three timed types across shot proof Off/Shadow/Enforce. They exercise actual timer countdown, incarnation renewal, native spawner delay/quota and capacity refusal, disabled-power-up flag behavior, reported Double and inherited Cloak failing to authorize a grant, offline/client prediction, and a real private replica scene whose item initialization/destruction does not modify foreground authority ownership.
 
-The Python suite ran 426 tests with one explicit skip and reported OK in `artifacts/net21-a1/python-dev-2.log`. These are development results. The full focused contract suite in `artifacts/net21-a1/contracts-dev-1/` is still running and has no passing aggregate claim here. Immutable source/build binding, full CI, full recorded replica playback and live A1 gates remain pending.
+The first immutable candidate, `d788bbcbc9131c0148f39fe499d61f3d7b66161f`, passed all 30 focused contract routes, 426 Python tests with one explicit skip, and all 27 CI checks. Two-client/server-bot LAN, eight-client impaired Sanctorus, and eight-client Fuel Sluice campaigns passed combat and AI audits; two independent recordings from each passed determinism and replica/seek/clip checks. A further eight-client Sic Transit campaign also passed combat/AI checks. These runs preserve their raw artifacts under `artifacts/net21-a1/`; they observed zero timed grants and are explicitly NOT_RUN for live grant acceptance. Sanctorus also has no authored timed power-ups. The default-disabled server configuration explains why the other maps could not exercise their authored power-ups. The new explicit opt-in requires fresh immutable source/build, live grant, replay and CI validation.
 
 The scene fixture does not exhaust all no-power-up game modes or establish actual native input/UDP ownership reconciliation. Timer poses and spawner delay/quota are explicit fixture inputs. Fixture contact positions and clocks do not constitute independently authoritative remote movement or a live UDP campaign. No immutable live A1 acceptance is claimed.
 

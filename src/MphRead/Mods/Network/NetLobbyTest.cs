@@ -572,6 +572,21 @@ namespace MphRead.Mods.Network
 
         private static void ProtocolChecks()
         {
+            var definition = typeof(DedicatedServer).GetMethod("DefinitionFor",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            var rotation = MapRotation.SingleMatch(Rooms()[0], GameMode.Battle, 0, 0);
+            foreach (bool enabled in new[] { false, true })
+            {
+                var server = new DedicatedServer(0, 2, rotation) { EnablePowerups = enabled };
+                var match = (MatchDefinition)definition.Invoke(server, new object[] { rotation.Current })!;
+                Check(match.DisablePowerups == !enabled, "server power-ups preserve disabled default and explicit opt-in");
+            }
+            Check(!new DedicatedServer().EnablePowerups, "server power-ups default disabled");
+            var hasFlag = typeof(Mods.ModEntry).GetMethod("HasFlag",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+            Check(!(bool)hasFlag.Invoke(null, new object[] { new[] { "-server" }, "powerups" })!
+                && (bool)hasFlag.Invoke(null, new object[] { new[] { "-server", "-powerups" }, "powerups" })!,
+                "server CLI power-ups require the explicit flag");
             Check(!new MatchDefinition().SpawnProtection
                 && (new MatchDefinition { SpawnProtection = true }).SpawnProtection,
                 "spawn protection defaults off and can be enabled");

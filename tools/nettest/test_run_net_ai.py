@@ -30,6 +30,16 @@ class AiParserTests(unittest.TestCase):
             args = self.parse('--ai-net-client', str(level), '--ai-seed', '44')
             self.assertEqual((args.ai_net_client, args.ai_seed), (level, 44))
 
+    def test_server_powerups_default_and_opt_in(self):
+        ordinary = self.parse()
+        self.assertFalse(ordinary.powerups)
+        self.assertEqual(RUNNER.server_flags(ordinary), [])
+        enabled = self.parse("--powerups")
+        self.assertTrue(enabled.powerups)
+        self.assertEqual(RUNNER.server_flags(enabled), ["-powerups"])
+        ai = self.parse("--ai-net-client", "--powerups")
+        self.assertEqual(RUNNER.server_flags(ai), ["-powerups"])
+
     def test_ai_options_require_ai_mode(self):
         self.rejects('--server-bot')
         self.rejects('--ai-seed', '44')
