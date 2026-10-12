@@ -1,4 +1,5 @@
 using System;
+using MphRead.Mods.Input;
 
 namespace MphRead.Mods.Network;
 
@@ -6,7 +7,8 @@ namespace MphRead.Mods.Network;
 public static class CompactIntentCodec
 {
     public const int ShotInputOffset = IntentPacket.LegacyFullSize + 1;
-    public const int HeaderSize = ShotInputOffset + ShotInputHistory.WireSize;
+    public const int TouchOffset = ShotInputOffset + ShotInputHistory.WireSize;
+    public const int HeaderSize = TouchOffset + NativeTouchReport.WireSize;
 
     public static int Size(in IntentPacket intent)
     {
@@ -27,6 +29,7 @@ public static class CompactIntentCodec
         destination[ShotInputOffset] = intent.ShotInputCount;
         for (int i = 0; i < ShotInputHistory.Capacity; i++)
             destination[ShotInputOffset + 1 + i] = intent.ShotInputs[i];
+        intent.NativeTouch.Write(destination.Slice(TouchOffset, NativeTouchReport.WireSize));
         for (int i = 0; i < intent.FireEventCount; i++)
             intent.FireEvents[i].Write(destination.Slice(HeaderSize + i * FireEvent.Size, FireEvent.Size));
         return size;
@@ -40,6 +43,7 @@ public static class CompactIntentCodec
         if (count > NetFireEvents.LiveCapacity || payload.Length != HeaderSize + count * FireEvent.Size)
             return false;
         IntentPacket decoded = IntentPacket.Read(payload[..IntentPacket.LegacyFullSize]);
+        decoded.NativeTouch = NativeTouchReport.Read(payload.Slice(TouchOffset, NativeTouchReport.WireSize));
         decoded.HasFireEvents = true;
         decoded.FireEventCount = count;
         decoded.ShotInputCount = payload[ShotInputOffset];

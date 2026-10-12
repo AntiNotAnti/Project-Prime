@@ -1543,6 +1543,8 @@ namespace MphRead.Droid
 
             private void CollectInput(PlayerEntity main)
             {
+                // Never retain a touch across menus, spectator transitions or a paused frame.
+                Mods.Input.NativeTouchHost.Publish(false);
                 // The results screen owns the glass while it is up: the
                 // hunter picker is the one thing on it that does anything,
                 // and it was being covered by a dozen buttons that did
@@ -1577,6 +1579,13 @@ namespace MphRead.Droid
                 _replayPausedShown = false;
                 PlayerControls controls = main.Controls;
                 TouchControls.Dir dir = _controls.Direction;
+                bool classicSamus = main.Hunter == MphRead.Hunter.Samus
+                    && Mods.InputSettings.ClassicMorphBallTouch && main.IsAltForm
+                    && !main.IsMorphing && !main.IsUnmorphing;
+                (bool nativeDown, int nativeX, int nativeY) = _controls.NativeMorphBallAim();
+                Mods.Input.NativeTouchHost.Publish(classicSamus && nativeDown
+                    && !GameState.DialogPause && !_controls.IsHeld(TouchAction.WeaponMenu),
+                    nativeX, nativeY);
                 bool up = (dir & TouchControls.Dir.Up) != 0;
                 bool down = (dir & TouchControls.Dir.Down) != 0;
                 bool left = (dir & TouchControls.Dir.Left) != 0;
@@ -1607,7 +1616,7 @@ namespace MphRead.Droid
                     && dir == TouchControls.Dir.None
                     && !GameState.DialogPause
                     && !_controls.IsHeld(TouchAction.WeaponMenu)
-                    && altDrive.Engaged;
+                    && altDrive.Engaged && !classicSamus;
                 main.ModSetAltSwipeDrive(swipeOwnsMovement,
                     swipeOwnsMovement ? altDrive.X : 0,
                     swipeOwnsMovement ? altDrive.Y : 0);
@@ -1648,7 +1657,7 @@ namespace MphRead.Droid
                 // drag: Samus gets the aimed native boost and Spire gets a
                 // directional momentum shove. No swipe synthesizes Spire's
                 // AltAttack press. Other transformed hunters keep the drag.
-                _controls.SwipeBoostEnabled = main.IsAltForm
+                _controls.SwipeBoostEnabled = main.IsAltForm && !classicSamus
                     && Mods.Input.AltFormGesture.FlickAction(main.Hunter)
                         != Mods.Input.AltFlickAction.None;
                 (bool Fired, float X, float Y) swipe = _controls.TakeSwipeBoost();

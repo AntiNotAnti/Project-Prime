@@ -13,15 +13,20 @@ namespace MphRead.Entities
         private bool _nativeRemoteClassic;
         private ushort _nativeRemoteGeneration, _nativeRemoteLife;
 
+        private bool ModIsLocalTouchOwner => IsMainPlayer
+            && (!_scene.Services.PlayerReplication.Active
+                || _scene.Services.PlayerReplication.LocalSlot == SlotIndex);
+
         internal bool ModUsesClassicTouch => Hunter == Hunter.Samus && !IsBot
-            && (IsMainPlayer ? Mods.InputSettings.ClassicMorphBallTouch : _nativeRemoteClassic);
+            && (ModIsLocalTouchOwner ? Mods.InputSettings.ClassicMorphBallTouch : _nativeRemoteClassic);
 
         internal NativeTouchReport ModNativeTouchReport()
-            => ModUsesClassicTouch && IsMainPlayer ? _nativeTouch.Current : default;
+            => ModUsesClassicTouch && ModIsLocalTouchOwner ? _nativeTouch.Current : default;
 
         internal void ModReceiveNativeTouch(in NativeTouchReport report, ushort generation, ushort life)
         {
-            if (IsMainPlayer) return;
+            if (IsMainPlayer && (!_scene.Services.PlayerReplication.Active
+                || _scene.Services.PlayerReplication.LocalSlot == SlotIndex)) return;
             if (_nativeRemoteGeneration != generation || _nativeRemoteLife != life)
             {
                 _nativeBoost.Reset();
@@ -50,13 +55,13 @@ namespace MphRead.Entities
                 || Flags1.TestFlag(PlayerFlags1.NoAimInput)
                 || Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen))
             {
-                if (IsMainPlayer) ModStopNativeTouch();
+                if (ModIsLocalTouchOwner) ModStopNativeTouch();
                 else _nativeTouch.TakeRollShare();
                 return;
             }
 
             _nativeTouchInAlt = true;
-            if (!IsMainPlayer) return; // Remote sample was admitted by PlayerReplicationBridge.
+            if (!ModIsLocalTouchOwner) return; // Remote sample was admitted by PlayerReplicationBridge.
             if (OperatingSystem.IsAndroid())
             {
                 _nativeTouch.StepAbsolute(NativeTouchHost.Down, NativeTouchHost.X, NativeTouchHost.Y);

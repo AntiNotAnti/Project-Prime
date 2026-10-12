@@ -1359,6 +1359,8 @@ namespace MphRead.Mods.Network
 
     public struct IntentPacket
     {
+        // Live compact-intent extension; historical canonical replay widths are unchanged.
+        public Mods.Input.NativeTouchReport NativeTouch;
         public ushort MatchId;
         public ulong AuthorityEpoch;
         public ushort SlotGeneration;
@@ -2515,7 +2517,8 @@ namespace MphRead.Mods.Network
         // Protocol 50 isolates optional confirmed impacts from gameplay sequence/ACK windows.
         // Protocol 51 carries the authority bomb-jump result in detonation events.
         // Protocol 52 adds exact reliable turret fire emission/refusal outcomes.
-        public const int ProtocolVersion = 52;
+        // Protocol 53 carries ordered 30 Hz Morph Ball touch input in live compact intents.
+        public const int ProtocolVersion = 53;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
