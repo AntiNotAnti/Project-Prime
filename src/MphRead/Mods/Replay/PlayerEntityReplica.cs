@@ -8,6 +8,13 @@ namespace MphRead.Entities
 {
     public partial class PlayerEntity
     {
+        // Delegates are resource bindings, never checkpoint graph values. A
+        // restored weapon may use a different reserve than the constructor's.
+        internal void ModRebindReplayAmmo()
+        {
+            if (!_scene.Services.IsReplica) throw new InvalidOperationException("Ammo rebinding requires a replica.");
+            if (EquipInfo.Weapon != null) ModBindWeaponAmmo(CurrentWeapon, EquipInfo.Weapon.AmmoType);
+        }
         private ushort _replicaLastDamage;
         internal void ModBeginReplicaLife(in PlayerState state) => _replicaLastDamage = state.DamageEventId;
         internal void ModAcceptReplicaDamage(in PlayerState state)

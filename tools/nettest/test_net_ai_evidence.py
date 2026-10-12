@@ -1,17 +1,27 @@
 """G1 activity evidence must demonstrate ordinary client activity and fail closed."""
 import json
+import struct
 from pathlib import Path
 import tempfile
 import unittest
 
-from net_ai_evidence import audit_campaign
+from net_ai_evidence import audit_campaign, canonical_lifecycle
+
+
+def semantic(event, kind, actor=(255, 0, 0), target=(255, 0, 0), tick=None):
+    tick = event if tick is None else tick
+    raw = struct.pack('<BHQIIBBHHBHHiBiiBI', 55, 1, 123, event, tick, kind,
+                      *actor, *target, -1, 0, -1, 0, 0, 0)
+    return dict(Type=55, Epoch=123, Match=1, Id=event, Tick=tick,
+                Baseline=False, Award=False, AwardFrontier=0, Payload=raw.hex())
 
 
 def fixture():
     settings = dict(ai_net_client=2, ai_seed=1729, players=2, server_bot=False)
     reports = {'manifest.json': {'settings': settings},
                'server.json': dict(Role='server', HitClaims={'Received': 3, 'AppliedHere': 2},
-                                   CombatPayments={'LifetimePayments': 2},
+                                   CampaignClaims={'Received': 3, 'Applied': 2},
+                                   CombatPayments={'LifetimePayments': 2, 'PaidShotKeys': [], 'EvidenceOverflow': 0},
                                    Windows=[{'BotMask': 0}], Shots=[])}
     processes = [dict(name='server', exit=0, timedOut=False)]
     for slot in range(2):
@@ -26,10 +36,83 @@ def fixture():
             Pickups=[dict(Stage='owner-native-consumption', Epoch=123, Match=1, Slot=slot,
                           Generation=1, Life=1, IsBot=False, X=0.0, Y=0.0, Z=0.0)])
         processes.append(dict(name=name, exit=0, timedOut=False))
+        reports['server.json']['CombatPayments']['PaidShotKeys'].append(dict(key))
     return reports, processes
 
 
 class AiEvidenceTests(unittest.TestCase):
+    def test_canonical_lifecycle_deduplicates_and_joins_real_respawn(self):
+        facts = [semantic(1, 3, (0, 1, 1)), semantic(2, 4, (1, 1, 1), (0, 1, 1)),
+                 semantic(3, 3, (0, 1, 2)), semantic(4, 3, (1, 1, 2))]
+        life = canonical_lifecycle(facts + [facts[1]])
+        self.assertEqual((len(life['spawns']), len(life['deaths']), len(life['respawns'])), (3, 1, 1))
+        reports, _ = fixture()
+        reports['server.json']['Facts'] = facts
+        result = self.audit(reports)
+        self.assertEqual(result['status'], 'PASS')
+        self.assertEqual(result['clients'][0]['lifecycleEvidence']['deathEvents']['observed'], 1)
+        self.assertEqual(result['clients'][0]['lifecycleEvidence']['respawnEvents']['observed'], 1)
+        self.assertEqual(result['clients'][1]['lifecycleEvidence']['respawnEvents']['status'], 'NOT_RUN')
+
+    def test_canonical_lifecycle_rejects_conflicts_and_forged_header(self):
+        original = semantic(1, 3, (0, 1, 1))
+        changed = semantic(1, 3, (0, 1, 2))
+        with self.assertRaises(ValueError):
+            canonical_lifecycle([original, changed])
+        for field in ('Epoch', 'Match', 'Id', 'Tick'):
+            forged = dict(original)
+            forged[field] += 1
+            with self.assertRaises(ValueError):
+                canonical_lifecycle([forged])
+        with self.assertRaises(ValueError):
+            canonical_lifecycle([semantic(1, 4, (1, 1, 1), (255, 0, 0))])
+
+    def test_unjoined_life_change_is_not_respawn_and_suicide_counts_once(self):
+        facts = [semantic(1, 6, (0, 1, 1), (0, 1, 1)), semantic(2, 3, (0, 2, 2))]
+        life = canonical_lifecycle(facts)
+        self.assertEqual(len(life['deaths']), 1)
+        self.assertEqual(life['respawns'], [])
+
+    def test_respawn_life_and_tick_wrap_have_serial_number_order(self):
+        facts = [semantic(1, 6, (0, 1, 65535), (0, 1, 65535), tick=0xffffffff),
+                 semantic(2, 3, (0, 1, 1), tick=0)]
+        self.assertEqual(len(canonical_lifecycle(facts)['respawns']), 1)
+        stale = [semantic(1, 6, (0, 1, 2), (0, 1, 2)), semantic(2, 3, (0, 1, 1))]
+        self.assertEqual(canonical_lifecycle(stale)['respawns'], [])
+
+    def test_paid_source_keys_separate_ai_damage_from_bot_and_components(self):
+        reports, _ = fixture()
+        reports['manifest.json']['settings']['server_bot'] = True
+        reports['server.json']['Windows'][0]['BotMask'] = 4
+        ai = reports['peer-0.json']['Shots'][0]['Key']
+        bot = dict(ai, ShooterSlot=2)
+        reports['server.json']['Shots'] = [{'Stage': 'accepted', 'Key': bot}]
+        reports['server.json']['CombatPayments'].update(PaidShotKeys=[ai, ai, bot], EvidenceOverflow=0)
+        result = self.audit(reports)
+        self.assertEqual(result['status'], 'PASS')
+        self.assertEqual(result['metrics']['paidAiSourceShotKeys'], 1)
+        self.assertEqual(result['metrics']['componentPayments'], 2)
+        self.assertEqual(result['clients'][1]['paidSourceShotKeys'], 0)
+        reports['server.json']['CombatPayments']['EvidenceOverflow'] = 1
+        self.assertEqual(self.audit(reports)['status'], 'FAIL')
+
+    def test_missing_paid_keys_and_bot_only_payments_are_incomplete(self):
+        reports, _ = fixture()
+        del reports['server.json']['CombatPayments']['PaidShotKeys']
+        self.assertEqual(self.audit(reports)['status'], 'INCOMPLETE')
+        reports, _ = fixture()
+        reports['manifest.json']['settings']['server_bot'] = True
+        reports['server.json']['Windows'][0]['BotMask'] = 4
+        bot = dict(reports['peer-0.json']['Shots'][0]['Key'], ShooterSlot=2)
+        reports['server.json']['Shots'] = [{'Stage': 'accepted', 'Key': bot}]
+        reports['server.json']['CombatPayments']['PaidShotKeys'] = [bot]
+        result = self.audit(reports)
+        self.assertEqual(result['status'], 'INCOMPLETE')
+        self.assertEqual(result['metrics']['paidAiSourceShotKeys'], 0)
+        for malformed in ('invalid', None, True):
+            reports['server.json']['CombatPayments']['PaidShotKeys'] = malformed
+            self.assertEqual(self.audit(reports)['status'], 'FAIL')
+
     def audit(self, reports, processes=None, legacy=None):
         with tempfile.TemporaryDirectory() as directory:
             for name, value in reports.items():
@@ -80,7 +163,7 @@ class AiEvidenceTests(unittest.TestCase):
             self.assertEqual(self.audit(reports)['status'], 'FAIL')
 
     def test_zero_required_denominators_are_incomplete(self):
-        for group, field in (('CombatPayments', 'LifetimePayments'), ('HitClaims', 'Received')):
+        for group, field in (('CombatPayments', 'LifetimePayments'), ('CampaignClaims', 'Received')):
             reports, _ = fixture()
             reports['server.json'][group][field] = 0
             self.assertEqual(self.audit(reports)['status'], 'INCOMPLETE')
@@ -88,6 +171,16 @@ class AiEvidenceTests(unittest.TestCase):
         for slot in range(2):
             reports[f'peer-{slot}.json']['Pickups'] = []
             reports[f'peer-{slot}.json']['HitClaims']['Declared'] = 0
+        self.assertEqual(self.audit(reports)['status'], 'INCOMPLETE')
+
+    def test_lifetime_claim_counters_required_without_snapshot_fallback(self):
+        reports, _ = fixture()
+        reports['server.json']['HitClaims'] = {'Received': 0, 'AppliedHere': 0}
+        self.assertEqual(self.audit(reports)['status'], 'PASS')
+        del reports['server.json']['CampaignClaims']
+        self.assertEqual(self.audit(reports)['status'], 'FAIL')
+        reports, _ = fixture()
+        reports['server.json']['CampaignClaims'] = {'Received': 0, 'Applied': 0}
         self.assertEqual(self.audit(reports)['status'], 'INCOMPLETE')
 
     def test_idle_missing_shots_and_wrong_local_shooter_are_incomplete(self):

@@ -1,7 +1,78 @@
 """Strict G1 real-client activity gates, in addition to existing N0 parity checks."""
 import json
 import math
+import struct
 from pathlib import Path
+
+
+def canonical_lifecycle(rows):
+    """Decode exact protocol35 semantic facts; count events, never retries/awards.
+
+    Respawns require an earlier canonical death and a later same-generation spawn
+    with a newer life. Unjoined PlayerSpawned facts remain separate spawn events.
+    """
+    if not isinstance(rows, list):
+        raise ValueError('Facts must be a list')
+    unique = {}
+    for row in rows:
+        if row['Type'] == 56:
+            continue
+        if row['Type'] != 55 or row['Award'] is not False:
+            raise ValueError('invalid semantic fact lane')
+        raw = bytes.fromhex(row['Payload'])
+        if len(raw) != 48:
+            raise ValueError('invalid semantic fact packet length')
+        (packet, match, epoch, event, tick, kind, actor, agen, alife,
+         target, tgen, tlife, weapon, flags, entity, value, baseline,
+         frontier) = struct.unpack('<BHQIIBBHHBHHiBiiBI', raw)
+        for field, observed in (('Epoch', epoch), ('Match', match), ('Id', event), ('Tick', tick)):
+            if type(row[field]) is not int or row[field] != observed:
+                raise ValueError('semantic outer/header identity mismatch')
+        if (packet != 55 or not epoch or not match or not 0 <= kind <= 17 or
+                not -1 <= weapon <= 255 or flags > 127 or entity < -1 or baseline > 1 or
+                type(row['Baseline']) is not bool or row['Baseline'] != bool(baseline) or
+                type(row['AwardFrontier']) is not int or row['AwardFrontier'] != frontier):
+            raise ValueError('invalid semantic packet fields')
+        actor_id, target_id = (actor, agen, alife), (target, tgen, tlife)
+        none = (255, 0, 0)
+        player = lambda identity: identity[0] < 8 and identity[1] > 0 and identity[2] > 0
+        if not all(player(identity) or identity == none for identity in (actor_id, target_id)):
+            raise ValueError('invalid semantic actor identity')
+        if baseline:
+            if kind != 0 or actor_id != none or target_id != none or weapon != -1 or flags or entity != -1 or value:
+                raise ValueError('invalid semantic baseline')
+            continue
+        if not event or frontier:
+            raise ValueError('invalid semantic event identity/frontier')
+        if (kind in (3, 7, 9, 10, 11, 12, 14) and not (player(actor_id) and target_id == none) or
+                kind == 4 and not (player(target_id) and actor_id != target_id and (player(actor_id) or flags & 4)) or
+                kind == 6 and not (player(actor_id) and actor_id == target_id) or
+                kind in (5, 8) and not (player(actor_id) and player(target_id))):
+            raise ValueError('invalid semantic event actor/target roles')
+        key = (epoch, match, event)
+        if key in unique and unique[key][0] != raw:
+            raise ValueError('conflicting canonical semantic event identity')
+        unique[key] = (raw, tick, kind, actor_id, target_id)
+    deaths, spawns, respawns, pending, dead_lives = [], [], [], {}, set()
+    for (epoch, match, event), (_, tick, kind, actor, target) in sorted(unique.items()):
+        if kind in (4, 6):
+            victim = (epoch, match, *target)
+            if victim in dead_lives:
+                raise ValueError('duplicate canonical death for one victim life')
+            dead_lives.add(victim)
+            deaths.append(victim)
+            pending[victim[:-1]] = (target[2], tick, event)
+        elif kind == 3:
+            spawned = (epoch, match, *actor)
+            spawns.append(spawned)
+            previous = pending.get(spawned[:-1])
+            newer_life = previous and 0 < ((actor[2] - previous[0]) & 65535) < 32768
+            later_tick = previous and (0 < ((tick - previous[1]) & 0xffffffff) < 0x80000000 or
+                                       tick == previous[1] and event > previous[2])
+            if newer_life and later_tick:
+                respawns.append(spawned)
+                del pending[spawned[:-1]]
+    return {'semanticEvents': len(unique), 'deaths': deaths, 'spawns': spawns, 'respawns': respawns}
 
 
 def audit_campaign(directory, processes, legacy):
@@ -49,6 +120,7 @@ def audit_campaign(directory, processes, legacy):
         if not masks:
             incomplete.append('no authority roster window samples')
         bot_slots = {slot for slot in range(8) if any(mask & (1 << slot) for mask in masks)}
+        canonical = canonical_lifecycle(server['Facts']) if 'Facts' in server else None
         slots = set()
         offered_claims = pickups = 0
         for index, process in enumerate(peers):
@@ -107,10 +179,37 @@ def audit_campaign(directory, processes, legacy):
                             'nativePickupConsumptions': len(native), 'spawnedLives': spawned_lives,
                             'altFrames': alt_frames, 'weapons': ai['Weapons'], 'lifecycleEvidence': lifecycle})
         metrics = {'declaredClientClaims': offered_claims,
-                   'authorityClaimReceiptsIncludingRetries': count(server['HitClaims']['Received']),
-                   'authorityAppliedClaims': count(server['HitClaims']['AppliedHere']),
+                   'authorityClaimReceiptsIncludingRetries': count(server['CampaignClaims']['Received']),
+                   'authorityAppliedClaims': count(server['CampaignClaims']['Applied']),
                    'componentPayments': count(server['CombatPayments']['LifetimePayments']),
                    'ownerNativePickupConsumptions': pickups}
+        paid = server['CombatPayments'].get('PaidShotKeys')
+        if 'PaidShotKeys' in server['CombatPayments']:
+            if not isinstance(paid, list):
+                raise ValueError('PaidShotKeys must be a list')
+            paid_keys = {shot_key({'Key': key}) for key in paid}
+            if any(key[2] not in slots | bot_slots for key in paid_keys):
+                raise ValueError('paid shot has unknown roster slot')
+            if count(server['CombatPayments']['EvidenceOverflow']):
+                raise ValueError('paid shot evidence overflow')
+        else:
+            paid_keys = None
+        metrics['paidAiSourceShotKeys'] = None if paid_keys is None else sum(key[2] in slots for key in paid_keys)
+        if not metrics['paidAiSourceShotKeys']:
+            incomplete.append('paidAiSourceShotKeys: missing evidence or no AI-origin paid source shots')
+        metrics['canonicalLifecycle'] = {
+            name: {'observed': None if canonical is None else len(canonical[source]),
+                   'status': 'OBSERVED' if canonical and canonical[source] else 'NOT_RUN'}
+            for name, source in (('deathEvents', 'deaths'), ('spawnEvents', 'spawns'), ('respawnEvents', 'respawns'))}
+        for client in clients:
+            slot = client['slot']
+            client['paidSourceShotKeys'] = None if paid_keys is None else sum(key[2] == slot for key in paid_keys)
+            for name, source in (('deathEvents', 'deaths'), ('respawnEvents', 'respawns')):
+                observed = None if canonical is None else sum(identity[2] == slot for identity in canonical[source])
+                client['lifecycleEvidence'][name] = {
+                    'observed': observed, 'status': 'OBSERVED' if observed else 'NOT_RUN',
+                    'countingUnit': 'unique canonical death fact' if name == 'deathEvents' else
+                                    'canonical spawn joined to preceding same-generation death with newer life'}
         for name in ('declaredClientClaims', 'authorityClaimReceiptsIncludingRetries',
                      'componentPayments', 'ownerNativePickupConsumptions'):
             if metrics[name] == 0:
@@ -136,5 +235,6 @@ def audit_campaign(directory, processes, legacy):
             'failures': failures, 'incomplete': incomplete, 'clients': clients, 'metrics': metrics,
             'scope': 'Each campaign is one bounded activity phase; native pickup consumption is not an admitted grant. '
                      'Claim receipts include retries. Component payments exclude bomb/continuous paths. '
+                     'Paid AI source shot keys count distinct source shots, not component payments; canonical respawns require a joined preceding death. '
                      'Lifecycle evidence is descriptive and does not add an activity gate; OBSERVED is not lifecycle parity PASS. '
                      'Seeded gameplay RNG does not make UDP scheduling deterministic.'}

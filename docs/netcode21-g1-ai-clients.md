@@ -1,6 +1,6 @@
 # G1 native AI network clients — evidence draft
 
-This draft describes the opt-in G1 harness and its evidence contract. It records no completed campaigns, gameplay comparisons, performance improvements, or passing G1 acceptance result. Run artifacts and actual checks must supply those results.
+This draft describes the opt-in G1 harness and its evidence contract. It records no passing G1 acceptance result, gameplay comparisons, or performance improvements. Run artifacts and actual checks must supply those results; the initial incomplete LAN attempt is retained as a limitation below.
 
 ## Configuration
 
@@ -30,7 +30,21 @@ This command is a proposed run, not evidence that it has executed. Confirm the b
 
 Shot identities use explicit epoch/match/slot/generation/life/shot fields, independent of JSON object order. Claim receipts include retries. Component payments count the shot component health/turret path and exclude separate bomb/continuous payment paths. Owner native pickup consumption does not establish an admitted authority grant or the later A1/A2 ownership contract.
 
-Each client report includes descriptive `lifecycleEvidence`. `SpawnedLives` counts AI decisions that observe a changed life ID, including the initial life; `AltFrames` counts AI decision frames spent in an alternative form. Positive counts are `OBSERVED`; zero counts are `NOT_RUN`. These counters do not prove lifecycle parity. Exact death events, respawn events, and alternative form entry/exit transitions remain null with `NOT_RUN`: sampled health/death snapshots and observed life changes do not supply an exact discrete event ledger. These descriptive fields add no activity gates.
+Authority receipt/application denominators require process-lifetime `CampaignClaims.Received` and `CampaignClaims.Applied`. There is no fallback to `HitClaims.Received` or `HitClaims.AppliedHere`: those snapshots reset when the last peer leaves and the server suspends. The initial LAN attempt's exported receipt counter was zero and its activity result remains incomplete; positive operator observations cannot repair a missing lifetime denominator. A later run must export the required counters before claiming acceptance.
+
+Each client report includes descriptive `lifecycleEvidence`. `SpawnedLives` counts AI decisions that observe a changed life ID, including the initial life; `AltFrames` counts AI decision frames spent in an alternative form. Positive counts are `OBSERVED`; zero counts are `NOT_RUN`. These counters do not prove lifecycle parity.
+
+When authority `Facts` is present, exact 48-byte semantic packets supply canonical death events (`PlayerKilled` and `PlayerSuicide`) and spawn events (`PlayerSpawned`). The audit validates packet headers against outer evidence fields, validates actor/target identities, excludes baselines and the separate award lane, deduplicates by epoch/match/event ID, and rejects conflicting payloads. A respawn is counted only when a spawn follows a recorded death for the same epoch/match/slot/generation with a newer life. Initial or unjoined spawns remain spawn events, rather than assumed respawns. Missing facts leave these observations null with `NOT_RUN`; measured zero is also `NOT_RUN`. Alternative form entry/exit transitions remain null: sampled form frames do not provide an exact event ledger. These descriptive fields add no activity gates.
+
+`paidAiSourceShotKeys` and each client's `paidSourceShotKeys` count unique source shot identities present in the authority payment evidence, with overflow rejected. These distinguish AI-origin paid shots from server bot payments. They are separate from the component payment denominator: one source shot may pay multiple victim/components. At least one paid AI source shot is required across the clients; there is no per-client paid-shot minimum. Missing key instrumentation remains null and yields `INCOMPLETE`; bot-only payments also yield `INCOMPLETE`. Malformed evidence yields `FAIL`.
+
+Canonical respawn joins use serial-number comparisons for unsigned 16-bit life IDs and unsigned 32-bit ticks. Synthetic decoder tests cover wrap boundaries; they do not claim a campaign exercised a rollover.
+
+## Replay repair — development verification only
+
+Two replay repairs have been verified against both original AI demos using a development build whose source is not yet the final committed campaign source. The v7 replay capsule appends the authority-form cache while preserving the legacy graph contract. Older optional capsules fall back to the replay baseline; older mandatory clips retain an explicit warning that their transition is unverified. Restored ammunition delegates rebind to the existing player reserve without calling `TryEquipWeapon` or resetting animation.
+
+After these repairs, the original demos passed determinism verification with 3,789 and 3,792 compared hashes, and replica verification with 3,788 and 3,791 compared hashes, respectively. These are development verification results, not immutable G1 campaign acceptance. Retain the original failed replay logs alongside the repaired-build results. The first LAN attempt also remains incomplete because its authority claim receipt snapshot reset; replay repair does not replace that missing lifetime denominator. Final G1 PASS requires new immutable campaigns with the final source/binary identities and all required checks.
 
 ## Current limitations and required results
 

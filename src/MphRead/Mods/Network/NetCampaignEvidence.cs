@@ -41,6 +41,13 @@ internal static class NetCampaignEvidence
     private static bool _connectionLost, _semanticOverrun;
     private static string? _lastError;
     private static double _lastStopCheck;
+    // Process-lifetime observations survive normal empty-server world teardown.
+    // NetHitClaims' diagnostic counters reset when that world is disposed.
+    private static long _claimReceipts, _claimsApplied;
+    internal static void ClaimReceived() { if (Enabled) _claimReceipts++; }
+    internal static void ClaimApplied() { if (Enabled) _claimsApplied++; }
+    internal static object CaptureClaims() => new { Received = _claimReceipts, Applied = _claimsApplied,
+        CountingUnit = "Process-lifetime authority claim entries received including retries; applied claim decisions" };
     private static readonly long AllocatedAtStart = GC.GetTotalAllocatedBytes();
     internal static bool RigHasEvidence => _frames >= 60 && States.Count > 0
         && (SpectatorMode.IsSpectating || !HitRig.IsSniper
@@ -343,6 +350,7 @@ internal static class NetCampaignEvidence
                 CombatReconciliation = NetHitPrediction.Capture(),
                 CombatPayments = NetCombatPayments.Capture(),
                 AiClient = NetAiClient.Capture(),
+                CampaignClaims = CaptureClaims(),
                 HitClaims = new { NetHitClaims.Declared, NetHitClaims.Applied, NetHitClaims.Duplicate,
                     NetHitClaims.RefusedDeadShooter, NetHitClaims.RefusedDeadVictim, NetHitClaims.RefusedOther,
                     NetHitClaims.Unanswered, NetHitClaims.Resends, NetHitClaims.Received, NetHitClaims.AppliedHere,
