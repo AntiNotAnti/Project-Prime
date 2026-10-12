@@ -29,6 +29,9 @@ namespace MphRead.Mods.Input
             if ((flags & ~31) != 0 || (flags & 1) == 0) return default;
             bool down = (flags & 2) != 0;
             bool continued = down && (flags & 4) != 0;
+            if (down && (Math.Abs((int)BinaryPrimitives.ReadInt16LittleEndian(source[1..])) > 1020
+                || Math.Abs((int)BinaryPrimitives.ReadInt16LittleEndian(source[3..])) > 1020))
+                return default;
             return new NativeTouchReport(true, down, continued,
                 down ? BinaryPrimitives.ReadInt16LittleEndian(source[1..]) : (short)0,
                 down ? BinaryPrimitives.ReadInt16LittleEndian(source[3..]) : (short)0,
@@ -123,6 +126,8 @@ namespace MphRead.Mods.Input
         private int _idleSteps = 5;
         private bool _remoteSeen, _lastSecond;
         private ushort _generation, _life;
+        private uint _lastNativeFrame;
+        private bool _lastNativeWasSecond;
         public NativeTouchReport Current { get; private set; }
         public float RollShare { get; private set; }
         public bool NewSample { get; private set; }
@@ -137,6 +142,8 @@ namespace MphRead.Mods.Input
             NewSample = false;
             _remoteSeen = false;
             Current = default;
+            _lastNativeFrame = 0;
+            _lastNativeWasSecond = false;
             _sequence = unchecked(_sequence + 1);
         }
 
@@ -182,7 +189,7 @@ namespace MphRead.Mods.Input
             FinishLocal();
         }
 
-        public void ApplyRemote(in NativeTouchReport report, ushort generation, ushort life)
+        public void ApplyRemote(in NativeTouchReport report, ushort generation, ushort life, uint sourceFrame = 0)
         {
             RollShare = 0;
             NewSample = false;
@@ -210,6 +217,8 @@ namespace MphRead.Mods.Input
                 _remoteSeen = false;
                 _generation = generation;
                 _life = life;
+                _lastNativeFrame = 0;
+                _lastNativeWasSecond = false;
             }
             if (_remoteSeen)
             {
@@ -224,6 +233,24 @@ namespace MphRead.Mods.Input
                 }
             }
             NewSample = !_remoteSeen || report.SampleSequence != _sequence;
+            if (NewSample && _remoteSeen && sourceFrame != 0 && _lastNativeFrame != 0)
+            {
+                uint frames = unchecked(sourceFrame - _lastNativeFrame);
+                // The 30 Hz producer cannot author a new sample every 60 Hz
+                // frame. A previous missing first-half (second-only) can be
+                // followed by the next first half on the next frame.
+                if (frames == 0 || frames >= 0x80000000u
+                    || (frames == 1 && (!_lastNativeWasSecond || report.SecondStep)))
+                {
+                    NewSample = false;
+                    return;
+                }
+            }
+            if (NewSample)
+            {
+                _lastNativeFrame = sourceFrame;
+                _lastNativeWasSecond = report.SecondStep;
+            }
             _remoteSeen = true;
             _sequence = report.SampleSequence;
             _lastSecond = report.SecondStep;
@@ -237,6 +264,7 @@ namespace MphRead.Mods.Input
             writer.Write(_pendingX); writer.Write(_pendingY); writer.Write(_idleSteps);
             writer.Write(_remoteSeen); writer.Write(_lastSecond);
             writer.Write(_generation); writer.Write(_life);
+            writer.Write(_lastNativeFrame); writer.Write(_lastNativeWasSecond);
             writer.Write(NewSample); writer.Write(RollShare);
             Span<byte> bytes = stackalloc byte[NativeTouchReport.WireSize];
             Current.Write(bytes); writer.Write(bytes);
@@ -250,6 +278,7 @@ namespace MphRead.Mods.Input
             _idleSteps = reader.ReadInt32(); _remoteSeen = reader.ReadBoolean();
             _lastSecond = reader.ReadBoolean();
             _generation = reader.ReadUInt16(); _life = reader.ReadUInt16();
+            _lastNativeFrame = reader.ReadUInt32(); _lastNativeWasSecond = reader.ReadBoolean();
             NewSample = reader.ReadBoolean(); RollShare = reader.ReadSingle();
             byte[] touchBytes = reader.ReadBytes(NativeTouchReport.WireSize);
             if (touchBytes.Length != NativeTouchReport.WireSize)

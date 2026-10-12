@@ -45,7 +45,7 @@ namespace MphRead.Entities
         internal NativeTouchReport ModNativeTouchReport()
             => ModUsesClassicTouch && ModIsLocalTouchOwner ? _nativeTouch.Current : default;
 
-        internal void ModReceiveNativeTouch(in NativeTouchReport report, ushort generation, ushort life)
+        internal void ModReceiveNativeTouch(in NativeTouchReport report, ushort generation, ushort life, uint sourceFrame)
         {
             if (IsMainPlayer && (!_scene.Services.PlayerReplication.Active
                 || _scene.Services.PlayerReplication.LocalSlot == SlotIndex)) return;
@@ -57,7 +57,7 @@ namespace MphRead.Entities
                 _nativeRemoteLife = life;
             }
             _nativeRemoteClassic = Hunter == Hunter.Samus && report.Active;
-            _nativeTouch.ApplyRemote(_nativeRemoteClassic ? report : default, generation, life);
+            _nativeTouch.ApplyRemote(_nativeRemoteClassic ? report : default, generation, life, sourceFrame);
             _nativeTouchInAlt = _nativeRemoteClassic;
         }
 
