@@ -9,6 +9,7 @@ namespace MphRead.Entities
         public partial class PlayerAiData
         {
             private BeamProjectileEntity? _botDodgeObservedProjectile;
+            private float _botDodgeObservedAge;
             private int _botDodgeReactionFrames;
             private int _botDodgeCommitFrames;
             private Vector3 _botDodgeWorldDirection;
@@ -16,6 +17,7 @@ namespace MphRead.Entities
             private void ResetBotDodge()
             {
                 _botDodgeObservedProjectile = null;
+                _botDodgeObservedAge = 0;
                 _botDodgeReactionFrames = 0;
                 _botDodgeCommitFrames = 0;
                 _botDodgeWorldDirection = Vector3.Zero;
@@ -89,15 +91,21 @@ namespace MphRead.Entities
                 if (incoming == null)
                 {
                     _botDodgeObservedProjectile = null;
+                    _botDodgeObservedAge = 0;
                     _botDodgeReactionFrames = 0;
                     return;
                 }
 
-                if (_botDodgeObservedProjectile != incoming)
+                // Projectile entities are pooled. Age resets when a slot is reused;
+                // comparing the object alone would give the next shot a zero-frame
+                // reaction if the bot had seen the previous life of that same beam.
+                if (_botDodgeObservedProjectile != incoming
+                    || incoming.Age + 0.001f < _botDodgeObservedAge)
                 {
                     _botDodgeObservedProjectile = incoming;
                     _botDodgeReactionFrames = _player.BotLevel == 3 ? 4 : _player.BotLevel == 2 ? 7 : 11;
                 }
+                _botDodgeObservedAge = incoming.Age;
                 if (_botDodgeReactionFrames > 0)
                 {
                     _botDodgeReactionFrames--;
