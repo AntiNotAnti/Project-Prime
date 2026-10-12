@@ -61,6 +61,37 @@ namespace MphRead.Mods.Input
             Span<byte> bytes = stackalloc byte[NativeTouchReport.WireSize];
             swipe.Write(bytes);
             Check(NativeTouchReport.Read(bytes) == swipe, "wire roundtrip");
+            
+            // Boundary and lifecycle checks are intentionally over the real sample
+            // object, not over a hand-authored approximation of its network state.
+            remote.ApplyRemote(swipe with { SampleSequence = 9, SecondStep = false }, 1, 1);
+            Check(remote.TakeRollShare() == 0.5f, "next sample");
+            remote.ApplyRemote(swipe with { SampleSequence = 10, SecondStep = false }, 1, 2);
+            Check(remote.TakeRollShare() == 0.5f, "new life accepts fresh sample");
+            remote.ApplyRemote(swipe with { SampleSequence = 9, SecondStep = true }, 1, 2);
+            Check(remote.TakeRollShare() == 0, "stale within current life");
+            remote.ApplyRemote(swipe with { SampleSequence = 1, SecondStep = false }, 2, 1);
+            Check(remote.TakeRollShare() == 0.5f, "slot replacement resets report identity");
+            NativeTouchSample wrapped = new();
+            wrapped.ApplyRemote(swipe with { SampleSequence = uint.MaxValue, SecondStep = false }, 4, 2);
+            wrapped.TakeRollShare();
+            wrapped.ApplyRemote(swipe with { SampleSequence = 0, SecondStep = false }, 4, 2);
+            Check(wrapped.TakeRollShare() == 0.5f, "sequence rollover remains admissible");
+            wrapped.ApplyRemote(swipe with { SampleSequence = uint.MaxValue, SecondStep = false }, 4, 2);
+            Check(wrapped.TakeRollShare() == 0, "pre-wrap packet cannot rewind sample");
+            state.UpdateAbsolute(true, 255, 191);
+            state.UpdateAbsolute(true, 0, 0);
+            Check(state.Delta4X <= 255 && state.Delta4Y <= 191, "absolute coordinates bounded");
+            foreach (float factor in new[] { 0f, .35f, 1f })
+            {
+                (float X, float Z) contribution = MorphBallTouchRules.Roll(15, -20, .5f, factor,
+                    1, 0, 0, 1);
+                (float X, float Z) native = MorphBallTouchRules.Roll(15, -20, 1f, factor,
+                    1, 0, 0, 1);
+                Check(MathF.Abs(2 * contribution.X - native.X) < 0.00001f
+                    && MathF.Abs(2 * contribution.Z - native.Z) < 0.00001f,
+                    "jump-pad scaling conserves native impulse");
+            }
             Console.WriteLine("NATIVE TOUCH PASS");
         }
     }

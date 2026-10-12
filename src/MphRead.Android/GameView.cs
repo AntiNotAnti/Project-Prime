@@ -1661,7 +1661,7 @@ namespace MphRead.Droid
                     && Mods.Input.AltFormGesture.FlickAction(main.Hunter)
                         != Mods.Input.AltFlickAction.None;
                 (bool Fired, float X, float Y) swipe = _controls.TakeSwipeBoost();
-                if (swipe.Fired && main.IsAltForm)
+                if (swipe.Fired && main.IsAltForm && !classicSamus)
                 {
                     main.SwipeBoostRequested = true;
                     // Which way the thumb went, for the boost to follow. The

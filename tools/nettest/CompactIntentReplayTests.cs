@@ -41,14 +41,14 @@ internal static class CompactIntentReplayTests
             var accept = recorderType.GetMethod("AcceptIntent", All)!;
             accept.Invoke(recorder, new object[] { 0, newer, 102u });
             accept.Invoke(recorder, new object[] { 0, older, 104u });
-            Check(published.Count == 2 && published[1].Length == 2 + IntentPacket.FullSize
+            Check(published.Count == 2 && published[1].Length == 2 + IntentPacket.TouchCanonicalSize
                 && IntentPacket.Read(published[1].AsSpan(2)).Frame == 100
                 && IntentPacket.Read(published[1].AsSpan(2)).FireEventCount == 2,
                 "older carrier with unique shots is published as a canonical replay record");
             var bootstrap = (Array)recorderType.GetField("_intents", All)!.GetValue(recorder)!;
             object latest = bootstrap.GetValue(0)!;
             var payload = ((ReplayTimelineRecord)latest).Payload;
-            Check(payload.Length == 2 + IntentPacket.FullSize && IntentPacket.Read(payload[2..]).Frame == 102
+            Check(payload.Length == 2 + IntentPacket.TouchCanonicalSize && IntentPacket.Read(payload[2..]).Frame == 102
                 && IntentPacket.Read(payload[2..]).Position.X == 10,
                 "older carrier never replaces newest canonical bootstrap movement");
             Span<byte> live = stackalloc byte[IntentPacket.FullSize];
