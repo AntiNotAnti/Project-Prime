@@ -711,10 +711,15 @@ namespace MphRead.Mods.Network
             // Build actual protocol-27 bytes; changing only the version label would
             // leave protocol-29 player extensions in the historical fixture.
             var historicalBytes = historicalCheckpoint.ToList();
-            // Schemas 5/6 add 16 bytes of empty semantic counts/frontiers;
-            // schema 8 adds the empty four-byte bomb-history count.
-            // This fixture represents schema 4/protocol 27, not a relabelled current schema.
-            historicalBytes.RemoveRange(historicalBytes.Count - 20, 20);
+            // Schemas 5/6 add two empty semantic counts and two uint frontiers;
+            // schema 8 adds the bomb-history count; schema 9 adds the seen and
+            // pending turret-outcome counts. All are absent from schema 4.
+            // Check the empty appendices before stripping them so this fixture
+            // cannot silently discard populated history or target the wrong bytes.
+            const int historicalAppendixBytes = 5 * sizeof(int) + 2 * sizeof(uint);
+            Check(historicalBytes.Skip(historicalBytes.Count - historicalAppendixBytes).All(value => value == 0),
+                "protocol-27 fixture strips only empty later-schema appendices");
+            historicalBytes.RemoveRange(historicalBytes.Count - historicalAppendixBytes, historicalAppendixBytes);
             historicalBytes[4] = 4; historicalBytes[5] = 0;
             const int matchStart = 46;
             int rosterStart = matchStart + MatchStatePacket.Size + 1;

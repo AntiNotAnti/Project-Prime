@@ -50,8 +50,8 @@ namespace MphRead.Entities
         /// <summary>
         /// Keep a replay victim visually dead after an authoritative lethal shot
         /// even when the next accepted snapshot has not carried the death yet.
-        /// The hold is deliberately silent so a seek/rebuild cannot replay death
-        /// audio or effects.
+        /// Later alive snapshots must not repeat the death audio or effects;
+        /// seek reconstruction simulates the original transition separately.
         /// </summary>
         internal void ModHoldReplicaDeath()
             => ModSetReplicaDead(presentTransition: false, playAudio: false);

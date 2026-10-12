@@ -12,13 +12,17 @@ internal static class ReplayReplicaSeekChecks
     internal static void Run(string path, Vector2i size, IReadOnlyDictionary<uint, (string Gameplay, string Presentation)> frames,
         ReplayWorldCheckpoint? checkpoint, bool comparePresentation)
     {
-        void Compare(PassiveReplayScene scene, uint frameOffset = 0)
+        void Compare(PassiveReplayScene scene, uint frameOffset = 0, PassiveReplayPlayer? seekPlayer = null)
         {
             uint frame = checked(scene.Session.CurrentFrame - frameOffset);
             var expected = frames[frame];
             if (ReplayStateHash.Compute(scene.Scene, frame) != expected.Gameplay
                 || comparePresentation && scene.Scene.ReplayPresentationHash(frame) != expected.Presentation)
+            {
+                if (seekPlayer != null)
+                    Console.WriteLine($"[replayseek] FAILURE target={scene.Session.CurrentFrame}, source={seekPlayer.CheckpointSource}, restore={seekPlayer.SeekRestoreFrame}, steps={seekPlayer.SeekSimulationSteps}, rejected={seekPlayer.RejectedCheckpoints}, error={seekPlayer.LastCheckpointError}");
                 throw new InvalidDataException($"Checkpoint seek differs from linear playback at {scene.Session.CurrentFrame}.");
+            }
         }
         using var player = new PassiveReplayPlayer(path, size);
         uint last = player.Current.Session.LastFrame;
@@ -40,7 +44,7 @@ internal static class ReplayReplicaSeekChecks
             // A newly captured memory capsule must never require that fallback.
             if (player.RejectedCheckpoints != player.RejectedDurableCheckpoints)
                 throw new InvalidDataException($"Replica seek rejected a memory checkpoint at target {target}; total={player.RejectedCheckpoints}, durable={player.RejectedDurableCheckpoints}, error={player.LastCheckpointError}.");
-            Compare(player.Current); comparisons++;
+            Compare(player.Current, seekPlayer: player); comparisons++;
             Console.WriteLine($"[replayseek] {target} from {player.SeekRestoreFrame}: {player.SeekSimulationSteps} steps, {updates} updates, {player.SeekMilliseconds:F2} ms");
             if (player.RejectedDurableCheckpoints != 0)
                 Console.WriteLine($"[replayseek] durable fallbacks={player.RejectedDurableCheckpoints}; last error={player.LastCheckpointError}");

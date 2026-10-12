@@ -193,7 +193,7 @@ namespace MphRead.Mods.Network
                 + $"gameplay expected={gameplay} actual={actualGameplay}; presentation expected={presentation} actual={actualPresentation}; {detail}");
         }
 
-        private static string DescribeDifferences(PassiveReplayScene expected, PassiveReplayScene actual)
+        internal static string DescribeDifferences(PassiveReplayScene expected, PassiveReplayScene actual)
         {
             var text = new StringBuilder();
             int differences = 0, visited = 0;
@@ -228,7 +228,6 @@ namespace MphRead.Mods.Network
                     foreach (var field in current.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly).OrderBy(f => f.Name))
                         Compare(field.GetValue(left), field.GetValue(right), path + "." + field.Name, depth + 1);
             }
-            Compare(expected.Scene.GameState, actual.Scene.GameState, "gameState", 0);
             Compare(expected.Scene.Random, actual.Scene.Random, "random", 0);
             var leftList = new List<EntityBase>();
             foreach (EntityBase entity in expected.Scene.Entities) leftList.Add(entity);
@@ -248,7 +247,10 @@ namespace MphRead.Mods.Network
                 Compare(left.Initialized, right.Initialized, name + ".Initialized", 0);
                 Compare(left.Recolor, right.Recolor, name + ".Recolor", 0);
                 for (int j = 0; j < Math.Min(left.ReplayModels.Count, right.ReplayModels.Count); j++)
+                {
+                    Compare(left.ReplayModels[j].Active, right.ReplayModels[j].Active, name + $".model[{j}].Active", 0);
                     Compare(left.ReplayModels[j].AnimInfo, right.ReplayModels[j].AnimInfo, name + $".animation[{j}]", 0);
+                }
                 if (left is BeamProjectileEntity lb && right is BeamProjectileEntity rb)
                 {
                     Compare(lb.DrawFuncId, rb.DrawFuncId, name + ".DrawFuncId", 0);
@@ -262,12 +264,20 @@ namespace MphRead.Mods.Network
             var effects = typeof(Scene).GetField("_activeElements", BindingFlags.Instance | BindingFlags.NonPublic)!;
             var leftEffects = ((System.Collections.IEnumerable)effects.GetValue(expected.Scene)!).Cast<Effects.EffectElementEntry>().ToArray();
             var rightEffects = ((System.Collections.IEnumerable)effects.GetValue(actual.Scene)!).Cast<Effects.EffectElementEntry>().ToArray();
+            if (leftEffects.Length != rightEffects.Length)
+            {
+                text.Append($"effectCount {leftEffects.Length} -> {rightEffects.Length}; ");
+                text.Append("expectedEffects(first 24)=").Append(string.Join(",", leftEffects.Take(24).Select(e => $"{e.EffectId}/{e.ElementName}@{e.CreationTime}:{e.ExpirationTime}/{e.Expired}/{e.Particles.Count}"))).Append("; ");
+                text.Append("actualEffects(first 24)=").Append(string.Join(",", rightEffects.Take(24).Select(e => $"{e.EffectId}/{e.ElementName}@{e.CreationTime}:{e.ExpirationTime}/{e.Expired}/{e.Particles.Count}"))).Append("; ");
+            }
             for (int i = 0; i < Math.Min(leftEffects.Length, rightEffects.Length) && differences < 24; i++)
             {
                 Compare(leftEffects[i], rightEffects[i], $"effect[{i}]", 0);
+                Compare(leftEffects[i].Particles.Count, rightEffects[i].Particles.Count, $"effect[{i}].particleCount", 0);
                 for (int j = 0; j < Math.Min(leftEffects[i].Particles.Count, rightEffects[i].Particles.Count) && differences < 24; j++)
                     Compare(leftEffects[i].Particles[j], rightEffects[i].Particles[j], $"effect[{i}].particle[{j}]", 0);
             }
+            Compare(expected.Scene.GameState, actual.Scene.GameState, "gameState", 0);
             for (int i = 0; i < Math.Min(leftEntities.Length, rightEntities.Length) && differences < 24; i++)
             {
                 Compare(leftEntities[i], rightEntities[i], $"entity[{i}]({leftEntities[i].Type}/{leftEntities[i].Id})", 0);

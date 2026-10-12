@@ -46,6 +46,84 @@ class EvidenceTests(unittest.TestCase):
     def test_complete_matching_run(self):
         self.assertEqual(self.result()["status"], "PASS")
 
+    def test_zero_turret_coverage_is_not_run_without_failing_generic_campaign(self):
+        result = self.result()
+        self.assertEqual(result["status"], "PASS")
+        self.assertTrue(all(value == 0 for value in result["turretOutcomeDenominators"].values()))
+        for label in ("turretEmissions", "turretRefusals", "turretOutcomeReceipts",
+                      "turretRefusalApplications", "turretCancelledFlights"):
+            self.assertEqual(result["coverage"][label], "NOT_RUN")
+
+    def turret_outcome_fixture(self, status="Emitted", cancelled=0):
+        from test_net_turret_outcomes import TurretOutcomeTests
+        fixture = TurretOutcomeTests()
+        row = fixture.row(status)
+        _, authority, accepted, committed = fixture.setup_authority(row)
+        shot = next(iter(accepted.values()))
+        self.server.update(Protocol=52, Role="server", TurretOutcomes=[row],
+                           CombatPayments=authority["CombatPayments"])
+        self.client.update(Protocol=52, Role="client", TurretOutcomes=[
+            dict(row, Stage="received", ObservedFrame=150)])
+        self.server["Shots"].append(dict(shot, Stage="accepted"))
+        if committed:
+            self.server["Shots"].append(shot)
+            self.client["Shots"].append(shot)
+        else:
+            self.server["Shots"].append(shot)
+            self.client["TurretOutcomes"].append(dict(row, Stage="refusal-applied",
+                ObservedFrame=150, CancelledFlights=cancelled))
+        self.client["Shots"].append(dict(shot, Stage="offered"))
+        self.write()
+
+    def test_turret_emission_is_observed_not_correctness_pass(self):
+        self.turret_outcome_fixture()
+        result = self.result()
+        self.assertEqual(result["coverage"]["turretEmissions"], "OBSERVED")
+        self.assertEqual(result["coverage"]["turretRefusals"], "NOT_RUN")
+        self.assertEqual(result["coverage"]["turretOutcomeReceipts"], "OBSERVED")
+        counts = result["turretOutcomeDenominators"]
+        self.assertEqual(counts["authorityEmissions"], 1)
+        self.assertEqual(counts["requiredPeerReceipts"], 1)
+        self.assertEqual(counts["receivedPeerReceipts"], 1)
+
+    def test_refusal_and_cancelled_flight_denominators_are_separate(self):
+        for cancelled in (0, 2):
+            with self.subTest(cancelled=cancelled):
+                self.setUp()
+                self.turret_outcome_fixture("Refused", cancelled)
+                result = self.result()
+                self.assertEqual(result["coverage"]["turretRefusals"], "OBSERVED")
+                self.assertEqual(result["coverage"]["turretRefusalApplications"], "OBSERVED")
+                self.assertEqual(result["coverage"]["turretCancelledFlights"],
+                                 "OBSERVED" if cancelled else "NOT_RUN")
+                counts = result["turretOutcomeDenominators"]
+                self.assertEqual(counts["authorityRefusals"], 1)
+                self.assertEqual(counts["requiredPeerRefusalApplications"], 1)
+                self.assertEqual(counts["appliedPeerRefusals"], 1)
+                self.assertEqual(counts["cancelledFlights"], cancelled)
+
+    def test_malformed_turret_evidence_does_not_gain_observed_label(self):
+        self.turret_outcome_fixture()
+        self.server["TurretOutcomes"][0]["Payload"] = "bad"
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "FAIL")
+        self.assertEqual(result["coverage"]["turretEmissions"], "NOT_RUN")
+        self.assertEqual(result["coverage"]["turretOutcomeReceipts"], "NOT_RUN")
+        self.assertEqual(result["turretOutcomeDenominators"]["authorityEmissions"], 0)
+        self.assertTrue(any("invalid turret outcome" in error for error in result["failures"]))
+
+    def test_malformed_cancellation_count_is_not_observed(self):
+        self.turret_outcome_fixture("Refused", 2)
+        self.client["TurretOutcomes"][1]["CancelledFlights"] = "2"
+        self.write()
+        result = self.result()
+        self.assertEqual(result["status"], "FAIL")
+        self.assertEqual(result["coverage"]["turretRefusals"], "OBSERVED")
+        self.assertEqual(result["coverage"]["turretCancelledFlights"], "NOT_RUN")
+        self.assertEqual(result["turretOutcomeDenominators"]["cancelledFlights"], 0)
+        self.assertEqual(result["turretOutcomeDenominators"]["appliedPeerRefusals"], 0)
+
     def admission_fixture(self, remote_frame=90):
         # An independently offered remote shot was committed during the local
         # observer's preload. Its own later shot still requires normal delivery.

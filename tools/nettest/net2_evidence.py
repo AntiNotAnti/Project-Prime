@@ -1,6 +1,6 @@
 """Offline, fail-closed adjudication of N0 process evidence (no game imports)."""
 from collections import Counter
-from net_turret_outcomes import authority_outcomes, peer_outcomes
+from net_turret_outcomes import authority_outcomes, peer_outcomes, terminal_rows
 import json
 import math
 from pathlib import Path
@@ -678,6 +678,10 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
     if "server" not in reports or len(reports) != len(processes):
         incomplete.append("not every independent process supplied valid evidence")
     parity = {}
+    turret_terminals = {}
+    turret_denominators = dict(authorityEmissions=0, authorityRefusals=0,
+        requiredPeerReceipts=0, receivedPeerReceipts=0, requiredPeerRefusalApplications=0,
+        appliedPeerRefusals=0, cancelledFlights=0)
     if "server" in reports:
         authority = reports["server"]
         if not authority["ServerSegments"]:
@@ -698,6 +702,8 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
             turret_terminals, retired_turrets, turret_errors = authority_outcomes(authority, authority_accepted, authority_shots)
         else:
             retired_turrets, turret_errors = authority_turret_retirements(authority, authority_accepted)
+        turret_denominators["authorityEmissions"] = sum(row[0]["Status"] == "Emitted" for row in turret_terminals.values())
+        turret_denominators["authorityRefusals"] = sum(row[0]["Status"] == "Refused" for row in turret_terminals.values())
         failures.extend("server: " + error for error in turret_errors)
         observations["server"]["authorityRetiredTurretCount"] = len(retired_turrets)
         observations["server"]["authorityRetiredTurretKeys"] = [list(k) for k in sorted(retired_turrets)]
@@ -769,6 +775,19 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 received_turrets, refused_turrets, outcome_errors = peer_outcomes(report, turret_terminals, required_turrets)
                 failures.extend(name + ": " + error for error in outcome_errors)
                 retired_offered &= refused_turrets
+                # Count only the validated authority/peer joins. These are observed
+                # workload denominators, not a claim of complete turret correctness.
+                receipt_rows, _ = terminal_rows(report)
+                cancelled = sum(receipt_rows[("refusal-applied", key)][0]["CancelledFlights"]
+                                for key in refused_turrets)
+                turret_denominators["requiredPeerReceipts"] += len(required_turrets)
+                turret_denominators["receivedPeerReceipts"] += len(received_turrets)
+                turret_denominators["requiredPeerRefusalApplications"] += sum(
+                    turret_terminals[key][0]["Status"] == "Refused" for key in required_turrets)
+                turret_denominators["appliedPeerRefusals"] += len(refused_turrets)
+                turret_denominators["cancelledFlights"] += cancelled
+                observations[name]["turretRequiredOutcomeReceipts"] = len(required_turrets)
+                observations[name]["turretCancelledFlights"] = cancelled
                 observations[name]["turretOutcomeReceipts"] = len(received_turrets)
                 observations[name]["turretRefusalsApplied"] = len(refused_turrets)
             missing_committed -= retired_offered
@@ -872,12 +891,19 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
         "mapRotation": rotation,
         "shockCoilDrainKillParity": "NOT_RUN", "imperialistSpawnTrapCoverage": "NOT_RUN",
         "sustained20Minutes": "PASS" if sustained else "INCOMPLETE" if soak else "NOT_RUN"}
+    for label, denominator in (("turretEmissions", "authorityEmissions"),
+                               ("turretRefusals", "authorityRefusals"),
+                               ("turretOutcomeReceipts", "receivedPeerReceipts"),
+                               ("turretRefusalApplications", "appliedPeerRefusals"),
+                               ("turretCancelledFlights", "cancelledFlights")):
+        coverage[label] = "OBSERVED" if turret_denominators[denominator] else "NOT_RUN"
     drain_status, drain_gaps = drain_coverage(manifest, reports)
     coverage["boundedHeadlessDrain"] = drain_status
     failures.extend("campaign drain: " + gap for gap in drain_gaps)
     if soak and (not sustained or any(coverage[k] != "PASS" for k in ("botFills", "spectator", "mapRotation"))):
         incomplete.append("soak duration, load, bot, spectator or map-rotation coverage missing")
     return {"status": "FAIL" if failures else "INCOMPLETE" if incomplete else "PASS", "coverage": coverage,
+            "turretOutcomeDenominators": turret_denominators,
             "mapRotationEvidenceGaps": rotation_gaps,
             "campaignDrainEvidenceGaps": drain_gaps,
             "failures": failures, "incomplete": incomplete, "processes": processes,

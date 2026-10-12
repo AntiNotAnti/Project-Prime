@@ -567,10 +567,13 @@ internal sealed class ReplayPoseStream : IDisposable
             }
 
             PlayerEntity victim = scene.Players.Items[slot];
-            bool transitionFrame = at == frame && !seeking;
+            // Seeking still simulates this frame: death particles are durable
+            // presentation state and must match linear playback. Only audio is
+            // suppressed while reconstructing the world.
+            bool transitionFrame = at == frame;
             if (transitionFrame)
             {
-                bool playAudio = ReplayAudioOwner.MayPlay(scene)
+                bool playAudio = !seeking && ReplayAudioOwner.MayPlay(scene)
                     && !ReplayVideoExporter.Rendering;
                 victim.ModPresentAuthoritativeReplayDeath(playAudio);
             }

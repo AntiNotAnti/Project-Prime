@@ -44,12 +44,32 @@ namespace MphRead.NetTest
                     + "  --form-scene <assets> [room]       Test authority form and detached turret lifecycle.");
                 return 0;
             }
+            if (args.Length > 1 && args[0] == "--biped-edge-collision-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return BipedEdgeCollisionTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
             if (args.Length > 0 && args[0] == "--ai-client-driver") return NetAiClientTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-claims") return CampaignClaimEvidenceTests.Run();
             if (args.Length > 0 && args[0] == "--replay-form-history") return ReplayFormHistoryTests.Run();
             if (args.Length > 0 && args[0] == "--turret-fire-outcome-codec") return TurretFireOutcomeTests.Run();
             if (args.Length > 0 && args[0] == "--player-form-protocol") return PlayerFormProtocolTests.Run();
             if (args.Length > 0 && args[0] == "--bomb-protocol") return BombProtocolTests.Run();
+            if (args.Length > 2 && args[0] == "--turret-cancellation-scene")
+            {
+                string replay = System.IO.Path.GetFullPath(args[2]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TurretCancellationSceneTests.Run(replay);
+            }
+            if (args.Length > 2 && args[0] == "--replay-resolved-death-scene")
+            {
+                string replay = System.IO.Path.GetFullPath(args[2]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return ReplayResolvedDeathTests.Run(replay);
+            }
             if (args.Length > 2 && args[0] == "--bomb-effect-birth-scene")
             {
                 string replay = System.IO.Path.GetFullPath(args[2]);
