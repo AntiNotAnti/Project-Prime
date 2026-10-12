@@ -1,5 +1,7 @@
 using System;
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.Network;
+using OpenTK.Mathematics;
 
 namespace MphRead.Entities
 {
@@ -91,5 +93,48 @@ namespace MphRead.Entities
             => UsesBalancedImperialistAmmo(BeamType.Imperialist)
                 ? _balancedImperialistAmmo / Math.Max(1, (int)BalancedImperialistWeaponInfo().AmmoCost)
                 : -1;
+
+        /// <summary>
+        /// Balanced Weavel keeps the physical impulse from his own Battlehammer
+        /// explosion but pays no HP or turret damage. This deliberately bypasses
+        /// TakeDamage: a synthetic zero-damage event would still enter damage
+        /// history, and the network replay path can floor it to a 1-HP hit.
+        /// </summary>
+        internal bool ModApplyBalancedBattlehammerSelfImpulse(BeamProjectileEntity beam, Vector3 impulse)
+        {
+            if (!BalancedModeRules.IsBattlehammerBurst(_scene.GameState.Multiplayer,
+                    _scene.GameState.BalancedMode, beam.Beam)
+                || Hunter != Hunter.Weavel || beam.ModOwnerHunter != Hunter.Weavel
+                || beam.Owner != this || _scene.Services.SuppressDamage
+                || !ModSelfSplashEligible || _frozenTimer != 0
+                || !float.IsFinite(impulse.X) || !float.IsFinite(impulse.Y)
+                || !float.IsFinite(impulse.Z)
+                || NetDamage.Suppress(this, beam, DamageFlags.NoDmgInvuln))
+            {
+                return false;
+            }
+
+            // Match TakeDamage's actual movement impulse, not the damage/flinch
+            // path. That keeps biped vertical caps and alt-form horizontal
+            // impulse exactly as they are for ordinary Battlehammer explosions.
+            if (!IsAltForm)
+            {
+                Vector3 speed = Speed + impulse.WithY(0);
+                if (impulse.Y <= 0)
+                {
+                    speed.Y += impulse.Y;
+                }
+                else if (speed.Y < 0.25f)
+                {
+                    speed.Y = MathF.Min(0.25f, speed.Y + impulse.Y);
+                }
+                Speed = speed;
+            }
+            else
+            {
+                Speed += (impulse * 0.4f).WithY(0);
+            }
+            return true;
+        }
     }
 }
