@@ -17,7 +17,7 @@ Halfturret keep their stock projectile behavior.
 | Splash radius | 1.50 game units | 1.65 game units |
 | Falloff | Linear, LOS checked | Linear, LOS checked |
 | Knockback magnitude | 0.20 | 0.24 for rounds 1-2; **0.42 concussion** on round 3 |
-| Shooter splash | Ordinary self-splash | **Immune** |
+| Shooter splash | Ordinary self-splash | **0 self-damage, normal physical knockback (round 3 retains concussion force)** |
 | Flight lifetime | 1.20 seconds *after each bullet activates* | Same |
 
 One fire event produces three independent physical projectiles and three distinct
@@ -55,8 +55,12 @@ direct and splash impacts, with normal wall line-of-sight restrictions.
 - No extra headshot multiplier is introduced.
 - Double damage and Prime Hunter's existing modifiers still apply to bullet
   damage; the concussion strength and blast radius do not scale with them.
-- Weavel's self-splash immunity is a gameplay rule only while Balanced Mode
-  is active. The standard Battlehammer retains its existing self-splash behavior.
+- Weavel receives no HP or turret damage from his own Balanced Battlehammer
+  splash, but **does receive the normal movement impulse** and the stronger
+  third-round concussion impulse. This movement-only event does not enter damage
+  history, produce damage indicators, or trigger damage audio.
+- The standard Battlehammer retains its existing self-damage rules, and stock
+  non-Balanced Battlehammer behavior is unchanged.
 - The existing Halfturret remains a single autonomous shell rather than an
   automatic three-round turret.
 - The earlier terrain-impact cluster generation is removed from the Balanced

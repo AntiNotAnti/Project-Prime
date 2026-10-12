@@ -563,12 +563,72 @@ namespace MphRead.Mods.Network
                     "Weavel's third bullet activates after 100 ms with enhanced concussion knockback");
                 Check(!affinityRounds.Any(b => b.BattlehammerClusterChild),
                     "Balanced burst cannot spawn legacy terrain-cluster children");
+                // Force an active, vulnerable life so this fixture exercises
+                // self-knockback rather than spawn protection rejecting the hit.
+                typeof(PlayerEntity).GetField("_spawnInvulnTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(weavel, (ushort)0);
+                weavel.ModSetSpawnProtectionFromAuthority(false);
                 int weavelHealthBefore = weavel.Health;
-                typeof(BeamProjectileEntity).GetMethod("CheckSplashDamage",
-                    BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(
-                        affinityRounds[0], new object?[] { null, weavel.Position });
-                Check(weavel.Health == weavelHealthBefore,
-                    "Weavel is immune to point-blank splash from his affinity burst");
+                int weavelTurretBefore = weavel.Halfturret.Health;
+                ushort damageSequenceBefore = NetDamage.Sequence(weavel.SlotIndex);
+                var splashMethod = typeof(BeamProjectileEntity).GetMethod("CheckSplashDamage",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!;
+                Vector3[] candidateOrigins =
+                {
+                    weavel.Position,
+                    weavel.Position.AddY(0.25f),
+                    weavel.Position.AddY(0.5f),
+                    weavel.Position + Vector3.UnitX * 0.25f + Vector3.UnitY * 0.25f,
+                    weavel.Position - Vector3.UnitX * 0.25f + Vector3.UnitY * 0.25f
+                };
+                Vector3 selfSplashOrigin = default;
+                bool clearSelfSplash = false;
+                foreach (Vector3 candidate in candidateOrigins)
+                {
+                    CollisionResult blocked = default;
+                    if (!CollisionDetection.CheckBetweenPoints(candidate, weavel.Position,
+                        TestFlags.Beams, scene, ref blocked))
+                    {
+                        selfSplashOrigin = candidate;
+                        clearSelfSplash = true;
+                        break;
+                    }
+                }
+                Check(clearSelfSplash, "Battlehammer self-knockback test has clear splash line of sight");
+
+                weavel.Speed = Vector3.Zero;
+                splashMethod.Invoke(affinityRounds[0], new object?[] { null, selfSplashOrigin });
+                Vector3 regularImpulse = affinityRounds[0].GetDamageDirection(selfSplashOrigin, weavel.Position);
+                Vector3 regularSpeed = weavel.Speed;
+                Check(weavel.Health == weavelHealthBefore
+                    && weavel.Halfturret.Health == weavelTurretBefore
+                    && NetDamage.Sequence(weavel.SlotIndex) == damageSequenceBefore
+                    && (regularSpeed - regularImpulse).Length < 0.0001f
+                    && regularSpeed.LengthSquared > 0,
+                    "Weavel receives his own first-round blast impulse without HP/turret damage or a damage event");
+
+                weavel.Speed = Vector3.Zero;
+                splashMethod.Invoke(affinityRounds[2], new object?[] { null, selfSplashOrigin });
+                Vector3 concussionImpulse = affinityRounds[2].GetDamageDirection(selfSplashOrigin, weavel.Position);
+                Check(weavel.Health == weavelHealthBefore
+                    && weavel.Halfturret.Health == weavelTurretBefore
+                    && NetDamage.Sequence(weavel.SlotIndex) == damageSequenceBefore
+                    && (weavel.Speed - concussionImpulse).Length < 0.0001f
+                    && weavel.Speed.LengthSquared > regularSpeed.LengthSquared,
+                    "Weavel's third-round concussion also pushes himself without any health debit");
+
+                weavel.Speed = Vector3.Zero;
+                typeof(PlayerEntity).GetField("_spawnInvulnTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(weavel, (ushort)3);
+                splashMethod.Invoke(affinityRounds[0], new object?[] { null, selfSplashOrigin });
+                Check(weavel.Speed == Vector3.Zero && weavel.Health == weavelHealthBefore
+                    && NetDamage.Sequence(weavel.SlotIndex) == damageSequenceBefore,
+                    "normal spawn invulnerability still prevents Battlehammer self-knockback");
+                typeof(PlayerEntity).GetField("_spawnInvulnTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(weavel, (ushort)0);
 
                 pickup.Invoke(samus, new object[] { ItemType.Battlehammer });
                 samus.ModSetWeapon(BeamType.Battlehammer);
