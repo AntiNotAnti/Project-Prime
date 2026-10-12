@@ -212,8 +212,9 @@ internal static class PowerUpLedgerSceneTests
                 // Exercise the real remote-owner boolean seam. Temporarily mark
                 // this actor remote, then restore the local source-clock seam.
                 Session(nameof(NetSession.LocalSlot), 0);
+                int authorityDouble = Timer(owner, 0);
                 owner.ModSetShotState(0, 0, true, false);
-                Check(Timer(owner, 0) > 0, "reported native double-damage bit changes puppet timer");
+                Check(Timer(owner, 0) == authorityDouble, "reported double-damage bit cannot create or renew authority timer");
                 Session(nameof(NetSession.LocalSlot), 1);
                 NetPowerUpLedger.ObserveInput(owner);
                 var noContact = NetPowerUpLedger.Ledger!;
@@ -230,6 +231,7 @@ internal static class PowerUpLedgerSceneTests
                     "inherited cloak timer without contact never establishes ownership");
                 typeof(PlayerEntity).GetField("_cloakTimer", Private)!.SetValue(owner, (ushort)0);
                 Session(nameof(NetSession.LocalSlot), 0); owner.ModSetShotState(0, 0, false, false);
+                Check(Timer(owner, 0) == authorityDouble, "reported false bit cannot remove authority timer");
                 Session(nameof(NetSession.LocalSlot), 1);
                 // Keep the no-contact observation distinct from first contact.
                 frame++;
