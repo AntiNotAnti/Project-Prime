@@ -1,14 +1,17 @@
+using System;
 using System.Collections.Generic;
 using MphRead.Entities;
 
 namespace MphRead.Mods.Network;
 
-/// <summary>Native authority adapter for A1. No claim wire, client reconciliation,
-/// damage enforcement or replica checkpoint state is introduced here.</summary>
+/// <summary>Native authority reservations and contact proof adapter. Client
+/// reconciliation and source damage enforcement belong to later slices.</summary>
 internal static class NetPowerUpLedger
 {
     private static readonly Dictionary<ItemInstanceEntity, PowerUpSpawnKey> Items = new();
     private static NetTimedGrants? _ledger;
+    private static NetPickupClaims? _claims;
+    internal static NetPickupClaims? Claims => _claims;
     private static ulong _epoch;
     private static ushort _match;
     private static uint _room;
@@ -33,14 +36,14 @@ internal static class NetPowerUpLedger
         if (_room == uint.MaxValue) throw new ProgramException("Power-up room identity exhausted.");
         _ledger?.CloseAll(NetSession.NetFrame, TimedGrantEnd.Room);
         _room++;
-        Items.Clear(); _ledger = null;
+        Items.Clear(); _ledger = null; _claims = null; NetPickupNetwork.Reset();
     }
     internal static void Reset()
     {
         _ledger?.CloseAll(NetSession.NetFrame, TimedGrantEnd.Session);
         // Empty-server suspension can resume the same epoch/match. Keep the
         // process room incarnation monotonic across session teardown as well.
-        Items.Clear(); _ledger = null;
+        Items.Clear(); _ledger = null; _claims = null; NetPickupNetwork.Reset();
     }
     private static NetTimedGrants Ensure()
     {
@@ -48,6 +51,7 @@ internal static class NetPowerUpLedger
         {
             Items.Clear(); _epoch = NetSession.AuthorityEpoch; _match = NetSession.CurrentMatchId;
             _ledger = new(_epoch, _match, _room, NetCampaignEvidence.TimedGrant);
+            _claims = new(_epoch, _match, _room, _ledger, NetCampaignEvidence.PickupProof);
         }
         return _ledger;
     }
@@ -62,11 +66,17 @@ internal static class NetPowerUpLedger
         if (!ledger.RegisterSpawn(item.Owner?.Id ?? -1, type, out var key))
             return false;
         Items.Add(item, key);
+        NetPickupNetwork.PublishItem(new(key, type, NetSession.NetFrame, item.DespawnTimer != 0 && item.TokenId == 0, item.Position));
         return true;
     }
     internal static void Remove(ItemInstanceEntity item)
     {
-        if (Items.Remove(item, out var key)) _ledger?.RemoveSpawn(key);
+        if (Items.Remove(item, out var key))
+        {
+            if (TryType(item.ItemType, out var type))
+                NetPickupNetwork.PublishItem(new(key, type, NetSession.NetFrame, false, item.Position));
+            _ledger?.RemoveSpawn(key);
+        }
     }
     internal static bool TrySpawnKey(ItemInstanceEntity item, out PowerUpSpawnKey key)
         => Items.TryGetValue(item, out key);
@@ -96,8 +106,64 @@ internal static class NetPowerUpLedger
         // Preserve the input phase even for a native callback that reaches this
         // adapter outside the usual player loop (including same-frame renewal).
         if (source is uint observed) ledger.ObserveInput(life, observed, NetSession.NetFrame);
-        return ledger.TryGrant(key, life, NetSession.NetFrame, source, out _)
-            == TimedGrantResult.Granted;
+        bool granted = ledger.TryGrant(key, life, NetSession.NetFrame, source, out _) == TimedGrantResult.Granted;
+        if (granted && TryType(item.ItemType, out var type))
+            NetPickupNetwork.PublishItem(new(key, type, NetSession.NetFrame, false, item.Position));
+        return granted;
+    }
+
+    internal static PickupItemFact[] CaptureItems()
+    {
+        var facts = new List<PickupItemFact>(Items.Count);
+        foreach (var pair in Items)
+        {
+            var item = pair.Key;
+            if (TryType(item.ItemType, out var type))
+                facts.Add(new(pair.Value, type, NetSession.NetFrame, item.DespawnTimer != 0 && item.TokenId == 0, item.Position));
+        }
+        return facts.ToArray();
+    }
+
+    internal static void ObserveContact(PlayerEntity player)
+    {
+        if (!Authority(player.OwningScene) || SourceFrame(player) is not uint source) return;
+        Ensure();
+        _claims!.Observe(player.ModPickupContactPose(source, NetSession.NetFrame), CaptureItems());
+    }
+
+    internal static PickupVerdict JudgeClaim(in PickupClaim claim, int senderSlot, uint now,
+        double rtt, double jitter, Scene scene)
+    {
+        var request = claim;
+        PickupVerdict Invalid() => new(request, PickupResult.Invalid, now, 0, 0, 0, 0);
+        if (!Authority(scene) || (uint)senderSlot >= scene.Players.Items.Count) return Invalid();
+        var player = scene.Players.Items[senderSlot];
+        Ensure();
+        TimedGrantResult Commit(in PickupClaim contact, uint decision, out TimedGrantRecord? grant)
+        {
+            grant = null;
+            if (decision != NetSession.NetFrame || player.Health == 0 || !player.ModIsInPlay
+                || !player.ModPickupContactPose(0, decision).CanPickup) return TimedGrantResult.WrongLife;
+            ItemInstanceEntity? item = null;
+            foreach (var pair in Items) if (pair.Value == contact.Spawn) { item = pair.Key; break; }
+            if (item == null || item.DespawnTimer == 0 || item.TokenId > 0 || item.OwningScene != scene
+                || !TryType(item.ItemType, out var type) || type != contact.Type) return TimedGrantResult.Gone;
+            var life = ShotKey.For(senderSlot, 0);
+            _ledger!.BeginLife(life, decision);
+            // Activation belongs to current input time. The older contact proof
+            // never rewrites immutable A1 source observations or native timers.
+            uint? source = SourceFrame(player);
+            if (source is uint observed) _ledger.ObserveInput(life, observed, decision);
+            var result = _ledger.TryGrant(contact.Spawn, life, decision, source, out grant);
+            if (result == TimedGrantResult.Granted)
+            {
+                NetPickupNetwork.PublishItem(new(contact.Spawn, type, decision, false, item.Position));
+                player.ApplyNativeTimedPickup(item);
+            }
+            return result;
+        }
+        return _claims!.Judge(claim, senderSlot, ShotKey.For(senderSlot, 0),
+            player.Health > 0 && player.ModIsInPlay, now, rtt, jitter, Commit);
     }
 
     internal static void ObserveInput(PlayerEntity player)

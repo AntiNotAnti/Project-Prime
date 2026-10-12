@@ -278,7 +278,7 @@ namespace MphRead.Mods.Network
         private bool _hasLatch;
 
         /// <summary>Local player's controls and aim -> wire intent (client side).</summary>
-        public IntentPacket CaptureIntent(PlayerEntity player)
+        public IntentPacket CaptureIntent(PlayerEntity player, bool consumeLatch = true)
         {
             if (_host.IsReplica) throw new InvalidOperationException("A replay replica cannot author gameplay input.");
             PlayerControls c = player.Controls;
@@ -398,15 +398,17 @@ namespace MphRead.Mods.Network
             // than competing with it -- when the clock is running it is the
             // only honest answer to "what was I looking at". NetSmoothing.
             _host.StampAcknowledgement(ref intent);
-            // The latch has been spent. From here the live value is sent again,
-            // which is what lets a puppet's charge climb with its owner's while
-            // the trigger is held.
-            _hasLatch = false;
+            // A scheduled input spends the latch so later inputs follow live
+            // charge. An unsent pickup preview must retain it for the next
+            // actual send; a contact can explicitly promote that preview.
+            if (consumeLatch) _hasLatch = false;
             if (NetLog.Enabled && (((intent.Buttons & IntentButtons.Shoot) == IntentButtons.Shoot) || player.Controls.Shoot.IsReleased))
                 NetShotDiagnostics.Trace("input", ShotKey.For(player.SlotIndex, intent.AckFrame), player.CurrentWeapon,
                     $"intentFrame={intent.Frame} intentLife={intent.LifeId} inPlay={((intent.Buttons & IntentButtons.InPlayState) == IntentButtons.InPlayState)} shoot={player.Controls.Shoot.IsDown} press={player.Controls.Shoot.IsPressed}");
             return intent;
         }
+
+        internal void ConsumeIntentLatch() => _hasLatch = false;
 
         /// <summary>
         /// Wire intent -> a remote player's controls (authority side). Mirrors

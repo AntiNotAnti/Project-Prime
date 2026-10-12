@@ -579,14 +579,13 @@ namespace MphRead.Mods.Network
                 NetPlayerBridge.RecordPresses(player);
                 player.ModContinuousNetworkTarget = NetTargetIdentity.None;
                 player.ModContinuousFireTick = 0;
-                if (NetSession.NetFrame % NetConfig.IntentSendInterval == 0)
-                {
-                    var intent = NetPlayerBridge.CaptureIntent(player);
-                    // Actual fire IDs are committed during simulation. Send the
-                    // pre-step movement/input with its post-step fire history.
-                    _continuousIntent = intent; _continuousIntentFrame = NetSession.NetFrame;
-                    _continuousIntentPending = true;
-                }
+                // Retain each pre-step input locally. Normally only alternate
+                // frames are sent; a pickup contact can require the other frame
+                // so its source identity is observable by the authority too.
+                // Actual fire IDs are attached after simulation as before.
+                _continuousIntentPending = NetSession.NetFrame % NetConfig.IntentSendInterval == 0;
+                _continuousIntent = NetPlayerBridge.CaptureIntent(player, consumeLatch: _continuousIntentPending);
+                _continuousIntentFrame = NetSession.NetFrame;
             }
             else
             {
@@ -596,6 +595,16 @@ namespace MphRead.Mods.Network
                 // a slot the local scene has not populated -- would
                 // otherwise be disconnected while it is perfectly healthy.
                 NetSession.SendIntent(default);
+            }
+        }
+
+        internal static void RequirePickupContactIntent()
+        {
+            if (_continuousIntentFrame == NetSession.NetFrame && _continuousIntent.HasState
+                && NetSession.IsClient && !NetSession.IsAuthority)
+            {
+                NetPlayerBridge.Current.ConsumeIntentLatch();
+                _continuousIntentPending = true;
             }
         }
 
@@ -617,6 +626,7 @@ namespace MphRead.Mods.Network
             }
             HitRig.SetupNetworkTriangleFixtureOnce();
             NetBombs.AfterSimulation();
+            NetPickupNetwork.AfterSimulation();
             NetBotInput.Flush();
             if (_continuousIntentPending)
             {

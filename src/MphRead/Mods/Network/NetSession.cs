@@ -46,6 +46,8 @@ namespace MphRead.Mods.Network
         /// <see cref="NetSession.ClientId"/>. Zero from an older client.</summary>
         public uint ClientId;
         public NetRetainedDelivery.Cursor? TurretCursor;
+        public NetPickupNetwork.PeerState? Pickups;
+        public uint PickupReadySequence;
     }
 
     /// <summary>
@@ -692,6 +694,8 @@ namespace MphRead.Mods.Network
                 Handle(packet, time);
             }
             PumpLobby(time);
+            ConfigurePickups();
+            NetPickupNetwork.PumpOwner();
             // Reconnect/liveness is wall-clock work, including while scene
             // simulation is parked. Never key it to a frozen NetFrame modulo.
             bool serviceClientConnection = Role == NetRole.Client && !_playback
@@ -701,6 +705,7 @@ namespace MphRead.Mods.Network
             {
                 DropTimedOutPeers(time);
                 PumpHostTurretOutcomes();
+                PumpHostPickups();
                 if (NetFrame % 60 == 0) BroadcastHostControl();
             }
             else if (serviceClientConnection && (LocalSlot < 0 || _reAnnounced))
@@ -852,6 +857,13 @@ namespace MphRead.Mods.Network
                 case PacketType.SessionState when Role == NetRole.Client:
                     if (SessionStatePacket.TryRead(packet.Payload, out var session)) ApplySessionState(session);
                     break;
+                case PacketType.PickupClaim when Role == NetRole.Host:
+                    HandlePickupClaim(packet); break;
+                case PacketType.PickupReady when Role == NetRole.Host:
+                    HandlePickupReady(packet); break;
+                case PacketType.PickupItem when Role == NetRole.Client:
+                case PacketType.PickupVerdict when Role == NetRole.Client:
+                    HandlePickupFact(packet); break;
                 case PacketType.TurretFireOutcome when Role == NetRole.Client:
                     HandleTurretOutcome(packet); break;
                 case PacketType.BombEvent when Role == NetRole.Client:

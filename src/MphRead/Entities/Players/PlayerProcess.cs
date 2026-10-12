@@ -1396,11 +1396,21 @@ namespace MphRead.Entities
             }
         }
 
+        internal Mods.Network.PickupContactPose ModPickupContactPose(uint source, uint authority)
+            => new(Mods.Network.ShotKey.For(SlotIndex, 0), source, authority, Position,
+                _volume.SpherePosition, _volume.SphereRadius, Fixed.ToFloat(Values.MinPickupHeight),
+                Fixed.ToFloat(Values.MaxPickupHeight), IsAltForm, _health > 0 && ModIsInPlay,
+                !IgnoreItemPickups && !(IsBot && _scene.GameState.SinglePlayer)
+                    && !(IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
+                    && !_scene.Services.DisablePowerups);
+
         private void PickUpItems()
         {
+            Mods.Network.NetPowerUpLedger.ObserveContact(this);
             if (_health == 0 || (IsBot && _scene.GameState.SinglePlayer) || IgnoreItemPickups
                 || IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
             {
+                Mods.Network.NetPickupNetwork.ProcessPlayer(this);
                 return;
             }
             // todo: visualize
@@ -1431,6 +1441,16 @@ namespace MphRead.Entities
                 }
                 if (!inRange)
                 {
+                    continue;
+                }
+
+                if (Mods.Network.NetPowerUpLedger.TryType(item.ItemType, out _))
+                {
+                    Mods.Network.NetPickupNetwork.OwnerContact(this, item);
+                    if (Mods.Network.NetPowerUpLedger.TryNativeContact(this, item))
+                    {
+                        ApplyNativeTimedPickup(item);
+                    }
                     continue;
                 }
 
@@ -1494,45 +1514,6 @@ namespace MphRead.Entities
                     if (_scene.GameState.Mode == GameMode.GunGame || _scene.GameState.OneInTheChamber) break;
                     pickedUp = true;
                     PickUpWeapon(item.ItemType);
-                    break;
-                case ItemType.DoubleDamage:
-                    if (!Mods.Network.NetPowerUpLedger.TryNativeContact(this, item)) break;
-                    pickedUp = true;
-                    _timeSincePickup = 0;
-                    _doubleDmgTimer = 900 * 2; // todo: FPS stuff
-                    Mods.Network.NetShotSourceJournal.SetDouble(this, 900 * 2);
-                    if (IsMainPlayer)
-                    {
-                        _soundSource.PlayFreeSfx(SfxId.DOUBLE_DAMAGE_POWER_UP);
-                        UpdateDoubleDamageSfx(index: 0, play: true);
-                        UpdateDoubleDamageSpeed(1);
-                    }
-                    break;
-                case ItemType.Cloak:
-                    if (!Mods.Network.NetPowerUpLedger.TryNativeContact(this, item)) break;
-                    pickedUp = true;
-                    _timeSincePickup = 0;
-                    _cloakTimer = 900 * 2; // todo: FPS stuff
-                    Flags2 |= PlayerFlags2.Cloaking;
-                    if (IsMainPlayer)
-                    {
-                        _soundSource.PlayFreeSfx(SfxId.CLOAK_POWER_UP);
-                        UpdateCloakSfx(index: 0, play: true);
-                    }
-                    break;
-                case ItemType.Deathalt:
-                    if (!Mods.Network.NetPowerUpLedger.TryNativeContact(this, item)) break;
-                    pickedUp = true;
-                    _timeSincePickup = 0;
-                    _deathaltTimer = 900 * 2; // todo: FPS stuff
-                    if (!IsAltForm && !IsMorphing)
-                    {
-                        TrySwitchForms(force: true);
-                    }
-                    if (IsMainPlayer)
-                    {
-                        _soundSource.PlayFreeSfx(SfxId.DOUBLE_DAMAGE_POWER_UP);
-                    }
                     break;
                 case ItemType.EnergyTank:
                     if (!IsBot)
@@ -1599,6 +1580,53 @@ namespace MphRead.Entities
                     item.OnPickedUp(this);
                 }
             }
+            Mods.Network.NetPickupNetwork.ProcessPlayer(this);
+        }
+
+        // Call only after native contact or an authority reservation succeeds.
+        // Applying and consuming share one path so each item notifies its owner once.
+        internal void ApplyNativeTimedPickup(ItemInstanceEntity item)
+        {
+            switch (item.ItemType)
+            {
+            case ItemType.DoubleDamage:
+                _timeSincePickup = 0;
+                _doubleDmgTimer = 900 * 2; // todo: FPS stuff
+                Mods.Network.NetShotSourceJournal.SetDouble(this, 900 * 2);
+                if (IsMainPlayer)
+                {
+                    _soundSource.PlayFreeSfx(SfxId.DOUBLE_DAMAGE_POWER_UP);
+                    UpdateDoubleDamageSfx(index: 0, play: true);
+                    UpdateDoubleDamageSpeed(1);
+                }
+                break;
+            case ItemType.Cloak:
+                _timeSincePickup = 0;
+                _cloakTimer = 900 * 2; // todo: FPS stuff
+                Flags2 |= PlayerFlags2.Cloaking;
+                if (IsMainPlayer)
+                {
+                    _soundSource.PlayFreeSfx(SfxId.CLOAK_POWER_UP);
+                    UpdateCloakSfx(index: 0, play: true);
+                }
+                break;
+            case ItemType.Deathalt:
+                _timeSincePickup = 0;
+                _deathaltTimer = 900 * 2; // todo: FPS stuff
+                if (!IsAltForm && !IsMorphing)
+                {
+                    TrySwitchForms(force: true);
+                }
+                if (IsMainPlayer)
+                {
+                    _soundSource.PlayFreeSfx(SfxId.DOUBLE_DAMAGE_POWER_UP);
+                }
+                break;
+            default:
+                return;
+            }
+            Mods.Network.NetCampaignEvidence.Pickup(this, item);
+            item.OnPickedUp(this);
         }
 
         internal void PlayHealthPickupSfx(ItemType itemType)

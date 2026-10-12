@@ -30,6 +30,7 @@ namespace MphRead.Mods.Network
         BombIntent = 68, BombEvent = 69, BombState = 70,
         ConfirmedImpact = 71, // optional authority-only, expendable live presentation
         TurretFireOutcome = 72, // authority emission/refusal for an admitted turret fire identity
+        PickupClaim = 73, PickupVerdict = 74, PickupItem = 75, PickupReady = 76,
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
@@ -2515,7 +2516,7 @@ namespace MphRead.Mods.Network
         // Protocol 50 isolates optional confirmed impacts from gameplay sequence/ACK windows.
         // Protocol 51 carries the authority bomb-jump result in detonation events.
         // Protocol 52 adds exact reliable turret fire emission/refusal outcomes.
-        public const int ProtocolVersion = 52;
+        public const int ProtocolVersion = 53;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

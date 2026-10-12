@@ -33,6 +33,12 @@ namespace MphRead.NetTest
                 Console.WriteLine("Usage: nettest [host] [port]\n"
                     + "  --shot-source-journal              Test independent authority resources and grant chronology.\n"
                     + "  --timed-grants                    Test authority timed pickup reservations and source history.\n"
+                    + "  --pickup-protocol                 Test pickup packet codecs, registry and budgets.\n"
+                    + "  --pickup-claims                   Test authoritative pickup claim decisions.\n"
+                    + "  --pickup-claim-scene <assets> [room] Test native pickup claim settlement and timer phases.\n"
+                    + "  --pickup-network                  Test bounded pickup retries and impaired reliable delivery.\n"
+                    + "  --pickup-readiness                Test hosted pickup discovery after scene loading.\n"
+                    + "  --pickup-replay                   Test pickup replay facts and checkpoint state.\n"
                     + "  --powerup-ledger-scene <assets> [profile] [room] Test native timed pickups and timer phases.\n"
                     + "  --shot-inputs                     Test live physical-input codec and bounded sender history.\n"
                     + "  --compact-intents                 Test compact live intent transport and replay compatibility.\n"
@@ -53,6 +59,17 @@ namespace MphRead.NetTest
                 return BipedEdgeCollisionTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
             if (args.Length > 0 && args[0] == "--ai-client-driver") return NetAiClientTests.Run();
+            if (args.Length > 0 && args[0] == "--pickup-protocol") return PickupProtocolTests.Run();
+            if (args.Length > 0 && args[0] == "--pickup-claims") return PickupClaimTests.Run();
+            if (args.Length > 1 && args[0] == "--pickup-claim-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return PickupClaimSceneTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 0 && args[0] == "--pickup-network") return PickupNetworkTests.Run();
+            if (args.Length > 0 && args[0] == "--pickup-readiness") return PickupReadinessTests.Run();
+            if (args.Length > 0 && args[0] == "--pickup-replay") return PickupReplayTests.Run();
             if (args.Length > 0 && args[0] == "--timed-grants") return TimedGrantTests.Run();
             if (args.Length > 1 && args[0] == "--powerup-ledger-scene")
             {

@@ -69,7 +69,13 @@ internal static class ReplayFormCompatibilityChecks
             stream.Write(current.AsSpan(at, 7 + PlayerState.Protocol48Size)); at += 7 + PlayerState.Size;
             stream.Write(current.AsSpan(at, 1 + IntentPacket.FullSize + 4)); at += 1 + IntentPacket.FullSize + 4;
         }
-        stream.Write(current.AsSpan(at)); byte[] historical = stream.ToArray(); historical[6] = 48;
+        // The historical player-width fixture uses schema 9, which predates
+        // the schema 10 pickup room and three data counts. Strip only empty data.
+        const int pickupTailBytes = sizeof(uint) + 3 * sizeof(int);
+        require(current.AsSpan(current.Length - pickupTailBytes).ToArray().All(value => value == 0),
+            "historical player-width fixture strips only empty pickup data");
+        stream.Write(current.AsSpan(at, current.Length - at - pickupTailBytes));
+        byte[] historical = stream.ToArray(); historical[4] = 9; historical[5] = 0; historical[6] = 48;
         var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(new(historical));
         require(restored.TryGetPlayer(0, out var restoredPlayer) && restoredPlayer.Health == 77
             && restored.TryGetPlayer(1, out var second) && second.Health == 55,

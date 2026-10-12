@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
@@ -264,20 +265,33 @@ internal static class TurretFireOutcomeTests
         state.Accept(ReplayPacket(outcome with { Key = outcome.Key with { AuthorityEpoch = 10 } }), 133);
         Check(state.PendingTurretOutcomeCount == 1, "foreign authority stream never queues an outcome");
         var checkpoint = state.CaptureCheckpoint();
-        Check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 9,
-            "replica checkpoint explicitly carries the v9 outcome appendix");
+        Check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 10,
+            "replica checkpoint v10 retains the outcome appendix before pickup data");
         var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(checkpoint);
         Check(restored.PendingTurretOutcomeCount == 1
             && restored.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes),
-            "v9 roundtrip preserves pending outcomes and complete decoder state");
+            "v10 roundtrip preserves pending outcomes and complete decoder state");
         accepted = restored.AcceptedPackets; restored.Accept(packet, 134);
         Check(restored.PendingTurretOutcomeCount == 1 && restored.AcceptedPackets == accepted,
-            "v9 restoration preserves duplicate-terminal suppression");
+            "v10 restoration preserves duplicate-terminal suppression");
+        // Preserve actual v9 compatibility: its last bytes are the pending
+        // outcome; v10 adds an empty room watermark and three pickup counts.
+        const int pickupTail = sizeof(uint) + 3 * sizeof(int);
+        Check(checkpoint.Bytes[^pickupTail..].ToArray().All(value => value == 0),
+            "historical v9 fixture strips only empty pickup data");
+        byte[] historical = checkpoint.Bytes[..^pickupTail].ToArray();
+        BinaryPrimitives.WriteUInt16LittleEndian(historical.AsSpan(4), 9); historical[6] = 52;
+        var historicalState = new ReplayReplicaState(); historicalState.RestoreCheckpoint(new(historical));
+        Check(historicalState.PendingTurretOutcomeCount == 1 && historicalState.PickupClaims.Count == 0,
+            "historical v9 restores outcomes without invented pickup data");
+        accepted = historicalState.AcceptedPackets; historicalState.Accept(packet, 134);
+        Check(historicalState.AcceptedPackets == accepted,
+            "historical v9 retains full-key terminal deduplication");
         var baseline = restored.CaptureCheckpoint();
         var mismatch = checkpoint.Bytes.ToArray();
         // The final row is the pending terminal. Keep its key valid, but make
         // its authority result conflict with the preceding retained dedup row.
-        BinaryPrimitives.WriteUInt32LittleEndian(mismatch.AsSpan(mismatch.Length - TurretFireOutcome.Size + 19), 999);
+        BinaryPrimitives.WriteUInt32LittleEndian(mismatch.AsSpan(mismatch.Length - pickupTail - TurretFireOutcome.Size + 19), 999);
         foreach (var invalid in new[] { mismatch, checkpoint.Bytes[..^1].ToArray() })
         {
             bool rejected = false;

@@ -499,6 +499,11 @@ jobs:
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --bot-ai
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --ai-client-driver
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --timed-grants
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --pickup-protocol
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --pickup-claims
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --pickup-network
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --pickup-readiness
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --pickup-replay
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --campaign-claims
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --replay-form-history
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --turret-fire-outcome-codec

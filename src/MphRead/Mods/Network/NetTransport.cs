@@ -630,7 +630,8 @@ namespace MphRead.Mods.Network
         internal bool TrySendSemantic(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload)
         {
             if (type is not (PacketType.MatchSemanticEvent or PacketType.MatchAward
-                or PacketType.ReplayShotFact or PacketType.BombIntent or PacketType.BombEvent or PacketType.TurretFireOutcome)) return false;
+                or PacketType.ReplayShotFact or PacketType.BombIntent or PacketType.BombEvent or PacketType.TurretFireOutcome
+                or PacketType.PickupClaim or PacketType.PickupVerdict or PacketType.PickupItem or PacketType.PickupReady)) return false;
             uint eventId;
             double now = NowMilliseconds;
             long stamp = EnterConnectionLock();

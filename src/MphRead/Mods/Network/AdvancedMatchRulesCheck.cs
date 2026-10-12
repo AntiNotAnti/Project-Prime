@@ -713,10 +713,11 @@ namespace MphRead.Mods.Network
             var historicalBytes = historicalCheckpoint.ToList();
             // Schemas 5/6 add two empty semantic counts and two uint frontiers;
             // schema 8 adds the bomb-history count; schema 9 adds the seen and
-            // pending turret-outcome counts. All are absent from schema 4.
+            // pending turret-outcome counts; schema 10 adds the pickup room and
+            // three pickup counts. All are absent from schema 4.
             // Check the empty appendices before stripping them so this fixture
             // cannot silently discard populated history or target the wrong bytes.
-            const int historicalAppendixBytes = 5 * sizeof(int) + 2 * sizeof(uint);
+            const int historicalAppendixBytes = 8 * sizeof(int) + 3 * sizeof(uint);
             Check(historicalBytes.Skip(historicalBytes.Count - historicalAppendixBytes).All(value => value == 0),
                 "protocol-27 fixture strips only empty later-schema appendices");
             historicalBytes.RemoveRange(historicalBytes.Count - historicalAppendixBytes, historicalAppendixBytes);

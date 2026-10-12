@@ -5,6 +5,35 @@ from net2_evidence import drain_barrier, drain_coverage, drain_prepared, DrainSt
 
 
 class DrainTests(unittest.TestCase):
+    def test_optional_pickup_work_positive_blocks_authority_and_client(self):
+        for role in ("server", "client"):
+            with self.subTest(role=role):
+                server, peer = copy.deepcopy(self.server), copy.deepcopy(self.peer)
+                (server if role == "server" else peer)["PickupPendingWork"] = 1
+                for require_empty in (False, True):
+                    frontier, reason = drain_barrier(server, [peer], require_empty=require_empty)
+                    self.assertIsNone(frontier)
+                    self.assertIn("pickup work", reason)
+
+    def test_optional_pickup_work_malformed_fails_closed(self):
+        for role in ("server", "client"):
+            for value in (-1, None, True, False, 0.0, "0", [], {}):
+                with self.subTest(role=role, value=value):
+                    server, peer = copy.deepcopy(self.server), copy.deepcopy(self.peer)
+                    (server if role == "server" else peer)["PickupPendingWork"] = value
+                    frontier, reason = drain_barrier(server, [peer])
+                    self.assertIsNone(frontier)
+                    self.assertIn("malformed pending pickup", reason)
+
+    def test_optional_pickup_work_zero_and_legacy_absence_settle(self):
+        self.assertIsNotNone(drain_barrier(self.server, [self.peer])[0])
+        for authority, client in ((True, False), (False, True), (True, True)):
+            with self.subTest(authority=authority, client=client):
+                server, peer = copy.deepcopy(self.server), copy.deepcopy(self.peer)
+                if authority: server["PickupPendingWork"] = 0
+                if client: peer["PickupPendingWork"] = 0
+                self.assertIsNotNone(drain_barrier(server, [peer])[0])
+
     def setUp(self):
         self.release = dict(Status="PASS", Epoch=111, Match=2, Semantic=3, Award=1)
         self.server = dict(Enabled=True, Role="server", Quiescing=False, Epoch=111, Match=2,

@@ -104,7 +104,7 @@ namespace MphRead.Mods.Network
         }
         public void Rewind()
         {
-            ResetTurretOutcomes();
+            ResetTurretOutcomes(); ResetPickupFacts();
             _bombPackets.Clear();
             ChatLines.Clear();
             _shotFacts.Clear();
@@ -143,6 +143,12 @@ namespace MphRead.Mods.Network
             bool accepted = false;
             switch ((PacketType)packet[0])
             {
+                case PacketType.PickupClaim:
+                    accepted = AcceptPickupClaim(payload); break;
+                case PacketType.PickupVerdict:
+                    accepted = AcceptPickupVerdict(payload); break;
+                case PacketType.PickupItem:
+                    accepted = AcceptPickupItem(payload); break;
                 case PacketType.TurretFireOutcome:
                     accepted = AcceptTurretOutcome(payload); break;
                 case PacketType.BombEvent:

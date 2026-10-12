@@ -82,6 +82,7 @@ namespace MphRead.Mods.Network
             public byte[][] BootstrapObjectives = Array.Empty<byte[]>();
             public byte[][] BootstrapBombs = Array.Empty<byte[]>();
             public NetRetainedDelivery.Cursor? BombCursor, TurretCursor;
+            public NetPickupNetwork.PeerState? Pickups;
             public int BootstrapLength;
             public WorldBootstrapIdentity BootstrapIdentity;
             public double BootstrapSentAt;
@@ -507,6 +508,7 @@ namespace MphRead.Mods.Network
                     PumpReplayShotDelivery();
                     PumpBombDelivery();
                     PumpTurretDelivery();
+                    PumpPickupDelivery();
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
                     EnsureCareerMatchStarted(now);
                     pumpStart = NetPerformanceEvidence.Start();
@@ -522,6 +524,7 @@ namespace MphRead.Mods.Network
                     PumpReplayShotDelivery();
                     PumpBombDelivery();
                     PumpTurretDelivery();
+                    PumpPickupDelivery();
                     DropTimedOut(now);
                     PumpImpacts();
 
@@ -1082,6 +1085,7 @@ namespace MphRead.Mods.Network
             };
             ResetBombDelivery();
             ResetTurretDelivery();
+            ConfigurePickupDelivery();
             NetSession.ReplayShotSink = AppendReplayShotDelivery;
             NetSession.ConfirmedImpactSink = AppendImpact;
             NetSession.MatchSemanticSink = AppendSemanticDelivery;
@@ -1277,6 +1281,8 @@ namespace MphRead.Mods.Network
                 case PacketType.MapPick:
                     HandleMapPick(packet, now);
                     break;
+                case PacketType.PickupClaim:
+                    HandlePickupClaim(packet, now); break;
                 case PacketType.HitClaim:
                     HandleHitClaim(packet, now);
                     break;
