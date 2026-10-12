@@ -50,6 +50,12 @@ namespace MphRead.Entities
 
         internal void ModReceiveNativeTouch(in NativeTouchReport report, ushort generation, ushort life, uint sourceFrame)
         {
+            // Packet-only netcode tests deliberately construct a player with
+            // RuntimeHelpers.GetUninitializedObject. No constructor or field
+            // initializer runs on that shell; it cannot simulate Morph Ball
+            // touch and must not dereference absent sample/boost state.
+            // Real players always construct both objects normally.
+            if (_nativeTouch is null || _nativeBoost is null) return;
             if (ModIsLocalTouchOwner) return;
             if (_nativeRemoteGeneration != generation || _nativeRemoteLife != life)
             {
