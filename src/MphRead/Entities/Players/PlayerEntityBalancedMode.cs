@@ -43,7 +43,9 @@ namespace MphRead.Entities
             => UsesBalancedImperialistAmmo(beam) ? BalancedImperialistAmmoCap : _ammoMax[info.AmmoType];
 
         private int ModAmmoCostForWeapon(BeamType beam, WeaponInfo info)
-            => UsesBalancedImperialistAmmo(beam) ? Math.Max(1, (int)BalancedImperialistWeaponInfo().AmmoCost) : info.AmmoCost;
+            => UsesBalancedImperialistAmmo(beam) ? Math.Max(1, (int)BalancedImperialistWeaponInfo().AmmoCost)
+                : BalancedModeRules.IsBattlehammerBurst(_scene.GameState.Multiplayer, _scene.GameState.BalancedMode, beam)
+                    ? BalancedModeRules.BattlehammerBurstAmmoCost : info.AmmoCost;
 
         private WeaponInfo ModDisplayWeaponInfo(BeamType beam, WeaponInfo info)
             => UsesBalancedImperialistAmmo(beam) && Weapons.GetAffinityBeam(Hunter) == beam
