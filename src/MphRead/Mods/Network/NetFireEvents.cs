@@ -1,6 +1,8 @@
 using System;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using MphRead.Entities;
 using OpenTK.Mathematics;
 
@@ -229,6 +231,7 @@ public static class NetFireEvents
                     && (uint)slot < PlayerEntity.Players.Count)
                 {
                     var owner = PlayerEntity.Players[slot];
+                    if (NetCampaignEvidence.Enabled) LogTurretGate(owner, key, fire, "expired");
                     ref var proof = ref state.TurretRecovery[key.ShotId % NetIncomingFireHistory.Capacity];
                     if (NetCampaignEvidence.Enabled && owner.SlotIndex == slot && owner.Hunter == Hunter.Weavel && proof.Key == key
                         && TurretRecoveryElapsed(proof.AcceptedAt, NetSession.NetFrame, proof.EverAvailable)
@@ -250,7 +253,32 @@ public static class NetFireEvents
             && eventKey == (currentOwner with { ShotId = eventKey.ShotId })
             && form.Phase == FormPhase.Alt && !form.TurretActive && form.TurretHealth == 0;
     internal static void ObserveAuthorityTurret(PlayerEntity owner)
-    { if ((uint)owner.SlotIndex < 8) ObserveTurretRecovery(_slots[owner.SlotIndex], owner.SlotIndex); }
+    {
+        if ((uint)owner.SlotIndex >= 8) return;
+        var state = _slots[owner.SlotIndex];
+        ObserveTurretRecovery(state, owner.SlotIndex);
+        if (!NetCampaignEvidence.Enabled || !NetSession.IsAuthority || NetSession.NetFrame % 4 != 0
+            || TurretDiagnosticFrames[owner.SlotIndex] == NetSession.NetFrame) return;
+        FireEvent fire;
+        if (state.Selected && state.Active.Kind == FireEventKind.TurretFire) fire = state.Active;
+        else if (!state.Incoming.TryPeek(out fire) || fire.Kind != FireEventKind.TurretFire) return;
+        TurretDiagnosticFrames[owner.SlotIndex] = NetSession.NetFrame;
+        var key = ShotKey.For(owner.SlotIndex, fire.ShotId) with
+        { LifeId = fire.SourceLife != 0 ? fire.SourceLife : state.CurrentLife };
+        LogTurretGate(owner, key, fire, "pending");
+    }
+    private static readonly uint?[] TurretDiagnosticFrames = new uint?[8];
+    private static readonly JsonSerializerOptions TurretDiagnosticJson = new()
+    { NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals };
+    private static void LogTurretGate(PlayerEntity owner, ShotKey key, FireEvent fire, string stage)
+    {
+        var form = owner.ModCaptureForm();
+        Console.WriteLine("[net2-turret-gate] " + JsonSerializer.Serialize(new
+        { Stage = stage, Key = key, fire.SourceFrame, AuthorityFrame = NetSession.NetFrame,
+            OwnerForm = new { form.Phase, form.TurretActive, form.TurretHealth, form.StartedFrame },
+            NativeGate = owner.Halfturret?.ModNativeFiringGateSnapshot() },
+            TurretDiagnosticJson));
+    }
     internal static bool TryTurretRecovery(ShotKey key, out uint acceptedAt, out PlayerFormState form, out bool everAvailable)
     {
         acceptedAt = 0; form = default; everAvailable = false;

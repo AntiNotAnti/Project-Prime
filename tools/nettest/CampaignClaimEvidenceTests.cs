@@ -48,6 +48,7 @@ internal static class CampaignClaimEvidenceTests
     {
         var previousRole = NetSession.Role; bool previousAuthority = NetSession.IsAuthority;
         var previousMatch = NetSession.ServerMatch;
+        uint previousFrame = NetSession.NetFrame;
         bool previousEnabled = NetHitClaims.Enabled;
         long previousOldLife = NetPlayerLifecycle.OldLifeClaims;
         try
@@ -95,11 +96,29 @@ internal static class CampaignClaimEvidenceTests
                 && Claims().GetProperty("Received").GetInt64() == receivedBefore + 2,
                 "a real retried invalid entry counts as another receipt without paid gameplay");
             NetHitClaims.Reset();
+            // Evidence-only helper: this does not perform or claim a UDP admission.
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, 173u);
+            var baseline = new WorldBootstrapIdentity(new(41, 7, 3), 9, 2, 141);
+            NetCampaignEvidence.Ready(6, baseline.SlotGeneration, false, true, false, 25, 15, 5,
+                NetSession.NetFrame, baseline.AuthorityFrame, baseline.Revision);
+            NetCampaignEvidence.Ready(7, 1, false, true, false, 25, 15, -1);
             typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, NetRole.Offline);
             NetCampaignEvidence.Write("unit-invalid-claim");
             using var document = JsonDocument.Parse(File.ReadAllText(output));
             var campaign = document.RootElement.GetProperty("CampaignClaims");
             var snapshot = document.RootElement.GetProperty("HitClaims");
+            var readiness = document.RootElement.GetProperty("Readiness");
+            var ready = readiness[readiness.GetArrayLength() - 2];
+            Check(ready.GetProperty("AuthorityEpoch").GetUInt64() == 7
+                && ready.GetProperty("CurrentMatchId").GetUInt32() == 41
+                && ready.GetProperty("AuthorityFrame").GetUInt32() == 173
+                && ready.GetProperty("BaselineAuthorityFrame").GetUInt32() == 141
+                && ready.GetProperty("BootstrapRevision").GetUInt32() == 9
+                && ready.GetProperty("Generation").GetUInt16() == 2,
+                "readiness writer distinguishes native receipt frame from exact bootstrap identity");
+            Check(readiness[readiness.GetArrayLength() - 1].GetProperty("AuthorityFrame").ValueKind == JsonValueKind.Null
+                && readiness[readiness.GetArrayLength() - 1].GetProperty("BootstrapRevision").ValueKind == JsonValueKind.Null,
+                "legacy evidence callers leave unknown readiness boundaries explicitly null");
             Check(campaign.GetProperty("Received").GetInt64() == receivedBefore + 2
                 && campaign.GetProperty("Applied").GetInt64() == appliedBefore
                 && snapshot.GetProperty("Received").GetInt64() == 0 && snapshot.GetProperty("AppliedHere").GetInt64() == 0,
@@ -111,6 +130,7 @@ internal static class CampaignClaimEvidenceTests
         {
             NetHitClaims.Reset(); NetHitClaims.Enabled = previousEnabled;
             NetPlayerLifecycle.OldLifeClaims = previousOldLife;
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, previousFrame);
             typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, previousRole);
             typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, previousAuthority);
             typeof(NetSession).GetProperty(nameof(NetSession.ServerMatch))!.SetValue(null, previousMatch);

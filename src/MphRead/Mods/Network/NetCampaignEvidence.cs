@@ -296,13 +296,16 @@ internal static class NetCampaignEvidence
     }
 
     internal static void Ready(int slot, ushort generation, bool rejoining, bool lateJoin,
-        bool admitted, double admissionMs, double loadMs, double bootstrapMs)
+        bool admitted, double admissionMs, double loadMs, double bootstrapMs,
+        uint? authorityFrame = null, uint? baselineAuthorityFrame = null, uint? bootstrapRevision = null)
     {
         if (!Enabled) return;
         Add(Readiness, new { NetSession.AuthorityEpoch, NetSession.CurrentMatchId, Slot = slot,
             Generation = generation, Rejoining = rejoining, LateJoin = lateJoin,
             InitialAdmission = !admitted, AdmissionMilliseconds = admitted ? (double?)null : admissionMs,
-            LoadMilliseconds = loadMs, BootstrapMilliseconds = bootstrapMs < 0 ? (double?)null : bootstrapMs });
+            LoadMilliseconds = loadMs, BootstrapMilliseconds = bootstrapMs < 0 ? (double?)null : bootstrapMs,
+            AuthorityFrame = authorityFrame, BaselineAuthorityFrame = baselineAuthorityFrame,
+            BootstrapRevision = bootstrapRevision });
     }
 
     internal static void ServerSegment(ServerSim sim, string room)
