@@ -107,6 +107,7 @@ namespace MphRead.Entities
                 // just ask for.
                 ModClearAltFlick();
                 ModResetAltSwipeDrive();
+                ModStopNativeTouch();
                 ProcessBiped();
             }
         }
@@ -1673,6 +1674,7 @@ namespace MphRead.Entities
             int animId = -1;
             AnimFlags animFlags = AnimFlags.None;
             Flags1 |= PlayerFlags1.UsedJump;
+            ModStepNativeTouch();
             if (_frozenTimer == 0 && _health > 0)
             {
                 bool explicitRoll = Controls.RollUp.IsDown || Controls.RollDown.IsDown
@@ -1935,12 +1937,15 @@ namespace MphRead.Entities
                         traction = 0;
                     }
 
+                    if (Hunter == Hunter.Samus && ModUsesClassicTouch)
+                        ModApplyNativeTouchRoll(ref speedDelta);
+
                     bool swipeRequested = Input.AltSwipeEngaged || Input.AltSwipeStopRequested;
                     bool swipeCanDrive = !explicitRoll
                         && IsAltForm && !IsMorphing && !IsUnmorphing
                         && _boostAimLock == 0
                         && _jumpPadControlLockMin == 0 && AttachedEnemy == null;
-                    bool stockSamusSwipe = swipeCanDrive && Hunter == Hunter.Samus
+                    bool stockSamusSwipe = swipeCanDrive && Hunter == Hunter.Samus && !ModUsesClassicTouch
                         && Input.AltSwipeEngaged;
                     bool preciseSwipe = swipeCanDrive && swipeRequested
                         && Mods.Input.AltFormGesture.UsesPrecisionSwipe(Hunter);
@@ -2205,6 +2210,12 @@ namespace MphRead.Entities
                         // too, so existing keyboard/controller layouts remain additive.
                         bool dedicatedBoost = Controls.Boost.IsDown;
                         bool buttonBoost = dedicatedBoost || Controls.Zoom.IsDown;
+                        if (ModUsesClassicTouch)
+                        {
+                            ModProcessNativeTouchBoost(ref speedDelta, buttonBoost);
+                        }
+                        else
+                        {
                         // Samus does not need a network press edge for boost, so
                         // desktop mouse/pen flick detection stays here after the
                         // controller contribution has been applied. Zoom/right-click
@@ -2390,6 +2401,7 @@ namespace MphRead.Entities
                             }
                             _boostCharge = 0;
                         }
+                        } // Legacy ModernFlick route.
                     }
                 }
                 float magBefore = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);

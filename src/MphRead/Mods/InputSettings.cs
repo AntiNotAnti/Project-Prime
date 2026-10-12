@@ -133,6 +133,9 @@ namespace MphRead.Mods
         /// </summary>
         public static bool MouseAltFormMovement { get; set; }
 
+        /// <summary>Opt-in EU1.1 four-delta Morph Ball rolling and touch boosting.</summary>
+        public static bool ClassicMorphBallTouch { get; set; }
+
         /// <summary>
         /// Stylus counterpart to <see cref="MouseMovementBoost"/>. MelonPrime keeps
         /// stylus/touch movement as a separate input path, so the two preferences are
@@ -555,6 +558,12 @@ namespace MphRead.Mods
                         MouseAltFormMovement = mouseAltFormMovement;
                         continue;
                     }
+                    if (key == "classic_morphball_touch"
+                        && Boolean.TryParse(value, out bool classicMorphBallTouch))
+                    {
+                        ClassicMorphBallTouch = classicMorphBallTouch;
+                        continue;
+                    }
                     if (key == "stylus_movement_boost"
                         && Boolean.TryParse(value, out bool stylusMovementBoost))
                     {
@@ -837,6 +846,7 @@ namespace MphRead.Mods
                     $"invert_x={InvertMouseX.ToString().ToLowerInvariant()}",
                     $"mouse_movement_boost={MouseMovementBoost.ToString().ToLowerInvariant()}",
                     $"mouse_alt_form_movement={MouseAltFormMovement.ToString().ToLowerInvariant()}",
+                    $"classic_morphball_touch={ClassicMorphBallTouch.ToString().ToLowerInvariant()}",
                     $"stylus_movement_boost={StylusMovementBoost.ToString().ToLowerInvariant()}",
                     $"alt_swipe_sensitivity={AltSwipeSensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"scroll_all_weapons={ScrollAllWeapons.ToString().ToLowerInvariant()}",
@@ -930,6 +940,7 @@ namespace MphRead.Mods
             InvertMouseX = false;
             MouseMovementBoost = true;
             MouseAltFormMovement = false;
+            ClassicMorphBallTouch = false;
             StylusMovementBoost = true;
             AltSwipeSensitivity = 1f;
             ScrollAllWeapons = true;

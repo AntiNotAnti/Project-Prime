@@ -118,7 +118,7 @@ namespace MphRead.Mods.Input
         private uint _sequence;
         private int _phase;
         private float _pendingX, _pendingY;
-        private int _idleSteps;
+        private int _idleSteps = 5;
         private bool _remoteSeen, _lastSecond;
         private ushort _generation, _life;
         public NativeTouchReport Current { get; private set; }
@@ -130,7 +130,7 @@ namespace MphRead.Mods.Input
             _state.Clear();
             _phase = 0;
             _pendingX = _pendingY = 0;
-            _idleSteps = 0;
+            _idleSteps = 5;
             RollShare = 0;
             NewSample = false;
             _remoteSeen = false;
