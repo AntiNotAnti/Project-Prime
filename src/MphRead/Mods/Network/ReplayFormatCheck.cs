@@ -184,7 +184,7 @@ namespace MphRead.Mods.Network
                 // The optional charge/boost extension is part of protocol 16.
                 // Decode both legal forms even when their occupant is not current.
                 passiveA.Inject(matchBytes, 0);
-                foreach (int size in new[] { IntentPacket.Size, IntentPacket.FullSize })
+                foreach (int size in new[] { IntentPacket.Size, IntentPacket.FullSize, IntentPacket.TouchCanonicalSize })
                 {
                     byte[] intent = new byte[2 + size];
                     intent[0] = (byte)PacketType.SlotIntent;

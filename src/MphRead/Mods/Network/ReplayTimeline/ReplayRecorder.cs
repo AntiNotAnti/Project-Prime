@@ -109,7 +109,7 @@ internal sealed partial class ReplayRecorder
         }
         // Storage stays canonical even when the live protocol uses compact intents.
         // Accepted live packets have already been decoded into this complete model.
-        Span<byte> bytes = stackalloc byte[2 + IntentPacket.FullSize];
+        Span<byte> bytes = stackalloc byte[2 + IntentPacket.TouchCanonicalSize];
         bytes[0] = (byte)PacketType.SlotIntent; bytes[1] = (byte)slot;
         NetFireEvents.WithoutTurretOffers(intent).Write(bytes[2..]);
         var record = new ReplayTimelineRecord(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Intent, bytes);
