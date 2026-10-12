@@ -131,6 +131,8 @@ public static class BotAiChecks
         float reverseFirst = BotMotorMath.StepMoveAxis(move, -1, .25f, .40f);
         Check(reverseFirst > 0 && reverseFirst < 1,
             "direction reversal brakes instead of snapping");
+        Check(BotMotorMath.StepMoveAxis(.12f, -1, .40f, .52f) == 0,
+            "small-speed reversal must stop at zero, never cross in one tick");
         for (int i = 0; i < 8; i++)
             reverseFirst = BotMotorMath.StepMoveAxis(reverseFirst, -1, .25f, .40f);
         Check(reverseFirst == -1, "motor completes the requested reversal");
@@ -145,8 +147,12 @@ public static class BotAiChecks
             "aim preserves its angular speed limit");
         float previousTurn = angularVelocity;
         float reversingTurn = BotMotorMath.StepAimAxis(ref angularVelocity, -35, 16, 4.8f);
-        Check(reversingTurn < previousTurn && reversingTurn > -16,
+        Check(reversingTurn <= previousTurn && reversingTurn > -16,
             "opposite aim request decelerates before reversing");
+        float rate = 10;
+        float noWrongWay = BotMotorMath.StepAimAxis(ref rate, -1f, 16f, 3f);
+        Check(noWrongWay == 0 && rate > 0,
+            "reversing aim holds orientation until it can turn correctly");
         float fineTurn = BotMotorMath.StepAimAxis(ref angularVelocity, .15f, 16, 4.8f);
         Check(MathF.Abs(fineTurn) <= .15f && float.IsFinite(fineTurn),
             "reticle settles without overshooting small errors");

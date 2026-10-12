@@ -16,7 +16,8 @@ navigation command.
 
 The existing `PlayerControls.SetAnalogMovement` path carries analog traction
 alongside the normal digital direction flags. Inputs ramp between -1 and 1 with
-asymmetric acceleration/braking; opposite movement requests pass through zero.
+asymmetric acceleration/braking; opposite movement requests stop at zero on a
+simulation tick before accelerating in the opposite direction.
 The full native walk/strafe caps and collisions remain unchanged. Tactical motor
 momentum is rejected when existing floor/wall/hazard probes say the next move is
 unsafe. Alt forms continue using their native controls pending a separate alt
@@ -26,7 +27,8 @@ locomotion implementation.
 
 Yaw/pitch requests are shaped with bounded angular acceleration and velocity,
 plus braking near the aim point, rather than applying the full per-frame legacy
-turn amount immediately. The deterministic per-tier profiles tune this rate.
+turn amount immediately. A reversing aim request never outputs movement in the
+wrong direction while angular momentum is still being dissipated. The deterministic per-tier profiles tune this rate.
 This is command smoothing, **not** smoothing authoritative muzzle, hitbox,
 projectile or target positions. LOS/firing constraints remain intact.
 
