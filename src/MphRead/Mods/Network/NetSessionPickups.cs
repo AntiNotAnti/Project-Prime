@@ -95,7 +95,9 @@ public static partial class NetSession
         for (int at = 0; at < packet.Payload.Length; at += stride)
         {
             var bytes = packet.Payload.Slice(at, stride);
-            if (packet.Type == PacketType.PickupItem && PickupItemFact.TryRead(bytes, out var item))
+            if (packet.Type == PacketType.TimedGrant && TimedGrantFact.TryRead(bytes, out var grant))
+                NetGrantNetwork.Receive(grant);
+            else if (packet.Type == PacketType.PickupItem && PickupItemFact.TryRead(bytes, out var item))
                 NetPickupNetwork.ReceiveItem(item);
             else if (packet.Type == PacketType.PickupVerdict && PickupVerdict.TryRead(bytes, out var verdict))
                 NetPickupNetwork.ReceiveVerdict(verdict);

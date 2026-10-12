@@ -275,13 +275,15 @@ internal sealed class ReplayAuthorityWorld
             }
         var existing = new Dictionary<int, ItemInstanceEntity>();
         foreach (var item in scene.GetItemInstanceEntities())
-            if (item.Owner == null && item.TokenId == 0)
+            if (item.Owner == null && item.TokenId == 0
+                && !(state.TimedGrants.HasCoverage && NetPowerUpLedger.TryType(item.ItemType, out _)))
             {
                 if (item.Id >= -1) item.DespawnTimer = 0; // discard contact-inferred drops
                 else existing.Add(-2 - item.Id, item);
             }
         foreach (var drop in Drops)
         {
+            if (state.TimedGrants.HasCoverage && NetPowerUpLedger.TryType(drop.Type, out _)) continue;
             existing.Remove(drop.Identity, out var item);
             if (item != null && item.ItemType != drop.Type) throw new InvalidDataException("Replay drop identity changed type.");
             if (item == null)

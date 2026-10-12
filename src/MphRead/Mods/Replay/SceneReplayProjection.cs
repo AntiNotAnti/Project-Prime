@@ -14,7 +14,8 @@ public partial class Scene
     {
         using var stream = new MemoryStream(8192);
         using var writer = new BinaryWriter(stream);
-        writer.Write((ushort)1);
+        bool timedGrants = Services is Mods.Network.ReplaySceneServices replay && replay.State.TimedGrants.HasCoverage;
+        writer.Write((ushort)(timedGrants ? 2 : 1));
         writer.Write(recordingFrame); writer.Write(Random.Rng2);
         void Vector(Vector3 value) { writer.Write(value.X); writer.Write(value.Y); writer.Write(value.Z); }
         void Matrix(Matrix4 value)
@@ -27,6 +28,18 @@ public partial class Scene
             writer.Write(entity is PlayerEntity player ? player.SlotIndex : entity.Id);
             writer.Write(entity.Initialized); writer.Write(entity.Hidden); writer.Write(entity.Alpha);
             writer.Write(entity.Recolor); Matrix(entity.Transform);
+            if (timedGrants && entity is ItemInstanceEntity item)
+            {
+                writer.Write(item.ModPickupHidden); writer.Write(item.ModPickupSpawn.HasValue);
+                if (item.ModPickupSpawn is { } spawn)
+                {
+                    writer.Write(spawn.Epoch); writer.Write(spawn.Match); writer.Write(spawn.Room);
+                    writer.Write(spawn.SpawnId); writer.Write(spawn.Generation);
+                }
+            }
+            if (timedGrants && entity is PlayerEntity timedPlayer)
+                for (int type = 0; type < 3; type++)
+                    writer.Write(timedPlayer.ModTimedVisualRemaining((Mods.Network.TimedPowerUp)type));
             writer.Write(entity.ReplayModels.Count);
             foreach (var model in entity.ReplayModels)
             {

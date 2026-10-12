@@ -85,7 +85,7 @@ namespace MphRead.Entities
                                 TakeDamage(other._boostDamage, DamageFlags.NoDmgInvuln | DamageFlags.Halfturret, other.Speed, other);
                                 other.EndAltAttack();
                             }
-                            if (other._deathaltTimer > 0)
+                            if (other.ModConfirmedTimedEffect(Mods.Network.TimedPowerUp.DeathAlt))
                             {
                                 TakeDamage(200, DamageFlags.Deathalt | DamageFlags.NoDmgInvuln | DamageFlags.Halfturret, other.Speed, other);
                             }
@@ -136,11 +136,11 @@ namespace MphRead.Entities
                         TakeDamage(other._boostDamage, DamageFlags.NoDmgInvuln, other.Speed, other);
                         other.EndAltAttack();
                     }
-                    if (_deathaltTimer > 0)
+                    if (ModConfirmedTimedEffect(Mods.Network.TimedPowerUp.DeathAlt))
                     {
                         other.TakeDamage(200, DamageFlags.Deathalt | DamageFlags.NoDmgInvuln, Speed, this);
                     }
-                    if (other._deathaltTimer > 0)
+                    if (other.ModConfirmedTimedEffect(Mods.Network.TimedPowerUp.DeathAlt))
                     {
                         TakeDamage(200, DamageFlags.Deathalt | DamageFlags.NoDmgInvuln, other.Speed, other);
                     }

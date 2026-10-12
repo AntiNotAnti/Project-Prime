@@ -71,8 +71,10 @@ internal static class ReplayFormCompatibilityChecks
         }
         // The historical player-width fixture uses schema 9, which predates
         // the schema 10 pickup room and three data counts. Strip only empty data.
-        const int pickupTailBytes = sizeof(uint) + 3 * sizeof(int);
-        require(current.AsSpan(current.Length - pickupTailBytes).ToArray().All(value => value == 0),
+        const int grantTailBytes = 87;
+        const int pickupTailBytes = sizeof(uint) + 3 * sizeof(int) + grantTailBytes;
+        require(current.AsSpan(current.Length - pickupTailBytes).ToArray()
+                .Select((value, index) => value == (index == pickupTailBytes - grantTailBytes ? 83 : 0)).All(value => value),
             "historical player-width fixture strips only empty pickup data");
         stream.Write(current.AsSpan(at, current.Length - at - pickupTailBytes));
         byte[] historical = stream.ToArray(); historical[4] = 9; historical[5] = 0; historical[6] = 48;

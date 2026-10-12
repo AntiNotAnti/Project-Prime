@@ -21,7 +21,7 @@ internal sealed class ReplayReplicaCheckpoint
 internal sealed partial class ReplayReplicaState
 {
     private const uint CheckpointMagic = 0x43525050; // PPRC, independent of demo/wire formats
-    private const ushort CheckpointVersion = 10;
+    private const ushort CheckpointVersion = 11;
     internal ReplayReplicaCheckpoint CaptureCheckpoint()
     {
         using var stream = new MemoryStream();
@@ -88,6 +88,7 @@ internal sealed partial class ReplayReplicaState
         WriteBombPackets(writer);
         WriteTurretOutcomes(writer);
         WritePickupFacts(writer);
+        WriteGrantFacts(writer);
 
     }
 
@@ -235,6 +236,8 @@ internal sealed partial class ReplayReplicaState
             if (version >= 9) restored.ReadTurretOutcomes(reader);
             if (version >= 10)
             { if (protocol < 53) throw Malformed(); restored.ReadPickupFacts(reader); }
+            if (version >= 11)
+            { if (protocol < 54) throw Malformed(); restored.ReadGrantFacts(reader); }
             if (stream.Position != stream.Length || restored.MatchRecordingFrame > restored.RecordingFrame
                 || restored.AcceptedPackets < 0 || restored.IgnoredPackets < 0) throw Malformed();
         }
@@ -242,6 +245,7 @@ internal sealed partial class ReplayReplicaState
         _bombPackets.Clear(); _bombPackets.AddRange(restored._bombPackets);
         RestoreTurretOutcomes(restored);
         RestorePickupFacts(restored);
+        TimedGrants = restored.TimedGrants;
         ChatLines.Clear(); ChatLines.AddRange(restored.ChatLines);
         SemanticEvents = restored.SemanticEvents;
         ContainsBots = restored.ContainsBots;

@@ -53,7 +53,7 @@ public sealed class NetPacketQueue
         PacketType.Intent or PacketType.SlotIntent or PacketType.Snapshot or PacketType.SnapshotFast or PacketType.PlayerSlowState or PacketType.WorldState or PacketType.HitClaim or PacketType.HitVerdict
             or PacketType.ReplayWorld or PacketType.MatchStartCommit
             or PacketType.BombIntent or PacketType.BombEvent or PacketType.BombState or PacketType.TurretFireOutcome
-            or PacketType.PickupClaim or PacketType.PickupVerdict or PacketType.PickupItem or PacketType.PickupReady => NetPacketPriority.Realtime,
+            or PacketType.PickupClaim or PacketType.PickupVerdict or PacketType.PickupItem or PacketType.PickupReady or PacketType.TimedGrant => NetPacketPriority.Realtime,
         PacketType.QueueHello or PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave
             or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.QueueAccept or PacketType.QueueDecline
             or PacketType.HostChallenge or PacketType.HostChallengeReply or PacketType.HostRequest or PacketType.HostReply

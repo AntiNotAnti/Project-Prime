@@ -1368,7 +1368,7 @@ namespace MphRead.Entities
                 UpdateAdventureModeBotWeapon();
             }
             BeamSpawnFlags flags = BeamSpawnFlags.NoMuzzle;
-            if (_doubleDmgTimer > 0)
+            if (DoubleDamage)
             {
                 flags |= BeamSpawnFlags.DoubleDamage;
             }
@@ -2517,7 +2517,7 @@ namespace MphRead.Entities
                         bomb.Damage = bomb.EnemyDamage = (ushort)(Hunter == Hunter.Kanden ? 8 : 6);
                     }
                 }
-                if (_doubleDmgTimer > 0)
+                if (DoubleDamage)
                 {
                     bomb.Damage *= 2;
                     bomb.EnemyDamage *= 2;

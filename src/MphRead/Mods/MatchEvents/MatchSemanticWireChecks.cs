@@ -203,7 +203,8 @@ internal static class MatchSemanticWireChecks
         // two uint presentation frontiers, the empty v8 bomb count, and the
         // two empty v9 turret outcome counts, and the v10 room plus three
         // empty pickup counts: 36 tail bytes.
-        const int pickupTrailerBytes = sizeof(uint) + 3 * sizeof(int);
+        const int grantTrailerBytes = 87;
+        const int pickupTrailerBytes = sizeof(uint) + 3 * sizeof(int) + grantTrailerBytes;
         const int semanticTrailerBytes = 2 * sizeof(uint) + 3 * sizeof(int) + pickupTrailerBytes;
         byte[] malformed = checkpoint.Bytes.ToArray();
         int awardKindOffset = malformed.Length - semanticTrailerBytes - 1;
@@ -240,6 +241,9 @@ internal static class MatchSemanticWireChecks
         // v9 predates pickup identities. v8 has the bomb appendix but neither
         // v9 outcome count. v7 also
         // predates the bomb count. Retain their exact historical extents.
+        byte[] schemaTen = HistoricalEmpty(10, 53, IntentPacket.FullSize, grantTrailerBytes, PlayerState.Size);
+        var oldTen = new ReplayReplicaState(); oldTen.RestoreCheckpoint(new(schemaTen));
+        require(!oldTen.TimedGrants.HasCoverage, "schema 10 absence does not invent grant presentation coverage");
         byte[] schemaNine = HistoricalEmpty(9, 52, IntentPacket.FullSize, pickupTrailerBytes, PlayerState.Size);
         var oldNine = new ReplayReplicaState(); oldNine.RestoreCheckpoint(new(schemaNine));
         require(oldNine.Match?.MatchId == 1 && oldNine.PickupClaims.Count == 0

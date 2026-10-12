@@ -486,7 +486,7 @@ namespace MphRead.Entities
         private ushort _matchSpawnProtectionTimer = 0;
         private ushort _camSwitchTimer = 0;
         private ushort _doubleDmgTimer = 0;
-        public bool DoubleDamage => _doubleDmgTimer > 0;
+        public bool DoubleDamage => ModConfirmedTimedEffect(Mods.Network.TimedPowerUp.DoubleDamage);
         private ushort _cloakTimer = 0;
         private ushort _deathaltTimer = 0;
         private ushort _frozenTimer = 0;
@@ -1944,7 +1944,7 @@ namespace MphRead.Entities
                     // Not again for a rescued hit claim: the shooter's own
                     // machine already doubled it before it sent the number.
                     // Mods.Network.NetDamage.ApplyingClaim.
-                    if (attacker._doubleDmgTimer > 0 && !Mods.Network.NetDamage.ApplyingClaim
+                    if (attacker.DoubleDamage && !Mods.Network.NetDamage.ApplyingClaim
                         && !Mods.EnhancedHunters.EnhancedHunters.ApplyingBonus && NetBurnSource.Current == null)
                     {
                         damage *= 2;

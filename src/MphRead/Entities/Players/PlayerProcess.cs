@@ -62,6 +62,7 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            Mods.Network.NetGrantNetwork.BeforePlayer(this);
             UpdateChamberFallback();
             bool result = ProcessPlayer();
             Mods.EnhancedHunters.EnhancedHunters.OnPlayerFrame(this);
@@ -485,7 +486,7 @@ namespace MphRead.Entities
             }
             if (_deathaltTimer > 0)
             {
-                _deathaltTimer--;
+                if (!ModUsesTimedGrantPresentation) _deathaltTimer--;
                 if (_deathaltEffect == null)
                 {
                     int effectId = 181; // deathBall
@@ -505,17 +506,17 @@ namespace MphRead.Entities
             if (Flags2.TestFlag(PlayerFlags2.Cloaking))
             {
                 Debug.Assert(_cloakTimer != 0);
-                _cloakTimer--;
+                if (!ModUsesTimedGrantPresentation) _cloakTimer--;
                 if (_cloakTimer > 0)
                 {
                     _targetAlpha = 3 / 31f;
                     if (IsMainPlayer)
                     {
-                        if (_cloakTimer == 210 * 2) // todo: FPS stuff
+                        if (!ModUsesTimedGrantPresentation && _cloakTimer == 210 * 2) // todo: FPS stuff
                         {
                             UpdateCloakSfx(index: 1, play: true);
                         }
-                        else if (_cloakTimer == 120 * 2) // todo: FPS stuff
+                        else if (!ModUsesTimedGrantPresentation && _cloakTimer == 120 * 2) // todo: FPS stuff
                         {
                             UpdateCloakSfx(index: 2, play: true);
                         }
@@ -1244,7 +1245,7 @@ namespace MphRead.Entities
             Mods.Network.NetShotSourceJournal.Tick(this);
             if (_doubleDmgTimer > 0)
             {
-                _doubleDmgTimer--;
+                if (!ModUsesTimedGrantPresentation) _doubleDmgTimer--;
                 if (IsMainPlayer)
                 {
                     // the game checks this last, so it might create and destroy the effect on the same frame
@@ -1276,12 +1277,12 @@ namespace MphRead.Entities
                             _scene.UnlinkEffectEntry(_doubleDmgEffect);
                             _doubleDmgEffect = null;
                         }
-                        if (_doubleDmgTimer == 210 * 2) // todo: FPS stuff
+                        if (!ModUsesTimedGrantPresentation && _doubleDmgTimer == 210 * 2) // todo: FPS stuff
                         {
                             UpdateDoubleDamageSfx(index: 1, play: true);
                             UpdateDoubleDamageSpeed(2);
                         }
-                        else if (_doubleDmgTimer == 120 * 2) // todo: FPS stuff
+                        else if (!ModUsesTimedGrantPresentation && _doubleDmgTimer == 120 * 2) // todo: FPS stuff
                         {
                             UpdateDoubleDamageSfx(index: 2, play: true);
                             UpdateDoubleDamageSpeed(3);
@@ -1446,7 +1447,11 @@ namespace MphRead.Entities
 
                 if (Mods.Network.NetPowerUpLedger.TryType(item.ItemType, out _))
                 {
-                    Mods.Network.NetPickupNetwork.OwnerContact(this, item);
+                    if (ModUsesTimedGrantPresentation)
+                    {
+                        Mods.Network.NetPickupNetwork.OwnerContact(this, item);
+                        continue;
+                    }
                     if (Mods.Network.NetPowerUpLedger.TryNativeContact(this, item))
                     {
                         ApplyNativeTimedPickup(item);

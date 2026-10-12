@@ -31,6 +31,8 @@ namespace MphRead.Mods.Network
         ConfirmedImpact = 71, // optional authority-only, expendable live presentation
         TurretFireOutcome = 72, // authority emission/refusal for an admitted turret fire identity
         PickupClaim = 73, PickupVerdict = 74, PickupItem = 75, PickupReady = 76,
+        TimedGrant = 77, // authority timed state, ordinary reliable event/delta lane
+        PickupPrediction = 78, TimedGrantBootstrap = 79, // local replay only; never live authority messages
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
@@ -2516,7 +2518,9 @@ namespace MphRead.Mods.Network
         // Protocol 50 isolates optional confirmed impacts from gameplay sequence/ACK windows.
         // Protocol 51 carries the authority bomb-jump result in detonation events.
         // Protocol 52 adds exact reliable turret fire emission/refusal outcomes.
-        public const int ProtocolVersion = 53;
+        // Protocol 53 adds verified timed pickup claims, item incarnations and readiness.
+        // Protocol 54 adds timed grant reconciliation; fast player and intent widths stay unchanged.
+        public const int ProtocolVersion = 54;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

@@ -22,7 +22,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     internal const int MaximumBytes = 8 * 1024 * 1024;
     private const int MaximumObjects = 32768;
     private const uint Magic = 0x43575050; // PPWC
-    private const ushort Version = 8;
+    private const ushort Version = 9;
     private readonly ReplayPayload _data;
     internal ReadOnlySpan<byte> Bytes => _data.Span;
     internal ReplayPayload Payload => _data;
@@ -232,6 +232,9 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             long forms = ReplayCheckpointWriter.BeginComponent(writer);
             replay.Scene.PlayerReplication.WriteReplayAuthorityForms(writer);
             ReplayCheckpointWriter.EndComponent(writer, forms);
+            long pickups = ReplayCheckpointWriter.BeginComponent(writer);
+            WritePickupItems(writer, graph, replay.State);
+            ReplayCheckpointWriter.EndComponent(writer, pickups);
             // Posed discrete firing (protocol 43+) changes world reconstruction.
             // A live canonical world has no indexed cursor; its capsule remains
             // a valid recording baseline, but cannot accelerate indexed seeks.
@@ -251,6 +254,11 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         private readonly Func<object?, int> _reference;
         internal CaptureGraph() => _reference = Id;
         internal void Clear() { _indices.Clear(); _objects.Clear(); }
+        internal IEnumerable<(int Id, ItemInstanceEntity Item)> PickupItems()
+        {
+            for (int i = 0; i < _objects.Count; i++)
+                if (_objects[i] is ItemInstanceEntity item && item.ModPickupSpawn.HasValue) yield return (i, item);
+        }
         internal int Id(object? value)
         {
             if (value == null) return -1;
@@ -361,6 +369,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         byte[]? bombs = version >= 4 ? ReadBytes(reader, MaximumBytes) : null;
         byte[]? traversal = version >= 5 ? ReadBytes(reader, 256 * 1024) : null;
         byte[]? forms = version >= 7 ? ReadBytes(reader, 4096) : null;
+        byte[]? pickups = version >= 9 ? ReadBytes(reader, 65536) : null;
         bool indexedFirePresentation = version >= 6 && reader.ReadBoolean();
         if (indexedFirePresentation != IndexedFirePresentation) throw new InvalidDataException("Replay presentation contract marker differs.");
         if (stream.Position != stream.Length || frame != Frame) throw new InvalidDataException("Invalid replay world capsule length/frame.");
@@ -466,7 +475,49 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             replay.Scene.PlayerReplication.ReadReplayAuthorityForms(formReader);
             if (formStream.Position != formStream.Length) throw new InvalidDataException("Invalid authority form cache appendix.");
         }
+        if (pickups != null) ReadPickupItems(pickups, objects, replay.State);
+        else foreach (var item in objects.OfType<ItemInstanceEntity>())
+        { item.ModPickupSpawn = null; item.ModPickupHidden = false; }
         replay.Scene.Random.SetRng1(rng1); replay.Scene.Random.SetRng2(rng2);
+    }
+
+    private static void WritePickupItems(BinaryWriter writer, CaptureGraph graph, ReplayReplicaState state)
+    {
+        var items = graph.PickupItems().ToArray();
+        if (items.Length > 2048) throw new InvalidDataException("Replay pickup item appendix exceeds its budget.");
+        writer.Write(items.Length);
+        foreach (var entry in items)
+        {
+            var key = entry.Item.ModPickupSpawn!.Value;
+            if (!ValidPickupItem(key, entry.Item, state)) throw new InvalidDataException("Invalid replay pickup item identity.");
+            writer.Write(entry.Id); writer.Write(key.Epoch); writer.Write(key.Match); writer.Write(key.Room);
+            writer.Write(key.SpawnId); writer.Write(key.Generation); writer.Write(entry.Item.ModPickupHidden);
+        }
+    }
+    private static bool ValidPickupItem(PowerUpSpawnKey key, ItemInstanceEntity item, ReplayReplicaState state)
+        => state.Match is { } match && key.Epoch == match.AuthorityEpoch && key.Match == match.MatchId
+            && (state.PickupRoomIdentity == 0 || key.Room == state.PickupRoomIdentity)
+            && NetPowerUpLedger.TryType(item.ItemType, out var type)
+            && new PickupItemFact(key, type, 0, !item.ModPickupHidden, item.Position).IsValid;
+    private static void ReadPickupItems(byte[] bytes, object[] objects, ReplayReplicaState state)
+    {
+        using var stream = new MemoryStream(bytes, writable: false); using var reader = new BinaryReader(stream);
+        int count = Count(reader, 2048); var seen = new HashSet<int>(); var identities = new HashSet<PowerUpSpawnKey>();
+        var rows = new List<(ItemInstanceEntity Item, PowerUpSpawnKey Key, bool Hidden)>(count);
+        for (int i = 0; i < count; i++)
+        {
+            int id = reader.ReadInt32();
+            var key = new PowerUpSpawnKey(reader.ReadUInt64(), reader.ReadUInt16(), reader.ReadUInt32(), reader.ReadInt32(), reader.ReadUInt32());
+            byte hidden = reader.ReadByte();
+            if ((uint)id >= objects.Length || objects[id] is not ItemInstanceEntity item || hidden > 1
+                || !seen.Add(id) || !identities.Add(key) || !ValidPickupItem(key, item, state))
+                throw new InvalidDataException("Invalid replay pickup item appendix.");
+            rows.Add((item, key, hidden != 0));
+        }
+        if (stream.Position != stream.Length) throw new InvalidDataException("Trailing replay pickup item appendix data.");
+        foreach (var item in objects.OfType<ItemInstanceEntity>())
+        { item.ModPickupSpawn = null; item.ModPickupHidden = false; }
+        foreach (var row in rows) { row.Item.ModPickupSpawn = row.Key; row.Item.ModPickupHidden = row.Hidden; }
     }
 
     private static object Create(Type type, byte[] data, Scene scene)
