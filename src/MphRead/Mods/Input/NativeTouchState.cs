@@ -251,7 +251,10 @@ namespace MphRead.Mods.Input
             _lastSecond = reader.ReadBoolean();
             _generation = reader.ReadUInt16(); _life = reader.ReadUInt16();
             NewSample = reader.ReadBoolean(); RollShare = reader.ReadSingle();
-            Current = NativeTouchReport.Read(reader.ReadBytes(NativeTouchReport.WireSize));
+            byte[] touchBytes = reader.ReadBytes(NativeTouchReport.WireSize);
+            if (touchBytes.Length != NativeTouchReport.WireSize)
+                throw new InvalidDataException("Truncated native touch replay checkpoint.");
+            Current = NativeTouchReport.Read(touchBytes);
             if (_phase is < 0 or > 1 || _idleSteps < 0
                 || !float.IsFinite(_pendingX) || !float.IsFinite(_pendingY)
                 || !float.IsFinite(RollShare) || RollShare is < 0f or > 0.5f)

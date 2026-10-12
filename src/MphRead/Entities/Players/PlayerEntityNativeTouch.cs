@@ -159,7 +159,7 @@ namespace MphRead.Entities
             if (touchBoost)
             {
                 (dirX, dirZ) = MorphBallTouchRules.Boost(touch.Delta4X, touch.Delta4Y,
-                    1f, _altRollFbX, _altRollFbZ, _altRollLrX, _altRollLrZ);
+                    1f, CameraInfo.Field48, CameraInfo.Field4C, CameraInfo.Field50, CameraInfo.Field54);
             }
             speedDelta.X += dirX * speed;
             speedDelta.Z += dirZ * speed;
