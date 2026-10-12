@@ -245,6 +245,17 @@ public static class BotAiChecks
               BotReactionPolicy.AcquisitionFrames(0, false),
             "reaction difficulty clamps invalid tiers");
 
+        Check(PlayerEntity.PlayerAiData.TacticalAmmoReserveBiasForTest(
+                    BeamType.Imperialist, 1) <
+              PlayerEntity.PlayerAiData.TacticalAmmoReserveBiasForTest(
+                    BeamType.Imperialist, 5),
+            "nearly depleted weapons are less valuable than well-supplied alternatives");
+        Check(PlayerEntity.PlayerAiData.TacticalAmmoReserveBiasForTest(
+                    BeamType.OmegaCannon, 1) == 0
+              && PlayerEntity.PlayerAiData.TacticalAmmoReserveBiasForTest(
+                    BeamType.PowerBeam, 100) == 0,
+            "Omega Cannon and free Power Beam are not penalized for ammo scarcity");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }

@@ -688,6 +688,12 @@ public partial class PlayerEntity
                     score += 6; // Weavel's concussion and self-knockback opportunities.
                 }
                 score += TacticalHunterWeaponBiasForTest(_player.Hunter, beam, distance, target.ModFrozen);
+                WeaponInfo weaponInfo = _scene.WeaponRules[(int)beam +
+                    (Weapons.GetAffinityBeam(_player.Hunter) == beam ? 9 : 0)];
+                int cost = _player.ModAmmoCostForWeapon(beam, weaponInfo);
+                float remainingShots = cost <= 0 ? 1000f
+                    : _player.ModAmmoForWeapon(beam, weaponInfo) / (float)cost;
+                score += TacticalAmmoReserveBiasForTest(beam, remainingShots);
                 if (beam == _player.CurrentWeapon)
                 {
                     currentScore = score;
@@ -708,6 +714,18 @@ public partial class PlayerEntity
                 return _player.CurrentWeapon;
             }
             return best;
+        }
+
+        public static float TacticalAmmoReserveBiasForTest(BeamType beam, float remainingShots)
+        {
+            if (beam == BeamType.OmegaCannon || beam == BeamType.PowerBeam)
+                return 0; // Free beam and rare powerup have their own priority.
+            if (!float.IsFinite(remainingShots) || remainingShots <= 0)
+                return -100;
+            if (remainingShots < 2) return -16;
+            if (remainingShots < 4) return -7;
+            if (remainingShots >= 9) return 3;
+            return 0;
         }
 
         public static float TacticalWeaponUtilityForTest(BeamType beam, float distance, bool affinity,

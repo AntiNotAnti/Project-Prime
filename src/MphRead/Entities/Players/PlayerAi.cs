@@ -2354,8 +2354,14 @@ namespace MphRead.Entities
                 {
                     return beam == BeamType.Imperialist && _player._availableWeapons[beam];
                 }
-                WeaponInfo info = _scene.WeaponRules[(int)beam];
-                return _player._ammo[info.AmmoType] >= info.AmmoCost && _player._availableWeapons[beam];
+                // The old bot gate checked raw UA, so Balanced Imperialist
+                // appeared usable even after its private five-shot reserve ran
+                // dry. Use the same actual rules as native shot payment.
+                int affinityIndex = Weapons.GetAffinityBeam(_player.Hunter) == beam ? 9 : 0;
+                WeaponInfo info = _scene.WeaponRules[(int)beam + affinityIndex];
+                return _player._availableWeapons[beam]
+                    && _player.ModAmmoForWeapon(beam, info)
+                        >= _player.ModAmmoCostForWeapon(beam, info);
             }
 
             // helper
@@ -2365,9 +2371,11 @@ namespace MphRead.Entities
                 {
                     return false;
                 }
-                WeaponInfo info = _scene.WeaponRules[(int)beam];
+                int affinityIndex = Weapons.GetAffinityBeam(_player.Hunter) == beam ? 9 : 0;
+                WeaponInfo info = _scene.WeaponRules[(int)beam + affinityIndex];
                 return info.Flags.TestFlag(WeaponFlags.CanCharge)
-                    && _player._ammo[info.AmmoType] >= info.ChargeCost && _player._availableCharges[beam];
+                    && _player.ModAmmoForWeapon(beam, info) >= info.ChargeCost
+                    && _player._availableCharges[beam];
             }
 
             private void Func1_214A39C()

@@ -30,6 +30,19 @@ A hidden remembered target cannot be fed to the active combat aim/fire routine.
 Visible targets continue through ordinary weapon, tactical footwork and combat
 physics.
 
+## Weapon economy
+
+Legacy `CheckBeam` and `CheckCharge` now consult the actual per-Hunter weapon
+rules and the same per-weapon ammo payment logic used by native combat. This
+prevents Balanced Imperialist bots from believing that shared Universal Ammo
+can pay after the private five-shot reserve is exhausted. It also accounts
+for the twelve-UA Balanced Battlehammer burst and affinity costs.
+
+Weapon utility now considers how many shots remain. Most ordinary low-reserve
+weapons receive a moderate tactical penalty so bots don't continually choose
+a gun that will run dry on the next attack. The free Power Beam and rare
+Omega Cannon retain their intentional priorities.
+
 ## Opponent movement tracking and human reaction
 
 Hard and Insane bots smooth **observed**, currently visible target velocity
