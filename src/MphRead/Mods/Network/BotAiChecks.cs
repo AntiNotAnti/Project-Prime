@@ -168,6 +168,24 @@ public static class BotAiChecks
             && BotMotorMath.SafePitchDegrees(new(float.NaN, 0, 1)) == 0,
             "degenerate and non-finite perception vectors cannot poison bot aim");
 
+        Check(BotDodgeMath.ThreatensPosition(
+                new(-10, 0, 0), new(1, 0, 0), new(0, 0, .25f),
+                radius: 1, horizonTicks: 15, out float incomingTicks, out _)
+            && MathF.Abs(incomingTicks - 10) < 0.001f,
+            "visible approaching projectile predicts imminent danger");
+        Check(!BotDodgeMath.ThreatensPosition(
+                new(10, 0, 0), new(1, 0, 0), Vector3.Zero,
+                radius: 1, horizonTicks: 15, out _, out _),
+            "receding projectile does not trigger evasive behavior");
+        Check(!BotDodgeMath.ThreatensPosition(
+                new(-10, 0, 4), new(1, 0, 0), Vector3.Zero,
+                radius: 1, horizonTicks: 15, out _, out _),
+            "projectile passing safely beside bot is ignored");
+        Check(!BotDodgeMath.ThreatensPosition(
+                Vector3.Zero, new(float.NaN, 0, 0), Vector3.Zero,
+                radius: 1, horizonTicks: 15, out _, out _),
+            "invalid projectile kinematics cannot affect bot movement");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }

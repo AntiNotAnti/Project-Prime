@@ -38,6 +38,16 @@ separation. Pitch is now calculated from a normalized, clamped vector with
 finite/zero guards. Horizontal dot products are also clamped before `acos()`.
 These changes remove a separate source of abrupt/invalid bot aiming.
 
+## Defensive projectile anticipation
+
+Normal/Hard/Insane bots can estimate closest approach of *visible*, hostile,
+active projectiles relative to their own velocity. The horizon and reaction
+delay vary by difficulty. When a shot threatens their collision area, the bot
+chooses a floor/wall-safe lateral move and commits briefly, instead of flipping
+its strafe direction every frame. A wall-blocked projectile is not an observable
+cue, and unseen opponent positions are never used by this dodge path. This is
+short-horizon, constant-velocity prediction; not perfect projectile foresight.
+
 ## Combat consistency
 
 Charge preference is now chosen once per weapon/target action instead of being

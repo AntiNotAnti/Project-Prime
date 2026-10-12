@@ -47,6 +47,7 @@ namespace MphRead.Entities
                 _botMotorYawVelocity = 0;
                 _botMotorPitchVelocity = 0;
                 _botMotorBiped = false;
+                ResetBotDodge();
                 _player.Controls?.ClearAnalogMovement();
             }
 
@@ -66,6 +67,10 @@ namespace MphRead.Entities
                     return;
                 }
 
+                // Treat observed incoming projectiles as time-limited dodge goals.
+                // They can supersede ordinary footwork, but only when visible and
+                // after a difficulty-dependent reaction delay.
+                TryBotProjectileDodge();
                 BotMotorTuning tuning = _motorTuning[Math.Clamp(_player.BotLevel, 0, 3)];
                 float desiredX = (_buttons.A.IsDown ? 1 : 0) - (_buttons.Y.IsDown ? 1 : 0);
                 float desiredY = (_buttons.X.IsDown ? 1 : 0) - (_buttons.B.IsDown ? 1 : 0);
