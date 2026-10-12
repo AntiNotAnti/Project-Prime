@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using MphRead.Mods.Network;
+using MphRead.Mods.Input;
 using MphRead.Entities;
 using OpenTK.Mathematics;
 
@@ -23,7 +24,8 @@ internal static class CompactIntentReplayTests
             recorderType.GetMethod("AcceptMatch", All)!.Invoke(recorder, new object[] {
                 new MatchStatePacket { MatchId = 7, AuthorityEpoch = 9, RoomKey = "MP1 SANCTORUS", NextRoomKey = "", Mode = (byte)GameMode.Battle }, 0u });
             var newer = new IntentPacket { MatchId = 7, AuthorityEpoch = 9, SlotGeneration = 2,
-                LifeId = 1, Frame = 102, Position = new(10, 0, 0), HasFireEvents = true, FireEventCount = 1 };
+                LifeId = 1, Frame = 102, Position = new(10, 0, 0), HasFireEvents = true, FireEventCount = 1,
+                NativeTouch = new NativeTouchReport(true, true, true, 111, -34, 55, false) };
             newer.FireEvents[0] = new(43, 102, 80, 32, FireEventKind.PressFire, 0, 5, 0);
             var older = newer; older.Frame = 100; older.Position = new(2, 0, 0); older.FireEventCount = 2;
             older.FireEvents[0] = new(41, 100, 79, 128, FireEventKind.ReleaseFire, 0, 7, 0,
@@ -43,13 +45,15 @@ internal static class CompactIntentReplayTests
             accept.Invoke(recorder, new object[] { 0, older, 104u });
             Check(published.Count == 2 && published[1].Length == 2 + IntentPacket.TouchCanonicalSize
                 && IntentPacket.Read(published[1].AsSpan(2)).Frame == 100
-                && IntentPacket.Read(published[1].AsSpan(2)).FireEventCount == 2,
+                && IntentPacket.Read(published[1].AsSpan(2)).FireEventCount == 2
+                && IntentPacket.Read(published[1].AsSpan(2)).NativeTouch == older.NativeTouch,
                 "older carrier with unique shots is published as a canonical replay record");
             var bootstrap = (Array)recorderType.GetField("_intents", All)!.GetValue(recorder)!;
             object latest = bootstrap.GetValue(0)!;
             var payload = ((ReplayTimelineRecord)latest).Payload;
             Check(payload.Length == 2 + IntentPacket.TouchCanonicalSize && IntentPacket.Read(payload[2..]).Frame == 102
-                && IntentPacket.Read(payload[2..]).Position.X == 10,
+                && IntentPacket.Read(payload[2..]).Position.X == 10
+                && IntentPacket.Read(payload[2..]).NativeTouch == newer.NativeTouch,
                 "older carrier never replaces newest canonical bootstrap movement");
             Span<byte> live = stackalloc byte[IntentPacket.FullSize];
             int size = CompactIntentCodec.Write(older, live);
@@ -59,6 +63,11 @@ internal static class CompactIntentReplayTests
             older.Write(historical); decoded.Write(adapted);
             Check(historical.SequenceEqual(adapted) && IntentPacket.FullSize == 1287,
                 "protocol 41 canonical bytes survive compact live adapter unchanged");
+            Span<byte> nativeCanonical = stackalloc byte[IntentPacket.TouchCanonicalSize];
+            older.Write(nativeCanonical);
+            Check(IntentPacket.Read(nativeCanonical).NativeTouch == older.NativeTouch
+                && !IntentPacket.Read(historical).NativeTouch.Active,
+                "protocol 53 canonical samples survive; old canonical records synthesize no contact");
 
             Type replicaType = assembly.GetType("MphRead.Mods.Network.ReplayReplicaState", true)!;
             object replica = Activator.CreateInstance(replicaType, true)!;
@@ -85,6 +94,7 @@ internal static class CompactIntentReplayTests
             object[] currentArgs = { 0, default(IntentPacket) };
             bool hasCurrent = (bool)replicaType.GetMethod("TryGetIntent", All)!.Invoke(replica, currentArgs)!;
             Check(hasCurrent && ((IntentPacket)currentArgs[1]).Frame == 102
+                && ((IntentPacket)currentArgs[1]).NativeTouch == newer.NativeTouch
                 && ((IntentPacket)currentArgs[1]).Position.X == 10
                 && (long)replicaType.GetProperty("AcceptedPackets", All)!.GetValue(replica)! == acceptedBefore + 1,
                 "replica admits older canonical event carrier while current movement stays newest");

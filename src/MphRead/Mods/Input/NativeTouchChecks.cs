@@ -81,7 +81,8 @@ namespace MphRead.Mods.Input
             Check(wrapped.TakeRollShare() == 0, "pre-wrap packet cannot rewind sample");
             state.UpdateAbsolute(true, 255, 191);
             state.UpdateAbsolute(true, 0, 0);
-            Check(state.Delta4X <= 255 && state.Delta4Y <= 191, "absolute coordinates bounded");
+            Check(state.Delta4X == -255 && state.Delta4Y == -191,
+                "absolute coordinates clamp and reverse correctly");
             foreach (float factor in new[] { 0f, .35f, 1f })
             {
                 (float X, float Z) contribution = MorphBallTouchRules.Roll(15, -20, .5f, factor,
