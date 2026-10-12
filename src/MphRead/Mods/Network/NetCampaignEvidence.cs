@@ -33,7 +33,7 @@ internal static class NetCampaignEvidence
         if (!Enabled) return;
         var pose = proof.Pose; var claim = proof.Claim; var item = proof.Item; var verdict = proof.Verdict;
         Add(PickupProofs, new { claim.Key, claim.Spawn, Type = claim.Type.ToString(), claim.SourceFrame,
-            CapturedSourceFrame = pose.SourceFrame,
+            CapturedSourceFrame = pose.SourceFrame, proof.NativeReservation,
             ClaimPosition = new[] { claim.Position.X, claim.Position.Y, claim.Position.Z }, pose.Life,
             pose.AuthorityFrame, Position = new[] { pose.Position.X, pose.Position.Y, pose.Position.Z },
             SpherePosition = new[] { pose.SpherePosition.X, pose.SpherePosition.Y, pose.SpherePosition.Z },

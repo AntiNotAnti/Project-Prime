@@ -48,6 +48,17 @@ internal static class PickupNetworkTests
         Check(!NetPickupNetwork.ReceiveVerdict(verdict with { Claim=request with { Position=Vector3.UnitX } }),"divergent terminal cannot settle owner's original claim");
         Check(NetPickupNetwork.ReceiveVerdict(verdict) && !NetPickupNetwork.ReceiveVerdict(verdict)
             && terminals==1 && NetPickupNetwork.PendingCount==0,"matching terminal settles once and retires owner");
+        var trackers=(NetLifecycleTracker[])typeof(NetPlayerLifecycle).GetField("_slots",Static)!.GetValue(null)!;
+        var before=trackers[0].Capture();
+        var previousLife=Claim(4); Owner(previousLife);
+        trackers[0].Restore(new(1,2,NetworkPlayerState.Alive,false));
+        int previousAttempts=attempts; NetPickupNetwork.PumpOwner();
+        Check(NetPickupNetwork.PendingCount==1 && attempts==previousAttempts+1,
+            "respawn preserves previous-life terminal delivery obligation");
+        Check(NetPickupNetwork.ReceiveVerdict(new(previousLife,PickupResult.Invalid,20,0,0,0,0))
+            && NetPickupNetwork.PendingCount==0 && terminals==2,
+            "previous-life terminal is received once after respawn without inventing a receipt exception");
+        trackers[0].Restore(before);
         Owner(Claim(2),NetPickupNetwork.Now-16); NetPickupNetwork.PumpOwner();
         Check(failures==1 && NetPickupNetwork.PendingCount==0,"deadline invokes failure/reset without dictionary invalidation");
         Owner(Claim(3)); NetPickupNetwork.SendClaim=_=>{ NetPickupNetwork.Reset(); return true; };

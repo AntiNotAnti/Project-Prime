@@ -95,7 +95,7 @@ internal static class NetPowerUpLedger
     internal static bool TryNativeContact(PlayerEntity player, ItemInstanceEntity item)
     {
         if (!Authority(player.OwningScene)) return true; // A1 preserves offline and client prediction.
-        if (!TryType(item.ItemType, out _) || player.Health == 0 || !player.ModIsInPlay
+        if (!TryType(item.ItemType, out var type) || player.Health == 0 || !player.ModIsInPlay
             || player.OwningScene.Services.DisablePowerups || item.DespawnTimer == 0
             || item.OwningScene != player.OwningScene) return false;
         var ledger = Ensure();
@@ -106,8 +106,15 @@ internal static class NetPowerUpLedger
         // Preserve the input phase even for a native callback that reaches this
         // adapter outside the usual player loop (including same-frame renewal).
         if (source is uint observed) ledger.ObserveInput(life, observed, NetSession.NetFrame);
-        bool granted = ledger.TryGrant(key, life, NetSession.NetFrame, source, out _) == TimedGrantResult.Granted;
-        if (granted && TryType(item.ItemType, out var type))
+        // Save the actual native contact before consumption, separately from an
+        // immutable first input observation that may precede this movement step.
+        var pose = source is uint contactSource ? player.ModPickupContactPose(contactSource, NetSession.NetFrame) : default;
+        var available = new PickupItemFact(key, type,
+            NetSession.NetFrame, item.DespawnTimer != 0 && item.TokenId == 0, item.Position);
+        bool granted = ledger.TryGrant(key, life, NetSession.NetFrame, source, out var grant) == TimedGrantResult.Granted;
+        if (granted && source.HasValue && grant != null)
+            _claims?.ObserveNativeReservation(grant, pose, available);
+        if (granted)
             NetPickupNetwork.PublishItem(new(key, type, NetSession.NetFrame, false, item.Position));
         return granted;
     }

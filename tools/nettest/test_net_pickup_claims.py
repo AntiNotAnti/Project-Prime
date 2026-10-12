@@ -43,6 +43,52 @@ class AuditTests(unittest.TestCase):
                 b=bytearray.fromhex(r['Payload']);struct.pack_into('<I',b,32,source);r['Payload']=b.hex()
             s['TimedGrants'][0].update(SourceContactFrame=source,SourceEffectiveFrame=0)
             self.assertEqual(self.result(s,p),'PASS')
+    def native_fixture(self):
+        s,p=fixture();proof=s['PickupProofs'][0]
+        proof.update(NativeReservation=True,CapturedSourceFrame=55,AuthorityFrame=110,ItemAuthorityFrame=110,ProofFrame=110)
+        s['TimedGrants'][0].update(SourceContactFrame=55,SourceEffectiveFrame=56)
+        for r in s['PickupVerdicts']+p[0]['PickupVerdicts']:
+            r['ProofFrame']=110;b=bytearray.fromhex(r['Payload']);struct.pack_into('<I',b,53,110);r['Payload']=b.hex()
+        return s,p
+    def test_native_reservation_exact_grant_positive(self):
+        self.assertEqual(self.result(*self.native_fixture()),'PASS')
+    def test_native_reservation_missing_or_null_source(self):
+        for missing in (True,False):
+            s,p=self.native_fixture()
+            if missing:del s['TimedGrants'][0]['SourceContactFrame']
+            else:s['TimedGrants'][0].update(SourceContactFrame=None,SourceEffectiveFrame=None)
+            self.assertEqual(self.result(s,p),'FAIL')
+    def test_native_reservation_wrong_source(self):
+        s,p=self.native_fixture();s['PickupProofs'][0]['CapturedSourceFrame']=56
+        self.assertEqual(self.result(s,p),'FAIL')
+    def test_native_reservation_wrong_contact_frame(self):
+        s,p=self.native_fixture();proof=s['PickupProofs'][0]
+        proof.update(AuthorityFrame=109,ItemAuthorityFrame=109,ProofFrame=109)
+        for r in s['PickupVerdicts']+p[0]['PickupVerdicts']:
+            r['ProofFrame']=109;b=bytearray.fromhex(r['Payload']);struct.pack_into('<I',b,53,109);r['Payload']=b.hex()
+        self.assertEqual(self.result(s,p),'FAIL')
+    def test_native_reservation_offset_window(self):
+        s,p=self.native_fixture();s['PickupProofs'][0]['CapturedSourceFrame']=63
+        s['TimedGrants'][0].update(SourceContactFrame=63,SourceEffectiveFrame=64)
+        self.assertEqual(self.result(s,p),'FAIL')
+        s['PickupProofs'][0]['CapturedSourceFrame']=62;s['TimedGrants'][0].update(SourceContactFrame=62,SourceEffectiveFrame=63)
+        self.assertEqual(self.result(s,p),'PASS')
+    def test_native_reservation_age_window(self):
+        s,p=self.native_fixture();s['PickupProofs'][0]['DecisionFrame']=123
+        for r in s['PickupVerdicts']+p[0]['PickupVerdicts']:
+            r['DecisionFrame']=123;b=bytearray.fromhex(r['Payload']);struct.pack_into('<I',b,49,123);r['Payload']=b.hex()
+        self.assertEqual(self.result(s,p),'FAIL')
+    def test_native_reservation_geometry_unchanged(self):
+        s,p=self.native_fixture();s['PickupProofs'][0]['ItemPosition']=[.95,0,0]
+        self.assertEqual(self.result(s,p),'FAIL')
+    def test_native_flag_strict_and_absent_compatible(self):
+        self.assertEqual(self.result(*fixture()),'PASS')
+        for value in (None,0,1,'true'):
+            s,p=fixture();s['PickupProofs'][0]['NativeReservation']=value
+            self.assertEqual(self.result(s,p),'FAIL')
+    def test_native_flag_cannot_relabel_unmatched_normal_snapshot(self):
+        s,p=fixture();s['PickupProofs'][0]['NativeReservation']=True
+        self.assertEqual(self.result(s,p),'FAIL')
     def test_missing_proof(self):
         s,p=fixture();s['PickupProofs']=[];self.assertEqual(self.result(s,p),'FAIL')
     def test_conflicting_retry(self):

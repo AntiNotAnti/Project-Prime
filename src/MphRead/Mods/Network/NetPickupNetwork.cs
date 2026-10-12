@@ -180,7 +180,6 @@ internal static class NetPickupNetwork
             // a finite chance to arrive, without delaying cached terminals.
             if (NetPowerUpLedger.Claims is { } claims
                 && !claims.TryTerminal(request.Claim.Key, out _)
-                && !claims.HasFollowingObservation(request.Claim.Key.LifeKey, request.Claim.SourceFrame)
                 && !claims.CanProveContact(request.Claim, NetSession.NetFrame, request.Rtt, request.Jitter)
                 && unchecked((int)(NetSession.NetFrame - request.ReceivedFrame)) < 24) continue;
             var verdict = NetPowerUpLedger.JudgeClaim(request.Claim, slot, NetSession.NetFrame,
@@ -243,7 +242,10 @@ internal static class NetPickupNetwork
         foreach (var pair in new List<KeyValuePair<PickupClaimKey, Pending>>(Owners))
         {
             var pending = pair.Value;
-            if (!NetPlayerLifecycle.Matches(pair.Key.Slot, pair.Key.Generation, pair.Key.Life))
+            // Death retires presentation, not the delivery obligation for an
+            // already offered claim. Keep its exact life until the terminal or
+            // deadline; only a replacement connection loses this ownership.
+            if (NetPlayerLifecycle.Generation(pair.Key.Slot) != pair.Key.Generation)
             { retired.Add(pair.Key); continue; }
             double now = Now;
             if (now - pending.Created >= DeadlineSeconds)

@@ -218,6 +218,57 @@ internal static class PickupClaimSceneTests
         Retire(item); NetPickupNetwork.Reset();
     }
 
+    private static void RepeatedSourceNativeReservation(PlayerEntity owner)
+    {
+        int local = NetSession.LocalSlot;
+        try
+        {
+            foreach (uint sourceOffset in new uint[] { 2, 3 })
+            {
+                NetPowerUpLedger.BeginRoom(); Advance(10); owner.ModForceForm(false); owner.Health = 199;
+                foreach (string timer in Timers) Field(owner, timer, 0);
+                Vector3 contactPosition = owner.Position;
+                var item = Spawn(owner, ItemType.DoubleDamage);
+                uint offered = NetSession.NetFrame;
+                var claim = Claim(owner, item, offered);
+                Session(nameof(NetSession.LocalSlot), -1);
+                owner.ModPlaceAt(contactPosition + Vector3.UnitX * 20); RemotePose(owner);
+                var intent = NetSession.RemoteIntents[owner.SlotIndex]; intent.Frame = unchecked(offered + sourceOffset);
+                NetSession.RemoteIntents[owner.SlotIndex] = intent;
+                NetPowerUpLedger.ObserveContact(owner);
+                Check(NetPickupNetwork.Receive(owner.SlotIndex, claim, 150, 20), "repeat-source queued original contact admitted");
+                for (int tick = 0; tick < 2; tick++)
+                {
+                    owner.ModPlaceAt(contactPosition + Vector3.UnitX * 20); owner.Health = 199;
+                    Check(owner.ProcessPlayer() && !NetPowerUpLedger.Claims!.TryTerminal(claim.Key, out _)
+                        && item.DespawnTimer != 0 && !NetPowerUpLedger.Ledger!.History.Any(),
+                        "following but non-contact repeated source cannot force premature terminal");
+                    Advance();
+                }
+                owner.ModPlaceAt(contactPosition); owner.Health = 199;
+                Check(owner.ProcessPlayer(), "repeat-source actual native contact processes");
+                var ledger = NetPowerUpLedger.Ledger!;
+                var native = ledger.History.Single(g => g.Spawn == claim.Spawn);
+                Check(native.SourceContactFrame == unchecked(offered + sourceOffset)
+                    && native.ContactFrame == NetSession.NetFrame && NetPowerUpLedger.Claims!.NativeReservationCount == 1,
+                    "actual reservation captures repeated source geometry separately");
+                Check(NetPowerUpLedger.Claims!.TryTerminal(claim.Key, out var verdict)
+                    && verdict.Result == PickupResult.Grant && verdict.Claim == claim
+                    && verdict.GrantSequence == native.Sequence && verdict.GrantFrame == native.ContactFrame
+                    && verdict.ProofFrame == native.ContactFrame,
+                    "native reservation acknowledges exact original claim at source offset " + sourceOffset);
+                Check(Timer(owner, 0) == 1799 && item.DespawnTimer == 0 && ledger.History.Count() == 1,
+                    "repeat-source native and claim converge on one native pickup");
+                Field(owner, "_doubleDmgTimer", 1234); Field(owner, "_timeSincePickup", 47);
+                Check(Judge(owner, claim) == verdict && Timer(owner, 0) == 1234 && ledger.History.Count() == 1
+                    && Convert.ToInt32(typeof(PlayerEntity).GetField("_timeSincePickup", Hidden)!.GetValue(owner)) == 47,
+                    "repeat-source retry does not renew or repeat pickup feedback");
+                Retire(item); NetPickupNetwork.Reset(); Session(nameof(NetSession.LocalSlot), local);
+            }
+        }
+        finally { Session(nameof(NetSession.LocalSlot), local); NetSession.RemoteIntentValid[owner.SlotIndex] = false; }
+    }
+
     private static void NativeWinAndRace(PlayerEntity owner, PlayerEntity other)
     {
         Advance(10); owner.ModForceForm(false); owner.Health = other.Health = 199;
@@ -342,7 +393,7 @@ internal static class PickupClaimSceneTests
             var scene = owner.OwningScene; scene.GameState.BalancedMode = false; scene.GameState.EnhancedHunters = false;
             scene.GameState.PrimeHunter = owner.SlotIndex;
             Check(owner.ModIsInPlay && NetSession.IsAuthority, "prime-hunter local fixture retains admitted native identity");
-            TimedTypes(owner); QueuedNativePhase(owner); CurrentCameraBlock(owner); QueuedFollowingNativeContact(owner); NativeWinAndRace(owner, other); AuthoredRespawn(owner); UnavailableAndIsolation(owner);
+            TimedTypes(owner); QueuedNativePhase(owner); CurrentCameraBlock(owner); QueuedFollowingNativeContact(owner); RepeatedSourceNativeReservation(owner); NativeWinAndRace(owner, other); AuthoredRespawn(owner); UnavailableAndIsolation(owner);
             Check(sim.StepFailures == 0, "native fixture warmup has no simulation failures");
             Console.WriteLine($"PASS: pickup claim scene {_checks} native adapter assertions"); return 0;
         }

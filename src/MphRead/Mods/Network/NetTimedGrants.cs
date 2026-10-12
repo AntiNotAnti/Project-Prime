@@ -54,6 +54,7 @@ internal sealed class NetTimedGrants
     internal int HistoryCount => _history.Count;
     internal int ObservationCount => _observations.Count;
     internal IEnumerable<TimedGrantRecord> History => _history.Values;
+    internal bool TryRecord(ulong sequence, out TimedGrantRecord record) => _history.TryGetValue(sequence, out record!);
 
     internal NetTimedGrants(ulong epoch, ushort match, uint room, Action<TimedGrantRecord>? changed = null)
     { _epoch = epoch; _match = match; _room = room; _changed = changed; }

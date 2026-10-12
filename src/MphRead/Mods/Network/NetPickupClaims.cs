@@ -25,7 +25,7 @@ internal readonly record struct PickupContactPose(ShotKey Life, uint SourceFrame
 }
 
 internal readonly record struct PickupContactProof(PickupClaim Claim, PickupContactPose Pose,
-    PickupItemFact Item, PickupVerdict Verdict, int Window);
+    PickupItemFact Item, PickupVerdict Verdict, int Window, bool NativeReservation = false);
 
 internal delegate TimedGrantResult CommitPickup(in PickupClaim claim, uint decisionFrame,
     out TimedGrantRecord? grant);
@@ -39,10 +39,11 @@ internal sealed class NetPickupClaims
 {
     internal const int HistoryFrames = 128, ClaimsPerSlot = 256;
     internal const float PositionTolerance = .75f;
-    private sealed record Contact(PickupContactPose Pose, PickupItemFact[] Items);
+    private sealed record Contact(PickupContactPose Pose, PickupItemFact[] Items, ulong NativeSequence = 0);
     private readonly record struct ContactKey(ShotKey Life, uint Source);
     private readonly record struct SourceClock(ShotKey Life, uint Source, uint Authority);
     private readonly Dictionary<ContactKey, Contact> _history = new();
+    private readonly Dictionary<PowerUpSpawnKey, Contact> _nativeReservations = new();
     private readonly Queue<ContactKey>[] _order = new Queue<ContactKey>[8];
     private readonly SourceClock[] _clocks = new SourceClock[8];
     private readonly Dictionary<PickupClaimKey, PickupVerdict> _terminals = new();
@@ -55,6 +56,7 @@ internal sealed class NetPickupClaims
     internal int TerminalCount => _terminals.Count;
     internal bool TryTerminal(PickupClaimKey key, out PickupVerdict verdict) => _terminals.TryGetValue(key, out verdict);
     internal int ObservationCount => _history.Count;
+    internal int NativeReservationCount => _nativeReservations.Count;
     internal bool HasObservation(ShotKey life, uint source) => _history.ContainsKey(new(life, source));
     internal bool HasFollowingObservation(ShotKey life, uint source)
         => HasObservation(life, unchecked(source + 1)) || HasObservation(life, unchecked(source + 2));
@@ -107,6 +109,43 @@ internal sealed class NetPickupClaims
             + 2 * Math.Min(jitterMilliseconds, 1000)) * .06) + 6, 12, HistoryFrames - 8);
     }
 
+    private TimedGrantRecord? NativeGrant(Contact contact, PowerUpSpawnKey spawn)
+    {
+        if (_grants.TryRecord(contact.NativeSequence, out var grant) && grant.Spawn == spawn
+                && grant.Life == contact.Pose.Life && grant.Type == contact.Items[0].Type
+                && grant.ContactFrame == contact.Pose.AuthorityFrame
+                && grant.SourceContactFrame == contact.Pose.SourceFrame) return grant;
+        return null;
+    }
+
+    // This is a separate, immutable observation of an award that ALREADY
+    // happened through native contact. It never replaces the first input pose
+    // and can only acknowledge that exact retained reservation, never create one.
+    internal bool ObserveNativeReservation(TimedGrantRecord grant, PickupContactPose pose, PickupItemFact item)
+    {
+        if (!Current(pose.Life) || !pose.IsValid || !pose.Alive || !pose.CanPickup
+            || !item.IsValid || !item.Available || item.Spawn != grant.Spawn || item.Type != grant.Type
+            || grant.Life != pose.Life || grant.SourceContactFrame != pose.SourceFrame
+            || grant.ContactFrame != pose.AuthorityFrame || item.AuthorityFrame != pose.AuthorityFrame
+            || !pose.Reaches(item.Position, pose.Position)) return false;
+        if (!_grants.TryRecord(grant.Sequence, out var record) || !ReferenceEquals(record, grant)) return false;
+        // The native contact must obey the same independently anchored source
+        // clock as ordinary observations. It cannot rescue an implausible clock.
+        var clock = _clocks[pose.Life.ShooterSlot];
+        if (clock.Life != pose.Life) return false;
+        long sourceElapsed = unchecked((int)(pose.SourceFrame - clock.Source));
+        long authorityElapsed = unchecked((int)(pose.AuthorityFrame - clock.Authority));
+        if (sourceElapsed > authorityElapsed + 32 || sourceElapsed < authorityElapsed - HistoryFrames) return false;
+        if (_nativeReservations.ContainsKey(item.Spawn)) return false;
+        var stale = new List<PowerUpSpawnKey>();
+        foreach (var pair in _nativeReservations)
+            if (NativeGrant(pair.Value, pair.Key) == null) stale.Add(pair.Key);
+        foreach (var key in stale) _nativeReservations.Remove(key);
+        if (_nativeReservations.Count >= NetTimedGrants.GrantCapacity) return false;
+        _nativeReservations.Add(item.Spawn, new(pose, new[] { item }, grant.Sequence));
+        return true;
+    }
+
     internal bool CanProveContact(in PickupClaim claim, uint now, double rtt, double jitter)
     { ContactFor(claim, now, HistoryWindow(rtt, jitter), out bool proved); return proved; }
 
@@ -131,6 +170,21 @@ internal sealed class NetPickupClaims
                 if (item.Spawn == claim.Spawn && item.Type == claim.Type && item.Available
                     && pose.Reaches(item.Position, pose.Position) && pose.Reaches(item.Position, claim.Position))
                 { proved = true; return contact; }
+        }
+        // Loss can skip the next input carrier, and authority movement may
+        // continue while its source number repeats. A real native reservation
+        // retains its own contact pose. A bounded later source observation may
+        // acknowledge that award, but may NOT authorize a fresh award.
+        if (_nativeReservations.TryGetValue(claim.Spawn, out var native)
+            && NativeGrant(native, claim.Spawn) is { } reservation
+            && reservation.Life == claim.Key.LifeKey && reservation.Type == claim.Type)
+        {
+            int sourceAge = unchecked((int)(native.Pose.SourceFrame - claim.SourceFrame));
+            int age = unchecked((int)(now - native.Pose.AuthorityFrame));
+            if (sourceAge >= 0 && sourceAge <= window && age >= 0 && age <= window
+                && (claim.Position - native.Pose.Position).LengthSquared <= PositionTolerance * PositionTolerance
+                && native.Pose.Reaches(native.Items[0].Position, claim.Position))
+            { proved = true; return native; }
         }
         return fallback;
     }
@@ -195,7 +249,14 @@ internal sealed class NetPickupClaims
                         if (previous.Life == currentLife && previous.Type == claim.Type) grant = previous;
                         break;
                     }
-                    TimedGrantResult admission = grant != null ? TimedGrantResult.Granted
+                    TimedGrantResult admission;
+                    if (contact.NativeSequence != 0)
+                    {
+                        grant = NativeGrant(contact, claim.Spawn);
+                        admission = grant != null && grant.Life == currentLife && grant.Type == claim.Type
+                            ? TimedGrantResult.Granted : TimedGrantResult.Gone;
+                    }
+                    else admission = grant != null ? TimedGrantResult.Granted
                         : occupied ? TimedGrantResult.Taken : commit(claim, now, out grant);
                     result = admission == TimedGrantResult.Granted && grant != null
                         ? new(request, PickupResult.Grant, now, pose.AuthorityFrame, grant.Sequence,
@@ -208,7 +269,8 @@ internal sealed class NetPickupClaims
                             _ => PickupResult.Invalid
                         }, pose.AuthorityFrame);
                     if (result.Result == PickupResult.Grant)
-                        proof = new(request, pose, observed, result, HistoryWindow(rttMilliseconds, jitterMilliseconds));
+                        proof = new(request, pose, observed, result, HistoryWindow(rttMilliseconds, jitterMilliseconds),
+                            contact.NativeSequence != 0);
                 }
             }
         }

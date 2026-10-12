@@ -175,8 +175,12 @@ def audit(server_report, peer_reports):
             p = proofs[k]; spawn, kind, source, pos = c[1:]
             if identity(p['Spawn'], SPAWN) != spawn or p['Type'] != kind or p['SourceFrame'] != source or struct.unpack('<fff', struct.pack('<fff', *vector(p['ClaimPosition']))) != pos: raise ValueError('proof claim differs')
             captured_source = integer(p['CapturedSourceFrame'],0,MASK)
-            if (captured_source - source) & MASK not in (0,1,2):
-                raise ValueError('captured source must be claim frame or next two actual observations')
+            native = p.get('NativeReservation',False)
+            if type(native) is not bool: raise ValueError('NativeReservation must be boolean')
+            source_delta = (captured_source - source) & MASK
+            integer(p['Window'],12,120)
+            if source_delta > (p['Window'] if native else 2):
+                raise ValueError('captured source exceeds actual observation/reservation window')
             life = (k[0],k[1],k[2],k[3],k[4],0)
             if identity(p['Life'], LIFE) != life: raise ValueError('proof life differs')
             for n in ('Position','SpherePosition','ItemPosition'): vector(p[n])
@@ -195,6 +199,10 @@ def audit(server_report, peer_reports):
             if delta(vals[4],vals[2]) < 0 or delta(vals[1],vals[4]) < 0: raise ValueError('retroactive/future grant activation')
             g = starts[vals[3]]
             if identity(g['Spawn'],SPAWN) != spawn or identity(g['Life'],LIFE) != life or g['Type'] != kind or g['ContactFrame'] != vals[4] or g['ExpiresAtFrame'] != vals[5]: raise ValueError('raw grant join differs')
+            if native:
+                native_source = integer(g['SourceContactFrame'],0,MASK)
+                if captured_source != native_source or p['AuthorityFrame'] != g['ContactFrame'] or g['ContactFrame'] != vals[4]:
+                    raise ValueError('native reservation lacks exact captured grant source/contact clock')
         except (KeyError,TypeError,ValueError) as e: failures.append('grant '+str(k)+': '+str(e))
     for k, (name,b) in offered.items():
         if k not in sent: deferred.append(name+': offered claim not observed sent '+str(k))

@@ -170,6 +170,95 @@ internal static class PickupClaimTests
             "without a following proof the exact native refusal remains unchanged");
     }
 
+    private static void NativeReservationProofs()
+    {
+        void Anchor(Rig rig, uint source = 100, uint authority = 10)
+        {
+            var pose = rig.Pose(source, authority) with { Position = new Vector3(3, 0, 0), SpherePosition = new Vector3(3, .5f, 0) };
+            Check(rig.Claims.Observe(pose, new[] { rig.Item(frame: authority) }), "native proof has independent out-of-reach source anchor");
+        }
+        foreach (uint offset in new uint[] { 2, 3 })
+        {
+            var r = new Rig(); var claim = r.Claim();
+            var early = r.Pose(100 + offset, 10) with { Position = new Vector3(3, 0, 0), SpherePosition = new Vector3(3, .5f, 0) };
+            Check(r.Claims.Observe(early, new[] { r.Item() }), "first repeated source pose captures pre-contact geometry");
+            Check(r.Grants.TryGrant(r.Spawn, Life(), 11, 100 + offset, out var native) == TimedGrantResult.Granted,
+                "actual native reservation exists before native proof");
+            var actual = r.Pose(100 + offset, 11);
+            Check(!r.Claims.Observe(actual, new[] { r.Item(frame: 11) }), "native contact does not overwrite first source observation");
+            Check(r.Claims.ObserveNativeReservation(native!, actual, r.Item(frame: 11)), "actual native reservation proof retained separately");
+            Check(!r.Claims.ObserveNativeReservation(native!, actual, r.Item(frame: 11)), "native reservation snapshot is immutable on retry");
+            Check(r.Claims.NativeReservationCount == 1 && r.Claims.CanProveContact(claim, 12, 0, 0),
+                "repeated-source native proof supports bounded original contact");
+            var verdict = r.Judge(claim, 12);
+            Check(verdict.Result == PickupResult.Grant && verdict.GrantSequence == native!.Sequence
+                && verdict.GrantFrame == 11 && verdict.ProofFrame == 11 && r.Calls == 0,
+                "native fallback acknowledges exact reservation without new callback or award");
+            Check(r.Judge(claim, 13) == verdict && r.Calls == 0, "native fallback terminal stays immutable");
+        }
+        for (int scenario = 0; scenario < 9; scenario++)
+        {
+            var r = new Rig(); Anchor(r); uint at = scenario == 7 ? 20u : 11u;
+            Check(r.Grants.TryGrant(r.Spawn, Life(), at, 103, out var native) == TimedGrantResult.Granted, "negative native reservation setup");
+            var pose = r.Pose(103, at); var item = r.Item(frame: at);
+            if (scenario == 0) native = native! with { Sequence = 999 };
+            if (scenario == 1) pose = pose with { Life = Life(life: 2) };
+            if (scenario == 2) item = item with { Spawn = item.Spawn with { Generation = 999 } };
+            if (scenario == 3) item = item with { Type = TimedPowerUp.Cloak };
+            if (scenario == 4) pose = pose with { Alive = false };
+            if (scenario == 5) item = item with { Available = false };
+            if (scenario == 6) item = item with { Position = new Vector3(4, 1, 0) };
+            bool observed = r.Claims.ObserveNativeReservation(native!, pose, item);
+            if (scenario < 7) Check(!observed, "unowned/mismatched/dead/unavailable/out-of-reach native proof rejected " + scenario);
+            else Check(observed, "valid native proof captured for clock rejection");
+            uint now = scenario == 8 ? 24u : 12u;
+            Check(!r.Claims.CanProveContact(r.Claim(), now, 0, 0) && r.Judge(r.Claim(), now).Result != PickupResult.Grant
+                && r.Calls == 0, "invalid/future/expired native proof cannot authorize acknowledgement " + scenario);
+        }
+        var unanchored = new Rig();
+        Check(unanchored.Grants.TryGrant(unanchored.Spawn, Life(), 11, 103, out var unanchoredGrant) == TimedGrantResult.Granted
+            && !unanchored.Claims.ObserveNativeReservation(unanchoredGrant!, unanchored.Pose(103, 11), unanchored.Item(frame: 11)),
+            "native award alone cannot invent its independent source-clock anchor");
+        var clone = new Rig(); Anchor(clone);
+        Check(clone.Grants.TryGrant(clone.Spawn, Life(), 11, 103, out var owned) == TimedGrantResult.Granted
+            && !clone.Claims.ObserveNativeReservation(owned! with { }, clone.Pose(103, 11), clone.Item(frame: 11)),
+            "equal-value cloned record is not an owned native reservation");
+        var removed = new Rig(); Anchor(removed);
+        Check(removed.Grants.TryGrant(removed.Spawn, Life(), 11, 103, out var old) == TimedGrantResult.Granted
+            && removed.Claims.ObserveNativeReservation(old!, removed.Pose(103, 11), removed.Item(frame: 11)), "removed grant proof setup");
+        removed.Grants.RetireSlot(0, 12, TimedGrantEnd.Death); removed.Grants.Advance(1037);
+        Check(!removed.Claims.CanProveContact(removed.Claim(), 12, 0, 0)
+            && removed.Judge(removed.Claim(), 12).Result != PickupResult.Grant && removed.Calls == 0,
+            "removed retained reservation cannot acknowledge or fall through to a new grant callback");
+        var tooEarly = new Rig(); Anchor(tooEarly);
+        Check(tooEarly.Grants.TryGrant(tooEarly.Spawn, Life(), 11, 113, out var later) == TimedGrantResult.Granted
+            && tooEarly.Claims.ObserveNativeReservation(later!, tooEarly.Pose(113, 11), tooEarly.Item(frame: 11)), "source-boundary fixture");
+        Check(!tooEarly.Claims.CanProveContact(tooEarly.Claim(), 12, 0, 0)
+            && !tooEarly.Claims.CanProveContact(tooEarly.Claim(source: 114), 12, 0, 0), "native source delta excludes over-window and future claim");
+        var wrap = new Rig(); uint frame = uint.MaxValue - 1; Anchor(wrap, uint.MaxValue - 1, uint.MaxValue - 2);
+        Check(wrap.Grants.TryGrant(wrap.Spawn, Life(), frame, 1, out var wrapped) == TimedGrantResult.Granted
+            && wrap.Claims.ObserveNativeReservation(wrapped!, wrap.Pose(1, frame), wrap.Item(frame: frame)), "native wrap proof captured");
+        Check(wrap.Judge(wrap.Claim(source: uint.MaxValue - 1), 1).Result == PickupResult.Grant && wrap.Calls == 0,
+            "native source and authority rollover preserve bounded acknowledgement");
+        var bounded = new Rig(); Anchor(bounded, 100, 0); bounded.Grants.RemoveSpawn(bounded.Spawn);
+        for (uint index = 0; index < NetTimedGrants.GrantCapacity; index++)
+        {
+            Check(bounded.Grants.RegisterSpawn(10, TimedPowerUp.DoubleDamage, out var spawn), "capacity native spawn registers");
+            Check(bounded.Grants.TryGrant(spawn, Life(), index, 100 + index, out var grant) == TimedGrantResult.Granted,
+                "capacity native reservation grants");
+            Check(bounded.Claims.ObserveNativeReservation(grant!, bounded.Pose(100 + index, index),
+                new(spawn, TimedPowerUp.DoubleDamage, index, true, new(.5f, 1, 0))), "capacity native proof retained");
+            bounded.Grants.RemoveSpawn(spawn);
+        }
+        Check(bounded.Claims.NativeReservationCount == NetTimedGrants.GrantCapacity, "native proof table bounded by actual retained grant capacity");
+        bounded.Grants.Advance(2000);
+        Check(bounded.Grants.RegisterSpawn(10, TimedPowerUp.DoubleDamage, out var fresh)
+            && bounded.Grants.TryGrant(fresh, Life(), 2000, 2100, out var freshGrant) == TimedGrantResult.Granted
+            && bounded.Claims.ObserveNativeReservation(freshGrant!, bounded.Pose(2100, 2000),
+                new(fresh, TimedPowerUp.DoubleDamage, 2000, true, new(.5f, 1, 0))), "post-retention native proof admitted");
+        Check(bounded.Claims.NativeReservationCount <= 2, "native proof pruning follows removed authority grant history");
+    }
+
     private static void Capacity()
     {
         var r = new Rig();
@@ -198,7 +287,7 @@ internal static class PickupClaimTests
     }
     public static int Run()
     {
-        try { _checks=0; ReservationAndRetries(); Geometry(); InvalidAndUnavailable(); ClocksAndAge(); ContactPhaseOffsets(); Capacity();
+        try { _checks=0; ReservationAndRetries(); Geometry(); InvalidAndUnavailable(); ClocksAndAge(); ContactPhaseOffsets(); NativeReservationProofs(); Capacity();
             Console.WriteLine($"PASS: {_checks} pure pickup claim assertions"); return 0; }
         catch(Exception error) { Console.Error.WriteLine(error); return 1; }
     }
