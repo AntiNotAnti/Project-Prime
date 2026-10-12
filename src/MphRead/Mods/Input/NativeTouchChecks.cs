@@ -93,6 +93,20 @@ namespace MphRead.Mods.Input
                     && MathF.Abs(2 * contribution.Z - native.Z) < 0.00001f,
                     "jump-pad scaling conserves native impulse");
             }
+            NativeTouchSample throttled = new();
+            throttled.ApplyRemote(swipe with { SampleSequence = 50, SecondStep = false }, 9, 2, 100);
+            Check(throttled.TakeRollShare() == .5f, "valid first half");
+            throttled.ApplyRemote(swipe with { SampleSequence = 51, SecondStep = false }, 9, 2, 101);
+            Check(throttled.TakeRollShare() == 0, "new sample every 60 Hz frame rejected");
+            throttled.ApplyRemote(swipe with { SampleSequence = 51, SecondStep = false }, 9, 2, 102);
+            Check(throttled.TakeRollShare() == .5f, "valid next native sample");
+            throttled.ApplyRemote(swipe with { SampleSequence = 52, SecondStep = true }, 9, 2, 103);
+            Check(throttled.TakeRollShare() == 0, "second-only new sample cannot immediately follow first");
+            throttled.ApplyRemote(swipe with { SampleSequence = 52, SecondStep = true }, 9, 2, 104);
+            Check(throttled.TakeRollShare() == .5f, "second-only recovery after lost first");
+            Span<byte> malicious = stackalloc byte[NativeTouchReport.WireSize];
+            new NativeTouchReport(true, true, true, 2000, 0, 2, false).Write(malicious);
+            Check(!NativeTouchReport.Read(malicious).Active, "oversized forged touch delta rejected");
             Console.WriteLine("NATIVE TOUCH PASS");
         }
     }

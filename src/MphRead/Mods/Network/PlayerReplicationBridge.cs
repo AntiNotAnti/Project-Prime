@@ -468,7 +468,7 @@ namespace MphRead.Mods.Network
             if (intent.LifeId == 0 || !_host.Matches(player.SlotIndex, intent.SlotGeneration, intent.LifeId)) return;
             // Touch input is life-fenced and admitted ahead of ProcessAlt, never
             // reconstructed from the arrival interval or authored pose.
-            player.ModReceiveNativeTouch(intent.NativeTouch, intent.SlotGeneration, intent.LifeId);
+            player.ModReceiveNativeTouch(intent.NativeTouch, intent.SlotGeneration, intent.LifeId, intent.Frame);
             if (!Sane(intent.Aim))
             {
                 RejectedUpdates++;
