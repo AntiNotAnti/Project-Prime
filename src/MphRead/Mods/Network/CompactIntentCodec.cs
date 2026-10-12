@@ -12,6 +12,7 @@ public static class CompactIntentCodec
     // ModernFlick traffic and 14-event combat packets retain the original MTU.
     public const int HeaderSize = TouchOffset;
     public const byte TouchPresent = 0x80;
+    public const byte TouchMode = 0x40;
 
     private static bool IncludeTouch(in IntentPacket intent)
         => intent.NativeTouch.Active && intent.FireEventCount < NetFireEvents.LiveCapacity;
@@ -35,7 +36,9 @@ public static class CompactIntentCodec
         int eventStart = HeaderSize + (hasTouch ? NativeTouchReport.WireSize : 0);
         intent.Write(destination[..IntentPacket.LegacyFullSize]);
         destination[IntentPacket.LegacyFullSize] = intent.FireEventCount;
-        destination[ShotInputOffset] = (byte)(intent.ShotInputCount | (hasTouch ? TouchPresent : 0));
+        destination[ShotInputOffset] = (byte)(intent.ShotInputCount
+            | (intent.NativeTouch.Active ? TouchMode : 0)
+            | (hasTouch ? TouchPresent : 0));
         for (int i = 0; i < ShotInputHistory.Capacity; i++)
             destination[ShotInputOffset + 1 + i] = intent.ShotInputs[i];
         if (hasTouch) intent.NativeTouch.Write(destination.Slice(TouchOffset, NativeTouchReport.WireSize));
@@ -50,19 +53,26 @@ public static class CompactIntentCodec
         if (payload.Length < HeaderSize) return false;
         byte count = payload[IntentPacket.LegacyFullSize];
         bool hasTouch = (payload[ShotInputOffset] & TouchPresent) != 0;
+        bool touchMode = (payload[ShotInputOffset] & TouchMode) != 0;
         int eventStart = HeaderSize + (hasTouch ? NativeTouchReport.WireSize : 0);
-        if (count > NetFireEvents.LiveCapacity
+        if (count > NetFireEvents.LiveCapacity || hasTouch && !touchMode
             || hasTouch && count == NetFireEvents.LiveCapacity
             || payload.Length != eventStart + count * FireEvent.Size) return false;
         IntentPacket decoded = IntentPacket.Read(payload[..IntentPacket.LegacyFullSize]);
         if (hasTouch)
         {
             decoded.NativeTouch = NativeTouchReport.Read(payload.Slice(TouchOffset, NativeTouchReport.WireSize));
-            if (!decoded.NativeTouch.Active) return false;
+            if (!decoded.NativeTouch.Active || decoded.NativeTouch.Suppressed) return false;
+        }
+        else if (touchMode)
+        {
+            // A full 14-event frame has no room for an extra touch sidecar.
+            // Preserve ClassicTouch ownership, not the previous roll impulse.
+            decoded.NativeTouch = new NativeTouchReport(true, false, false, 0, 0, 0, false, true);
         }
         decoded.HasFireEvents = true;
         decoded.FireEventCount = count;
-        decoded.ShotInputCount = (byte)(payload[ShotInputOffset] & ~TouchPresent);
+        decoded.ShotInputCount = (byte)(payload[ShotInputOffset] & ~(TouchPresent | TouchMode));
         for (int i = 0; i < ShotInputHistory.Capacity; i++)
             decoded.ShotInputs[i] = payload[ShotInputOffset + 1 + i];
         if (!decoded.ShotInputs.Valid(decoded.ShotInputCount)) return false;

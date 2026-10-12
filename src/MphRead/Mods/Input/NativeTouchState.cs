@@ -9,13 +9,14 @@ namespace MphRead.Mods.Input
     /// </summary>
     public readonly record struct NativeTouchReport(
         bool Active, bool Down, bool Continued, short Delta4X, short Delta4Y,
-        uint SampleSequence, bool SecondStep)
+        uint SampleSequence, bool SecondStep, bool Suppressed = false)
     {
         public const int WireSize = 9;
         public void Write(Span<byte> destination)
         {
             destination[0] = (byte)((Active ? 1 : 0) | (Down ? 2 : 0)
-                | (Continued ? 4 : 0) | (SecondStep ? 8 : 0));
+                | (Continued ? 4 : 0) | (SecondStep ? 8 : 0)
+                | (Suppressed ? 16 : 0));
             BinaryPrimitives.WriteInt16LittleEndian(destination[1..], Delta4X);
             BinaryPrimitives.WriteInt16LittleEndian(destination[3..], Delta4Y);
             BinaryPrimitives.WriteUInt32LittleEndian(destination[5..], SampleSequence);
@@ -24,13 +25,13 @@ namespace MphRead.Mods.Input
         public static NativeTouchReport Read(ReadOnlySpan<byte> source)
         {
             byte flags = source[0];
-            if ((flags & ~15) != 0 || (flags & 1) == 0) return default;
+            if ((flags & ~31) != 0 || (flags & 1) == 0) return default;
             bool down = (flags & 2) != 0;
             bool continued = down && (flags & 4) != 0;
             return new NativeTouchReport(true, down, continued,
                 down ? BinaryPrimitives.ReadInt16LittleEndian(source[1..]) : (short)0,
                 down ? BinaryPrimitives.ReadInt16LittleEndian(source[3..]) : (short)0,
-                BinaryPrimitives.ReadUInt32LittleEndian(source[5..]), (flags & 8) != 0);
+                BinaryPrimitives.ReadUInt32LittleEndian(source[5..]), (flags & 8) != 0, (flags & 16) != 0);
         }
     }
 
@@ -184,6 +185,19 @@ namespace MphRead.Mods.Input
         {
             RollShare = 0;
             NewSample = false;
+            if (report.Active && report.Suppressed && life != 0)
+            {
+                // The sender prioritized a full combat history over the touch
+                // sidecar. Remain in ClassicTouch without replaying motion.
+                if (_generation != generation || _life != life)
+                {
+                    _generation = generation;
+                    _life = life;
+                    _remoteSeen = false;
+                    Current = default;
+                }
+                return;
+            }
             if (!report.Active || life == 0)
             {
                 _remoteSeen = false;

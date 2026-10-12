@@ -77,6 +77,18 @@ internal static class CompactIntentCodecTests
             packet.FireEventCount = NetFireEvents.LiveCapacity;
             for (int i = 0; i < NetFireEvents.LiveCapacity; i++) packet.FireEvents[i] = packet.FireEvents[0] with { ShotId = (uint)(i + 1) };
             size = CompactIntentCodec.Write(packet, bytes);
+            // A maximal combat frame must carry its shots, keep ClassicTouch
+            // selected and spend NO old touch sample on the receiver.
+            packet.NativeTouch = new NativeTouchReport(true, true, true, 91, 0, 50, false);
+            int overflowSafe = CompactIntentCodec.Write(packet, bytes);
+            Check(overflowSafe == size
+                && (bytes[CompactIntentCodec.ShotInputOffset] & CompactIntentCodec.TouchMode) != 0
+                && (bytes[CompactIntentCodec.ShotInputOffset] & CompactIntentCodec.TouchPresent) == 0
+                && CompactIntentCodec.TryRead(bytes[..overflowSafe], out var deferred)
+                && deferred.NativeTouch.Active && deferred.NativeTouch.Suppressed,
+                "full combat history preserves native mode but defers touch sample");
+            packet.NativeTouch = default;
+            size = CompactIntentCodec.Write(packet, bytes);
             Check(size == 1172 && size + 24 + 1 == 1197
                 && CompactIntentCodec.TryRead(bytes[..size], out decoded) && decoded.FireEventCount == NetFireEvents.LiveCapacity,
                 "maximum SlotIntent fits 1200-byte datagram");
