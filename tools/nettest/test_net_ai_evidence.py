@@ -31,6 +31,7 @@ def fixture():
         reports[name + '.json'] = dict(Role='simulation-client', AiClient=dict(
             Enabled=True, IsBot=False, RosterBot=False, LocalSlot=slot, Level=2,
             Seed=1729+slot, Travel=3.5, InputFrames=120, DecisionFrames=120,
+            InvalidPositionSamples=0, InvalidDistanceSamples=0,
             SpawnedLives=1, AltFrames=0, Weapons=[0, 1]),
             Shots=[{'Stage': 'offered', 'Key': key}], HitClaims={'Declared': 2},
             Pickups=[dict(Stage='owner-native-consumption', Epoch=123, Match=1, Slot=slot,
@@ -41,6 +42,21 @@ def fixture():
 
 
 class AiEvidenceTests(unittest.TestCase):
+    def test_invalid_spatial_sample_counters_required_and_zero(self):
+        for field in ('InvalidPositionSamples', 'InvalidDistanceSamples'):
+            for value in (1, None, True, -1, 0.5, '0'):
+                with self.subTest(field=field, value=value):
+                    reports, _ = fixture()
+                    reports['peer-0.json']['AiClient'][field] = value
+                    self.assertEqual(self.audit(reports)['status'], 'FAIL')
+            reports, _ = fixture()
+            del reports['peer-0.json']['AiClient'][field]
+            self.assertEqual(self.audit(reports)['status'], 'FAIL')
+        reports, _ = fixture()
+        result = self.audit(reports)
+        self.assertEqual(result['status'], 'PASS')
+        self.assertEqual(result['clients'][0]['invalidPositionSamples'], 0)
+        self.assertEqual(result['clients'][0]['invalidDistanceSamples'], 0)
     def test_canonical_lifecycle_deduplicates_and_joins_real_respawn(self):
         facts = [semantic(1, 3, (0, 1, 1)), semantic(2, 4, (1, 1, 1), (0, 1, 1)),
                  semantic(3, 3, (0, 1, 2)), semantic(4, 3, (1, 1, 2))]

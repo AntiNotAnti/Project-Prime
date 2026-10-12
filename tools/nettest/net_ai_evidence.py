@@ -140,6 +140,10 @@ def audit_campaign(directory, processes, legacy):
             travel = ai['Travel']
             if type(travel) not in (int, float) or not math.isfinite(travel) or travel < 0:
                 raise ValueError('invalid AI travel')
+            invalid_positions = count(ai['InvalidPositionSamples'])
+            invalid_distances = count(ai['InvalidDistanceSamples'])
+            if invalid_positions or invalid_distances:
+                failures.append(process['name'] + ': native AI observed invalid spatial samples')
             if count(ai['InputFrames']) < 60 or count(ai['DecisionFrames']) < 60 or travel < 2:
                 incomplete.append(process['name'] + ': AI idle or insufficient native movement/decisions')
             shot_rows = [(row['Stage'], shot_key(row)) for row in report['Shots']]
@@ -178,6 +182,8 @@ def audit_campaign(directory, processes, legacy):
                             'offeredShots': len(shots), 'declaredClaims': claims,
                             'nativePickupConsumptions': len(native), 'spawnedLives': spawned_lives,
                             'altFrames': alt_frames, 'weapons': ai['Weapons'], 'lifecycleEvidence': lifecycle})
+            clients[-1].update(invalidPositionSamples=invalid_positions,
+                               invalidDistanceSamples=invalid_distances)
         metrics = {'declaredClientClaims': offered_claims,
                    'authorityClaimReceiptsIncludingRetries': count(server['CampaignClaims']['Received']),
                    'authorityAppliedClaims': count(server['CampaignClaims']['Applied']),

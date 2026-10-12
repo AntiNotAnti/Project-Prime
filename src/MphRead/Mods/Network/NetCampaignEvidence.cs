@@ -365,10 +365,19 @@ internal static class NetCampaignEvidence
                 Drain = NetCampaignDrain.Capture(),
                 TransportWindows, Readiness, Windows, ServerSegments, Shots, States, SlowStates, Facts, Forms };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
-            JsonSerializer.Serialize(file, report);
+            try { JsonSerializer.Serialize(file, report); }
+            catch (ArgumentException)
+            {
+                // Keep the failed report inspectable without making it acceptable
+                // evidence. The strict primary report remains missing/partial.
+                using var invalid = new FileStream(Path + ".invalid.json", FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+                JsonSerializer.Serialize(invalid, report, new JsonSerializerOptions
+                { NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals });
+                throw;
+            }
             Console.WriteLine("[net2] evidence completed");
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
         {
             // Missing/partial evidence is INCOMPLETE in the runner, never a green run.
             Console.WriteLine($"[net2] evidence failed: {ex.Message}");

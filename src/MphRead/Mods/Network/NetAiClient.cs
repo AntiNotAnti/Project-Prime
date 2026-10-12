@@ -16,6 +16,7 @@ internal static class NetAiClient
     private static uint _initialRng1, _initialRng2, _rng1, _rng2;
     private static int _randomDepth;
     private static long _inputs, _decisions, _altFrames, _spawns;
+    private static long _invalidPositionSamples, _invalidDistanceSamples;
     private static double _travel;
     private static Vector3? _position;
     private static ushort _life;
@@ -71,13 +72,39 @@ internal static class NetAiClient
         if (!Drives(player) || NetCampaignDrain.Quiescing) return;
         ushort life = NetPlayerLifecycle.Get(player.SlotIndex);
         if (life != _life) { _life = life; _position = null; _spawns++; }
-        if (_position is { } previous) _travel += (player.Position - previous).Length;
-        _position = player.Position;
+        if (!ObservePosition(player.Position))
+        {
+            Console.WriteLine($"[net-ai] invalid activity frame={NetSession.NetFrame} slot={player.SlotIndex} life={life} hunter={player.Hunter} position={player.Position} speed={player.Speed}");
+            return;
+        }
         if (player.IsAltForm) _altFrames++;
         Weapons.Add(player.CurrentWeapon);
         _decisions++;
         using var random = UseRandom(player.OwningScene);
         player.AiData.Process();
+    }
+
+    // Preserve readable failure evidence even if native physics needs its next-frame
+    // spatial repair. Never turn an invalid sample into movement or a passing run.
+    internal static bool ObservePosition(Vector3 position)
+    {
+        if (!Single.IsFinite(position.X) || !Single.IsFinite(position.Y) || !Single.IsFinite(position.Z))
+        {
+            _invalidPositionSamples++; _position = null;
+            Console.WriteLine($"[net-ai] invalid position sample: {position}");
+            return false;
+        }
+        if (_position is { } previous)
+        {
+            double x = (double)position.X - previous.X, y = (double)position.Y - previous.Y,
+                z = (double)position.Z - previous.Z;
+            double distance = Math.Sqrt(x * x + y * y + z * z);
+            if (!Double.IsFinite(distance) || !Double.IsFinite(_travel + distance))
+            { _invalidDistanceSamples++; _position = null; return false; }
+            _travel += distance;
+        }
+        _position = position;
+        return true;
     }
 
     // AI decisions use the real Scene.Random consumed by the native AI, but
@@ -116,10 +143,12 @@ internal static class NetAiClient
         player.AiData.InitializeAtSpawn();
     }
 
-    internal static bool HasLocalActivity => !Enabled || _inputs >= 60 && _decisions >= 60 && _travel >= 2;
+    internal static bool HasLocalActivity => !Enabled || _inputs >= 60 && _decisions >= 60 && _travel >= 2
+        && _invalidPositionSamples == 0 && _invalidDistanceSamples == 0;
     internal static object Capture() => new { Enabled, Level, Seed, InitialRng1 = _initialRng1,
         InitialRng2 = _initialRng2, CurrentAiRng1 = _rng1, CurrentAiRng2 = _rng2, LocalSlot = NetSession.LocalSlot, InputFrames = _inputs,
         DecisionFrames = _decisions, Travel = _travel, SpawnedLives = _spawns, AltFrames = _altFrames,
+        InvalidPositionSamples = _invalidPositionSamples, InvalidDistanceSamples = _invalidDistanceSamples,
         Weapons, IsBot = _scene != null && (uint)NetSession.LocalSlot < _scene.Players.Items.Count
             ? _scene.Players.Items[NetSession.LocalSlot].IsBot : (bool?)null,
         RosterBot = (uint)NetSession.LocalSlot < NetSession.SlotIsBot.Length
@@ -130,6 +159,7 @@ internal static class NetAiClient
     {
         Enabled = false; Level = 0; Seed = 0; _scene = null;
         _initialRng1 = _initialRng2 = _rng1 = _rng2 = 0; _randomDepth = 0; _inputs = _decisions = _altFrames = _spawns = 0;
+        _invalidPositionSamples = _invalidDistanceSamples = 0;
         _travel = 0; _position = null; _life = 0; Weapons.Clear();
     }
 }

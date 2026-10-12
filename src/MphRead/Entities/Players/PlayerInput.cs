@@ -435,6 +435,10 @@ namespace MphRead.Entities
 
         private void RepairSpatialState()
         {
+            Vector3 originalPosition = Position, originalPreviousPosition = PrevPosition,
+                originalSpeed = Speed, originalPreviousSpeed = PrevSpeed, originalAcceleration = Acceleration,
+                originalCameraPosition = CameraInfo.Position, originalCameraTarget = CameraInfo.Target,
+                originalCameraUp = CameraInfo.UpVector;
             bool repaired = false;
             if (!SpatialFinite(Position))
             {
@@ -498,7 +502,7 @@ namespace MphRead.Entities
                 if (repaired)
                 {
                     Mods.DebugLog.Line("player",
-                        $"slot {SlotIndex} repaired non-finite spatial state");
+                        $"slot {SlotIndex} repaired non-finite spatial state: position={originalPosition} previous={originalPreviousPosition} speed={originalSpeed} previousSpeed={originalPreviousSpeed} acceleration={originalAcceleration} gun={oldGun} facing={oldFacing} camera={originalCameraPosition} target={originalCameraTarget} up={originalCameraUp}");
                 }
             }
         }

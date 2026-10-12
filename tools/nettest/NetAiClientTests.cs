@@ -42,8 +42,8 @@ internal static class NetAiClientTests
         try
         {
             Rig(HitRig.RigMode.Off); Environment.SetEnvironmentVariable("PRIME_NET2_SOAK", null);
-            Configure(); EligibilityAndDisabledControl(); RandomIsolation(); DamageFeedbackEligibility();
-            Console.WriteLine($"PASS: AI client {_checks} assertions; configuration, ordinary-client eligibility, disabled controls and private RNG scopes.");
+            Configure(); EligibilityAndDisabledControl(); RandomIsolation(); DamageFeedbackEligibility(); PositionEvidence();
+            Console.WriteLine($"PASS: AI client {_checks} assertions; configuration, ordinary-client eligibility, disabled controls, private RNG scopes and finite spatial evidence.");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
@@ -87,6 +87,66 @@ internal static class NetAiClientTests
         Check(!NetAiClient.Configure(true, null, null, out error) && error.Contains("soak") && !NetAiClient.Enabled,
             "scripted soak and ordinary AI cannot be combined");
         Environment.SetEnvironmentVariable("PRIME_NET2_SOAK", null);
+    }
+
+    private static void PositionEvidence()
+    {
+        Role(NetRole.Client, 0);
+        Check(NetAiClient.Configure(true, "2", "19", out _), "configure spatial observation fixture");
+        Check(NetAiClient.ObservePosition(Vector3.Zero)
+            && NetAiClient.ObservePosition(new Vector3(3, 4, 0)), "finite native samples are accepted");
+        Check(Report().GetProperty("Travel").GetDouble() == 5,
+            "native 3-4-5 movement contributes exactly five units");
+
+        NetAiClient.Configure(true, "2", "19", out _);
+        var enormous = new Vector3(Single.MaxValue, Single.MaxValue, Single.MaxValue);
+        Check(NetAiClient.ObservePosition(-enormous) && NetAiClient.ObservePosition(enormous),
+            "finite extreme coordinates avoid single-precision subtraction overflow");
+        double travel = Report().GetProperty("Travel").GetDouble();
+        double expected = 2 * (double)Single.MaxValue * Math.Sqrt(3);
+        Check(Double.IsFinite(travel) && Math.Abs(travel - expected) <= expected * 1e-12,
+            "extreme finite movement retains accurate finite double distance");
+        Check(Report().GetProperty("InvalidPositionSamples").GetInt64() == 0
+            && Report().GetProperty("InvalidDistanceSamples").GetInt64() == 0,
+            "extreme finite vectors do not invent invalid observations");
+
+        foreach (var invalid in new[] { new Vector3(Single.NaN, 0, 0),
+            new Vector3(0, Single.PositiveInfinity, 0), new Vector3(0, 0, Single.NegativeInfinity) })
+        {
+            NetAiClient.Configure(true, "2", "19", out _);
+            NetAiClient.ObservePosition(Vector3.Zero);
+            NetAiClient.ObservePosition(new Vector3(3, 4, 0));
+            // Policy-only frame thresholds: this fixture does not claim live input,
+            // network activity, or a gameplay campaign result.
+            const BindingFlags hidden = BindingFlags.Static | BindingFlags.NonPublic;
+            typeof(NetAiClient).GetField("_inputs", hidden)!.SetValue(null, 60L);
+            typeof(NetAiClient).GetField("_decisions", hidden)!.SetValue(null, 60L);
+            Check(NetAiClient.HasLocalActivity, "valid observed movement meets the isolated activity policy fixture");
+            Check(!NetAiClient.ObservePosition(invalid), "nonfinite native position is refused");
+            // Default strict JSON serialization must succeed without allowing NaN.
+            var report = Report();
+            Check(report.GetProperty("InvalidPositionSamples").GetInt64() == 1
+                && report.GetProperty("InvalidDistanceSamples").GetInt64() == 0
+                && Double.IsFinite(report.GetProperty("Travel").GetDouble())
+                && report.GetProperty("Travel").GetDouble() == 5,
+                "invalid native position leaves finite JSON evidence and retained failure count");
+            Check(!report.GetProperty("ActivityPassed").GetBoolean() && !NetAiClient.HasLocalActivity,
+                "a spatial failure vetoes activity even after sufficient movement and frame counts");
+            Check(NetAiClient.ObservePosition(new Vector3(1000, 1000, 0))
+                && Report().GetProperty("Travel").GetDouble() == 5,
+                "first repaired sample starts a new baseline without phantom bridge travel");
+            Check(NetAiClient.ObservePosition(new Vector3(1003, 1004, 0))
+                && Report().GetProperty("Travel").GetDouble() == 10
+                && !Report().GetProperty("ActivityPassed").GetBoolean(),
+                "subsequent finite movement resumes counting while the original failure remains sticky");
+            NetAiClient.Reset();
+            report = Report();
+            Check(!report.GetProperty("Enabled").GetBoolean()
+                && report.GetProperty("Travel").GetDouble() == 0
+                && report.GetProperty("InvalidPositionSamples").GetInt64() == 0
+                && report.GetProperty("InvalidDistanceSamples").GetInt64() == 0,
+                "reset clears retained spatial failures and movement baseline");
+        }
     }
 
     private static void EligibilityAndDisabledControl()
