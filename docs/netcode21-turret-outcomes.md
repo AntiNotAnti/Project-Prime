@@ -1,6 +1,6 @@
 # Authority turret outcomes — G1 prerequisite
 
-Status: implemented candidate; fresh real-UDP and replay acceptance pending. This repairs the two admitted-but-unemitted Weavel offers exposed by the G1 eight-client campaigns. It does not establish native Weavel physics parity or complete G1.
+Status: implemented and accepted as the prerequisite for the bounded G1 harness on immutable source `3a0d5c834840372c3e55965047be0d9e86ef34e5`, protocol 52, engine SHA-256 `2b61866932e60796f3d02a163018c6d6a22c3374c816d783b336c1afe58159b9`. The final ledger is PASS with no failed or incomplete gates, including all six recorded demos in both replay modes. This closes G1's declared harness scope. Native ROM-equivalent Weavel physics and broad presentation parity remain unestablished; A1 onward is not yet implemented and R0 remains incomplete.
 
 ## Contract
 
@@ -18,9 +18,9 @@ New recordings omit turret offers from canonical intent copies and retain outcom
 
 Live replay producers and native-continuation clips apply outcomes at arrival time, preserving the world they could actually capture. Indexed playback owns its separate projected emission path. Replica checkpoint v9 retains pending outcomes and full-key deduplication; world capsule v8 identifies this contract without changing the legacy object graph schema. Old optional capsules without the new contract cannot accelerate protocol-52 playback.
 
-## Validation and remaining gates
+## Validation and retained history
 
-Development checks passed: build (33 existing warnings, zero errors), 245 turret codec/delivery/recorder/checkpoint assertions, 25 asset-backed native gate/outcome assertions, 3034 replay format checks, and 409 Python tests (one existing skip). Existing form, bomb, AI, input, compact intent, shot lifecycle, source journal, continuous combat, muzzle and queue fixtures also passed. These working-tree checks are not immutable live acceptance.
+Earlier development checks passed: build (33 existing warnings, zero errors), 245 turret codec/delivery/recorder/checkpoint assertions, 25 asset-backed native gate/outcome assertions, 3034 replay format checks, and 409 Python tests (one existing skip). Existing form, bomb, AI, input, compact intent, shot lifecycle, source journal, continuous combat, muzzle and queue fixtures also passed. These working-tree checks are not immutable live acceptance.
 
 The protocol-52 offline audit requires the exact authority terminal payload, native emission or original expiry/retirement observation, matching client receipts, and applied refusals. A refusal cannot coexist with an authority commit or payment. Missing terminals or receipts fail; historical reports retain their prior rules and failed artifacts.
 
@@ -34,4 +34,16 @@ CI on the first candidate had 26 passing jobs and a Linux failure from stale cur
 
 Further working-tree regression checks passed: the longer owner and observer recordings (11,075 and 11,065 frames) each passed determinism and replica/clip checks; the lobby suite passed 7,746 assertions; 414 Python tests passed with one existing skip. An asset-backed resolved-death fixture checks seek/linear effects, repeated transitions and unchanged authoritative decoder state. A separate synthetic asset-backed cancellation fixture delivers a real refusal packet and applies the production queue to active same-key beams, verifies all six identity-field controls survive, and checks duplicate delivery. It does not claim native child generation or a nonzero live cancellation observation.
 
-Still required: final immutable candidate build and fixture manifest; fresh 2/4/8-client UDP campaigns including impaired Weavel traffic; active-flight cancellation evidence; longer recorded replay linear/seek/restore/clip checks; full CI. The earlier G1 failures remain failures. Protocol 52 requires matching server/client deployment; rollback reverts this whole prerequisite slice, including its protocol and replay producers.
+## Final immutable acceptance and exclusions
+
+The recorded eight-client 180-second impaired retry2 observed 14 authority native emissions and seven authority refusals: four OwnerRetired and three RecoveryExpired. All eight peers received the 21 matching terminal payloads, totaling 168 receipts against 168 required. They applied all seven refusals each, totaling 56 applications against 56 required. Zero emitted turret source keys appeared in the retained authority payment keys; no refused source was committed or paid. Campaign parity, bounded drain and AI activity audits all passed. Emission, refusal, receipt and application coverage is OBSERVED. These descriptive labels do not independently claim full turret correctness. The four shorter current campaigns each observed zero turret terminals and correctly report turret workload NOT_RUN while their generic harness audits pass.
+
+All live CancelledFlights counts remained zero. Cancellation of an active predicted flight is NOT_RUN in live evidence. The asset-backed synthetic cancellation fixture exercises production refusal delivery and exact-key controls on active beams; it does not establish live cancellation coverage or native child generation. The recorded rendered LAN campaign is a passing harness run, but rendered projectile agreement is still NOT_RUN.
+
+The immutable build passed all 23 focused contract routes, including native-turret, turret-outcome, turret-cancellation, collision and resolved-death; the Python suite ran 414 tests with one explicit skip, and all 27 CI checks were COMPLETED/SUCCESS. Two LAN, two rendered LAN, and two eight-client impaired recorded demos each passed determinism and replica continuation, including linear/rate/seek/restore/clip validation provided by those checks. Exact source, binary, configuration, artifact hashes and results are retained in the committed [G1 acceptance manifest](../tools/nettest/baselines/net21-g1-20261012.json), referencing `artifacts/net21-g1/ledger-3a0d5c83-final.json`.
+
+The original current-source 180-second attempt remains FAIL after disk exhaustion truncated server evidence; retry1 remains FAIL after a staging-adapter import error before game launch. Retry2 supplies fresh acceptance and does not relabel them. The earlier `7b932686`, `7bbdf4c8` and longer `a0a120b5` failed campaigns also retain their outcomes.
+
+Coverage of all hunters/maps, alternative form fidelity, touch parity, death/respawn presentation parity, broad replay presentation parity, honest-player rejection rates, spectator coverage, map rotation, sustained 20-minute stress, live active-flight cancellation, rendered projectile agreement, exact alt entry/exit event parity, native Weavel physics parity, matched before/after performance improvement, and R0 readiness remain unestablished. The explicit campaign coverage fields for spectator, mapRotation, sustained20Minutes, turretCancelledFlights and renderedProjectileAgreement are NOT_RUN in the current runs. Server timing, allocations, queue and traffic are descriptive run measurements; no matched performance improvement is claimed. A1 onward remains unimplemented. Closing G1's declared harness does not close these later slices or the release gate.
+
+Feature rollback omits `--ai-net-client`, `--ai-seed` and `--server-bot`. Protocol 52 requires matching server/client deployment; reverting the turret prerequisite requires reverting its protocol and replay producers together. Compare rollback behavior with explicitly matched source/build and baseline configuration.
