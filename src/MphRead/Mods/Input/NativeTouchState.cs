@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using System.IO;
 
 namespace MphRead.Mods.Input
 {
@@ -228,6 +229,33 @@ namespace MphRead.Mods.Input
             _lastSecond = report.SecondStep;
             Current = report;
             RollShare = report.Down ? 0.5f : 0;
+        }
+
+        internal void WriteCheckpoint(BinaryWriter writer)
+        {
+            writer.Write(_sequence); writer.Write(_phase);
+            writer.Write(_pendingX); writer.Write(_pendingY); writer.Write(_idleSteps);
+            writer.Write(_remoteSeen); writer.Write(_lastSecond);
+            writer.Write(_generation); writer.Write(_life);
+            writer.Write(NewSample); writer.Write(RollShare);
+            Span<byte> bytes = stackalloc byte[NativeTouchReport.WireSize];
+            Current.Write(bytes); writer.Write(bytes);
+        }
+
+        internal void RestoreCheckpoint(BinaryReader reader)
+        {
+            _state.Clear();
+            _sequence = reader.ReadUInt32(); _phase = reader.ReadInt32();
+            _pendingX = reader.ReadSingle(); _pendingY = reader.ReadSingle();
+            _idleSteps = reader.ReadInt32(); _remoteSeen = reader.ReadBoolean();
+            _lastSecond = reader.ReadBoolean();
+            _generation = reader.ReadUInt16(); _life = reader.ReadUInt16();
+            NewSample = reader.ReadBoolean(); RollShare = reader.ReadSingle();
+            Current = NativeTouchReport.Read(reader.ReadBytes(NativeTouchReport.WireSize));
+            if (_phase is < 0 or > 1 || _idleSteps < 0
+                || !float.IsFinite(_pendingX) || !float.IsFinite(_pendingY)
+                || !float.IsFinite(RollShare) || RollShare is < 0f or > 0.5f)
+                throw new InvalidDataException("Invalid native touch sample checkpoint.");
         }
 
         public float TakeRollShare()

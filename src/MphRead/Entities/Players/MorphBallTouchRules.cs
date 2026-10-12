@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using MphRead.Mods.Input;
 
 namespace MphRead.Entities
@@ -47,6 +48,22 @@ namespace MphRead.Entities
         private uint _sequence;
         private MorphBallTouchRules.Branch _branch;
         public void Reset() => _latched = false;
+
+        internal void WriteCheckpoint(BinaryWriter writer)
+        {
+            writer.Write(_latched);
+            writer.Write(_sequence);
+            writer.Write((byte)_branch);
+        }
+
+        internal void RestoreCheckpoint(BinaryReader reader)
+        {
+            _latched = reader.ReadBoolean();
+            _sequence = reader.ReadUInt32();
+            byte branch = reader.ReadByte();
+            if (branch > 2) throw new InvalidDataException("Invalid native boost branch in replay.");
+            _branch = (MorphBallTouchRules.Branch)branch;
+        }
 
         internal Result Advance(ref State state, in NativeTouchReport touch, bool buttonHeld,
             ushort min, ushort max, bool alwaysFull)

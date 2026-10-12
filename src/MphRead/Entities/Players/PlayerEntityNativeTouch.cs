@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using MphRead.Formats;
 using MphRead.Mods.Input;
 using OpenTK.Mathematics;
@@ -12,6 +13,27 @@ namespace MphRead.Entities
         private bool _nativeTouchInAlt;
         private bool _nativeRemoteClassic;
         private ushort _nativeRemoteGeneration, _nativeRemoteLife;
+
+        // Serialized in the versioned replay appendix, never the stable entity graph.
+        internal void ModWriteNativeTouchCheckpoint(BinaryWriter writer)
+        {
+            writer.Write(_nativeTouchInAlt);
+            writer.Write(_nativeRemoteClassic);
+            writer.Write(_nativeRemoteGeneration);
+            writer.Write(_nativeRemoteLife);
+            _nativeTouch.WriteCheckpoint(writer);
+            _nativeBoost.WriteCheckpoint(writer);
+        }
+
+        internal void ModReadNativeTouchCheckpoint(BinaryReader reader)
+        {
+            _nativeTouchInAlt = reader.ReadBoolean();
+            _nativeRemoteClassic = reader.ReadBoolean();
+            _nativeRemoteGeneration = reader.ReadUInt16();
+            _nativeRemoteLife = reader.ReadUInt16();
+            _nativeTouch.RestoreCheckpoint(reader);
+            _nativeBoost.RestoreCheckpoint(reader);
+        }
 
         private bool ModIsLocalTouchOwner => IsMainPlayer
             && (!_scene.Services.PlayerReplication.Active
