@@ -624,6 +624,7 @@ namespace MphRead.Entities
                 TryEquipWeapon(_weaponSlots[slot]);
             }
             ModMovementShadowBeginFrame();
+            Mods.Network.NetPowerUpLedger.ObserveInput(this);
             ProcessInput();
             ModMovementShadowObserve();
             if (Flags1.TestFlag(PlayerFlags1.Boosting) && _hSpeedMag <= Fixed.ToFloat(Values.AltMinHSpeed))
@@ -1495,6 +1496,7 @@ namespace MphRead.Entities
                     PickUpWeapon(item.ItemType);
                     break;
                 case ItemType.DoubleDamage:
+                    if (!Mods.Network.NetPowerUpLedger.TryNativeContact(this, item)) break;
                     pickedUp = true;
                     _timeSincePickup = 0;
                     _doubleDmgTimer = 900 * 2; // todo: FPS stuff
@@ -1507,6 +1509,7 @@ namespace MphRead.Entities
                     }
                     break;
                 case ItemType.Cloak:
+                    if (!Mods.Network.NetPowerUpLedger.TryNativeContact(this, item)) break;
                     pickedUp = true;
                     _timeSincePickup = 0;
                     _cloakTimer = 900 * 2; // todo: FPS stuff
@@ -1518,6 +1521,7 @@ namespace MphRead.Entities
                     }
                     break;
                 case ItemType.Deathalt:
+                    if (!Mods.Network.NetPowerUpLedger.TryNativeContact(this, item)) break;
                     pickedUp = true;
                     _timeSincePickup = 0;
                     _deathaltTimer = 900 * 2; // todo: FPS stuff

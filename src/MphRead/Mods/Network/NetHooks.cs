@@ -403,6 +403,7 @@ namespace MphRead.Mods.Network
                 }
                 NetTelemetry.ConsumedIntent(slot, NetSession.RemoteIntentAge(slot));
                 NetPlayerBridge.ApplyIntent(player, NetSession.RemoteIntents[slot]);
+                NetPowerUpLedger.ObserveInput(player);
                 if (authorityRole)
                 {
                     // Rejoin is also role-authoritative: an older spectator

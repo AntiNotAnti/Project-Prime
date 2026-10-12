@@ -398,7 +398,11 @@ namespace MphRead
                 collision.Active = false;
             }
             room.Setup(metadata.Name, metadata, collision, nodeLayerMask, metadata.Id);
-            if (!scene.Services.IsReplica) Mods.Network.NetHealthSync.BeginRoom();
+            if (!scene.Services.IsReplica)
+            {
+                Mods.Network.NetHealthSync.BeginRoom();
+                Mods.Network.NetPowerUpLedger.BeginRoom();
+            }
             var resources = mode == GameMode.SinglePlayer ? Mods.Multiplayer.ResourceSpawnProfile.Low
                 : worldProfile!.Value.Resources;
             IReadOnlyList<EntityBase> entities = LoadEntities(metadata, entityLayerId, scene, resources);

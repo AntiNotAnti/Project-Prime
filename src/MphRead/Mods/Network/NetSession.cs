@@ -403,6 +403,7 @@ namespace MphRead.Mods.Network
 
         private static void Stop(bool preserveRoomPrewarm)
         {
+            NetPowerUpLedger.Reset();
             NetBombs.Reset(); BombEventSink = null; TurretOutcomeSink = null; TurretDeliveryPending = null;
             NetTelemetry.FullSessionReset();
             ResetLobbySession();
@@ -678,14 +679,14 @@ namespace MphRead.Mods.Network
                 // own thread and hands this session the intents that arrived.
                 // All this role owes the frame is the clock every snapshot,
                 // every ack and the whole rewind history are numbered by.
-                if (advanceFrame) { NetFrame++; AuthorityFrames++; }
+                if (advanceFrame) { NetFrame++; AuthorityFrames++; NetPowerUpLedger.Advance(); }
                 return;
             }
             if (_transport == null)
             {
                 return;
             }
-            if (advanceFrame) NetFrame++;
+            if (advanceFrame) { NetFrame++; NetPowerUpLedger.Advance(); }
             foreach (ReceivedPacket packet in _transport.Drain())
             {
                 Handle(packet, time);
@@ -1596,6 +1597,7 @@ namespace MphRead.Mods.Network
             }
             bool newMatch = !previous.HasValue || state.MatchId != previous.Value.MatchId;
             bool newEpoch = !previous.HasValue || state.AuthorityEpoch != previous.Value.AuthorityEpoch;
+            if (newMatch || newEpoch) NetPowerUpLedger.Reset();
             ServerMatch = state;
             if (newMatch || newEpoch || previous?.RoomKey != state.RoomKey) ReplayCapture.Reset();
             ReplayCapture.AcceptedMatch(state);

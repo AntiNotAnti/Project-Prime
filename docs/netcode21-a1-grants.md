@@ -1,0 +1,62 @@
+# A1 authority-owned timed power-up grants
+
+Status: implementation candidate with passing development fixtures and Python checks; full focused regression, immutable live acceptance and CI remain pending. This slice adds bounded authority ownership evidence for Double Damage, Cloak and Death Alt. It does not close A2 verified pickup claims, A3 client reconciliation, A4 shot authorization, later gameplay slices, or R0 release readiness. G1's bounded harness acceptance remains a separate result.
+
+## Ownership and native contact
+
+`NetTimedGrants` holds the pure reservation/history model. `NetPowerUpLedger` adapts it to active multiplayer authority scenes, excluding replica scenes. Native item initialization registers the three timed types; destruction removes their live spawn entries. Registration covers authored items and dynamic drops. `PlayerProcess.PickUpItems` invokes the adapter inside each timed type's existing native pickup branch, before setting the timer or consuming the item. The existing native contact geometry and current item position select the contact; A1 adds no replacement radius or historical contact reconstruction.
+
+The adapter requires an alive, in-play player, enabled power-ups, a live registered item with a nonzero despawn timer, and the same scene. The pure ledger reserves the incarnation before the caller can run native callbacks. A second contender or repeated callback receives Taken and cannot renew that same item. A fresh same-type item can renew the same life's grant; different timed types coexist. The adapter operates independently of N4 shot proof Off, Shadow or Enforce.
+
+| Identity or record | Fields and purpose |
+|---|---|
+| Spawn key | Authority epoch, match, room sequence, authored spawn ID or dynamic fallback `-1`, and monotonically increasing incarnation generation |
+| Player life | Existing ShotKey epoch, match, slot, slot generation and life ID; ShotId is zero for the life key |
+| Grant record | Monotonic grant sequence, spawn key, player life, timed type, authority contact frame, optional input source contact frame, authority expiry and recorded end reason/frame |
+| Input observation | Full player life plus source frame; its first authority observation records the three independent grant answers |
+
+Native `_spawnCount` is a quota which can decrease on deactivation. It is not the incarnation identity. Every registered item incarnation receives a new monotonic generation, even if dynamic drops share fallback spawn ID or an authored spawner reuses its ID. Removing an item does not rewind the sequence. Room transitions create a fresh room scope; epoch/match changes create a fresh ledger. Session reset closes active grants and clears the adapter while preserving the process room counter. Empty-server suspension can resume the same epoch/match; the next room load advances that counter so new incarnations cannot reuse the suspended room identity. Spawn and grant sequence exhaustion refuse further allocation rather than wrap into reused identities.
+
+## Native duration and two clocks
+
+The existing three native callbacks retain their 1,800-tick timers. Input processing precedes contact, so contact at authority frame C cannot retroactively authorize input from C. A grant becomes effective at C+1 and expires exclusively at C+1800: subsequent observed input from C+1 through C+1799 can carry its ownership. Same-type renewal closes the previous grant at the new contact+1 boundary and records a new sequence. Death or lifecycle retirement closes active grants at the retirement frame. Development scene fixtures now check the actual native timer countdown and these phase boundaries with explicit fixture clock inputs; this does not establish live input timing under UDP.
+
+Authority and source clocks remain independent. Remote source contact frames come only from a recent matching intent (age at most 30 frames, matching epoch/match/generation/life). Local authority players and native bots use the authority NetFrame as their source frame. Missing matching remote intent leaves the contact source boundary unknown; native authority contact can still reserve the item, but subsequent source queries cannot manufacture that missing boundary.
+
+`ObserveInput` runs on authority input application and immediately before local input processing. The contact adapter also preserves the input observation when reached outside the usual loop. The first observation for a life/source-frame pair is immutable: replaying it after a pickup, renewal, expiry or death cannot rewrite the answer. A first per-life clock anchor bounds later source elapsed time to authority elapsed time plus 32 frames, with at most 1,024 frames of lag. Source acceleration or excessive stall records Unavailable. Expiry is determined by the independent authority clock; a slow reported source clock cannot extend it. Serial comparisons support unsigned frame rollover within the bounded comparison horizon.
+
+## Bounded history and query meaning
+
+The model stores at most 128 live spawn entries, 512 retained grant records and 16,384 input observations, across eight player slots and three timed types. Capacity refusals increment `CapacityRefused`; grant-capacity refusal leaves the item unreserved so it can be retried after space becomes available. Adapter spawn-capacity exhaustion returns false. Native `SpawnItem` destroys the unregistered candidate and returns null before consuming the spawner quota; a direct dynamic item reaching `Initialize` instead receives `DespawnTimer = 0` and cannot be picked up. Unrecorded observations cannot authorize a source query.
+
+Authority advancement expires active grants at their exact expiry frames. Ended grant records survive through 1,024 frames after their recorded end, then retire. Input observations survive through 1,024 authority frames after their first observation. Death, disconnect, replacement and life changes retire current ownership through the existing lifecycle hooks while retaining bounded prior-life observations for delayed, independently admitted shots. A new life or slot generation does not inherit the old grant. Room/match/epoch reset discards the previous scope.
+
+`GrantedAt` returns three distinct knowledge states. Granted identifies the grant sequence attached to an actually observed input frame. NotGranted means a retained, plausible observation established absence at that input, including contact-frame input or an input observed after authority expiry. Unavailable means the observation or required boundary is absent, evicted, refused by capacity, implausible, or outside the ledger scope. Unavailable must not be relabeled as known absence or authorization. A retained pre-expiry observation may still answer Granted after expiry or death for later independent adjudication; it does not revive the grant for newly observed input.
+
+No grant is inferred from a client-reported Double bit or timer. The ledger records authority native contact and authority input observations. Existing owner-reported fields and native timers remain on their current gameplay paths; A1 does not yet replace them as downstream damage authorization. `GrantedAt` normalizes a supplied ShotKey to its life key and queries the source frame: that answer alone does not prove an arbitrary shot ID was actually authored. A4 must join the separately accepted shot and its exact source input before using ownership to authorize damage or other shot effects.
+
+## Process evidence and strict transition audit
+
+Opt-in `NetCampaignEvidence` appends process-lifetime `TimedGrants` creation and closure records. The callback copies each record at the transition, so later mutation of the retained grant cannot rewrite its earlier Active observation. `CloseAll` closes active grants with Room or Session reasons before room/session teardown; these copied evidence facts survive the ledger reset and empty-server suspension. The evidence shares the campaign's bounded storage and overflow signaling. Pure callback tests check the exact creation and closure transitions.
+
+`tools/nettest/net_timed_grants.py` audits native authority reservation and transition conservation. It validates full spawn/life identities, timed type, contact+1 and 1,800-frame expiry, optional source boundaries, one creation per incarnation, unique matching closure, immutable identity/timing, legal end reason and bounded closure time, and reported evidence overflow. Missing instrumentation or measured zero grants is NOT_RUN; malformed or inconsistent evidence is FAIL; valid positive grant evidence is PASS for this audit's declared scope. It reports grant/type/closure/end-reason counts, open grants at capture and unknown source boundaries. This audit supplies no pickup-claim verification, client reconciliation, accepted-shot admission or damage proof.
+
+## Preserved behavior and residual trust
+
+Offline play and ordinary client prediction follow their existing pickup callbacks. A1 adds no pickup claim/verdict wire message, protocol bump, client reconciliation, replica checkpoint state, claim payout change or new damage multiplier enforcement. Existing native Double journal calls remain, but they are not the authority pickup admission. Ammo expenditure and weapon/ammo grant journal paths remain independent and unchanged.
+
+Remote native contact still uses movement positions supplied through existing client reports. Authority reservation prevents duplicate consumption of a known incarnation; it does not establish independently authoritative movement or provide anti-teleport/anti-cheat guarantees. A2 must define historical item availability and pickup claim verification, A3 must define reconciliation, and A4 must connect accepted shots to grant evidence. These remain pending.
+
+## Development validation and remaining gates
+
+`TimedGrantTests` (`--timed-grants`) passed 1,422 pure assertions in `artifacts/net21-a1/pure-dev-3.log`. They cover distinct clocks and phase boundaries, renewal, contention, all three types, lifecycle retirement, slot reuse, stream/room fences, rollover, retention, eight-slot isolation, capacity recovery and exact evidence callbacks.
+
+`PowerUpLedgerSceneTests` (`--powerup-ledger-scene <paths-directory> [profile] [room]`) passed 16,510 asset-backed native contact/ledger assertions in each of four profiles: prime (stock), balanced, enhanced and prime-hunter. Results are retained in `artifacts/net21-a1/scene-prime-dev-4.log`, `scene-balanced-dev-4.log`, `scene-enhanced-dev-4.log` and `scene-prime-hunter-dev-4.log`. The checks use real item entities and pickup callbacks for all three timed types across shot proof Off/Shadow/Enforce. They exercise actual timer countdown, incarnation renewal, native spawner delay/quota and capacity refusal, disabled-power-up flag behavior, reported Double and inherited Cloak failing to authorize a grant, offline/client prediction, and a real private replica scene whose item initialization/destruction does not modify foreground authority ownership.
+
+The Python suite ran 426 tests with one explicit skip and reported OK in `artifacts/net21-a1/python-dev-2.log`. These are development results. The full focused contract suite in `artifacts/net21-a1/contracts-dev-1/` is still running and has no passing aggregate claim here. Immutable source/build binding, full CI, full recorded replica playback and live A1 gates remain pending.
+
+The scene fixture does not exhaust all no-power-up game modes or establish actual native input/UDP ownership reconciliation. Timer poses and spawner delay/quota are explicit fixture inputs. Fixture contact positions and clocks do not constitute independently authoritative remote movement or a live UDP campaign. No immutable live A1 acceptance is claimed.
+
+## Rollback
+
+Revert the A1 ledger, adapter, native contact/input/item/lifecycle/session hooks and associated tests together. A1 introduces no protocol change or new wire producer, so rollback requires no protocol migration. Existing native offline/client prediction and the independent ammo/weapon journal remain the baseline behavior.
