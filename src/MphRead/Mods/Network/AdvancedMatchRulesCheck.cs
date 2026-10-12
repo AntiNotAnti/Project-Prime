@@ -128,6 +128,409 @@ namespace MphRead.Mods.Network
                 NetSlotManager.Sync();
                 var player = PlayerEntity.Players[0];
                 player.Spawn(player.Position, Vector3.UnitZ, Vector3.UnitY, player.NodeRef, respawn: false);
+                var pickup = typeof(PlayerEntity).GetMethod("PickUpWeapon", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                pickup.Invoke(player, new object[] { ItemType.Imperialist });
+                player.ModSetWeapon(BeamType.Imperialist);
+                Check(player.ModBalancedImperialistShots == PlayerEntity.BalancedImperialistShotCap,
+                    "Balanced Imperialist pickup grants exactly five shots");
+                int cost = player.EquipInfo.Weapon.AmmoCost;
+                player.EquipInfo.Ammo -= cost;
+                Check(player.ModBalancedImperialistShots == 4, "Balanced Imperialist spends its private reserve");
+                var shared = (int[])typeof(PlayerEntity).GetField("_ammo", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(player)!;
+                int sharedBefore = shared[0];
+                shared[0] = Math.Min(player.ModAmmoCap, shared[0] + 100);
+                Check(shared[0] >= sharedBefore && player.ModBalancedImperialistShots == 4,
+                    "Universal Ammo refill does not refill Balanced Imperialist");
+                pickup.Invoke(player, new object[] { ItemType.Imperialist });
+                Check(player.ModBalancedImperialistShots == PlayerEntity.BalancedImperialistShotCap,
+                    "another Imperialist pickup refills the private reserve");
+                player.EquipInfo.Ammo = Int32.MaxValue;
+                Check(player.ModBalancedImperialistShots == PlayerEntity.BalancedImperialistShotCap,
+                    "Balanced Imperialist reserve is hard capped at five shots");
+            }
+            finally { sim.Stop(); NetSession.Stop(); }
+        }
+
+        private static void CheckBalancedRangeScene()
+        {
+            const string room = "MP1 SANCTORUS";
+            var match = new MatchDefinition { RoomKey = room, Mode = GameMode.Battle,
+                BalancedMode = true, TimeLimitSeconds = 600, PointGoal = 100 };
+            var session = new SessionStatePacket { MatchId = 1, AuthorityEpoch = 1, MaxPlayers = 8,
+                Phase = SessionPhase.InMatch, Match = match, WorldProfile = MatchWorldProfile.Resolve(8) };
+            var roster = RosterPacket.Create(); roster.Count = 1; roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1;
+            roster.Slots[0] = 0; roster.Generations[0] = 1; roster.Names[0] = "RANGE"; roster.Hunters[0] = (byte)Hunter.Samus;
+            var sim = new ServerSim();
+            try
+            {
+                Check(sim.Start(room, GameMode.Battle, 8, _ => { }, () => { }, roster, session),
+                    "Balanced range world loads");
+                NetSlotManager.Sync();
+                var owner = PlayerEntity.Players[0];
+                var scene = owner.OwningScene;
+                var beam = new BeamProjectileEntity(scene)
+                {
+                    Owner = owner,
+                    Beam = BeamType.VoltDriver,
+                    SpawnPosition = Vector3.Zero
+                };
+
+                static bool Near(float actual, float expected) => MathF.Abs(actual - expected) < 0.001f;
+
+                Check(Near(BalancedModeRules.RangeDamageMultiplier(BeamType.VoltDriver, 0), 0.80f)
+                    && Near(BalancedModeRules.RangeDamageMultiplier(BeamType.VoltDriver, BalancedModeRules.MidRange), 1.00f)
+                    && Near(BalancedModeRules.RangeDamageMultiplier(BeamType.VoltDriver, BalancedModeRules.FarRange), 1.20f),
+                    "Volt range curve is 80/100/120 percent");
+                Check(Near(BalancedModeRules.RangeDamageMultiplier(BeamType.Magmaul, 0), 1.20f)
+                    && Near(BalancedModeRules.RangeDamageMultiplier(BeamType.Magmaul, BalancedModeRules.MidRange), 1.00f)
+                    && Near(BalancedModeRules.RangeDamageMultiplier(BeamType.Magmaul, BalancedModeRules.FarRange), 0.75f),
+                    "Magmaul range curve is 120/100/75 percent");
+
+                float voltClose = beam.ModBalancedRangeDamage(100, Vector3.Zero);
+                float voltMid = beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.MidRange);
+                float voltFar = beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.FarRange);
+                Check(Near(voltClose, 80) && Near(voltMid, 100) && Near(voltFar, 120)
+                    && voltClose < voltMid && voltMid < voltFar,
+                    "Volt gains damage smoothly with travel distance");
+
+                beam.Beam = BeamType.Magmaul;
+                float magClose = beam.ModBalancedRangeDamage(100, Vector3.Zero);
+                float magMid = beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.MidRange);
+                float magFar = beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.FarRange);
+                Check(Near(magClose, 120) && Near(magMid, 100) && Near(magFar, 75)
+                    && magClose > magMid && magMid > magFar,
+                    "Magmaul loses damage smoothly with travel distance");
+
+                Check(Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.VoltDriver, charged: false), 1.20f)
+                    && Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.VoltDriver, charged: true), 10f / 7f)
+                    && Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.Battlehammer, charged: false), 8192f / 4915f)
+                    && Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.Judicator, charged: false), 1.25f)
+                    && Near(BalancedModeRules.ScaleProjectileSpeed(BeamType.Magmaul, charged: false, 6963), 7680),
+                    "Balanced projectile speed table matches the first tuning pass");
+                Check(Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.ShockCoil, charged: false), 1)
+                    && Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.Imperialist, charged: false), 1),
+                    "Shock Coil and Imperialist retain their original projectile speed");
+
+                float voltBase = scene.WeaponRules[(int)BeamType.VoltDriver].UnchargedSpeed / 4096f / 2;
+                float voltChargedBase = scene.WeaponRules[(int)BeamType.VoltDriver].ChargedSpeed / 4096f / 2;
+                Check(Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
+                        BeamType.VoltDriver, charged: false, voltBase), 24576f / 4096f / 2)
+                    && Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
+                        BeamType.VoltDriver, charged: true, voltChargedBase), 10240f / 4096f / 2),
+                    "Balanced Volt runtime speed reaches 24576 uncharged and 10240 charged");
+                float battleBase = scene.WeaponRules[(int)BeamType.Battlehammer].UnchargedSpeed / 4096f / 2;
+                float judgeBase = scene.WeaponRules[(int)BeamType.Judicator].UnchargedSpeed / 4096f / 2;
+                float magmaBase = scene.WeaponRules[(int)BeamType.Magmaul].UnchargedSpeed / 4096f / 2;
+                Check(Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
+                        BeamType.Battlehammer, charged: false, battleBase), 8192f / 4096f / 2f)
+                    && Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
+                        BeamType.Judicator, charged: false, judgeBase), judgeBase * 1.25f)
+                    && Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
+                        BeamType.Magmaul, charged: false, magmaBase), 7680f / 4096f / 2),
+                    "Balanced prediction weapons receive their configured runtime speed increases");
+
+                int direct = 12, headshot = 12, splash = 4; byte splashType = 0;
+                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Battlehammer,
+                    false, ref direct, ref headshot, ref splash, ref splashType);
+                Check(direct == 12 && headshot == 12 && splash == 4 && splashType == 0,
+                    "Balanced burst rifle preserves authored bullet damage and linear falloff");
+                Check(BalancedModeRules.BattlehammerBurstRounds == 3
+                    && BalancedModeRules.BattlehammerBulletSpacingFrames == 3
+                    && BalancedModeRules.BattlehammerBurstCooldownFrames == 27
+                    && BalancedModeRules.BattlehammerBurstAmmoCost == 12,
+                    "Battlehammer burst has three 50-ms rounds, 450-ms cadence and one 12-UA charge");
+
+                Vector3 projectileOrigin = new(1, 2, 3);
+                Vector3 impactOrigin = new(4, 5, 6);
+                Check(BeamProjectileEntity.ModSplashOrigin(scene, BeamType.Battlehammer,
+                        projectileOrigin, impactOrigin) == impactOrigin
+                    && BeamProjectileEntity.ModSplashOrigin(scene, BeamType.Magmaul,
+                        projectileOrigin, impactOrigin) == projectileOrigin,
+                    "Balanced Battlehammer splash uses the collision point without changing other weapons");
+
+                direct = headshot = 3; splash = 4; splashType = 0;
+                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Battlehammer,
+                    true, ref direct, ref headshot, ref splash, ref splashType);
+                Check(direct == 3 && headshot == 3 && splash == 4,
+                    "retired Battlehammer cluster flag never amplifies burst damage");
+
+                direct = headshot = 32; splash = 16; splashType = 3;
+                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Magmaul,
+                    false, ref direct, ref headshot, ref splash, ref splashType);
+                Check(direct == 32 && headshot == 32 && splash == 12 && splashType == 0,
+                    "Balanced Magmaul keeps direct damage but reduces splash and adds linear falloff");
+
+                direct = 56; headshot = 56; splash = 28; splashType = 3;
+                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Magmaul,
+                    false, ref direct, ref headshot, ref splash, ref splashType);
+                Check(direct == 56 && headshot == 56 && splash == 21 && splashType == 0,
+                    "Balanced charged Magmaul splash is 21 max before range falloff");
+
+                direct = 24; headshot = 32; splash = 12; splashType = 0;
+                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Judicator,
+                    false, ref direct, ref headshot, ref splash, ref splashType);
+                Check(direct == 24 && headshot == 32 && splash == 9 && splashType == 0,
+                    "Balanced Judicator keeps precision damage and reduces splash to 9");
+
+                scene.GameState.BalancedMode = false;
+                direct = 14; headshot = 14; splash = 6; splashType = 3;
+                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Battlehammer,
+                    false, ref direct, ref headshot, ref splash, ref splashType);
+                Check(Near(beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.FarRange), 100)
+                    && Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
+                        BeamType.VoltDriver, charged: false, voltBase), voltBase)
+                    && BeamProjectileEntity.ModSplashOrigin(scene, BeamType.Battlehammer,
+                        projectileOrigin, impactOrigin) == projectileOrigin
+                    && direct == 14 && headshot == 14 && splash == 6 && splashType == 3,
+                    "range, projectile speed, splash origin and hit tuning are inert outside Balanced Mode");
+            }
+            finally { sim.Stop(); NetSession.Stop(); }
+        }
+
+        private static void CheckBalancedHunterScene()
+        {
+            const string room = "MP1 SANCTORUS";
+            var match = new MatchDefinition { RoomKey = room, Mode = GameMode.Battle,
+                BalancedMode = true, TimeLimitSeconds = 600, PointGoal = 100 };
+            var session = new SessionStatePacket { MatchId = 1, AuthorityEpoch = 1, MaxPlayers = 8,
+                Phase = SessionPhase.InMatch, Match = match, WorldProfile = MatchWorldProfile.Resolve(8) };
+            var roster = RosterPacket.Create(); roster.Count = 5; roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1;
+            Hunter[] hunters = { Hunter.Kanden, Hunter.Spire, Hunter.Noxus, Hunter.Weavel, Hunter.Samus };
+            for (byte slot = 0; slot < hunters.Length; slot++)
+            {
+                roster.Slots[slot] = slot;
+                roster.Generations[slot] = 1;
+                roster.Names[slot] = hunters[slot].ToString();
+                roster.Hunters[slot] = (byte)hunters[slot];
+                roster.Teams[slot] = -1;
+            }
+
+            var sim = new ServerSim();
+            try
+            {
+                Check(sim.Start(room, GameMode.Battle, 8, _ => { }, () => { }, roster, session),
+                    "Balanced hunter profile world loads");
+                NetSlotManager.Sync();
+                var kanden = PlayerEntity.Players[0];
+                var scene = kanden.OwningScene;
+                var spire = PlayerEntity.Players[1];
+                var noxus = PlayerEntity.Players[2];
+                var weavel = PlayerEntity.Players[3];
+                var samus = PlayerEntity.Players[4];
+
+                foreach (var player in new[] { kanden, spire, noxus, weavel, samus })
+                    player.Spawn(player.Position, Vector3.UnitZ, Vector3.UnitY, player.NodeRef, respawn: false);
+
+                Check(kanden.Health == 109 && weavel.Health == 109
+                    && spire.Health == 99 && noxus.Health == 99 && samus.Health == 99,
+                    "Balanced low-tier spawn health bonuses preserve high-tier baseline");
+                Check(new[] { kanden, spire, noxus, weavel, samus }.All(p => p.HealthMax == 199),
+                    "Balanced profiles preserve the 199 multiplayer health ceiling");
+
+                static bool Near(float actual, float expected) => MathF.Abs(actual - expected) < 0.001f;
+                Check(Near(BalancedModeRules.HunterProfile(Hunter.Kanden).AltTractionMultiplier, 1.12f)
+                    && Near(BalancedModeRules.HunterProfile(Hunter.Kanden).AltSpeedCapMultiplier, 1.08f)
+                    && Near(BalancedModeRules.HunterProfile(Hunter.Weavel).AltTractionMultiplier, 1.10f)
+                    && Near(BalancedModeRules.HunterProfile(Hunter.Weavel).AltSpeedCapMultiplier, 1.08f),
+                    "Kanden and Weavel receive their mobility profiles");
+                Check(Near(BalancedModeRules.HunterProfile(Hunter.Spire).IncomingDamageMultiplier, 0.90f)
+                    && Near(BalancedModeRules.HunterProfile(Hunter.Spire).KnockbackMultiplier, 0.80f)
+                    && Near(BalancedModeRules.HunterProfile(Hunter.Noxus).IncomingDamageMultiplier, 0.95f)
+                    && Near(BalancedModeRules.HunterProfile(Hunter.Noxus).AltTractionMultiplier, 1.10f),
+                    "Spire and Noxus receive tank/control profiles");
+                Check(BalancedModeRules.HunterProfile(Hunter.Samus) == BalancedHunterProfile.Baseline
+                    && BalancedModeRules.HunterProfile(Hunter.Trace) == BalancedHunterProfile.Baseline
+                    && BalancedModeRules.HunterProfile(Hunter.Sylux) == BalancedHunterProfile.Baseline,
+                    "Samus Trace and Sylux remain baseline in Balanced Mode");
+
+                scene.GameState.EnhancedHunters = true;
+                Check(!Mods.EnhancedHunters.EnhancedHunters.Enabled(kanden)
+                    && !Mods.EnhancedHunters.EnhancedHunters.Enabled(spire)
+                    && !Mods.EnhancedHunters.EnhancedHunters.Enabled(noxus)
+                    && !Mods.EnhancedHunters.EnhancedHunters.Enabled(weavel),
+                    "Balanced Mode suppresses Enhanced Hunters so native ability tuning is independent");
+                scene.GameState.EnhancedHunters = false;
+
+                DamageFlags combat = DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln;
+                spire.Health = noxus.Health = kanden.Health = 150;
+                spire.TakeDamage(100, combat, null, samus);
+                noxus.TakeDamage(100, combat, null, samus);
+                kanden.TakeDamage(100, combat, null, samus);
+                Check(spire.Health == 60 && noxus.Health == 55 && kanden.Health == 50,
+                    "Balanced non-headshot mitigation is 10 percent Spire, 5 percent Noxus, baseline Kanden");
+
+                spire.Health = 199;
+                spire.Speed = Vector3.Zero;
+                spire.TakeDamage(1, combat, Vector3.UnitX, samus);
+                Check(Near(spire.Speed.X, 0.80f), "Spire receives 20 percent less combat knockback");
+
+                var flagsProperty = typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags1))!;
+                flagsProperty.SetValue(weavel, weavel.Flags1 | PlayerFlags1.Morphing);
+                weavel.Health = 150;
+                weavel.TakeDamage(100, combat, null, samus);
+                Check(weavel.Health == 75,
+                    "Balanced Weavel takes 25 percent less non-headshot damage while transforming");
+                weavel.Health = 150;
+                weavel.TakeDamage(100, combat | DamageFlags.Headshot, null, samus);
+                Check(weavel.Health == 50,
+                    "Weavel transition armor never reduces headshots");
+                flagsProperty.SetValue(weavel, weavel.Flags1 & ~PlayerFlags1.Morphing);
+
+                scene.GameState.BalancedMode = false;
+                spire.Health = 150;
+                spire.TakeDamage(100, combat, null, samus);
+                Check(spire.Health == 50, "hunter durability is inert outside Balanced Mode");
+                scene.GameState.BalancedMode = true;
+
+                spire.Spawn(spire.Position, Vector3.UnitZ, Vector3.UnitY, spire.NodeRef, respawn: true);
+                spire.Health = spire.HealthMax;
+                spire.TakeDamage(200, combat | DamageFlags.Headshot, null, samus);
+                Check(spire.Health == 0, "headshots bypass Balanced durability and preserve the 200-damage lethal breakpoint");
+            }
+            finally { sim.Stop(); NetSession.Stop(); }
+        }
+
+        private static void CheckBalancedAffinityScene()
+        {
+            const string room = "MP1 SANCTORUS";
+            var match = new MatchDefinition { RoomKey = room, Mode = GameMode.Battle,
+                BalancedMode = true, TimeLimitSeconds = 600, PointGoal = 100 };
+            var session = new SessionStatePacket { MatchId = 1, AuthorityEpoch = 1, MaxPlayers = 8,
+                Phase = SessionPhase.InMatch, Match = match, WorldProfile = MatchWorldProfile.Resolve(8) };
+            Hunter[] hunters = { Hunter.Samus, Hunter.Kanden, Hunter.Trace, Hunter.Sylux,
+                Hunter.Noxus, Hunter.Spire, Hunter.Weavel };
+            var roster = RosterPacket.Create(); roster.Count = (byte)hunters.Length;
+            roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1;
+            for (byte slot = 0; slot < hunters.Length; slot++)
+            {
+                roster.Slots[slot] = slot; roster.Generations[slot] = 1;
+                roster.Names[slot] = hunters[slot].ToString();
+                roster.Hunters[slot] = (byte)hunters[slot]; roster.Teams[slot] = -1;
+            }
+
+            var sim = new ServerSim();
+            try
+            {
+                Check(sim.Start(room, GameMode.Battle, 8, _ => { }, () => { }, roster, session),
+                    "Balanced affinity world loads");
+                NetSlotManager.Sync();
+                var samus = PlayerEntity.Players[0];
+                var kanden = PlayerEntity.Players[1];
+                var trace = PlayerEntity.Players[2];
+                var sylux = PlayerEntity.Players[3];
+                var noxus = PlayerEntity.Players[4];
+                var spire = PlayerEntity.Players[5];
+                var weavel = PlayerEntity.Players[6];
+                var scene = samus.OwningScene;
+                foreach (var player in new[] { samus, kanden, trace, sylux, noxus, spire, weavel })
+                    player.Spawn(player.Position, Vector3.UnitZ, Vector3.UnitY, player.NodeRef, respawn: false);
+
+                WeaponInfo missile = scene.WeaponRules[(int)BeamType.Missile];
+                WeaponInfo samusMissile = scene.WeaponRules[(int)BeamType.Missile + 9];
+                Check(missile.UnchargedDamage == samusMissile.UnchargedDamage
+                    && missile.ChargedDamage == samusMissile.ChargedDamage
+                    && samusMissile.ChargedHoming > missile.ChargedHoming,
+                    "Samus affinity keeps missile damage stock and reserves its bonus for charged homing");
+
+                Check(MathF.Abs(BalancedModeRules.ScopeVisualSpeed(Hunter.Trace, BeamType.Imperialist) - 1.20f) < 0.001f,
+                    "Trace affinity only accelerates the Imperialist visual scope transition");
+                WeaponInfo imp = scene.WeaponRules[(int)BeamType.Imperialist];
+                WeaponInfo traceImp = scene.WeaponRules[(int)BeamType.Imperialist + 9];
+                Check(imp.UnchargedDamage == traceImp.UnchargedDamage
+                    && imp.HeadshotDamage == traceImp.HeadshotDamage
+                    && imp.ShotCooldown == traceImp.ShotCooldown,
+                    "Trace affinity has no raw Imperialist damage or fire-rate bonus");
+
+                var disrupt = new BeamProjectileEntity(scene)
+                {
+                    Owner = kanden, Beam = BeamType.VoltDriver, BeamKind = BeamType.VoltDriver,
+                    Flags = BeamFlags.Charged, Afflictions = Affliction.Disrupt, EnhancedDirectHit = true
+                };
+                trace.Health = 199;
+                trace.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, disrupt);
+                ushort disrupted = (ushort)typeof(PlayerEntity).GetField("_disruptedTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(trace)!;
+                Check(disrupted == BalancedModeRules.AffinityControlDurationFrames,
+                    "Kanden charged direct hit disrupts for 1.25 seconds");
+                typeof(PlayerEntity).GetField("_disruptedTimer", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(trace, (ushort)0);
+                trace.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, disrupt);
+                disrupted = (ushort)typeof(PlayerEntity).GetField("_disruptedTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(trace)!;
+                Check(disrupted == 0 && trace.ModBalancedDisruptImmunityTimer > 0,
+                    "Kanden disrupt cannot immediately chain through its immunity window");
+                trace.ModResetBalancedAffinityState();
+                disrupt.EnhancedDirectHit = false;
+                trace.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, disrupt);
+                disrupted = (ushort)typeof(PlayerEntity).GetField("_disruptedTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(trace)!;
+                Check(disrupted == 0, "Kanden disrupt does not apply from charged splash");
+
+                Check(sylux.ModBalancedLifeDrainHeal(10) == 4
+                    && sylux.ModBalancedLifeDrainHeal(10) == 4
+                    && sylux.ModBalancedLifeDrainHeal(10) == 0,
+                    "Sylux affinity heals 40 percent of actual damage with an 8 HP per-second cap");
+
+                var freeze = new BeamProjectileEntity(scene)
+                {
+                    Owner = noxus, Beam = BeamType.Judicator, BeamKind = BeamType.Judicator,
+                    Flags = BeamFlags.Charged, Afflictions = Affliction.Freeze, EnhancedDirectHit = true
+                };
+                samus.Health = 199;
+                typeof(PlayerEntity).GetField("_timeSinceFrozen", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(samus, (ushort)255);
+                samus.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, freeze);
+                ushort frozen = (ushort)typeof(PlayerEntity).GetField("_frozenTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(samus)!;
+                Check(frozen == BalancedModeRules.AffinityControlDurationFrames,
+                    "Noxus affinity freeze lasts 1.25 seconds");
+                typeof(PlayerEntity).GetField("_frozenTimer", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(samus, (ushort)0);
+                typeof(PlayerEntity).GetField("_timeSinceFrozen", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(samus, (ushort)0);
+                samus.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, freeze);
+                frozen = (ushort)typeof(PlayerEntity).GetField("_frozenTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(samus)!;
+                Check(frozen == 0, "Noxus freeze honors the post-thaw immunity window");
+
+                WeaponInfo noxAffinity = scene.WeaponRules[(int)BeamType.Judicator + 9];
+                var noxEquip = new EquipInfo(noxAffinity, noxus.EquipInfo.Beams)
+                {
+                    InfiniteAmmo = true,
+                    ChargeLevel = (ushort)(noxAffinity.FullCharge * 2)
+                };
+                BeamProjectileEntity.Spawn(noxus, noxEquip, noxus.Position.AddY(1), Vector3.UnitZ,
+                    BeamSpawnFlags.NoMuzzle, noxus.NodeRef, scene);
+                BeamProjectileEntity? freezeBolt = noxEquip.Beams.FirstOrDefault(b =>
+                    b.Owner == noxus && b.Beam == BeamType.Judicator && b.Flags.TestFlag(BeamFlags.Charged)
+                    && b.Lifespan > 0);
+                Check(freezeBolt != null && MathF.Abs(freezeBolt.Speed - 1.25f) < 0.001f
+                    && MathF.Abs(freezeBolt.MaxDistance - 12f) < 0.001f
+                    && freezeBolt.SplashDamage == 0 && freezeBolt.Afflictions.TestFlag(Affliction.Freeze),
+                    "Noxus charged affinity is a direct freeze bolt instead of the instant ice-wave cone");
+
+                var burn = new BeamProjectileEntity(scene)
+                {
+                    Owner = spire, Beam = BeamType.Magmaul, BeamKind = BeamType.Magmaul,
+                    Flags = BeamFlags.Charged, Afflictions = Affliction.Burn, EnhancedDirectHit = true
+                };
+                samus.Health = 199;
+                typeof(PlayerEntity).GetField("_burnTimer", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(samus, (ushort)0);
+                samus.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, burn);
+                ushort burnTimer = (ushort)typeof(PlayerEntity).GetField("_burnTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(samus)!;
+                Check(burnTimer == BalancedModeRules.SpireBurnDurationFrames
+                    && BalancedModeRules.SpireBurnDurationFrames / BalancedModeRules.SpireBurnTickFrames == 6,
+                    "Spire charged direct hit applies a three-second six-damage burn");
+                typeof(PlayerEntity).GetField("_burnTimer", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(samus, (ushort)0);
+                burn.EnhancedDirectHit = false;
+                samus.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, burn);
+                burnTimer = (ushort)typeof(PlayerEntity).GetField("_burnTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(samus)!;
+                Check(burnTimer == 0, "Spire burn does not apply from splash");
+
                 var pickup = typeof(PlayerEntity).GetMethod("PickUpWeapon",
                     BindingFlags.Instance | BindingFlags.NonPublic)!;
                 pickup.Invoke(weavel, new object[] { ItemType.Battlehammer });
