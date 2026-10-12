@@ -153,6 +153,7 @@ namespace MphRead.Entities
                 _combatStrafeRight = false;
                 _combatJumpCooldown = 0;
                 ResetTacticalState();
+                ResetBotMotor();
                 for (int i = 0; i < _executionTree.Length; i++)
                 {
                     if (_executionTree[i] == null)
@@ -181,6 +182,7 @@ namespace MphRead.Entities
 
             public void InitializeAtSpawn()
             {
+                ResetBotMotor();
                 InitializeMain();
                 ClearInput();
                 UpdateExecutionPath(Personality, depth: 0);
@@ -855,6 +857,7 @@ namespace MphRead.Entities
                 }
                 _buttonAimX = 0;
                 _buttonAimY = 0;
+                ApplyBotMotorAnalogInput();
                 UpdateNodeDataSetSelection();
                 _nodeDataSelOff = 0;
                 _nodeDataSelOn = 0;
@@ -880,6 +883,9 @@ namespace MphRead.Entities
                 ApplyTacticalBrain();
                 ApplyCombatEnhancements();
                 ApplyEnhancedHunterChoices();
+                // The legacy tree and tactical/hunter layers only submit desired inputs.
+                // The final motor resolves one legal, rate-limited player command.
+                ApplyBotMotor();
                 Array.Fill(_slotHits, 0);
                 Array.Fill(_slotDamage, 0);
                 DamageFromHalfturret = 0;
@@ -1001,8 +1007,11 @@ namespace MphRead.Entities
                 // The modern tactical layer owns biped combat movement when it found
                 // a safe, purposeful move. Keep the legacy random strafe as a fallback
                 // for modes or situations the tactical layer deliberately leaves alone.
-                if (_tacticalMovementActive)
+                if (_tacticalMovementActive
+                    || _buttons.A.IsDown || _buttons.B.IsDown
+                    || _buttons.X.IsDown || _buttons.Y.IsDown)
                 {
+                    // Don't inject a competing strafe while navigation already owns the move.
                     return;
                 }
 

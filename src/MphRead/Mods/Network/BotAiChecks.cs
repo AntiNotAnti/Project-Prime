@@ -123,6 +123,36 @@ public static class BotAiChecks
         }
         Check(hasOneWayDrop,"generated drop does not become an impossible reverse climb");
 
+        // Bot motor: smooth acceleration, reversal braking, deterministic aim limits.
+        float move = 0;
+        for (int i = 0; i < 8; i++)
+            move = BotMotorMath.StepMoveAxis(move, 1, .25f, .40f);
+        Check(move == 1, "motor reaches full native movement input");
+        float reverseFirst = BotMotorMath.StepMoveAxis(move, -1, .25f, .40f);
+        Check(reverseFirst > 0 && reverseFirst < 1,
+            "direction reversal brakes instead of snapping");
+        for (int i = 0; i < 8; i++)
+            reverseFirst = BotMotorMath.StepMoveAxis(reverseFirst, -1, .25f, .40f);
+        Check(reverseFirst == -1, "motor completes the requested reversal");
+        Check(BotMotorMath.StepMoveAxis(float.NaN, 1, .25f, .40f) == 0,
+            "non-finite movement inputs are rejected");
+        float angularVelocity = 0;
+        float firstTurn = BotMotorMath.StepAimAxis(ref angularVelocity, 35, 16, 4.8f);
+        Check(firstTurn > 0 && firstTurn < 16, "aim accelerates instead of snapping");
+        for (int i = 0; i < 10; i++)
+            BotMotorMath.StepAimAxis(ref angularVelocity, 35, 16, 4.8f);
+        Check(angularVelocity <= 16 && angularVelocity > 0,
+            "aim preserves its angular speed limit");
+        float previousTurn = angularVelocity;
+        float reversingTurn = BotMotorMath.StepAimAxis(ref angularVelocity, -35, 16, 4.8f);
+        Check(reversingTurn < previousTurn && reversingTurn > -16,
+            "opposite aim request decelerates before reversing");
+        float fineTurn = BotMotorMath.StepAimAxis(ref angularVelocity, .15f, 16, 4.8f);
+        Check(MathF.Abs(fineTurn) <= .15f && float.IsFinite(fineTurn),
+            "reticle settles without overshooting small errors");
+        Check(BotMotorMath.StepAimAxis(ref angularVelocity, float.NaN, 16, 4.8f) == 0
+            && angularVelocity == 0, "invalid aim inputs fail closed");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }

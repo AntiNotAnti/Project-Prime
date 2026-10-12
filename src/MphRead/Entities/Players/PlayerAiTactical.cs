@@ -753,6 +753,18 @@ public partial class PlayerEntity
             forward = forward.LengthSquared > 0 ? forward.Normalized() : Vector3.UnitZ;
             Vector3 right = new Vector3(forward.Z, 0, -forward.X);
 
+            // Tactical steering owns this frame when it finds a safe step.
+            // Preserve legacy navigation only if *every* tactical candidate fails.
+            // Without this arbitration, multiple layers could hold opposite buttons.
+            bool legacyRight = _buttons.A.IsDown;
+            bool legacyBack = _buttons.B.IsDown;
+            bool legacyForward = _buttons.X.IsDown;
+            bool legacyLeft = _buttons.Y.IsDown;
+            _buttons.A.IsDown = false;
+            _buttons.B.IsDown = false;
+            _buttons.X.IsDown = false;
+            _buttons.Y.IsDown = false;
+
             bool moved = false;
             if (_tacticalEscapeFrames > 0)
             {
@@ -791,6 +803,13 @@ public partial class PlayerEntity
             if (moved)
             {
                 _tacticalMovementActive = true;
+            }
+            else
+            {
+                _buttons.A.IsDown = legacyRight;
+                _buttons.B.IsDown = legacyBack;
+                _buttons.X.IsDown = legacyForward;
+                _buttons.Y.IsDown = legacyLeft;
             }
 
             UpdateTacticalProgress(moved);
