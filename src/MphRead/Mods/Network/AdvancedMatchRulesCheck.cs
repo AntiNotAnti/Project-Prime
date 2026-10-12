@@ -817,13 +817,16 @@ namespace MphRead.Mods.Network
             const int matchStart = 46;
             int rosterStart = matchStart + MatchStatePacket.Size + 1;
             int firstPlayer = rosterStart + RosterPacket.Size;
-            int stride = 7 + PlayerState.Size + 1 + IntentPacket.FullSize + 4;
+            // The captured checkpoint uses protocol 53's native-touch tail.
+            // Always locate each source slot at the CURRENT stride before
+            // stripping fields for historical protocol 27.
+            int stride = 7 + PlayerState.Size + 1 + IntentPacket.TouchCanonicalSize + 4;
             for (int slot = PlayerEntity.SlotCapacity - 1; slot >= 0; slot--)
             {
                 int intentStart = firstPlayer + slot * stride + 8 + PlayerState.Size;
                 // Protocol 27 predates authored fire-event blocks entirely.
                 historicalBytes.RemoveRange(intentStart + IntentPacket.LegacyFullSize,
-                    IntentPacket.FullSize - IntentPacket.LegacyFullSize);
+                    IntentPacket.TouchCanonicalSize - IntentPacket.LegacyFullSize);
                 historicalBytes.RemoveRange(firstPlayer + slot * stride + 7 + PlayerState.LegacySize,
                     PlayerState.Size - PlayerState.LegacySize);
             }
