@@ -131,6 +131,7 @@ internal static class NetCampaignDrain
                     AwardPresented = Server ? _award : receiver.PresentedAward,
                     BombFrontier = NetBombs.LiveScene?.Bombs.Frontier ?? 0,
                     BombPendingRequests = NetBombs.PendingCount,
+                    TurretPendingOutcomes = NetSession.PendingTurretOutcomes,
                     BombPendingEvents = (NetBombs.LiveScene?.Bombs.PendingEvents ?? 0) + NetSession.PendingBombPackets,
                     BombFaulted = NetBombs.LiveScene?.Bombs.Faulted ?? false };
             }
@@ -171,6 +172,7 @@ internal static class NetCampaignDrain
             AwardPresented = Server ? _award : receiver.PresentedAward,
             BombFrontier = NetBombs.LiveScene?.Bombs.Frontier ?? 0,
             BombPendingRequests = NetBombs.PendingCount,
+                    TurretPendingOutcomes = NetSession.PendingTurretOutcomes,
             BombPendingEvents = (NetBombs.LiveScene?.Bombs.PendingEvents ?? 0) + NetSession.PendingBombPackets,
             BombFaulted = NetBombs.LiveScene?.Bombs.Faulted ?? false,
             PendingRespawns = _pendingRespawns,

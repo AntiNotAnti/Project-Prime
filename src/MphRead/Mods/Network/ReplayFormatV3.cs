@@ -216,6 +216,7 @@ namespace MphRead.Mods.Network
                     && SessionStatePacket.TryRead(payload, out _),
                 PacketType.MatchState => payload.Length == MatchStatePacket.Size,
                 PacketType.BombState => BombStatePage.TryRead(payload, out _),
+                PacketType.TurretFireOutcome => TurretFireOutcome.TryRead(payload, out _),
                 PacketType.BombEvent => BombEvent.TryRead(payload, out _),
                 PacketType.CosmeticState => payload.Length > 0 && payload.Length % CosmeticStatePacket.Size == 0
                     && payload.Length <= Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size,

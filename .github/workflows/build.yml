@@ -500,6 +500,7 @@ jobs:
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --ai-client-driver
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --campaign-claims
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --replay-form-history
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --turret-fire-outcome-codec
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --lobby
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --custom-map-download
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --allocations

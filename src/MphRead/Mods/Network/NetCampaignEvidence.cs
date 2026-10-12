@@ -25,6 +25,15 @@ internal static class NetCampaignEvidence
     private static readonly int RowLimit = Environment.GetEnvironmentVariable("PRIME_NET2_SOAK") == "1"
         ? 1048576 : 262144;
     private static readonly List<Shot> Shots = new();
+    private static readonly List<object> TurretOutcomes = new();
+    internal static void TurretOutcome(in TurretFireOutcome fact, string stage, int cancelled = 0)
+    {
+        if (!Enabled) return;
+        Span<byte> bytes = stackalloc byte[TurretFireOutcome.Size]; fact.Write(bytes);
+        Add(TurretOutcomes, new { Stage = stage, fact.Key, fact.AuthorityFrame,
+            Status = fact.Status.ToString(), Reason = fact.Reason.ToString(),
+            ObservedFrame = NetSession.NetFrame, CancelledFlights = cancelled, Payload = Convert.ToHexString(bytes) });
+    }
     private static readonly List<PickupObservation> Pickups = new();
     private static readonly List<Health> States = new();
     private static readonly List<FormObservation> Forms = new();
@@ -353,6 +362,7 @@ internal static class NetCampaignEvidence
                 CombatReconciliation = NetHitPrediction.Capture(),
                 CombatPayments = NetCombatPayments.Capture(),
                 AiClient = NetAiClient.Capture(),
+                TurretOutcomes,
                 CampaignClaims = CaptureClaims(),
                 HitClaims = new { NetHitClaims.Declared, NetHitClaims.Applied, NetHitClaims.Duplicate,
                     NetHitClaims.RefusedDeadShooter, NetHitClaims.RefusedDeadVictim, NetHitClaims.RefusedOther,

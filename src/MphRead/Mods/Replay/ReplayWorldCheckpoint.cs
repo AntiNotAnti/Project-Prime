@@ -22,7 +22,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     internal const int MaximumBytes = 8 * 1024 * 1024;
     private const int MaximumObjects = 32768;
     private const uint Magic = 0x43575050; // PPWC
-    private const ushort Version = 7;
+    private const ushort Version = 8;
     private readonly ReplayPayload _data;
     internal ReadOnlySpan<byte> Bytes => _data.Span;
     internal ReplayPayload Payload => _data;
@@ -30,13 +30,14 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     internal bool IndexedFirePresentation { get; }
     internal bool HasPresentationContract { get; }
     internal bool HasAuthorityFormHistory { get; }
+    internal bool HasTurretOutcomeContract { get; }
     private readonly string _sourceContract;
     private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null,
-        bool indexedFirePresentation = false, bool hasPresentationContract = true, bool hasAuthorityFormHistory = true)
+        bool indexedFirePresentation = false, bool hasPresentationContract = true, bool hasAuthorityFormHistory = true, bool hasTurretOutcomeContract = true)
     {
         _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract;
         IndexedFirePresentation = indexedFirePresentation; HasPresentationContract = hasPresentationContract;
-        HasAuthorityFormHistory = hasAuthorityFormHistory;
+        HasAuthorityFormHistory = hasAuthorityFormHistory; HasTurretOutcomeContract = hasTurretOutcomeContract;
     }
     private bool _disposed;
     public void Dispose() { if (!_disposed) { _disposed = true; _data.Release(); GC.SuppressFinalize(this); } }
@@ -57,7 +58,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
                 throw new InvalidDataException("This replay uses a different saved-world layout. Open it with the game version that recorded it.");
             reader.ReadString(); reader.ReadInt32(); reader.ReadUInt64();
             return new(data, reader.ReadUInt32(), sourceContract, indexedFirePresentation: version >= 6 && bytes[^1] == 1,
-                hasPresentationContract: version >= 6, hasAuthorityFormHistory: version >= 7);
+                hasPresentationContract: version >= 6, hasAuthorityFormHistory: version >= 7, hasTurretOutcomeContract: version >= 8);
         }
         catch { data.Release(); throw; }
     }

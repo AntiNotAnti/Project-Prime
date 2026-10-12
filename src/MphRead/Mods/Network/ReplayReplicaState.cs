@@ -104,6 +104,7 @@ namespace MphRead.Mods.Network
         }
         public void Rewind()
         {
+            ResetTurretOutcomes();
             _bombPackets.Clear();
             ChatLines.Clear();
             _shotFacts.Clear();
@@ -142,6 +143,8 @@ namespace MphRead.Mods.Network
             bool accepted = false;
             switch ((PacketType)packet[0])
             {
+                case PacketType.TurretFireOutcome:
+                    accepted = AcceptTurretOutcome(payload); break;
                 case PacketType.BombEvent:
                 case PacketType.BombState:
                     accepted = AcceptBombPacket((PacketType)packet[0], payload);

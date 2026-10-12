@@ -100,7 +100,7 @@ namespace MphRead.Mods.Network
         {
             if (FindBot(slot) == null || _phase != SessionPhase.InMatch) return;
             _scratch[0] = (byte)slot;
-            int intentSize = CompactIntentCodec.Write(intent, _scratch.AsSpan(1));
+            int intentSize = CompactIntentCodec.Write(NetFireEvents.WithoutTurretOffers(intent), _scratch.AsSpan(1));
             foreach (var peer in _peers)
                 _transport?.Send(peer.EndPoint, PacketType.SlotIntent, _scratch.AsSpan(0, 1 + intentSize));
         }

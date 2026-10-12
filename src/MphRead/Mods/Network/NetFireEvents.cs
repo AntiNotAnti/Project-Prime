@@ -155,6 +155,7 @@ public static class NetFireEvents
         public readonly TurretRecovery[] TurretRecovery = new TurretRecovery[NetIncomingFireHistory.Capacity];
         public AcceptedShotLedger Ledger = NewLedger();
         public FireEvent Active;
+        public Vector3 NativeOrigin, NativeDirection;
         public readonly NetOutgoingFireHistory Outgoing = new();
         public readonly NetIncomingFireHistory Incoming = new();
     }
@@ -223,10 +224,12 @@ public static class NetFireEvents
                 // An expired pending source was never consumed by native Commit.
                 // Its claim rescue veto is production policy, independent of diagnostics.
                 if (NetSession.IsAuthority && fire.Kind == FireEventKind.TurretFire)
+                {
                     RememberRetiredUnemittedTurret(state, key);
-                // Preserve the entire recovery window and all native firing gates.
-                // Only at terminal expiry can a settled, unavailable authority
-                // turret classify the retained event as rejected rather than lost.
+                    NetSession.RefuseTurret(key, fire, TurretFireOutcomeReason.RecoveryExpired);
+                }
+                // Preserve diagnostic native gate history alongside the explicit
+                // refusal. Recovery expiry never claims a successful emission.
                 if (NetSession.IsAuthority && fire.Kind == FireEventKind.TurretFire
                     && (uint)slot < PlayerEntity.Players.Count)
                 {
@@ -236,7 +239,7 @@ public static class NetFireEvents
                     if (NetCampaignEvidence.Enabled && owner.SlotIndex == slot && owner.Hunter == Hunter.Weavel && proof.Key == key
                         && TurretRecoveryElapsed(proof.AcceptedAt, NetSession.NetFrame, proof.EverAvailable)
                         && ExpiredTurretUnavailable(key, ShotKey.For(slot, 0), owner.ModCaptureForm()))
-                    { NetCampaignEvidence.TurretRecoveryUnavailable(owner, key, fire, proof.AcceptedAt, proof.Form, proof.EverAvailable); return; }
+                    { NetCampaignEvidence.TurretRecoveryUnavailable(owner, key, fire, proof.AcceptedAt, proof.Form, proof.EverAvailable); }
                 }
                 NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Expired,
                     "fire-event recovery retention elapsed");
@@ -301,7 +304,8 @@ public static class NetFireEvents
     {
         var state = _slots[slot]; var fence = ShotKey.For(slot, 0) with { LifeId = 0 };
         if (state.Fence != fence)
-        { state.Ledger.Retire(fence.AuthorityEpoch, fence.MatchId, slot, fence.Generation);
+        { RejectSpecial(state, slot, "ownership retired");
+          state.Ledger.Retire(fence.AuthorityEpoch, fence.MatchId, slot, fence.Generation);
           state.Ledger.ResetObservationClock();
           state.EventStream = false; state.Fence = fence; state.Outgoing.Clear(); state.Incoming.Clear(); Array.Clear(state.TurretRecovery); Array.Clear(state.TurretTerminals); state.TurretTerminalOverflow = false; state.NextId = 0; state.Selected = false; state.Active = default; }
         ObserveTurretRecovery(state, slot);
@@ -328,6 +332,7 @@ public static class NetFireEvents
             else if (fire.Kind == FireEventKind.TurretFire && NetSession.IsAuthority)
             {
                 RememberRetiredUnemittedTurret(state, key);
+                NetSession.RefuseTurret(key, fire, TurretFireOutcomeReason.OwnerRetired);
                 if ((uint)slot < PlayerEntity.Players.Count)
                     NetCampaignEvidence.TurretUnavailable(PlayerEntity.Players[slot], key, fire);
                 else NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Rejected, reason);
@@ -337,10 +342,14 @@ public static class NetFireEvents
         }
     }
     public static void Reset()
-    { NetShotProof.Reset(); foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.HasTurretRetirement = slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); Array.Clear(slot.TurretRecovery); Array.Clear(slot.TurretTerminals); slot.TurretTerminalOverflow = false; slot.TurretTerminalOverflows = 0; slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
+    { NetShotProof.Reset(); NetSession.ResetTurretOutcomes(); foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.HasTurretRetirement = slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); Array.Clear(slot.TurretRecovery); Array.Clear(slot.TurretTerminals); slot.TurretTerminalOverflow = false; slot.TurretTerminalOverflows = 0; slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
     internal static bool Accept(int slot, in IntentPacket intent)
     {
         if ((uint)slot >= 8 || !Validate(intent)) return false;
+        for (int i = 0; i < intent.FireEventCount; i++)
+            if (intent.FireEvents[i] is { Kind: FireEventKind.TurretFire } turret
+                && (turret.Weapon != (byte)BeamType.Battlehammer || turret.Charge != 0
+                    || !turret.HasPose || turret.SourceLife == 0)) return false;
         NetContinuousAdmission.Observe(slot, intent);
         NetShotInputProof.Observe(slot, intent);
         NetShotSourceJournal.Observe(slot, intent);
@@ -421,6 +430,7 @@ public static class NetFireEvents
             var key = ShotKey.For(player.SlotIndex, retired.ShotId) with
             { LifeId = retired.SourceLife != 0 ? retired.SourceLife : state.CurrentLife };
             RememberRetiredUnemittedTurret(state, key);
+            NetSession.RefuseTurret(key, retired, TurretFireOutcomeReason.OwnerRetired);
             NetCampaignEvidence.TurretUnavailable(player, key, retired);
             state.Incoming.Consume(retired.ShotId);
             state.Selected = false; state.Active = default;
@@ -468,8 +478,9 @@ public static class NetFireEvents
         state.Active = fire; state.ActiveKey = key; state.PlayingAccepted = true;
         try
         {
-            // Clients predict owner-authored turret flights just as other N2
-            // discrete projectiles. This path cannot authorize server damage.
+            // Protocol 52 peers present only published native emissions here.
+            // Historical replay adapters retain their original offer semantics.
+            // This presentation path cannot authorize server damage.
             if (fire.Kind == FireEventKind.TurretFire) return player.ModSpawnAcceptedTurret(fire);
             NetShotProof.Admit(player, key, fire);
             var admission = NetShotProof.ObserveEmission(key);
@@ -485,7 +496,8 @@ public static class NetFireEvents
     internal static void ForgetSlot(int slot)
     {
         if ((uint)slot >= 8) return;
-        var state = _slots[slot]; state.Fence = default;
+        var state = _slots[slot];
+        RejectSpecial(state, slot, "ownership retired"); state.Fence = default;
         state.Ledger.Retire(0, 0, -1, 0);
         state.Ledger.ResetObservationClock(); state.EventStream = false;
         state.Outgoing.Clear(); state.Incoming.Clear(); Array.Clear(state.TurretRecovery); Array.Clear(state.TurretTerminals); state.TurretTerminalOverflow = false; state.NextId = 0;
@@ -633,6 +645,7 @@ public static class NetFireEvents
         if (!NetSession.Active || (uint)player.SlotIndex >= 8) return;
         if (TryAcceptedKey(player, out _)) return;
         var state = For(player.SlotIndex);
+        state.NativeOrigin = origin; state.NativeDirection = direction.Normalized();
         if (UsesEvents(player))
         {
             if (!state.Selected) { state.Active = default; return; }
@@ -700,6 +713,13 @@ public static class NetFireEvents
             && (uint)player.SlotIndex < 8)
             NetCampaignEvidence.Committed(player, For(player.SlotIndex).Active);
         if (!NetSession.Active || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8) return;
+        var committed = For(player.SlotIndex);
+        if (NetSession.IsAuthority && committed.Active.Kind == FireEventKind.TurretFire && committed.Active.ShotId != 0)
+        {
+            var key = ShotKey.For(player.SlotIndex, committed.Active.ShotId) with { LifeId = committed.Active.SourceLife };
+            NetSession.PublishTurretOutcome(new(key, NetSession.NetFrame, TurretFireOutcomeStatus.Emitted,
+                TurretFireOutcomeReason.None, committed.Active, committed.NativeOrigin, committed.NativeDirection));
+        }
         if (UsesEvents(player))
         { For(player.SlotIndex).Incoming.Consume(For(player.SlotIndex).Active.ShotId); return; }
         var state = For(player.SlotIndex);
@@ -710,6 +730,14 @@ public static class NetFireEvents
                     ? player.ModContinuousNetworkTarget : NetTargetIdentity.None
                 : state.Active.Target });
         NetShotProof.Fired(ShotKey.For(player.SlotIndex, state.Active.ShotId));
+    }
+    internal static IntentPacket WithoutTurretOffers(in IntentPacket intent)
+    {
+        var result = intent; result.FireEvents = default; result.FireEventCount = 0;
+        for (int i = 0; i < intent.FireEventCount; i++)
+            if (intent.FireEvents[i].Kind != FireEventKind.TurretFire)
+                result.FireEvents[result.FireEventCount++] = intent.FireEvents[i];
+        return result;
     }
     internal static void Fill(ref IntentPacket intent, int slot)
     {

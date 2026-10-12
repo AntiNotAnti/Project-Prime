@@ -22,7 +22,7 @@ public partial class PlayerEntity
     // split health, find a new target or run its native cooldown a second time.
     internal BeamResultFlags ModSpawnAcceptedTurret(in FireEvent fire)
     {
-        if (NetSession.IsAuthority || Hunter != Hunter.Weavel || fire.Kind != FireEventKind.TurretFire
+        if ((!_scene.Services.IsReplica && NetSession.IsAuthority) || fire.Kind != FireEventKind.TurretFire
             || fire.Weapon != (byte)BeamType.Battlehammer || !fire.HasPose
             || fire.SourceLife == 0)
             return BeamResultFlags.NoSpawn;

@@ -21,7 +21,7 @@ internal sealed class ReplayReplicaCheckpoint
 internal sealed partial class ReplayReplicaState
 {
     private const uint CheckpointMagic = 0x43525050; // PPRC, independent of demo/wire formats
-    private const ushort CheckpointVersion = 8;
+    private const ushort CheckpointVersion = 9;
     internal ReplayReplicaCheckpoint CaptureCheckpoint()
     {
         using var stream = new MemoryStream();
@@ -86,6 +86,7 @@ internal sealed partial class ReplayReplicaState
         foreach (var line in ChatLines) { writer.Write(line.Frame); line.Packet.Write(chatBytes); writer.Write(chatBytes); }
         SemanticEvents.WriteCheckpoint(writer);
         WriteBombPackets(writer);
+        WriteTurretOutcomes(writer);
 
     }
 
@@ -230,11 +231,13 @@ internal sealed partial class ReplayReplicaState
             }
             else restored.SemanticEvents.Begin(restored.Match?.MatchId ?? 0, restored.Match?.AuthorityEpoch ?? 0);
             if (version >= 8) restored.ReadBombPackets(reader);
+            if (version >= 9) restored.ReadTurretOutcomes(reader);
             if (stream.Position != stream.Length || restored.MatchRecordingFrame > restored.RecordingFrame
                 || restored.AcceptedPackets < 0 || restored.IgnoredPackets < 0) throw Malformed();
         }
         catch (EndOfStreamException ex) { throw new InvalidDataException("Truncated replica checkpoint.", ex); }
         _bombPackets.Clear(); _bombPackets.AddRange(restored._bombPackets);
+        RestoreTurretOutcomes(restored);
         ChatLines.Clear(); ChatLines.AddRange(restored.ChatLines);
         SemanticEvents = restored.SemanticEvents;
         ContainsBots = restored.ContainsBots;

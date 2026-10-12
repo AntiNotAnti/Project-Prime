@@ -75,8 +75,8 @@ internal static class ReplayPoseChecks
         { Console.WriteLine("[replayposes] NOT_RUN: full-match world baseline needed for the export policy regression."); return; }
         byte[] baseline = metadata.WorldCheckpoint;
         ushort version = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(baseline.AsSpan(4));
-        if (version is not (5 or 6 or 7))
-        { Console.WriteLine("[replayposes] NOT_RUN: version 5/6/7 baseline needed for the export policy regression."); return; }
+        if (version is not (5 or 6 or 7 or 8))
+        { Console.WriteLine("[replayposes] NOT_RUN: version 5/6/7/8 baseline needed for the export policy regression."); return; }
         // Preserve every value of the recorded baseline. An unindexed producer
         // is conservative provenance; full-match consumers still use indexing.
         baseline = baseline.AsSpan().ToArray();

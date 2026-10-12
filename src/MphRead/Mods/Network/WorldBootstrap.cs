@@ -232,6 +232,7 @@ public sealed partial class DedicatedServer
                 : new ReplayAuthorityWorld { MatchId = _matchId, Epoch = _authorityEpoch, Tick = header.Frame };
             peer.BootstrapObjectives = WorldBootstrapObjectives.Packets(peer.BootstrapIdentity, objectives);
             peer.BombCursor = _bombDelivery.Join();
+            peer.TurretCursor = _turretDelivery.Join();
             // An engine-free control-plane fixture still owns a real server
             // identity; the global gameplay session has not been initialized.
             var bombs = _sim == null

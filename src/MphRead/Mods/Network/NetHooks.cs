@@ -530,6 +530,7 @@ namespace MphRead.Mods.Network
                             && scene.Players.Items[i].ModIsInPlay)
                             NetPlayerBridge.RestoreSnapshotPresentationPosition(scene.Players.Items[i], NetSession.RemoteStates[i]);
             }
+            NetSession.ApplyTurretOutcomes(scene);
             // After the slots, because it reads which hunter each of them is
             // playing: a player who changed hunter between lives has changed
             // who they might collide with. See PlayerColors.

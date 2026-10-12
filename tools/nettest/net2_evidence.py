@@ -1,5 +1,6 @@
 """Offline, fail-closed adjudication of N0 process evidence (no game imports)."""
 from collections import Counter
+from net_turret_outcomes import authority_outcomes, peer_outcomes
 import json
 import math
 from pathlib import Path
@@ -362,6 +363,11 @@ def drain_barrier(server, peers, require_empty=True):
         bomb_frontier = server.get("BombFrontier")
         if bomb_frontier is not None and any(server[key] for key in ("BombPendingRequests", "BombPendingEvents", "BombFaulted")):
             return None, "authority bomb lane not settled"
+        for status in [server, *peers]:
+            if "TurretPendingOutcomes" in status:
+                pending = status["TurretPendingOutcomes"]
+                if type(pending) is not int or pending < 0: return None, "malformed pending turret outcomes"
+                if pending: return None, "turret outcomes remain unapplied"
         reliable = server["Reliable"]
         if not reliable or len(reliable) != len(peers) or any(p["Failed"] or p["Pending"] < 0 for p in reliable):
             return None, "authority reliable endpoints not healthy"
@@ -687,7 +693,11 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
         failures.extend("server: " + error for error in rejection_errors)
         observations["server"]["continuousTerminalRejectedCount"] = len(authority_rejected)
         observations["server"]["continuousTerminalRejectedKeys"] = [list(k) for k in sorted(authority_rejected)]
-        retired_turrets, turret_errors = authority_turret_retirements(authority, authority_accepted)
+        turret_terminals = {}
+        if authority.get("Protocol", 0) >= 52:
+            turret_terminals, retired_turrets, turret_errors = authority_outcomes(authority, authority_accepted, authority_shots)
+        else:
+            retired_turrets, turret_errors = authority_turret_retirements(authority, authority_accepted)
         failures.extend("server: " + error for error in turret_errors)
         observations["server"]["authorityRetiredTurretCount"] = len(retired_turrets)
         observations["server"]["authorityRetiredTurretKeys"] = [list(k) for k in sorted(retired_turrets)]
@@ -746,6 +756,21 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 if tuple(offered_rows[key].get(f) for f in fields) == tuple(retired_turrets[key][f] for f in fields):
                     retired_offered.add(key)
                 else: failures.append(name + ": offered turret differs from retired authority event")
+            if authority.get("Protocol", 0) >= 52:
+                required_turrets = offered.keys() & turret_terminals.keys()
+                for key, (outcome, _, _) in turret_terminals.items():
+                    try:
+                        admitted = initial_world_admission(authority, report, key[:2])
+                    except (KeyError, TypeError, ValueError) as error:
+                        failures.append(name + ': invalid turret admission evidence: ' + str(error)); admitted = None
+                    end = max((state["Frame"] for state, _ in common if (state["Epoch"], state["Match"]) == key[:2]), default=0)
+                    if admitted is not None and admitted <= outcome["AuthorityFrame"] <= end - 30:
+                        required_turrets.add(key)
+                received_turrets, refused_turrets, outcome_errors = peer_outcomes(report, turret_terminals, required_turrets)
+                failures.extend(name + ": " + error for error in outcome_errors)
+                retired_offered &= refused_turrets
+                observations[name]["turretOutcomeReceipts"] = len(received_turrets)
+                observations[name]["turretRefusalsApplied"] = len(refused_turrets)
             missing_committed -= retired_offered
             if any(s.get("Reason") in (TURRET_RETIRED_REASON,TURRET_UNAVAILABLE_REASON) for s in report["Shots"]):
                 failures.append(name + ": observer turret retirement cannot excuse authority emission presentation")

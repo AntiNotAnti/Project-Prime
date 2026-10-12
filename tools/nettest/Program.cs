@@ -39,6 +39,7 @@ namespace MphRead.NetTest
                     + "  --movement-tour <assets> [room]    Test seven hunters through native local movement.\n"
                     + "  --q3-traversal-scene <assets> [room] Test Q3 traversal through native movement.\n"
                     + "  --quiescent-turret-scene <assets> [room] Test native turret retirement during drain.\n"
+                    + "  --turret-outcome-scene <assets> [room] Test native emission gates and terminal outcomes.\n"
                     + "  --movement-validation-shadow      Test bounded advisory movement observations.\n"
                     + "  --form-scene <assets> [room]       Test authority form and detached turret lifecycle.");
                 return 0;
@@ -46,6 +47,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--ai-client-driver") return NetAiClientTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-claims") return CampaignClaimEvidenceTests.Run();
             if (args.Length > 0 && args[0] == "--replay-form-history") return ReplayFormHistoryTests.Run();
+            if (args.Length > 0 && args[0] == "--turret-fire-outcome-codec") return TurretFireOutcomeTests.Run();
             if (args.Length > 0 && args[0] == "--player-form-protocol") return PlayerFormProtocolTests.Run();
             if (args.Length > 0 && args[0] == "--bomb-protocol") return BombProtocolTests.Run();
             if (args.Length > 2 && args[0] == "--bomb-effect-birth-scene")
@@ -97,6 +99,12 @@ namespace MphRead.NetTest
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return QuiescentTurretTests.Run(args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
+            }
+            if (args.Length > 1 && args[0] == "--turret-outcome-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TurretOutcomeSceneTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
             if (args.Length > 1 && args[0] == "--sylux-muzzle-scene")
             {

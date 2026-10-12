@@ -88,6 +88,10 @@ internal sealed class ReplayPoseStream : IDisposable
     private readonly bool[] _discreteDrained = new bool[8];
     private readonly List<ServerClockSample> _serverClock = new(MaximumClockSamples);
     private readonly List<PendingShotFact> _pendingShotFacts = new();
+    private readonly List<(uint Carrier, TurretFireOutcome Fact)> _pendingTurretOutcomes = new();
+    private readonly Dictionary<ShotKey, TurretFireOutcome> _seenTurretOutcomes = new();
+    private bool _supportsTurretOutcomes;
+    private readonly Queue<(uint Carrier, ShotKey Key)> _turretOutcomeOrder = new();
     private readonly Dictionary<uint, List<ReplayShotFact>> _resolvedShotFacts = new();
     private readonly HashSet<ShotFactIdentity> _seenShotFacts = new();
     private readonly uint[] _lastResolvedHitFrame = new uint[8];
@@ -118,6 +122,7 @@ internal sealed class ReplayPoseStream : IDisposable
         _supportsFireEvents = IndexedFirePresentation && protocol >= 30;
         _supportsShotFacts = IndexedFirePresentation && protocol >= 40;
         _supportsAcceptedFire = IndexedFirePresentation && protocol >= 43;
+        _supportsTurretOutcomes = IndexedFirePresentation && protocol >= 52;
     }
     private ReplayPoseStream(PassiveReplayScene world)
     {
@@ -823,7 +828,8 @@ internal sealed class ReplayPoseStream : IDisposable
     }
 
     private bool IsPosedDiscrete(in FireEvent fire) => _supportsAcceptedFire && fire.HasPose
-        && fire.Kind is not FireEventKind.ContinuousTick and not FireEventKind.TurretFire;
+        && fire.Kind != FireEventKind.ContinuousTick
+        && (fire.Kind != FireEventKind.TurretFire || _supportsTurretOutcomes);
 
     private void PrepareFireFrame()
     {
@@ -1008,6 +1014,7 @@ internal sealed class ReplayPoseStream : IDisposable
                 _supportsFireEvents = IndexedFirePresentation && _reader.ProtocolVersion >= 30;
                 _supportsAcceptedFire = IndexedFirePresentation && _reader.ProtocolVersion >= 43;
                 _supportsShotFacts = IndexedFirePresentation && _reader.ProtocolVersion >= 40;
+                _supportsTurretOutcomes = IndexedFirePresentation && _reader.ProtocolVersion >= 52;
                 _pending = from > origin ? _reader.SeekAfter(from - origin - 1) : _reader.ReadNext();
                 if (_supportsShotFacts)
                 {
@@ -1053,8 +1060,12 @@ internal sealed class ReplayPoseStream : IDisposable
                 throw new InvalidDataException("Replay presentation lookahead exceeds its record bound.");
         }
 
+        while (_turretOutcomeOrder.TryPeek(out var oldestTurret)
+            && (ulong)oldestTurret.Carrier + ShotFactLookaheadFrames + PresentationHistoryFrames < frame)
+        { _turretOutcomeOrder.Dequeue(); _seenTurretOutcomes.Remove(oldestTurret.Key); }
         AdvanceShotFactLookahead(frame, origin);
         ScheduleShotFacts(frame);
+        ScheduleTurretOutcomes(frame);
 
         for (int slot = 0; slot < 8; slot++)
         {
@@ -1168,6 +1179,7 @@ internal sealed class ReplayPoseStream : IDisposable
         for (int i = 0; i < intent.FireEventCount; i++)
         {
             var fire = intent.FireEvents[i];
+            if (_supportsTurretOutcomes && fire.Kind == FireEventKind.TurretFire) continue;
             ushort sourceLife = fire.SourceLife != 0 ? fire.SourceLife : intent.LifeId;
             if (!index.Histories.TryGetValue(sourceLife, out var history))
             {
@@ -1235,8 +1247,38 @@ internal sealed class ReplayPoseStream : IDisposable
                 if (_seenShotFacts.Add(identity))
                     _pendingShotFacts.Add(new(at, fact));
             }
+            if (_supportsTurretOutcomes && !packet.IsEmpty && packet[0] == (byte)PacketType.TurretFireOutcome)
+            {
+                if (!TurretFireOutcome.TryRead(packet[1..], out var outcome)) throw new InvalidDataException("Malformed replay turret outcome.");
+                if (_seenTurretOutcomes.TryGetValue(outcome.Key, out var prior))
+                { if (prior != outcome) throw new InvalidDataException("Conflicting replay turret outcomes."); }
+                else
+                {
+                    if (_seenTurretOutcomes.Count >= 8192) throw new InvalidDataException("Replay turret lookahead exceeded its identity budget.");
+                    _seenTurretOutcomes.Add(outcome.Key, outcome);
+                    _turretOutcomeOrder.Enqueue((at, outcome.Key));
+                    if (outcome.Status == TurretFireOutcomeStatus.Emitted) _pendingTurretOutcomes.Add((at, outcome));
+                }
+            }
             if (++read > 65536)
                 throw new InvalidDataException("Replay shot-fact lookahead exceeds its record bound.");
+        }
+    }
+
+    private void ScheduleTurretOutcomes(uint frame)
+    {
+        for (int i = _pendingTurretOutcomes.Count - 1; i >= 0; i--)
+        {
+            var pending = _pendingTurretOutcomes[i]; var fact = pending.Fact;
+            if (!TryScheduleShotFact(_serverClock, fact.AuthorityFrame, pending.Carrier, frame, out uint scheduled)) continue;
+            _pendingTurretOutcomes.RemoveAt(i);
+            if ((ulong)scheduled + PresentationHistoryFrames < frame) continue;
+            if (!_fires.TryGetValue(scheduled, out var list)) { list = new(); _fires.Add(scheduled, list); }
+            var carrier = new IntentPacket { MatchId = fact.Key.MatchId, AuthorityEpoch = fact.Key.AuthorityEpoch,
+                SlotGeneration = fact.Key.Generation, LifeId = fact.Key.LifeId, Frame = fact.Fire.SourceFrame, HasFireEvents = true };
+            var fire = fact.Fire with { Origin = fact.EmissionOrigin, Direction = fact.EmissionDirection };
+            list.Add(new(scheduled, fact.Key.ShooterSlot, fact.Key.Generation, fact.Key.LifeId, fire, carrier));
+            _fireCapable.Add(new(fact.Key.ShooterSlot, fact.Key.Generation, fact.Key.LifeId));
         }
     }
 
@@ -1317,7 +1359,7 @@ internal sealed class ReplayPoseStream : IDisposable
         _resolvedShotFacts.Clear();
         _seenShotFacts.Clear();
         _fallbackImpacts.Clear();
-        _fires.Clear();
+        _fires.Clear(); _pendingTurretOutcomes.Clear(); _seenTurretOutcomes.Clear(); _turretOutcomeOrder.Clear();
         _fireCapable.Clear();
         _firePrune.Clear();
         Array.Clear(_activeFire);

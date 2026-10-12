@@ -14,6 +14,7 @@ internal static class NetFactBatch
         PacketType.MatchAward => MatchAwardPacket.Size - 1,
         PacketType.ReplayShotFact => ReplayShotFactPacket.Size,
         PacketType.BombEvent => BombEvent.Size,
+        PacketType.TurretFireOutcome => TurretFireOutcome.Size,
         _ => 0
     };
     internal static bool Validate(PacketType type, ReadOnlySpan<byte> payload)
@@ -27,6 +28,8 @@ internal static class NetFactBatch
             var record = payload.Slice(offset, stride);
             if (type == PacketType.BombEvent)
             { if (!BombEvent.TryRead(record, out _)) return false; }
+            else if (type == PacketType.TurretFireOutcome)
+            { if (!TurretFireOutcome.TryRead(record, out _)) return false; }
             else if (type == PacketType.ReplayShotFact)
             { if (!ReplayShotFactPacket.TryRead(record, out _)) return false; }
             else

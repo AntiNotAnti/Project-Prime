@@ -199,13 +199,21 @@ internal static class MatchSemanticWireChecks
         var replica = new ReplayReplicaState(); replica.RestoreCheckpoint(checkpoint);
         require(replica.SemanticEvents.Events.Single() == fact && replica.SemanticEvents.Awards.Single() == award, "replica checkpoint restores semantic facts and awards");
         require(replica.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes), "semantic decoder checkpoint exact roundtrip");
-        byte[] malformed = checkpoint.Bytes.ToArray(); malformed[^13] = 255;
+        // The last semantic award ends in its one-byte kind. It is followed by
+        // two uint presentation frontiers, the empty v8 bomb count, and the
+        // two empty v9 turret outcome counts (seen and pending): 20 tail bytes.
+        const int semanticTrailerBytes = 2 * sizeof(uint) + 3 * sizeof(int);
+        byte[] malformed = checkpoint.Bytes.ToArray();
+        int awardKindOffset = malformed.Length - semanticTrailerBytes - 1;
+        require(malformed[awardKindOffset] == (byte)award.Kind, "malformed fixture targets the retained semantic award kind");
+        malformed[awardKindOffset] = 255;
         bool rejected = false;
         try { replica.RestoreCheckpoint(new(malformed)); } catch (InvalidDataException) { rejected = true; }
         require(rejected && replica.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes), "bad semantic checkpoint is atomic");
         // Historical checkpoints must carry the event stride their protocol advertised.
         var empty = new ReplayReplicaState(); empty.Accept(matchBytes, 0);
-        byte[] HistoricalEmpty(ushort schema, byte protocol, int intentSize, int omittedTail)
+        byte[] HistoricalEmpty(ushort schema, byte protocol, int intentSize, int omittedTail,
+            int playerSize = PlayerState.Protocol48Size)
         {
             var source = empty.CaptureCheckpoint().Bytes.ToArray();
             // Empty decoder: fixed header, present match, absent configuration,
@@ -216,7 +224,7 @@ internal static class MatchSemanticWireChecks
             int at = firstPlayer;
             for (int slot = 0; slot < RosterPacket.MaxSlots; slot++)
             {
-                historical.Write(source.AsSpan(at, 7 + PlayerState.Protocol48Size));
+                historical.Write(source.AsSpan(at, 7 + playerSize));
                 at += 7 + PlayerState.Size;
                 historical.Write(source.AsSpan(at, 1)); at++;
                 historical.Write(source.AsSpan(at, intentSize)); at += IntentPacket.FullSize;
@@ -227,10 +235,22 @@ internal static class MatchSemanticWireChecks
             BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(4), schema); result[6] = protocol;
             return result;
         }
-        byte[] schemaFive = HistoricalEmpty(5, 42, IntentPacket.Protocol42FullSize, 12);
+        // v8 has the bomb appendix but neither v9 outcome count. v7 also
+        // predates the bomb count. Retain their exact historical extents.
+        byte[] schemaEight = HistoricalEmpty(8, 51, IntentPacket.FullSize, 8, PlayerState.Size);
+        var oldEight = new ReplayReplicaState(); oldEight.RestoreCheckpoint(new(schemaEight));
+        require(oldEight.Match?.MatchId == 1 && oldEight.PendingTurretOutcomeCount == 0,
+            "schema 8 checkpoints remain readable without turret outcome appendix");
+        byte[] schemaSeven = HistoricalEmpty(7, 49, IntentPacket.FullSize, 12, PlayerState.Size);
+        var oldSeven = new ReplayReplicaState(); oldSeven.RestoreCheckpoint(new(schemaSeven));
+        require(oldSeven.Match?.MatchId == 1 && oldSeven.PendingTurretOutcomeCount == 0,
+            "schema 7 checkpoints remain readable without bomb or turret outcome appendices");
+        // v5 omits the 8-byte presentation frontier, 4-byte bomb count and
+        // 8-byte outcome counts. v4 additionally omits both semantic counts.
+        byte[] schemaFive = HistoricalEmpty(5, 42, IntentPacket.Protocol42FullSize, 20);
         var oldFive = new ReplayReplicaState(); oldFive.RestoreCheckpoint(new(schemaFive));
         require(oldFive.SemanticEvents.Events.Count == 0, "schema 5 checkpoints remain readable without presentation frontier");
-        byte[] legacy = HistoricalEmpty(4, 34, IntentPacket.Protocol38FullSize, 20);
+        byte[] legacy = HistoricalEmpty(4, 34, IntentPacket.Protocol38FullSize, 28);
         replica.RestoreCheckpoint(new(legacy));
         require(replica.Match?.MatchId == 1 && replica.SemanticEvents.Events.Count == 0, "protocol34 version4 checkpoint remains readable");
     }
