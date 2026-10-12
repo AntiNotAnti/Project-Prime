@@ -17,6 +17,51 @@ def shot_key(row):
     return tuple(key[k] for k in ("AuthorityEpoch", "MatchId", "ShooterSlot", "Generation", "LifeId", "ShotId"))
 
 
+def initial_world_admission(authority, peer, identity):
+    """An exact authority receipt fences offers this peer could not yet receive.
+
+    Pre-load snapshots are observations, not world admission. Legacy evidence
+    retains its original interval; absent new fields never manufacture a fence.
+    """
+    slots = {w['LocalSlot'] for w in peer.get('Windows', [])
+             if (w.get('Epoch'), w.get('Match')) == identity and
+             type(w.get('LocalSlot')) is int and 0 <= w['LocalSlot'] < 8}
+    if len(slots) != 1:
+        return None
+    slot = next(iter(slots))
+    generations = {s['Generation'] for s in peer['States']
+                   if (s['Epoch'], s['Match'], s['Slot']) == (*identity, slot)}
+    if len(generations) != 1:
+        return None
+    generation = next(iter(generations))
+    boundaries = set()
+    for ready in authority.get('Readiness', []):
+        if type(ready) is not dict:
+            raise ValueError('invalid world admission row')
+        for field, minimum, maximum in (('AuthorityEpoch', 1, 0xffffffffffffffff),
+                                       ('CurrentMatchId', 1, 0xffff), ('Slot', 0, 7),
+                                       ('Generation', 1, 0xffff)):
+            value = ready.get(field)
+            if type(value) is not int or not minimum <= value <= maximum:
+                raise ValueError('invalid world admission identity: ' + field)
+        if (ready.get('AuthorityEpoch'), ready.get('CurrentMatchId'), ready.get('Slot'), ready.get('Generation')) != (*identity, slot, generation):
+            continue
+        if ready.get('InitialAdmission') is not True or ready.get('Rejoining') is not False:
+            continue
+        values = tuple(ready.get(k) for k in ('AuthorityFrame', 'BaselineAuthorityFrame', 'BootstrapRevision'))
+        if all(v is None for v in values):
+            continue
+        if any(type(v) is not int or not 0 < v <= 0xffffffff for v in values):
+            raise ValueError('invalid explicit world admission boundary')
+        frame, baseline, revision = values
+        if ((frame - baseline) & 0xffffffff) >= 0x80000000:
+            raise ValueError('world admission precedes its acknowledged baseline')
+        boundaries.add(values)
+    if len(boundaries) > 1:
+        raise ValueError('conflicting initial world admission boundaries')
+    return next(iter(boundaries))[0] if boundaries else None
+
+
 def continuous_terminal_rejections(report, authority_accepted):
     """Only exact admitted Shock Coil ticks with explicit owner death/life proof.
 
@@ -732,16 +777,27 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
             view_rejected, view_rejection_errors = continuous_terminal_rejections(report, authority_accepted)
             failures.extend(name + ": " + error for error in view_rejection_errors)
             expected_commits = set()
+            pre_admission = set()
             intervals = {}
             for state, _ in common:
                 identity = state["Epoch"], state["Match"]
                 first, last = intervals.get(identity, (state["Frame"], state["Frame"]))
                 intervals[identity] = min(first, state["Frame"]), max(last, state["Frame"])
+            admission_frames = {}
+            for identity in intervals:
+                try:
+                    admission_frames[identity] = initial_world_admission(authority, report, identity)
+                except (KeyError, TypeError, ValueError) as error:
+                    failures.append(name + ': invalid world admission evidence: ' + str(error))
             for key, shot in authority_shots.items():
                 if key not in all_offered:
                     continue
                 first, last = intervals.get(key[:2], (1, 0))
                 if first + 30 <= shot["ObservedFrame"] <= last - 30:
+                    admitted = admission_frames.get(key[:2])
+                    if admitted is not None and 0 < ((admitted - shot["ObservedFrame"]) & 0xffffffff) < 0x80000000:
+                        pre_admission.add(key)
+                        continue
                     expected_commits.add(key)
             terminal_view = expected_commits & view_rejected.keys()
             unobserved = expected_commits - received_commits - terminal_view
@@ -765,6 +821,8 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 "viewGapContext": shot_gap_context(unobserved, authority_shots, report, death_frames),
                 "matchingSemanticFacts": matching_facts,
                 "viewExpectedCommits": len(expected_commits), "viewMissingCommits": len(unobserved),
+                "viewBeforeInitialAdmissionCount": len(pre_admission),
+                "viewBeforeInitialAdmissionKeys": [list(key) for key in sorted(pre_admission)],
                 "viewMissingKeys": [list(key) for key in sorted(unobserved)[:32]],
                 "viewTailExcludedFrames": 30,
                 "semanticExpected": semantic_expected, "semanticMissing": semantic_missing,

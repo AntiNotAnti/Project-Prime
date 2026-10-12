@@ -1,6 +1,6 @@
-# G1 native AI network clients — evidence draft
+# G1 native AI network clients — acceptance blocked
 
-This draft describes the opt-in G1 harness and its evidence contract. It records no passing G1 acceptance result, gameplay comparisons, or performance improvements. Run artifacts and actual checks must supply those results; the initial incomplete LAN attempt is retained as a limitation below.
+The opt-in G1 harness is implemented and has passing 2/4-client evidence. G1 acceptance remains blocked by two failed 8-client impaired campaigns and an unresolved owner-offer versus authority-native turret-emission mismatch. Failed artifacts are retained; no 8-client acceptance or release readiness is claimed.
 
 ## Configuration
 
@@ -30,7 +30,7 @@ This command is a proposed run, not evidence that it has executed. Confirm the b
 
 Shot identities use explicit epoch/match/slot/generation/life/shot fields, independent of JSON object order. Claim receipts include retries. Component payments count the shot component health/turret path and exclude separate bomb/continuous payment paths. Owner native pickup consumption does not establish an admitted authority grant or the later A1/A2 ownership contract.
 
-Authority receipt/application denominators require process-lifetime `CampaignClaims.Received` and `CampaignClaims.Applied`. There is no fallback to `HitClaims.Received` or `HitClaims.AppliedHere`: those snapshots reset when the last peer leaves and the server suspends. The initial LAN attempt's exported receipt counter was zero and its activity result remains incomplete; positive operator observations cannot repair a missing lifetime denominator. A later run must export the required counters before claiming acceptance.
+Authority receipt/application denominators require process-lifetime `CampaignClaims.Received` and `CampaignClaims.Applied`. There is no fallback to `HitClaims.Received` or `HitClaims.AppliedHere`: those snapshots reset when the last peer leaves and the server suspends. The initial `8ddfc4b8` LAN attempt exported a zero resettable receipt snapshot and remains incomplete; positive operator observations cannot repair a missing lifetime denominator. Fresh `7b932686` campaigns export the required lifetime counters.
 
 Each client report includes descriptive `lifecycleEvidence`. `SpawnedLives` counts AI decisions that observe a changed life ID, including the initial life; `AltFrames` counts AI decision frames spent in an alternative form. Positive counts are `OBSERVED`; zero counts are `NOT_RUN`. These counters do not prove lifecycle parity.
 
@@ -40,11 +40,36 @@ When authority `Facts` is present, exact 48-byte semantic packets supply canonic
 
 Canonical respawn joins use serial-number comparisons for unsigned 16-bit life IDs and unsigned 32-bit ticks. Synthetic decoder tests cover wrap boundaries; they do not claim a campaign exercised a rollover.
 
-## Replay repair — development verification only
+## Verified checks and live results
 
-Two replay repairs have been verified against both original AI demos using a development build whose source is not yet the final committed campaign source. The v7 replay capsule appends the authority-form cache while preserving the legacy graph contract. Older optional capsules fall back to the replay baseline; older mandatory clips retain an explicit warning that their transition is unverified. Restored ammunition delegates rebind to the existing player reserve without calling `TryEquipWeapon` or resetting animation.
+Immutable source `7b93268638c35a70a0fdaeb3817c0c392b8c4215` built successfully. Twelve C# check groups passed; Python completed 388 tests with one explicit skip; all 27 CI checks passed. These checks do not replace live acceptance.
 
-After these repairs, the original demos passed determinism verification with 3,789 and 3,792 compared hashes, and replica verification with 3,788 and 3,791 compared hashes, respectively. These are development verification results, not immutable G1 campaign acceptance. Retain the original failed replay logs alongside the repaired-build results. The first LAN attempt also remains incomplete because its authority claim receipt snapshot reset; replay repair does not replace that missing lifetime denominator. Final G1 PASS requires new immutable campaigns with the final source/binary identities and all required checks.
+The following campaign parity, drain and AI activity audits passed under `artifacts/net21-g1/`:
+
+| Campaign | Result |
+|---|---|
+| `udp-2-bot-lan-7b932686` | PASS |
+| `udp-2-bot-rendered-7b932686` | PASS |
+| `udp-2-impaired-7b932686` | PASS |
+| `udp-4-impaired-7b932686` | PASS |
+
+All four fresh demos from the two recorded LAN/rendered campaigns passed determinism and replica continuation checks on that immutable build. Engine SHA256 was `a3411e32b46c95dfaf7c82ded987defb6fe16f7b78cea8d814b560a3704273d4` and remained unchanged. Results are retained in `acceptance-lan-7b932686-replays.json` and `acceptance-rendered-7b932686-replays.json`.
+
+The v7 replay capsule appends authority-form history while preserving the legacy graph contract. Older optional capsules fall back to the recording baseline. Older mandatory clips remain readable with an explicit warning that transition animation continuity is unverified. Restored ammunition delegates rebind to the correct existing reserve without calling `TryEquipWeapon` or resetting animation. Original failed replay logs and the initial incomplete campaign remain retained.
+
+## Retained 8-client failures and prerequisite repair
+
+`udp-8-impaired-7b932686` is FAIL: peer 3 could not serialize non-finite evidence; two offered turret shots lacked authority-native commits; and three shots had an observer playback gap near initial world admission. The missing peer report also invalidated the drain proof.
+
+`udp-8-impaired-7bbdf4c8` is FAIL: finite activity instrumentation reported zero invalid samples and produced complete evidence, but the same class of two turret emission gaps remained. Removing the serialization failure did not establish 8-client acceptance. Both attempts are retained.
+
+The current failure-counter contract requires each AI client to export nonnegative `InvalidPositionSamples` and `InvalidDistanceSamples`. Missing/malformed counters fail validation; either nonzero counter fails activity acceptance. Invalid samples must not inflate travel or silently become a passing report.
+
+The unresolved turret defect separates an owner-authored offer from actual authority-native emission. Raw owner turret events can reach observers before the authority's native turret fires. Diagnostics identify a missing native target in one case and native cooldown followed by turret death in another. A prerequisite repair must give observers actual authoritative emission/refusal outcomes while preserving the original shot identity, source clock, native firing gates and one-time payment. This behavior is not fixed, and audit exceptions cannot substitute for that repair.
+
+The failed acceptance manifest is [`net21-g1-20261011.json`](../tools/nettest/baselines/net21-g1-20261011.json), including source/binary identities and raw artifact hashes. Later audit fixtures require exact authority receipt, bootstrap revision and baseline frame before excluding pre-admission observer offers; missing historical evidence supplies no exemption. The expanded Python suite has 396 tests with one existing skip.
+
+Server timing, allocation, queue and traffic measurements in campaign reports are descriptive observations for those runs. Matched before/after gameplay and performance comparisons are NOT_RUN; no performance improvement is claimed.
 
 ## Current limitations and required results
 
