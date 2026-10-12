@@ -14,6 +14,7 @@ public partial class PlayerEntity
             public bool HeardOnly;
             public Vector3 Position;
             public Vector3 Velocity;
+            public Vector3 SmoothedObservedVelocity;
             public int FramesRemaining;
             public int InitialFrames;
             public int FramesSinceSight;
@@ -41,6 +42,10 @@ public partial class PlayerEntity
                 return;
             }
             ref BotContact contact = ref _botContacts[slot];
+            bool freshSight = !contact.Known || contact.HeardOnly
+                || contact.FramesSinceSight > 5;
+            contact.SmoothedObservedVelocity = BotPerceptionMath.SmoothObservedVelocity(
+                contact.SmoothedObservedVelocity, observed.Speed, freshSight);
             contact.Known = true;
             contact.HeardOnly = false;
             contact.Position = observed.Position;
@@ -77,6 +82,7 @@ public partial class PlayerEntity
             contact.HeardOnly = true;
             contact.Position = approximate;
             contact.Velocity = Vector3.Zero;
+            contact.SmoothedObservedVelocity = Vector3.Zero;
             contact.FramesRemaining = Math.Max(1, memoryFrames);
             contact.InitialFrames = contact.FramesRemaining;
             contact.FramesSinceSight = 1000;
@@ -167,6 +173,22 @@ public partial class PlayerEntity
                 : BotPerceptionMath.RememberedPosition(
                     contact.Position, contact.Velocity, contact.FramesSinceSight);
             return true;
+        }
+
+        private Vector3 BotAimObservedVelocity(PlayerEntity observed)
+        {
+            if (_player.BotLevel < 2 || (uint)observed.SlotIndex >= (uint)_botContacts.Length)
+            {
+                return observed.Speed / 2f;
+            }
+            ref BotContact contact = ref _botContacts[observed.SlotIndex];
+            if (!contact.Known || contact.HeardOnly || !contact.VisibleNow)
+            {
+                return observed.Speed / 2f;
+            }
+            // The aim policy already requires direct LOS; smoothing only uses
+            // velocities sampled while visible, never hidden live transforms.
+            return (observed.Speed * 0.65f + contact.SmoothedObservedVelocity * 0.35f) / 2f;
         }
 
         private void BotInvestigatePosition(Vector3 lastKnown)

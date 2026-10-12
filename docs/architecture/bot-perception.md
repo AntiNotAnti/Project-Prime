@@ -30,6 +30,19 @@ A hidden remembered target cannot be fed to the active combat aim/fire routine.
 Visible targets continue through ordinary weapon, tactical footwork and combat
 physics.
 
+## Opponent movement tracking and human reaction
+
+Hard and Insane bots smooth **observed**, currently visible target velocity
+before projectile interception. This reduces perfect instantaneous prediction
+during a strafe reversal and eliminates stale smoothing upon reacquisition.
+Visual acquisition has a finite difficulty-dependent delay of 7–26 ticks at
+60 Hz; reacquiring a previously tracked enemy takes 3–12 ticks. The delay
+prevents immediate same-frame precision target acquisition and shooting by
+the new tactical layer. No opponent velocity is refreshed behind cover.
+
+Bots at higher difficulty also prioritize existing native health-pickup routes
+once below 62% health instead of waiting for emergency retreat thresholds.
+
 ## Committed positioning
 
 Hard and Insane bots now sample a bounded eight-direction set of nearby safe

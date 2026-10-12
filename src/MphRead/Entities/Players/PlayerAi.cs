@@ -6997,7 +6997,7 @@ namespace MphRead.Entities
                             }
                             if (projectileSpeed > 0)
                             {
-                                Vector3 targetVelocity = _targetPlayer.Speed / 2f;
+                                Vector3 targetVelocity = BotAimObservedVelocity(_targetPlayer);
                                 float muzzleDist = (targetPos - _player._muzzlePos).Length;
                                 lead = targetVelocity * (muzzleDist / projectileSpeed) * tuning.PredictionStrength;
                                 for (int i = 0; i < tuning.PredictionIterations; i++)

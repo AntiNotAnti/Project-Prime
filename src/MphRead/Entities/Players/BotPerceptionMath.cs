@@ -54,6 +54,15 @@ internal static class BotPerceptionMath
         return lastSeenPosition + travel;
     }
 
+    internal static Vector3 SmoothObservedVelocity(Vector3 previous, Vector3 observed,
+        bool reacquired)
+    {
+        if (!Finite(observed)) return Vector3.Zero;
+        if (reacquired || !Finite(previous)) return observed;
+        // Reject one-frame jitter without missing genuine strafing changes.
+        return previous * 0.60f + observed * 0.40f;
+    }
+
     internal static float Confidence(int framesRemaining, int initialFrames, bool heardOnly)
     {
         if (initialFrames <= 0 || framesRemaining <= 0)

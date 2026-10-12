@@ -71,6 +71,9 @@ public partial class PlayerEntity
         private int _tacticalProgressTimer;
         private int _tacticalStuckCount;
         private int _tacticalEscapeFrames;
+        private PlayerEntity? _botReactionTarget;
+        private int _botReactionFrames;
+        private bool _botReactionHadSight;
 
         private BotTacticalTuning TacticalTuning =>
             _tacticalTuning[Math.Clamp(_player.BotLevel, 0, _tacticalTuning.Length - 1)];
@@ -97,6 +100,9 @@ public partial class PlayerEntity
             _tacticalProgressTimer = 0;
             _tacticalStuckCount = 0;
             _tacticalEscapeFrames = 0;
+            _botReactionTarget = null;
+            _botReactionFrames = 0;
+            _botReactionHadSight = false;
             ResetBotPerception();
             ResetBotPositioning();
         }
@@ -161,6 +167,9 @@ public partial class PlayerEntity
             if (_tacticalTarget == null)
             {
                 ResetBotPositioning();
+                _botReactionTarget = null;
+                _botReactionFrames = 0;
+                _botReactionHadSight = false;
                 // A recent gunshot or attacker should at least turn the bot toward the remembered
                 // location. We intentionally do not set TargetPlayer here, so hearing never grants
                 // perfect through-wall tracking or firing.
@@ -179,6 +188,7 @@ public partial class PlayerEntity
             bool visible = TacticalCanSee(_tacticalTarget);
             if (!visible)
             {
+                _botReactionHadSight = false;
                 // The original behavior tree ran earlier in this frame. Revoke
                 // precision targeting and firing before the input is applied:
                 // a remembered player is an investigation goal, not a live aim lock.
@@ -195,6 +205,29 @@ public partial class PlayerEntity
                         BotInvestigatePosition(remembered);
                     }
                 }
+                return;
+            }
+
+            if (_botReactionTarget != _tacticalTarget)
+            {
+                _botReactionTarget = _tacticalTarget;
+                _botReactionFrames = BotReactionPolicy.AcquisitionFrames(_player.BotLevel,
+                    reacquired: false);
+            }
+            else if (!_botReactionHadSight)
+            {
+                _botReactionFrames = Math.Max(_botReactionFrames,
+                    BotReactionPolicy.AcquisitionFrames(_player.BotLevel, reacquired: true));
+            }
+            _botReactionHadSight = true;
+            if (_botReactionFrames > 0)
+            {
+                _botReactionFrames--;
+                // Reaction time affects *what* a bot is allowed to commit to,
+                // not the 60-Hz native simulation or visible body physics.
+                Flags2 &= ~AiFlags2.TargetPlayer;
+                Flags2 &= ~AiFlags2.Bit8;
+                _buttons.R.IsDown = false;
                 return;
             }
 
@@ -286,7 +319,12 @@ public partial class PlayerEntity
         {
             float healthFraction = _player.HealthMax <= 0 ? 1
                 : Math.Clamp(_player.Health / (float)_player.HealthMax, 0, 1);
-            if (healthFraction <= tuning.RetreatHealthFraction
+            // Skilled bots preserve the native health route before reaching
+            // critical HP instead of repeatedly choosing an unwinnable duel.
+            float healthRecoveryThreshold = _player.BotLevel >= 2
+                ? Math.Max(tuning.RetreatHealthFraction, 0.62f)
+                : tuning.RetreatHealthFraction;
+            if (healthFraction <= healthRecoveryThreshold
                 && Flags2.TestFlag(AiFlags2.TargetItem)
                 && ((_itemC8 != null && IsHealth(_itemC8))
                     || (_itemSpawnC4 != null && IsHealth(_itemSpawnC4))))
@@ -332,6 +370,9 @@ public partial class PlayerEntity
             _combatStrafeTimer = 0;
             _tacticalEscapeFrames = 0;
             ResetBotPositioning();
+            _botReactionTarget = null;
+            _botReactionFrames = 0;
+            _botReactionHadSight = false;
             BotForgetContact(victim.SlotIndex);
             _tacticalMovementActive = false;
             _tacticalSteeringActive = false;

@@ -224,6 +224,21 @@ public static class BotAiChecks
               < BotPositionUtility.Score(12, 12, 12, false, false, 0, 0, 0),
             "combat planner reduces teammate crowding");
 
+        Vector3 filteredVelocity = BotPerceptionMath.SmoothObservedVelocity(
+            new(1, 0, 0), new(-1, 0, 0), reacquired: false);
+        Check(filteredVelocity.X > -1 && filteredVelocity.X < 1
+            && BotPerceptionMath.SmoothObservedVelocity(
+                Vector3.Zero, new(-1, 0, 0), reacquired: true).X == -1,
+            "bot prediction smooths visible reversal jitter but resets on reacquisition");
+        Check(BotReactionPolicy.AcquisitionFrames(3, reacquired: false) <
+                BotReactionPolicy.AcquisitionFrames(2, reacquired: false)
+            && BotReactionPolicy.AcquisitionFrames(3, reacquired: true) <
+                BotReactionPolicy.AcquisitionFrames(3, reacquired: false),
+            "elite reaction is fast but not instantaneous; familiar corners reacquire quicker");
+        Check(BotReactionPolicy.AcquisitionFrames(-200, false) ==
+              BotReactionPolicy.AcquisitionFrames(0, false),
+            "reaction difficulty clamps invalid tiers");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }
