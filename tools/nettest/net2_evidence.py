@@ -1,5 +1,6 @@
 """Offline, fail-closed adjudication of N0 process evidence (no game imports)."""
 from collections import Counter
+from net_turret_outcomes import authority_outcomes, peer_outcomes, terminal_rows
 import json
 import math
 from pathlib import Path
@@ -15,6 +16,51 @@ FATAL = re.compile(r"semantic history overrun|reliable (?:channel |control )?(?:
 def shot_key(row):
     key = row["Key"]
     return tuple(key[k] for k in ("AuthorityEpoch", "MatchId", "ShooterSlot", "Generation", "LifeId", "ShotId"))
+
+
+def initial_world_admission(authority, peer, identity):
+    """An exact authority receipt fences offers this peer could not yet receive.
+
+    Pre-load snapshots are observations, not world admission. Legacy evidence
+    retains its original interval; absent new fields never manufacture a fence.
+    """
+    slots = {w['LocalSlot'] for w in peer.get('Windows', [])
+             if (w.get('Epoch'), w.get('Match')) == identity and
+             type(w.get('LocalSlot')) is int and 0 <= w['LocalSlot'] < 8}
+    if len(slots) != 1:
+        return None
+    slot = next(iter(slots))
+    generations = {s['Generation'] for s in peer['States']
+                   if (s['Epoch'], s['Match'], s['Slot']) == (*identity, slot)}
+    if len(generations) != 1:
+        return None
+    generation = next(iter(generations))
+    boundaries = set()
+    for ready in authority.get('Readiness', []):
+        if type(ready) is not dict:
+            raise ValueError('invalid world admission row')
+        for field, minimum, maximum in (('AuthorityEpoch', 1, 0xffffffffffffffff),
+                                       ('CurrentMatchId', 1, 0xffff), ('Slot', 0, 7),
+                                       ('Generation', 1, 0xffff)):
+            value = ready.get(field)
+            if type(value) is not int or not minimum <= value <= maximum:
+                raise ValueError('invalid world admission identity: ' + field)
+        if (ready.get('AuthorityEpoch'), ready.get('CurrentMatchId'), ready.get('Slot'), ready.get('Generation')) != (*identity, slot, generation):
+            continue
+        if ready.get('InitialAdmission') is not True or ready.get('Rejoining') is not False:
+            continue
+        values = tuple(ready.get(k) for k in ('AuthorityFrame', 'BaselineAuthorityFrame', 'BootstrapRevision'))
+        if all(v is None for v in values):
+            continue
+        if any(type(v) is not int or not 0 < v <= 0xffffffff for v in values):
+            raise ValueError('invalid explicit world admission boundary')
+        frame, baseline, revision = values
+        if ((frame - baseline) & 0xffffffff) >= 0x80000000:
+            raise ValueError('world admission precedes its acknowledged baseline')
+        boundaries.add(values)
+    if len(boundaries) > 1:
+        raise ValueError('conflicting initial world admission boundaries')
+    return next(iter(boundaries))[0] if boundaries else None
 
 
 def continuous_terminal_rejections(report, authority_accepted):
@@ -317,6 +363,11 @@ def drain_barrier(server, peers, require_empty=True):
         bomb_frontier = server.get("BombFrontier")
         if bomb_frontier is not None and any(server[key] for key in ("BombPendingRequests", "BombPendingEvents", "BombFaulted")):
             return None, "authority bomb lane not settled"
+        for status in [server, *peers]:
+            if "TurretPendingOutcomes" in status:
+                pending = status["TurretPendingOutcomes"]
+                if type(pending) is not int or pending < 0: return None, "malformed pending turret outcomes"
+                if pending: return None, "turret outcomes remain unapplied"
         reliable = server["Reliable"]
         if not reliable or len(reliable) != len(peers) or any(p["Failed"] or p["Pending"] < 0 for p in reliable):
             return None, "authority reliable endpoints not healthy"
@@ -627,6 +678,10 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
     if "server" not in reports or len(reports) != len(processes):
         incomplete.append("not every independent process supplied valid evidence")
     parity = {}
+    turret_terminals = {}
+    turret_denominators = dict(authorityEmissions=0, authorityRefusals=0,
+        requiredPeerReceipts=0, receivedPeerReceipts=0, requiredPeerRefusalApplications=0,
+        appliedPeerRefusals=0, cancelledFlights=0)
     if "server" in reports:
         authority = reports["server"]
         if not authority["ServerSegments"]:
@@ -642,7 +697,13 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
         failures.extend("server: " + error for error in rejection_errors)
         observations["server"]["continuousTerminalRejectedCount"] = len(authority_rejected)
         observations["server"]["continuousTerminalRejectedKeys"] = [list(k) for k in sorted(authority_rejected)]
-        retired_turrets, turret_errors = authority_turret_retirements(authority, authority_accepted)
+        turret_terminals = {}
+        if authority.get("Protocol", 0) >= 52:
+            turret_terminals, retired_turrets, turret_errors = authority_outcomes(authority, authority_accepted, authority_shots)
+        else:
+            retired_turrets, turret_errors = authority_turret_retirements(authority, authority_accepted)
+        turret_denominators["authorityEmissions"] = sum(row[0]["Status"] == "Emitted" for row in turret_terminals.values())
+        turret_denominators["authorityRefusals"] = sum(row[0]["Status"] == "Refused" for row in turret_terminals.values())
         failures.extend("server: " + error for error in turret_errors)
         observations["server"]["authorityRetiredTurretCount"] = len(retired_turrets)
         observations["server"]["authorityRetiredTurretKeys"] = [list(k) for k in sorted(retired_turrets)]
@@ -701,6 +762,34 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 if tuple(offered_rows[key].get(f) for f in fields) == tuple(retired_turrets[key][f] for f in fields):
                     retired_offered.add(key)
                 else: failures.append(name + ": offered turret differs from retired authority event")
+            if authority.get("Protocol", 0) >= 52:
+                required_turrets = offered.keys() & turret_terminals.keys()
+                for key, (outcome, _, _) in turret_terminals.items():
+                    try:
+                        admitted = initial_world_admission(authority, report, key[:2])
+                    except (KeyError, TypeError, ValueError) as error:
+                        failures.append(name + ': invalid turret admission evidence: ' + str(error)); admitted = None
+                    end = max((state["Frame"] for state, _ in common if (state["Epoch"], state["Match"]) == key[:2]), default=0)
+                    if admitted is not None and admitted <= outcome["AuthorityFrame"] <= end - 30:
+                        required_turrets.add(key)
+                received_turrets, refused_turrets, outcome_errors = peer_outcomes(report, turret_terminals, required_turrets)
+                failures.extend(name + ": " + error for error in outcome_errors)
+                retired_offered &= refused_turrets
+                # Count only the validated authority/peer joins. These are observed
+                # workload denominators, not a claim of complete turret correctness.
+                receipt_rows, _ = terminal_rows(report)
+                cancelled = sum(receipt_rows[("refusal-applied", key)][0]["CancelledFlights"]
+                                for key in refused_turrets)
+                turret_denominators["requiredPeerReceipts"] += len(required_turrets)
+                turret_denominators["receivedPeerReceipts"] += len(received_turrets)
+                turret_denominators["requiredPeerRefusalApplications"] += sum(
+                    turret_terminals[key][0]["Status"] == "Refused" for key in required_turrets)
+                turret_denominators["appliedPeerRefusals"] += len(refused_turrets)
+                turret_denominators["cancelledFlights"] += cancelled
+                observations[name]["turretRequiredOutcomeReceipts"] = len(required_turrets)
+                observations[name]["turretCancelledFlights"] = cancelled
+                observations[name]["turretOutcomeReceipts"] = len(received_turrets)
+                observations[name]["turretRefusalsApplied"] = len(refused_turrets)
             missing_committed -= retired_offered
             if any(s.get("Reason") in (TURRET_RETIRED_REASON,TURRET_UNAVAILABLE_REASON) for s in report["Shots"]):
                 failures.append(name + ": observer turret retirement cannot excuse authority emission presentation")
@@ -732,16 +821,27 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
             view_rejected, view_rejection_errors = continuous_terminal_rejections(report, authority_accepted)
             failures.extend(name + ": " + error for error in view_rejection_errors)
             expected_commits = set()
+            pre_admission = set()
             intervals = {}
             for state, _ in common:
                 identity = state["Epoch"], state["Match"]
                 first, last = intervals.get(identity, (state["Frame"], state["Frame"]))
                 intervals[identity] = min(first, state["Frame"]), max(last, state["Frame"])
+            admission_frames = {}
+            for identity in intervals:
+                try:
+                    admission_frames[identity] = initial_world_admission(authority, report, identity)
+                except (KeyError, TypeError, ValueError) as error:
+                    failures.append(name + ': invalid world admission evidence: ' + str(error))
             for key, shot in authority_shots.items():
                 if key not in all_offered:
                     continue
                 first, last = intervals.get(key[:2], (1, 0))
                 if first + 30 <= shot["ObservedFrame"] <= last - 30:
+                    admitted = admission_frames.get(key[:2])
+                    if admitted is not None and 0 < ((admitted - shot["ObservedFrame"]) & 0xffffffff) < 0x80000000:
+                        pre_admission.add(key)
+                        continue
                     expected_commits.add(key)
             terminal_view = expected_commits & view_rejected.keys()
             unobserved = expected_commits - received_commits - terminal_view
@@ -765,6 +865,8 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
                 "viewGapContext": shot_gap_context(unobserved, authority_shots, report, death_frames),
                 "matchingSemanticFacts": matching_facts,
                 "viewExpectedCommits": len(expected_commits), "viewMissingCommits": len(unobserved),
+                "viewBeforeInitialAdmissionCount": len(pre_admission),
+                "viewBeforeInitialAdmissionKeys": [list(key) for key in sorted(pre_admission)],
                 "viewMissingKeys": [list(key) for key in sorted(unobserved)[:32]],
                 "viewTailExcludedFrames": 30,
                 "semanticExpected": semantic_expected, "semanticMissing": semantic_missing,
@@ -789,12 +891,19 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
         "mapRotation": rotation,
         "shockCoilDrainKillParity": "NOT_RUN", "imperialistSpawnTrapCoverage": "NOT_RUN",
         "sustained20Minutes": "PASS" if sustained else "INCOMPLETE" if soak else "NOT_RUN"}
+    for label, denominator in (("turretEmissions", "authorityEmissions"),
+                               ("turretRefusals", "authorityRefusals"),
+                               ("turretOutcomeReceipts", "receivedPeerReceipts"),
+                               ("turretRefusalApplications", "appliedPeerRefusals"),
+                               ("turretCancelledFlights", "cancelledFlights")):
+        coverage[label] = "OBSERVED" if turret_denominators[denominator] else "NOT_RUN"
     drain_status, drain_gaps = drain_coverage(manifest, reports)
     coverage["boundedHeadlessDrain"] = drain_status
     failures.extend("campaign drain: " + gap for gap in drain_gaps)
     if soak and (not sustained or any(coverage[k] != "PASS" for k in ("botFills", "spectator", "mapRotation"))):
         incomplete.append("soak duration, load, bot, spectator or map-rotation coverage missing")
     return {"status": "FAIL" if failures else "INCOMPLETE" if incomplete else "PASS", "coverage": coverage,
+            "turretOutcomeDenominators": turret_denominators,
             "mapRotationEvidenceGaps": rotation_gaps,
             "campaignDrainEvidenceGaps": drain_gaps,
             "failures": failures, "incomplete": incomplete, "processes": processes,

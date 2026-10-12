@@ -40,6 +40,7 @@ internal static class ReplayDeterminism
                 void Capture(Scene scene)
                 {
                     uint frame = linear.Current.Session.CurrentFrame;
+                    RequireCursor(scene, frame);
                     if (trace.Position != frame * 64L) throw new InvalidDataException($"Missing/duplicate frame {frame}.");
                     byte[] projection = Projection(scene, frame); trace.Write(projection);
                     if (frame % 300 == 0 || frame == duration) expected.Add(new(frame, Convert.ToHexString(projection.AsSpan(0, 32))));
@@ -49,15 +50,36 @@ internal static class ReplayDeterminism
                 while (!linear.Current.Session.AtEnd) linear.Update();
             }
             trace.Flush();
-            void Compare(Scene scene, uint frame)
+            void Compare(PassiveReplayPlayer actualPlayer, uint frame)
             {
+                Scene scene = actualPlayer.Current.Scene;
+                RequireCursor(scene, frame);
                 trace.Position = frame * 64L;
                 Span<byte> reference = stackalloc byte[64]; trace.ReadExactly(reference);
                 byte[] actual = Projection(scene, frame);
                 if (!actual.AsSpan().SequenceEqual(reference))
+                {
+                    string detail;
+                    try
+                    {
+                        using var referenceWorld = new PassiveReplayScene(path, new Vector2i(256, 192));
+                        while (referenceWorld.Session.IsWarming || referenceWorld.Session.CurrentFrame < frame)
+                            if (!referenceWorld.Step()) throw new InvalidDataException("Diagnostic linear reference ended early.");
+                        if (referenceWorld.Session.CurrentFrame != frame)
+                            throw new InvalidDataException("Diagnostic linear reference missed the visible frame.");
+                        RequireCursor(referenceWorld.Scene, frame);
+                        if (!Projection(referenceWorld.Scene, frame).AsSpan().SequenceEqual(reference))
+                            throw new InvalidDataException("Diagnostic linear reference differs from the original trace.");
+                        detail = ReplayReplicaCheck.DescribeDifferences(referenceWorld, actualPlayer.Current);
+                    }
+                    catch (Exception ex) { detail = $"Diagnostic failed: {ex.GetType().Name}: {ex.Message}"; }
                     throw new InvalidOperationException($"First gameplay/presentation divergence at frame {frame}. "
                         + $"gameplay equal={actual.AsSpan(0, 32).SequenceEqual(reference[..32])}, "
-                        + $"presentation equal={actual.AsSpan(32).SequenceEqual(reference[32..])}.");
+                        + $"presentation equal={actual.AsSpan(32).SequenceEqual(reference[32..])}. "
+                        + $"source={actualPlayer.CheckpointSource}, restore={actualPlayer.SeekRestoreFrame}, "
+                        + $"steps={actualPlayer.SeekSimulationSteps}, rejected={actualPlayer.RejectedCheckpoints}, "
+                        + $"checkpointError={actualPlayer.LastCheckpointError}; {detail}");
+                }
             }
             var random = new Random(2718);
             uint[] targets = new[] { 0u, Math.Min(60u, duration), Math.Min(300u, duration), duration / 3, duration * 2 / 3, duration }
@@ -65,11 +87,11 @@ internal static class ReplayDeterminism
             foreach (uint target in targets)
             {
                 using var player = Open(path);
-                Compare(player.Current.Scene, 0);
-                player.Stepped += scene => Compare(scene, player.Current.Session.CurrentFrame);
+                Compare(player, 0);
+                player.Stepped += scene => Compare(player, player.Current.Session.CurrentFrame);
                 player.Seek(target);
                 while (!player.Ready) player.Update();
-                Compare(player.Current.Scene, target);
+                Compare(player, target);
             }
             // Exercise already populated checkpoint caches, including backward seeks.
             using (var cached = Open(path))
@@ -80,16 +102,16 @@ internal static class ReplayDeterminism
                 {
                     cached.Seek(target);
                     while (!cached.Ready) cached.Update();
-                    Compare(cached.Current.Scene, target);
+                    Compare(cached, target);
                 }
             }
             foreach (float rate in new[] { .25f, .5f, 1f, 2f, 4f })
             {
                 using var player = Open(path);
-                player.Stepped += scene => Compare(scene, player.Current.Session.CurrentFrame);
+                player.Stepped += scene => Compare(player, player.Current.Session.CurrentFrame);
                 player.Transport.SetPlaybackRate(rate); player.Transport.Play();
                 while (!player.Current.Session.AtEnd) player.Update();
-                Compare(player.Current.Scene, duration);
+                Compare(player, duration);
                 byte[] before = Projection(player.Current.Scene, duration);
                 for (int i = 0; i < 20; i++) player.Update();
                 if (!Projection(player.Current.Scene, duration).AsSpan().SequenceEqual(before))
@@ -100,7 +122,7 @@ internal static class ReplayDeterminism
             {
                 trace.Position = 0; int original = trace.ReadByte(); trace.Position = 0; trace.WriteByte((byte)(original ^ 1));
                 bool detected = false;
-                try { Compare(probe.Current.Scene, 0); }
+                try { Compare(probe, 0); }
                 catch (InvalidOperationException ex) when (ex.Message.StartsWith(
                     "First gameplay/presentation divergence at frame 0.", StringComparison.Ordinal)) { detected = true; }
                 trace.Position = 0; trace.WriteByte((byte)original);
@@ -116,4 +138,10 @@ internal static class ReplayDeterminism
         }
         catch (Exception ex) { Console.WriteLine("[replaydeterminism] FAIL: " + ex); return 1; }
     }
+    private static void RequireCursor(Scene scene, uint frame)
+    {
+        if (scene.ReplayPoses is { } poses && !poses.Prepare())
+            throw new InvalidDataException($"Replay presentation cursor failed at frame {frame}: {poses.LastError}");
+    }
+
 }

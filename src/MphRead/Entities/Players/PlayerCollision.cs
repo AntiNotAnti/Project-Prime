@@ -994,6 +994,26 @@ namespace MphRead.Entities
             _volume = CollisionVolume.Move(_volumeUnxf, Position);
         }
 
+        // At exact edge alignment the radial direction is undefined. Separate
+        // along the contact surface instead of normalizing a zero vector; retain
+        // the ordinary penetration depth and velocity response below.
+        private Vector3 BipedEdgeFallbackNormal(Vector3 surface, bool lateral)
+        {
+            static bool TryNormal(Vector3 value, bool horizontal, out Vector3 normal)
+            {
+                if (horizontal) value.Y = 0;
+                float squared = value.LengthSquared;
+                if (float.IsFinite(squared) && squared > 0)
+                { normal = value / MathF.Sqrt(squared); return true; }
+                normal = default;
+                return false;
+            }
+            if (TryNormal(surface, lateral, out var normal)
+                || TryNormal(PrevPosition - Position, lateral, out normal)
+                || TryNormal(-Speed, lateral, out normal)) return normal;
+            return lateral ? Vector3.UnitX : Vector3.UnitY;
+        }
+
         public void HandleCollision(CollisionResult result)
         {
             bool v163 = false;
@@ -1117,7 +1137,7 @@ namespace MphRead.Entities
                         return;
                     }
                     float mag = MathF.Sqrt(magSqr);
-                    result.Plane.Xyz = between / mag;
+                    result.Plane.Xyz = mag > 0 ? between / mag : BipedEdgeFallbackNormal(result.Plane.Xyz, lateral: false);
                     v2 = 0.5f - mag;
                     v169 = true;
                 }
@@ -1175,7 +1195,7 @@ namespace MphRead.Entities
                             return;
                         }
                         float mag = MathF.Sqrt(magSqr);
-                        result.Plane.Xyz = between / mag;
+                        result.Plane.Xyz = mag > 0 ? between / mag : BipedEdgeFallbackNormal(result.Plane.Xyz, lateral: false);
                         v2 = 0.5f - mag;
                     }
                     else
@@ -1189,7 +1209,8 @@ namespace MphRead.Entities
                             return;
                         }
                         float v32 = MathF.Sqrt(v31);
-                        result.Plane.Xyz = new Vector3(betweenX / v32, 0, betweenZ / v32);
+                        result.Plane.Xyz = v32 > 0 ? new Vector3(betweenX / v32, 0, betweenZ / v32)
+                            : BipedEdgeFallbackNormal(result.Plane.Xyz, lateral: true);
                         v2 = radius - v32;
                         if (betweenY > Position.Y)
                         {

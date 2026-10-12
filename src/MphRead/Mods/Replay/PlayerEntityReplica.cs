@@ -8,6 +8,13 @@ namespace MphRead.Entities
 {
     public partial class PlayerEntity
     {
+        // Delegates are resource bindings, never checkpoint graph values. A
+        // restored weapon may use a different reserve than the constructor's.
+        internal void ModRebindReplayAmmo()
+        {
+            if (!_scene.Services.IsReplica) throw new InvalidOperationException("Ammo rebinding requires a replica.");
+            if (EquipInfo.Weapon != null) ModBindWeaponAmmo(CurrentWeapon, EquipInfo.Weapon.AmmoType);
+        }
         private ushort _replicaLastDamage;
         internal void ModBeginReplicaLife(in PlayerState state) => _replicaLastDamage = state.DamageEventId;
         internal void ModAcceptReplicaDamage(in PlayerState state)
@@ -43,8 +50,8 @@ namespace MphRead.Entities
         /// <summary>
         /// Keep a replay victim visually dead after an authoritative lethal shot
         /// even when the next accepted snapshot has not carried the death yet.
-        /// The hold is deliberately silent so a seek/rebuild cannot replay death
-        /// audio or effects.
+        /// Later alive snapshots must not repeat the death audio or effects;
+        /// seek reconstruction simulates the original transition separately.
         /// </summary>
         internal void ModHoldReplicaDeath()
             => ModSetReplicaDead(presentTransition: false, playAudio: false);

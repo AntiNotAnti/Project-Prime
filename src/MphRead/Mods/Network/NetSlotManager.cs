@@ -152,10 +152,11 @@ namespace MphRead.Mods.Network
             player.Initialize();
             if (NetSession.IsAuthority)
                 player.ModSetSpectating(NetSession.SlotSpectating[slot]);
-            if (player.IsBot)
+            if (player.IsBot || NetAiClient.Drives(player))
             {
                 Formats.AiPersonality.Load(player, player.OwningScene.GameState.Mode);
-                player.AiData.InitializeAtLoad();
+                if (NetAiClient.Drives(player)) NetAiClient.InitializeAtLoad(player);
+                else player.AiData.InitializeAtLoad();
             }
             player.OwningScene.Players.PlayerCount = CountActive();
             Console.WriteLine($"[net] slot {slot} activated "

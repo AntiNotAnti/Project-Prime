@@ -67,6 +67,8 @@ namespace MphRead.Mods.Network
         public uint OriginRecordingFrame { get; init; }
         public uint LeadInFrames { get; init; }
         public byte[] WorldCheckpoint { get; init; } = Array.Empty<byte>();
+        // Consumer continuation policy is distinct from capsule producer provenance.
+        public bool? IndexedFireContinuation { get; init; }
         public IReadOnlyList<ReplayEvent> Events { get; set; } = Array.Empty<ReplayEvent>();
         public ushort HashSchema { get; set; }
         public string HashBuildId { get; set; } = "";

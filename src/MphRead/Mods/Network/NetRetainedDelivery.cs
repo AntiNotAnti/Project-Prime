@@ -14,6 +14,7 @@ internal sealed class NetRetainedDelivery
         if (capacity < 1) throw new ArgumentOutOfRangeException(nameof(capacity));
         _history = new Fact[capacity];
     }
+    internal int Pending(Cursor cursor) => cursor.Next <= _next ? (int)Math.Min(_next - cursor.Next, int.MaxValue) : int.MaxValue;
     internal ulong First => _next > (ulong)_history.Length ? _next - (ulong)_history.Length : 1;
     // Late join begins at the current tail, never with historical announcements.
     internal Cursor Join() => new() { Next = _next };

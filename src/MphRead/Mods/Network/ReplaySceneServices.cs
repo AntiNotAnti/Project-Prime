@@ -161,6 +161,7 @@ namespace MphRead.Mods.Network
                 }
 
             State.ApplyBombPackets(scene);
+            State.ApplyTurretOutcomes(scene);
 
             // A lethal ReplayShotFact owns the visible death frame. If the next
             // accepted snapshot is a frame or two late, hold only the replica

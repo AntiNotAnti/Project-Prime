@@ -45,6 +45,7 @@ namespace MphRead.Mods.Network
         /// <summary>Who this peer says it is, across address changes. See
         /// <see cref="NetSession.ClientId"/>. Zero from an older client.</summary>
         public uint ClientId;
+        public NetRetainedDelivery.Cursor? TurretCursor;
     }
 
     /// <summary>
@@ -402,7 +403,7 @@ namespace MphRead.Mods.Network
 
         private static void Stop(bool preserveRoomPrewarm)
         {
-            NetBombs.Reset(); BombEventSink = null;
+            NetBombs.Reset(); BombEventSink = null; TurretOutcomeSink = null; TurretDeliveryPending = null;
             NetTelemetry.FullSessionReset();
             ResetLobbySession();
             if (!preserveRoomPrewarm) Mods.RoomPrewarm.Clear();
@@ -698,6 +699,7 @@ namespace MphRead.Mods.Network
             if (Role == NetRole.Host)
             {
                 DropTimedOutPeers(time);
+                PumpHostTurretOutcomes();
                 if (NetFrame % 60 == 0) BroadcastHostControl();
             }
             else if (serviceClientConnection && (LocalSlot < 0 || _reAnnounced))
@@ -849,6 +851,8 @@ namespace MphRead.Mods.Network
                 case PacketType.SessionState when Role == NetRole.Client:
                     if (SessionStatePacket.TryRead(packet.Payload, out var session)) ApplySessionState(session);
                     break;
+                case PacketType.TurretFireOutcome when Role == NetRole.Client:
+                    HandleTurretOutcome(packet); break;
                 case PacketType.BombEvent when Role == NetRole.Client:
                 case PacketType.BombState when Role == NetRole.Client:
                     HandleBombPacket(packet); break;
@@ -1243,7 +1247,7 @@ namespace MphRead.Mods.Network
                 peer = new RemotePeer
                 {
                     EndPoint = packet.Sender,
-                    SlotIndex = slot
+                    SlotIndex = slot, TurretCursor = _hostTurretDelivery.Join()
                 };
                 _peers.Add(peer);
                 _hostGenerations[slot] = NetLifecycleTracker.Next(_hostGenerations[slot]);

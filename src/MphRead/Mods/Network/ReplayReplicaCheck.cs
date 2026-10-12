@@ -52,11 +52,15 @@ namespace MphRead.Mods.Network
                 var hashes = new Queue<(string Gameplay, string Presentation, ReplayReplicaCheckpoint Decoder)>();
                 var drawnCheckpointFrames = new HashSet<uint>();
                 var referenceFrames = new Dictionary<uint, (string Gameplay, string Presentation)>();
+                if (first.Session.HasSimulatedFrame)
+                    referenceFrames[first.Session.CurrentFrame] = (ReplayStateHash.Compute(first.Scene, first.Session.CurrentFrame),
+                        first.Scene.ReplayPresentationHash(first.Session.CurrentFrame));
                 Replay.ReplayWorldCheckpoint? clipCheckpoint = null;
                 int steps = 0, projectileFrames = 0, modelRestores = 0, worldRestores = 0, continuedFrames = 0;
                 bool projectileCheckpoint = false;
                 while (first.Step())
                 {
+                    RequireCursor(first);
                     if (restored != null)
                     {
                         bool advanced = restored.Step();
@@ -83,6 +87,10 @@ namespace MphRead.Mods.Network
                         checkpoint.Restore(restored);
                         double restoreMs = timer.Elapsed.TotalMilliseconds;
                         CheckWorld(first, restored, "restore", advanced: true);
+                        for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
+                            if ((first.Scene.ReplayPoses?.UsesFireEvents(first.Scene.Players.Items[slot]) == true)
+                                != (restored.Scene.ReplayPoses?.UsesFireEvents(restored.Scene.Players.Items[slot]) == true))
+                                throw new InvalidDataException($"Restored firing capability differs for slot {slot} at frame {checkpoint.Frame}.");
                         worldRestores++;
                         if (screenshots != null)
                         {
@@ -171,6 +179,7 @@ namespace MphRead.Mods.Network
         // Failure-only diagnostics: no reflection or checkpoint work on the successful path.
         private static void CheckWorld(PassiveReplayScene expected, PassiveReplayScene actual, string operation, bool advanced)
         {
+            RequireCursor(expected); RequireCursor(actual);
             uint frame = expected.Session.CurrentFrame;
             string gameplay = ReplayStateHash.Compute(expected.Scene, frame);
             string actualGameplay = ReplayStateHash.Compute(actual.Scene, actual.Session.CurrentFrame);
@@ -184,13 +193,13 @@ namespace MphRead.Mods.Network
                 + $"gameplay expected={gameplay} actual={actualGameplay}; presentation expected={presentation} actual={actualPresentation}; {detail}");
         }
 
-        private static string DescribeDifferences(PassiveReplayScene expected, PassiveReplayScene actual)
+        internal static string DescribeDifferences(PassiveReplayScene expected, PassiveReplayScene actual)
         {
             var text = new StringBuilder();
             int differences = 0, visited = 0;
             void Compare(object? left, object? right, string path, int depth)
             {
-                if (differences >= 24 || ++visited > 12000 || ReferenceEquals(left, right)) return;
+                if (differences >= 24 || ++visited > 50000 || ReferenceEquals(left, right)) return;
                 void Difference(string values) { text.Append(path).Append(": ").Append(values.Length > 240 ? values[..240] + "..." : values).Append("; "); differences++; }
                 if (left == null || right == null) { Difference($"{left?.GetType().Name ?? "null"} -> {right?.GetType().Name ?? "null"}"); return; }
                 Type type = left.GetType();
@@ -219,7 +228,6 @@ namespace MphRead.Mods.Network
                     foreach (var field in current.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly).OrderBy(f => f.Name))
                         Compare(field.GetValue(left), field.GetValue(right), path + "." + field.Name, depth + 1);
             }
-            Compare(expected.Scene.GameState, actual.Scene.GameState, "gameState", 0);
             Compare(expected.Scene.Random, actual.Scene.Random, "random", 0);
             var leftList = new List<EntityBase>();
             foreach (EntityBase entity in expected.Scene.Entities) leftList.Add(entity);
@@ -228,6 +236,48 @@ namespace MphRead.Mods.Network
             var leftEntities = leftList.ToArray();
             var rightEntities = rightList.ToArray();
             if (leftEntities.Length != rightEntities.Length) text.Append($"entityCount {leftEntities.Length} -> {rightEntities.Length}; ");
+            // Prioritize hashed presentation values over excluded draw history.
+            for (int i = 0; i < Math.Min(leftEntities.Length, rightEntities.Length) && differences < 24; i++)
+            {
+                var left = leftEntities[i]; var right = rightEntities[i];
+                string name = $"presentation[{i}]({left.Type}/{(left is PlayerEntity player ? player.SlotIndex : left.Id)})";
+                Compare(left.Transform, right.Transform, name + ".Transform", 0);
+                Compare(left.Alpha, right.Alpha, name + ".Alpha", 0);
+                Compare(left.Hidden, right.Hidden, name + ".Hidden", 0);
+                Compare(left.Initialized, right.Initialized, name + ".Initialized", 0);
+                Compare(left.Recolor, right.Recolor, name + ".Recolor", 0);
+                for (int j = 0; j < Math.Min(left.ReplayModels.Count, right.ReplayModels.Count); j++)
+                {
+                    Compare(left.ReplayModels[j].Active, right.ReplayModels[j].Active, name + $".model[{j}].Active", 0);
+                    Compare(left.ReplayModels[j].AnimInfo, right.ReplayModels[j].AnimInfo, name + $".animation[{j}]", 0);
+                }
+                if (left is BeamProjectileEntity lb && right is BeamProjectileEntity rb)
+                {
+                    Compare(lb.DrawFuncId, rb.DrawFuncId, name + ".DrawFuncId", 0);
+                    Compare(lb.Color, rb.Color, name + ".Color", 0);
+                    Compare(lb.BackPosition, rb.BackPosition, name + ".BackPosition", 0);
+                    Compare(lb.PastPositions, rb.PastPositions, name + ".PastPositions", 0);
+                }
+            }
+            // Particle presentation is simulation-owned too; entity-only diagnostics
+            // miss recycled effect state that first diverges after a restored step.
+            var effects = typeof(Scene).GetField("_activeElements", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var leftEffects = ((System.Collections.IEnumerable)effects.GetValue(expected.Scene)!).Cast<Effects.EffectElementEntry>().ToArray();
+            var rightEffects = ((System.Collections.IEnumerable)effects.GetValue(actual.Scene)!).Cast<Effects.EffectElementEntry>().ToArray();
+            if (leftEffects.Length != rightEffects.Length)
+            {
+                text.Append($"effectCount {leftEffects.Length} -> {rightEffects.Length}; ");
+                text.Append("expectedEffects(first 24)=").Append(string.Join(",", leftEffects.Take(24).Select(e => $"{e.EffectId}/{e.ElementName}@{e.CreationTime}:{e.ExpirationTime}/{e.Expired}/{e.Particles.Count}"))).Append("; ");
+                text.Append("actualEffects(first 24)=").Append(string.Join(",", rightEffects.Take(24).Select(e => $"{e.EffectId}/{e.ElementName}@{e.CreationTime}:{e.ExpirationTime}/{e.Expired}/{e.Particles.Count}"))).Append("; ");
+            }
+            for (int i = 0; i < Math.Min(leftEffects.Length, rightEffects.Length) && differences < 24; i++)
+            {
+                Compare(leftEffects[i], rightEffects[i], $"effect[{i}]", 0);
+                Compare(leftEffects[i].Particles.Count, rightEffects[i].Particles.Count, $"effect[{i}].particleCount", 0);
+                for (int j = 0; j < Math.Min(leftEffects[i].Particles.Count, rightEffects[i].Particles.Count) && differences < 24; j++)
+                    Compare(leftEffects[i].Particles[j], rightEffects[i].Particles[j], $"effect[{i}].particle[{j}]", 0);
+            }
+            Compare(expected.Scene.GameState, actual.Scene.GameState, "gameState", 0);
             for (int i = 0; i < Math.Min(leftEntities.Length, rightEntities.Length) && differences < 24; i++)
             {
                 Compare(leftEntities[i], rightEntities[i], $"entity[{i}]({leftEntities[i].Type}/{leftEntities[i].Id})", 0);
@@ -245,6 +295,12 @@ namespace MphRead.Mods.Network
             while (offset < length && lc.Bytes[offset] == rc.Bytes[offset]) offset++;
             text.Append($"checkpoint lengths={lc.Bytes.Length}/{rc.Bytes.Length}, firstByteDifference={(offset < length || lc.Bytes.Length != rc.Bytes.Length ? offset : -1)}; fieldDifferences={differences}, inspected={visited} (bounded)");
             return text.ToString();
+        }
+
+        private static void RequireCursor(PassiveReplayScene world)
+        {
+            if (world.Scene.ReplayPoses is { } poses && !poses.Prepare())
+                throw new InvalidDataException($"Replay presentation cursor failed at frame {world.Session.CurrentFrame}: {poses.LastError}");
         }
 
         private static void AssertNetworkSlotsConstructed(PassiveReplayScene replay)

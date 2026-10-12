@@ -110,7 +110,7 @@ namespace MphRead.Mods.Network
             // is hidden by the session and advanced in bounded owner updates.
             // This is also how a legacy packet recording gets a faithful range:
             // reconstruct from its original bootstrap, not a mid-flight snapshot.
-            if (reader.Metadata != null && (metadata.FormatVersion == 4 || metadata.MapHash != 0))
+            if (reader.Metadata != null && (metadata.FormatVersion >= 4 || metadata.MapHash != 0))
                 return ExtractRange(reader, metadata, start, end, output, cancellation: cancellation);
             var bootstrap = new Dictionary<PacketType, byte[]>();
             foreach (byte[] packet in metadata.Bootstrap.Packets) Remember(bootstrap, packet);
@@ -198,6 +198,7 @@ namespace MphRead.Mods.Network
         {
             FormatVersion = source.FormatVersion, WorldCheckpoint = source.WorldCheckpoint,
             OriginRecordingFrame = source.OriginRecordingFrame, LeadInFrames = source.LeadInFrames,
+            IndexedFireContinuation = source.IndexedFireContinuation,
             ProtocolVersion = source.ProtocolVersion, BuildVersion = source.BuildVersion, BuildId = source.BuildId,
             RecordedAtUtc = source.RecordedAtUtc, Type = type, RoomKey = room, Mode = mode, Players = players,
             MapHash = hash, Bootstrap = bootstrap, Recovered = recovered
@@ -212,14 +213,18 @@ namespace MphRead.Mods.Network
                 if (start > duration || start > end) return ReplayOpenResult.Empty;
                 end = Math.Min(end, duration);
                 uint lead = checked(source.LeadInFrames + start), last = checked(source.LeadInFrames + end);
+                bool? continuation = source.Type == ReplayType.FullMatch ? true : source.IndexedFireContinuation;
                 var metadata = new ReplayMetadata
                 {
-                    FormatVersion = 4, ProtocolVersion = source.ProtocolVersion,
+                    FormatVersion = continuation.HasValue ? (byte)5 : (byte)4, ProtocolVersion = source.ProtocolVersion,
                     BuildVersion = source.BuildVersion, BuildId = source.BuildId, RecordedAtUtc = source.RecordedAtUtc,
                     Type = ReplayType.Clip, RoomKey = source.RoomKey, Mode = source.Mode, Players = source.Players,
                     MapHash = source.MapHash, Bootstrap = source.Bootstrap, Recovered = source.Recovered,
                     OriginRecordingFrame = source.OriginRecordingFrame, WorldCheckpoint = source.WorldCheckpoint,
-                    LeadInFrames = lead
+                    LeadInFrames = lead,
+                    // Preserve the source consumer policy without relabeling its
+                    // initial or optional producer-world capsules.
+                    IndexedFireContinuation = continuation
                 };
                 writer = new ReplayWriterV3(output, metadata);
                 while (reader.ReadNext() is { } record)

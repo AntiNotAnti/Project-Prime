@@ -81,7 +81,7 @@ namespace MphRead.Mods.Network
             public readonly int[] BootstrapLengths = new int[3];
             public byte[][] BootstrapObjectives = Array.Empty<byte[]>();
             public byte[][] BootstrapBombs = Array.Empty<byte[]>();
-            public NetRetainedDelivery.Cursor? BombCursor;
+            public NetRetainedDelivery.Cursor? BombCursor, TurretCursor;
             public int BootstrapLength;
             public WorldBootstrapIdentity BootstrapIdentity;
             public double BootstrapSentAt;
@@ -504,6 +504,7 @@ namespace MphRead.Mods.Network
                     PumpSemanticDelivery();
                     PumpReplayShotDelivery();
                     PumpBombDelivery();
+                    PumpTurretDelivery();
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
                     EnsureCareerMatchStarted(now);
                     pumpStart = NetPerformanceEvidence.Start();
@@ -518,6 +519,7 @@ namespace MphRead.Mods.Network
                     PumpSemanticDelivery();
                     PumpReplayShotDelivery();
                     PumpBombDelivery();
+                    PumpTurretDelivery();
                     DropTimedOut(now);
                     PumpImpacts();
 
@@ -1077,6 +1079,7 @@ namespace MphRead.Mods.Network
                 foreach (var peer in _peers) _transport?.Send(peer.EndPoint, PacketType.ReplayWorld, payload);
             };
             ResetBombDelivery();
+            ResetTurretDelivery();
             NetSession.ReplayShotSink = AppendReplayShotDelivery;
             NetSession.ConfirmedImpactSink = AppendImpact;
             NetSession.MatchSemanticSink = AppendSemanticDelivery;
@@ -2507,7 +2510,8 @@ namespace MphRead.Mods.Network
             // this the authority dropped every relayed intent and simulated
             // nobody.
             _scratch[0] = (byte)peer.SlotIndex;
-            packet.Payload.CopyTo(_scratch.AsSpan(1));
+            var presentation = NetFireEvents.WithoutTurretOffers(intent);
+            int relaySize = CompactIntentCodec.Write(presentation, _scratch.AsSpan(1));
             for (int i = 0; i < _peers.Count; i++)
             {
                 // To everyone, not just the authority. Input is what makes a
@@ -2517,10 +2521,10 @@ namespace MphRead.Mods.Network
                 // silence: no beams, no morph animation, no bombs. Position
                 // still comes from the authority's snapshot; this is what
                 // fills in everything a position cannot express.
-                if (_peers[i] != peer)
+                if (_peers[i] != peer && _peers[i].MatchReady)
                 {
                     _transport?.Send(_peers[i].EndPoint, PacketType.SlotIntent,
-                        _scratch.AsSpan(0, packet.Payload.Length + 1));
+                        _scratch.AsSpan(0, relaySize + 1));
                 }
             }
         }

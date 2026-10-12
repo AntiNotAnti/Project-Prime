@@ -2094,7 +2094,7 @@ namespace MphRead.Entities
                 beam.ModLaunchAuthority = 0;
                 beam.ModLaunchGeneration = beam.ModLaunchLife = 0;
                 beam.ModLaunchKey = default;
-                if (!scene.Services.IsReplica || owner is PlayerEntity acceptedOwner
+                if (!scene.Services.IsReplica || (owner as PlayerEntity ?? (owner as HalfturretEntity)?.Owner) is { } acceptedOwner
                     && NetFireEvents.TryAcceptedKey(acceptedOwner, out _))
                 {
                     NetPlayerLifecycle.StampProjectile(beam, parent);

@@ -25,12 +25,20 @@ namespace MphRead.Mods.Network
         {
             try
             {
+                bool? indexedFirePresentation = Session.Metadata?.Type == ReplayType.Clip ? Session.Metadata.IndexedFireContinuation : null;
                 if (Session.Metadata?.WorldCheckpoint is { Length: > 0 } bytes)
                 {
                     try
                     {
                         using var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(bytes, Session.Metadata?.BuildId);
                         checkpoint.Restore(this, playbackFrame: 0);
+                        if (Session.Metadata?.Type == ReplayType.Clip && !checkpoint.HasAuthorityFormHistory)
+                            Session.WarnVerification("Historical clip baseline lacks authority form history; transition animation continuity is not verified.");
+                        // An explicit clip contract continues its producer's
+                        // firing world. Legacy capsules retain their adapters;
+                        // full-match packet reconstruction stays indexed.
+                        if (indexedFirePresentation == null && Session.Metadata?.Type == ReplayType.Clip && checkpoint.HasPresentationContract)
+                            indexedFirePresentation = checkpoint.IndexedFirePresentation;
                     }
                     catch (InvalidDataException ex)
                     {
@@ -40,7 +48,7 @@ namespace MphRead.Mods.Network
                         Session.WarnVerification("World checkpoint compatibility fallback: " + ex.Message);
                     }
                 }
-                Scene.ReplayPoses = new(this, path);
+                Scene.ReplayPoses = new(this, path, indexedFirePresentation);
             }
             catch { Dispose(); throw; }
         }
@@ -52,9 +60,11 @@ namespace MphRead.Mods.Network
             {
                 using var checkpoint = Checkpoint(clip);
                 checkpoint.Restore(this);
+                if (!checkpoint.HasAuthorityFormHistory)
+                    Session.WarnVerification("Historical clip baseline lacks authority form history; transition animation continuity is not verified.");
                 Session.Transport.ContinueSeek(clip.StartRecordingFrame, resume: true);
                 Session.Transport.AfterFrame();
-                Scene.ReplayPoses = new(this, clip);
+                Scene.ReplayPoses = new(this, clip, checkpoint.HasPresentationContract ? checkpoint.IndexedFirePresentation : null);
             }
             catch { Dispose(); throw; }
         }

@@ -1073,10 +1073,8 @@ namespace MphRead.Entities
             _light2Vector = _scene.Light2Vector;
             _light2Color = _scene.Light2Color;
             Controls.ClearPressed();
-            if (IsBot)
-            {
-                AiData.InitializeAtSpawn();
-            }
+            if (Mods.Network.NetAiClient.Drives(this)) Mods.Network.NetAiClient.InitializeAtSpawn(this);
+            else if (IsBot) AiData.InitializeAtSpawn();
             // the player clears the enemy spawner reference here, using a global array to track them
             _lastTarget = null;
             UpdateScanIds();
@@ -2630,7 +2628,7 @@ namespace MphRead.Entities
                                     QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)));
                                 }
                                 _scene.GameState.Kills[attacker.SlotIndex]++;
-                                if (attacker.IsBot)
+                                if (attacker.IsBot || Mods.Network.NetAiClient.Drives(attacker))
                                 {
                                     attacker.AiData.OnTacticalKill(this);
                                 }

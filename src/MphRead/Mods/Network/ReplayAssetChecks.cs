@@ -47,6 +47,8 @@ internal static class ReplayAssetChecks
             foreground.Nodes[0].Enabled = foregroundEnabled; foreground.Materials[0].Alpha = foregroundAlpha;
             ReplayAssetCheckpoint.Restore(first.Scene, before);
         }
+        ReplayParticleChecks.Run(path, size);
+        ReplayPoseChecks.Run(path, size);
         Console.WriteLine("[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.");
     }
 }

@@ -55,10 +55,10 @@ def client_role(args, slot):
     hunter = BOMB_HUNTERS.get(args.scenario, "Sylux" if args.scenario == "shockcoil-mixed" else HUNTERS[slot])
     if args.scenario == "alt-morph" and slot == 1:
         hunter = "Weavel"
-    observer = args.players == 3 and slot == 2 and (
+    observer = getattr(args, "ai_net_client", None) is None and args.players == 3 and slot == 2 and (
         args.rendered or args.scenario in BOMB_HUNTERS or args.scenario == "alt-morph")
     expects_shots = not observer and args.scenario not in BOMB_HUNTERS and (
-        args.soak or args.scenario in ("tour", "duel", "shockcoil-all", "shockcoil-mixed") or slot % 2 == 0)
+        getattr(args, "ai_net_client", None) is not None or args.soak or args.scenario in ("tour", "duel", "shockcoil-all", "shockcoil-mixed") or slot % 2 == 0)
     return hunter, observer, expects_shots
 
 
@@ -210,6 +210,8 @@ def run(args):
                          "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
                          "seedRule": "base seed + client launch index"},
         "commands": [], "startedUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    if args.ai_net_client is not None:
+        manifest["harnessSha256"]["net_ai_evidence.py"] = digest(Path(__file__).with_name("net_ai_evidence.py"))
     if args.server_performance:
         manifest["harnessSha256"]["net13_performance.py"] = digest(Path(__file__).with_name("net13_performance.py"))
     save(args.out / "manifest.json", manifest)
@@ -233,6 +235,8 @@ def run(args):
         env.update(PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS="null",
                    MPHREAD_PHASE_SECONDS="2", PRIME_NET2_EVIDENCE=str(args.out / f"{name}.json"),
                    PRIME_SHOT_PROOF=args.shot_proof)
+        if args.server_bot and name == "server":
+            env["PRIME_NET_AI_SERVER_BOT"] = str(args.players)
         if args.server_operator and name == "server":
             env["PRIME_SERVER_OPERATOR_OUTPUT"] = str(args.out / "server.operator.json")
         if args.movement_validation_shadow:
@@ -278,13 +282,15 @@ def run(args):
         if args.bomb_triangle_fixture:
             manifest["commands"][-1]["environment"]["PRIME_NET2_TRIANGLE_SETUP"] = "1"
             manifest["triangleFixture"] = "Explicit collision-verified initial authority geometry; each participant adopts its own initial snapshot pose once. Subsequent native movement, placement, damage and timers are unchanged."
+        if args.server_bot and name == "server":
+            manifest["commands"][-1]["environment"]["PRIME_NET_AI_SERVER_BOT"] = env["PRIME_NET_AI_SERVER_BOT"]
         if args.server_performance and name == "server":
             manifest["commands"][-1]["environment"]["PRIME_SERVER_PERF_OUTPUT"] = env["PRIME_SERVER_PERF_OUTPUT"]
         save(args.out / "manifest.json", manifest)
         return process, record
 
     try:
-        server, server_record = launch("server", ["-server", "-port", str(args.port), "-players", str(args.players),
+        server, server_record = launch("server", ["-server", "-port", str(args.port), "-players", str(args.players + int(args.server_bot)),
             "-nomaster", "-noserverreplays", "-rotation", str(rotation), "-netdebug"], args.seconds, False)
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
@@ -306,6 +312,8 @@ def run(args):
             extra = ["-netcheck", "127.0.0.1", "-port", str(args.port), "-name", name,
                 "-hunter", hunter, "-seconds", str(seconds), "-size", "480x270",
                 *fault_arguments(args, slot)]
+            if args.ai_net_client is not None:
+                extra += ["-ai-net-client", str(args.ai_net_client), "-ai-seed", str(args.ai_seed + slot)]
             if not args.rendered:
                 extra.append("-nographics")
             if args.record:
@@ -314,7 +322,7 @@ def run(args):
                 shots = args.out / f"shots-{name}"
                 shots.mkdir()
                 extra += ["-shots", str(shots)]
-            if args.scenario != "tour":
+            if args.ai_net_client is None and args.scenario != "tour":
                 extra += ["-hitrig", args.scenario]
             if observer:
                 extra += ["-spectate", "0"]
@@ -489,6 +497,15 @@ def run(args):
             operator_path = args.out / "server.operator.json"
             if operator_path.is_file(): manifest["serverOperatorSha256"] = digest(operator_path)
             save(args.out / "manifest.json", manifest)
+        if args.ai_net_client is not None:
+            from net_ai_evidence import audit_campaign
+            ai = audit_campaign(args.out, records, summary)
+            save(args.out / "ai-summary.json", ai)
+            summary["aiClient"] = ai
+            if ai["status"] != "PASS":
+                summary["status"] = ai["status"] if summary["status"] == "PASS" else summary["status"]
+                summary["failures"].extend(ai["failures"])
+                summary["incomplete"].extend(ai["incomplete"])
         save(args.out / "summary.json", summary)
         print(json.dumps({"status": summary["status"], "out": str(args.out), "failures": summary["failures"], "incomplete": summary["incomplete"]}), flush=True)
     return 0 if summary["status"] == "PASS" else 1
@@ -505,6 +522,10 @@ def parse_args(argv=None):
     p.add_argument("--shot-proof", choices=("off", "shadow", "enforce"), default="shadow",
                    help="Record and apply the explicit N4 admission mode")
     p.add_argument("--players", type=int, choices=(2, 3, 4, 8), default=2)
+    p.add_argument("--ai-net-client", type=int, nargs="?", const=2, choices=range(4),
+                   help="Drive ordinary local clients with native tactical AI, level 0..3")
+    p.add_argument("--ai-seed", type=int, help="Independent gameplay AI seed; per-client seed adds launch index")
+    p.add_argument("--server-bot", action="store_true", help="Add one normal authority bot to an AI campaign")
     p.add_argument("--seconds", type=float, default=90)
     p.add_argument("--drain-seconds", type=float, default=0,
                    help="Opt-in bounded quiescence/frontier/empty-reliable-queue barrier; zero preserves legacy shutdown")
@@ -533,6 +554,17 @@ def parse_args(argv=None):
     p.add_argument("--record", action="store_true")
     p.add_argument("--soak", action="store_true")
     args = p.parse_args(argv)
+    if args.ai_net_client is None and (args.server_bot or args.ai_seed is not None):
+        p.error("--server-bot and --ai-seed require --ai-net-client")
+    if args.ai_net_client is not None:
+        if args.soak or args.scenario != "tour" or args.observer_delay or args.bomb_triangle_fixture:
+            p.error("AI clients cannot use scripted tour/HitRig/soak fixtures or delayed spectators")
+        if args.server_bot and args.players + 1 > 8:
+            p.error("AI clients plus server bot must fit eight slots")
+        args.scenario = "ai"
+        args.ai_seed = 1729 if args.ai_seed is None else args.ai_seed
+        if not 1 <= args.ai_seed <= 4294967295 - (args.players - 1):
+            p.error("AI seeds must be nonzero uint values for every client")
     if args.protocol is None:
         try:
             args.protocol = current_protocol()

@@ -42,9 +42,25 @@ namespace MphRead.Mods.Network
         internal IReadOnlyList<ReplayCheckpointIndex> DurableCheckpoints => _reader?.Checkpoints ?? Array.Empty<ReplayCheckpointIndex>();
         internal uint CheckpointVisibleFrame(ReplayCheckpointIndex index) => index.Frame >= LeadInFrames ? index.Frame - LeadInFrames : 0;
         internal uint SourceFrame => _frame;
-        internal Replay.ReplayWorldCheckpoint LoadCheckpoint(ReplayCheckpointIndex index)
+        internal Replay.ReplayWorldCheckpoint LoadCheckpoint(ReplayCheckpointIndex index, bool requireIndexedFirePresentation = true)
         {
             var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(_reader!.ReadCheckpoint(index), _reader.Metadata?.BuildId);
+            if (_reader.ProtocolVersion >= 52 && !checkpoint.HasTurretOutcomeContract)
+            { checkpoint.Dispose(); throw new InvalidDataException("Durable world has no turret outcome contract; reconstructing from baseline."); }
+            if (!checkpoint.HasAuthorityFormHistory)
+            {
+                checkpoint.Dispose();
+                throw new InvalidDataException("Durable world has no authority form history; reconstructing from the recording baseline.");
+            }
+            // Protocol 43 introduced posed discrete shots. Legacy/live capsules
+            // use native held-input firing and cannot substitute for the indexed
+            // consumer world after the recording's exact initial baseline.
+            if (_reader.ProtocolVersion >= 43 && (!checkpoint.HasPresentationContract
+                || checkpoint.IndexedFirePresentation != requireIndexedFirePresentation))
+            {
+                checkpoint.Dispose();
+                throw new InvalidDataException("Durable world firing contract does not match the consumer; reconstructing from the recording baseline.");
+            }
             if (checkpoint.Frame != (ulong)index.Frame + (_reader.Metadata?.OriginRecordingFrame ?? 0))
             { checkpoint.Dispose(); throw new InvalidDataException("Durable checkpoint clock differs from its index."); }
             return checkpoint;

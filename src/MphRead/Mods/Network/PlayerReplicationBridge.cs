@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using MphRead.Entities;
 using OpenTK.Mathematics;
 
@@ -28,6 +29,42 @@ namespace MphRead.Mods.Network
             internal uint LocalStarted, PendingSince;
         }
         private readonly AuthorityForm[] _authorityForms = new AuthorityForm[PlayerEntity.SlotCapacity];
+
+        internal void WriteReplayAuthorityForms(BinaryWriter writer)
+        {
+            Span<byte> bytes = stackalloc byte[PlayerFormState.Size];
+            foreach (var form in _authorityForms)
+            {
+                form.State.Write(bytes); writer.Write(bytes);
+                writer.Write(form.Known); writer.Write(form.TurretDestroyed); writer.Write(form.OwnerPending);
+                writer.Write(form.LocalStarted); writer.Write(form.PendingSince);
+            }
+        }
+
+        internal void ReadReplayAuthorityForms(BinaryReader reader)
+        {
+            var forms = new AuthorityForm[_authorityForms.Length];
+            bool Flag()
+            {
+                byte value = reader.ReadByte();
+                if (value > 1) throw new InvalidDataException("Invalid authority form cache flag.");
+                return value != 0;
+            }
+            Span<byte> bytes = stackalloc byte[PlayerFormState.Size];
+            for (int slot = 0; slot < forms.Length; slot++)
+            {
+                reader.BaseStream.ReadExactly(bytes);
+                if (!PlayerFormState.TryRead(bytes, out var state))
+                    throw new InvalidDataException("Invalid authority form cache state.");
+                forms[slot] = new AuthorityForm { State = state,
+                    Known = Flag(), TurretDestroyed = Flag(), OwnerPending = Flag(),
+                    LocalStarted = reader.ReadUInt32(), PendingSince = reader.ReadUInt32() };
+                if (forms[slot].Known && forms[slot].State.Phase == FormPhase.Unknown
+                    || !forms[slot].Known && forms[slot].OwnerPending)
+                    throw new InvalidDataException("Invalid authority form cache state.");
+            }
+            forms.CopyTo(_authorityForms, 0);
+        }
 
         // Retained for older diagnostic consumers. Lifecycle drop counters now
         // live in NetPlayerLifecycle; clients no longer choose spawn points.
