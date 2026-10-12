@@ -38,7 +38,9 @@ during a strafe reversal and eliminates stale smoothing upon reacquisition.
 Visual acquisition has a finite difficulty-dependent delay of 7–26 ticks at
 60 Hz; reacquiring a previously tracked enemy takes 3–12 ticks. The delay
 prevents immediate same-frame precision target acquisition and shooting by
-the new tactical layer. No opponent velocity is refreshed behind cover.
+the new tactical layer. The final biped bot motor also vetoes a fire request
+during target acquisition or loss of sight, so a later mode-specific combat
+writer cannot bypass that gate. No opponent velocity is refreshed behind cover.
 
 Bots at higher difficulty also prioritize existing native health-pickup routes
 once below 62% health instead of waiting for emergency retreat thresholds.

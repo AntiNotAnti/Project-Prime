@@ -74,6 +74,7 @@ public partial class PlayerEntity
         private PlayerEntity? _botReactionTarget;
         private int _botReactionFrames;
         private bool _botReactionHadSight;
+        private bool _botSuppressFireThisTick;
 
         private BotTacticalTuning TacticalTuning =>
             _tacticalTuning[Math.Clamp(_player.BotLevel, 0, _tacticalTuning.Length - 1)];
@@ -103,6 +104,7 @@ public partial class PlayerEntity
             _botReactionTarget = null;
             _botReactionFrames = 0;
             _botReactionHadSight = false;
+            _botSuppressFireThisTick = false;
             ResetBotPerception();
             ResetBotPositioning();
         }
@@ -139,6 +141,7 @@ public partial class PlayerEntity
             BotTacticalTuning tuning = TacticalTuning;
             _tacticalMovementActive = TacticalShouldPreserveLegacyMovement(tuning);
             _tacticalSteeringActive = false;
+            _botSuppressFireThisTick = false;
 
             if (_tacticalThreatFrames > 0)
             {
@@ -189,6 +192,7 @@ public partial class PlayerEntity
             if (!visible)
             {
                 _botReactionHadSight = false;
+                _botSuppressFireThisTick = true;
                 // The original behavior tree ran earlier in this frame. Revoke
                 // precision targeting and firing before the input is applied:
                 // a remembered player is an investigation goal, not a live aim lock.
@@ -223,6 +227,7 @@ public partial class PlayerEntity
             if (_botReactionFrames > 0)
             {
                 _botReactionFrames--;
+                _botSuppressFireThisTick = true;
                 // Reaction time affects *what* a bot is allowed to commit to,
                 // not the 60-Hz native simulation or visible body physics.
                 Flags2 &= ~AiFlags2.TargetPlayer;
@@ -373,6 +378,7 @@ public partial class PlayerEntity
             _botReactionTarget = null;
             _botReactionFrames = 0;
             _botReactionHadSight = false;
+            _botSuppressFireThisTick = false;
             BotForgetContact(victim.SlotIndex);
             _tacticalMovementActive = false;
             _tacticalSteeringActive = false;
