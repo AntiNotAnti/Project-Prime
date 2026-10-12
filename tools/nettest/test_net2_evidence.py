@@ -857,7 +857,7 @@ class RunnerRoleTests(unittest.TestCase):
 
     def test_alt_morph_headless_late_observer_and_real_shooter_roles(self):
         args = self.args("--scenario", "alt-morph", "--players", "3", "--seconds", "20", "--observer-delay", "6", "--profile", "extreme")
-        self.assertEqual(args.protocol, 50)
+        self.assertEqual(args.protocol, self.runner.current_protocol())
         self.assertFalse(args.rendered)
         self.assertEqual(self.runner.client_role(args, 0), ("Samus", False, True))
         self.assertEqual(self.runner.client_role(args, 1), ("Weavel", False, False))
@@ -872,6 +872,36 @@ class RunnerRoleTests(unittest.TestCase):
         self.assertEqual(self.runner.client_role(duel, 2), ("Trace", False, True))
         duel.rendered = True
         self.assertEqual(self.runner.client_role(duel, 2), ("Trace", True, False))
+
+    def test_fault_overrides_preserve_named_profiles_and_record_effective_values(self):
+        self.assertEqual(tuple(self.runner.fault_profile(self.args("--profile", "moderate")).values()),
+                         (100, 20, 1, 0, 0))
+        args = self.args("--profile", "poor", "--rtt-ms", "150", "--jitter-ms", "20",
+                         "--loss-percent", "5", "--reorder-percent", "3.5", "--duplicate-percent", "1")
+        self.assertEqual(self.runner.fault_arguments(args, 2),
+                         ["-netlag", "150:20", "-netloss", "5%", "-netreorder", "3.5%",
+                          "-netduplicate", "1%", "-netseed", "8130"])
+
+    def test_invalid_fault_protocol_seed_and_nonfinite_durations_fail_before_launch(self):
+        from contextlib import redirect_stderr
+        import io
+        invalid = (("--rtt-ms", "10001"), ("--jitter-ms", "-1"), ("--loss-percent", "nan"),
+                   ("--reorder-percent", "inf"), ("--duplicate-percent", "101"),
+                   ("--protocol", "0"), ("--protocol", "256"), ("--seconds", "nan"),
+                   ("--round-minutes", "inf"), ("--drain-seconds", "nan"),
+                   ("--observer-delay", "nan"), ("--seed", "2147483647"))
+        for flags in invalid:
+            with self.subTest(flags=flags), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                self.args(*flags)
+
+    def test_historical_protocol_does_not_require_checkout_contract(self):
+        from unittest.mock import patch
+        with patch.object(self.runner, "current_protocol", side_effect=ValueError("missing")):
+            self.assertEqual(self.args("--protocol", "41").protocol, 41)
+            from contextlib import redirect_stderr
+            import io
+            with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                self.args()
 
     def test_observer_delay_rejects_wrong_scenario_player_count_or_duration(self):
         from contextlib import redirect_stderr
