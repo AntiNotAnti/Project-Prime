@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using MphRead.Mods.Network;
+using MphRead.Mods.Input;
 using OpenTK.Mathematics;
 
 namespace MphRead.NetTest;
@@ -22,6 +23,15 @@ internal static class CompactIntentCodecTests
             bytes.Fill(0xCC);
             int idle = CompactIntentCodec.Write(packet, bytes);
             Check(idle == 136 && bytes[idle] == 0xCC, "idle uses 136 bytes and leaves unused capacity untouched");
+            packet.NativeTouch = new NativeTouchReport(true, true, true, 100, -25, 7, false);
+            int touchIdle = CompactIntentCodec.Write(packet, bytes);
+            Check(touchIdle == 136 + NativeTouchReport.WireSize
+                && (bytes[CompactIntentCodec.ShotInputOffset] & CompactIntentCodec.TouchPresent) != 0
+                && CompactIntentCodec.TryRead(bytes[..touchIdle], out var touchDecoded)
+                && touchDecoded.NativeTouch == packet.NativeTouch,
+                "optional native touch report roundtrip");
+            packet.NativeTouch = default;
+            CompactIntentCodec.Write(packet, bytes);
             Check(CompactIntentCodec.TryRead(bytes[..idle], out var decoded) && decoded.HasFireEvents
                 && decoded.FireEventCount == 0 && decoded.MatchId == packet.MatchId
                 && decoded.AuthorityEpoch == packet.AuthorityEpoch && decoded.SlotGeneration == 2

@@ -63,7 +63,7 @@ internal static class NetArchitectureTests
             Check(output.SequenceEqual(fixture), "protocol 38 legacy intent fixture remains readable");
             Check(intent.AckFrame == 0x87654321 && intent.AckSubFrame == 128 && IntentPacket.PressHistory == 8,
                 "displayed world ACK and eight-frame edge retention");
-            Check(NetConfig.ProtocolVersion == 52
+            Check(NetConfig.ProtocolVersion == 53
                 && IntentPacket.Protocol38FullSize == 423
                 && IntentPacket.FullSize == 1287 && intent.HasAnalogMove
                 && intent.MoveX == 64 && intent.MoveY == -96
