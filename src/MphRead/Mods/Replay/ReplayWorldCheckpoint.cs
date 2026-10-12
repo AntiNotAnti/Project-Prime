@@ -22,7 +22,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     internal const int MaximumBytes = 8 * 1024 * 1024;
     private const int MaximumObjects = 32768;
     private const uint Magic = 0x43575050; // PPWC
-    private const ushort Version = 8;
+    private const ushort Version = 9;
     private readonly ReplayPayload _data;
     internal ReadOnlySpan<byte> Bytes => _data.Span;
     internal ReplayPayload Payload => _data;
@@ -31,13 +31,16 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     internal bool HasPresentationContract { get; }
     internal bool HasAuthorityFormHistory { get; }
     internal bool HasTurretOutcomeContract { get; }
+    internal bool HasNativeTouchContract { get; }
     private readonly string _sourceContract;
     private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null,
-        bool indexedFirePresentation = false, bool hasPresentationContract = true, bool hasAuthorityFormHistory = true, bool hasTurretOutcomeContract = true)
+        bool indexedFirePresentation = false, bool hasPresentationContract = true, bool hasAuthorityFormHistory = true, bool hasTurretOutcomeContract = true,
+        bool hasNativeTouchContract = true)
     {
         _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract;
         IndexedFirePresentation = indexedFirePresentation; HasPresentationContract = hasPresentationContract;
         HasAuthorityFormHistory = hasAuthorityFormHistory; HasTurretOutcomeContract = hasTurretOutcomeContract;
+        HasNativeTouchContract = hasNativeTouchContract;
     }
     private bool _disposed;
     public void Dispose() { if (!_disposed) { _disposed = true; _data.Release(); GC.SuppressFinalize(this); } }
@@ -58,7 +61,8 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
                 throw new InvalidDataException("This replay uses a different saved-world layout. Open it with the game version that recorded it.");
             reader.ReadString(); reader.ReadInt32(); reader.ReadUInt64();
             return new(data, reader.ReadUInt32(), sourceContract, indexedFirePresentation: version >= 6 && bytes[^1] == 1,
-                hasPresentationContract: version >= 6, hasAuthorityFormHistory: version >= 7, hasTurretOutcomeContract: version >= 8);
+                hasPresentationContract: version >= 6, hasAuthorityFormHistory: version >= 7,
+                hasTurretOutcomeContract: version >= 8, hasNativeTouchContract: version >= 9);
         }
         catch { data.Release(); throw; }
     }
@@ -232,6 +236,12 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             long forms = ReplayCheckpointWriter.BeginComponent(writer);
             replay.Scene.PlayerReplication.WriteReplayAuthorityForms(writer);
             ReplayCheckpointWriter.EndComponent(writer, forms);
+            // Version 9 preserves the native 30/60 Hz sample phase and boost
+            // latch without changing the stable checkpoint object schema.
+            long nativeTouch = ReplayCheckpointWriter.BeginComponent(writer);
+            foreach (var player in replay.Scene.Players.Items)
+                player.ModWriteNativeTouchCheckpoint(writer);
+            ReplayCheckpointWriter.EndComponent(writer, nativeTouch);
             // Posed discrete firing (protocol 43+) changes world reconstruction.
             // A live canonical world has no indexed cursor; its capsule remains
             // a valid recording baseline, but cannot accelerate indexed seeks.
@@ -361,6 +371,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         byte[]? bombs = version >= 4 ? ReadBytes(reader, MaximumBytes) : null;
         byte[]? traversal = version >= 5 ? ReadBytes(reader, 256 * 1024) : null;
         byte[]? forms = version >= 7 ? ReadBytes(reader, 4096) : null;
+        byte[]? nativeTouch = version >= 9 ? ReadBytes(reader, 4096) : null;
         bool indexedFirePresentation = version >= 6 && reader.ReadBoolean();
         if (indexedFirePresentation != IndexedFirePresentation) throw new InvalidDataException("Replay presentation contract marker differs.");
         if (stream.Position != stream.Length || frame != Frame) throw new InvalidDataException("Invalid replay world capsule length/frame.");
@@ -432,6 +443,15 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             if (data.Position != data.Length) throw new InvalidDataException($"Trailing replay fields in {type.Name}.");
         }
         replay.Scene.FinishReplayWorldRestore();
+        if (nativeTouch != null)
+        {
+            using var touchStream = new MemoryStream(nativeTouch, writable: false);
+            using var touchReader = new BinaryReader(touchStream);
+            foreach (var player in replay.Scene.Players.Items)
+                player.ModReadNativeTouchCheckpoint(touchReader);
+            if (touchStream.Position != touchStream.Length)
+                throw new InvalidDataException("Invalid native touch checkpoint appendix.");
+        }
         if (assets != null) ReplayAssetCheckpoint.Restore(replay.Scene, assets);
         if (!replay.Session.Reposition(playbackFrame ?? frame, 0, sourceClock: playbackFrame.HasValue))
             throw new InvalidDataException(replay.Session.LastError);
