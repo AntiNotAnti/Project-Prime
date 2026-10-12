@@ -98,6 +98,7 @@ public partial class PlayerEntity
             _tacticalStuckCount = 0;
             _tacticalEscapeFrames = 0;
             ResetBotPerception();
+            ResetBotPositioning();
         }
 
         private void RecordTacticalThreat(PlayerEntity? attacker, int damage)
@@ -159,6 +160,7 @@ public partial class PlayerEntity
 
             if (_tacticalTarget == null)
             {
+                ResetBotPositioning();
                 // A recent gunshot or attacker should at least turn the bot toward the remembered
                 // location. We intentionally do not set TargetPlayer here, so hearing never grants
                 // perfect through-wall tracking or firing.
@@ -183,6 +185,7 @@ public partial class PlayerEntity
                 Flags2 &= ~AiFlags2.TargetPlayer;
                 Flags2 &= ~AiFlags2.Bit8;
                 _buttons.R.IsDown = false;
+                ResetBotPositioning();
                 if (BotTryKnownPosition(_tacticalTarget, out Vector3 remembered, out _))
                 {
                     _field1038 = remembered - _player.CameraInfo.Position;
@@ -328,6 +331,7 @@ public partial class PlayerEntity
             _tacticalStrafeTimer = 0;
             _combatStrafeTimer = 0;
             _tacticalEscapeFrames = 0;
+            ResetBotPositioning();
             BotForgetContact(victim.SlotIndex);
             _tacticalMovementActive = false;
             _tacticalSteeringActive = false;
@@ -818,13 +822,17 @@ public partial class PlayerEntity
             _buttons.X.IsDown = false;
             _buttons.Y.IsDown = false;
 
-            bool moved = false;
-            if (_tacticalEscapeFrames > 0)
+            // Hard/Insane plans a short committed positional goal. A goal is
+            // picked from safe local endpoints, then followed for several
+            // frames instead of reversing direction on every tactical tick.
+            bool moved = _tacticalEscapeFrames == 0 && _player.BotLevel >= 2
+                && BotPlanCombatMove(target, ideal, lowHealth);
+            if (!moved && _tacticalEscapeFrames > 0)
             {
                 moved = TryTacticalMove(_tacticalStrafeRight ? -right : right,
                     _tacticalStrafeRight ? _buttons.Y : _buttons.A);
             }
-            else if (lowHealth)
+            else if (!moved && lowHealth)
             {
                 moved = TryTacticalCoverMove(target, forward, right);
                 if (!moved)
@@ -832,11 +840,11 @@ public partial class PlayerEntity
                     moved = TryTacticalDiagonalMove(-forward, _buttons.B, lateral, lateralButton);
                 }
             }
-            else if (retreat)
+            else if (!moved && retreat)
             {
                 moved = TryTacticalDiagonalMove(-forward, _buttons.B, lateral, lateralButton);
             }
-            else if (advance)
+            else if (!moved && advance)
             {
                 moved = TryTacticalDiagonalMove(forward, _buttons.X, lateral, lateralButton);
             }

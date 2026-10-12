@@ -111,6 +111,13 @@ public partial class PlayerEntity
                 if (!TacticalTargetValid(other))
                 {
                     BotForgetContact(other.SlotIndex);
+                    if (_tacticalThreatSlot == other.SlotIndex)
+                    {
+                        _tacticalThreatSlot = -1;
+                        _tacticalThreatPosition = Vector3.Zero;
+                        _tacticalThreatFrames = 0;
+                        _tacticalThreatWeight = 0;
+                    }
                     continue;
                 }
                 if (TacticalCanSee(other))
@@ -180,6 +187,11 @@ public partial class PlayerEntity
                 return;
             }
 
+            // Native navigation may have left a stale directional request. An
+            // investigation is one authoritative, local move, not a second
+            // movement writer competing with those existing flags.
+            _buttons.A.IsDown = _buttons.Y.IsDown = false;
+            _buttons.X.IsDown = _buttons.B.IsDown = false;
             Vector3 forward = _player.FacingVector.WithY(0);
             if (forward.LengthSquared <= 0.0001f)
             {

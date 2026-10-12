@@ -211,6 +211,19 @@ public static class BotAiChecks
         Check(BotPerceptionMath.Confidence(0, 80, heardOnly: false) == 0,
             "expired contact has zero target confidence");
 
+        Check(BotPositionUtility.Score(17, 15, 15, false, false, 0, 0, 0)
+              > BotPositionUtility.Score(17, 19, 15, false, false, 0, 0, 0),
+            "combat planner prefers movement toward useful weapon range");
+        Check(BotPositionUtility.Score(12, 16, 12, true, true, 0, 0, 0)
+              > BotPositionUtility.Score(12, 10, 12, true, false, 0, 0, 0),
+            "wounded bot prefers breaking sight and making space");
+        Check(BotPositionUtility.Score(12, 12, 12, false, false, -0.8f, 0, 0)
+              > BotPositionUtility.Score(12, 12, 12, false, false, 0.8f, 0, 0),
+            "healthy flanking bot prefers leaving the enemy aim cone");
+        Check(BotPositionUtility.Score(12, 12, 12, false, false, 0, 7, 0)
+              < BotPositionUtility.Score(12, 12, 12, false, false, 0, 0, 0),
+            "combat planner reduces teammate crowding");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }

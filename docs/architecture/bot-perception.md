@@ -30,6 +30,19 @@ A hidden remembered target cannot be fed to the active combat aim/fire routine.
 Visible targets continue through ordinary weapon, tactical footwork and combat
 physics.
 
+## Committed positioning
+
+Hard and Insane bots now sample a bounded eight-direction set of nearby safe
+positions to choose short-lived combat goals. Utility favors preferred weapon
+distance, flanking out of the enemy's current facing, avoiding teammate crowding
+and, when wounded, breaking line of sight. Plans are maintained for 18–25
+simulation frames instead of choosing a new random strafe every frame.
+
+The existing collision, headroom, floor and hazard probes must approve the
+first move. Candidate endpoints also require valid floor. The full native room
+graph still handles long-range paths, objectives, lifts and teleports. If no
+local candidate succeeds the bot retains previous tactical/legacy movement.
+
 ## Tests
 
 ```sh
