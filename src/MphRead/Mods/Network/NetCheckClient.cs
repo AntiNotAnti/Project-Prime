@@ -880,12 +880,12 @@ namespace MphRead.Mods.Network
             // weapon switches, etc. N0 adjudicates its actual shot/health/fact
             // evidence across all processes instead of failing unrelated tour
             // assertions (or pretending those features were exercised).
-            bool campaignRig = NetCampaignEvidence.Enabled && HitRig.Active;
+            bool campaignRig = NetCampaignEvidence.Enabled && (HitRig.Active || NetAiClient.Enabled);
             int featureFailures;
             bool featuresOk;
             if (campaignRig)
             {
-                featuresOk = NetCampaignEvidence.RigHasEvidence;
+                featuresOk = NetCampaignEvidence.RigHasEvidence && NetAiClient.HasLocalActivity;
                 featureFailures = featuresOk ? 0 : 1;
                 Console.WriteLine("  N0 rig: cross-process shot/health/semantic verdict is in summary.json; feature tour NOT_RUN");
             }
@@ -934,7 +934,7 @@ namespace MphRead.Mods.Network
                 return 1;
             }
             NetTestScript.Reset();
-            NetTestScript.Enabled = true;
+            NetTestScript.Enabled = !NetAiClient.Enabled;
             (string RoomKey, GameMode Mode) room = NetLaunch.ServerRoom()!.Value;
             Console.WriteLine($"[netcheck] {name} joined slot {NetSession.LocalSlot}, "
                 + $"loading {room.RoomKey} ({room.Mode})");
@@ -956,7 +956,7 @@ namespace MphRead.Mods.Network
                     NetSession.LocalColor);
                 window.Run();
                 window.Report();
-                return window.Passed && window._featureFailures == 0 && NetCampaignDrain.Succeeded ? 0 : 1;
+                return window.Passed && window._featureFailures == 0 && NetCampaignDrain.Succeeded && NetAiClient.HasLocalActivity ? 0 : 1;
             }
             catch (Exception ex)
             {
@@ -984,6 +984,7 @@ namespace MphRead.Mods.Network
                 SpectatorMode.Reset();
                 NetTestScript.Enabled = false;
                 NetSession.Stop();
+                NetAiClient.Reset();
                 NetLog.Close();
             }
         }

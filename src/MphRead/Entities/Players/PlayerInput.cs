@@ -748,7 +748,7 @@ namespace MphRead.Entities
                     Biped2Flags |= AnimFlags.NoLoop;
                 }
                 ApplyModAim();
-                if (Controls.MouseAim && !Flags1.TestFlag(PlayerFlags1.NoAimInput) && !IsBot)
+                if (Controls.MouseAim && !Flags1.TestFlag(PlayerFlags1.NoAimInput) && !IsBot && !Mods.Network.NetAiClient.Drives(this))
                 {
                     // The 1/4 was the whole of the sensitivity setting; it is
                     // now the point where one lives (1.0 = this exact feel).
@@ -812,7 +812,7 @@ namespace MphRead.Entities
                         }
                     }
                 }
-                if (Controls.KeyboardAim || IsBot)
+                if (Controls.KeyboardAim || IsBot || Mods.Network.NetAiClient.Drives(this))
                 {
                     UpdateAimX(_buttonAimX);
                     UpdateAimY(_buttonAimY);
@@ -1770,7 +1770,7 @@ namespace MphRead.Entities
                     // walk and shoot in alt form but not look, and a puppet in
                     // alt form faced wherever its last snapshot left it.
                     ApplyModAim();
-                    if (Controls.MouseAim && !Flags1.TestFlag(PlayerFlags1.NoAimInput) && !IsBot)
+                    if (Controls.MouseAim && !Flags1.TestFlag(PlayerFlags1.NoAimInput) && !IsBot && !Mods.Network.NetAiClient.Drives(this))
                     {
                         float aimY = -Input.MouseDeltaY / 4f * Mods.InputSettings.MouseSensitivity
                             * (Mods.InputSettings.InvertMouseY ? -1 : 1);
@@ -1791,7 +1791,7 @@ namespace MphRead.Entities
                         UpdateAimX(aimX);
                         UpdateAnimation(aimX, aimY);
                     }
-                    if (Controls.KeyboardAim || IsBot)
+                    if (Controls.KeyboardAim || IsBot || Mods.Network.NetAiClient.Drives(this))
                     {
                         UpdateAimX(_buttonAimX);
                         UpdateAimY(_buttonAimY);
@@ -3018,12 +3018,19 @@ namespace MphRead.Entities
             {
                 PlayerEntity player = players.Items[i];
                 if (player.OwningScene.AimTrainer?.TryDriveTarget(player) == true) continue;
+                if (Mods.Network.NetAiClient.Drives(player))
+                {
+                    if (player.LoadFlags.TestFlag(LoadFlags.Active) && !Mods.SpectatorMode.IsSpectating)
+                        Mods.Network.NetAiClient.ApplyInput(player);
+                    continue;
+                }
                 if (player.IsBot && !player.SceneServices.IsReplica
                     && (!Mods.Network.NetSession.Active || Mods.Network.NetSession.IsAuthority))
                 {
                     if (player.LoadFlags.TestFlag(LoadFlags.Active))
                     {
-                        player.AiData.ProcessInput();
+                        if (Mods.Network.NetCampaignDrain.Quiescing) Mods.Network.NetTestScript.ApplyQuiescentControls(player);
+                        else player.AiData.ProcessInput();
                         Mods.Network.NetBotInput.Capture(player);
                     }
                     continue;

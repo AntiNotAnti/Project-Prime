@@ -100,7 +100,7 @@ internal static class NetCheckSimulation
         Console.WriteLine($"[netchecksim] altScenarioExercised={scenario} stationaryTarget={stationaryTarget}");
         if (NetCampaignDrain.Enabled)
             Console.WriteLine($"[net2-drain] completed={NetCampaignDrain.Completed} passed={NetCampaignDrain.Succeeded}");
-        return NetCampaignDrain.Succeeded && steps > 0 && remoteFrames > 0 && (moving > 0 || stationaryTarget) && scenario && clipsPassed && DemoRecorder.LastError == null
+        return NetAiClient.HasLocalActivity && NetCampaignDrain.Succeeded && steps > 0 && remoteFrames > 0 && (moving > 0 || stationaryTarget) && scenario && clipsPassed && DemoRecorder.LastError == null
             && ReplayCapture.WorldCapture.LastError == null ? 0 : 1;
     }
 }

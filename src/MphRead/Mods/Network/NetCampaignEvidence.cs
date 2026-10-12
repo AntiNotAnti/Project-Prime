@@ -25,6 +25,7 @@ internal static class NetCampaignEvidence
     private static readonly int RowLimit = Environment.GetEnvironmentVariable("PRIME_NET2_SOAK") == "1"
         ? 1048576 : 262144;
     private static readonly List<Shot> Shots = new();
+    private static readonly List<PickupObservation> Pickups = new();
     private static readonly List<Health> States = new();
     private static readonly List<FormObservation> Forms = new();
     private static readonly List<SlowState> SlowStates = new();
@@ -46,6 +47,22 @@ internal static class NetCampaignEvidence
             || (HitRig.Mode is HitRig.RigMode.BombSamus or HitRig.RigMode.BombKanden or HitRig.RigMode.BombLockjaw
                 ? NetBombEvidence.RequestsAuthored > 0
                 : Offered.Any(key => key.ShooterSlot == NetSession.LocalSlot)));
+    private sealed record PickupObservation(string Stage, ulong Epoch, ushort Match, uint Frame,
+        byte Slot, ushort Generation, ushort Life, int ItemId, int? SpawnerId, ushort? SpawnCount,
+        ItemType Type, bool IsBot, float X, float Y, float Z);
+
+    internal static void Pickup(PlayerEntity player, ItemInstanceEntity item)
+    {
+        if (!Enabled || !NetSession.Active || player.SceneServices.IsReplica
+            || (!NetSession.IsAuthority && player.SlotIndex != NetSession.LocalSlot)) return;
+        var position = player.Position;
+        Add(Pickups, new(NetSession.IsAuthority ? "authority-native-consumption" : "owner-native-consumption",
+            NetSession.AuthorityEpoch, NetSession.CurrentMatchId, NetSession.NetFrame, (byte)player.SlotIndex,
+            NetPlayerLifecycle.Generation(player.SlotIndex), NetPlayerLifecycle.Get(player.SlotIndex),
+            item.Id, item.Owner?.Id, item.Owner?.ModHealthState.SpawnCount, item.ItemType, player.IsBot,
+            position.X, position.Y, position.Z));
+    }
+
     private sealed record Shot(string Stage, ShotKey Key, uint SourceFrame, uint ObservedFrame,
         byte Weapon, byte Charge, FireEventKind Kind, uint ContinuousPhase, string? Reason = null,
         int OwnerHealth = -1, ushort CurrentOwnerLife = 0, string? RetiredFormSource = null, uint? AcceptedObservedFrame = null, string? AcceptedFormSource = null,
@@ -325,6 +342,13 @@ internal static class NetCampaignEvidence
                 ShotProof = NetShotProof.Capture(),
                 CombatReconciliation = NetHitPrediction.Capture(),
                 CombatPayments = NetCombatPayments.Capture(),
+                AiClient = NetAiClient.Capture(),
+                HitClaims = new { NetHitClaims.Declared, NetHitClaims.Applied, NetHitClaims.Duplicate,
+                    NetHitClaims.RefusedDeadShooter, NetHitClaims.RefusedDeadVictim, NetHitClaims.RefusedOther,
+                    NetHitClaims.Unanswered, NetHitClaims.Resends, NetHitClaims.Received, NetHitClaims.AppliedHere,
+                    NetHitClaims.DuplicateHere, NetHitClaims.VoidedDeadShooter, NetHitClaims.VoidedDeadVictim,
+                    NetHitClaims.RefusedHere, NetHitClaims.TooOldHere, NetHitClaims.RepeatsHere },
+                Pickups,
                 MovementValidation = NetMovementValidationShadow.Capture(),
                 ConfirmedImpacts = NetConfirmedImpacts.Capture(),
                 SelfSplash = NetSelfSplash.Capture(),

@@ -270,7 +270,8 @@ namespace MphRead.Entities
                         PlayerEntity player2 = scene.Players.Items[j];
                         if (player1.Health == 0 || !player1.LoadFlags.TestFlag(LoadFlags.Active)
                             || player2.Health == 0 || !player2.LoadFlags.TestFlag(LoadFlags.Active)
-                            || (!player1.IsBot && !player2.IsBot))
+                            || (!(player1.IsBot || Mods.Network.NetAiClient.Drives(player1))
+                                && !(player2.IsBot || Mods.Network.NetAiClient.Drives(player2))))
                         {
                             continue;
                         }
@@ -278,11 +279,11 @@ namespace MphRead.Entities
                         // Visibility is directional now. A crouched/alt-form target may expose
                         // a different amount of body from each side of cover, and a single
                         // camera-to-camera ray made bots treat partial cover as fully opaque.
-                        if (player1.IsBot)
+                        if (player1.IsBot || Mods.Network.NetAiClient.Drives(player1))
                         {
                             _playerVisibility[j, i] = HasBotLineOfSight(player1, player2, scene);
                         }
-                        if (player2.IsBot)
+                        if (player2.IsBot || Mods.Network.NetAiClient.Drives(player2))
                         {
                             _playerVisibility[i, j] = HasBotLineOfSight(player2, player1, scene);
                         }
@@ -11389,7 +11390,7 @@ namespace MphRead.Entities
             {
                 foreach (PlayerEntity player in _scene.GetPlayerEntities())
                 {
-                    if (!player.IsBot)
+                    if (!player.IsBot && !Mods.Network.NetAiClient.Drives(player))
                     {
                         continue;
                     }

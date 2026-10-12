@@ -43,6 +43,7 @@ namespace MphRead.NetTest
                     + "  --form-scene <assets> [room]       Test authority form and detached turret lifecycle.");
                 return 0;
             }
+            if (args.Length > 0 && args[0] == "--ai-client-driver") return NetAiClientTests.Run();
             if (args.Length > 0 && args[0] == "--player-form-protocol") return PlayerFormProtocolTests.Run();
             if (args.Length > 0 && args[0] == "--bomb-protocol") return BombProtocolTests.Run();
             if (args.Length > 2 && args[0] == "--bomb-effect-birth-scene")
