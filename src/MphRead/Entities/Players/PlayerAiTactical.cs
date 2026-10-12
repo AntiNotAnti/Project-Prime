@@ -634,7 +634,13 @@ public partial class PlayerEntity
                 }
 
                 float score = TacticalWeaponUtilityForTest(beam, distance, beam == affinity,
-                    beam == _player.CurrentWeapon, target.IsAltForm, target.ModFrozen, selfHealth, visible);
+                    beam == _player.CurrentWeapon, target.IsAltForm, target.ModFrozen, selfHealth, visible,
+                    _scene.GameState.Multiplayer && _scene.GameState.BalancedMode);
+                if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                    && beam == BeamType.Battlehammer && _player.Hunter == Hunter.Weavel)
+                {
+                    score += 6; // Weavel's concussion and self-knockback opportunities.
+                }
                 score += TacticalHunterWeaponBiasForTest(_player.Hunter, beam, distance, target.ModFrozen);
                 if (beam == _player.CurrentWeapon)
                 {
@@ -659,11 +665,15 @@ public partial class PlayerEntity
         }
 
         public static float TacticalWeaponUtilityForTest(BeamType beam, float distance, bool affinity,
-            bool current, bool targetAltForm, bool targetFrozen, float selfHealthFraction, bool visible)
+            bool current, bool targetAltForm, bool targetFrozen, float selfHealthFraction,
+            bool visible, bool balancedMode = false)
         {
             distance = Math.Max(0, distance);
             selfHealthFraction = Math.Clamp(selfHealthFraction, 0, 1);
-            float ideal = TacticalPreferredRange(beam);
+            // Balanced Battlehammer is a fast, straight 3-round burst rifle,
+            // not the short-range ballistic shell represented by its ROM data.
+            float ideal = balancedMode && beam == BeamType.Battlehammer
+                ? 14 : TacticalPreferredRange(beam);
             float falloff = beam switch
             {
                 BeamType.ShockCoil => 3.2f,
@@ -747,6 +757,8 @@ public partial class PlayerEntity
         private float TacticalPreferredRangeForHunter(BeamType beam)
         {
             float range=TacticalPreferredRange(beam);
+            if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                && beam == BeamType.Battlehammer) range = 14;
             if(_player.Hunter==Hunter.Trace&&beam==BeamType.Imperialist)range+=5;
             else if(_player.Hunter==Hunter.Sylux&&beam==BeamType.ShockCoil)range-=1;
             else if(_player.Hunter==Hunter.Noxus&&beam==BeamType.Judicator)range+=2;
@@ -796,6 +808,8 @@ public partial class PlayerEntity
             Vector3 forward = _player.FacingVector.WithY(0);
             forward = forward.LengthSquared > 0 ? forward.Normalized() : Vector3.UnitZ;
             Vector3 right = new Vector3(forward.Z, 0, -forward.X);
+            Vector3 lateral = _tacticalStrafeRight ? right : -right;
+            AiButton lateralButton = _tacticalStrafeRight ? _buttons.A : _buttons.Y;
 
             // Tactical steering owns this frame when it finds a safe step.
             // Preserve legacy navigation only if *every* tactical candidate fails.
@@ -820,16 +834,16 @@ public partial class PlayerEntity
                 moved = TryTacticalCoverMove(target, forward, right);
                 if (!moved)
                 {
-                    moved = TryTacticalMove(-forward, _buttons.B);
+                    moved = TryTacticalDiagonalMove(-forward, _buttons.B, lateral, lateralButton);
                 }
             }
             else if (retreat)
             {
-                moved = TryTacticalMove(-forward, _buttons.B);
+                moved = TryTacticalDiagonalMove(-forward, _buttons.B, lateral, lateralButton);
             }
             else if (advance)
             {
-                moved = TryTacticalMove(forward, _buttons.X);
+                moved = TryTacticalDiagonalMove(forward, _buttons.X, lateral, lateralButton);
             }
 
             if (!moved)
@@ -872,6 +886,21 @@ public partial class PlayerEntity
                 _combatJumpCooldown = Math.Max(30, Difficulty.JumpCooldownMinFrames) * 2;
                 _tacticalMovementActive = true;
             }
+        }
+
+        private bool TryTacticalDiagonalMove(Vector3 radial, AiButton radialButton,
+            Vector3 lateral, AiButton lateralButton)
+        {
+            // Commit to the useful distance change while circling instead of
+            // charging straight toward a player's crosshair. Check the entire
+            // diagonal footprint, then fall back to the safe radial step.
+            if (TacticalCanMove(radial + lateral))
+            {
+                radialButton.IsDown = true;
+                lateralButton.IsDown = true;
+                return true;
+            }
+            return TryTacticalMove(radial, radialButton);
         }
 
         private bool TryTacticalCoverMove(PlayerEntity target, Vector3 forward, Vector3 right)

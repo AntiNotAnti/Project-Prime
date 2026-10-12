@@ -38,6 +38,14 @@ separation. Pitch is now calculated from a normalized, clamped vector with
 finite/zero guards. Horizontal dot products are also clamped before `acos()`.
 These changes remove a separate source of abrupt/invalid bot aiming.
 
+## Orbiting combat and balanced weapon roles
+
+Tactical pursuit and retreat can now blend a safe lateral component with the
+radial step, rather than running straight at the target whenever outside the
+preferred engagement range. Each diagonal uses a full floor/wall/hazard probe.
+Balanced Battlehammer weapon selection and preferred spacing follow the actual
+mid-range three-round burst rules, including a small Weavel affinity preference.
+
 ## Defensive projectile anticipation
 
 Normal/Hard/Insane bots can estimate closest approach of *visible*, hostile,

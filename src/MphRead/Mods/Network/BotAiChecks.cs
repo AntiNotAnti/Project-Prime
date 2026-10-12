@@ -186,6 +186,17 @@ public static class BotAiChecks
                 radius: 1, horizonTicks: 15, out _, out _),
             "invalid projectile kinematics cannot affect bot movement");
 
+        float stockHammer = PlayerEntity.PlayerAiData.TacticalWeaponUtilityForTest(
+            BeamType.Battlehammer, 14, affinity: false, current: false,
+            targetAltForm: false, targetFrozen: false, selfHealthFraction: 1,
+            visible: true);
+        float burstHammer = PlayerEntity.PlayerAiData.TacticalWeaponUtilityForTest(
+            BeamType.Battlehammer, 14, affinity: false, current: false,
+            targetAltForm: false, targetFrozen: false, selfHealthFraction: 1,
+            visible: true, balancedMode: true);
+        Check(burstHammer > stockHammer,
+            "balanced burst rifle favors midrange where its actual projectiles excel");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }
