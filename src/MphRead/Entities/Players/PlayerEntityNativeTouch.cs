@@ -129,9 +129,9 @@ namespace MphRead.Entities
             float speed = touchBoost ? Fixed.ToFloat(Values.BoostSpeedMax)
                 : Fixed.ToFloat(Values.BoostSpeedMin)
                     + result.Spent * (Fixed.ToFloat(Values.BoostSpeedMax) - Fixed.ToFloat(Values.BoostSpeedMin))
-                    / Math.Max(1, maximum);
+                    / Math.Max(1, (int)maximum);
             float cap = Fixed.ToFloat(Values.BoostSpeedCap)
-                * (touchBoost ? 1f : result.Spent / (float)Math.Max(1, maximum));
+                * (touchBoost ? 1f : result.Spent / (float)Math.Max(1, (int)maximum));
             _hSpeedCap = MathF.Max(_hSpeedCap, cap);
             float dirX = _field70, dirZ = _field74;
             if (touchBoost)
@@ -143,7 +143,7 @@ namespace MphRead.Entities
             speedDelta.Z += dirZ * speed;
             _altAttackCooldown = (ushort)(Values.AltAttackCooldown * 2);
             _boostDamage = touchBoost ? (ushort)Values.AltAttackDamage
-                : (ushort)(Values.AltAttackDamage * result.Spent / Math.Max(1, maximum));
+                : (ushort)(Values.AltAttackDamage * result.Spent / Math.Max(1, (int)maximum));
             _soundSource.PlaySfx(Metadata.HunterSfx[(int)Hunter, (int)HunterSfx.Boost]);
             ModControllerFeedback(Mods.Input.GamepadFeedback.Boost);
             if (IsMainPlayer)
