@@ -263,6 +263,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _invertY = null!;
         private ToggleRow _invertX = null!;
         private ToggleRow? _mouseMovementBoost;
+        private ToggleRow? _classicMorphBallTouch;
         private ToggleRow? _mouseAltFormMovement;
         private ToggleRow? _stylusMovementBoost;
         private ToggleRow _penTablet = null!;
@@ -1978,11 +1979,15 @@ namespace MphRead.Mods.Launcher.Gui
             if (OperatingSystem.IsAndroid())
             {
                 Heading(page, "Touch gestures");
+                _classicMorphBallTouch = Add(page, new ToggleRow(
+                    "Classic Morph Ball touch controls (EU1.1)", InputSettings.ClassicMorphBallTouch));
                 BuildAltSwipeSensitivity(page);
             }
             else
             {
                 Heading(page, "Alt-form gestures");
+                _classicMorphBallTouch = Add(page, new ToggleRow(
+                    "Classic Morph Ball touch controls (EU1.1)", InputSettings.ClassicMorphBallTouch));
                 _mouseAltFormMovement = Add(page, new ToggleRow(
                     "Mouse movement controls rolling alt forms",
                     InputSettings.MouseAltFormMovement));
@@ -2161,6 +2166,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _altSwipeSensitivity.Value = (int)MathF.Round(InputSettings.AltSwipeSensitivity * 100);
                 _invertY.On = InputSettings.InvertMouseY;
                 _invertX.On = InputSettings.InvertMouseX;
+                if (_classicMorphBallTouch != null) _classicMorphBallTouch.On = InputSettings.ClassicMorphBallTouch;
                 if (_mouseMovementBoost != null) _mouseMovementBoost.On = InputSettings.MouseMovementBoost;
                 if (_mouseAltFormMovement != null) _mouseAltFormMovement.On = InputSettings.MouseAltFormMovement;
                 if (_stylusMovementBoost != null) _stylusMovementBoost.On = InputSettings.StylusMovementBoost;
@@ -2907,6 +2913,8 @@ namespace MphRead.Mods.Launcher.Gui
             InputSettings.AltSwipeSensitivity = _altSwipeSensitivity.Value / 100f;
             InputSettings.InvertMouseY = _invertY.On;
             InputSettings.InvertMouseX = _invertX.On;
+            if (_classicMorphBallTouch != null)
+                InputSettings.ClassicMorphBallTouch = _classicMorphBallTouch.On;
             if (_mouseMovementBoost != null)
                 InputSettings.MouseMovementBoost = _mouseMovementBoost.On;
             if (_mouseAltFormMovement != null)

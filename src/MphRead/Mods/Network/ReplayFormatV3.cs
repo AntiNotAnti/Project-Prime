@@ -222,7 +222,7 @@ namespace MphRead.Mods.Network
                     && payload.Length <= Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size,
                 PacketType.Roster => payload.Length == RosterPacket.Size,
                 PacketType.Snapshot => ValidSnapshotBootstrap(payload),
-                PacketType.SlotIntent => (payload.Length == 1 + IntentPacket.FullSize || payload.Length == 1 + IntentPacket.Protocol42FullSize) && payload[0] < RosterPacket.MaxSlots,
+                PacketType.SlotIntent => (payload.Length == 1 + IntentPacket.TouchCanonicalSize || payload.Length == 1 + IntentPacket.FullSize || payload.Length == 1 + IntentPacket.Protocol42FullSize) && payload[0] < RosterPacket.MaxSlots,
                 _ => false
             };
         }

@@ -1359,6 +1359,8 @@ namespace MphRead.Mods.Network
 
     public struct IntentPacket
     {
+        // Live compact-intent extension; historical canonical replay widths are unchanged.
+        public Mods.Input.NativeTouchReport NativeTouch;
         public ushort MatchId;
         public ulong AuthorityEpoch;
         public ushort SlotGeneration;
@@ -1407,6 +1409,9 @@ namespace MphRead.Mods.Network
         public const int Protocol38FullSize = LegacyFullSize + NetFireEvents.LegacyWireSize;
         public const int Protocol42FullSize = LegacyFullSize + 1 + NetFireEvents.Capacity * FireEvent.PoseSize;
         public const int FullSize = LegacyFullSize + NetFireEvents.WireSize;
+        // Protocol 53 canonical replay records append the exact 30 Hz touch
+        // report; pre-53 records keep FullSize and decode with no touch contact.
+        public const int TouchCanonicalSize = FullSize + Mods.Input.NativeTouchReport.WireSize;
         public bool HasFireEvents;
         public byte FireEventCount;
         public FireEventHistory FireEvents;
@@ -1643,6 +1648,8 @@ namespace MphRead.Mods.Network
             }
             if (dest.Length >= LegacyFullSize)
                 BinaryPrimitives.WriteUInt32LittleEndian(dest[(Size + 10)..], ContinuousFireTick);
+            if (dest.Length >= TouchCanonicalSize)
+                NativeTouch.Write(dest.Slice(FullSize, Mods.Input.NativeTouchReport.WireSize));
             if (dest.Length >= FullSize)
             {
                 dest[LegacyFullSize] = FireEventCount;
@@ -1674,6 +1681,9 @@ namespace MphRead.Mods.Network
             }
             return new IntentPacket
             {
+                NativeTouch = src.Length >= TouchCanonicalSize
+                    ? Mods.Input.NativeTouchReport.Read(src.Slice(FullSize, Mods.Input.NativeTouchReport.WireSize))
+                    : default,
                 HasFireEvents = currentFireEvents || posedFireEvents || legacyFireEvents,
                 FireEventCount = fireCount, FireEvents = fireEvents,
                 MatchId = BinaryPrimitives.ReadUInt16LittleEndian(src[74..]),
@@ -2515,7 +2525,8 @@ namespace MphRead.Mods.Network
         // Protocol 50 isolates optional confirmed impacts from gameplay sequence/ACK windows.
         // Protocol 51 carries the authority bomb-jump result in detonation events.
         // Protocol 52 adds exact reliable turret fire emission/refusal outcomes.
-        public const int ProtocolVersion = 52;
+        // Protocol 53 carries ordered 30 Hz Morph Ball touch input in live compact intents.
+        public const int ProtocolVersion = 53;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
