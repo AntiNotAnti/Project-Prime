@@ -127,6 +127,49 @@ internal static class PickupClaimTests
         r = new Rig(); Check(!r.Claims.Observe(r.Pose(1000,10),new[] { r.Item() with { Position = new Vector3(float.NaN,0,0) } }), "invalid item rejected");
         Check(r.Claims.Observe(r.Pose(2000,11),new[] { r.Item(frame:11) }), "first valid observation owns clock anchor");
     }
+    private static void ContactPhaseOffsets()
+    {
+        foreach (uint offset in new uint[] { 1, 2 })
+        foreach (bool nativeFirst in new[] { false, true })
+        {
+            var r = new Rig();
+            var bad = r.Pose() with { Position = new Vector3(3, 0, 0), SpherePosition = new Vector3(3, .5f, 0) };
+            Check(r.Claims.Observe(bad, new[] { r.Item() }), "pre-contact exact source captured outside reach");
+            var claim = r.Claim();
+            Check(!r.Claims.CanProveContact(claim, 10, 0, 0), "bad exact pose alone cannot prove later contact");
+            r.Observe(100 + offset, 10 + offset);
+            Check(r.Claims.HasFollowingObservation(Life(), 100) && r.Claims.CanProveContact(claim, 12, 0, 0),
+                "captured following phase proves contact within two source steps");
+            TimedGrantRecord? native = null;
+            if (nativeFirst)
+                Check(r.Grants.TryGrant(r.Spawn, Life(), 12, 100 + offset, out native) == TimedGrantResult.Granted,
+                    "following native contact wins before original claim");
+            var verdict = r.Judge(claim, 13);
+            Check(verdict.Result == PickupResult.Grant && verdict.ProofFrame == 10 + offset
+                && verdict.GrantFrame == (nativeFirst ? 12u : 13u) && r.Calls == (nativeFirst ? 0 : 1)
+                && (!nativeFirst || verdict.GrantSequence == native!.Sequence),
+                "phase offset grant/native acknowledgement retains actual proof and grant clocks");
+            Check(r.Judge(claim, 14) == verdict && r.Calls == (nativeFirst ? 0 : 1), "phase-offset retry cannot renew grant");
+        }
+        for (int scenario = 0; scenario < 6; scenario++)
+        {
+            var r = new Rig(); var claim = r.Claim();
+            uint source = scenario == 0 ? 103u : 101u;
+            var pose = r.Pose(source, scenario == 2 ? 20u : 11u);
+            if (scenario == 1) pose = pose with { Life = Life(life: 2) };
+            if (scenario == 4) pose = pose with { Position = new Vector3(2, 0, 0), SpherePosition = new Vector3(2, .5f, 0) };
+            var item = r.Item(frame: pose.AuthorityFrame, available: scenario != 3);
+            if (scenario == 5) item = item with { Position = new Vector3(4, 1, 0) };
+            Check(r.Claims.Observe(pose, new[] { item }), "negative following sample captured");
+            Check(!r.Claims.CanProveContact(claim, 12, 0, 0) && r.Judge(claim, 12).Result != PickupResult.Grant
+                && r.Calls == 0, "offset-three/wrong-life/future/taken/position/reach cannot prove contact " + scenario);
+        }
+        var exact = new Rig();
+        Check(exact.Claims.Observe(exact.Pose(), new[] { exact.Item(new Vector3(4, 1, 0)) }), "bad exact reach retained");
+        Check(exact.Judge(exact.Claim()).Result == PickupResult.TooFar && exact.Calls == 0,
+            "without a following proof the exact native refusal remains unchanged");
+    }
+
     private static void Capacity()
     {
         var r = new Rig();
@@ -149,13 +192,13 @@ internal static class PickupClaimTests
             "oversized item snapshot rejected without history growth");
         r = new Rig();
         for (int slot=0;slot<8;slot++)
-        for (uint index=0;index<129;index++) r.Observe(100+index,10+index,slot);
+        for (uint index=0;index<131;index++) r.Observe(100+index,10+index,slot);
         Check(r.Claims.ObservationCount == 8*128, "contact history bounded separately for eight slots");
-        Check(r.Judge(r.Claim(),139).Result == PickupResult.HistoryUnavailable, "evicted source is unavailable");
+        Check(r.Judge(r.Claim(),141).Result == PickupResult.HistoryUnavailable, "evicted entire contact-phase window is unavailable");
     }
     public static int Run()
     {
-        try { _checks=0; ReservationAndRetries(); Geometry(); InvalidAndUnavailable(); ClocksAndAge(); Capacity();
+        try { _checks=0; ReservationAndRetries(); Geometry(); InvalidAndUnavailable(); ClocksAndAge(); ContactPhaseOffsets(); Capacity();
             Console.WriteLine($"PASS: {_checks} pure pickup claim assertions"); return 0; }
         catch(Exception error) { Console.Error.WriteLine(error); return 1; }
     }

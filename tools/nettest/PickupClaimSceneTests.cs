@@ -186,71 +186,36 @@ internal static class PickupClaimSceneTests
         }
     }
 
-    private static void OddOwnerContactIntent(PlayerEntity owner)
+    private static void QueuedFollowingNativeContact(PlayerEntity owner)
     {
-        NetPowerUpLedger.BeginRoom(); Advance(10);
-        if (NetSession.NetFrame % NetConfig.IntentSendInterval == 0) Advance();
-        owner.ModForceForm(false); owner.Health = 199;
-        var scene = owner.OwningScene;
-        ItemSpawnEntity? template = null;
-        foreach (var candidate in scene.GetItemSpawnEntities()) { template = candidate; break; }
-        Check(template != null, "owner fixture has authored spawner template");
-        var item = new ItemInstanceEntity(new(owner.Position, ItemType.DoubleDamage, 6000), owner.NodeRef, scene)
-            { Owner = template };
-        scene.AddEntity(item);
-        Check(NetPowerUpLedger.TrySpawnKey(item, out var spawn), "owner fixture uses registered authored item identity");
-        var role = NetSession.Role; bool authority = NetSession.IsAuthority;
-        var send = NetPickupNetwork.SendClaim;
-        const BindingFlags hookFlags = BindingFlags.Static | BindingFlags.NonPublic;
-        var pendingField = typeof(NetHooks).GetField("_continuousIntentPending", hookFlags)!;
-        var intentField = typeof(NetHooks).GetField("_continuousIntent", hookFlags)!;
-        var frameField = typeof(NetHooks).GetField("_continuousIntentFrame", hookFlags)!;
-        object previousPending = pendingField.GetValue(null)!, previousIntent = intentField.GetValue(null)!, previousFrame = frameField.GetValue(null)!;
-        var bridge = NetPlayerBridge.Current;
-        var latchField = typeof(PlayerReplicationBridge).GetField("_hasLatch", Hidden)!;
-        var chargeField = typeof(PlayerReplicationBridge).GetField("_latchedCharge", Hidden)!;
-        object previousLatch = latchField.GetValue(bridge)!, previousCharge = chargeField.GetValue(bridge)!;
-        try
-        {
-            Session(nameof(NetSession.Role), NetRole.Client); Session(nameof(NetSession.IsAuthority), false);
-            Check(NetSession.WorldIsReady, "owner fixture is ready for native owner contact");
-            // Seed the exact retained pre-step hook state without running its
-            // unrelated roster/bootstrap sync against the authority fixture.
-            latchField.SetValue(bridge, true); chargeField.SetValue(bridge, 77);
-            var retained = NetPlayerBridge.CaptureIntent(owner, consumeLatch: false);
-            Check(retained.ChargeLevel == 77 && (bool)latchField.GetValue(bridge)!,
-                "odd pre-step preview preserves pending charge-release latch");
-            intentField.SetValue(null, retained); frameField.SetValue(null, NetSession.NetFrame);
-            pendingField.SetValue(null, false);
-            Contact.Invoke(owner, null);
-            Check(!(bool)pendingField.GetValue(null)! && (bool)latchField.GetValue(bridge)!,
-                "contact without discovery cannot promote odd intent or spend charge latch");
-            item.DespawnTimer = 6000;
-            Check(NetPickupNetwork.ReceiveItem(new(spawn, TimedPowerUp.DoubleDamage, NetSession.NetFrame, true, item.Position)),
-                "owner receives actual authored incarnation discovery");
-            PickupClaim? sent = null;
-            NetPickupNetwork.SendClaim = claim => { sent = claim; return true; };
-            Contact.Invoke(owner, null); NetPickupNetwork.PumpOwner();
-            Check((bool)pendingField.GetValue(null)! && sent is PickupClaim claim
-                && claim.SourceFrame == NetSession.NetFrame && claim.Spawn == spawn
-                && ((IntentPacket)intentField.GetValue(null)!).Equals(retained) && !(bool)latchField.GetValue(bridge)!,
-                "accepted native odd contact promotes exact retained input without rewriting it");
-            pendingField.SetValue(null, false); item.DespawnTimer = 6000; Contact.Invoke(owner, null);
-            Check(!(bool)pendingField.GetValue(null)!, "duplicate pending owner claim cannot promote another send");
-            NetPickupNetwork.Reset(); Advance(); item.DespawnTimer = 6000; latchField.SetValue(bridge, true);
-            NetPickupNetwork.ReceiveItem(new(spawn, TimedPowerUp.DoubleDamage, NetSession.NetFrame, true, item.Position));
-            Contact.Invoke(owner, null);
-            Check(NetPickupNetwork.PendingCount == 1 && !(bool)pendingField.GetValue(null)! && (bool)latchField.GetValue(bridge)!,
-                "accepted contact never promotes a retained input from a stale frame");
-        }
-        finally
-        {
-            Session(nameof(NetSession.Role), role); Session(nameof(NetSession.IsAuthority), authority);
-            NetPickupNetwork.SendClaim = send; NetPickupNetwork.Reset();
-            pendingField.SetValue(null, previousPending); intentField.SetValue(null, previousIntent); frameField.SetValue(null, previousFrame);
-            latchField.SetValue(bridge, previousLatch); chargeField.SetValue(bridge, previousCharge);
-            Retire(item);
-        }
+        NetPowerUpLedger.BeginRoom(); Advance(10); owner.ModForceForm(false); owner.Health = 199;
+        foreach (string timer in Timers) Field(owner, timer, 0);
+        Vector3 contactPosition = owner.Position;
+        var item = Spawn(owner, ItemType.DoubleDamage);
+        uint offered = NetSession.NetFrame;
+        var claim = Claim(owner, item, offered);
+        owner.ModPlaceAt(contactPosition + Vector3.UnitX * 20);
+        NetPowerUpLedger.ObserveContact(owner);
+        Check(NetPickupNetwork.Receive(owner.SlotIndex, claim, 150, 20), "phase fixture queues original post-step contact claim");
+        Check(owner.ProcessPlayer() && !NetPowerUpLedger.Claims!.TryTerminal(claim.Key, out _)
+            && item.DespawnTimer != 0 && !NetPowerUpLedger.Ledger!.History.Any(),
+            "bad exact pre-contact sample waits without granting or terminal refusal");
+        Advance(); owner.ModPlaceAt(contactPosition); owner.Health = 199;
+        Check(owner.ProcessPlayer(), "following actual native contact player phase runs");
+        var ledger = NetPowerUpLedger.Ledger!;
+        var native = ledger.History.Single(g => g.Spawn == claim.Spawn);
+        Check(NetPowerUpLedger.Claims!.TryTerminal(claim.Key, out var verdict)
+            && verdict.Result == PickupResult.Grant && verdict.Claim == claim
+            && verdict.ProofFrame == NetSession.NetFrame && verdict.GrantFrame == NetSession.NetFrame
+            && verdict.GrantSequence == native.Sequence && native.SourceContactFrame == unchecked(offered + 1),
+            "following captured pose acknowledges exact original claim and actual native grant");
+        Check(item.DespawnTimer == 0 && Timer(owner, 0) == 1799 && ledger.History.Count() == 1,
+            "following native win consumes once with native DD timer phase");
+        Field(owner, "_doubleDmgTimer", 1234); Field(owner, "_timeSincePickup", 47);
+        Check(Judge(owner, claim) == verdict && Timer(owner, 0) == 1234
+            && Convert.ToInt32(typeof(PlayerEntity).GetField("_timeSincePickup", Hidden)!.GetValue(owner)) == 47
+            && ledger.History.Count() == 1, "following-phase retry never reruns native pickup effects");
+        Retire(item); NetPickupNetwork.Reset();
     }
 
     private static void NativeWinAndRace(PlayerEntity owner, PlayerEntity other)
@@ -377,7 +342,7 @@ internal static class PickupClaimSceneTests
             var scene = owner.OwningScene; scene.GameState.BalancedMode = false; scene.GameState.EnhancedHunters = false;
             scene.GameState.PrimeHunter = owner.SlotIndex;
             Check(owner.ModIsInPlay && NetSession.IsAuthority, "prime-hunter local fixture retains admitted native identity");
-            TimedTypes(owner); QueuedNativePhase(owner); CurrentCameraBlock(owner); OddOwnerContactIntent(owner); NativeWinAndRace(owner, other); AuthoredRespawn(owner); UnavailableAndIsolation(owner);
+            TimedTypes(owner); QueuedNativePhase(owner); CurrentCameraBlock(owner); QueuedFollowingNativeContact(owner); NativeWinAndRace(owner, other); AuthoredRespawn(owner); UnavailableAndIsolation(owner);
             Check(sim.StepFailures == 0, "native fixture warmup has no simulation failures");
             Console.WriteLine($"PASS: pickup claim scene {_checks} native adapter assertions"); return 0;
         }

@@ -18,8 +18,7 @@ namespace MphRead.Mods.Network
         public static long NodeLookupsUnresolved { get => Current.NodeLookupsUnresolved; set => Current.NodeLookupsUnresolved = value; }
         public static Vector3 InFormFor(PlayerEntity player, Vector3 position, bool measuredInAlt) => Current.InFormFor(player, position, measuredInAlt);
         public static void RecordPresses(PlayerEntity player) => Current.RecordPresses(player);
-        public static IntentPacket CaptureIntent(PlayerEntity player, bool consumeLatch = true)
-            => Current.CaptureIntent(player, consumeLatch);
+        public static IntentPacket CaptureIntent(PlayerEntity player) => Current.CaptureIntent(player);
         public static bool RespawnRequested(int slot) => Current.RespawnRequested(slot);
         public static int[] ShootPressAge { get => Current.ShootPressAge; }
         public static void ApplyIntent(PlayerEntity player, in IntentPacket intent) => Current.ApplyIntent(player, in intent);

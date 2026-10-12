@@ -56,6 +56,8 @@ internal sealed class NetPickupClaims
     internal bool TryTerminal(PickupClaimKey key, out PickupVerdict verdict) => _terminals.TryGetValue(key, out verdict);
     internal int ObservationCount => _history.Count;
     internal bool HasObservation(ShotKey life, uint source) => _history.ContainsKey(new(life, source));
+    internal bool HasFollowingObservation(ShotKey life, uint source)
+        => HasObservation(life, unchecked(source + 1)) || HasObservation(life, unchecked(source + 2));
     internal long CapacityRefused { get; private set; }
 
     internal NetPickupClaims(ulong epoch, ushort match, uint room, NetTimedGrants grants,
@@ -105,6 +107,34 @@ internal sealed class NetPickupClaims
             + 2 * Math.Min(jitterMilliseconds, 1000)) * .06) + 6, 12, HistoryFrames - 8);
     }
 
+    internal bool CanProveContact(in PickupClaim claim, uint now, double rtt, double jitter)
+    { ContactFor(claim, now, HistoryWindow(rtt, jitter), out bool proved); return proved; }
+
+    private Contact? ContactFor(in PickupClaim claim, uint now, int window, out bool proved)
+    {
+        proved = false;
+        Contact? fallback = null;
+        // Owner contact occurs AFTER input/movement. Reported authority poses
+        // come from PRE-step intents, normally sent every two ticks. The next
+        // one or two actual source samples can therefore carry the contact
+        // pose. Never interpolate, widen native reach, or use the claim itself
+        // as an observation; both positions must reach the captured item.
+        for (uint offset = 0; offset <= 2; offset++)
+        {
+            if (!_history.TryGetValue(new(claim.Key.LifeKey, unchecked(claim.SourceFrame + offset)), out var contact)) continue;
+            fallback ??= contact;
+            var pose = contact.Pose;
+            int age = unchecked((int)(now - pose.AuthorityFrame));
+            if (age < 0 || age > window || !pose.Alive || !pose.CanPickup
+                || (claim.Position - pose.Position).LengthSquared > PositionTolerance * PositionTolerance) continue;
+            foreach (var item in contact.Items)
+                if (item.Spawn == claim.Spawn && item.Type == claim.Type && item.Available
+                    && pose.Reaches(item.Position, pose.Position) && pose.Reaches(item.Position, claim.Position))
+                { proved = true; return contact; }
+        }
+        return fallback;
+    }
+
     internal PickupVerdict Judge(in PickupClaim claim, int senderSlot, ShotKey currentLife, bool alive,
         uint now, double rttMilliseconds, double jitterMilliseconds, CommitPickup commit)
     {
@@ -130,7 +160,7 @@ internal sealed class NetPickupClaims
         PickupContactProof? proof = null;
         if (!Current(currentLife) || claim.Key.LifeKey != currentLife || !alive)
             result = Refuse(PickupResult.Invalid);
-        else if (!_history.TryGetValue(new(currentLife, claim.SourceFrame), out var contact))
+        else if (ContactFor(claim, now, HistoryWindow(rttMilliseconds, jitterMilliseconds), out _) is not { } contact)
             result = Refuse(PickupResult.HistoryUnavailable);
         else
         {

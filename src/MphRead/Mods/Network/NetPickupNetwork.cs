@@ -175,10 +175,13 @@ internal static class NetPickupNetwork
             var request = pair.Value;
             if (Now - request.Created >= DeadlineSeconds) { Failed[slot] = true; break; }
             if (Answers[slot].Count >= PendingPerSlot * 2) break;
-            // Claims and compact intents are separate lanes. Give a missing
-            // input observation a finite chance to arrive before refusing it.
+            // Claims describe post-step contact; the following pre-step pose
+            // arrives on a separate input lane. Give that actual observation
+            // a finite chance to arrive, without delaying cached terminals.
             if (NetPowerUpLedger.Claims is { } claims
-                && !claims.HasObservation(request.Claim.Key.LifeKey, request.Claim.SourceFrame)
+                && !claims.TryTerminal(request.Claim.Key, out _)
+                && !claims.HasFollowingObservation(request.Claim.Key.LifeKey, request.Claim.SourceFrame)
+                && !claims.CanProveContact(request.Claim, NetSession.NetFrame, request.Rtt, request.Jitter)
                 && unchecked((int)(NetSession.NetFrame - request.ReceivedFrame)) < 24) continue;
             var verdict = NetPowerUpLedger.JudgeClaim(request.Claim, slot, NetSession.NetFrame,
                 request.Rtt, request.Jitter, scene);
@@ -231,7 +234,6 @@ internal static class NetPickupNetwork
             life.Generation, life.LifeId, ++_sequence), known.Spawn, type, NetSession.NetFrame, player.Position);
         if (!claim.IsValid) return;
         Owners.Add(claim.Key, new() { Claim = claim, Created = Now });
-        NetHooks.RequirePickupContactIntent();
         NetCampaignEvidence.PickupClaim(claim, "offered");
     }
     internal static void PumpOwner()

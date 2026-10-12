@@ -174,6 +174,9 @@ def audit(server_report, peer_reports):
         try:
             p = proofs[k]; spawn, kind, source, pos = c[1:]
             if identity(p['Spawn'], SPAWN) != spawn or p['Type'] != kind or p['SourceFrame'] != source or struct.unpack('<fff', struct.pack('<fff', *vector(p['ClaimPosition']))) != pos: raise ValueError('proof claim differs')
+            captured_source = integer(p['CapturedSourceFrame'],0,MASK)
+            if (captured_source - source) & MASK not in (0,1,2):
+                raise ValueError('captured source must be claim frame or next two actual observations')
             life = (k[0],k[1],k[2],k[3],k[4],0)
             if identity(p['Life'], LIFE) != life: raise ValueError('proof life differs')
             for n in ('Position','SpherePosition','ItemPosition'): vector(p[n])

@@ -12,7 +12,7 @@ def fixture():
     verdict=claim+struct.pack('<BIIQII',1,110,100,1,110,1910)
     row=dict(Key=key,Spawn=spawn,Type='DoubleDamage',SourceFrame=50,ObservedFrame=110,Payload=claim.hex())
     terminal=dict(Key=key,Spawn=spawn,Result='Grant',DecisionFrame=110,ProofFrame=100,GrantSequence=1,GrantFrame=110,ExpiresAtFrame=1910,ObservedFrame=110,Payload=verdict.hex())
-    proof=dict(Key=key,Spawn=spawn,Type='DoubleDamage',SourceFrame=50,ClaimPosition=[0,0,0],Life=life,AuthorityFrame=100,Position=[0,0,0],SpherePosition=[0,0,0],Radius=.5,MinHeight=-1,MaxHeight=1,Alt=False,Alive=True,CanPickup=True,ItemPosition=[.5,0,0],Available=True,ItemAuthorityFrame=100,Window=12,DecisionFrame=110,ProofFrame=100,GrantSequence=1,GrantFrame=110,ExpiresAtFrame=1910)
+    proof=dict(Key=key,Spawn=spawn,Type='DoubleDamage',SourceFrame=50,CapturedSourceFrame=50,ClaimPosition=[0,0,0],Life=life,AuthorityFrame=100,Position=[0,0,0],SpherePosition=[0,0,0],Radius=.5,MinHeight=-1,MaxHeight=1,Alt=False,Alive=True,CanPickup=True,ItemPosition=[.5,0,0],Available=True,ItemAuthorityFrame=100,Window=12,DecisionFrame=110,ProofFrame=100,GrantSequence=1,GrantFrame=110,ExpiresAtFrame=1910)
     grant=dict(Sequence=1,Spawn=spawn,Life=life,Type='DoubleDamage',ContactFrame=110,EffectiveFrame=111,ExpiresAtFrame=1910,EndFrame=1910,EndReason='Active',SourceContactFrame=50,SourceEffectiveFrame=51)
     blank=dict(Overflow=0,PickupClaims=[],PickupVerdicts=[],PickupItems=[],PickupProofs=[])
     server=copy.deepcopy(blank);peer=copy.deepcopy(blank)
@@ -24,6 +24,25 @@ def fixture():
 class AuditTests(unittest.TestCase):
     def result(self,s,p): return audit.audit(s,p)['status']
     def test_valid(self): self.assertEqual(self.result(*fixture()),'PASS')
+    def test_captured_source_offsets(self):
+        for offset in (0,1,2):
+            s,p=fixture();s['PickupProofs'][0]['CapturedSourceFrame']=50+offset
+            self.assertEqual(self.result(s,p),'PASS')
+        for value in (49,53):
+            s,p=fixture();s['PickupProofs'][0]['CapturedSourceFrame']=value
+            self.assertEqual(self.result(s,p),'FAIL')
+        s,p=fixture();del s['PickupProofs'][0]['CapturedSourceFrame']
+        self.assertEqual(self.result(s,p),'FAIL')
+    def test_captured_source_wrap(self):
+        for offset in (0,1,2):
+            s,p=fixture();source=2**32-1
+            s['PickupProofs'][0].update(SourceFrame=source,CapturedSourceFrame=(source+offset)&audit.MASK)
+            for r in s['PickupClaims']+p[0]['PickupClaims']:
+                r['SourceFrame']=source;b=bytearray.fromhex(r['Payload']);struct.pack_into('<I',b,32,source);r['Payload']=b.hex()
+            for r in s['PickupVerdicts']+p[0]['PickupVerdicts']:
+                b=bytearray.fromhex(r['Payload']);struct.pack_into('<I',b,32,source);r['Payload']=b.hex()
+            s['TimedGrants'][0].update(SourceContactFrame=source,SourceEffectiveFrame=0)
+            self.assertEqual(self.result(s,p),'PASS')
     def test_missing_proof(self):
         s,p=fixture();s['PickupProofs']=[];self.assertEqual(self.result(s,p),'FAIL')
     def test_conflicting_retry(self):
