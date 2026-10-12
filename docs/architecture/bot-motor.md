@@ -30,6 +30,14 @@ turn amount immediately. The deterministic per-tier profiles tune this rate.
 This is command smoothing, **not** smoothing authoritative muzzle, hitbox,
 projectile or target positions. LOS/firing constraints remain intact.
 
+## Defensive aim-math fix
+
+The legacy hearing/target-turn path previously sent raw, non-unit world-space
+Y offsets directly into `acos()`, producing invalid pitch for ordinary vertical
+separation. Pitch is now calculated from a normalized, clamped vector with
+finite/zero guards. Horizontal dot products are also clamped before `acos()`.
+These changes remove a separate source of abrupt/invalid bot aiming.
+
 ## Combat consistency
 
 Charge preference is now chosen once per weapon/target action instead of being

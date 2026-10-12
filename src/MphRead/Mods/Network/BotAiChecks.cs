@@ -162,6 +162,12 @@ public static class BotAiChecks
                 weaponChanged: false, targetChanged: false, charging: false, remainingFrames: 0),
             "charge decisions refresh on a weapon swap or between attacks");
 
+        Check(MathF.Abs(BotMotorMath.SafePitchDegrees(new(0, 10, 10)) - 45) < 0.001f,
+            "unnormalized target/hearing positions produce finite correct aim pitch");
+        Check(BotMotorMath.SafePitchDegrees(OpenTK.Mathematics.Vector3.Zero) == 0
+            && BotMotorMath.SafePitchDegrees(new(float.NaN, 0, 1)) == 0,
+            "degenerate and non-finite perception vectors cannot poison bot aim");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }

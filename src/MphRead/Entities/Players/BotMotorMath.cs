@@ -1,4 +1,5 @@
 using System;
+using OpenTK.Mathematics;
 
 namespace MphRead.Entities
 {
@@ -36,6 +37,19 @@ namespace MphRead.Entities
             float amount = braking ? brakingPerTick : accelerationPerTick;
             float next = MoveTowards(current, desired, amount);
             return MathF.Abs(next) < 0.001f ? 0 : next;
+        }
+
+        internal static float SafePitchDegrees(Vector3 direction)
+        {
+            if (!float.IsFinite(direction.X) || !float.IsFinite(direction.Y)
+                || !float.IsFinite(direction.Z) || direction.LengthSquared <= 0.00000001f)
+            {
+                return 0;
+            }
+            // The legacy hearing/position vectors are not unit length. Computing
+            // acos(raw Y) caused NaN turn requests for ordinary height differences.
+            float y = Math.Clamp(direction.Y / MathF.Sqrt(direction.LengthSquared), -1, 1);
+            return MathF.Asin(y) * (180f / MathF.PI);
         }
 
         internal static float StepAimAxis(ref float angularVelocity, float requestedDelta,

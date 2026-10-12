@@ -6804,7 +6804,7 @@ namespace MphRead.Entities
                 {
                     vec2 = vec1;
                 }
-                float dot = Vector3.Dot(vec1, vec2);
+                float dot = Math.Clamp(Vector3.Dot(vec1, vec2), -1, 1);
                 if (dot > 255 / 256f)
                 {
                     Flags2 |= AiFlags2.Bit0;
@@ -6835,7 +6835,7 @@ namespace MphRead.Entities
             {
                 var vec1 = new Vector3(_player.CameraInfo.Field48, 0, _player.CameraInfo.Field4C);
                 Vector3 vec2 = _field1038.X != 0 || _field1038.Z != 0 ? _field1038.WithY(0).Normalized() : vec1;
-                float dot = Vector3.Dot(vec1, vec2);
+                float dot = Math.Clamp(Vector3.Dot(vec1, vec2), -1, 1);
                 float value = Difficulty.MaxTurnDegrees;
                 if (dot < 1)
                 {
@@ -6852,8 +6852,8 @@ namespace MphRead.Entities
                         _buttonAimX *= -1;
                     }
                 }
-                float angle1 = 90 - MathHelper.RadiansToDegrees(MathF.Acos(_player.CameraInfo.Facing.Y));
-                float angle2 = 90 - MathHelper.RadiansToDegrees(MathF.Acos(_field1038.Y));
+                float angle1 = BotMotorMath.SafePitchDegrees(_player.CameraInfo.Facing);
+                float angle2 = BotMotorMath.SafePitchDegrees(_field1038);
                 float angleDiff = angle2 - angle1;
                 _buttonAimY = Math.Clamp(angleDiff, -value, value);
             }
@@ -7095,7 +7095,7 @@ namespace MphRead.Entities
                 float posYNrm = toPos.Y;
                 toPos = toPos.WithY(0);
                 toPos = toPos != Vector3.Zero ? toPos.Normalized() : toTarget;
-                float dot = Vector3.Dot(toTarget, toPos);
+                float dot = Math.Clamp(Vector3.Dot(toTarget, toPos), -1, 1);
                 BotDifficultyTuning tuning = Difficulty;
                 float value = tuning.MaxTurnDegrees;
                 if (dot < 1)
