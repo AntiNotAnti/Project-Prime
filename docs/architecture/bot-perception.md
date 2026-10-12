@@ -66,6 +66,10 @@ dotnet run --project tools/nettest/nettest.csproj -c Release -- --bots-scene /pa
 ```
 
 Added pure checks for auditory position coarsening, finite memory duration and
-confidence. Asset-backed acceptance must verify that bots do not track a player
+confidence. The asset-backed bot scene check also reports analog movement samples,
+direct same-life input reversals, mean/peak authoritative gun-vector angular
+change, and simulation timing/allocations. These diagnostic measurements help
+compare AI revisions but are not substitutes for rendered testing or human
+difficulty benchmarks. Asset-backed acceptance must verify that bots do not track a player
 around solid corners, that sight reacquisition works, and that bot vs bot
 training performance does not regress.
