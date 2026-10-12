@@ -287,8 +287,15 @@ namespace MphRead.Entities
             // Delayed bullets must neither collide nor age their flight time.
             if (Age < 0)
             {
-                Age = MathF.Min(0f, Age + _scene.FrameTime);
-                if (Age < 0) return true;
+                float remaining = Age + _scene.FrameTime;
+                // Float32 can leave round three at -0.000000004 after six
+                // 60-Hz steps; never turn a 100-ms interval into seven ticks.
+                if (remaining < -0.00001f)
+                {
+                    Age = remaining;
+                    return true;
+                }
+                Age = 0f;
                 ModStartBeamVisual();
                 ModResetDrawState();
             }
