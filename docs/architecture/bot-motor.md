@@ -30,6 +30,13 @@ turn amount immediately. The deterministic per-tier profiles tune this rate.
 This is command smoothing, **not** smoothing authoritative muzzle, hitbox,
 projectile or target positions. LOS/firing constraints remain intact.
 
+## Combat consistency
+
+Charge preference is now chosen once per weapon/target action instead of being
+randomized every frame. The original RNG still supplies deterministic choices.
+Balanced Mode lead and vertical ballistic aim use its tuned projectile speed;
+the three-round Battlehammer uses zero ballistic gravity as the actual shots do.
+
 ## Multiplayer and lifecycle
 
 Server-owned bots use the same native controls and `NetBotInput` /

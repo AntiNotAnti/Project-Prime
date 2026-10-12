@@ -153,6 +153,15 @@ public static class BotAiChecks
         Check(BotMotorMath.StepAimAxis(ref angularVelocity, float.NaN, 16, 4.8f) == 0
             && angularVelocity == 0, "invalid aim inputs fail closed");
 
+        Check(!PlayerEntity.PlayerAiData.TacticalChargeDecisionNeedsRefreshForTest(
+                weaponChanged: false, targetChanged: false, charging: true, remainingFrames: 0),
+            "active charge does not randomly change its release decision");
+        Check(PlayerEntity.PlayerAiData.TacticalChargeDecisionNeedsRefreshForTest(
+                weaponChanged: true, targetChanged: false, charging: true, remainingFrames: 15)
+            && PlayerEntity.PlayerAiData.TacticalChargeDecisionNeedsRefreshForTest(
+                weaponChanged: false, targetChanged: false, charging: false, remainingFrames: 0),
+            "charge decisions refresh on a weapon swap or between attacks");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }

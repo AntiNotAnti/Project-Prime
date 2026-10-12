@@ -60,6 +60,13 @@ public partial class PlayerEntity
         private bool _tacticalStrafeRight;
         private int _tacticalStrafeTimer;
         private bool _tacticalMovementActive;
+        // True only for a tactical movement probe that actually selected a step;
+        // _tacticalMovementActive also means "preserve native objective navigation."
+        private bool _tacticalSteeringActive;
+        private BeamType _tacticalChargeWeapon = BeamType.None;
+        private int _tacticalChargeTargetSlot = -1;
+        private int _tacticalChargeDecisionFrames;
+        private bool _tacticalChargePreferred;
         private Vector3 _tacticalProgressPosition;
         private int _tacticalProgressTimer;
         private int _tacticalStuckCount;
@@ -81,6 +88,11 @@ public partial class PlayerEntity
             _tacticalStrafeRight = false;
             _tacticalStrafeTimer = 0;
             _tacticalMovementActive = false;
+            _tacticalSteeringActive = false;
+            _tacticalChargeWeapon = BeamType.None;
+            _tacticalChargeTargetSlot = -1;
+            _tacticalChargeDecisionFrames = 0;
+            _tacticalChargePreferred = false;
             _tacticalProgressPosition = _player.Position;
             _tacticalProgressTimer = 0;
             _tacticalStuckCount = 0;
@@ -107,6 +119,7 @@ public partial class PlayerEntity
         {
             BotTacticalTuning tuning = TacticalTuning;
             _tacticalMovementActive = TacticalShouldPreserveLegacyMovement(tuning);
+            _tacticalSteeringActive = false;
 
             if (_tacticalThreatFrames > 0)
             {
@@ -143,6 +156,9 @@ public partial class PlayerEntity
                     Func21447E8();
                 }
                 _tacticalWeapon = BeamType.None;
+                _tacticalChargeWeapon = BeamType.None;
+                _tacticalChargeTargetSlot = -1;
+                _tacticalChargeDecisionFrames = 0;
                 return;
             }
 
@@ -190,12 +206,30 @@ public partial class PlayerEntity
 
                 if (CheckCharge(_tacticalWeapon))
                 {
-                    int chargeChance = Difficulty.ChargeChancePercent;
-                    if (_tacticalWeapon == Weapons.AffinityWeapons[(int)_player.Hunter])
+                    // Commit to charge or tap fire for an actual burst of combat,
+                    // not a fresh dice roll every simulation frame. Reroll only
+                    // between actions, or after changing weapon/target.
+                    bool weaponChanged = _tacticalChargeWeapon != _tacticalWeapon;
+                    bool targetChanged = _tacticalChargeTargetSlot != _tacticalTarget.SlotIndex;
+                    bool charging = _player.EquipInfo.ChargeLevel > 0;
+                    if (TacticalChargeDecisionNeedsRefreshForTest(weaponChanged,
+                        targetChanged, charging, _tacticalChargeDecisionFrames))
                     {
-                        chargeChance = Math.Min(100, chargeChance + 8);
+                        int chargeChance = Difficulty.ChargeChancePercent;
+                        if (_tacticalWeapon == Weapons.AffinityWeapons[(int)_player.Hunter])
+                        {
+                            chargeChance = Math.Min(100, chargeChance + 8);
+                        }
+                        _tacticalChargePreferred = _scene.Random.GetRandomInt2(100) < chargeChance;
+                        _tacticalChargeWeapon = _tacticalWeapon;
+                        _tacticalChargeTargetSlot = _tacticalTarget.SlotIndex;
+                        _tacticalChargeDecisionFrames = Math.Max(12, tuning.WeaponDecisionFrames);
                     }
-                    if (_scene.Random.GetRandomInt2(100) < chargeChance)
+                    else if (_tacticalChargeDecisionFrames > 0)
+                    {
+                        _tacticalChargeDecisionFrames--;
+                    }
+                    if (_tacticalChargePreferred)
                     {
                         Flags4 |= AiFlags4.Bit1;
                     }
@@ -206,6 +240,9 @@ public partial class PlayerEntity
                 }
                 else
                 {
+                    _tacticalChargeWeapon = BeamType.None;
+                    _tacticalChargeDecisionFrames = 0;
+                    _tacticalChargePreferred = false;
                     Flags4 &= ~AiFlags4.Bit1;
                 }
             }
@@ -219,6 +256,10 @@ public partial class PlayerEntity
                 ApplyTacticalWeaponDecision();
             }
         }
+
+        public static bool TacticalChargeDecisionNeedsRefreshForTest(bool weaponChanged,
+            bool targetChanged, bool charging, int remainingFrames)
+            => weaponChanged || targetChanged || (!charging && remainingFrames <= 0);
 
         private bool TacticalShouldPreserveLegacyMovement(BotTacticalTuning tuning)
         {
@@ -270,6 +311,9 @@ public partial class PlayerEntity
             _combatStrafeTimer = 0;
             _tacticalEscapeFrames = 0;
             _tacticalMovementActive = false;
+            _tacticalSteeringActive = false;
+            _tacticalChargeDecisionFrames = 0;
+            _tacticalChargeTargetSlot = -1;
             if (_tacticalThreatSlot == victim.SlotIndex)
             {
                 _tacticalThreatSlot = -1;
@@ -803,6 +847,7 @@ public partial class PlayerEntity
             if (moved)
             {
                 _tacticalMovementActive = true;
+                _tacticalSteeringActive = true;
             }
             else
             {

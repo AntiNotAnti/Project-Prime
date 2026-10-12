@@ -6957,6 +6957,16 @@ namespace MphRead.Entities
                             initialSpeed = weapon.UnchargedSpeed / 4096f / 2;
                         }
 
+                        // Balanced Mode changes projectile speed independently of the
+                        // native ROM weapon table. Lead with the actual tuned flight
+                        // speed, especially for the revised three-round Battlehammer.
+                        bool balancedProjectile = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode;
+                        if (balancedProjectile)
+                        {
+                            initialSpeed = Mods.Multiplayer.BalancedModeRules.ScaleProjectileSpeed(
+                                _player.CurrentWeapon, isCharged, initialSpeed);
+                        }
+
                         // Homing corrects itself in flight. Ordinary projectiles get a
                         // straight-line intercept in the same 60 Hz units the projectile
                         // mover uses. Lower tiers use only a fraction of the correct lead.
@@ -6978,6 +6988,11 @@ namespace MphRead.Entities
                                 projectileSpeed = weapon.UnchargedFinalSpeed / 4096f / 2;
                             }
 
+                            if (balancedProjectile)
+                            {
+                                projectileSpeed = Mods.Multiplayer.BalancedModeRules.ScaleProjectileSpeed(
+                                    _player.CurrentWeapon, isCharged, projectileSpeed);
+                            }
                             if (projectileSpeed > 0)
                             {
                                 Vector3 targetVelocity = _targetPlayer.Speed / 2f;
@@ -7120,7 +7135,20 @@ namespace MphRead.Entities
                 float gravity = (chargedAim
                     ? weapon.MinChargeGravity + ((weapon.ChargedGravity - weapon.MinChargeGravity) * chargePct)
                     : weapon.UnchargedGravity) / 4096f / 2;
-                float div = distToPosH * distToPosH * gravity / (speed * speed);
+                if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                {
+                    speed = Mods.Multiplayer.BalancedModeRules.ScaleProjectileSpeed(
+                        _player.CurrentWeapon, chargedAim, speed);
+                    if (Mods.Multiplayer.BalancedModeRules.IsBattlehammerBurst(
+                        multiplayer: true, balancedMode: true, _player.CurrentWeapon))
+                    {
+                        // All three burst rounds share one muzzle direction and fly
+                        // straight. Legacy Battlehammer elevation was wrong here.
+                        gravity = 0;
+                    }
+                }
+                float div = speed > 0.0001f
+                    ? distToPosH * distToPosH * gravity / (speed * speed) : 0;
                 float angle1;
                 float angle2;
                 if (div != 0)

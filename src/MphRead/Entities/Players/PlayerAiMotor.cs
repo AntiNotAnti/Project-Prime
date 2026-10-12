@@ -85,7 +85,7 @@ namespace MphRead.Entities
                 // Tactical footwork already probes walls, floor and hazards. Prevent
                 // the last few ticks of momentum from carrying a bot off a ledge
                 // during a direction reversal; native objective routes are exempt.
-                if (_tacticalMovementActive && _tacticalTarget != null
+                if (_tacticalSteeringActive && _tacticalTarget != null
                     && lengthSqr > 0.0001f
                     && !_player.IsAltForm)
                 {
