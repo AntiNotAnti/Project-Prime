@@ -594,8 +594,8 @@ namespace MphRead.Mods.Network
                 var balance = BalancedModeTelemetry.Capture();
                 Check(balance.Revision == BalancedModeRules.BalanceRevision
                     && balance.HunterPicks.Sum() == 7
-                    && balance.Battlehammer[1] == 0 && balance.Battlehammer[2] == 0,
-                    "Balanced telemetry captures revision without emitting retired cluster events");
+                    && balance.Battlehammer.Length == BalancedModeTelemetry.BattlehammerMetrics,
+                    "Balanced telemetry captures revision and the revised burst diagnostics");
                 Check(balance.Affinity[0] >= 1 && balance.Affinity[1] >= 1
                     && balance.Affinity[2] >= 1 && balance.Affinity[3] >= 1
                     && balance.Affinity[4] >= 1,
