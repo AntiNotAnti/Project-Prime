@@ -263,12 +263,12 @@ public sealed class NetTelemetryAggregator
             case global::MphRead.Mods.Multiplayer.BalancedModeMetric.RangeCloseDamage: Add(_balanceRangeDamage, weapon * 3, amount); break;
             case global::MphRead.Mods.Multiplayer.BalancedModeMetric.RangeMidDamage: Add(_balanceRangeDamage, weapon * 3 + 1, amount); break;
             case global::MphRead.Mods.Multiplayer.BalancedModeMetric.RangeFarDamage: Add(_balanceRangeDamage, weapon * 3 + 2, amount); break;
-            case global::MphRead.Mods.Multiplayer.BalancedModeMetric.BattlehammerParentDirectHit: Add(_balanceBattlehammer, 0, amount); break;
-            case global::MphRead.Mods.Multiplayer.BalancedModeMetric.BattlehammerTerrainImpact: Add(_balanceBattlehammer, 1, amount); break;
-            case global::MphRead.Mods.Multiplayer.BalancedModeMetric.BattlehammerChildrenSpawned: Add(_balanceBattlehammer, 2, amount); break;
-            case global::MphRead.Mods.Multiplayer.BalancedModeMetric.BattlehammerChildHit: Add(_balanceBattlehammer, 3, amount); break;
-            case global::MphRead.Mods.Multiplayer.BalancedModeMetric.BattlehammerChildDamage: Add(_balanceBattlehammer, 4, amount); break;
-            case global::MphRead.Mods.Multiplayer.BalancedModeMetric.BattlehammerChildKill: Add(_balanceBattlehammer, 5, amount); break;
+            case global::MphRead.Mods.Multiplayer.BalancedModeMetric.BattlehammerRoundDirectHit: Add(_balanceBattlehammer, 0, amount); break;
+            case global::MphRead.Mods.Multiplayer.BalancedModeMetric.BattlehammerRoundSplashHit: Add(_balanceBattlehammer, 1, amount); break;
+            case global::MphRead.Mods.Multiplayer.BalancedModeMetric.BattlehammerConcussionDirectHit: Add(_balanceBattlehammer, 2, amount); break;
+            case global::MphRead.Mods.Multiplayer.BalancedModeMetric.BattlehammerConcussionSplashHit: Add(_balanceBattlehammer, 3, amount); break;
+            case global::MphRead.Mods.Multiplayer.BalancedModeMetric.BattlehammerConcussionDamage: Add(_balanceBattlehammer, 4, amount); break;
+            case global::MphRead.Mods.Multiplayer.BalancedModeMetric.BattlehammerConcussionKill: Add(_balanceBattlehammer, 5, amount); break;
             case global::MphRead.Mods.Multiplayer.BalancedModeMetric.KandenDisruptApplied: Add(_balanceAffinity, 0, amount); break;
             case global::MphRead.Mods.Multiplayer.BalancedModeMetric.KandenDisruptRejected: Add(_balanceAffinity, 1, amount); break;
             case global::MphRead.Mods.Multiplayer.BalancedModeMetric.NoxusFreezeApplied: Add(_balanceAffinity, 2, amount); break;
