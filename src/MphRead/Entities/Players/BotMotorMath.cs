@@ -33,7 +33,15 @@ namespace MphRead.Entities
             desired = Math.Clamp(desired, -1, 1);
             // Reversals always pass through a stop, instead of instantly jumping
             // from full-left to full-right digital traction.
-            bool braking = current * desired < 0 || MathF.Abs(desired) < MathF.Abs(current);
+            if (current * desired < 0)
+            {
+                // Braking cannot overshoot through zero in a single tick, even
+                // when the old speed is smaller than the braking allowance.
+                // This is the actual input discontinuity users saw in reversal.
+                float stopped = MoveTowards(current, 0, brakingPerTick);
+                return MathF.Abs(stopped) < 0.001f ? 0 : stopped;
+            }
+            bool braking = MathF.Abs(desired) < MathF.Abs(current);
             float amount = braking ? brakingPerTick : accelerationPerTick;
             float next = MoveTowards(current, desired, amount);
             return MathF.Abs(next) < 0.001f ? 0 : next;
@@ -79,6 +87,12 @@ namespace MphRead.Entities
             }
             angularVelocity = MoveTowards(angularVelocity, targetRate, accelerationDegreesPerTick);
             float output = Math.Clamp(angularVelocity, -remaining, remaining);
+            if (output * requestedDelta < 0)
+            {
+                // During a turn reversal, don't move *away* from the new aim
+                // target just because momentum still carries the old heading.
+                return 0;
+            }
             if (MathF.Abs(output) < MathF.Abs(angularVelocity))
             {
                 angularVelocity = output;
