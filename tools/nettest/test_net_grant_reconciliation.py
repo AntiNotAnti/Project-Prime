@@ -66,6 +66,27 @@ class Tests(unittest.TestCase):
     def test_active_after_delivered_closure(self):
         s,c=self.closure_fixture();v=c[0]['TimedGrantViews'][-1];v.update(ObservedFrame=131,AuthorityFrame=131,Remaining=1769,ConfirmedRemaining=1769,NativeRemaining=1769)
         self.assertEqual(self.result(s,c),'FAIL')
+    def superseding_renewal_fixture(self):
+        s,c=self.closure_fixture('Renewed');c[0]['TimedGrantStates']=c[0]['TimedGrantStates'][:1]
+        native=copy.deepcopy(s['TimedGrants'][0]);native.update(Sequence=2,Spawn=dict(native['Spawn'],Generation=2),ContactFrame=104,EffectiveFrame=105,ExpiresAtFrame=1904,EndFrame=1904,SourceContactFrame=94,SourceEffectiveFrame=95)
+        s['TimedGrants'].append(native)
+        state=copy.deepcopy(s['TimedGrantStates'][0]);state.update(Revision=3,Sequence=2,Spawn=native['Spawn'],ContactFrame=104,EndFrame=1904,AuthorityFrame=104,ObservedFrame=104)
+        b=bytearray.fromhex(state['Payload']);struct.pack_into('<I',b,19,3);struct.pack_into('<Q',b,24,2);struct.pack_into('<I',b,36,2);struct.pack_into('<I',b,40,104);struct.pack_into('<I',b,44,1904);struct.pack_into('<I',b,49,104);state['Payload']=b.hex()
+        s['TimedGrantStates'].append(state);c[0]['TimedGrantStates'].append(dict(state,Stage='received',ObservedFrame=130))
+        return s,c
+    def test_superseding_same_life_renewal_receipt(self):
+        self.assertEqual(self.result(*self.superseding_renewal_fixture()),'PASS')
+    def test_superseding_renewal_cannot_replace_death_notice(self):
+        s,c=self.superseding_renewal_fixture();s['TimedGrants'][1]['EndReason']='Death';row=s['TimedGrantStates'][1];row['Reason']='Death';b=bytearray.fromhex(row['Payload']);b[48]=3;row['Payload']=b.hex()
+        self.assertEqual(self.result(s,c),'FAIL')
+    def test_superseding_renewal_cannot_start_before_old_end_minus_one(self):
+        s,c=self.superseding_renewal_fixture();g=s['TimedGrants'][-1];g.update(ContactFrame=103,EffectiveFrame=104,ExpiresAtFrame=1903,EndFrame=1903)
+        for r in [s['TimedGrantStates'][-1],c[0]['TimedGrantStates'][-1]]:
+            r.update(ContactFrame=103,EndFrame=1903);b=bytearray.fromhex(r['Payload']);struct.pack_into('<I',b,40,103);struct.pack_into('<I',b,44,1903);r['Payload']=b.hex()
+        self.assertEqual(self.result(s,c),'FAIL')
+    def test_stale_visual_after_superseding_renewal(self):
+        s,c=self.superseding_renewal_fixture();c[0]['TimedGrantViews'][-1].update(ObservedFrame=131,AuthorityFrame=131,ConfirmedRemaining=0)
+        self.assertEqual(self.result(s,c),'FAIL')
     def test_unconfirmed_visual_after_delivered_closure(self):
         s,c=self.closure_fixture();v=c[0]['TimedGrantViews'][-1];v.update(ObservedFrame=131,AuthorityFrame=131,ConfirmedRemaining=0)
         self.assertEqual(self.result(s,c),'FAIL')

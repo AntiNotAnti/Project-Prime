@@ -105,7 +105,8 @@ def audit(server,clients):
                         exact=notice['life']==life and notice['sequence']==s['sequence'] and notice['reason']==closure['EndReason'] and notice['end']==end
                         candidate=notice['life']
                         replacement=candidate[:3]==life[:3] and (newer16(candidate[3],life[3]) or candidate[3]==life[3] and newer16(candidate[4],life[4]))
-                        if exact or replacement:corrections.append(notice['observed'])
+                        renewal=closure['EndReason']=='Renewed' and candidate==life and notice['sequence']>s['sequence'] and notice['reason']=='Active' and delta(notice['contact'],(end-1)&MASK)>=0
+                        if exact or replacement or renewal:corrections.append(notice['observed'])
                     if not corrections:raise ValueError('native closure lacks eventual client closure/new-life receipt')
                     receipt=min(corrections,key=lambda frame:delta(frame,v['ObservedFrame']))
                     after_delivery=delta(v['ObservedFrame'],receipt)
@@ -118,7 +119,10 @@ def audit(server,clients):
                     candidate=notice['life']
                     old_end=notice['life']==life and notice['sequence']==v['GrantSequence'] and notice['reason']!='Active'
                     replacement=candidate[:3]==life[:3] and (newer16(candidate[3],life[3]) or candidate[3]==life[3] and newer16(candidate[4],life[4]))
-                    if received_name==name and notice['type']==kind and (old_end or replacement) and delta(v['ObservedFrame'],notice['observed'])>=1:
+                    prior=active.get((life,kind,v['GrantSequence']))
+                    closed=closures.get((life,prior['spawn'][2],v['GrantSequence'])) if prior else None
+                    renewal=closed is not None and closed['EndReason']=='Renewed' and candidate==life and notice['sequence']>v['GrantSequence'] and notice['reason']=='Active' and delta(notice['contact'],(closed['EndFrame']-1)&MASK)>=0
+                    if received_name==name and notice['type']==kind and (old_end or replacement or renewal) and delta(v['ObservedFrame'],notice['observed'])>=1:
                         raise ValueError('unconfirmed old visual timer persists after correction delivery+1')
             if v['Alive'] and v['Covered'] and v['ConfirmedRemaining']:
                 role='owner' if v['Owner'] else 'observer';counts[role]+=1;types[kind][role]+=1
