@@ -1162,15 +1162,16 @@ namespace MphRead.Entities
             NetSelfSplash.Observe(this, splashOrigin, colWith);
             foreach (PlayerEntity player in _scene.GetPlayerEntities())
             {
-                // Weavel's Balanced affinity is immune to its own blast, even
-                // when a later projectile returns near the shooter. Other
-                // hunters retain ordinary Battlehammer self splash.
-                if (player == colWith || _scene.GameState.Multiplayer
-                    && _scene.GameState.BalancedMode && Beam == BeamType.Battlehammer
-                    && ModOwnerHunter == Hunter.Weavel && player == Owner)
+                if (player == colWith)
                 {
                     continue;
                 }
+                // Weavel still receives the *impulse* of his own Balanced Mode
+                // Battlehammer splash, including the third-round concussion.
+                // Damage / damage history must remain zero.
+                bool weavelSelfImpulse = _scene.GameState.Multiplayer
+                    && _scene.GameState.BalancedMode && Beam == BeamType.Battlehammer
+                    && ModOwnerHunter == Hunter.Weavel && player == Owner;
 
                 void OmegaCannonFlash()
                 {
@@ -1195,18 +1196,28 @@ namespace MphRead.Entities
                         else
                         {
                             Vector3 damageDir = GetDamageDirection(splashOrigin, player.Position);
-                            float ratio = dist / SplashRadius;
-                            int damage = (int)ModBalancedRangeDamage(
-                                GetInterpolatedValue(SplashDamageType, SplashDamage, 0, ratio), splashOrigin);
-                            // ReplayShotFact owns the explosion centre, not the
-                            // victim position. Several victims may share this one
-                            // splash fact origin without dragging the projectile
-                            // toward each body independently.
-                            TakePlayerDamageAt(player, damage, DamageFlags.NoDmgInvuln, damageDir, splashOrigin);
-                            if (Owner != null)
+                            if (weavelSelfImpulse)
                             {
-                                _scene.SendMessage(Message.Impact, this, Owner, player, 0);
-                                StopHomingSfx();
+                                // Physical self-knockback only. Avoid TakeDamage(0)
+                                // because replay can turn a zero-damage event into
+                                // a one-HP debit on another machine.
+                                player.ModApplyBalancedBattlehammerSelfImpulse(this, damageDir);
+                            }
+                            else
+                            {
+                                float ratio = dist / SplashRadius;
+                                int damage = (int)ModBalancedRangeDamage(
+                                    GetInterpolatedValue(SplashDamageType, SplashDamage, 0, ratio), splashOrigin);
+                                // ReplayShotFact owns the explosion centre, not the
+                                // victim position. Several victims may share this one
+                                // splash fact origin without dragging the projectile
+                                // toward each body independently.
+                                TakePlayerDamageAt(player, damage, DamageFlags.NoDmgInvuln, damageDir, splashOrigin);
+                                if (Owner != null)
+                                {
+                                    _scene.SendMessage(Message.Impact, this, Owner, player, 0);
+                                    StopHomingSfx();
+                                }
                             }
                         }
                     }
