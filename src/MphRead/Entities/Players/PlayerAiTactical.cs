@@ -97,6 +97,7 @@ public partial class PlayerEntity
             _tacticalProgressTimer = 0;
             _tacticalStuckCount = 0;
             _tacticalEscapeFrames = 0;
+            ResetBotPerception();
         }
 
         private void RecordTacticalThreat(PlayerEntity? attacker, int damage)
@@ -109,7 +110,18 @@ public partial class PlayerEntity
 
             BotTacticalTuning tuning = TacticalTuning;
             _tacticalThreatSlot = attacker.SlotIndex;
-            _tacticalThreatPosition = attacker.Position;
+            // Damage exposes the attacker, but not an exact through-wall transform.
+            // Preserve the precise observation only if sight is actually available.
+            if (TacticalCanSee(attacker))
+            {
+                BotObserveVisual(attacker, tuning.TargetMemoryFrames);
+            }
+            else
+            {
+                BotObserveSound(attacker, tuning.TargetMemoryFrames / 2, fromDamage: true);
+            }
+            _tacticalThreatPosition = BotTryKnownPosition(attacker, out Vector3 cue, out _)
+                ? cue : _player.Position;
             _tacticalThreatFrames = Math.Max(_tacticalThreatFrames, tuning.TargetMemoryFrames);
             _tacticalThreatWeight = Math.Clamp(14 + damage * 0.6f, 14, 42);
             _tacticalDecisionTimer = 0;
@@ -132,7 +144,7 @@ public partial class PlayerEntity
                 _tacticalThreatWeight = 0;
             }
 
-            UpdateTacticalHearing(tuning);
+            BotObserveContacts(tuning);
 
             if (_tacticalDecisionTimer > 0)
             {
@@ -163,16 +175,22 @@ public partial class PlayerEntity
             }
 
             bool visible = TacticalCanSee(_tacticalTarget);
-            bool legacyKnown = AggroFunc214857C(6, 1, 2, null, _tacticalTarget);
-            if (!visible && !legacyKnown)
+            if (!visible)
             {
-                // Damage/hearing memory stores a position, not magical access to the
-                // attacker's live transform. Do not feed a hidden moving player back
-                // into the legacy target/path tree until normal perception knows them.
-                if (_tacticalThreatFrames > 0 && _tacticalThreatPosition != Vector3.Zero)
+                // The original behavior tree ran earlier in this frame. Revoke
+                // precision targeting and firing before the input is applied:
+                // a remembered player is an investigation goal, not a live aim lock.
+                Flags2 &= ~AiFlags2.TargetPlayer;
+                Flags2 &= ~AiFlags2.Bit8;
+                _buttons.R.IsDown = false;
+                if (BotTryKnownPosition(_tacticalTarget, out Vector3 remembered, out _))
                 {
-                    _field1038 = _tacticalThreatPosition - _player.CameraInfo.Position;
+                    _field1038 = remembered - _player.CameraInfo.Position;
                     Func21447E8();
+                    if (!_tacticalMovementActive)
+                    {
+                        BotInvestigatePosition(remembered);
+                    }
                 }
                 return;
             }
@@ -310,6 +328,7 @@ public partial class PlayerEntity
             _tacticalStrafeTimer = 0;
             _combatStrafeTimer = 0;
             _tacticalEscapeFrames = 0;
+            BotForgetContact(victim.SlotIndex);
             _tacticalMovementActive = false;
             _tacticalSteeringActive = false;
             _tacticalChargeDecisionFrames = 0;
@@ -328,7 +347,7 @@ public partial class PlayerEntity
 
         private void ApplyTacticalWeaponDecision()
         {
-            if (_tacticalWeapon == BeamType.None || _player.IsAltForm
+            if (_tacticalTarget == null || _tacticalWeapon == BeamType.None || _player.IsAltForm
                 || _player.IsMorphing || _player.IsUnmorphing)
             {
                 return;
@@ -419,38 +438,6 @@ public partial class PlayerEntity
             return !nearbyObstacle && targetDistance > splashRadius + 1.0f;
         }
 
-        private void UpdateTacticalHearing(BotTacticalTuning tuning)
-        {
-            float hearingSqr = tuning.HearingRange * tuning.HearingRange;
-            float nearest = Single.MaxValue;
-            PlayerEntity? heard = null;
-            foreach (PlayerEntity other in _scene.GetPlayerEntities())
-            {
-                if (other == _player || other.Health == 0 || !other.ModInPlay
-                    || other.TeamIndex == _player.TeamIndex || TacticalCanSee(other)
-                    || !other.Flags2.TestFlag(PlayerFlags2.Shooting))
-                {
-                    continue;
-                }
-
-                float dist = Vector3.DistanceSquared(other.Position, _player.Position);
-                if (dist <= hearingSqr && dist < nearest)
-                {
-                    nearest = dist;
-                    heard = other;
-                }
-            }
-
-            if (heard != null && (_tacticalThreatFrames == 0 || _tacticalThreatWeight < 12))
-            {
-                _tacticalThreatSlot = heard.SlotIndex;
-                _tacticalThreatPosition = heard.Position;
-                _tacticalThreatFrames = Math.Max(_tacticalThreatFrames, tuning.TargetMemoryFrames / 2);
-                // Sound creates an investigation cue, not enough confidence to select a hidden target.
-                _tacticalThreatWeight = Math.Max(_tacticalThreatWeight, 8);
-            }
-        }
-
         private bool TacticalTargetValid(PlayerEntity player)
         {
             return player != _player && player.Health > 0 && player.ModInPlay
@@ -486,14 +473,17 @@ public partial class PlayerEntity
                 }
 
                 bool visible = TacticalCanSee(candidate);
-                bool known = AggroFunc214857C(6, 1, 2, null, candidate);
+                bool remembered = BotTryKnownPosition(candidate,
+                    out Vector3 knownPosition, out float confidence);
                 bool recentThreat = _tacticalThreatSlot == candidate.SlotIndex && _tacticalThreatWeight >= 14;
-                if (!visible && !known && !recentThreat)
+                if (!visible && !remembered)
                 {
+                    // Legacy aggro is still available to native navigation, but
+                    // must not grant tactical AI access to a hidden live position.
                     continue;
                 }
 
-                float distance = (candidate.Position - _player.Position).Length;
+                float distance = (knownPosition - _player.Position).Length;
                 bool occupyingObjective = TacticalOccupiesObjective(candidate);
                 int carriedTokens = (uint)candidate.SlotIndex < (uint)_scene.GameState.TokenCarried.Length
                     ? _scene.GameState.TokenCarried[candidate.SlotIndex] : 0;
@@ -501,12 +491,17 @@ public partial class PlayerEntity
                     carriedTokens, occupyingObjective, candidate.OctolithFlag != null, candidate.IsPrimeHunter);
                 bool objective = objectivePriority > 0;
                 int aggro = AggroFunc2148394(7, 2, 1, candidate, null);
-                float healthFraction = candidate.HealthMax <= 0 ? 1
+                // Target health is not directly observable through solid cover.
+                float healthFraction = !visible || candidate.HealthMax <= 0 ? 1
                     : Math.Clamp(candidate.Health / (float)candidate.HealthMax, 0, 1);
                 float score = TacticalTargetUtilityForTest(distance, visible,
                     candidate == _tacticalTarget, false, healthFraction, aggro, recentThreat,
                     Math.Clamp(_player.BotLevel, 0, 3));
                 score += objectivePriority;
+                if (!visible)
+                {
+                    score -= (1 - confidence) * 26f;
+                }
 
                 if (candidate == _tacticalTarget)
                 {

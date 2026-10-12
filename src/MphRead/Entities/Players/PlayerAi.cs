@@ -182,6 +182,8 @@ namespace MphRead.Entities
 
             public void InitializeAtSpawn()
             {
+                // A new life must not inherit exact knowledge of the prior one.
+                ResetTacticalState();
                 ResetBotMotor();
                 InitializeMain();
                 ClearInput();

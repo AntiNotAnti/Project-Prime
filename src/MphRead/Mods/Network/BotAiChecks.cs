@@ -197,6 +197,20 @@ public static class BotAiChecks
         Check(burstHammer > stockHammer,
             "balanced burst rifle favors midrange where its actual projectiles excel");
 
+        Vector3 gunshot = BotPerceptionMath.QuantizedSoundCue(
+            Vector3.Zero, new Vector3(11.7f, 1.3f, 6.1f));
+        Check(Vector3.Distance(gunshot, new Vector3(11.7f, 1.3f, 6.1f)) > 0.2f,
+            "hearing remembers a coarse position, never a live exact target");
+        Vector3 prediction = BotPerceptionMath.RememberedPosition(
+            new(2, 0, 3), new(.48f, 0, 0), unseenFrames: 120);
+        Check(MathF.Abs(prediction.X - 4.88f) < .02f,
+            "visual memory stops extrapolating after twelve frames");
+        Check(BotPerceptionMath.Confidence(40, 80, heardOnly: true) < .25f
+            && BotPerceptionMath.Confidence(40, 80, heardOnly: false) == .5f,
+            "audio uncertainty stays below last-seen visual confidence");
+        Check(BotPerceptionMath.Confidence(0, 80, heardOnly: false) == 0,
+            "expired contact has zero target confidence");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }
