@@ -352,15 +352,17 @@ sealed partial class CheckWindow : RenderWindow
             bool world = ScreenCapture.Save(Scene, Path.Combine(_shots, $"frame-{_capture}-world.png"));
             bool hud = ScreenCapture.SaveWindow(Scene, Path.Combine(_shots, $"frame-{_capture}-hud.png"));
             if (!world || !hud) throw new InvalidDataException("Native capture readback failed.");
+            object worldDepth = CaptureWorldDepth(_capture);
             if (_capture == 0)
             {
                 Scene.OnDrawFrame(); Scene.OnRenderFrame();
                 if (!ScreenCapture.Save(Scene, Path.Combine(_shots, "frame-0-world-repeat.png")))
                     throw new InvalidDataException("Repeated native readback failed.");
+                CaptureWorldDepth(_capture, repeat: true);
             }
             _captures.Add(new { index = _capture, simulationFrame = Scene.FrameCount,
                 camera = Scene.CameraPosition.ToString(), width = Scene.Size.X, height = Scene.Size.Y,
-                shadow = ShadowSnapshot(_capture == 0), pickups = PickupSnapshot() });
+                worldDepth, shadow = ShadowSnapshot(_capture == 0), pickups = PickupSnapshot() });
             if (_capture == 0 && _outlineCheck) CheckOutlineOcclusion();
             _capture++;
         }
