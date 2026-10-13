@@ -215,6 +215,8 @@ jobs:
         run: python -m unittest discover -s tools/opengl-phase4 -v
       - name: Validate OpenGL modernization profiling evidence
         run: python -m unittest discover -s tools/opengl-modernization -p 'test_*.py' -v
+      - name: Validate native memory attribution analysis and runner
+        run: python -m unittest discover -s tools/native-render-check -p 'test_*.py' -v
       - name: OpenGL depth, alpha, stencil and repeated-frame pixel fixtures
         run: |
           xvfb-run -a --server-args="-screen 0 640x480x24" \
