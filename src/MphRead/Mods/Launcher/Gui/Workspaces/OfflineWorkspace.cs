@@ -402,7 +402,6 @@ namespace MphRead.Mods.Launcher.Gui
             var fire = new ToggleRow("Friendly fire", _settings.FriendlyFire == "on");
             fire.IsVisible = GameState.IsTeamMode(selectedMode);
             var affinity = new ToggleRow("Affinity weapons", _settings.AffinityWeapons == "on");
-            var enhancedHunters = new ToggleRow("Enhanced Hunters", _settings.EnhancedHunters == "on");
             var freeze = new ToggleRow("Shadow freeze", _settings.ShadowFreeze == "on");
             var spawnProtection = new ToggleRow("Spawn protection (3s)", _settings.SpawnProtection == "on");
             var fiesta = new ToggleRow("Fiesta", _settings.Fiesta == "on");
@@ -425,7 +424,7 @@ namespace MphRead.Mods.Launcher.Gui
             var body = PrimeChrome.Stack(PrimeChrome.Title("MATCH RULES"),
                 PrimeChrome.Columns("*,*,*",
                     Section("MATCH", PrimeChrome.Text(selectedMode == GameMode.OneInTheChamber ? "3 lives • Last player standing\nOne lethal shot • Kills earn ammo" : "", 12, PrimeTheme.TextSecondaryBrush), score, time, objective, damage),
-                    Section("GAMEPLAY", fire, affinity, enhancedHunters, freeze, spawnProtection, radar),
+                    Section("GAMEPLAY", fire, affinity, freeze, spawnProtection, radar),
                     Section("ADVANCED", balancedMode, fiesta, instaGib, lowTier, noImperialist, autoReset)), error,
                 PrimeChrome.Columns("*,*", new PrimeButton("CANCEL", _overlays.Close), new PrimeButton("APPLY RULES", () =>
                 {
@@ -453,7 +452,6 @@ namespace MphRead.Mods.Launcher.Gui
                     string oldTimeGoal = _settings.TimeGoal;
                     string oldFriendlyFire = _settings.FriendlyFire;
                     string oldAffinityWeapons = _settings.AffinityWeapons;
-                    string oldEnhancedHunters = _settings.EnhancedHunters;
                     string oldShadowFreeze = _settings.ShadowFreeze;
                     string oldSpawnProtection = _settings.SpawnProtection;
                     string oldHunterRadar = _settings.HunterRadar;
@@ -470,7 +468,6 @@ namespace MphRead.Mods.Launcher.Gui
                     _settings.TimeGoal = objective.Value;
                     _settings.FriendlyFire = fire.On ? "on" : "off";
                     _settings.AffinityWeapons = affinity.On ? "on" : "off";
-                    _settings.EnhancedHunters = enhancedHunters.On ? "on" : "off";
                     _settings.ShadowFreeze = freeze.On ? "on" : "off";
                     _settings.SpawnProtection = spawnProtection.On ? "on" : "off";
                     _settings.HunterRadar = radar.On ? "on" : "off";
@@ -495,7 +492,6 @@ namespace MphRead.Mods.Launcher.Gui
                         _settings.TimeGoal = oldTimeGoal;
                         _settings.FriendlyFire = oldFriendlyFire;
                         _settings.AffinityWeapons = oldAffinityWeapons;
-                        _settings.EnhancedHunters = oldEnhancedHunters;
                         _settings.ShadowFreeze = oldShadowFreeze;
                         _settings.SpawnProtection = oldSpawnProtection;
                         _settings.HunterRadar = oldHunterRadar;
