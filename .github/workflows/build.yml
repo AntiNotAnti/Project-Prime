@@ -112,6 +112,12 @@ jobs:
           key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
+      - name: framework-dependent and single-file application image identity
+        run: |
+          dotnet run --project tools/application-image-check -c Release -- assembly
+          dotnet publish tools/application-image-check -c Release -r linux-x64 \
+            --self-contained true -p:PublishSingleFile=true -o "$RUNNER_TEMP/application image check"
+          "$RUNNER_TEMP/application image check/application-image-check" process
       - name: compile server-only surface
         run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadServer=true
 
