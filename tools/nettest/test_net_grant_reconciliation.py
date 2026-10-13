@@ -20,6 +20,39 @@ def fixture():
 class Tests(unittest.TestCase):
     def result(self,s,c):return audit.audit(s,c)['status']
     def test_positive(self):self.assertEqual(self.result(*fixture()),'PASS')
+    def neutral_view(self):
+        _,c=fixture();v=copy.deepcopy(c[0]['TimedGrantViews'][1])
+        v.update(Owner=False,Alive=False,Covered=False,Remaining=0,ConfirmedRemaining=0,NativeRemaining=0,GrantSequence=0,PredictionSequence=0)
+        v['Life'].update(ShooterSlot=7,Generation=0,LifeId=0)
+        return v
+    def test_neutral_unadmitted_excluded_without_changing_positive_denominators(self):
+        s,c=fixture();before=audit.audit(s,c);c[0]['TimedGrantViews'].append(self.neutral_view());r=audit.audit(s,c)
+        self.assertEqual(r['status'],'PASS');self.assertEqual(r['counts'],before['counts']);self.assertEqual(r['byType'],before['byType'])
+        self.assertEqual(r['neutralUnadmittedViews']['excludedRows'],1);self.assertEqual(r['neutralUnadmittedViews']['status'],'NOT_RUN')
+    def test_neutral_unadmitted_alone_is_not_activity(self):
+        s,c=fixture();s.update(TimedGrants=[],TimedGrantStates=[]);c[0].update(TimedGrantStates=[],TimedGrantViews=[self.neutral_view()])
+        r=audit.audit(s,c);self.assertEqual(r['status'],'NOT_RUN');self.assertTrue(all(n==0 for n in r['counts'].values()))
+    def test_unadmitted_positive_or_owner_state_rejected(self):
+        for field,value in [('Alive',True),('Covered',True),('Owner',True),('Remaining',1),('ConfirmedRemaining',1),('NativeRemaining',1),('GrantSequence',1),('PredictionSequence',1)]:
+            with self.subTest(field=field):
+                s,c=fixture();v=self.neutral_view();v[field]=value;c[0]['TimedGrantViews'].append(v)
+                self.assertEqual(self.result(s,c),'FAIL')
+    def test_partial_unadmitted_life_rejected(self):
+        for field in ('Generation','LifeId'):
+            with self.subTest(field=field):
+                s,c=fixture();v=self.neutral_view();v['Life'][field]=1;c[0]['TimedGrantViews'].append(v)
+                self.assertEqual(self.result(s,c),'FAIL')
+    def test_neutral_unadmitted_still_requires_complete_valid_schema(self):
+        for field,value in [('ObservedFrame',-1),('AuthorityFrame',2**32),('Alive',0),('Covered',None),('Type','Unknown'),('Remaining',False)]:
+            with self.subTest(field=field):
+                s,c=fixture();v=self.neutral_view();v[field]=value;c[0]['TimedGrantViews'].append(v)
+                self.assertEqual(self.result(s,c),'FAIL')
+        for field,value in [('AuthorityEpoch',0),('MatchId',0),('ShooterSlot',8),('ShotId',1),('Generation',False)]:
+            with self.subTest(field=field):
+                s,c=fixture();v=self.neutral_view();v['Life'][field]=value;c[0]['TimedGrantViews'].append(v)
+                self.assertEqual(self.result(s,c),'FAIL')
+        s,c=fixture();v=self.neutral_view();del v['NativeRemaining'];c[0]['TimedGrantViews'].append(v)
+        self.assertEqual(self.result(s,c),'FAIL')
     def test_wire_length(self):
         s,c=fixture();s['TimedGrantStates'][0]['Payload']=s['TimedGrantStates'][0]['Payload'][:-2];self.assertEqual(self.result(s,c),'FAIL')
     def test_reserved_reason_bits(self):

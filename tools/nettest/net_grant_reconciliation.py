@@ -16,6 +16,28 @@ CORRECTION_DEADLINE = 900  # 15-second delivery/prediction deadline at 60 native
 def newer16(a,b): return 0 < ((a-b)&65535) < 32768
 
 
+def view_identity(v):
+    """Validate a complete view, admitting only exact neutral pre-life rows.
+
+    A native slot exists before its occupant/life is admitted. Such a sampled
+    row proves no grant or prediction coverage and must not enter denominators.
+    """
+    life=identity(v['Life'],LIFE)
+    for val,low,high in zip(life,(1,1,0,0,0,0),(2**64-1,65535,7,65535,65535,0)):integer(val,low,high)
+    if v['Type'] not in TYPES:raise ValueError('unknown view type')
+    for n in ('ObservedFrame','AuthorityFrame','PredictionSequence'):integer(v[n],0,MASK)
+    integer(v['GrantSequence'],0,2**64-1)
+    for n in ('Remaining','ConfirmedRemaining','NativeRemaining'):integer(v[n],0,1800)
+    for n in ('Owner','Covered','Alive'):
+        if type(v[n]) is not bool:raise ValueError('invalid view boolean')
+    if (life[3]==0)!=(life[4]==0):raise ValueError('partial unadmitted life')
+    unadmitted=life[3]==0
+    if unadmitted and (any(v[n] for n in ('Owner','Covered','Alive'))
+            or any(v[n]!=0 for n in ('Remaining','ConfirmedRemaining','NativeRemaining','GrantSequence','PredictionSequence'))):
+        raise ValueError('unadmitted view must be entirely neutral')
+    return life,unadmitted
+
+
 def decode(row):
     b = payload(row,53)
     epoch,match,slot,generation,life = struct.unpack_from('<QHBHH',b)
@@ -78,18 +100,15 @@ def audit(server,clients):
     published={v[0] for v in authority.values()};active={(s['life'],s['type'],s['sequence']):s for b,s in authority.values() if s['reason']=='Active' and s['sequence']}
     for name,b,s in received:
         if b not in published:failures.append(name+': received state lacks exact authority payload')
-    prediction_keys=set();correction_count=0;max_correction=0
+    prediction_keys=set();correction_count=0;max_correction=0;eligible_views=0;neutral_by_client={};neutral_by_type={t:0 for t in TYPES}
     for name,v in all_views:
         try:
-            life=identity(v['Life'],LIFE)
-            for n,val,low,high in zip(LIFE,life,(1,1,0,1,1,0),(2**64-1,65535,7,65535,65535,0)):integer(val,low,high)
+            life,unadmitted=view_identity(v)
             kind=v['Type']
-            if kind not in TYPES:raise ValueError('unknown view type')
-            for n in ('ObservedFrame','AuthorityFrame','PredictionSequence'):integer(v[n],0,MASK)
-            integer(v['GrantSequence'],0,2**64-1)
-            for n in ('Remaining','ConfirmedRemaining','NativeRemaining'):integer(v[n],0,1800)
-            for n in ('Owner','Covered','Alive'):
-                if type(v[n]) is not bool:raise ValueError('invalid view boolean')
+            if unadmitted:
+                neutral_by_client[name]=neutral_by_client.get(name,0)+1;neutral_by_type[kind]+=1
+                continue
+            eligible_views+=1
             if v['Alive'] and v['Covered'] and v['NativeRemaining']!=v['Remaining']:raise ValueError('native projected timer differs')
             if v['ConfirmedRemaining']:
                 if not v['Alive'] or not v['Covered'] or v['GrantSequence']==0:raise ValueError('provisional/dead view claims confirmed ownership')
@@ -131,13 +150,13 @@ def audit(server,clients):
                 key=(life,kind,v['PredictionSequence'])
                 if key not in prediction_keys:prediction_keys.add(key);counts['prediction']+=1;types[kind]['prediction']+=1
         except (KeyError,TypeError,ValueError) as e:failures.append(name+' view: '+str(e))
-    if not counts['native'] and not received and not all_views and not authority:status='NOT_RUN'
+    if not counts['native'] and not received and not eligible_views and not authority:status='NOT_RUN'
     else:
         for key,n in counts.items():
             if n==0:missing.append('positive '+key+' coverage absent: NOT_RUN')
         status='INCOMPLETE' if missing else 'PASS'
     if failures:status='FAIL'
-    return dict(status=status,failures=failures,missing=missing,counts=counts,coverage={k:dict(observed=n,status='OBSERVED' if n else 'NOT_RUN') for k,n in counts.items()},byType={t:{k:dict(observed=n,status='OBSERVED' if n else 'NOT_RUN') for k,n in values.items()} for t,values in types.items()},authorityStates=len(authority),receivedStates=len(received),nativeAudit=native,closureCorrectionLag=dict(observedSamples=correction_count,maxFrames=max_correction,deadlineFrames=CORRECTION_DEADLINE,scope='Bounded presentation correction delay only; these post-closure views are not source-authorized and do not establish A4 proof'),limitations=['Sampled view rows do not establish every-tick audiovisual agreement.','Prediction counts do not establish denial, timeout, renewal or late-join coverage.','Client receipts are checked against authority bytes; exhaustive delivery to every eligible peer is not inferred.','No replay, dynamic-item, independent movement or damage authorization acceptance.'])
+    return dict(status=status,failures=failures,missing=missing,counts=counts,coverage={k:dict(observed=n,status='OBSERVED' if n else 'NOT_RUN') for k,n in counts.items()},byType={t:{k:dict(observed=n,status='OBSERVED' if n else 'NOT_RUN') for k,n in values.items()} for t,values in types.items()},authorityStates=len(authority),receivedStates=len(received),nativeAudit=native,neutralUnadmittedViews=dict(excludedRows=sum(neutral_by_client.values()),status='NOT_RUN',byClient=neutral_by_client,byType=neutral_by_type,scope='Fully validated neutral pre-life native slots; excluded from grant/prediction denominators'),closureCorrectionLag=dict(observedSamples=correction_count,maxFrames=max_correction,deadlineFrames=CORRECTION_DEADLINE,scope='Bounded presentation correction delay only; these post-closure views are not source-authorized and do not establish A4 proof'),limitations=['Sampled view rows do not establish every-tick audiovisual agreement.','Prediction counts do not establish denial, timeout, renewal or late-join coverage.','Client receipts are checked against authority bytes; exhaustive delivery to every eligible peer is not inferred.','No replay, dynamic-item, independent movement or damage authorization acceptance.'])
 
 
 if __name__=='__main__':
