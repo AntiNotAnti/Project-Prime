@@ -1,0 +1,34 @@
+{
+  "engineSourceSha": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "engineAssemblySha256": "ed44a70faf2463a100eaab6329bfba359e90cffde4ea0dcb05b3123599cc3e83",
+  "toolSourceHashes": {
+    "tools/nettest/TransportProfile.cs": "736375b344dc5b0a2d961ec8733aa57a3532f1eb41d2de0b5455459f38ead195",
+    "tools/nettest/ReplicationDecodeBenchmark.cs": "33c16cfb8170fcae395ade5175fd45b8548e76dc6c91cbe9c1ccfe35fd260dda",
+    "tools/nettest/NetworkBenchmark.cs": "ff5fa6f1aec0cf08a6c98d8ce2da74f163de77bfde5858d8b8e3fed7d1853be3",
+    "tools/nettest/ServerPerformanceBenchmark.cs": "7d7100f74f3fdf3b5627fcf8cb51bb40c2ac00879d13c582cfc4772f8260e89f",
+    "src/MphRead/Mods/Network/NetTransport.cs": "5fa3df4f45d18529c3d5258e9367b2a544f1268224dcb6a7b04863a7f620a31f",
+    "src/MphRead/Mods/Network/NetPacketQueue.cs": "509939ac98f5b881bc3a10ddd80133d5c38bebc5b222fe4a03116c3a62fb5e35",
+    "src/MphRead/Mods/Network/NetReplicationLanes.cs": "ddc0cbb0444c848a6d0699e24d09cd0f6938db0d893ddcfad59e6984d31655ce"
+  },
+  "artifactHashes": {
+    "eight-peer-impaired.txt": "3169c1ea24d38502c9dff5b90855cc8e16319eb7bc526e96b8d04818ce0c6b91",
+    "server-nine-runs.json": "025287c22dd29c41c6126d6480a70665e4d0723ce98bd58c2dadf2bc1effdf44",
+    "upstream-pr-status.json": "54d5559e1afbbc2782f8319edb89f91c4f7df314518e67e1146550bc540016a3",
+    "direct-decode.json": "23b9402fe72fc99f183ade40deb0d9dddc7cf91c72ed722bc49717a28042dd8e",
+    "transport-2-4-8-final.json": "2d0e8405d5e053410d7d33fdd36a017b21c132ed662453a7b53b9eec0588a7b7",
+    "transport-final.json": "0ea2b897995c244a1f577cda74231e7ec4497b3bfe3045c2a0fe412f711de9bb",
+    "codec-queue-matrix.json": "8941e94437e6b3afe924774f613a096f7fa4fc950e87b8264bd75ca677fac726"
+  },
+  "nativePhysicalPlatformAcceptance": "NOT_RUN",
+  "productionOptimization": "NONE: insufficient attribution for meaningful safe optimization",
+  "localGates": {
+    "architecture": "PASS",
+    "protocol18": "PASS",
+    "netcode-performance": "PASS",
+    "transport-stress": "PASS",
+    "transport-profile-json": "PASS",
+    "network-benchmark-json": "PASS",
+    "replication-decode-benchmark": "PASS",
+    "server-performance-nine-runs": "PASS"
+  }
+}
