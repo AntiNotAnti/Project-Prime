@@ -184,6 +184,12 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return Mods.Multiplayer.ResourceAudit.Run();
             }
+            if (args.Length > 2 && args[0] == "--enhanced-historical-matrix")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return EnhancedHistoricalMatrixTests.Run(args[2], args.Length > 3 && args[3] == "--record-baseline");
+            }
             if (args.Length > 2 && args[0] == "--enhanced-retirement-scene")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
