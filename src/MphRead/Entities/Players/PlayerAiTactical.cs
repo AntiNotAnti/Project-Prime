@@ -108,6 +108,7 @@ public partial class PlayerEntity
             ResetBotPerception();
             ResetBotPositioning();
             ResetBotStrategy();
+            ResetCompetitiveHunterCombat();
         }
 
         private void RecordTacticalThreat(PlayerEntity? attacker, int damage)

@@ -886,6 +886,7 @@ namespace MphRead.Entities
                 ApplyStrategicMapControl();
                 ApplyCombatEnhancements();
                 ApplyEnhancedHunterChoices();
+                ApplyCompetitiveHunterCombat();
                 // The legacy tree and tactical/hunter layers only submit desired inputs.
                 // The final motor resolves one legal, rate-limited player command.
                 ApplyBotMotor();
@@ -8362,8 +8363,13 @@ namespace MphRead.Entities
                 var altVec = new Vector3(_player._altRollFbX, 0, _player._altRollFbZ);
                 float dot = Vector3.Dot(altVec, toPos);
                 var cross = Vector3.Cross(altVec, toPos);
-                if (_player._abilities.TestFlag(AbilityFlags.Boost) && !_player.Flags1.TestFlag(PlayerFlags1.Boosting))
+                if (_player._abilities.TestFlag(AbilityFlags.Boost)
+                    && !_player.Flags1.TestFlag(PlayerFlags1.Boosting)
+                    && !_scene.GameState.Multiplayer)
                 {
+                    // Persistent multiplayer bots use native Boost button holds,
+                    // not the unfinished DS touch emulation (whose input path
+                    // still contains a Debugger.Break).
                     if (_framesWithTouch == 0 && _framesWithoutTouch > _field1032)
                     {
                         _field1032 = (int)(_field1030 + _scene.Random.GetRandomInt2(_field1030 / 2)); // note: FPS stuff when _field1030 is set
