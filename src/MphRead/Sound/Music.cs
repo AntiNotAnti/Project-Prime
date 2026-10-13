@@ -9,7 +9,6 @@ using NCSF123;
 using NCSFPlayer;
 using SoundFlow.Abstracts.Devices;
 using SoundFlow.Backends.MiniAudio;
-using SoundFlow.Components;
 using SoundFlow.Enums;
 using SoundFlow.Providers;
 using SoundFlow.Structs;
@@ -747,9 +746,8 @@ namespace MphRead
     {
         private static MiniAudioEngine _audioEngine;
         private static AudioPlaybackDevice _playbackDevice;
-        private static RawDataProvider? _provider = null;
-        private static NCSFPlayerStream? _stream = null;
-        private static SoundPlayer? _player = null;
+        private static Sound.MusicLoadOwner? _loads;
+        private static Sound.MusicPlaybackGraph? Current => _loads?.Current as Sound.MusicPlaybackGraph;
         private static readonly AudioFormat _format;
 
         private const int _sampleRate = 32728;
@@ -793,6 +791,8 @@ namespace MphRead
                 _audioEngine = new MiniAudioEngine();
                 _playbackDevice = Sound.MusicStartup.InitializeDevice(_audioEngine,
                     () => _audioEngine.InitializePlaybackDevice(deviceInfo: null, _format));
+                _loads = new Sound.MusicLoadOwner(CreateGraph,
+                    ex => Console.Error.WriteLine($"[sound] music load/retirement: {ex}"));
                 Available = true;
                 Sound.AudioLifetime.RequestMusicShutdown = RequestShutdown;
                 Sound.AudioLifetime.StopMusic = Shutdown;
@@ -807,47 +807,33 @@ namespace MphRead
             }
         }
 
-        public static bool Loading { get; private set; }
-        public static bool StopLoading { get; set; }
-        private static Task _loadTask = Task.CompletedTask;
+        public static bool Loading => _loads?.Loading == true;
+        public static bool StopLoading
+        {
+            get => _loads?.StopLoading == true;
+            set => _loads?.CancelLoading(value);
+        }
         private static volatile bool _shutdownRequested;
 
         internal static void RequestShutdown()
         {
             _shutdownRequested = true;
-            StopLoading = true;
+            _loads?.Remove(shutdown: true);
         }
 
         private static void Shutdown()
         {
             RequestShutdown();
-            // A load can still be constructing an NCSF stream on a worker. It
-            // is unsafe to dispose the native engine underneath that constructor,
-            // but it is equally wrong to keep the whole process alive for many
-            // seconds after the window has gone. Give cancellation a short
-            // bounded drain; if third-party decoding ignores it, the OS will
-            // reclaim that process-local device at exit.
-            bool loaderStopped = false;
-            try
+            // Decoder construction and callback retirement run on the single
+            // owner worker. Never dispose its engine underneath pending work.
+            if (_loads != null && !_loads.Completion.Wait(TimeSpan.FromSeconds(2)))
             {
-                loaderStopped = _loadTask.Wait(TimeSpan.FromSeconds(2));
-            }
-            catch (AggregateException ex)
-            {
-                loaderStopped = true;
-                Console.Error.WriteLine($"[shutdown] music load failed: {ex.GetBaseException().Message}");
-            }
-            if (!loaderStopped)
-            {
-                Console.Error.WriteLine(
-                    "[shutdown] music loader exceeded 2 seconds; skipping racing native disposal.");
+                Console.Error.WriteLine("[shutdown] music owner exceeded 2 seconds; skipping racing native disposal.");
                 return;
             }
-
             try
             {
                 Mods.MapGen.CustomMapMusic.Stop();
-                Remove(shutdown: true);
                 _playbackDevice.Stop();
             }
             finally
@@ -859,188 +845,82 @@ namespace MphRead
 
         public static void Load(SeqId seqId, ushort tracks = UInt16.MaxValue, float volume = 1)
         {
-            if (!Available || _shutdownRequested)
+            if (!Available || _shutdownRequested) return;
+            _loads!.Load(seqId, tracks, volume);
+        }
+
+        private static Sound.IMusicLoadGraph CreateGraph(Sound.MusicLoadRequest request, Func<bool> isCurrent)
+        {
+            using var construction = new Sound.MusicGraphConstruction();
+            string path = Paths.Combine(Paths.FileSystem, "_seq", Metadata.SequenceFiles[(int)request.Sequence]);
+            var stream = new NCSFPlayerStream(path, (uint)_sampleRate, Interpolation.None, skipSilenceOnStartSec: 5,
+                defaultLengthInMS: 115000, defaultFadeInMS: 5000, NCSF123.VolumeType.ReplayGainAlbum,
+                PeakType.ReplayGainTrack, playForever: true, request.Volume,
+                channelMutes: 0, trackMutes: 0, ignoreVolume: false);
+            construction.Stream = stream;
+            if (!isCurrent()) throw new OperationCanceledException();
+            for (int i = 0; i < 16; i++)
             {
-                return;
-            }
-            Loading = true;
-            Stop();
-            if (seqId == SeqId.None)
-            {
-                Loading = false;
-                return;
-            }
-            _loadTask = Task.Run(() =>
-            {
-                try
+                if ((request.Tracks & (1 << i)) == 0)
                 {
-                    while (StopLoading)
-                    {
-                        if (_shutdownRequested) return;
-                        Thread.Sleep(1);
-                    }
-                    if (_shutdownRequested) return;
-                    Remove();
-                    if (StopLoading)
-                    {
-                        return;
-                    }
-                    string path = Paths.Combine(Paths.FileSystem, "_seq", Metadata.SequenceFiles[(int)seqId]);
-                    // todo: should look at allocations (including recreating these objects, but especially the byte and float lists internal to NCSF)
-                    _stream = new NCSFPlayerStream(path, (uint)_sampleRate, Interpolation.None, skipSilenceOnStartSec: 5,
-                        defaultLengthInMS: 115000, defaultFadeInMS: 5000, NCSF123.VolumeType.ReplayGainAlbum, PeakType.ReplayGainTrack,
-                        playForever: true, volume, channelMutes: 0, trackMutes: 0, ignoreVolume: false);
-                    // use volume and mute directly instead of trackMutes to make it easy to potentially fade them in later without the player interfering
-                    for (int i = 0; i < 16; i++)
-                    {
-                        if ((tracks & (1 << i)) == 0)
-                        {
-                            NCSFCommon.Track? track = MusicPlayer.GetTrack(i);
-                            if (track != null)
-                            {
-                                track.Volume = 0;
-                                track.Mute = true;
-                            }
-                        }
-                    }
-                    if (StopLoading)
-                    {
-                        return;
-                    }
-                    _provider = new RawDataProvider(_stream, SampleFormat.F32, _sampleRate);
-                    if (StopLoading)
-                    {
-                        return;
-                    }
-                    _player = new SoundPlayer(_audioEngine, _format, _provider);
-                    if (StopLoading)
-                    {
-                        return;
-                    }
-                    _playbackDevice.MasterMixer.AddComponent(_player);
-                    if (StopLoading)
-                    {
-                        return;
-                    }
-                    _playbackDevice.Start();
+                    NCSFCommon.Track? track = stream.Player.GetTrack(i);
+                    if (track != null) { track.Volume = 0; track.Mute = true; }
                 }
-                finally
-                {
-                    Loading = false;
-                    StopLoading = false;
-                }
-            });
+            }
+            var provider = new RawDataProvider(stream, SampleFormat.F32, _sampleRate);
+            construction.Provider = provider;
+            if (!isCurrent()) throw new OperationCanceledException();
+            var component = new Sound.MusicCallbackComponent(_audioEngine, _format, provider);
+            construction.Component = component;
+            if (!isCurrent()) throw new OperationCanceledException();
+            var graph = new Sound.MusicPlaybackGraph(stream, provider, component, _playbackDevice);
+            construction.Transfer();
+            return graph;
         }
 
         public static void WaitForLoad(int sleepMs = 100)
         {
-            while (MusicPlayer.Loading)
-            {
-                Thread.Sleep(sleepMs);
-            }
+            if (_loads == null || _loads.WaitForLoad(TimeSpan.FromSeconds(2), sleepMs)) return;
+            // A third-party decoder constructor cannot be interrupted. Keep
+            // the one owner alive, but do not block a synchronous scene/menu
+            // wait indefinitely or publish that request after the timeout.
+            _loads.CancelLoading(true);
+            Console.Error.WriteLine("[sound] music load exceeded 2 seconds; continuing without that track.");
         }
 
         public static void Play(float volume)
         {
-            if (!Available)
-            {
-                return;
-            }
-            Volume = volume;
-            _player?.Play();
+            if (!Available) return;
+            var graph = Current;
+            if (graph == null) return;
+            graph.Stream.VolumeModification = Math.Clamp(volume, 0, 1);
+            graph.Component.SetState(PlaybackState.Playing);
         }
 
-        public static void Pause()
-        {
-            _player?.Pause();
-        }
-
-        public static PlaybackState State
-        {
-            get
-            {
-                if (_player != null)
-                {
-                    return _player.State;
-                }
-                return PlaybackState.Stopped;
-            }
-        }
-
+        public static void Pause() => Current?.Component.SetState(PlaybackState.Paused);
+        public static PlaybackState State => Current?.Component.State ?? PlaybackState.Stopped;
         public static float Volume
         {
-            get
-            {
-                if (_stream != null)
-                {
-                    return _stream.VolumeModification;
-                }
-                return 0;
-            }
-            set
-            {
-                if (_stream != null)
-                {
-                    _stream.VolumeModification = Math.Clamp(value, 0, 1);
-                }
-            }
+            get => Current?.Stream.VolumeModification ?? 0;
+            set { var graph = Current; if (graph != null) graph.Stream.VolumeModification = Math.Clamp(value, 0, 1); }
         }
-
         public static ushort Tempo
         {
-            get
-            {
-                if (_stream != null)
-                {
-                    return _stream.Player.TempoRatio;
-                }
-                return 0;
-            }
-            set
-            {
-                if (_stream != null)
-                {
-                    _stream.Player.TempoRatio = value;
-                }
-            }
+            get => Current?.Stream.Player.TempoRatio ?? 0;
+            set { var graph = Current; if (graph != null) graph.Stream.Player.TempoRatio = value; }
         }
-
-        public static NCSFCommon.Track? GetTrack(int index)
-        {
-            return _stream?.Player.GetTrack(index);
-        }
-
-        public static void Stop()
-        {
-            if (!Available)
-            {
-                return;
-            }
-            if (_player != null)
-            {
-                _player.Stop();
-            }
-        }
+        public static NCSFCommon.Track? GetTrack(int index) => Current?.Stream.Player.GetTrack(index);
+        public static void Stop() => Current?.Component.SetState(PlaybackState.Stopped);
 
         public static void Remove(bool shutdown = false)
         {
-            if (_player != null)
-            {
-                Debug.Assert(_provider != null);
-                Debug.Assert(_stream != null);
-                _player.Stop();
-                if (shutdown)
-                {
-                    _playbackDevice.Stop();
-                }
-                _playbackDevice.MasterMixer.RemoveComponent(_player);
-                _provider.Dispose();
-                _stream.Dispose();
-                _player.Dispose();
-                _provider = null;
-                _stream = null;
-                _player = null;
-            }
+            // Track retirement does not stop the process-shared output used by
+            // Android effects and launcher cues. Only final Shutdown stops it.
+            _loads?.Remove();
+            // Preserve scene silence without disposing that separate player's
+            // provider under the shared callback. Its normal Stop/Init owns cleanup.
+            if (shutdown) Mods.MapGen.CustomMapMusic.Pause();
         }
+
     }
 }
