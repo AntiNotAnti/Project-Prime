@@ -303,6 +303,8 @@ jobs:
           key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
+      - name: device-free encoder capability stderr drain
+        run: dotnet run --project tools/encoder-error-drain-check -c Release
       - name: content-free renderer state and lifecycle contracts
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -renderbackendcheck
       - name: native audio ownership, failure fallback and headless lifecycle
