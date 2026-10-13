@@ -51,13 +51,23 @@ internal sealed class MusicLoadOwner
     internal bool WaitForLoad(TimeSpan timeout, int sleepMs)
     {
         long started = Stopwatch.GetTimestamp();
-        while (Loading)
+        while (true)
         {
-            TimeSpan remaining = timeout - Stopwatch.GetElapsedTime(started);
-            if (remaining <= TimeSpan.Zero) return false;
+            TimeSpan remaining;
+            lock (_gate)
+            {
+                if (!_loading) return true;
+                remaining = timeout - Stopwatch.GetElapsedTime(started);
+                if (remaining <= TimeSpan.Zero)
+                {
+                    // Deadline and cancellation are one decision: publication
+                    // cannot sneak between a timed-out wait and its fence.
+                    CancelPending();
+                    return false;
+                }
+            }
             Thread.Sleep(Math.Max(1, Math.Min(Math.Max(1, sleepMs), (int)Math.Ceiling(remaining.TotalMilliseconds))));
         }
-        return true;
     }
 
     internal void CancelLoading(bool cancel)
@@ -66,10 +76,16 @@ internal sealed class MusicLoadOwner
         {
             _stopLoading = cancel;
             if (!cancel) return;
-            _version++;
-            _pending = null;
-            _loading = false;
+            CancelPending();
         }
+    }
+
+    private void CancelPending()
+    {
+        _stopLoading = true;
+        _version++;
+        _pending = null;
+        _loading = false;
     }
 
     internal void Remove(bool shutdown = false)
@@ -133,6 +149,7 @@ internal sealed class MusicLoadOwner
                     {
                         Volatile.Write(ref _current, graph);
                         graph = null;
+                        _loading = false;
                     }
                 }
             }
