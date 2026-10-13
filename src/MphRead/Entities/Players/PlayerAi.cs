@@ -885,7 +885,8 @@ namespace MphRead.Entities
                 ApplyTacticalBrain();
                 ApplyStrategicMapControl();
                 ApplyCombatEnhancements();
-                ApplyEnhancedHunterChoices();
+                // The removed Enhanced Hunters variant no longer participates in
+                // bot decisions. All supported rulesets use the native Hunter AI.
                 ApplyCompetitiveHunterCombat();
                 // The legacy tree and tactical/hunter layers only submit desired inputs.
                 // The final motor resolves one legal, rate-limited player command.

@@ -370,6 +370,14 @@ public static class BotAiChecks
                 BeamType.Judicator, 10, true),
             "charged affinity attacks exploit disruption/freeze without charging frozen targets");
 
+        Check(BotHunterCombatPolicy.ChooseAltAction(
+                Hunter.Noxus, 2.5f, targetVisible: true, targetFrozen: true)
+                == BotHunterAltAction.Spin
+            && BotHunterCombatPolicy.ChooseAltAction(
+                Hunter.Noxus, 2.5f, targetVisible: false, targetFrozen: true)
+                == BotHunterAltAction.None,
+            "Noxus native spin initiation requires a real visible frozen opponent");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }

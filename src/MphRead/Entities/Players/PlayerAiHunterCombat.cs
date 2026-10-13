@@ -28,13 +28,13 @@ public partial class PlayerEntity
         }
 
         /// <summary>
-        /// Adds deliberate ability decisions to multiplayer bots that have no
-        /// Enhanced-Hunters-specific policy. No gameplay shortcuts: all actions
+        /// Adds deliberate ability decisions to multiplayer bots using the
+        /// supported vanilla/Balanced Mode rules. No gameplay shortcuts: all actions
         /// are expressed as ordinary native input and use native ability gates.
         /// </summary>
         private void ApplyCompetitiveHunterCombat()
         {
-            if (!_scene.GameState.Multiplayer || _scene.GameState.EnhancedHunters
+            if (!_scene.GameState.Multiplayer
                 || _scene.GameState.InstaGib || _scene.GameState.Fiesta
                 || _scene.GameState.OneInTheChamber || _scene.GameState.Mode == GameMode.GunGame
                 || _player.Health <= 0 || !_player.ModInPlay)
@@ -58,6 +58,14 @@ public partial class PlayerEntity
                 }
             }
             if (_player.IsMorphing || _player.IsUnmorphing) return;
+            // Abilities share the visual acquisition policy with gunfire.
+            // They must not bypass reaction time just because they are alt-form.
+            if (_botSuppressFireThisTick)
+            {
+                _hunterBoostChargeTicks = 0;
+                _hunterSpinTicks = 0;
+                return;
+            }
 
             // Never commandeer a native objective/health route, or make a flag
             // carrier enter a form in which it cannot retain the flag.
@@ -185,9 +193,14 @@ public partial class PlayerEntity
         {
             if (_hunterSpinTicks > 0)
             {
-                _hunterSpinTicks--;
-                if (action == BotHunterAltAction.Spin)
+                // Noxus' actual native spin needs AltAttackStartup * 2 ticks
+                // of continuous hold. Commit through that windup, even if
+                // the initial freeze has ended, while the target remains visible
+                // and close enough to justify completing the attack.
+                if (_player.Hunter == Hunter.Noxus && distance <= 4f
+                    && _player._abilities.TestFlag(AbilityFlags.NoxusAltAttack))
                 {
+                    _hunterSpinTicks--;
                     _buttons.L.IsDown = true;
                     return;
                 }
@@ -240,7 +253,8 @@ public partial class PlayerEntity
                     if (_player._abilities.TestFlag(AbilityFlags.NoxusAltAttack)
                         && _buttons.L.FramesUp > 1)
                     {
-                        _hunterSpinTicks = 26;
+                        _hunterSpinTicks = Math.Clamp(
+                            _player.Values.AltAttackStartup * 2 + 8, 30, 100);
                         _buttons.L.IsDown = true;
                         _hunterAbilityCooldownTicks = 75;
                     }

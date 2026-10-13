@@ -58,6 +58,14 @@ namespace MphRead.Entities
             /// </summary>
             private void ApplyBotMotor()
             {
+                if (_botSuppressFireThisTick)
+                {
+                    // No pre-acquisition fire, alt attack or boost from the
+                    // legacy personality tree. The veto must run before the
+                    // biped/alt separation, otherwise alt forms bypass it.
+                    _buttons.R.IsDown = false;
+                    if (_player.IsAltForm) _buttons.L.IsDown = false;
+                }
                 if (_player.Health <= 0 || !_player.ModInPlay || _player.IsAltForm
                     || _player.IsMorphing || _player.IsUnmorphing)
                 {
@@ -67,13 +75,6 @@ namespace MphRead.Entities
                     return;
                 }
 
-                // Tactical fire suppression must be resolved *after* legacy,
-                // enhancement and mode-specific combat writers. Otherwise the
-                // Insta-Gib fallback can bypass the visual acquisition delay.
-                if (_botSuppressFireThisTick)
-                {
-                    _buttons.R.IsDown = false;
-                }
                 // Treat observed incoming projectiles as time-limited dodge goals.
                 // They can supersede ordinary footwork, but only when visible and
                 // after a difficulty-dependent reaction delay.

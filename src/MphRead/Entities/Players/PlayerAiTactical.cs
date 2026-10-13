@@ -171,6 +171,12 @@ public partial class PlayerEntity
 
             if (_tacticalTarget == null)
             {
+                // Don't let legacy fire or alt-attack paths act on a stale
+                // target when the tactical perception layer has none.
+                _botSuppressFireThisTick = true;
+                Flags2 &= ~AiFlags2.TargetPlayer;
+                Flags2 &= ~AiFlags2.Bit8;
+                _buttons.R.IsDown = false;
                 ResetBotPositioning();
                 _botReactionTarget = null;
                 _botReactionFrames = 0;

@@ -1,9 +1,11 @@
 # Competitive bot AI phase 4: Hunter-specific combat abilities
 
 **Scope:** server-authoritative multiplayer Battle and Balanced Mode bots at
-Hard/Insane difficulty and below, sharing the ordinary native combat rules.
-This slice does not modify Enhanced Hunters' existing separate bot policy,
-single-player story encounter AI, gun damage, network protocol, or replay schema.
+all four supported difficulty levels, sharing the ordinary native combat rules.
+The Enhanced Hunters variant has been removed from the supported gameplay
+rules. This slice removes its obsolete bot decision hook, rather than gating
+Hunter ability logic behind a nonexistent mode. Single-player story encounter
+AI, damage, protocol, and replay schemas remain unchanged.
 
 ## Finite combat-state decisions
 
@@ -23,8 +25,9 @@ human would use.
   close encounters, switch briefly to Triskelion and use its native lunge.
 - **Sylux:** maintain uninterrupted Shock Coil fire while aligned at close
   range and deploy Lockjaw bombs at very close range.
-- **Noxus:** prefer Judicator freezing at midrange; spin with Vhoscythe only
-  if a nearby opponent is genuinely frozen and visible.
+- **Noxus:** prefer Judicator freezing at midrange; initiate Vhoscythe spin
+  only against a genuinely frozen, visible opponent. Once started, complete
+  the native windup when the opponent remains visible and nearby.
 - **Spire:** prefer charged Magmaul in its effective range, use Dialanche
   slam at close range with a safe approach path.
 - **Weavel:** use Halfturret as a temporary defensive stance while wounded
@@ -43,7 +46,10 @@ human players. Single-player scripted hunter encounters are unchanged.
 
 ## Fairness and regression requirements
 
-No abilities are activated without a visible legitimate opponent. The
+No offensive abilities are activated without a legitimate visible opponent
+and the same finite target-acquisition delay as gunfire. The final control
+resolver applies the fire/alt-attack veto before entering the separate
+alt-form movement path. The
 same standard weapon charge limits, cooldowns, physical collision, alt attack
 gates, energy/ammo and network authority apply to bots and humans. The pure
 bot contract suite checks each Hunter's action policy and the no-blind-combat
