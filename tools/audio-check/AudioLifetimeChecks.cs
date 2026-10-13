@@ -81,6 +81,20 @@ static class AudioLifetimeChecks
         Require(cleanupBackend.Devices == 0 && cleanupBackend.Contexts == 0
             && cleanupOwner.Completion.IsFaulted, "Deletion error prevented later native cleanup");
         _ = cleanupOwner.Completion.Exception;
+        var recoveredBackend = new Backend();
+        var recoveredOwner = new SfxResourceOwner(recoveredBackend, 1, 1, closeOnWorker: false);
+        recoveredOwner.Initialize(); recoveredOwner.Release();
+        Require(recoveredOwner.Completion.IsCompletedSuccessfully && recoveredBackend.Devices == 0,
+            "Confirmed device close after earlier cleanup errors prevented recovery");
+        var workerCleanupBackend = new Backend(cleanupFailure: true);
+        var workerCleanupOwner = new SfxResourceOwner(workerCleanupBackend, 1, 1, closeOnWorker: true);
+        workerCleanupOwner.Initialize(); workerCleanupOwner.Release();
+        try { workerCleanupOwner.Completion.GetAwaiter().GetResult(); } catch (AggregateException) { }
+        var workerRecovery = new SfxResourceOwner(recoveredBackend, 1, 1, closeOnWorker: true);
+        workerRecovery.Initialize(); workerRecovery.Release();
+        workerRecovery.Completion.GetAwaiter().GetResult();
+        Require(workerCleanupBackend.Devices == 0 && workerCleanupOwner.Completion.IsFaulted
+            && recoveredBackend.Devices == 0, "Faulted worker cleanup with confirmed device close prevented recovery");
 
         // Pause destruction to prove native acquisition cannot overlap it.
         using var entered = new ManualResetEventSlim();
@@ -210,11 +224,13 @@ static class AudioLifetimeChecks
             if (_cleanupFailure) throw new InvalidOperationException("delete source");
         }
         public void DestroyContext(ALContext context)
-        { _entered?.Set(); _unblock?.Wait(); Destroyed++; Contexts--; }
+        {
+            _entered?.Set(); _unblock?.Wait(); Destroyed++; Contexts--;
+            if (_cleanupFailure) throw new InvalidOperationException("destroy context after release");
+        }
         public void CloseDevice(ALDevice device)
         {
             if (_mixer) SfxMixer.Close(); Closed++; Devices--;
-            if (_cleanupFailure) throw new InvalidOperationException("close device");
         }
     }
 }

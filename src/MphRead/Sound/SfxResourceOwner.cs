@@ -49,6 +49,10 @@ internal sealed class SfxResourceOwner
     // One ordered close worker keeps pending shutdown work off the render lane.
     private static readonly object NativeGate = new();
     private static Task _pendingClose = Task.CompletedTask;
+    // A failed native close leaves ownership unknown. Reopening after it can
+    // accumulate devices on every scene/probe, even when the worker completed.
+    // Guarded by NativeGate; only process restart can clear this uncertainty.
+    private static Exception? _unconfirmedDeviceClose;
     private readonly ISfxNativeBackend _backend;
     private readonly bool _closeOnWorker;
     private ALDevice _device;
@@ -82,6 +86,9 @@ internal sealed class SfxResourceOwner
         {
             if (_released || _device.Handle != IntPtr.Zero)
                 throw new InvalidOperationException("Audio resource owner cannot be initialized twice.");
+            if (_unconfirmedDeviceClose != null)
+                throw new InvalidOperationException("Previous OpenAL device did not close; continuing without new SFX until restart.",
+                    _unconfirmedDeviceClose);
             try
             {
                 _device = _backend.OpenDevice();
@@ -150,7 +157,15 @@ internal sealed class SfxResourceOwner
             void Close()
             {
                 if (context.Handle != IntPtr.Zero) Attempt(() => _backend.DestroyContext(context));
-                if (device.Handle != IntPtr.Zero) Attempt(() => _backend.CloseDevice(device));
+                if (device.Handle != IntPtr.Zero)
+                {
+                    try { _backend.CloseDevice(device); }
+                    catch (Exception ex)
+                    {
+                        _unconfirmedDeviceClose ??= ex;
+                        errors.Add(ex);
+                    }
+                }
                 if (errors.Count != 0) throw new AggregateException("Audio cleanup failed.", errors);
             }
             if (_closeOnWorker)

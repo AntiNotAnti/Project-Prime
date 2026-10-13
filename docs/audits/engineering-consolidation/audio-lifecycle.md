@@ -111,3 +111,57 @@ The existing Linux renderer-policy and Windows/macOS controller-policy CI jobs
 also run `tools/audio-check`. The linked Android mixer and fake native backend
 require no cartridge data, native playback device or Android hardware. CI status
 for the PR remains pending until GitHub executes those jobs.
+
+## Follow-up: failed native device close fences reopening
+
+Review of the cumulative validated source `edcf0f1bc6be7cfb0734c42ebaa41ce8b8724ef2`
+found that a faulted worker close was logged and ignored before reopening, while
+synchronous close faults did not update the shared pending-close task. The owner
+cleared its handles before either close completed. Thus an unsuccessful close
+could retain a native device while every later scene or capability probe opened
+another one. The original cleanup-failure fake decremented device ownership
+before throwing, so it did not test an actually unclosed device.
+
+A device-free friend-assembly witness references the exact built cumulative
+`ProjectPrime.dll` and exercises the real owner and capability-probe method. Its
+fake throws before releasing device ownership (including the real adapter's
+exception for `ALC.CloseDevice(false)`). Eight attempts left eight outstanding
+fake devices in each of the synchronous, worker, and capability-probe paths.
+Raw pre-fix logs and command receipt remain in `/tmp/sfx-failed-close-witness`.
+
+The correction records an unconfirmed device-close failure under the existing
+native gate and rejects subsequent acquisition before calling `OpenDevice`.
+SFX stays unavailable until process restart after this failure. An exception may
+leave release ambiguous even if a backend released the device before throwing;
+the fence is deliberately conservative. Earlier source/context cleanup errors
+still report failure, but a confirmed successful device close permits recovery.
+There are no automatic retries, additional waits, native worker lanes, or changes
+to playback callbacks. The one unresolved device is retained as a known limit,
+not reported as successfully released.
+
+Release/audio-check validation passes **752 lifecycle assertions**, the existing
+10,000 failed pool allocations, and seven isolated fresh-process failed-close
+fixtures: synchronous/worker/probe false-return and thrown-close variants plus
+partial initialization followed by failed close. Each fixture makes 120 attempts
+and observes exactly one open, one outstanding fake device, zero contexts, and
+one close attempt; a later probe using a different backend cannot open a device.
+Fresh processes preserve the production fence without adding a test reset.
+Both synchronous and worker earlier-cleanup-error recovery are covered. This is
+fake-backend ownership evidence only; no driver/device-loss or Android hardware
+acceptance is implied. No native audio or GL device was opened for this follow-up.
+
+Commands (exact SDK; isolated user data for execution):
+
+```sh
+/Users/jarrett/.dotnet/dotnet build tools/audio-check/audio-check.csproj -c Release -v quiet
+/Users/jarrett/.dotnet/dotnet build tools/audio-check/audio-check.csproj -c Release --no-restore -m:1 -nr:false -v minimal
+PROJECT_PRIME_USER_DATA=/tmp/sfx-failed-close-witness/userdata /Users/jarrett/.dotnet/dotnet '/Users/jarrett/.codex/worktrees/consolidation-audio/Prime Hunters Online/tools/audio-check/bin/Release/net10.0/audio-check.dll'
+```
+
+The first build passed with 30 existing warnings and zero errors; the second
+incremental build passed with zero warnings/errors. Final execution exited zero.
+Raw logs use `/tmp/consolidation-audio-failed-close-{build,build-no-restore,check}.log`;
+exact source/DLL/log hashes and command receipts are retained in
+`/tmp/sfx-failed-close-witness/after-receipt.json`. The small device-free build
+ran during a root-authorized separate native experiment and was communicated
+for that experiment's ambient-load accounting. No frame-time result is claimed.
