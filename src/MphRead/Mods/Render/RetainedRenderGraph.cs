@@ -923,10 +923,10 @@ namespace MphRead
             bool reuseOpaqueDepth = Mods.Render.WorldRenderGraph.CanReuseOpaqueDepth(
                 _retainedRenderWorld.Decals.Count, _retainedRenderWorld.Translucent.Count,
                 Mods.Render.OpenGlSubmissionProfiler.ForceLegacyDepthReplay);
+#if !MPHREAD_SERVER
             bool depthCaptured = false;
             bool snapshotDepth = false;
             bool replayEffectsKnown = false;
-#if !MPHREAD_SERVER
             Mods.Render.DisplayListAttributeEffect replayEffects = default;
             if (_depthKeepEnabled && !reuseOpaqueDepth
                 && !Mods.Render.OpenGlSubmissionProfiler.ForceLegacyDepthReplay)

@@ -1,0 +1,296 @@
+{
+  "schema": 1,
+  "mainSha": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "sdk": "10.0.401",
+  "runtime": "10.0.12",
+  "host": "macOS27 ARM64",
+  "finalBuilds": [
+    {
+      "name": "desktop",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "build",
+        "tools/nettest/nettest.csproj",
+        "-c",
+        "Release",
+        "-m:1",
+        "-v:minimal"
+      ],
+      "exitCode": 0,
+      "seconds": 322.5617411136627,
+      "log": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/root-final/desktop.log",
+      "sha256": "e8775b8b3f1d827b510853b98836ae8de6a68eb2b392d482847bd5b9b4deae2b"
+    },
+    {
+      "name": "server",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "build",
+        "src/MphRead/MphRead.csproj",
+        "-c",
+        "Release",
+        "-p:MphReadServer=true",
+        "-p:ArtifactsPath=/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/root-final/server-build",
+        "-m:1",
+        "-v:minimal"
+      ],
+      "exitCode": 0,
+      "seconds": 48.64736485481262,
+      "log": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/root-final/server.log",
+      "sha256": "e1b45a012b09d18074dd92c96ce11083a0d660546034eaedd18af4e389b93e2a"
+    }
+  ],
+  "networkRegressionReceipts": {
+    "sourceBase": "91b1c0c6c44e8c90effd250729709f791a84765e",
+    "sourceState": "root-owned uncommitted warning/single-file candidate",
+    "checkedAtUtc": "2026-10-13T07:19:58.917581+00:00",
+    "engineSha256": "bb48631902cfb5528cbcc2f7f5ece83dbb876ada11852151736e5ec5df62aeef",
+    "nettestSha256": "5db0550a405a6cc1c554c0d2d1fd2744f0746753c8a626a3040e44605c496889",
+    "protocolBudgetSwitchNote": "--protocol-budget is not registered; --enhanced-hunters covers maximum lane/bootstrap packet budgets (1172B ceiling); --protocol18 covers1172B fast datagram and revision fencing/lane roundtrip.",
+    "results": [
+      {
+        "argv": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--protocol18"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online",
+        "exitCode": 0,
+        "status": "PASS",
+        "logPath": "/tmp/consolidation-warning-protocol18.log",
+        "logSha256": "768650085c1f77361be185ae9708f2e702b18e96945e8549c8a31a0e78fbf3a8",
+        "lastLines": [
+          "PASS: protocol 18 lane round-trip, revision fencing, 0 decode allocations, 1172B worst-case fast datagram"
+        ]
+      },
+      {
+        "argv": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--player-form-protocol"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online",
+        "exitCode": 0,
+        "status": "PASS",
+        "logPath": "/tmp/consolidation-warning-player-form-protocol.log",
+        "logSha256": "96169772d2d6575b263d5bfc3b3f1394aaaef0df4c2f0a06d30f49d149c96191",
+        "lastLines": [
+          "FORM PROTOCOL PASS slow codec rejects corrupted phase",
+          "FORM PROTOCOL PASS eight complete canonical forms and split lanes remain bounded",
+          "FORM PROTOCOL PASS eight slow form rows roundtrip without stride overlap",
+          "FORM PROTOCOL 31 assertions PASS"
+        ]
+      },
+      {
+        "argv": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--reliable"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online",
+        "exitCode": 0,
+        "status": "PASS",
+        "logPath": "/tmp/consolidation-warning-reliable.log",
+        "logSha256": "3095d7bd5d9fbcbff209919a4f66fc1f03ff99d928365917be164e73bde9ab82",
+        "lastLines": [
+          "[net] reliable control failed for 127.0.0.1:52977; disconnecting; LobbyCommandResult: admission refused; NetReliableSnapshot { Pending = 33, HighWater = 33, Refused = 1, ReserveUses = 0, SpanRefused = 0, Retransmissions = 0, Duplicates = 0, OldestAgeMilliseconds = 10.566709041595459, Failed = True, CurrentRtoMilliseconds = 150 }",
+          "PASS: reliability under 5% loss / 80ms jitter / 3% reorder / 1% duplicate; capacity, dedup span and expiry"
+        ]
+      },
+      {
+        "argv": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--transport-stress"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online",
+        "exitCode": 0,
+        "status": "PASS",
+        "logPath": "/tmp/consolidation-warning-transport-stress.log",
+        "logSha256": "3d59d3ffd409c6c14084e05074f7e0143cd83ac3c5920ff6e91dfd826d19c962",
+        "lastLines": [
+          "peer 6: configured RTT=400, snapshots=203, queueHigh=9, ACK RTT=462.7",
+          "peer 7: configured RTT=150, snapshots=204, queueHigh=23, ACK RTT=226.1",
+          "LOCK acquisitions=25193 contentions=19 ratio=0.075% waitTotalMs=0.763 waitMaxMs=0.067 holdTotalMs=9.479 holdMaxMs=0.167",
+          "PASS: eight mixed-quality UDP peers, 1728 intents, 128 exact-once controls, 400ms client pump stall"
+        ]
+      },
+      {
+        "argv": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--campaign-claims"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online",
+        "exitCode": 0,
+        "status": "PASS",
+        "logPath": "/tmp/consolidation-warning-campaign-claims.log",
+        "logSha256": "8bac80a2a8d2902f3ca022c2177766cacac53d2a94b73a34e8a3d3451bb8e8d2",
+        "lastLines": [
+          "[net2] evidence completed",
+          "PASS: campaign claim accounting 14 assertions; real invalid claim receipts survive teardown reset, no gameplay application."
+        ]
+      },
+      {
+        "argv": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--queue-budget"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online",
+        "exitCode": 0,
+        "status": "PASS",
+        "logPath": "/tmp/consolidation-warning-queue-budget.log",
+        "logSha256": "15dfab687c9f45705140d159147c19f6276d675c13ca58c02498af7b00f1ee95",
+        "lastLines": [
+          "Wire telemetry tests passed.",
+          "PASS: independent cosmetic capacity, flood capacity, critical reserve, per-peer rate limits and pump budgets"
+        ]
+      },
+      {
+        "argv": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--enhanced-hunters"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online",
+        "exitCode": 0,
+        "status": "PASS",
+        "logPath": "/tmp/consolidation-warning-enhanced-hunters.log",
+        "logSha256": "405bd87e3127918b2ed4a92590e719c159897b93c5dad6e3911ccd83ae1a1352",
+        "lastLines": [
+          "ENHANCED PASS 37 checks; fast ceiling 1172 bytes"
+        ]
+      }
+    ],
+    "scope": "existing device-free / actual loopback UDP fixtures; no native GL/audio or asset scene tests; no performance claim"
+  },
+  "networkReceiptSha256": "5ef62e70f7df7a80bfa87b4f747fa92d181f4016ebd5594572e4cc7b17b55239",
+  "sourceSha256": {
+    "src/MphRead/Mods/Diagnostics/RuntimeApplicationImage.cs": "ef072967d2efba924cc7ee75431df34fb5300eeead46c0125ee316061b69583b",
+    "src/MphRead/Entities/ArtifactEntity.cs": "9940976814d1b22451cd83c70f263bad9cc9019021481129beb7ecd775f20345",
+    "src/MphRead/Mods/Network/NetTransport.cs": "69245fceeb8909facdaa1c179bfed115cf19b77af2d5c441a284df341e907d1f",
+    "src/MphRead/Mods/Network/NetCampaignEvidence.cs": "f51892966a46cfec1ba1f2b3e89f054bc3fd2c824299253b0683c0bb338ba887",
+    "src/MphRead/Mods/Network/NetMaster.cs": "56964878c2771fa8bca93517d5e5d363b8e832022cf4e037051d9e4519512866",
+    "src/MphRead/Mods/Network/NetBombVisibilityProbe.cs": "a7e23b63b77920e8b2da527eeb8f39a21091265ae26afe838952b5ec7d3c7089",
+    "src/MphRead/Mods/Settings/SettingsArchivePlatform.cs": "8cf1ad06adfc16fc261d5874a9122d2b741b91cfa4aa73dc243817d042a8ce96",
+    "src/MphRead/Mods/Render/RetainedRenderGraph.cs": "af81eb893a0740cad486adb2d92cdf896bfaa8631dcfc05023900af15cddf5de",
+    "src/MphRead/MphRead.csproj": "fd2de098cd94ce45a9a9af2b47314b98f0c1440f2b99f105e1d7d94525a0c466",
+    "src/MphRead.Android/MphRead.Android.csproj": "baf6db48b6ab5af424766abe28536502cb3eee1b0011dd6e6837898bb72e616c",
+    "tools/application-image-check/Program.cs": "191b1138975a92e6a1df985400dcc7282391972141caad096afd94acf0e7d6b9",
+    "tools/application-image-check/application-image-check.csproj": "6c7c6b802e9bbb058355a9754f0332012cf8da44c6e64a7237b64f6b8b2295e7",
+    ".github/workflows/build.yml": "980454938cc1b9592ee499c0c70aeb6bbec8a9b73fb17b0023606d1b54d56c62"
+  },
+  "rawLogs": [
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/android-tested-build.log",
+      "sha256": "22da835d4a4599b87a71233cc93fbff6d3f4855387cbbf373101a16819e859c2",
+      "bytes": 68524
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/android-warning-build.log",
+      "sha256": "1f9012a478003cb3ecf9d16d73666d19924fc88450401676e4e841abe4731747",
+      "bytes": 69318
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/campaign-claims.log",
+      "sha256": "8bac80a2a8d2902f3ca022c2177766cacac53d2a94b73a34e8a3d3451bb8e8d2",
+      "bytes": 150
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/desktop-final-build-retry.log",
+      "sha256": "484b46020b60a33cdc9c1d82034c50428b81d929f76689165d8f050b0367716e",
+      "bytes": 15308
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/desktop-final-build.log",
+      "sha256": "2a1d3744acb57a971a23494c9b83775b3c7b696c07388eb0211afa36c825f4c1",
+      "bytes": 17710
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/desktop-head-verified.log",
+      "sha256": "df03a904746f290689679f1b4ba5ed7e19d676f2dc7f11f54fd643a0bdd10d14",
+      "bytes": 567
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/desktop-nettest-build.log",
+      "sha256": "b06db9f2a33d3b4322d934d5a384a70801e69ccebd43a4235e9a42c142e3d37e",
+      "bytes": 16455
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/desktop-tested-build.log",
+      "sha256": "317d57a542ffa781c01e8da18dff64438e12301acfb30992b366eeb1b0868b17",
+      "bytes": 15308
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/image-exact-location-framework-dependent-final.log",
+      "sha256": "948b4aa0a5ac89a3ff8d873949ae2bff7abe17d8dfbc266438573bed5f6cdda0",
+      "bytes": 116
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/image-exact-location-framework-dependent.log",
+      "sha256": "06b2250397650ab58d805ae837ddba5f4345f148bb517b054a144a78f8db4ecb",
+      "bytes": 455
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/image-exact-location-single-file-build.log",
+      "sha256": "11a928bcee5fe191ccc835a8e0d09a3b6577c095ba9c514b54e8315cdce148b6",
+      "bytes": 587
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/image-exact-location-single-file.log",
+      "sha256": "2a910f08632cd250c21d1a68ca53c0e03c519c5215b55b8c68752eae3117ae0b",
+      "bytes": 115
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/image-framework-dependent.log",
+      "sha256": "5295fd2405864d4f84309c1c64a51e2bcea23a66d1f32c0993b001f52232f86f",
+      "bytes": 117
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/image-single-file-build.log",
+      "sha256": "d87c2374ae093d1d3ae33f2190476f5db35a0ddc02240f4d39ad0ae0fe8cabf3",
+      "bytes": 581
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/image-single-file.log",
+      "sha256": "5114a4a334fc4f2d1c989bed476b3ede54302478de91598ea5d2c8dfb01216e0",
+      "bytes": 116
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/player-form-protocol.log",
+      "sha256": "96169772d2d6575b263d5bfc3b3f1394aaaef0df4c2f0a06d30f49d149c96191",
+      "bytes": 1573
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/queue-budget.log",
+      "sha256": "15dfab687c9f45705140d159147c19f6276d675c13ca58c02498af7b00f1ee95",
+      "bytes": 138
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/reliable.log",
+      "sha256": "68c4c53589b1869168c885b3fab2f839903981ebc04cf384dc7ffbd622bdd4d4",
+      "bytes": 438
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/server-publish.log",
+      "sha256": "9733148510da94bac1b9f77725a191e2205f8e6ac863272cf8917cf29ed2e630",
+      "bytes": 6587
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/server-tested-build.log",
+      "sha256": "0605b38b34e82d05d9c1279bdde35e1221f157988580fe9cde6da28cc6029955",
+      "bytes": 7077
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/server-warning-build.log",
+      "sha256": "b3d5d0e31fb7c218cb9b18bc420d0e30939e91643e26ec99103cb79cc040cc1b",
+      "bytes": 7685
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-build-safeguards/Prime Hunters Online/artifacts/engineering-consolidation-build/transport-stress.log",
+      "sha256": "325cd3c4047ffbeea2640b927b2c8ca47492a36f6cdb057036e65ba6f3754d67",
+      "bytes": 780
+    }
+  ]
+}
