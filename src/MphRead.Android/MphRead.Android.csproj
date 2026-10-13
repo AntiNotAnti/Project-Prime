@@ -71,14 +71,6 @@
     <AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
     <NoWarn>$(NoWarn);AVA3001</NoWarn>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
-    <!-- .NET 10.0.12 Mono cross-AOT aborts inside mono_class_value_size
-         (metadata/object.c:8004) while compiling ProjectPrime.dll for both
-         Android ARM64 and x64. Keep Release trimming, signing and real APK
-         acceptance enabled; temporarily use Mono's JIT instead of shipping no
-         Android build. Re-evaluate startup/FPS and restore AOT after isolating
-         the invalid value-type metadata/toolchain regression. A release job can
-         explicitly override this via -p:RunAOTCompilation=true for diagnosis. -->
-    <RunAOTCompilation Condition="'$(Configuration)' == 'Release'">false</RunAOTCompilation>
     <!-- There is no XAML in this project: every screen here is written in C#.
          The compiler still runs when AvaloniaResource items are present, and on
          Android it and the Android SDK disagree about where the compiled
