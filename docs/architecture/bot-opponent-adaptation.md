@@ -32,8 +32,13 @@ limits or hit authority. It cannot read a hidden enemy's live position to make
 a strategic decision.
 
 The pure `--bot-ai` suite checks observed strafe, jump, and rush habits,
-difficulty restrictions, and decay during loss of visibility. Performance,
-actual win rate, and remote presentation require asset-backed matches.
+difficulty restrictions, and decay during loss of visibility. The asset-backed
+`--bots-scene` diagnostics now report actual alt-form intent frames,
+alt-form analog-movement samples and same-life form transitions in addition
+to the existing aim-step and movement-reversal statistics. These are
+diagnostics, not hardcoded expected morph counts: encounters may legitimately
+contain no alt-form transitions. Performance, actual win rate, and remote
+presentation still require observed matches.
 
 ## Validation
 
