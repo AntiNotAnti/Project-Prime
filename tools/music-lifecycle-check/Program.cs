@@ -188,6 +188,14 @@ static class Program
         Require(graph!.Retired == 1 && owner.Current == null && !owner.Loading, "Cancelled attachment published after Remove");
         owner.Load(SeqId.None, 0, 0);
         Require(owner.Current == null && !owner.Loading, "SeqNone created a track or reported loading");
+
+        int errors = 0;
+        Graph? failed = null;
+        var attachmentFailure = new MusicLoadOwner((request, _) => failed = new Graph(request)
+            { OnAttach = () => throw new InvalidOperationException("Injected device start failure") }, _ => errors++);
+        attachmentFailure.Load(SeqId.WIN, 1, 1); Await(attachmentFailure.Completion, "Failed attachment did not drain");
+        Require(errors == 1 && failed!.Retired == 1 && attachmentFailure.Current == null && !attachmentFailure.Loading,
+            "Failed attachment retained its graph or readiness");
     }
 
     static void PartialConstructionFailures()
@@ -223,6 +231,17 @@ static class Program
         cancelled.CancelLoading(true); Require(!cancelled.Loading && cancelled.StopLoading, "Cancellation did not update newest readiness");
         unblock.Set(); Await(cancelled.Completion, "Cancelled worker did not finish");
         Require(retained == 0 && cancelled.Current == null, "Cancelled private resources leaked");
+
+        int cleanupAlive = 0;
+        var cleanup = new MusicGraphConstruction
+        {
+            Stream = new Resource(() => cleanupAlive++, () => { cleanupAlive--; throw new IOException("stream dispose"); }),
+            Provider = new Resource(() => cleanupAlive++, () => { cleanupAlive--; throw new IOException("provider dispose"); }),
+            Component = new Resource(() => cleanupAlive++, () => cleanupAlive--)
+        };
+        try { cleanup.Dispose(); throw new Exception("Cleanup failure was hidden"); }
+        catch (AggregateException ex)
+        { Require(ex.InnerExceptions.Count == 2 && cleanupAlive == 0, "Cleanup failure skipped another owned resource"); }
     }
 
     static void CallbackRetirement()

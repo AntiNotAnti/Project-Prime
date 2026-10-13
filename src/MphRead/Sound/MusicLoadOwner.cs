@@ -169,6 +169,6 @@ internal sealed class MusicCallbackLifetime
         return false;
     }
     internal void Exit() => Interlocked.Decrement(ref _readers);
-    internal void BeginRetirement() => Volatile.Write(ref _retired, 1);
+    internal void BeginRetirement() => Interlocked.Exchange(ref _retired, 1);
     internal bool IsIdle => Volatile.Read(ref _readers) == 0;
 }
