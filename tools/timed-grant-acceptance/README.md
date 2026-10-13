@@ -146,3 +146,14 @@ fixture NOT_RUN; it cannot substitute for that separate run.
 Source review of this optional route is not native acceptance. Compile and run
 against the exact committed candidate serially, retaining all failures, before
 claiming contact, recording, clip or seek evidence.
+
+
+Native replay readbacks retain value-only actor, form, camera, model-animation,
+material, effect-particle and RNG state before drawing, after drawing and after
+an immediate repeat draw. Float receipts include raw IEEE bits. Full actual
+native checkpoint bytes are also captured and hashed at those boundaries; they
+are diagnostic captures only and are never restored or adjusted by the tool.
+The immediate repeat readback must be exact, independently of the separate
+linear-versus-seek comparison. This counterfactual can falsify same-state render
+stability while preserving the original exact seek failure. It does not introduce
+pixel tolerance, normalize camera/effects or change production checkpoints.

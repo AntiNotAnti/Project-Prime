@@ -73,7 +73,14 @@ internal static class ReplayProbe
                                     string label = kind + "-type" + type + "-frame" + frame;
                                     if (!hashes.ContainsKey(frame))
                                     {
+                                        ReplayReadbackDiagnostics.Save(linear, label + "-before-draw", report);
                                         var pixels = Capture(scene, label, report);
+                                        ReplayReadbackDiagnostics.Save(linear, label + "-after-draw", report);
+                                        var repeat = Capture(scene, label + "-repeat", report);
+                                        ReplayReadbackDiagnostics.Save(linear, label + "-after-repeat", report);
+                                        report.Stages.Add(new { stage = "native-same-state-render-counterfactual", label,
+                                            exact = repeat == pixels, first = pixels, repeated = repeat });
+                                        if (repeat != pixels) throw new InvalidOperationException("Genuine native linear same-state repeat readback differs at " + frame + ".");
                                         hashes[frame] = (GameplayHash(scene, frame), pixels);
                                     }
                                     report.Stages.Add(new { stage = "native-recorded-replay-positive", kind, frame, recordingFrame,
@@ -112,7 +119,15 @@ internal static class ReplayProbe
                 uint frame = Convert.ToUInt32(Reflection.Get(restoredSession, "CurrentFrame"));
                 if (frame != expected.Key || GameplayHash(restored, frame) != expected.Value.Gameplay)
                     throw new InvalidOperationException($"Genuine native {kind} seek gameplay differs at {expected.Key}.");
-                var actualPixels = Capture(restored, kind + "-seek-" + frame, report);
+                string label = kind + "-seek-" + frame;
+                ReplayReadbackDiagnostics.Save(current, label + "-before-draw", report);
+                var actualPixels = Capture(restored, label, report);
+                ReplayReadbackDiagnostics.Save(current, label + "-after-draw", report);
+                var repeat = Capture(restored, label + "-repeat", report);
+                ReplayReadbackDiagnostics.Save(current, label + "-after-repeat", report);
+                report.Stages.Add(new { stage = "native-same-state-render-counterfactual", label,
+                    exact = repeat == actualPixels, first = actualPixels, repeated = repeat });
+                if (repeat != actualPixels) throw new InvalidOperationException("Genuine native seek same-state repeat readback differs at " + frame + ".");
                 if (expected.Value.Pixels is { } expectedPixels && actualPixels != expectedPixels)
                     throw new InvalidOperationException($"Genuine native {kind} seek color/HUD/depth differs at {expected.Key}; exact parity is required.");
                 comparisons++;
