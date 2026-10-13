@@ -61,7 +61,7 @@ and cache fixture, excludes full editor UI and map simulation.
 | Sequential runner / evidence preservation | PASS | Three tests: dry-run invariant commands, timeout preservation/stop, existing-directory rejection |
 | Real four-arm dry run | PASS | Manifest, runtime info and all commands generated without executing native workloads |
 | Whitespace check | PASS | `git diff --check` |
-| Physical map/GL/Studio/audio arms | NOT_RUN in this tooling slice | Coordinated by the root task to prevent simultaneous native workloads |
+| Physical map/GL/Studio/audio two-cycle pilots | PASS | macOS 27 arm64, same immutable DLLs, FORCE_LEGACY=0; exact paired map color/depth and 3 quiescent samples per arm |
 | Long-run native boundedness | NOT_RUN / UNVERIFIED | Requires actual 60+/120-cycle arms and native allocation/VM-category attribution |
 | Replay-only, full Studio UI, Windows, Android | NOT_RUN | Outside this diagnostic fixture |
 
@@ -101,3 +101,40 @@ and runner manifest remain in the local `artifacts/native-attribution/pilot-2cyc
 directory and are not overwritten by the retry. The retry also restores the
 existing ForceEveryone fixture hook before the stress constructor's early
 return. No production ownership or GL binding policy is changed.
+
+## Corrected physical pilots
+
+All four two-cycle arms passed on macOS 27 arm64 using source
+`d89def52b9c378c2f67000d0119e706b3f4969df` with a clean working tree. Only
+`PROJECT_PRIME_GL_FORCE_LEGACY=0` was explicitly set; other production policies
+used their defaults. Each map arm used eight players, 1920x1080, 120 exact
+simulation steps per load, enabled High shadows and the default failure
+schedule. Two cycles exercise the promotion and VAO stages; the longer campaign
+is needed to exercise all five stages. Quiescence used three samples at 100 ms,
+which validates sampling but is insufficient for plateau claims.
+
+| Arm | Wall seconds | Completed workload | Result |
+| --- | ---: | --- | --- |
+| combined | 10.05 | Four map loads, two Studio sessions / six cache rebuilds | PASS |
+| map-gl | 8.63 | Four map loads, zero Studio sessions, SfxInstanceBase at every live sample | PASS |
+| studio | 1.76 | Two Studio sessions / six cache rebuilds, zero map loads | PASS |
+| audio | 1.75 | Four native SFX loads / shutdowns, zero GL contexts | PASS |
+
+All four map color/depth hashes matched across combined and map-GL arms. Every
+map unload had zero program owner fields and one recognized program marked for
+deletion while still current; this is pending driver deletion, not fully
+released native residency. All four native shutdown tasks completed in both
+combined and audio arms, with no fault/cancellation/backlog after drain. The
+map-GL arm had four observations of one shared completed stub task, correctly
+distinguished from four native close operations.
+
+Immutable hashes:
+
+- Harness SHA-256: `4d91d9976bc1374ef6700fa1e174f48a4171b8710201167dfb2cde011f9c9a61`.
+- Pinned baseline client SHA-256: `22c7eb0fb0e59c7e40fa656c4bda1c20a58c42b5628e3fdd5f47fb79fb6ff0b2`.
+
+Raw results/logs, analyses and runner manifest are preserved locally under
+`artifacts/native-attribution/pilot-2cycle-retry/`; the original failed trial is
+under `artifacts/native-attribution/pilot-2cycle/`. Bulky logs and game captures
+are intentionally not committed. Root-task coordination prevented simultaneous
+native workloads. The 60+/120-cycle hardware gate remains open.
