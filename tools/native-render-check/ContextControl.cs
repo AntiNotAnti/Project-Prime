@@ -7,9 +7,11 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 // Separate diagnostic protocol. Each existing stress fixture completes before
 // disposing its actual window/context; no GL calls occur after disposal.
+// Optional GLFW process teardown is final: OpenTK's initialized flag is not reset.
 static class ContextControl
 {
     internal static int SelfTest()
@@ -17,6 +19,8 @@ static class ContextControl
         var valid = new[] { "-resourcestress", "-resource-arm", "map-gl", "-resource-drain", "-resource-context-cycles", "120,180" };
         var parsed = Parse(valid);
         bool pass = parsed.Cycles.SequenceEqual(new[] { 120, 180 }) && parsed.Samples == 30 && parsed.Interval == 1000;
+        var driver = Parse(valid.Concat(new[] { "-resource-context-driver-drain" }).ToArray());
+        pass &= driver.DriverDrain;
         foreach (var invalid in new[] { Set(valid, "-resource-context-cycles", "0"), Set(valid, "-resource-context-cycles", "201"), Set(valid, "-resource-arm", "combined"), valid.Where(v => v != "-resource-drain").ToArray() })
         {
             try { Parse(invalid); pass = false; } catch (ArgumentException) { }
@@ -27,7 +31,7 @@ static class ContextControl
         return pass ? 0 : 1;
     }
 
-    private static (int[] Cycles, int Samples, int Interval) Parse(string[] args)
+    private static (int[] Cycles, int Samples, int Interval, bool DriverDrain, string? AckDirectory) Parse(string[] args)
     {
         string Value(string name, string fallback) => Array.IndexOf(args, name) is int i && i >= 0 && i + 1 < args.Length ? args[i + 1] : fallback;
         int[] cycles = Value("-resource-context-cycles", "").Split(',').Select(int.Parse).ToArray();
@@ -37,16 +41,32 @@ static class ContextControl
             || !args.Contains("-resource-drain") || cycles.Length < 1 || cycles.Length > 8 || cycles.Any(c => c < 1 || c > 200))
             throw new ArgumentException("Context controls require drained map-gl|studio stress and 1..8 comma-separated cycle counts of 1..200.");
         ResourceAttribution.ValidateQuiescence(samples, interval);
-        return (cycles, samples, interval);
+        bool driverDrain = args.Contains("-resource-context-driver-drain");
+        string? ack = args.Contains("-resource-context-phase-acks") ? Path.GetFullPath(Value("-resource-context-phase-acks", "")) : null;
+        if (ack != null && !driverDrain) throw new ArgumentException("Phase acknowledgements require final driver-drain control.");
+        return (cycles, samples, interval, driverDrain, ack);
     }
 
     internal static int Run(string[] args, string output, Func<string[], CheckWindow> create)
     {
-        var (cycles, samples, interval) = Parse(args);
+        var (cycles, samples, interval, driverDrain, ackDirectory) = Parse(args);
         if (File.Exists(output) || Directory.Exists(output + ".contexts")) throw new IOException("Context-control output must be fresh.");
         var records = new List<object>();
         string? error = null;
         Directory.CreateDirectory(output + ".contexts");
+        if (ackDirectory != null) Directory.CreateDirectory(ackDirectory);
+        WeakReference? lastWindow = null;
+        void Observe(int index, string phase, WeakReference weak)
+        {
+            long started = Stopwatch.GetTimestamp();
+            for (int sample = 0; sample < samples; sample++)
+            {
+                Thread.Sleep(interval);
+                records.Add(new { context = index, phase, sample,
+                    elapsedSeconds = Stopwatch.GetElapsedTime(started).TotalSeconds,
+                    windowWrapperWeakAlive = weak.IsAlive, memory = ResourceAttribution.MemorySample() });
+            }
+        }
         try
         {
             for (int index = 0; index < cycles.Length; index++)
@@ -55,22 +75,31 @@ static class ContextControl
                 string[] options = Set(Set(args, "-output", trial), "-resourcecycles", cycles[index].ToString());
                 // Each helper returns before post-disposal observations, avoiding
                 // a surviving JIT local reference to the managed window wrapper.
-                var weak = Execute(index, options, trial, create, records);
-                long started = Stopwatch.GetTimestamp();
-                for (int sample = 0; sample < samples; sample++)
-                {
-                    Thread.Sleep(interval);
-                    records.Add(new { context = index, phase = "post-context-disposal", sample,
-                        elapsedSeconds = Stopwatch.GetElapsedTime(started).TotalSeconds,
-                        windowWrapperWeakAlive = weak.IsAlive, memory = ResourceAttribution.MemorySample() });
-                }
+                var weak = Execute(index, options, trial, create, records, ackDirectory);
+                lastWindow = weak;
+                Observe(index, "post-context-disposal", weak);
+                AwaitCapture(ackDirectory, $"context-{index:D2}-after-disposal");
+            }
+            if (driverDrain)
+            {
+                // Owner thread, outside callbacks, after ALL windows/context disposal.
+                GLFW.PollEvents();
+                Console.WriteLine("NATIVERENDER driver-drain phase=after-glfw-poll");
+                Observe(cycles.Length - 1, "after-glfw-poll", lastWindow!);
+                AwaitCapture(ackDirectory, "after-glfw-poll");
+                GLFW.Terminate();
+                // Do not use any GLFW/GL/window APIs or create another window below.
+                Console.WriteLine("NATIVERENDER driver-drain phase=after-glfw-terminate");
+                Observe(cycles.Length - 1, "after-glfw-terminate", lastWindow!);
+                AwaitCapture(ackDirectory, "after-glfw-terminate");
             }
         }
         catch (Exception ex) { error = ex.ToString(); }
         var result = new { schema = 1, kind = "resource-context-control", manifest = ResourceAttribution.Manifest(),
             contextCycles = cycles, postDisposalSamples = samples, postDisposalIntervalMs = interval,
-            additionalGcRequested = false, records, complete = error == null, error,
-            limitations = "Actual sequential unshared window/context creation and disposal. Existing per-context stress drain/GC preserved. No extra GC after teardown; weak managed wrappers can remain until a later collection. Native handles are not enumerated after destruction. Driver allocation capture is external; idle stability does not prove repeated-load boundedness. No FPS evidence." };
+            additionalGcRequested = false, driverDrainRequested = driverDrain, captureAcknowledgementsRequested = ackDirectory != null,
+            records, complete = error == null, error,
+            limitations = "Actual sequential unshared window/context creation and disposal. Existing per-context stress drain/GC preserved. No extra GC after teardown; weak managed wrappers can remain until a later collection. Optional final GLFW.PollEvents/Terminate control is owner-thread only, after all windows are disposed; no GLFW/GL/window calls or recreation afterward. OpenTK's cached initialized flag is not reset, so this is not a reusable runtime policy. Native handles are not enumerated after destruction. External allocator profiling changes memory/CPU; idle stability does not prove repeated-load boundedness. No FPS evidence." };
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
         File.WriteAllText(output, JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("NATIVERENDER CONTEXT " + (error == null ? "PASS " : "FAIL ") + output);
@@ -78,7 +107,7 @@ static class ContextControl
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference Execute(int index, string[] args, string output, Func<string[], CheckWindow> create, List<object> records)
+    private static WeakReference Execute(int index, string[] args, string output, Func<string[], CheckWindow> create, List<object> records, string? ackDirectory)
     {
         records.Add(new { context = index, phase = "before-context-creation", memory = ResourceAttribution.MemorySample() });
         var window = create(args);
@@ -90,6 +119,7 @@ static class ContextControl
             window.Run();
             File.WriteAllText(output, JsonSerializer.Serialize(window.ResourceStressResult(), new JsonSerializerOptions { WriteIndented = true }) + "\n");
             if (!window.Complete) throw new InvalidOperationException("Per-context workload incomplete: " + output);
+            AwaitCapture(ackDirectory, $"context-{index:D2}-before-disposal");
         }
         catch (Exception ex)
         {
@@ -114,6 +144,18 @@ static class ContextControl
             Console.WriteLine($"NATIVERENDER context={index} disposed; post-disposal observations begin");
         }
         return weak;
+    }
+
+    private static void AwaitCapture(string? directory, string phase)
+    {
+        if (directory == null) return;
+        long started = Stopwatch.GetTimestamp();
+        while (!File.Exists(Path.Combine(directory, phase + ".ack")))
+        {
+            if (Stopwatch.GetElapsedTime(started).TotalSeconds > 90)
+                throw new TimeoutException("External capture acknowledgement missing: " + phase);
+            Thread.Sleep(100);
+        }
     }
 
     private static string[] Set(string[] args, string key, string value)
