@@ -12,6 +12,7 @@ namespace MphRead.Mods.Render
             int failures = DynamicGeometryStreamCheck.Run() + OpenGlModernizationCheck.Run()
                 + HudGlyphTextureCacheCheck.Run() + ProceduralFrameGeometryCheck.Run() + DepthReplayPolicyCheck.Run()
                 + DisplayListAttributeEffects.Check() + WorldShaderVariantCheck.Run();
+            failures += TransitionGcDiagnostics.Check();
             failures += RetainedRoomBatchPlan.CheckMembershipPolicy() + ShadowCasterPreparationCacheCheck.Run()
                 + ShadowCasterSpatialGroups.Check()
                 + OpenGlFailureInjectionCheck.Run() + RetainedMaterialIdentity.Check() + MeshObjectStateReuse.Check();

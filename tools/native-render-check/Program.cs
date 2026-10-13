@@ -64,6 +64,9 @@ typeof(Scene).Assembly.GetType("MphRead.ConsoleSetup")!.GetMethod("Run")!.Invoke
 // child command assumes ProjectPrime's entry point, not this tool's entry point.
 GraphicsBackendPolicy.LoadPreference();
 Paths.UpdatePaths(); Paths.ChooseMphPath(); Paths.ChooseFhPath();
+using var transitionGc = TransitionGcObservation.Create(args);
+if (args.Contains("-transition-rebind") && transitionGc == null)
+    throw new ArgumentException("-transition-rebind requires -transition-gc and is separate reachability evidence, not frame timing.");
 MphRead.Mods.MapGen.CustomRooms.GenerateMissing(room);
 using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"));
 window.ConfigureResourceStress(args);
@@ -72,7 +75,9 @@ try
 {
     window.Run();
     var result = JsonSerializer.SerializeToNode(window.ResourceStressEnabled ? window.ResourceStressResult() : window.Result())!;
-    if (!window.ResourceStressEnabled) result["cleanup"] = JsonSerializer.SerializeToNode(window.CleanupAndInspect());
+    if (!window.ResourceStressEnabled) result["cleanup"] = JsonSerializer.SerializeToNode(transitionGc == null
+        ? window.CleanupAndInspect() : window.CleanupTransitionGcAndInspect(args.Contains("-transition-rebind")));
+    if (transitionGc != null) result["transitionGc"] = JsonSerializer.SerializeToNode(transitionGc.Result(window.Complete));
     Directory.CreateDirectory(Path.GetDirectoryName(output)!);
     File.WriteAllText(output, result.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n");
     Console.WriteLine("NATIVERENDER " + (window.Complete ? "PASS " : "FAIL ") + output);

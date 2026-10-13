@@ -575,6 +575,7 @@ namespace MphRead
 
         public void OnLoad()
         {
+            using var transitionStage = Mods.Render.TransitionGcDiagnostics.MeasureStage("Scene.OnLoad");
             // What the driver calls itself, once, at the only moment there is
             // certainly a context current. Everything about a picture being
             // wrong on somebody else's machine starts with these three lines,
@@ -672,7 +673,7 @@ namespace MphRead
                 // exception, from the same line, with nobody to prompt again.
                 OutputStart();
             }
-            if (!Services.IsReplica) GC.Collect(generation: 2, GCCollectionMode.Forced, blocking: true, compacting: true);
+            if (!Services.IsReplica) Mods.Render.TransitionGcDiagnostics.Collect(Mods.Render.TransitionGcPhase.SceneLoad);
             // Android's runtime throws PlatformNotSupported for this, which took
             // every match on that head down before a room had finished loading.
             // It is a hint to the collector, so going without it costs nothing.
@@ -8740,6 +8741,7 @@ localCenter *= _profileHudScale;
             {
                 return;
             }
+            using var transitionStage = Mods.Render.TransitionGcDiagnostics.MeasureStage("RenderWindow.EndScene");
             _scene.DoCleanup();
             _scene.UnloadGl();
             _scene = null;
@@ -8747,7 +8749,7 @@ localCenter *= _profileHudScale;
             // A scene is the largest thing this program allocates, and the
             // next screen the player sees is a menu: this is the one moment in
             // a session when a collection costs nothing anybody can see.
-            GC.Collect();
+            Mods.Render.TransitionGcDiagnostics.Collect(Mods.Render.TransitionGcPhase.SceneEnd);
         }
 
         /// <summary>
