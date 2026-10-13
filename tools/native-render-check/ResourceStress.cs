@@ -267,6 +267,7 @@ sealed partial class CheckWindow
         Scene editor=(Scene)create.Invoke(null,new object[]{new Vector2i(320,180)})!;
         var draw=typeof(Scene).GetMethod("DrawEditorFrame")!;
         byte[]? first=null;
+        GlRetirementLedger? retirement=null;
         try
         {
             for(int reload=0;reload<3;reload++)
@@ -292,8 +293,10 @@ sealed partial class CheckWindow
                 ScreenCapture.Save(editor,Path.Combine(_resourceEvidence,$"studio-{_resourceCycle}-blank.png"));
                 throw new InvalidOperationException($"Studio reload did not rebuild visible geometry: rebuilds={cache.GeometryRebuildCount}, meshes={cache.Meshes.Count}, uploads={uploads}, spatialVariation={spatialVariation}, covered={depth.Count(d=>d<1)}.");
             }
+            retirement=GlRetirementLedger.Capture(editor);
         }
         finally { editor.UnloadGl(); }
+        object detailedRetirement=retirement!.Verify(editor);
         int meshes=(int)typeof(Scene).GetProperty("EditorMeshCount")!.GetValue(editor)!;
         int textures=((HashSet<int>)typeof(Scene).GetField("_ownedTextures",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(editor)!).Count;
         int framebuffer=(int)typeof(Scene).GetField("_frameBuffer",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(editor)!;
@@ -301,7 +304,7 @@ sealed partial class CheckWindow
         long retained=Convert.ToInt64(typeof(Scene).Assembly.GetType("MphRead.Mods.Render.DesktopRetainedGeometry")!
             .GetProperty("ResidentBytes",BindingFlags.NonPublic|BindingFlags.Static)!.GetValue(null));
         if(meshes!=0 || textures!=0 || framebuffer!=0 || program!=0 || retained!=0 || GL.GetError()!=ErrorCode.NoError) throw new InvalidOperationException("Studio unload retained meshes or GL errors.");
-        _studioRecords.Add(new { cycle=_resourceCycle,geometryRebuilds=cache.GeometryRebuildCount,meshCountAfter=meshes,textureCountAfter=textures,framebufferAfter=framebuffer,programAfter=program,retainedBytesAfter=retained,pixelsSha256=Convert.ToHexString(SHA256.HashData(first!)),memory=ResourceAttribution.MemorySample(),audio=ResourceAttribution.AudioOwnedSample() });
+        _studioRecords.Add(new { cycle=_resourceCycle,geometryRebuilds=cache.GeometryRebuildCount,meshCountAfter=meshes,textureCountAfter=textures,framebufferAfter=framebuffer,programAfter=program,retainedBytesAfter=retained,detailedRetirement,pixelsSha256=Convert.ToHexString(SHA256.HashData(first!)),memory=ResourceAttribution.MemorySample(),audio=ResourceAttribution.AudioOwnedSample() });
     }
     internal object ResourceStressResult() => new { schema=2,kind="same-context-resource-stress",arm=_resourceArm,manifest=ResourceAttribution.Manifest(),
         workload=new { fixedRng=new[]{12345,98765},players=_resourceArm=="studio"?0:_resourcePlayers,bots=false,simulationHz=60,studioRebuildsPerCycle=_resourceArm=="map-gl"?0:3,readback=true,audioEnabled=_resourceArm=="combined",
