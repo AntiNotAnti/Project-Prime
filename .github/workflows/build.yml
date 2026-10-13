@@ -327,6 +327,8 @@ jobs:
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -renderbackendcheck
       - name: native audio ownership, failure fallback and headless lifecycle
         run: dotnet run --project tools/audio-check -c Release
+      - name: device-free Music startup failure ownership
+        run: dotnet run --project tools/music-startup-check -c Release
 
   enhanced-retirement-checks:
     name: retired hunter compatibility regressions
