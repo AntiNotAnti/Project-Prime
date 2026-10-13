@@ -1,0 +1,1242 @@
+{
+  "schema": 1,
+  "purpose": "Matched unprofiled disabled attribution seam overhead with untouched user game ambient load",
+  "startedUtc": "2026-10-13T07:34:49.510801+00:00",
+  "binaries": {
+    "base": {
+      "harness": "f9e51847fc3c3e2968011255210445116e863c18526fb7fa4a265ebb2cf1774b",
+      "client": "86f075e7c8dd7a06277b4050feedc796680b97a2f259615e2aa81e1faab37328"
+    },
+    "candidate": {
+      "harness": "757564df875471cfcd9d6db7dae40081b0992e843e6441b7231d664c17ce42de",
+      "client": "ca529662387533357d99a7dafb0a51fe11456d80fc4bca459204c6f80dbe9ec1"
+    },
+    "gc": {
+      "harness": "5b3dc0d3661193eb70a8336e4af336ff9a5494858beee4772f7320207520f24d",
+      "client": "28ec0e5018ef59e43c616cbf209fa2b4be9c6c57f404422573668fc0d6666dba"
+    }
+  },
+  "fixture": {
+    "preset": "Original, explicit High shadows, resolution100%, nearest/no mip/anisotropy1/replacements disabled",
+    "players": 8,
+    "bots": "all occupied level1",
+    "rng": [
+      12345,
+      98765
+    ],
+    "input": "synthetic snapshots",
+    "environment": {
+      "PROJECT_PRIME_USER_DATA": "/tmp/prime-render-attribution-assets-only",
+      "PROJECT_PRIME_GL_FORCE_LEGACY": "0"
+    },
+    "pathsSha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+  },
+  "ambientLimits": "User-owned Project Prime app is left running; results are conditional on observed ambient load, not strict quiet-host performance proof. No malloc stack logging.",
+  "summaries": {
+    "seam": {
+      "base": {
+        "runCount": 5,
+        "metrics": {
+          "meanCompletedFrameFps": {
+            "median": 301.43051574466364,
+            "minimum": 300.7471850063485,
+            "maximum": 302.6039648588255
+          },
+          "frameIntervalP50Ms": {
+            "median": 3.1116,
+            "minimum": 3.103,
+            "maximum": 3.1289
+          },
+          "frameIntervalP95Ms": {
+            "median": 5.3872,
+            "minimum": 5.3623,
+            "maximum": 5.4135
+          },
+          "frameIntervalP99Ms": {
+            "median": 6.5497,
+            "minimum": 6.4152,
+            "maximum": 6.7551
+          },
+          "onePercentLowEstimateFps": {
+            "median": 152.6787486449761,
+            "minimum": 148.0362985003923,
+            "maximum": 155.87978550941514
+          },
+          "pointOnePercentLowEstimateFps": {
+            "median": 120.20531067062542,
+            "minimum": 106.52576858342033,
+            "maximum": 124.78941785736569
+          },
+          "allocatedBytes": {
+            "median": 183015576,
+            "minimum": 182544120,
+            "maximum": 183856528
+          },
+          "managedBytes": {
+            "median": 223210624,
+            "minimum": 219804480,
+            "maximum": 225666208
+          },
+          "workingSetBytes": {
+            "median": 535838720,
+            "minimum": 534839296,
+            "maximum": 538968064
+          },
+          "simulationHz": {
+            "median": 59.955797588228094,
+            "minimum": 59.90397991060126,
+            "maximum": 60.43346577585411
+          }
+        },
+        "p99PointOneMsDerivedFromEstimate": {
+          "median": 8.3191
+        },
+        "gcCollections": [
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            21,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ]
+        ]
+      },
+      "candidate": {
+        "runCount": 5,
+        "metrics": {
+          "meanCompletedFrameFps": {
+            "median": 300.7614664409203,
+            "minimum": 297.2294525279461,
+            "maximum": 302.52658141733195
+          },
+          "frameIntervalP50Ms": {
+            "median": 3.1225,
+            "minimum": 3.093,
+            "maximum": 3.1467
+          },
+          "frameIntervalP95Ms": {
+            "median": 5.4125,
+            "minimum": 5.3322,
+            "maximum": 5.4352
+          },
+          "frameIntervalP99Ms": {
+            "median": 6.6232,
+            "minimum": 6.542,
+            "maximum": 6.9236
+          },
+          "onePercentLowEstimateFps": {
+            "median": 150.9844184080203,
+            "minimum": 144.43353168871684,
+            "maximum": 152.85845307245492
+          },
+          "pointOnePercentLowEstimateFps": {
+            "median": 122.7732010656714,
+            "minimum": 114.96234983043054,
+            "maximum": 128.5396609123745
+          },
+          "allocatedBytes": {
+            "median": 182689000,
+            "minimum": 180359632,
+            "maximum": 183724288
+          },
+          "managedBytes": {
+            "median": 224926560,
+            "minimum": 219833672,
+            "maximum": 227140784
+          },
+          "workingSetBytes": {
+            "median": 537837568,
+            "minimum": 534052864,
+            "maximum": 539312128
+          },
+          "simulationHz": {
+            "median": 59.98669794972965,
+            "minimum": 59.90333398994044,
+            "maximum": 60.467344610543094
+          }
+        },
+        "p99PointOneMsDerivedFromEstimate": {
+          "median": 8.1451
+        },
+        "gcCollections": [
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            21,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            21,
+            2,
+            0
+          ],
+          [
+            21,
+            2,
+            0
+          ]
+        ]
+      }
+    }
+  },
+  "runs": [
+    {
+      "index": 0,
+      "kind": "seam",
+      "arm": "base",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/prime-render-attribution-visual-base/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/00-seam-base.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.994034083,
+      "logSha256": "7cd9c1afd30ab84dc1e429fa422dc766be3c70476e47b2dd0ef60ba823bc0f33",
+      "resultSha256": "9111580fbcb61abe2f9c09bce373acd98e91c2990f723d91b72ba60eca8d5d5a",
+      "valid": true,
+      "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 301.43051574466364,
+        "frameIntervalP95Ms": 5.4135,
+        "frameIntervalP99Ms": 6.7551,
+        "pointOnePercentLowEstimateFps": 120.20531067062542,
+        "simulationHz": 59.97116886057029,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6030,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "ccb1e4d5cbaadacb063653fc588503327456714db9a152032dcf44d03581f168",
+          "aggregateCpuPercent": 181.1,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 86.8,
+            "rssKiB": 231360,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "08185675bafff0d49b7c25e6b2fb844e41401375ace7ef47d791f7d596472852",
+          "aggregateCpuPercent": 149.20000000000002,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.3,
+            "rssKiB": 231360,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "a2279621706711fb7931e52e6bf54d1848354794d641f74e06292fc3cee45a73",
+        "vmAfterSha256": "3ad7e2991536cdb492b06dddba21bbd987c582d4c1a3cf52ac4b16dc61d7c060"
+      }
+    },
+    {
+      "index": 1,
+      "kind": "seam",
+      "arm": "candidate",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/01-seam-candidate.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.955597084000004,
+      "logSha256": "19b84bed28dcc1f5eaffe61412c51855d41359ab04f1fa1dc0f1ce5110d5caac",
+      "resultSha256": "cb481619e85eb09963e9445476629697434c1675a42cf00c36ea3e351435aa7c",
+      "valid": true,
+      "assemblyMvid": "89a21a74-8c1f-467f-bd3e-5f74b7a08698",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 297.2294525279461,
+        "frameIntervalP95Ms": 5.4125,
+        "frameIntervalP99Ms": 6.542,
+        "pointOnePercentLowEstimateFps": 114.96234983043054,
+        "simulationHz": 60.467344610543094,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 5945,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "fa7a876c19447e7c76a0113d8bf2b275519d398c3b42e3ef1ec1a4e50b1510fa",
+          "aggregateCpuPercent": 184.50000000000006,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.3,
+            "rssKiB": 231360,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "7b0f331245fd58be59d563372d2eca21e3e99581dd32b64baa610e73f8b99d15",
+          "aggregateCpuPercent": 144.3,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.1,
+            "rssKiB": 231360,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "8abba375167e56d60864f4727f637bea6b2238402a7b28918724e95cb526c4b6",
+        "vmAfterSha256": "26a8a605255dd122b271d78a8a649d2f0cd6520c3a91d1ed136c9d642e3aecd1"
+      }
+    },
+    {
+      "index": 2,
+      "kind": "seam",
+      "arm": "candidate",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/02-seam-candidate.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.931771499999996,
+      "logSha256": "a2cea19d01f6b80e989f88a4141827ed57b3648042adc94690467211d9403e80",
+      "resultSha256": "f94538b140dcd68426e7c4479aecbde2bb5468d37a2e400850fc3f625b7e6208",
+      "valid": true,
+      "assemblyMvid": "89a21a74-8c1f-467f-bd3e-5f74b7a08698",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 299.75984566987256,
+        "frameIntervalP95Ms": 5.4101,
+        "frameIntervalP99Ms": 6.9236,
+        "pointOnePercentLowEstimateFps": 114.98217776244684,
+        "simulationHz": 59.92211323721423,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 5996,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "69d8162c6eeab42fd8b5b149cf1db323006957b8f990767c8ec519cee717e7e2",
+          "aggregateCpuPercent": 192.59999999999994,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 79.4,
+            "rssKiB": 231360,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "cbf8a16fc0b70e006adc5a3913fcac6f00c95bc9198ce458e4449fa34192aca0",
+          "aggregateCpuPercent": 144.50000000000003,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.2,
+            "rssKiB": 238000,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "87f27889161642b12c2f34a16976295202e1377957205dc1228385c6980c5285",
+        "vmAfterSha256": "6ebf95a3feebb2bcee4b7a035ef5e8aef8e1f8cd94db8ef6f6d45e22529565ec"
+      }
+    },
+    {
+      "index": 3,
+      "kind": "seam",
+      "arm": "base",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/prime-render-attribution-visual-base/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/03-seam-base.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.95423683300001,
+      "logSha256": "a5e2d01766f5e6687575433c568b4ddf930cad8b1f9ce859e1d0f9e6ad1a77b5",
+      "resultSha256": "0bc3e7bdd02690578b3bb974bdc92b2d39e00603eb069e6553f4cca25313d3cc",
+      "valid": true,
+      "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 301.25088869012126,
+        "frameIntervalP95Ms": 5.3921,
+        "frameIntervalP99Ms": 6.6322,
+        "pointOnePercentLowEstimateFps": 111.24336711423581,
+        "simulationHz": 60.43346577585411,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6025,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "d1e036bdbe50ea4f06b900c8d9c60953c5b6d4b257492575431dbb1332c0daef",
+          "aggregateCpuPercent": 194.79999999999993,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 80.2,
+            "rssKiB": 238000,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "7ca6ebae4209450ea03043a16d3564ae12f185f2cdac681c6331ae8d5760f044",
+          "aggregateCpuPercent": 159.69999999999993,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 73.5,
+            "rssKiB": 238000,
+            "state": "S"
+          }
+        },
+        "vmBeforeSha256": "04ced0ee442e5740fa2274cecf278253f16c59a3dab9cd3fe5af530364043f56",
+        "vmAfterSha256": "0c85e879f400c8438cba4914f6e6202ee0c76ab4cad9866c1dd4be0eef3de10c"
+      }
+    },
+    {
+      "index": 4,
+      "kind": "seam",
+      "arm": "candidate",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/04-seam-candidate.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.942104958000016,
+      "logSha256": "92321459f745c8dfcc029ce97141da1611ad666444ff904e75dcca8b43078d38",
+      "resultSha256": "0588f13ae13a4a53c87513d59c6cd2173838d128c25ffe220b647bd84e9c2bd1",
+      "valid": true,
+      "assemblyMvid": "89a21a74-8c1f-467f-bd3e-5f74b7a08698",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 300.7614664409203,
+        "frameIntervalP95Ms": 5.4178,
+        "frameIntervalP99Ms": 6.715,
+        "pointOnePercentLowEstimateFps": 126.37432073802603,
+        "simulationHz": 60.39856664717275,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6016,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "5916c8b0cb448b60a54aa3503197a9acc1f9e1d9d03e524d059589f4f4ad7209",
+          "aggregateCpuPercent": 174.39999999999992,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.6,
+            "rssKiB": 238000,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "8f98c2c9c0687996392fd66dd8f50a232058607cf937538e08e3b574ef04950e",
+          "aggregateCpuPercent": 164.99999999999991,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 78.7,
+            "rssKiB": 238000,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "0dc5b605f27f1d59b1d5ec07015de39e42a36315c52d647fd2f06a1d6e413513",
+        "vmAfterSha256": "9619b08283046c9dff5f5ac201a4ec46dea5c250b6197fcb96936022c9d4f89b"
+      }
+    },
+    {
+      "index": 5,
+      "kind": "seam",
+      "arm": "base",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/prime-render-attribution-visual-base/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/05-seam-base.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.83348162499999,
+      "logSha256": "be0ecfdb2afaf907649327ce8e30082db50550579214ba0bdbbda7f517fb902e",
+      "resultSha256": "ca9993db9bbb2673986fc559da3e77d9b09cdbf868e8e9cd3940345741e83c47",
+      "valid": true,
+      "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 302.6037250518553,
+        "frameIntervalP95Ms": 5.3623,
+        "frameIntervalP99Ms": 6.4719,
+        "pointOnePercentLowEstimateFps": 124.78941785736569,
+        "simulationHz": 59.955797588228094,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6052,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "982377f54fbee7a9e305806c6ed35ce138ffff2f88f7c658a706c1c55572525f",
+          "aggregateCpuPercent": 164.99999999999991,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 78.7,
+            "rssKiB": 238000,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "f0c68c53f9236d610609e1badad7b99883ae77172f2029d36b94bd33c3bfa3c3",
+          "aggregateCpuPercent": 163.79999999999998,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 76.2,
+            "rssKiB": 238000,
+            "state": "S"
+          }
+        },
+        "vmBeforeSha256": "8e2bbf7ebfb0d9cf63a47c8e8cb47d81055f904bb25d4841ce7b38b27286a956",
+        "vmAfterSha256": "ea7660dd7ec85b6a0affea38114dd9df2b848b85edd5f14aaa919e23a49f9eba"
+      }
+    },
+    {
+      "index": 6,
+      "kind": "seam",
+      "arm": "base",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/prime-render-attribution-visual-base/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/06-seam-base.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.885856458000006,
+      "logSha256": "981aa774708469fa37cd2680bdee24875a17f2db1cc50a2b762fe7f924447be8",
+      "resultSha256": "882b56fdc48c813e21641a6ed69f548db9321324f43cb90a2f3801e4c8a2b3f7",
+      "valid": true,
+      "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 300.7471850063485,
+        "frameIntervalP95Ms": 5.3872,
+        "frameIntervalP99Ms": 6.4152,
+        "pointOnePercentLowEstimateFps": 123.81907556678182,
+        "simulationHz": 59.90397991060126,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6015,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "3a1c311ba5501edc97b2071f4dd687ca20d59d8b4155bb1749b1f845fac9316e",
+          "aggregateCpuPercent": 211.40000000000003,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 80.6,
+            "rssKiB": 238000,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "91e6ed4404581ccfa8afd9a52ac189f9d71256182e5dd12c72ed6f1084f136c5",
+          "aggregateCpuPercent": 172.0999999999999,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 76.3,
+            "rssKiB": 238384,
+            "state": "S"
+          }
+        },
+        "vmBeforeSha256": "cbe216f7901f986aad3a089c2c7336bc4b025ed62de436c3b2049542859ae900",
+        "vmAfterSha256": "16102454e794cf8e6aba6cccb435133ee07149f48dffc2957d26e278af845087"
+      }
+    },
+    {
+      "index": 7,
+      "kind": "seam",
+      "arm": "candidate",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/07-seam-candidate.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.90515083400001,
+      "logSha256": "df72275f08b18d27464e198d8bf9b92b65e4bfb37a4c4b49729d74acd1a4cfcc",
+      "resultSha256": "25a3ab837b9097b929a36918b7f6b0f16f1e578d83e8c67e739f9d7a112a1a11",
+      "valid": true,
+      "assemblyMvid": "89a21a74-8c1f-467f-bd3e-5f74b7a08698",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 302.1701274611997,
+        "frameIntervalP95Ms": 5.3322,
+        "frameIntervalP99Ms": 6.6232,
+        "pointOnePercentLowEstimateFps": 128.5396609123745,
+        "simulationHz": 59.90333398994044,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6044,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "2d5eb43a6172a33bb3e15ad0fec5769b73216a250d4a8b740ede5e0a4807d77e",
+          "aggregateCpuPercent": 172.0999999999999,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 76.3,
+            "rssKiB": 238384,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "5bdacb285d10823161d19d2287d856af721ecdf49e647c6a5661482ebd640103",
+          "aggregateCpuPercent": 160.60000000000002,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.5,
+            "rssKiB": 238368,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "c23b222b4853fbbf420ed6a7a42baa7f374aecdcbe609bebae42b51d339daeac",
+        "vmAfterSha256": "72e98482b8dc0e2f1d928e6eae22f8913097fe035a855d002ba5af92bd099e2e"
+      }
+    },
+    {
+      "index": 8,
+      "kind": "seam",
+      "arm": "base",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/prime-render-attribution-visual-base/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/08-seam-base.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.874947915999996,
+      "logSha256": "013776c7b4be1c4e4b93799a5b4306d933b306e19ed8634876421a6a9266c173",
+      "resultSha256": "1b3a2c0dff09e33136ab5c27796f1089df00f7fe27ee4b15e75c120dc9a072e7",
+      "valid": true,
+      "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 302.6039648588255,
+        "frameIntervalP95Ms": 5.3792,
+        "frameIntervalP99Ms": 6.5497,
+        "pointOnePercentLowEstimateFps": 106.52576858342033,
+        "simulationHz": 59.94694994664467,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6053,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "0c7f4806fe598d942e2ea4f369c0bbdd0927be910e740585e3087b50ac21c1ed",
+          "aggregateCpuPercent": 159.70000000000002,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.5,
+            "rssKiB": 238368,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "e94d8fbad46826be918df40fab1f30e317ab4d6d8b3bf0256b71cfaca0453375",
+          "aggregateCpuPercent": 153.4,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 72.8,
+            "rssKiB": 238352,
+            "state": "S"
+          }
+        },
+        "vmBeforeSha256": "ac968c7c718a2c10dc073eb3af1da4ea0e75e7827dcc8eaf705942eb4d0c44b2",
+        "vmAfterSha256": "5fcd92734ed4aed77119cac219ea61527dfe3b786357f0c203fae52da7e85823"
+      }
+    },
+    {
+      "index": 9,
+      "kind": "seam",
+      "arm": "candidate",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/09-seam-candidate.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.88539204099999,
+      "logSha256": "848ee276718c2773e226e95f0a88fdf86f755fd99be838a285aed4efcb607d5a",
+      "resultSha256": "384520186b9b88ea540b4262dffd2994c1108f186698f1583e9e5569f1b8b32b",
+      "valid": true,
+      "assemblyMvid": "89a21a74-8c1f-467f-bd3e-5f74b7a08698",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 302.52658141733195,
+        "frameIntervalP95Ms": 5.4352,
+        "frameIntervalP99Ms": 6.6199,
+        "pointOnePercentLowEstimateFps": 122.7732010656714,
+        "simulationHz": 59.98669794972965,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6051,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "feb1253b15cf0dcb8f0a12c5181697c741dbca41e02e551989bd7786dcd48c1a",
+          "aggregateCpuPercent": 198.39999999999998,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.7,
+            "rssKiB": 238352,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "3753d50f4c9a2151b8b422e644e7fe1fdc516f8547254a98c372f37260fcdb42",
+          "aggregateCpuPercent": 147.00000000000003,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 76.4,
+            "rssKiB": 238352,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "9fa7db54b5fe86b832982b5d38f64b50c904a5e8a47b9c2098300550fad1264f",
+        "vmAfterSha256": "5233eada5d2d6e751671f12814903489896bfa1ff3af3d3239f69b274236809e"
+      }
+    }
+  ],
+  "limits": "Medians of per-run percentiles are not pooled percentiles. User-owned game remains running; agent-idle conditional ambient data does not establish a global-quiet optimization result or GPU/native-allocation causality. Stage scopes exclude construction/AddRoom; latest GC snapshot can predate a skipped call. Weak last foreground owner is intentional and bounded; no production policy changes."
+}

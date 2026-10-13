@@ -1,0 +1,263 @@
+{
+  "schema": 1,
+  "decision": "REJECTED: exact visual/color-depth parity failed; no FPS benchmark or permanent optimization justified",
+  "productionPrototypeCommit": "d90c5488a325b353ae365071907d84325d23ab19",
+  "productionRevertCommit": "d050f9b1",
+  "privateRuntimeSourceCommit": "15baee219a995dda9d88600f26bb482f4961afb8",
+  "publicationBase": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "runtimeBase": "bbd871691cae466a36e85a51fca39bf48b7f9d7b (lifecycle #492/#494/#495 + attribution), plus #497c605f755 and private model/capture witness",
+  "scope": "Same binary with only PROJECT_PRIME_GL_MODEL_VBO toggled 0/1; Original preset, solo MP9 CRYOCHASM, idle main Spire, 1280x720, Off shadows, RNG12345/98765, exact simframe240; readback is not FPS evidence",
+  "sourceBounds": {
+    "additionalModelGpuBudgetBytes": 33554432,
+    "maximumCapturedVerticesPerModel": 100000,
+    "retainedModelCpuVertexIndexArrays": false,
+    "modelBatchingOrReordering": false,
+    "productionDefault": "off; code now reverted"
+  },
+  "manifest": {
+    "purpose": "Cross-build exact capture parity; no throughput or timing claim",
+    "baseSource": "bbd87169 lifecycle+attribution + #497c605f755 + opt-in models working source",
+    "candidateSource": "same binary, only PROJECT_PRIME_GL_MODEL_VBO toggled 0/1",
+    "preset": "Original; explicit shadows; resolution100%, nearest/no mips/anisotropy1/replacements disabled",
+    "rng": [
+      12345,
+      98765
+    ],
+    "botLevel": 1,
+    "input": "synthetic keyboard/mouse snapshots",
+    "environment": {
+      "PROJECT_PRIME_USER_DATA": "/tmp/prime-render-attribution-assets-only",
+      "PROJECT_PRIME_GL_FORCE_LEGACY": "0"
+    },
+    "pathsSha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51",
+    "binaries": {
+      "base": {
+        "harness": "ad397bf5453f68d05b40f42dabb5c9aafac67ad41b0ee1a5875d72aaee234205",
+        "client": "3123af641ea715ea2fd792ca66861306970509a3866de6c490c7ceefc4376300"
+      },
+      "candidate": {
+        "harness": "ad397bf5453f68d05b40f42dabb5c9aafac67ad41b0ee1a5875d72aaee234205",
+        "client": "3123af641ea715ea2fd792ca66861306970509a3866de6c490c7ceefc4376300"
+      }
+    },
+    "runs": [
+      {
+        "fixture": "solo",
+        "arm": "base",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/model-retained-validation/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP9 CRYOCHASM",
+          "-players",
+          "1",
+          "-hunter",
+          "Spire",
+          "-seconds",
+          "8",
+          "-hz",
+          "-1",
+          "-size",
+          "1280x720",
+          "-shadows",
+          "Off",
+          "-shots",
+          "/Users/jarrett/.codex/worktrees/model-retained-validation/Prime Hunters Online/artifacts/model-retained/visuals/solo-base",
+          "-stablehud",
+          "-output",
+          "/Users/jarrett/.codex/worktrees/model-retained-validation/Prime Hunters Online/artifacts/model-retained/visuals/solo-base.json",
+          "-idle"
+        ],
+        "exitCode": 0,
+        "wallSeconds": 3.975548917,
+        "logSha256": "916cb5171ee969fc6eea20794de176b05045bc5b47777d36d71ac73fab015ef8",
+        "resultSha256": "082b3f1bf09fedd05671264914367c0ce5f3bada34e1dd9754f8e1fbf40b36ae"
+      },
+      {
+        "fixture": "solo",
+        "arm": "candidate",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/model-retained-validation/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP9 CRYOCHASM",
+          "-players",
+          "1",
+          "-hunter",
+          "Spire",
+          "-seconds",
+          "8",
+          "-hz",
+          "-1",
+          "-size",
+          "1280x720",
+          "-shadows",
+          "Off",
+          "-shots",
+          "/Users/jarrett/.codex/worktrees/model-retained-validation/Prime Hunters Online/artifacts/model-retained/visuals/solo-candidate",
+          "-stablehud",
+          "-output",
+          "/Users/jarrett/.codex/worktrees/model-retained-validation/Prime Hunters Online/artifacts/model-retained/visuals/solo-candidate.json",
+          "-idle"
+        ],
+        "exitCode": 0,
+        "wallSeconds": 3.6804017079999998,
+        "logSha256": "c143547d30b22d8516bfcee6a9c07347f60e8d704d3719812362ccde288fc79e",
+        "resultSha256": "6fc6ad0d027d967e65749fbb40f6f3a9197f9c4286fd6631a418caa0cc46679a"
+      }
+    ],
+    "comparisons": [
+      {
+        "fixture": "solo",
+        "exactAllFiles": false,
+        "matchingContextAndCaptureMetadata": false,
+        "files": {
+          "frame-0-world-depth-repeat-float32.bin": "3616139f9708cf447d56d3d0be881aa2e908b08b535b27e48283c02bd41595af",
+          "frame-0-world.png": "7b674a2f049e9ee26dd583cc88a0c356f8a26eb8836f1178a14e91b604b564e4",
+          "frame-0-world-depth-float32.bin": "3616139f9708cf447d56d3d0be881aa2e908b08b535b27e48283c02bd41595af",
+          "frame-0-world-repeat.png": "7b674a2f049e9ee26dd583cc88a0c356f8a26eb8836f1178a14e91b604b564e4",
+          "frame-0-hud.png": "c546b73ea9be7756180cca6be782fb152c638302a6ec0dd12d171f6e5e5552e8"
+        },
+        "candidateFiles": {
+          "frame-0-world-depth-repeat-float32.bin": "5c5978b11d774b9a1e00c94bde988bb0448e16fd8f497fbb8826252068005234",
+          "frame-0-world.png": "4cd1bce70057b220b6025a34f82adbeb63d713c1555719bb1e076b43accc0d11",
+          "frame-0-world-depth-float32.bin": "5c5978b11d774b9a1e00c94bde988bb0448e16fd8f497fbb8826252068005234",
+          "frame-0-world-repeat.png": "4cd1bce70057b220b6025a34f82adbeb63d713c1555719bb1e076b43accc0d11",
+          "frame-0-hud.png": "37be583857061c82122833973b851234c743bc9ddaca00b53688b1be9c3bb030"
+        },
+        "status": "FAIL"
+      }
+    ]
+  },
+  "fixtureContextsMatch": {
+    "room": true,
+    "cap": true,
+    "shadows": true,
+    "resolutionScale": true,
+    "vendor": true,
+    "renderer": true,
+    "glVersion": true,
+    "framebuffer": true,
+    "renderSize": true,
+    "simulationFrames": true,
+    "captureKillFeedLifetimeStabilized": true,
+    "complete": true
+  },
+  "differenceStatistics": {
+    "world": {
+      "changedPixels": 7380,
+      "totalPixels": 921600,
+      "maximumChannelDelta": 185,
+      "bounds": [
+        489,
+        390,
+        1052,
+        719
+      ]
+    },
+    "hud": {
+      "changedPixels": 7369,
+      "totalPixels": 921600,
+      "maximumChannelDelta": 185,
+      "bounds": [
+        489,
+        390,
+        1052,
+        719
+      ]
+    },
+    "world-repeat": {
+      "changedPixels": 7380,
+      "totalPixels": 921600,
+      "maximumChannelDelta": 185,
+      "bounds": [
+        489,
+        390,
+        1052,
+        719
+      ]
+    },
+    "worldDepth": {
+      "changedPixels": 16366,
+      "totalPixels": 921600,
+      "maximumAbsoluteDelta": 0.08340591192245483
+    }
+  },
+  "cleanup": {
+    "base": {
+      "ownedTexturesBefore": 407,
+      "ownedTexturesAfter": 0,
+      "framebufferBefore": 1,
+      "framebufferAfter": 0,
+      "programCountBefore": 4,
+      "programOwnerFieldsReleased": true,
+      "ownedProgramsAfter": 0,
+      "recognizedProgramNamesAfter": 0,
+      "pendingDeletedProgramCountAfter": 0,
+      "currentProgramAfter": 0,
+      "depthSnapshotBytesBefore": 3686400,
+      "depthSnapshotBytesAfter": 0,
+      "proceduralBytesBefore": 0,
+      "proceduralBytesAfter": 0,
+      "shadowReleased": true,
+      "retainedListsBefore": 258,
+      "retainedListsAfter": 0,
+      "combinedBytesBefore": 185064,
+      "combinedBytesAfter": 0,
+      "retainedBytesBefore": 1308096,
+      "retainedBytesAfter": 0,
+      "modelBytesBefore": 0,
+      "modelBytesAfter": 0,
+      "promotedModelsBefore": 0,
+      "retainedBufferHandlesBefore": 516,
+      "retainedBuffersRecognizedAfter": 0,
+      "shadowColorBytesBefore": 0,
+      "glyphCountBefore": 24,
+      "glyphBytesBefore": 6144,
+      "glyphCountAfter": 0,
+      "glyphBytesAfter": 0,
+      "spriteCountBefore": 6,
+      "spriteBytesBefore": 1536,
+      "spriteCountAfter": 0,
+      "spriteBytesAfter": 0
+    },
+    "candidate": {
+      "ownedTexturesBefore": 407,
+      "ownedTexturesAfter": 0,
+      "framebufferBefore": 1,
+      "framebufferAfter": 0,
+      "programCountBefore": 4,
+      "programOwnerFieldsReleased": true,
+      "ownedProgramsAfter": 0,
+      "recognizedProgramNamesAfter": 0,
+      "pendingDeletedProgramCountAfter": 0,
+      "currentProgramAfter": 0,
+      "depthSnapshotBytesBefore": 3686400,
+      "depthSnapshotBytesAfter": 0,
+      "proceduralBytesBefore": 0,
+      "proceduralBytesAfter": 0,
+      "shadowReleased": true,
+      "retainedListsBefore": 452,
+      "retainedListsAfter": 0,
+      "combinedBytesBefore": 185064,
+      "combinedBytesAfter": 0,
+      "retainedBytesBefore": 1933488,
+      "retainedBytesAfter": 0,
+      "modelBytesBefore": 625392,
+      "modelBytesAfter": 0,
+      "promotedModelsBefore": 194,
+      "retainedBufferHandlesBefore": 904,
+      "retainedBuffersRecognizedAfter": 0,
+      "shadowColorBytesBefore": 0,
+      "glyphCountBefore": 24,
+      "glyphBytesBefore": 6144,
+      "glyphCountAfter": 0,
+      "glyphBytesAfter": 0,
+      "spriteCountBefore": 6,
+      "spriteBytesBefore": 1536,
+      "spriteCountAfter": 0,
+      "spriteBytesAfter": 0
+    }
+  },
+  "limits": "194 models promoted, 625392 added model buffer bytes; all904 recognized retained VBO/IBO names retired after candidate teardown. This proves this fixture retirement, not global driver-memory bounds. Pixel/depth differences reject the candidate even though resource retirement passed. Other matrix arms and performance remain NOT_RUN; all original failed logs/captures retained locally."
+}
