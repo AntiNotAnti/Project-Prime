@@ -203,3 +203,48 @@ samples yields no slope. R-squared is descriptive and does not supply confidence
 intervals for autocorrelated reload samples. A flat/positive slope never
 changes the report's `boundedness: UNVERIFIED` classification automatically.
 Replay-only and full Studio UI isolation remain **NOT_RUN**.
+
+## Audio managed-retention probe
+
+The audio arm optionally accepts `-resource-retention-probe`. It runs the
+same loads/updates/shutdowns in a `NoInlining` helper that returns before the
+final drain. A separate non-inlined observer records weak references to every
+actual SFX instance, candidate resource owner when present, bank data/list
+fields, and every already-created decoded sample/stream byte payload. It never
+forces an uncreated Lazy. The snapshots report per-load observations, live
+load/item labels and observed/live payload bytes; shared objects can occur in
+multiple observations, so these are not deduplicated bytes or retaining paths.
+The PreparedAudio wrapper has already left Sfx.Load and is not observed here.
+All record/telemetry values remain scalar-only; completed tasks are retained
+as in the ordinary fixture.
+
+Add `-resource-retention-second-gc` for a separately labeled second compacting
+collection after the first full-GC/finalizer sample. This can reveal memory
+released by finalizers or JIT frame lifetime; it does not change production GC
+policy. The first collection/sample is always preserved, and the unchanged
+ordinary audio fixture remains available when both flags are omitted. Result
+schema stays at 2 with additional optional retention fields/phases. Compare the
+**same new harness DLL** against both baseline and candidate clients, retaining
+the original raw 60-cycle trials. Weak-observation instrumentation adds bounded
+managed allocations and invalidates direct absolute comparison with the older
+uninstrumented fixture.
+
+```sh
+# No assets, audio device or GL context needed; validates non-retaining
+# observations, a retained completed task, and the non-inlined boundary.
+dotnet tools/native-render-check/bin/Release/net10.0/native-render-check.dll \
+  -resource-retention-selftest
+
+# Two separately built/copied client directories can reuse one harness DLL.
+python3 tools/native-render-check/run_resource_arms.py \
+  --dotnet /absolute/path/to/dotnet --binary /absolute/baseline/native-render-check.dll \
+  --output /absolute/fresh-baseline-directory --arms audio --cycles 60 --frames 120 \
+  --quiescent-samples 30 --quiescent-ms 1000 -- \
+  -resource-retention-probe -resource-retention-second-gc
+```
+
+Repeat against the candidate directory and reverse the order if ambiguous.
+`vmmap <pid>` during quiescence can supplement process counters when the host
+permits sampling; preserve unsupported/error output instead of treating it as
+zero native memory. Neither low weak-reference counts nor a second collection
+establishes that a specific native subsystem caused RSS growth.

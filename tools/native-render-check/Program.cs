@@ -16,6 +16,7 @@ using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 
+if (args.Contains("-resource-retention-selftest")) return AudioRetentionProbe.SelfTest();
 if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsWindows())
     throw new PlatformNotSupportedException("This QA campaign permits only macOS and Windows.");
 // The client may start a preview worker when an end panel opens. This entry
