@@ -34,6 +34,7 @@ namespace MphRead.NetTest
                     + "  --scene-lifetime                  Test value-only scene diagnostics and eligible owner release.\n"
                     + "  --post-match-save                 Test post-match save byte parity, owner fencing and retry.\n"
                     + "  --foreground-binding              Test eligible facade release and cancelled room publication.\n"
+                    + "  --lifecycle-soak                  Test 10/100/500 device-free save/bot-owner handoffs.\n"
                     + "  --shot-source-journal              Test independent authority resources and grant chronology.\n"
                     + "  --shot-inputs                     Test live physical-input codec and bounded sender history.\n"
                     + "  --compact-intents                 Test compact live intent transport and replay compatibility.\n"
@@ -58,6 +59,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--scene-lifetime") return SceneLifetimeTests.Run();
             if (args.Length > 0 && args[0] == "--post-match-save") return PostMatchSaveTests.Run();
             if (args.Length > 0 && args[0] == "--foreground-binding") return ForegroundBindingTests.Run();
+            if (args.Length > 0 && args[0] == "--lifecycle-soak") return LifecycleSoakTests.Run();
             if (args.Length > 0 && args[0] == "--ai-client-driver") return NetAiClientTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-claims") return CampaignClaimEvidenceTests.Run();
             if (args.Length > 0 && args[0] == "--replay-form-history") return ReplayFormHistoryTests.Run();
