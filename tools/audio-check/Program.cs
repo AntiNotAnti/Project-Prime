@@ -57,6 +57,7 @@ static class Program
         var defaults = new MenuSettings();
         Require(defaults.PlayerVolume == "1" && defaults.WeaponVolume == "1"
             && defaults.NotificationVolume == "1" && defaults.EffectsVolume == "1", "Legacy defaults");
+        AudioLifetimeChecks.Run();
         Console.WriteLine("PASS: pool recycling, 10,000 failed allocations, routing, gains, legacy defaults");
     }
 }
