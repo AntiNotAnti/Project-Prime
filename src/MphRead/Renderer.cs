@@ -5712,6 +5712,15 @@ namespace MphRead
             Mods.Render.RetainedMeshDescriptor? retainedMesh = null,
             bool drawGeometry = true, bool applyObjectState = true)
         {
+            using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.ItemSetup))
+            using (Mods.Render.OpenGlDrawAttribution.Measure(item, Mods.Render.OpenGlPassProfiler.CurrentPass, geometry: false))
+                PrepareRenderItemState(item, applySharedState, applyObjectState);
+            if (drawGeometry)
+                DrawRenderItemGeometry(item, retainedMesh);
+        }
+
+        private void PrepareRenderItemState(RenderItem item, bool applySharedState, bool applyObjectState)
+        {
             bool depthCoverage = _depthPreparationEnabled
                 && Mods.Render.DepthCoveragePreparation.CanUse(item, _depthOnlyWorldPass, _drawingPlayerOutlineMask, _proceduralBatchEnabled);
             if (applyObjectState)
@@ -5767,8 +5776,6 @@ namespace MphRead
 
             // Mesh lists can change the current color; uniform reuse must not inherit it.
             if (applyObjectState || item.Type == RenderItemType.Mesh) GL.Color3(item.Diffuse);
-            if (drawGeometry)
-                DrawRenderItemGeometry(item, retainedMesh);
         }
 
         private void ApplyRenderItemSharedState(RenderItem item, bool depthCoverage)
@@ -5806,6 +5813,8 @@ namespace MphRead
         private void DrawRenderItemGeometry(RenderItem item,
             Mods.Render.RetainedMeshDescriptor? retainedMesh)
         {
+            using var ownerTiming = Mods.Render.OpenGlDrawAttribution.Measure(item, Mods.Render.OpenGlPassProfiler.CurrentPass, geometry: true);
+            using var geometryTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.GeometrySubmission);
 #if !MPHREAD_SERVER && !ANDROID
             if (_proceduralStream?.TryDraw(item) == true) return;
             if (_proceduralBatchEnabled && GL.TryDrawProceduralImmediate(item)) return;
