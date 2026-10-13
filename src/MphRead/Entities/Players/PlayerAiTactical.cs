@@ -702,6 +702,11 @@ public partial class PlayerEntity
                     score += 6; // Weavel's concussion and self-knockback opportunities.
                 }
                 score += TacticalHunterWeaponBiasForTest(_player.Hunter, beam, distance, target.ModFrozen);
+                if (visible && BotTryVisibleOpponentModel(target, out BotOpponentModel habits))
+                {
+                    score += BotOpponentTactics.WeaponCounterBonus(
+                        beam, habits, distance, _player.BotLevel);
+                }
                 WeaponInfo weaponInfo = _scene.WeaponRules[(int)beam +
                     (Weapons.GetAffinityBeam(_player.Hunter) == beam ? 9 : 0)];
                 int cost = _player.ModAmmoCostForWeapon(beam, weaponInfo);
@@ -859,6 +864,10 @@ public partial class PlayerEntity
 
             BeamType weapon = _tacticalWeapon == BeamType.None ? _player.CurrentWeapon : _tacticalWeapon;
             float ideal = TacticalPreferredRangeForHunter(weapon);
+            if (BotTryVisibleOpponentModel(target, out BotOpponentModel habits))
+            {
+                ideal += BotOpponentTactics.RangeAdjustment(weapon, habits);
+            }
             float healthFraction = _player.HealthMax <= 0 ? 1
                 : Math.Clamp(_player.Health / (float)_player.HealthMax, 0, 1);
             bool lowHealth = healthFraction <= tuning.RetreatHealthFraction;

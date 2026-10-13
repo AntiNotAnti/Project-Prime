@@ -400,6 +400,47 @@ public static class BotAiChecks
         Check(altFirst > 0 && altFirst < 1 && altReverse == 0,
             "alt motor brakes on direction reversal without snapping across zero");
 
+        BotOpponentModel repetitiveStrafe = default;
+        for (int i = 0; i < 80; i++)
+        {
+            float sideways = i % 6 < 3 ? .8f : -.8f;
+            repetitiveStrafe.Observe(Vector3.Zero, new Vector3(10, 0, 0),
+                new Vector3(0, 0, sideways), grounded: true);
+        }
+        Check(repetitiveStrafe.ReversalHabit > .25f
+            && BotOpponentTactics.LeadScale(repetitiveStrafe) < 1,
+            "bot adapts to observed strafe reversals by reducing prediction overshoot");
+        Check(BotOpponentTactics.WeaponCounterBonus(BeamType.ShockCoil,
+                repetitiveStrafe, 8, botLevel: 3)
+            > BotOpponentTactics.WeaponCounterBonus(BeamType.Imperialist,
+                repetitiveStrafe, 8, botLevel: 3),
+            "high-skill bots prefer stable close-range tracking against erratic strafers");
+        BotOpponentModel jumper = default;
+        for (int i = 0; i < 80; i++)
+            jumper.Observe(Vector3.Zero, new Vector3(12, 0, 0),
+                new Vector3(0, 0, .1f), grounded: false);
+        Check(jumper.AirborneHabit > .5f
+            && BotOpponentTactics.WeaponCounterBonus(BeamType.VoltDriver,
+                jumper, 14, botLevel: 3)
+               > BotOpponentTactics.WeaponCounterBonus(BeamType.Magmaul,
+                jumper, 14, botLevel: 3),
+            "bots adjust weapon selection against consistently airborne opponents");
+        BotOpponentModel rusher = default;
+        for (int i = 0; i < 80; i++)
+            rusher.Observe(Vector3.Zero, new Vector3(10, 0, 0),
+                new Vector3(-.55f, 0, 0), grounded: true);
+        Check(rusher.RushHabit > .5f
+            && BotOpponentTactics.RangeAdjustment(BeamType.Imperialist, rusher) > 2
+            && BotOpponentTactics.RangeAdjustment(BeamType.ShockCoil, rusher) == 0,
+            "observed rushers create space for sniper bots without weakening close-range weapons");
+        for (int i = 0; i < 320; i++)
+            repetitiveStrafe.DecayWithoutSight();
+        Check(repetitiveStrafe.ReversalHabit < .01f,
+            "opponent habits decay behind walls instead of providing live tracking");
+        Check(BotOpponentTactics.WeaponCounterBonus(BeamType.ShockCoil,
+                rusher, 10, botLevel: 1) == 0,
+            "easy/normal bots do not gain elite opponent adaptation");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }

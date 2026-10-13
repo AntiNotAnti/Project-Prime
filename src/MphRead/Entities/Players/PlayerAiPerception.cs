@@ -15,6 +15,7 @@ public partial class PlayerEntity
             public Vector3 Position;
             public Vector3 Velocity;
             public Vector3 SmoothedObservedVelocity;
+            public BotOpponentModel Opponent;
             public int FramesRemaining;
             public int InitialFrames;
             public int FramesSinceSight;
@@ -46,6 +47,8 @@ public partial class PlayerEntity
                 || contact.FramesSinceSight > 5;
             contact.SmoothedObservedVelocity = BotPerceptionMath.SmoothObservedVelocity(
                 contact.SmoothedObservedVelocity, observed.Speed, freshSight);
+            contact.Opponent.Observe(_player.Position, observed.Position,
+                observed.Speed, observed.Flags1.TestFlag(PlayerFlags1.Grounded));
             contact.Known = true;
             contact.HeardOnly = false;
             contact.Position = observed.Position;
@@ -101,6 +104,7 @@ public partial class PlayerEntity
             for (int i = 0; i < _botContacts.Length; i++)
             {
                 ref BotContact contact = ref _botContacts[i];
+                if (contact.Known) contact.Opponent.DecayWithoutSight();
                 contact.VisibleNow = false;
                 if (contact.HearingCooldown > 0) contact.HearingCooldown--;
                 if (contact.FramesRemaining > 0) contact.FramesRemaining--;
@@ -108,6 +112,7 @@ public partial class PlayerEntity
                 if (contact.FramesRemaining <= 0)
                 {
                     contact.Known = false;
+                    contact.Opponent = default;
                 }
             }
 
@@ -186,9 +191,28 @@ public partial class PlayerEntity
             {
                 return observed.Speed / 2f;
             }
-            // The aim policy already requires direct LOS; smoothing only uses
-            // velocities sampled while visible, never hidden live transforms.
-            return (observed.Speed * 0.65f + contact.SmoothedObservedVelocity * 0.35f) / 2f;
+            // The aim policy already requires direct LOS. Highly erratic
+            // visible strafing reduces long-lead overshoots; the bot does
+            // not predict a future unseen reversal or acquire hidden velocity.
+            Vector3 velocity = (observed.Speed * .65f
+                + contact.SmoothedObservedVelocity * .35f) / 2f;
+            return velocity * BotOpponentTactics.LeadScale(contact.Opponent);
+        }
+
+        private bool BotTryVisibleOpponentModel(PlayerEntity observed, out BotOpponentModel model)
+        {
+            model = default;
+            int slot = observed.SlotIndex;
+            if (_player.BotLevel < 2 || (uint)slot >= (uint)_botContacts.Length)
+                return false;
+            ref BotContact contact = ref _botContacts[slot];
+            if (!contact.Known || contact.HeardOnly || !contact.VisibleNow
+                || contact.Opponent.ObservedFrames < 24)
+            {
+                return false;
+            }
+            model = contact.Opponent;
+            return true;
         }
 
         private void BotInvestigatePosition(Vector3 lastKnown)
