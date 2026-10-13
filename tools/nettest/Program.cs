@@ -72,6 +72,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--pickup-network") return PickupNetworkTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-readiness") return PickupReadinessTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-replay") return PickupReplayTests.Run();
+            if (args.Length > 0 && args[0] == "--terminal-retries") return TerminalRetryTests.Run(Array.IndexOf(args, "--lost-terminal-only") >= 0);
             if (args.Length > 0 && args[0] == "--timed-grants") return TimedGrantTests.Run();
             if (args.Length > 1 && args[0] == "--powerup-ledger-scene")
             {
