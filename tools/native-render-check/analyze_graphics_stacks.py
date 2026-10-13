@@ -36,9 +36,16 @@ def parse(lines):
         if group is None:
             return
         key = category(group["frames"])
-        total = totals.setdefault(key, {"bytes": 0, "calls": 0, "groups": 0})
+        total = totals.setdefault(key, {"bytes": 0, "calls": 0, "groups": 0,
+                                       "mallocPrefixBytes": 0, "mallocPrefixCalls": 0})
         for metric in ("bytes", "calls"):
             total[metric] += group[metric]
+        # Surface/IOGPU resource records may also carry compiler callers. Keep
+        # direct allocator frames distinct from those resource records; neither
+        # the category total nor absence of this prefix is a heap census.
+        if key != "explicitMmapVm" and any(f["module"] == "libsystem_malloc.dylib" for f in group["frames"][:3]):
+            total["mallocPrefixBytes"] += group["bytes"]
+            total["mallocPrefixCalls"] += group["calls"]
         total["groups"] += 1
     for line in lines:
         match = GROUP.match(line)
@@ -51,7 +58,7 @@ def parse(lines):
                 group["frames"].append({"module": frame[1].strip(), "symbol": frame[2].strip()})
     flush()
     return {"supported": bool(totals), "categories": totals,
-            "meaning": "Disjoint first-match allocation-site partition: explicit mmap/VM in first two frames, fragment variant, vertex variant, IOSurface, other graphics modules, CLR, other. Input must be current outstanding -allBySize groups without highWaterMark/allEvents. Platform resource records must not be summed into malloc-zone bytes. Mapped/reserved lengths are not residency. Origin does not establish retaining owner, cache boundedness, or leak."}
+            "meaning": "Disjoint first-match allocation-site partition: explicit mmap/VM in first two frames, fragment variant, vertex variant, IOSurface, other graphics modules, CLR, other. mallocPrefix counts require libsystem_malloc in first three frames and exclude explicit VM; they distinguish observed direct allocator stacks from platform resource records without claiming every allocation mechanism is classified. Input must be current outstanding -allBySize groups without highWaterMark/allEvents. Platform resource records must not be summed into malloc-zone bytes. Mapped/reserved lengths are not residency. Origin does not establish retaining owner, cache boundedness, or leak."}
 
 
 def main():

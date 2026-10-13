@@ -219,6 +219,10 @@ jobs:
         run: python -m unittest discover -s tools/native-render-check -p 'test_*.py' -v
       - name: Verify audio retention weak observations without native startup
         run: dotnet run --project tools/native-render-check -c Release -- -resource-retention-selftest
+      - name: Verify native context control arguments without native startup
+        run: dotnet run --project tools/native-render-check -c Release -- -resource-context-selftest
+      - name: Compile headless replay memory isolation
+        run: dotnet build tools/replay-memory-check -c Release
       - name: OpenGL depth, alpha, stencil and repeated-frame pixel fixtures
         run: |
           xvfb-run -a --server-args="-screen 0 640x480x24" \

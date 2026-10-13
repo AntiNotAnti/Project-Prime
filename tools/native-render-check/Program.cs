@@ -517,6 +517,7 @@ sealed partial class CheckWindow : RenderWindow
     internal object CleanupAndInspect()
     {
         var scene = Scene;
+        var ledger = GlRetirementLedger.Capture(scene);
         int Field(string name) => (int)(typeof(Scene).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(scene) ?? 0);
         int shadowFbo = Field("_shadowFramebuffer"), shadowTexture = Field("_shadowDepthTexture");
         Type retained = typeof(Scene).Assembly.GetType("MphRead.Mods.Render.DesktopRetainedGeometry")!;
@@ -544,6 +545,7 @@ sealed partial class CheckWindow : RenderWindow
         int[] programsBefore=programFields.Select(Field).Where(id=>id!=0).ToArray();
         int ownedTexturesBefore=OwnedTextureCount(),framebufferBefore=Field("_frameBuffer");
         EndScene();
+        object detailedRetirement = ledger.Verify(scene);
         int ownedTexturesAfter=OwnedTextureCount(),framebufferAfter=Field("_frameBuffer");
         int ownedProgramsAfter=programFields.Select(Field).Count(id=>id!=0);
         int pendingDeletedProgramCountAfter=0;
@@ -572,7 +574,7 @@ sealed partial class CheckWindow : RenderWindow
         long depthSnapshotBytesAfter = DepthSnapshotBytes();
         if (depthSnapshotBytesAfter != 0 || proceduralBytesAfter != 0 || spriteCountAfter != 0 || spriteBytesAfter != 0 || glyphCountAfter != 0 || glyphBytesAfter != 0 || !shadowReleased || retainedAfter is int count && count != 0 || combinedAfter != 0 || GL.GetError() != ErrorCode.NoError)
             throw new InvalidOperationException("Scene unload retained live GL resources or an error.");
-        return new { ownedTexturesBefore,ownedTexturesAfter,framebufferBefore,framebufferAfter,programCountBefore=programsBefore.Length,programOwnerFieldsReleased,ownedProgramsAfter,recognizedProgramNamesAfter,pendingDeletedProgramCountAfter,currentProgramAfter,depthSnapshotBytesBefore, depthSnapshotBytesAfter, proceduralBytesBefore, proceduralBytesAfter, shadowReleased, retainedListsBefore = retainedBefore, retainedListsAfter = retainedAfter,
+        return new { detailedRetirement, ownedTexturesBefore,ownedTexturesAfter,framebufferBefore,framebufferAfter,programCountBefore=programsBefore.Length,programOwnerFieldsReleased,ownedProgramsAfter,recognizedProgramNamesAfter,pendingDeletedProgramCountAfter,currentProgramAfter,depthSnapshotBytesBefore, depthSnapshotBytesAfter, proceduralBytesBefore, proceduralBytesAfter, shadowReleased, retainedListsBefore = retainedBefore, retainedListsAfter = retainedAfter,
             combinedBytesBefore = combinedBefore, combinedBytesAfter = combinedAfter,
             retainedBytesBefore, retainedBytesAfter, shadowColorBytesBefore,
             glyphCountBefore, glyphBytesBefore, glyphCountAfter, glyphBytesAfter,
