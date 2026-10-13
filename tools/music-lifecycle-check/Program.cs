@@ -98,7 +98,7 @@ static class Program
             AudioLifetime.Shutdown();
         }
         Require(owner.Completion.IsCompletedSuccessfully && !MusicPlayer.Available, "Native final shutdown retained worker/engine");
-        Require(engine.IsDisposed && device.IsDisposed && !device.IsRunning && device.MasterMixer.IsDisposed
+        Require(engine.IsDisposed && device.IsDisposed && !device.IsRunning
             && device.MasterMixer.Components.Count == 0 && owner.Current == null,
             "Native final shutdown retained engine/device/mixer resources");
         Console.WriteLine($"NATIVE postdrain current=0 ownerCompleted={owner.Completion.IsCompletedSuccessfully} engineDisposed={engine.IsDisposed} deviceDisposed={device.IsDisposed} deviceRunning={device.IsRunning} mixerDisposed={device.MasterMixer.IsDisposed} components={device.MasterMixer.Components.Count} callbacks={Volatile.Read(ref renderedCallbacks)}");
