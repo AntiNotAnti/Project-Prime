@@ -119,6 +119,7 @@ namespace MphRead
             GL.Uniform1(_rttSampler, 0);
             GL.Uniform1(_maskSampler, 1);
             GL.Uniform1(_shaderLocations.UseMask, 0);
+            GL.Uniform1(_shaderLocations.HudZeroAlphaDiscard, 0);
             GL.Uniform1(_shaderLocations.LayerAlpha, 1f);
             GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
             GL.Uniform1(_shaderLocations.ViewWidth, (float)Size.X);
@@ -162,6 +163,8 @@ namespace MphRead
             CheckGlError("BeginCompositePass");
         }
 
+        private static readonly bool _hudDiscardEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("HUD_DISCARD");
+
         private void BeginHudPass()
         {
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, ReplayOutputFramebuffer());
@@ -172,6 +175,8 @@ namespace MphRead
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             ClearRenderTextures();
             UseHudShader();
+            GL.Uniform1(_shaderLocations.HudZeroAlphaDiscard,
+                _hudDiscardEnabled ? 1 : 0);
             CheckGlError("BeginHudPass");
         }
 
@@ -201,6 +206,7 @@ namespace MphRead
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
             GL.Viewport(0, 0, Size.X, Size.Y);
             EndHudMask();
+            GL.Uniform1(_shaderLocations.HudZeroAlphaDiscard, 0);
             GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
             GL.Uniform1(_shaderLocations.LayerAlpha, 1f);
             ClearRenderTextures();

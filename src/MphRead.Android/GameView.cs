@@ -971,6 +971,7 @@ namespace MphRead.Droid
                 if (MphRead.Mods.Network.NetSession.Refused || MphRead.Mods.Network.NetSession.SessionTimedOut)
                 {
                     MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
+                    OpenGlPassProfiler.CancelFrame();
                     End(scene);
                     return false;
                 }
@@ -1038,17 +1039,22 @@ namespace MphRead.Droid
                 }
                 MphRead.Mods.Render.LowLatencyController.Mark(
                     latencyFrame, MphRead.Mods.Render.LowLatencyMarker.RenderSubmitStart);
+                OpenGlPassProfiler.BeginFrame();
                 scene.OnDrawFrame();
                 if (!scene.OnRenderFrame())
                 {
                     MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
+                    OpenGlPassProfiler.CancelFrame();
                     End(scene);
                     return false;
                 }
+                GlEs.FlushPending();
                 Mods.Replay.ReplayVideoExporter.AfterSceneDraw(scene);
                 scene.AfterRenderFrame();
                 long renderEnd = Stopwatch.GetTimestamp();
+                GlEs.FlushPending();
                 DrawUi();
+                GlEs.FlushPending();
                 long uiEnd = Stopwatch.GetTimestamp();
                 MphRead.Mods.Render.LowLatencyController.Mark(
                     latencyFrame, MphRead.Mods.Render.LowLatencyMarker.RenderSubmitEnd);
@@ -1062,9 +1068,11 @@ namespace MphRead.Droid
                     // wait for the next one rather than drawing into nothing.
                     Console.WriteLine("[android] the surface stopped accepting frames; "
                         + $"waiting for another (0x{EGL14.EglGetError():X})");
+                    OpenGlPassProfiler.CancelFrame();
                     ReleaseSurface();
                 }
                 long swapEnd = Stopwatch.GetTimestamp();
+                OpenGlPassProfiler.EndFrame();
                 MphRead.Mods.Render.LowLatencyController.Mark(
                     latencyFrame, MphRead.Mods.Render.LowLatencyMarker.PresentEnd);
                 // Report CPU-side frame work only. Presentation can block on

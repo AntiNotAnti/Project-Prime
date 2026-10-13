@@ -1,0 +1,147 @@
+{
+  "schema": 1,
+  "identity": {
+    "schema": 1,
+    "assemblyMvid": "05d10db6-7342-42ea-ad0d-0407c7bbe2ea",
+    "binarySha256": {
+      "harness": "8c5001365bc3d9cfc3d8c87c827a3f89bdeba81f0ea988a5df2d6131f9f121f9",
+      "client": "f90128c0ca9308767919ee5fc3161bcb3cea0ec1af022175207f60f8ac7d1d83"
+    },
+    "firstSuccessfulCapture": "room-persistent-same-baseline-a"
+  },
+  "client": {
+    "path": "src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+    "sha256": "f90128c0ca9308767919ee5fc3161bcb3cea0ec1af022175207f60f8ac7d1d83"
+  },
+  "harness": {
+    "path": "tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+    "sha256": "8c5001365bc3d9cfc3d8c87c827a3f89bdeba81f0ea988a5df2d6131f9f121f9"
+  },
+  "checks": {
+    "server": {
+      "path": "artifacts/opengl-modernization/room-persistent-server.log",
+      "sha256": "fe27744d1741230ae06e7aaf3387e688c6f795b8dc008cbb50c0803e6602cf27",
+      "warnings": 23,
+      "errors": 0
+    },
+    "desktop": {
+      "path": "artifacts/opengl-modernization/room-persistent-desktop.log",
+      "sha256": "a6fad25cc5b9248ac30db62d904ee5b192fdd1776efb170a08831ab1b180228e",
+      "warnings": 31,
+      "errors": 0
+    },
+    "android": {
+      "path": "artifacts/opengl-modernization/room-persistent-android.log",
+      "sha256": "abe80cdd0634b6dbbfd382e0d881f1687413949f316cbc8c2c1bc9ced54b441e",
+      "warnings": 64,
+      "errors": 0
+    },
+    "pure": {
+      "path": "artifacts/opengl-modernization/room-persistent-pure.log",
+      "sha256": "947bbf158496bfd5abfc535ba7d4bd09208d7dfc200a50d2ffeb74884ab7a674",
+      "passRecords": 467
+    },
+    "pure-legacy": {
+      "path": "artifacts/opengl-modernization/room-persistent-pure-legacy.log",
+      "sha256": "6bbf80920cfb7d77719789aa98a2414f88e735b099990623c9a562c8c0014a8b",
+      "passRecords": 462
+    },
+    "synthetic": {
+      "path": "artifacts/opengl-modernization/room-persistent-synthetic.log",
+      "sha256": "f08ab83f35cbb90efb6d01c77ae0f9e3d8b9cb8d29e74e7edffbac24e07e64ee",
+      "passRecords": 1,
+      "pixelChecks": 366
+    },
+    "synthetic-legacy": {
+      "path": "artifacts/opengl-modernization/room-persistent-synthetic-legacy.log",
+      "sha256": "297c4a586a1516f2d1f76c145a50e7d6b984c0e54672b10f9a5a90dcd7cd164d",
+      "passRecords": 1,
+      "pixelChecks": 256
+    },
+    "analyzer-tests": {
+      "path": "artifacts/opengl-modernization/room-persistent-analyzer-tests.log",
+      "sha256": "be23c52c198958daaec4e79b26f3a0fc87c2184160a52a034e6040b00a3d2d97",
+      "passRecords": 0
+    },
+    "opengl-contract": {
+      "path": "artifacts/opengl-modernization/room-persistent-opengl-contract.log",
+      "sha256": "752fda073eb601e1fa740346e3d00dfc0c37188129dde833e17fe57dd9482c28",
+      "passRecords": 0
+    }
+  },
+  "shortComparisons": {
+    "same": {
+      "baseline": {
+        "meanCompletedFrameFps": 535.9534614487904,
+        "frameIntervalP95Ms": 3.48455,
+        "frameIntervalP99Ms": 4.2881
+      },
+      "candidate": {
+        "meanCompletedFrameFps": 537.6957535026854,
+        "frameIntervalP95Ms": 3.6037999999999997,
+        "frameIntervalP99Ms": 4.5364
+      },
+      "changePercent": {
+        "meanCompletedFrameFps": 0.3250827131865419,
+        "frameIntervalP95Ms": 3.4222496448608863,
+        "frameIntervalP99Ms": 5.7904433198852745
+      }
+    },
+    "cross": {
+      "baseline": {
+        "meanCompletedFrameFps": 533.1573780231398,
+        "frameIntervalP95Ms": 3.5107,
+        "frameIntervalP99Ms": 4.33805
+      },
+      "candidate": {
+        "meanCompletedFrameFps": 528.8806303888023,
+        "frameIntervalP95Ms": 3.5629,
+        "frameIntervalP99Ms": 4.504250000000001
+      },
+      "changePercent": {
+        "meanCompletedFrameFps": -0.802154825315371,
+        "frameIntervalP95Ms": 1.4868829578146725,
+        "frameIntervalP99Ms": 3.8312144857712838
+      }
+    }
+  },
+  "windowCycle": {
+    "path": "artifacts/opengl-modernization/room-persistent-windowcycle.json",
+    "sha256": "1f3c929b7651750c9ac7c02c0785f8c4e039847398a962b81d79e3feb2f50dbd",
+    "complete": true,
+    "stages": 4,
+    "intentionalTransitionStalls": 2,
+    "droppedSimulationSteps": 0,
+    "cleanup": {
+      "depthSnapshotBytesBefore": 3686400,
+      "depthSnapshotBytesAfter": 0,
+      "proceduralBytesBefore": 0,
+      "proceduralBytesAfter": 0,
+      "shadowReleased": true,
+      "retainedListsBefore": 258,
+      "retainedListsAfter": 0,
+      "combinedBytesBefore": 839040,
+      "combinedBytesAfter": 0,
+      "retainedBytesBefore": 1962072,
+      "retainedBytesAfter": 0,
+      "shadowColorBytesBefore": 0,
+      "glyphCountBefore": 23,
+      "glyphBytesBefore": 5888,
+      "glyphCountAfter": 0,
+      "glyphBytesAfter": 0,
+      "spriteCountBefore": 6,
+      "spriteBytesBefore": 1536,
+      "spriteCountAfter": 0,
+      "spriteBytesAfter": 0
+    }
+  },
+  "performanceRunCount": 10,
+  "performanceStalls": 0,
+  "performanceSimulationDrops": 0,
+  "sameBuildVisualComparisons": 108,
+  "previousDeliveryVisualComparisons": 108,
+  "defaultsEnabled": 20,
+  "policiesImplemented": 22,
+  "gpuTiming": "UNVERIFIED",
+  "scope": "Mac-only short measurements; desktop/server/Android arm64 builds. No reliable FPS or frame-tail improvement established; enabled safe work-removing paths per user preference. Hardware, sustained thermal, input latency and broad Studio/custom-map acceptance remain open."
+}

@@ -105,6 +105,11 @@ namespace MphRead.Hud
         public readonly ColorRgba[] Texture;
         public float Alpha = 1;
         public int BindingId = -1;
+        // Text reuses this instance for many glyphs in a single draw. Immutable
+        // images avoid redefining a texture still referenced by queued glyphs.
+        internal bool CacheGlyphImages;
+        internal bool CacheSpriteImages;
+        private int _mutableImageBinding = -1;
         public int CurrentFrame;
         public int StartFrame;
         public int TargetFrame;
@@ -236,6 +241,7 @@ namespace MphRead.Hud
 
         private void DoTexture(Scene scene)
         {
+            using var imageTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.HudImagePrepare);
             Debug.Assert(CharacterData != null);
             Debug.Assert(PaletteData != null);
             int palOffset = PaletteIndex * 16;
@@ -269,7 +275,25 @@ namespace MphRead.Hud
                     }
                 }
             }
-            if (BindingId == -1)
+            if (CacheGlyphImages || CacheSpriteImages)
+            {
+                int imageBinding;
+                bool cached = CacheGlyphImages
+                    ? scene.TryGetHudGlyphTexture(Texture, Width, Height, out imageBinding)
+                    : scene.TryGetHudSpriteTexture(Texture, Width, Height, out imageBinding);
+                if (cached)
+                {
+                    BindingId = imageBinding;
+                    return;
+                }
+                // Never upload into a cached immutable image on a budget miss.
+                if (_mutableImageBinding == -1)
+                    _mutableImageBinding = scene.BindGetTexture(Texture, Width, Height);
+                else
+                    scene.BindTexture(Texture, Width, Height, _mutableImageBinding);
+                BindingId = _mutableImageBinding;
+            }
+            else if (BindingId == -1)
             {
                 BindingId = scene.BindGetTexture(Texture, Width, Height);
             }

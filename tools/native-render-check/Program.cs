@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -41,6 +42,8 @@ Vector3? VectorArg(string name)
         float.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture));
 }
 Vector3? camera = VectorArg("-camera"), facing = VectorArg("-facing");
+if (args.Contains("-stablehud") && shots == null)
+    throw new ArgumentException("-stablehud requires -shots; it is not a performance option.");
 if (args.Contains("-outlinecheck") && (players < 2 || outlines == PlayerOutlineStyle.Off || shots == null))
     throw new ArgumentException("-outlinecheck requires -players 2..8, enabled -outlines and -shots.");
 if (args.Contains("-bombcheck") && (players < 4 || shots == null || outlines != PlayerOutlineStyle.Off))
@@ -62,12 +65,14 @@ typeof(Scene).Assembly.GetType("MphRead.ConsoleSetup")!.GetMethod("Run")!.Invoke
 GraphicsBackendPolicy.LoadPreference();
 Paths.UpdatePaths(); Paths.ChooseMphPath(); Paths.ChooseFhPath();
 MphRead.Mods.MapGen.CustomRooms.GenerateMissing(room);
-using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"));
+using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"));
+window.ConfigureResourceStress(args);
+window.ConfigureDiagnosticOptions(args);
 try
 {
     window.Run();
-    var result = JsonSerializer.SerializeToNode(window.Result())!;
-    result["cleanup"] = JsonSerializer.SerializeToNode(window.CleanupAndInspect());
+    var result = JsonSerializer.SerializeToNode(window.ResourceStressEnabled ? window.ResourceStressResult() : window.Result())!;
+    if (!window.ResourceStressEnabled) result["cleanup"] = JsonSerializer.SerializeToNode(window.CleanupAndInspect());
     Directory.CreateDirectory(Path.GetDirectoryName(output)!);
     File.WriteAllText(output, result.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n");
     Console.WriteLine("NATIVERENDER " + (window.Complete ? "PASS " : "FAIL ") + output);
@@ -77,10 +82,11 @@ catch (Exception ex) { Console.WriteLine("NATIVERENDER FAIL " + ex); return 1; }
 finally
 {
     // Run's unload handles gameplay; explicitly release GL before its context dies.
+    window.ClearResourceFailureCallback();
     window.EndScene();
 }
 
-sealed class CheckWindow : RenderWindow
+sealed partial class CheckWindow : RenderWindow
 {
     private readonly int _seconds, _cap;
     private readonly ShadowQuality _shadows;
@@ -102,18 +108,53 @@ sealed class CheckWindow : RenderWindow
     private BombVisibilityCheck? _bombVisibility;
     private bool _bombChecked;
     private readonly bool _impactCheck;
+    private readonly bool _stableHud;
     private NetImpactPresentationCheck? _impactPresentation;
     private readonly Vector2i _requestedPixels;
     private readonly List<object> _windowEvents = new();
     private int _windowStage;
+    private object? _initialWindow;
+    private WindowState _observedWindowState;
+    private bool _observedVisible, _observedFocused, _windowObserved;
+    private int _focusTransitions, _visibilityTransitions, _windowStateTransitions;
+    private object WindowSnapshot() => new
+    {
+        state = WindowState.ToString(), visible = IsVisible, focused = IsFocused,
+        framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y },
+        renderSize = new[] { Scene.RenderSize.X, Scene.RenderSize.Y }
+    };
+    private void ObserveWindowState(bool? focusedOverride = null)
+    {
+        bool focused = focusedOverride ?? IsFocused;
+        if (!_windowObserved)
+        {
+            _initialWindow = WindowSnapshot();
+            _windowObserved = true;
+        }
+        else
+        {
+            bool changed = false;
+            if (focused != _observedFocused) { _focusTransitions++; changed = true; }
+            if (IsVisible != _observedVisible) { _visibilityTransitions++; changed = true; }
+            if (WindowState != _observedWindowState) { _windowStateTransitions++; changed = true; }
+            if (changed) _windowEvents.Add(new
+            {
+                wallSeconds = _wall.Elapsed.TotalSeconds, state = WindowState.ToString(),
+                visible = IsVisible, focused, framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y }
+            });
+        }
+        _observedFocused = focused;
+        _observedVisible = IsVisible;
+        _observedWindowState = WindowState;
+    }
     private string? _glVendor, _glRenderer, _glVersion;
     public bool Complete { get; private set; }
 
-    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck)
+    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud)
     {
         _room = room; _seconds = seconds; _cap = cap; _shadows = shadows; _shots = shots;
         _windowCycle = windowCycle; _requestedPixels = pixels;
-        _outlines = outlines; _camera = camera; _facing = facing; _outlineCheck = outlineCheck; _bombCheck = bombCheck; _impactCheck = impactCheck;
+        _outlines = outlines; _camera = camera; _facing = facing; _outlineCheck = outlineCheck; _bombCheck = bombCheck; _impactCheck = impactCheck; _stableHud = stableHud;
         MinimumSize = new Vector2i(160, 90);
         double sx = FramebufferSize.X / (double)ClientSize.X, sy = FramebufferSize.Y / (double)ClientSize.Y;
         ClientSize = new Vector2i((int)Math.Round(pixels.X / sx), (int)Math.Round(pixels.Y / sy));
@@ -137,6 +178,7 @@ sealed class CheckWindow : RenderWindow
 
     protected override void OnLoad()
     {
+        ApplyDiagnosticOptions();
         base.OnLoad();
         RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
         RenderOptions.Shadows = _shadows;
@@ -145,6 +187,7 @@ sealed class CheckWindow : RenderWindow
         RenderOptions.ResolutionScale = 100; RenderOptions.ShowFps = false;
         RenderOptions.TextureFiltering = false; RenderOptions.TextureMipmaps = false;
         RenderOptions.TextureAnisotropy = 1;
+        ApplyDiagnosticOptions();
         FrameTiming.FrameRateCap = _cap;
         Scene.GameState.PointGoal = 0; Scene.GameState.MatchTime = -1;
         FrameTiming.Reset(); FrameTiming.ResetDiagnostics();
@@ -152,10 +195,40 @@ sealed class CheckWindow : RenderWindow
         _glVendor = GL.GetString(StringName.Vendor);
         _glRenderer = GL.GetString(StringName.Renderer);
         _glVersion = GL.GetString(StringName.Version);
+        string extensions = GL.GetString(StringName.Extensions) ?? "";
+        var resolver = new OpenTK.Windowing.GraphicsLibraryFramework.GLFWBindingsContext();
+        Console.WriteLine("NATIVERENDER appleVao advertised="
+            + extensions.Split(' ').Contains("GL_APPLE_vertex_array_object")
+            + " gen=" + (resolver.GetProcAddress("glGenVertexArraysAPPLE") != IntPtr.Zero)
+            + " bind=" + (resolver.GetProcAddress("glBindVertexArrayAPPLE") != IntPtr.Zero)
+            + " delete=" + (resolver.GetProcAddress("glDeleteVertexArraysAPPLE") != IntPtr.Zero));
         Console.WriteLine($"NATIVERENDER context room={_room} pixels={FramebufferSize} cap={_cap} shadows={_shadows}"
             + $" vendor={GL.GetString(StringName.Vendor)} renderer={GL.GetString(StringName.Renderer)} gl={GL.GetString(StringName.Version)}"
             + $" mvid={typeof(Scene).Module.ModuleVersionId:D}");
         _wall.Start();
+        if (ResourceStressEnabled) StartResourceScene();
+        ObserveWindowState();
+    }
+
+    private void StabilizeCaptureKillFeed()
+    {
+        if (!_stableHud) return;
+        // The capture fixture advances one simulation step per picture, faster
+        // than real time. Keep kill-feed entries in their opaque lifetime so
+        // wall-clock expiry/fading cannot differ between fast and slow arms.
+        // This diagnostic-only option preserves row contents/order and never
+        // changes the production clock or participates in benchmark runs.
+        object feed = typeof(Scene).GetProperty("KillFeed", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(Scene)!;
+        var entries = (IList)feed.GetType().GetField("_entries", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(feed)!;
+        long now = Stopwatch.GetTimestamp();
+        for (int i = 0; i < entries.Count; i++)
+        {
+            object entry = entries[i]!;
+            entry.GetType().GetProperty("CreatedTicks")!.SetValue(entry, now);
+            entries[i] = entry;
+        }
     }
 
     private void ApplyCheckCamera()
@@ -174,6 +247,17 @@ sealed class CheckWindow : RenderWindow
 
     protected override void OnRenderFrame(FrameEventArgs args)
     {
+        ObserveWindowState();
+        if (ResourceStressEnabled)
+        {
+            // Lifecycle comparisons require identical simulation steps, independent
+            // of allocation failures, reload time and driver backpressure.
+            typeof(Scene).GetField("_frameAdvanceOn", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(Scene, true);
+            typeof(Scene).GetField("_advanceOneFrame", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(Scene, true);
+            base.OnRenderFrame(args);
+            ResourceStressTick();
+            return;
+        }
         if (_windowCycle && Scene.FrameCount >= (ulong)(300 + _windowStage * 120) && _windowStage < 4)
         {
             // Real native window transitions, separate from benchmark runs.
@@ -201,9 +285,11 @@ sealed class CheckWindow : RenderWindow
             typeof(Scene).GetField("_frameAdvanceOn", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(Scene, true);
             typeof(Scene).GetField("_advanceOneFrame", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(Scene, true);
         }
+        StabilizeCaptureKillFeed();
         ApplyCheckCamera();
         // Actual client pacing, simulation, render and SwapBuffers all run here.
         base.OnRenderFrame(args);
+        ObserveWindowState();
         if (_impactCheck && _impactPresentation == null && Scene.FrameCount >= 240)
         {
             _impactPresentation = new NetImpactPresentationCheck(Scene, Path.Combine(_shots!, "impact-presentation"));
@@ -334,7 +420,7 @@ sealed class CheckWindow : RenderWindow
     protected override void OnFocusedChanged(FocusedChangedEventArgs e)
     {
         base.OnFocusedChanged(e);
-        if (_windowCycle) _windowEvents.Add(new { focusChanged = e.IsFocused, wallSeconds = _wall.Elapsed.TotalSeconds });
+        if (_wall.IsRunning) ObserveWindowState(e.IsFocused);
     }
 
     private object[] PickupSnapshot()
@@ -392,27 +478,60 @@ sealed class CheckWindow : RenderWindow
         int shadowFbo = Field("_shadowFramebuffer"), shadowTexture = Field("_shadowDepthTexture");
         Type retained = typeof(Scene).Assembly.GetType("MphRead.Mods.Render.DesktopRetainedGeometry")!;
         object? Counter(string name) => retained.GetProperty(name, BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null);
+        long GlyphProperty(string name) => Convert.ToInt64(typeof(Scene)
+            .GetProperty(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(scene)
+            ?? throw new InvalidOperationException("Missing HUD image lifecycle metric: " + name));
+        long ProceduralBytes() => Convert.ToInt64(typeof(Scene).Assembly.GetType("MphRead.Mods.Render.DesktopProceduralStream")
+            ?.GetProperty("ResidentBytes", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null) ?? 0L);
+        long DepthSnapshotBytes() => Convert.ToInt64(typeof(Scene).Assembly.GetType("MphRead.Mods.Render.DepthReplaySnapshot")
+            ?.GetProperty("ResidentBytes", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null) ?? 0L);
+        long depthSnapshotBytesBefore = DepthSnapshotBytes();
+        long proceduralBytesBefore = ProceduralBytes();
+        long glyphCountBefore = GlyphProperty("HudGlyphTextureCount");
+        long glyphBytesBefore = GlyphProperty("HudGlyphTextureBytes");
+        long spriteCountBefore = GlyphProperty("HudSpriteTextureCount");
+        long spriteBytesBefore = GlyphProperty("HudSpriteTextureBytes");
         object? retainedBefore = Counter("RetainedListCount");
+        object? retainedBytesBefore = Counter("ResidentBytes");
+        long shadowColorBytesBefore = Field("_shadowColorTexture") == 0 ? 0
+            : (long)Field("_shadowTargetSize") * Field("_shadowTargetSize") * 4;
         long combinedBefore = (long)(retained.GetField("_combinedBytes", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null) ?? 0L);
         EndScene();
         bool shadowReleased = (shadowFbo == 0 || !GL.IsFramebuffer(shadowFbo))
             && (shadowTexture == 0 || !GL.IsTexture(shadowTexture)) && Field("_shadowFramebuffer") == 0 && Field("_shadowDepthTexture") == 0;
         object? retainedAfter = Counter("RetainedListCount");
+        object? retainedBytesAfter = Counter("ResidentBytes");
         long combinedAfter = (long)(retained.GetField("_combinedBytes", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null) ?? 0L);
-        if (!shadowReleased || retainedAfter is int count && count != 0 || combinedAfter != 0 || GL.GetError() != ErrorCode.NoError)
+        long glyphCountAfter = GlyphProperty("HudGlyphTextureCount");
+        long glyphBytesAfter = GlyphProperty("HudGlyphTextureBytes");
+        long spriteCountAfter = GlyphProperty("HudSpriteTextureCount");
+        long spriteBytesAfter = GlyphProperty("HudSpriteTextureBytes");
+        long proceduralBytesAfter = ProceduralBytes();
+        long depthSnapshotBytesAfter = DepthSnapshotBytes();
+        if (depthSnapshotBytesAfter != 0 || proceduralBytesAfter != 0 || spriteCountAfter != 0 || spriteBytesAfter != 0 || glyphCountAfter != 0 || glyphBytesAfter != 0 || !shadowReleased || retainedAfter is int count && count != 0 || combinedAfter != 0 || GL.GetError() != ErrorCode.NoError)
             throw new InvalidOperationException("Scene unload retained live GL resources or an error.");
-        return new { shadowReleased, retainedListsBefore = retainedBefore, retainedListsAfter = retainedAfter,
-            combinedBytesBefore = combinedBefore, combinedBytesAfter = combinedAfter };
+        return new { depthSnapshotBytesBefore, depthSnapshotBytesAfter, proceduralBytesBefore, proceduralBytesAfter, shadowReleased, retainedListsBefore = retainedBefore, retainedListsAfter = retainedAfter,
+            combinedBytesBefore = combinedBefore, combinedBytesAfter = combinedAfter,
+            retainedBytesBefore, retainedBytesAfter, shadowColorBytesBefore,
+            glyphCountBefore, glyphBytesBefore, glyphCountAfter, glyphBytesAfter,
+            spriteCountBefore, spriteBytesBefore, spriteCountAfter, spriteBytesAfter };
     }
 
     internal object Result()
     {
+        ObserveWindowState();
+        Vector2i actualRenderSize = Scene.RenderSize;
         double P(double percentile) => _intervals.Count == 0 ? 0
             : _intervals.Order().ElementAt(Math.Clamp((int)Math.Ceiling(_intervals.Count * percentile / 100) - 1, 0, _intervals.Count - 1));
-        return new { schema = 1, room = _room, cap = _cap, shadows = _shadows.ToString(),
+        return new { schema = 1, room = _room, cap = _cap, shadows = _shadows.ToString(), textureQuality = RenderOptions.TextureQuality.ToString(), lighting = RenderOptions.Lighting, resolutionScale = RenderOptions.ResolutionScale,
             vendor = _glVendor, renderer = _glRenderer, glVersion = _glVersion,
             effectiveCap = FrameTiming.FrameRateCap, softwareFrequency = UpdateFrequency, vsync = VSync.ToString(),
             assemblyMvid = typeof(Scene).Module.ModuleVersionId, framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y },
+            renderSize = new[] { actualRenderSize.X, actualRenderSize.Y },
+            initialWindow = _initialWindow, finalWindow = WindowSnapshot(),
+            captureKillFeedLifetimeStabilized = _stableHud,
+            focusTransitions = _focusTransitions, visibilityTransitions = _visibilityTransitions,
+            windowStateTransitions = _windowStateTransitions,
             wallSeconds = _wall.Elapsed.TotalSeconds, measurementSeconds = Stopwatch.GetElapsedTime(_measureStarted).TotalSeconds,
             simulationFrames = Scene.FrameCount, samples = _intervals.Count,
             meanCompletedFrameFps = _intervals.Count == 0 ? 0 : 1000 / _intervals.Average(),

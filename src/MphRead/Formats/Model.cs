@@ -806,6 +806,7 @@ namespace MphRead
 
         internal void SetMatrixStackValues(int index, Matrix4 matrix)
         {
+            Mods.Render.MatrixPaletteRevision.Changed(_matrixStackValues);
             _matrixStackValues[16 * index] = matrix.M11;
             _matrixStackValues[16 * index + 1] = matrix.M12;
             _matrixStackValues[16 * index + 2] = matrix.M13;

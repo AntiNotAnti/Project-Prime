@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 
@@ -9,10 +10,7 @@ namespace MphRead.Mods.Render
     /// Converts the legacy immediate-mode geometry emitted by the original
     /// renderer into explicit vertex/index buffers.
     ///
-    /// This used to live inside the Android GLES adapter. It is deliberately
-    /// GPU-API neutral now: GLES uploads these arrays to VAO/VBO/IBO objects,
-    /// while the modern renderer uploads the exact same arrays to WebGPU
-    /// buffers for DX12, Vulkan and Metal.
+    /// Shared by GLES dynamic streams and desktop retained VBO/IBO promotion.
     /// </summary>
     internal sealed class LegacyGeometryBatch
     {
@@ -71,9 +69,30 @@ namespace MphRead.Mods.Render
         internal int[] BuildIndexArray()
         {
             var result = new int[TriIndices.Count + LineIndices.Count];
-            TriIndices.CopyTo(result, 0);
-            LineIndices.CopyTo(result, TriIndices.Count);
+            CopyIndicesTo(result);
             return result;
+        }
+
+        internal int IndexCount => checked(TriIndices.Count + LineIndices.Count);
+
+        internal void BakeInheritedColor(int firstVertex, Vector4 color)
+        {
+            Span<float> vertices = CollectionsMarshal.AsSpan(Vertices);
+            for (int i = firstVertex * FloatsPerVertex; i < vertices.Length; i += FloatsPerVertex)
+            {
+                if (vertices[i + 13] != 0) continue;
+                vertices[i + 3] = color.X; vertices[i + 4] = color.Y;
+                vertices[i + 5] = color.Z; vertices[i + 6] = color.W;
+                vertices[i + 13] = 1;
+            }
+        }
+
+        internal void CopyIndicesTo(Span<int> destination)
+        {
+            if (destination.Length < IndexCount)
+                throw new ArgumentException("Index destination is too small.", nameof(destination));
+            CollectionsMarshal.AsSpan(TriIndices).CopyTo(destination);
+            CollectionsMarshal.AsSpan(LineIndices).CopyTo(destination[TriIndices.Count..]);
         }
 
         private void EmitIndices(PrimitiveType mode, int first, int count)

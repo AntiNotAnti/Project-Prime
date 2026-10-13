@@ -71,11 +71,15 @@ public partial class Scene
         int previousFramebuffer = GL.GetInteger(GetPName.FramebufferBinding);
         int previousReadFramebuffer = GL.GetInteger(GetPName.ReadFramebufferBinding);
         int previousProgram = GL.GetInteger(GetPName.CurrentProgram);
+        WorldShaderProgram previousWorldProgram = SaveWorldProgram();
         GL.PushAttrib(AttribMask.AllAttribBits);
         bool previousMaterialPreview = _editorMaterialPreview;
         try
         {
             _editorMaterialPreview = true;
+            // Editor material previews always need the companion-map stage,
+            // even when the game frame selected native materials.
+            if (_fullWorldProgram != null) UseWorldProgram(_fullWorldProgram);
             var layout = frame.Layout;
             if (capture)
             {
@@ -178,6 +182,7 @@ public partial class Scene
         finally
         {
             _editorMaterialPreview = previousMaterialPreview;
+            UseWorldProgram(previousWorldProgram);
             GL.UseProgram(previousProgram);
             GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, previousFramebuffer);
             GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, previousReadFramebuffer);

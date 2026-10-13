@@ -1,0 +1,405 @@
+{
+  "schema": 1,
+  "assemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+  "cycles": 5,
+  "resourceAssertionsPassed": true,
+  "nativeMemoryBoundedness": "UNVERIFIED: inspect block trends and final drain; owned-object release does not establish process/native memory boundedness",
+  "blocks": [
+    {
+      "firstArm": 0,
+      "lastArm": 9,
+      "arms": 10,
+      "means": {
+        "workingSetBytes": 711712768,
+        "managedLiveBytes": 276149599.2,
+        "gcCommittedBytes": 373171814.4,
+        "gcHeapSizeBytes": 359183630.4,
+        "gcFragmentedBytes": 155410642.4,
+        "processThreadCount": 31.9
+      }
+    }
+  ],
+  "drainSamples": [
+    {
+      "phase": "before-drain",
+      "memory": {
+        "timestamp": 666051894076666,
+        "workingSetBytes": 724828160,
+        "privateBytes": null,
+        "managedLiveBytes": 292716288,
+        "gcCommittedBytes": 451559424,
+        "gcHeapSizeBytes": 437933128,
+        "gcFragmentedBytes": 225860472,
+        "gcMemoryInfoCollectionIndex": 302,
+        "processThreadCount": 31
+      },
+      "audio": {
+        "observations": 10,
+        "distinctTasks": 10,
+        "completed": 9,
+        "remaining": 1,
+        "faulted": 0,
+        "canceled": 0,
+        "tasks": [
+          {
+            "index": 0,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 54.8705,
+            "observedCompletionFromCleanupStartMs": 83.737
+          },
+          {
+            "index": 1,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 56.1341,
+            "observedCompletionFromCleanupStartMs": 89.7773
+          },
+          {
+            "index": 2,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.1484,
+            "observedCompletionFromCleanupStartMs": 79.1682
+          },
+          {
+            "index": 3,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 56.2226,
+            "observedCompletionFromCleanupStartMs": 94.0219
+          },
+          {
+            "index": 4,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.142,
+            "observedCompletionFromCleanupStartMs": 14104.1855
+          },
+          {
+            "index": 5,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.9241,
+            "observedCompletionFromCleanupStartMs": 94.7927
+          },
+          {
+            "index": 6,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 35.0742,
+            "observedCompletionFromCleanupStartMs": 83.1507
+          },
+          {
+            "index": 7,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.8995,
+            "observedCompletionFromCleanupStartMs": 85.7445
+          },
+          {
+            "index": 8,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.1296,
+            "observedCompletionFromCleanupStartMs": 82.3849
+          },
+          {
+            "index": 9,
+            "status": "Running",
+            "observedAfterCleanupMs": 44.7517,
+            "observedCompletionFromCleanupStartMs": null
+          }
+        ],
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      }
+    },
+    {
+      "phase": "after-audio-wait",
+      "waitLimitSeconds": 15,
+      "elapsedMs": 7.2606,
+      "allComplete": true,
+      "memory": {
+        "timestamp": 666051901465375,
+        "workingSetBytes": 724860928,
+        "privateBytes": null,
+        "managedLiveBytes": 292732736,
+        "gcCommittedBytes": 451559424,
+        "gcHeapSizeBytes": 437933128,
+        "gcFragmentedBytes": 225860472,
+        "gcMemoryInfoCollectionIndex": 302,
+        "processThreadCount": 30
+      },
+      "audio": {
+        "observations": 10,
+        "distinctTasks": 10,
+        "completed": 10,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0,
+        "tasks": [
+          {
+            "index": 0,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 54.8705,
+            "observedCompletionFromCleanupStartMs": 83.737
+          },
+          {
+            "index": 1,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 56.1341,
+            "observedCompletionFromCleanupStartMs": 89.7773
+          },
+          {
+            "index": 2,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.1484,
+            "observedCompletionFromCleanupStartMs": 79.1682
+          },
+          {
+            "index": 3,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 56.2226,
+            "observedCompletionFromCleanupStartMs": 94.0219
+          },
+          {
+            "index": 4,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.142,
+            "observedCompletionFromCleanupStartMs": 14104.1855
+          },
+          {
+            "index": 5,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.9241,
+            "observedCompletionFromCleanupStartMs": 94.7927
+          },
+          {
+            "index": 6,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 35.0742,
+            "observedCompletionFromCleanupStartMs": 83.1507
+          },
+          {
+            "index": 7,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.8995,
+            "observedCompletionFromCleanupStartMs": 85.7445
+          },
+          {
+            "index": 8,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.1296,
+            "observedCompletionFromCleanupStartMs": 82.3849
+          },
+          {
+            "index": 9,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.7517,
+            "observedCompletionFromCleanupStartMs": 88.783
+          }
+        ],
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      }
+    },
+    {
+      "phase": "after-full-gc-finalizers-gl-finish",
+      "memory": {
+        "timestamp": 666051923554833,
+        "workingSetBytes": 630898688,
+        "privateBytes": null,
+        "managedLiveBytes": 215488848,
+        "gcCommittedBytes": 203702272,
+        "gcHeapSizeBytes": 168749704,
+        "gcFragmentedBytes": 9968,
+        "gcMemoryInfoCollectionIndex": 303,
+        "processThreadCount": 30
+      },
+      "audio": {
+        "observations": 10,
+        "distinctTasks": 10,
+        "completed": 10,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0,
+        "tasks": [
+          {
+            "index": 0,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 54.8705,
+            "observedCompletionFromCleanupStartMs": 83.737
+          },
+          {
+            "index": 1,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 56.1341,
+            "observedCompletionFromCleanupStartMs": 89.7773
+          },
+          {
+            "index": 2,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.1484,
+            "observedCompletionFromCleanupStartMs": 79.1682
+          },
+          {
+            "index": 3,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 56.2226,
+            "observedCompletionFromCleanupStartMs": 94.0219
+          },
+          {
+            "index": 4,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.142,
+            "observedCompletionFromCleanupStartMs": 14104.1855
+          },
+          {
+            "index": 5,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.9241,
+            "observedCompletionFromCleanupStartMs": 94.7927
+          },
+          {
+            "index": 6,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 35.0742,
+            "observedCompletionFromCleanupStartMs": 83.1507
+          },
+          {
+            "index": 7,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.8995,
+            "observedCompletionFromCleanupStartMs": 85.7445
+          },
+          {
+            "index": 8,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.1296,
+            "observedCompletionFromCleanupStartMs": 82.3849
+          },
+          {
+            "index": 9,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.7517,
+            "observedCompletionFromCleanupStartMs": 88.783
+          }
+        ],
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      }
+    }
+  ],
+  "drainError": null,
+  "audioShutdown": {
+    "observations": 10,
+    "distinctTasks": 10,
+    "completed": 10,
+    "remaining": 0,
+    "faulted": 0,
+    "canceled": 0,
+    "tasks": [
+      {
+        "index": 0,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 54.8705,
+        "observedCompletionFromCleanupStartMs": 83.737
+      },
+      {
+        "index": 1,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 56.1341,
+        "observedCompletionFromCleanupStartMs": 89.7773
+      },
+      {
+        "index": 2,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 39.1484,
+        "observedCompletionFromCleanupStartMs": 79.1682
+      },
+      {
+        "index": 3,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 56.2226,
+        "observedCompletionFromCleanupStartMs": 94.0219
+      },
+      {
+        "index": 4,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 33.142,
+        "observedCompletionFromCleanupStartMs": 14104.1855
+      },
+      {
+        "index": 5,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 48.9241,
+        "observedCompletionFromCleanupStartMs": 94.7927
+      },
+      {
+        "index": 6,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 35.0742,
+        "observedCompletionFromCleanupStartMs": 83.1507
+      },
+      {
+        "index": 7,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 39.8995,
+        "observedCompletionFromCleanupStartMs": 85.7445
+      },
+      {
+        "index": 8,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 36.1296,
+        "observedCompletionFromCleanupStartMs": 82.3849
+      },
+      {
+        "index": 9,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 44.7517,
+        "observedCompletionFromCleanupStartMs": 88.783
+      }
+    ],
+    "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+  },
+  "rawResult": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-lifecycle.json",
+  "rawResultSha256": "a801dad2a0ced196cdab18e013e406d1b86dadad893755e30b06689cf26466c8",
+  "rawLog": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-lifecycle.log",
+  "rawLogSha256": "fa5376ab7cf3c009de5da3f45c758395545dfe758f40294afda2c4b0a6779c5b",
+  "invocation": {
+    "schema": 1,
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-size",
+      "1920x1080",
+      "-hz",
+      "-1",
+      "-seconds",
+      "8",
+      "-shadows",
+      "High",
+      "-resourcestress",
+      "-resourcecycles",
+      "5",
+      "-resourceframes",
+      "120",
+      "-resource-drain",
+      "-output",
+      "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-lifecycle.json"
+    ],
+    "binarySha256": {
+      "harness": "4d66c6881160ab6e37938ac726a5a74e63004b080712be59b97b350f749e16b4",
+      "client": "09db2bbb853aa82ee2b428e6a0204ab48d7b436a7044ceac31e9ac4cfcf33fba"
+    },
+    "requestedCycles": 5,
+    "requestedFrames": 120,
+    "requestedFlags": {
+      "PROJECT_PRIME_GL_FORCE_LEGACY": "0",
+      "PROJECT_PRIME_GL_ROOM_IDENTITY": "1",
+      "PROJECT_PRIME_GL_MESH_OBJECT": "1",
+      "PROJECT_PRIME_GL_SHADOW_PREP": "1",
+      "PROJECT_PRIME_GL_SHADOW_GROUPS": "1",
+      "PROJECT_PRIME_GL_UNLIT_SHADER": "1"
+    },
+    "purpose": "Lifecycle/memory diagnosis with final drain; no FPS interpretation",
+    "actualAssemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+    "elapsedWallSeconds": 26.668042542,
+    "rawResultSha256": "a801dad2a0ced196cdab18e013e406d1b86dadad893755e30b06689cf26466c8",
+    "rawLogSha256": "fa5376ab7cf3c009de5da3f45c758395545dfe758f40294afda2c4b0a6779c5b"
+  },
+  "limits": "Live managed heap differs from GC committed/fragmented memory and RSS. Private memory may be unavailable on Mac. Audio waits, GC/finalizers and GL.Finish are diagnostic-only and excluded from FPS evidence."
+}

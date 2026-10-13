@@ -1,0 +1,1192 @@
+{
+  "schema": 1,
+  "prefix": "completion-postfix",
+  "report": "/Users/jarrett/Documents/Development/Prime Hunters Online/docs/performance/opengl-completion-postfix-results.json",
+  "method": "Equal-weight arithmetic mean of per-run harness metrics; CPU/counters are equal-weight means of each run median across complete 240-sample measurement-aligned windows. Exclude first two glframe windows after NATIVERENDER measurement-start, then align glpasses by window ID. These are summary statistics, not pooled percentiles. Missing metrics remain null.",
+  "groups": {
+    "same": {
+      "baseline": {
+        "runs": 2,
+        "meanCompletedFrameFps": 532.363527607813,
+        "frameIntervalP95Ms": 3.62765,
+        "frameIntervalP99Ms": 4.690300000000001
+      },
+      "candidate": {
+        "runs": 2,
+        "meanCompletedFrameFps": 542.062851294028,
+        "frameIntervalP95Ms": 3.6063,
+        "frameIntervalP99Ms": 4.69605
+      },
+      "candidateChangePercent": {
+        "meanCompletedFrameFps": 1.8219361739146622,
+        "frameIntervalP95Ms": -0.5885352776590858,
+        "frameIntervalP99Ms": 0.12259343751996887
+      }
+    },
+    "cross": {
+      "baseline": {
+        "runs": 2,
+        "meanCompletedFrameFps": 530.2202937350264,
+        "frameIntervalP95Ms": 3.72985,
+        "frameIntervalP99Ms": 4.8543
+      },
+      "candidate": {
+        "runs": 2,
+        "meanCompletedFrameFps": 540.3991096972951,
+        "frameIntervalP95Ms": 3.793,
+        "frameIntervalP99Ms": 4.8899
+      },
+      "candidateChangePercent": {
+        "meanCompletedFrameFps": 1.919733379227373,
+        "frameIntervalP95Ms": 1.693097577650593,
+        "frameIntervalP99Ms": 0.7333704138598796
+      }
+    },
+    "profile": {
+      "baseline": {
+        "runs": 2,
+        "meanCompletedFrameFps": 517.1124349314555,
+        "frameIntervalP95Ms": 4.04205,
+        "frameIntervalP99Ms": 5.37035
+      },
+      "candidate": {
+        "runs": 2,
+        "meanCompletedFrameFps": 529.5122773054645,
+        "frameIntervalP95Ms": 3.7882,
+        "frameIntervalP99Ms": 4.9262999999999995
+      },
+      "candidateChangePercent": {
+        "meanCompletedFrameFps": 2.3979006375378864,
+        "frameIntervalP95Ms": -6.280229091673773,
+        "frameIntervalP99Ms": -8.268548604839554
+      }
+    },
+    "shadow-low": {
+      "baseline": {
+        "runs": 2,
+        "meanCompletedFrameFps": 418.30791239044663,
+        "frameIntervalP95Ms": 4.3044,
+        "frameIntervalP99Ms": 5.58825
+      },
+      "candidate": {
+        "runs": 2,
+        "meanCompletedFrameFps": 431.99695640996015,
+        "frameIntervalP95Ms": 4.18345,
+        "frameIntervalP99Ms": 5.03055
+      },
+      "candidateChangePercent": {
+        "meanCompletedFrameFps": 3.2724802983731927,
+        "frameIntervalP95Ms": -2.8099154353684708,
+        "frameIntervalP99Ms": -9.97986847403034
+      }
+    },
+    "shadow-high": {
+      "baseline": {
+        "runs": 2,
+        "meanCompletedFrameFps": 420.15066590943644,
+        "frameIntervalP95Ms": 4.281549999999999,
+        "frameIntervalP99Ms": 5.3685
+      },
+      "candidate": {
+        "runs": 2,
+        "meanCompletedFrameFps": 418.8356800171157,
+        "frameIntervalP95Ms": 4.2933,
+        "frameIntervalP99Ms": 5.4628
+      },
+      "candidateChangePercent": {
+        "meanCompletedFrameFps": -0.3129796044650801,
+        "frameIntervalP95Ms": 0.27443332438021883,
+        "frameIntervalP99Ms": 1.7565427959392643
+      }
+    },
+    "shadow-ultra": {
+      "baseline": {
+        "runs": 4,
+        "meanCompletedFrameFps": 416.097483094577,
+        "frameIntervalP95Ms": 4.336475,
+        "frameIntervalP99Ms": 5.3977
+      },
+      "candidate": {
+        "runs": 4,
+        "meanCompletedFrameFps": 405.6863550790225,
+        "frameIntervalP95Ms": 4.4167,
+        "frameIntervalP99Ms": 5.551375
+      },
+      "candidateChangePercent": {
+        "meanCompletedFrameFps": -2.5020886783850282,
+        "frameIntervalP95Ms": 1.8500049002934338,
+        "frameIntervalP99Ms": 2.8470459640216994
+      }
+    }
+  },
+  "profile": {
+    "baseline": {
+      "perRun": [
+        {
+          "name": "completion-postfix-profile-baseline-a",
+          "completePostWarmupWindows": 15,
+          "cpu": {
+            "Preparation": {
+              "p50Ms": 0.141625,
+              "p95Ms": 0.193041,
+              "p99Ms": 0.236375
+            },
+            "DrawItems": {
+              "p50Ms": 0.08175,
+              "p95Ms": 0.134125,
+              "p99Ms": 0.165958
+            },
+            "CaptureWorld": {
+              "p50Ms": 0.048291,
+              "p95Ms": 0.065417,
+              "p99Ms": 0.069541
+            },
+            "ShadowCollection": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "ShadowSubmission": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "Shadow": {
+              "p50Ms": 8.3e-05,
+              "p95Ms": 0.00025,
+              "p99Ms": 0.0005
+            },
+            "WorldSetup": {
+              "p50Ms": 0.001875,
+              "p95Ms": 0.002917,
+              "p99Ms": 0.004875
+            },
+            "World": {
+              "p50Ms": 0.947125,
+              "p95Ms": 1.224792,
+              "p99Ms": 1.312125
+            },
+            "Outlines": {
+              "p50Ms": 0.000291,
+              "p95Ms": 0.000666,
+              "p99Ms": 0.001125
+            },
+            "SceneOverlays": {
+              "p50Ms": 0.002208,
+              "p95Ms": 0.004542,
+              "p99Ms": 0.00675
+            },
+            "PostProcess": {
+              "p50Ms": 4.1e-05,
+              "p95Ms": 4.2e-05,
+              "p99Ms": 4.2e-05
+            },
+            "Composite": {
+              "p50Ms": 0.012666,
+              "p95Ms": 0.017584,
+              "p99Ms": 0.025334
+            },
+            "Opaque": {
+              "p50Ms": 0.417333,
+              "p95Ms": 0.507417,
+              "p99Ms": 0.543584
+            },
+            "Decal": {
+              "p50Ms": 0.019417,
+              "p95Ms": 0.023083,
+              "p99Ms": 0.02825
+            },
+            "MarkTranslucent": {
+              "p50Ms": 0.130792,
+              "p95Ms": 0.180416,
+              "p99Ms": 0.189875
+            },
+            "RebuildDepth": {
+              "p50Ms": 0.045542,
+              "p95Ms": 0.293916,
+              "p99Ms": 0.338
+            },
+            "TranslucentBehind": {
+              "p50Ms": 0.142125,
+              "p95Ms": 0.189916,
+              "p99Ms": 0.199916
+            },
+            "TranslucentFront": {
+              "p50Ms": 0.1295,
+              "p95Ms": 0.180459,
+              "p99Ms": 0.189708
+            },
+            "Ui": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "Hud": {
+              "p50Ms": 0.14475,
+              "p95Ms": 0.182541,
+              "p99Ms": 0.218875
+            },
+            "HudImagePrepare": {
+              "p50Ms": 0.027542,
+              "p95Ms": 0.031956,
+              "p99Ms": 0.038418
+            },
+            "TextureUpload": {
+              "p50Ms": 0.0696665,
+              "p95Ms": 0.0895215,
+              "p99Ms": 0.0895215
+            },
+            "ProceduralPrepare": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "ProceduralSubmit": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            }
+          },
+          "counters": {
+            "AvoidedPointerCalls": 102.625,
+            "BatchPreflightFailureReuses": 0,
+            "BufferOrphans": 0,
+            "BufferUploads": 0,
+            "DepthPreparedItems": 118.22083333333333,
+            "DepthReplayDrawsSaved": 156.95,
+            "DepthSnapshotCopies": 1.75,
+            "DisplayListCalls": 112.6,
+            "DynamicBatches": 0,
+            "DynamicMergedPrimitives": 0,
+            "HudGlyphCacheFallbacks": 0,
+            "HudGlyphCacheHits": 62.46666666666667,
+            "HudGlyphCacheMisses": 0,
+            "HudSpriteCacheFallbacks": 0,
+            "HudSpriteCacheHits": 6,
+            "HudSpriteCacheMisses": 0,
+            "ImmediateDraws": 464.89166666666665,
+            "IndexedDraws": 34.208333333333336,
+            "MergedDraws": 13.5,
+            "MeshObjectReuses": 0,
+            "PlainShaderFrames": 1,
+            "ProceduralDraws": 0,
+            "ProceduralItems": 330.0833333333333,
+            "ProceduralMaterialReuses": 24,
+            "ProceduralObjectReuses": 0,
+            "ProceduralUnlitPreparations": 243.9125,
+            "ProceduralVertices": 0,
+            "ProgramBinds": 9,
+            "RoomBatchProofReuses": 1.1708333333333334,
+            "RoomBatchProofs": 16.375,
+            "RoomDescriptorHits": 44.21666666666667,
+            "RoomDescriptorLookups": 229.4,
+            "RoomDrawTokenReuses": 13.325,
+            "RoomIdentityReuses": 0,
+            "SamplerSkips": 188.8,
+            "SamplerWrites": 193.2,
+            "ShadowClusterRejects": 0,
+            "ShadowClusterTests": 0,
+            "ShadowMaterialReuses": 0,
+            "ShadowObjectReuses": 0,
+            "StateSkips": 644.8291666666667,
+            "TextureUploadBytes": 0,
+            "TextureUploads": 0,
+            "UniformArrayBytes": 19678.666666666668,
+            "UniformArraySkips": 76.45416666666667,
+            "UniformArrayUploads": 36.829166666666666,
+            "UnlitShaderFrames": 0,
+            "UploadBytes": 0,
+            "VaoDraws": 34.208333333333336,
+            "WorldShaderVariantSwitches": 0
+          }
+        },
+        {
+          "name": "completion-postfix-profile-baseline-b",
+          "completePostWarmupWindows": 16,
+          "cpu": {
+            "Preparation": {
+              "p50Ms": 0.14077050000000002,
+              "p95Ms": 0.206479,
+              "p99Ms": 0.2422295
+            },
+            "DrawItems": {
+              "p50Ms": 0.08660399999999999,
+              "p95Ms": 0.1347085,
+              "p99Ms": 0.1604585
+            },
+            "CaptureWorld": {
+              "p50Ms": 0.045625,
+              "p95Ms": 0.0607085,
+              "p99Ms": 0.06920799999999999
+            },
+            "ShadowCollection": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "ShadowSubmission": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "Shadow": {
+              "p50Ms": 4.2e-05,
+              "p95Ms": 0.000125,
+              "p99Ms": 0.000333
+            },
+            "WorldSetup": {
+              "p50Ms": 0.0016870000000000001,
+              "p95Ms": 0.0027915,
+              "p99Ms": 0.004958499999999999
+            },
+            "World": {
+              "p50Ms": 0.9148545,
+              "p95Ms": 1.1044585,
+              "p99Ms": 1.2092710000000002
+            },
+            "Outlines": {
+              "p50Ms": 0.0003125,
+              "p95Ms": 0.000625,
+              "p99Ms": 0.001125
+            },
+            "SceneOverlays": {
+              "p50Ms": 0.0026249999999999997,
+              "p95Ms": 0.0052910000000000006,
+              "p99Ms": 0.009374500000000001
+            },
+            "PostProcess": {
+              "p50Ms": 4.15e-05,
+              "p95Ms": 0.000125,
+              "p99Ms": 0.0002085
+            },
+            "Composite": {
+              "p50Ms": 0.0134585,
+              "p95Ms": 0.0203125,
+              "p99Ms": 0.025354500000000002
+            },
+            "Opaque": {
+              "p50Ms": 0.439229,
+              "p95Ms": 0.5061455,
+              "p99Ms": 0.5660625
+            },
+            "Decal": {
+              "p50Ms": 0.0184165,
+              "p95Ms": 0.022729,
+              "p99Ms": 0.0270625
+            },
+            "MarkTranslucent": {
+              "p50Ms": 0.13295849999999998,
+              "p95Ms": 0.1693125,
+              "p99Ms": 0.1851665
+            },
+            "RebuildDepth": {
+              "p50Ms": 0.048146,
+              "p95Ms": 0.167,
+              "p99Ms": 0.1881875
+            },
+            "TranslucentBehind": {
+              "p50Ms": 0.1435205,
+              "p95Ms": 0.180896,
+              "p99Ms": 0.191104
+            },
+            "TranslucentFront": {
+              "p50Ms": 0.1296455,
+              "p95Ms": 0.166958,
+              "p99Ms": 0.175771
+            },
+            "Ui": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "Hud": {
+              "p50Ms": 0.128854,
+              "p95Ms": 0.1800415,
+              "p99Ms": 0.2109585
+            },
+            "HudImagePrepare": {
+              "p50Ms": 0.01579,
+              "p95Ms": 0.023501,
+              "p99Ms": 0.02871
+            },
+            "TextureUpload": {
+              "p50Ms": 0.081041,
+              "p95Ms": 0.081041,
+              "p99Ms": 0.081041
+            },
+            "ProceduralPrepare": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "ProceduralSubmit": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            }
+          },
+          "counters": {
+            "AvoidedPointerCalls": 104.9,
+            "BatchPreflightFailureReuses": 0.0,
+            "BufferOrphans": 0.0,
+            "BufferUploads": 0.0,
+            "DepthPreparedItems": 99.71041666666666,
+            "DepthReplayDrawsSaved": 158.53541666666666,
+            "DepthSnapshotCopies": 1.9375,
+            "DisplayListCalls": 107.01041666666666,
+            "DynamicBatches": 0.0,
+            "DynamicMergedPrimitives": 0.0,
+            "HudGlyphCacheFallbacks": 0.0,
+            "HudGlyphCacheHits": 58.96041666666667,
+            "HudGlyphCacheMisses": 0.0,
+            "HudSpriteCacheFallbacks": 0.0,
+            "HudSpriteCacheHits": 6.0,
+            "HudSpriteCacheMisses": 0.0,
+            "ImmediateDraws": 447.68125,
+            "IndexedDraws": 34.96666666666667,
+            "MergedDraws": 13.875,
+            "MeshObjectReuses": 0.0,
+            "PlainShaderFrames": 1.0,
+            "ProceduralDraws": 0.0,
+            "ProceduralItems": 305.7583333333333,
+            "ProceduralMaterialReuses": 27.72291666666667,
+            "ProceduralObjectReuses": 0.0,
+            "ProceduralUnlitPreparations": 229.31875000000002,
+            "ProceduralVertices": 0.0,
+            "ProgramBinds": 9.0,
+            "RoomBatchProofReuses": 0.5,
+            "RoomBatchProofs": 16.291666666666668,
+            "RoomDescriptorHits": 44.139583333333334,
+            "RoomDescriptorLookups": 218.35000000000002,
+            "RoomDrawTokenReuses": 13.691666666666666,
+            "RoomIdentityReuses": 0.0,
+            "SamplerSkips": 178.97500000000002,
+            "SamplerWrites": 201.2375,
+            "ShadowClusterRejects": 0.0,
+            "ShadowClusterTests": 0.0,
+            "ShadowMaterialReuses": 0.0,
+            "ShadowObjectReuses": 0.0,
+            "StateSkips": 633.1916666666666,
+            "TextureUploadBytes": 0.0,
+            "TextureUploads": 0.0,
+            "UniformArrayBytes": 19399.066666666666,
+            "UniformArraySkips": 73.89583333333334,
+            "UniformArrayUploads": 36.78125,
+            "UnlitShaderFrames": 0.0,
+            "UploadBytes": 0.0,
+            "VaoDraws": 34.96666666666667,
+            "WorldShaderVariantSwitches": 0.0
+          }
+        }
+      ],
+      "cpu": {
+        "CaptureWorld": {
+          "p50Ms": 0.046958,
+          "p95Ms": 0.06306275,
+          "p99Ms": 0.0693745
+        },
+        "Composite": {
+          "p50Ms": 0.013062250000000001,
+          "p95Ms": 0.01894825,
+          "p99Ms": 0.02534425
+        },
+        "Decal": {
+          "p50Ms": 0.01891675,
+          "p95Ms": 0.022906,
+          "p99Ms": 0.02765625
+        },
+        "DrawItems": {
+          "p50Ms": 0.084177,
+          "p95Ms": 0.13441675,
+          "p99Ms": 0.16320825
+        },
+        "Hud": {
+          "p50Ms": 0.13680199999999998,
+          "p95Ms": 0.18129125000000001,
+          "p99Ms": 0.21491675
+        },
+        "HudImagePrepare": {
+          "p50Ms": 0.021665999999999998,
+          "p95Ms": 0.0277285,
+          "p99Ms": 0.033564
+        },
+        "MarkTranslucent": {
+          "p50Ms": 0.13187525,
+          "p95Ms": 0.17486425,
+          "p99Ms": 0.18752075
+        },
+        "Opaque": {
+          "p50Ms": 0.428281,
+          "p95Ms": 0.50678125,
+          "p99Ms": 0.55482325
+        },
+        "Outlines": {
+          "p50Ms": 0.00030175000000000004,
+          "p95Ms": 0.0006455,
+          "p99Ms": 0.001125
+        },
+        "PostProcess": {
+          "p50Ms": 4.125e-05,
+          "p95Ms": 8.35e-05,
+          "p99Ms": 0.00012525
+        },
+        "Preparation": {
+          "p50Ms": 0.14119775,
+          "p95Ms": 0.19976,
+          "p99Ms": 0.23930225
+        },
+        "ProceduralPrepare": {
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null
+        },
+        "ProceduralSubmit": {
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null
+        },
+        "RebuildDepth": {
+          "p50Ms": 0.046844,
+          "p95Ms": 0.230458,
+          "p99Ms": 0.26309375
+        },
+        "SceneOverlays": {
+          "p50Ms": 0.0024165,
+          "p95Ms": 0.004916500000000001,
+          "p99Ms": 0.00806225
+        },
+        "Shadow": {
+          "p50Ms": 6.25e-05,
+          "p95Ms": 0.0001875,
+          "p99Ms": 0.0004165
+        },
+        "ShadowCollection": {
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null
+        },
+        "ShadowSubmission": {
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null
+        },
+        "TextureUpload": {
+          "p50Ms": 0.07535375,
+          "p95Ms": 0.08528125,
+          "p99Ms": 0.08528125
+        },
+        "TranslucentBehind": {
+          "p50Ms": 0.14282275,
+          "p95Ms": 0.18540600000000002,
+          "p99Ms": 0.19551000000000002
+        },
+        "TranslucentFront": {
+          "p50Ms": 0.12957275000000001,
+          "p95Ms": 0.1737085,
+          "p99Ms": 0.1827395
+        },
+        "Ui": {
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null
+        },
+        "World": {
+          "p50Ms": 0.93098975,
+          "p95Ms": 1.16462525,
+          "p99Ms": 1.260698
+        },
+        "WorldSetup": {
+          "p50Ms": 0.001781,
+          "p95Ms": 0.00285425,
+          "p99Ms": 0.004916749999999999
+        }
+      },
+      "counters": {
+        "AvoidedPointerCalls": 103.7625,
+        "BatchPreflightFailureReuses": 0.0,
+        "BufferOrphans": 0.0,
+        "BufferUploads": 0.0,
+        "DepthPreparedItems": 108.96562499999999,
+        "DepthReplayDrawsSaved": 157.74270833333333,
+        "DepthSnapshotCopies": 1.84375,
+        "DisplayListCalls": 109.80520833333333,
+        "DynamicBatches": 0.0,
+        "DynamicMergedPrimitives": 0.0,
+        "HudGlyphCacheFallbacks": 0.0,
+        "HudGlyphCacheHits": 60.71354166666667,
+        "HudGlyphCacheMisses": 0.0,
+        "HudSpriteCacheFallbacks": 0.0,
+        "HudSpriteCacheHits": 6.0,
+        "HudSpriteCacheMisses": 0.0,
+        "ImmediateDraws": 456.2864583333333,
+        "IndexedDraws": 34.587500000000006,
+        "MergedDraws": 13.6875,
+        "MeshObjectReuses": 0.0,
+        "PlainShaderFrames": 1.0,
+        "ProceduralDraws": 0.0,
+        "ProceduralItems": 317.92083333333335,
+        "ProceduralMaterialReuses": 25.861458333333335,
+        "ProceduralObjectReuses": 0.0,
+        "ProceduralUnlitPreparations": 236.61562500000002,
+        "ProceduralVertices": 0.0,
+        "ProgramBinds": 9.0,
+        "RoomBatchProofReuses": 0.8354166666666667,
+        "RoomBatchProofs": 16.333333333333336,
+        "RoomDescriptorHits": 44.178125,
+        "RoomDescriptorLookups": 223.875,
+        "RoomDrawTokenReuses": 13.508333333333333,
+        "RoomIdentityReuses": 0.0,
+        "SamplerSkips": 183.88750000000002,
+        "SamplerWrites": 197.21875,
+        "ShadowClusterRejects": 0.0,
+        "ShadowClusterTests": 0.0,
+        "ShadowMaterialReuses": 0.0,
+        "ShadowObjectReuses": 0.0,
+        "StateSkips": 639.0104166666666,
+        "TextureUploadBytes": 0.0,
+        "TextureUploads": 0.0,
+        "UniformArrayBytes": 19538.86666666667,
+        "UniformArraySkips": 75.17500000000001,
+        "UniformArrayUploads": 36.80520833333333,
+        "UnlitShaderFrames": 0.0,
+        "UploadBytes": 0.0,
+        "VaoDraws": 34.587500000000006,
+        "WorldShaderVariantSwitches": 0.0
+      }
+    },
+    "candidate": {
+      "perRun": [
+        {
+          "name": "completion-postfix-profile-candidate-a",
+          "completePostWarmupWindows": 16,
+          "cpu": {
+            "Preparation": {
+              "p50Ms": 0.145208,
+              "p95Ms": 0.2149995,
+              "p99Ms": 0.247604
+            },
+            "DrawItems": {
+              "p50Ms": 0.08662500000000001,
+              "p95Ms": 0.1425005,
+              "p99Ms": 0.16925
+            },
+            "CaptureWorld": {
+              "p50Ms": 0.0411045,
+              "p95Ms": 0.06025,
+              "p99Ms": 0.06589600000000001
+            },
+            "ShadowCollection": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "ShadowSubmission": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "Shadow": {
+              "p50Ms": 4.2e-05,
+              "p95Ms": 0.00016649999999999998,
+              "p99Ms": 0.000333
+            },
+            "WorldSetup": {
+              "p50Ms": 0.001834,
+              "p95Ms": 0.0032294999999999997,
+              "p99Ms": 0.005708
+            },
+            "World": {
+              "p50Ms": 0.9272294999999999,
+              "p95Ms": 1.163167,
+              "p99Ms": 1.2151874999999999
+            },
+            "Outlines": {
+              "p50Ms": 0.000292,
+              "p95Ms": 0.0006039999999999999,
+              "p99Ms": 0.0011250000000000001
+            },
+            "SceneOverlays": {
+              "p50Ms": 0.003833,
+              "p95Ms": 0.0058955,
+              "p99Ms": 0.009729
+            },
+            "PostProcess": {
+              "p50Ms": 4.2e-05,
+              "p95Ms": 0.000125,
+              "p99Ms": 0.0002085
+            },
+            "Composite": {
+              "p50Ms": 0.0138125,
+              "p95Ms": 0.0221875,
+              "p99Ms": 0.030146
+            },
+            "Opaque": {
+              "p50Ms": 0.4275,
+              "p95Ms": 0.5307085,
+              "p99Ms": 0.5612079999999999
+            },
+            "Decal": {
+              "p50Ms": 0.018229,
+              "p95Ms": 0.023521,
+              "p99Ms": 0.0280005
+            },
+            "MarkTranslucent": {
+              "p50Ms": 0.130208,
+              "p95Ms": 0.1643955,
+              "p99Ms": 0.1780205
+            },
+            "RebuildDepth": {
+              "p50Ms": 0.048229,
+              "p95Ms": 0.28037449999999997,
+              "p99Ms": 0.30122899999999997
+            },
+            "TranslucentBehind": {
+              "p50Ms": 0.13845849999999998,
+              "p95Ms": 0.1765005,
+              "p99Ms": 0.1862915
+            },
+            "TranslucentFront": {
+              "p50Ms": 0.1233745,
+              "p95Ms": 0.1779165,
+              "p99Ms": 0.1862295
+            },
+            "Ui": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "Hud": {
+              "p50Ms": 0.125604,
+              "p95Ms": 0.17766700000000002,
+              "p99Ms": 0.20127050000000002
+            },
+            "HudImagePrepare": {
+              "p50Ms": 0.015812,
+              "p95Ms": 0.0222305,
+              "p99Ms": 0.0298955
+            },
+            "TextureUpload": {
+              "p50Ms": 0.060542,
+              "p95Ms": 0.076375,
+              "p99Ms": 0.076375
+            },
+            "ProceduralPrepare": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "ProceduralSubmit": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            }
+          },
+          "counters": {
+            "AvoidedPointerCalls": 103.38125,
+            "BatchPreflightFailureReuses": 0.0,
+            "BufferOrphans": 0.0,
+            "BufferUploads": 0.0,
+            "DepthPreparedItems": 91.04166666666667,
+            "DepthReplayDrawsSaved": 149.18333333333334,
+            "DepthSnapshotCopies": 1.7666666666666666,
+            "DisplayListCalls": 109.15416666666667,
+            "DynamicBatches": 0.0,
+            "DynamicMergedPrimitives": 0.0,
+            "HudGlyphCacheFallbacks": 0.0,
+            "HudGlyphCacheHits": 58.02916666666667,
+            "HudGlyphCacheMisses": 0.0,
+            "HudSpriteCacheFallbacks": 0.0,
+            "HudSpriteCacheHits": 6.0,
+            "HudSpriteCacheMisses": 0.0,
+            "ImmediateDraws": 456.16041666666666,
+            "IndexedDraws": 34.46041666666667,
+            "MergedDraws": 13.6125,
+            "MeshObjectReuses": 62.8625,
+            "PlainShaderFrames": 1.0,
+            "ProceduralDraws": 0.0,
+            "ProceduralItems": 311.79166666666663,
+            "ProceduralMaterialReuses": 24.579166666666666,
+            "ProceduralObjectReuses": 0.0,
+            "ProceduralUnlitPreparations": 233.8125,
+            "ProceduralVertices": 0.0,
+            "ProgramBinds": 9.0,
+            "RoomBatchProofReuses": 1.5333333333333332,
+            "RoomBatchProofs": 15.227083333333333,
+            "RoomDescriptorHits": 42.92916666666667,
+            "RoomDescriptorLookups": 221.88541666666669,
+            "RoomDrawTokenReuses": 13.395833333333332,
+            "RoomIdentityReuses": 42.65833333333333,
+            "SamplerSkips": 178.95,
+            "SamplerWrites": 194.20416666666665,
+            "ShadowClusterRejects": 0.0,
+            "ShadowClusterTests": 0.0,
+            "ShadowMaterialReuses": 0.0,
+            "ShadowObjectReuses": 0.0,
+            "StateSkips": 635.075,
+            "TextureUploadBytes": 0.0,
+            "TextureUploads": 0.0,
+            "UniformArrayBytes": 19658.266666666666,
+            "UniformArraySkips": 26.610416666666666,
+            "UniformArrayUploads": 36.547916666666666,
+            "UnlitShaderFrames": 0.0,
+            "UploadBytes": 0.0,
+            "VaoDraws": 34.46041666666667,
+            "WorldShaderVariantSwitches": 0.0
+          }
+        },
+        {
+          "name": "completion-postfix-profile-candidate-b",
+          "completePostWarmupWindows": 16,
+          "cpu": {
+            "Preparation": {
+              "p50Ms": 0.13289600000000001,
+              "p95Ms": 0.202937,
+              "p99Ms": 0.22949999999999998
+            },
+            "DrawItems": {
+              "p50Ms": 0.085729,
+              "p95Ms": 0.134271,
+              "p99Ms": 0.1637085
+            },
+            "CaptureWorld": {
+              "p50Ms": 0.041729,
+              "p95Ms": 0.0632915,
+              "p99Ms": 0.0746665
+            },
+            "ShadowCollection": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "ShadowSubmission": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "Shadow": {
+              "p50Ms": 4.2e-05,
+              "p95Ms": 0.000125,
+              "p99Ms": 0.00033350000000000003
+            },
+            "WorldSetup": {
+              "p50Ms": 0.001667,
+              "p95Ms": 0.003062,
+              "p99Ms": 0.005187499999999999
+            },
+            "World": {
+              "p50Ms": 0.9009165,
+              "p95Ms": 1.1164585,
+              "p99Ms": 1.1839165
+            },
+            "Outlines": {
+              "p50Ms": 0.0002915,
+              "p95Ms": 0.0005,
+              "p99Ms": 0.000875
+            },
+            "SceneOverlays": {
+              "p50Ms": 0.0023750000000000004,
+              "p95Ms": 0.0052085,
+              "p99Ms": 0.0093335
+            },
+            "PostProcess": {
+              "p50Ms": 4.1e-05,
+              "p95Ms": 4.2e-05,
+              "p99Ms": 4.2e-05
+            },
+            "Composite": {
+              "p50Ms": 0.0130835,
+              "p95Ms": 0.0203955,
+              "p99Ms": 0.026270500000000002
+            },
+            "Opaque": {
+              "p50Ms": 0.4186875,
+              "p95Ms": 0.49329200000000006,
+              "p99Ms": 0.5226040000000001
+            },
+            "Decal": {
+              "p50Ms": 0.017917,
+              "p95Ms": 0.0223125,
+              "p99Ms": 0.026229
+            },
+            "MarkTranslucent": {
+              "p50Ms": 0.128583,
+              "p95Ms": 0.175979,
+              "p99Ms": 0.189271
+            },
+            "RebuildDepth": {
+              "p50Ms": 0.0478535,
+              "p95Ms": 0.277125,
+              "p99Ms": 0.299604
+            },
+            "TranslucentBehind": {
+              "p50Ms": 0.1380835,
+              "p95Ms": 0.1929795,
+              "p99Ms": 0.2036665
+            },
+            "TranslucentFront": {
+              "p50Ms": 0.1274785,
+              "p95Ms": 0.184833,
+              "p99Ms": 0.196167
+            },
+            "Ui": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "Hud": {
+              "p50Ms": 0.135021,
+              "p95Ms": 0.1699585,
+              "p99Ms": 0.2003335
+            },
+            "HudImagePrepare": {
+              "p50Ms": 0.017523,
+              "p95Ms": 0.021623499999999997,
+              "p99Ms": 0.026933
+            },
+            "TextureUpload": {
+              "p50Ms": 0.051166,
+              "p95Ms": 0.073085,
+              "p99Ms": 0.073085
+            },
+            "ProceduralPrepare": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            },
+            "ProceduralSubmit": {
+              "p50Ms": null,
+              "p95Ms": null,
+              "p99Ms": null
+            }
+          },
+          "counters": {
+            "AvoidedPointerCalls": 98.3125,
+            "BatchPreflightFailureReuses": 0.0,
+            "BufferOrphans": 0.0,
+            "BufferUploads": 0.0,
+            "DepthPreparedItems": 109.10208333333333,
+            "DepthReplayDrawsSaved": 148.55833333333334,
+            "DepthSnapshotCopies": 1.7375,
+            "DisplayListCalls": 109.9625,
+            "DynamicBatches": 0.0,
+            "DynamicMergedPrimitives": 0.0,
+            "HudGlyphCacheFallbacks": 0.0,
+            "HudGlyphCacheHits": 59.666666666666664,
+            "HudGlyphCacheMisses": 0.0,
+            "HudSpriteCacheFallbacks": 0.0,
+            "HudSpriteCacheHits": 6.0,
+            "HudSpriteCacheMisses": 0.0,
+            "ImmediateDraws": 444.1333333333333,
+            "IndexedDraws": 32.77083333333333,
+            "MergedDraws": 12.947916666666668,
+            "MeshObjectReuses": 64.3875,
+            "PlainShaderFrames": 1.0,
+            "ProceduralDraws": 0.0,
+            "ProceduralItems": 325.05833333333334,
+            "ProceduralMaterialReuses": 23.15,
+            "ProceduralObjectReuses": 0.0,
+            "ProceduralUnlitPreparations": 234.4375,
+            "ProceduralVertices": 0.0,
+            "ProgramBinds": 9.0,
+            "RoomBatchProofReuses": 1.4291666666666667,
+            "RoomBatchProofs": 16.014583333333334,
+            "RoomDescriptorHits": 43.48125,
+            "RoomDescriptorLookups": 224.325,
+            "RoomDrawTokenReuses": 12.766666666666666,
+            "RoomIdentityReuses": 43.23125,
+            "SamplerSkips": 184.0,
+            "SamplerWrites": 194.37291666666667,
+            "ShadowClusterRejects": 0.0,
+            "ShadowClusterTests": 0.0,
+            "ShadowMaterialReuses": 0.0,
+            "ShadowObjectReuses": 0.0,
+            "StateSkips": 633.1458333333333,
+            "TextureUploadBytes": 0.0,
+            "TextureUploads": 0.0,
+            "UniformArrayBytes": 19773.466666666667,
+            "UniformArraySkips": 26.5625,
+            "UniformArrayUploads": 37.4125,
+            "UnlitShaderFrames": 0.0,
+            "UploadBytes": 0.0,
+            "VaoDraws": 32.77083333333333,
+            "WorldShaderVariantSwitches": 0.0
+          }
+        }
+      ],
+      "cpu": {
+        "CaptureWorld": {
+          "p50Ms": 0.04141675,
+          "p95Ms": 0.06177075,
+          "p99Ms": 0.07028125
+        },
+        "Composite": {
+          "p50Ms": 0.013448,
+          "p95Ms": 0.021291499999999998,
+          "p99Ms": 0.02820825
+        },
+        "Decal": {
+          "p50Ms": 0.018073,
+          "p95Ms": 0.02291675,
+          "p99Ms": 0.02711475
+        },
+        "DrawItems": {
+          "p50Ms": 0.086177,
+          "p95Ms": 0.13838575,
+          "p99Ms": 0.16647925000000002
+        },
+        "Hud": {
+          "p50Ms": 0.1303125,
+          "p95Ms": 0.17381275000000002,
+          "p99Ms": 0.200802
+        },
+        "HudImagePrepare": {
+          "p50Ms": 0.016667500000000002,
+          "p95Ms": 0.021927,
+          "p99Ms": 0.02841425
+        },
+        "MarkTranslucent": {
+          "p50Ms": 0.1293955,
+          "p95Ms": 0.17018725,
+          "p99Ms": 0.18364575
+        },
+        "Opaque": {
+          "p50Ms": 0.42309375,
+          "p95Ms": 0.51200025,
+          "p99Ms": 0.541906
+        },
+        "Outlines": {
+          "p50Ms": 0.00029175,
+          "p95Ms": 0.000552,
+          "p99Ms": 0.001
+        },
+        "PostProcess": {
+          "p50Ms": 4.15e-05,
+          "p95Ms": 8.35e-05,
+          "p99Ms": 0.00012525
+        },
+        "Preparation": {
+          "p50Ms": 0.139052,
+          "p95Ms": 0.20896825000000002,
+          "p99Ms": 0.238552
+        },
+        "ProceduralPrepare": {
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null
+        },
+        "ProceduralSubmit": {
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null
+        },
+        "RebuildDepth": {
+          "p50Ms": 0.04804125,
+          "p95Ms": 0.27874975,
+          "p99Ms": 0.3004165
+        },
+        "SceneOverlays": {
+          "p50Ms": 0.003104,
+          "p95Ms": 0.005552,
+          "p99Ms": 0.00953125
+        },
+        "Shadow": {
+          "p50Ms": 4.2e-05,
+          "p95Ms": 0.00014575,
+          "p99Ms": 0.00033325
+        },
+        "ShadowCollection": {
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null
+        },
+        "ShadowSubmission": {
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null
+        },
+        "TextureUpload": {
+          "p50Ms": 0.055854,
+          "p95Ms": 0.07472999999999999,
+          "p99Ms": 0.07472999999999999
+        },
+        "TranslucentBehind": {
+          "p50Ms": 0.13827099999999998,
+          "p95Ms": 0.18474000000000002,
+          "p99Ms": 0.194979
+        },
+        "TranslucentFront": {
+          "p50Ms": 0.1254265,
+          "p95Ms": 0.18137475,
+          "p99Ms": 0.19119825000000001
+        },
+        "Ui": {
+          "p50Ms": null,
+          "p95Ms": null,
+          "p99Ms": null
+        },
+        "World": {
+          "p50Ms": 0.9140729999999999,
+          "p95Ms": 1.13981275,
+          "p99Ms": 1.199552
+        },
+        "WorldSetup": {
+          "p50Ms": 0.0017504999999999999,
+          "p95Ms": 0.00314575,
+          "p99Ms": 0.0054477499999999995
+        }
+      },
+      "counters": {
+        "AvoidedPointerCalls": 100.846875,
+        "BatchPreflightFailureReuses": 0.0,
+        "BufferOrphans": 0.0,
+        "BufferUploads": 0.0,
+        "DepthPreparedItems": 100.071875,
+        "DepthReplayDrawsSaved": 148.87083333333334,
+        "DepthSnapshotCopies": 1.7520833333333332,
+        "DisplayListCalls": 109.55833333333334,
+        "DynamicBatches": 0.0,
+        "DynamicMergedPrimitives": 0.0,
+        "HudGlyphCacheFallbacks": 0.0,
+        "HudGlyphCacheHits": 58.84791666666666,
+        "HudGlyphCacheMisses": 0.0,
+        "HudSpriteCacheFallbacks": 0.0,
+        "HudSpriteCacheHits": 6.0,
+        "HudSpriteCacheMisses": 0.0,
+        "ImmediateDraws": 450.146875,
+        "IndexedDraws": 33.615624999999994,
+        "MergedDraws": 13.280208333333334,
+        "MeshObjectReuses": 63.625,
+        "PlainShaderFrames": 1.0,
+        "ProceduralDraws": 0.0,
+        "ProceduralItems": 318.42499999999995,
+        "ProceduralMaterialReuses": 23.864583333333332,
+        "ProceduralObjectReuses": 0.0,
+        "ProceduralUnlitPreparations": 234.125,
+        "ProceduralVertices": 0.0,
+        "ProgramBinds": 9.0,
+        "RoomBatchProofReuses": 1.48125,
+        "RoomBatchProofs": 15.620833333333334,
+        "RoomDescriptorHits": 43.20520833333333,
+        "RoomDescriptorLookups": 223.10520833333334,
+        "RoomDrawTokenReuses": 13.081249999999999,
+        "RoomIdentityReuses": 42.94479166666667,
+        "SamplerSkips": 181.475,
+        "SamplerWrites": 194.28854166666667,
+        "ShadowClusterRejects": 0.0,
+        "ShadowClusterTests": 0.0,
+        "ShadowMaterialReuses": 0.0,
+        "ShadowObjectReuses": 0.0,
+        "StateSkips": 634.1104166666667,
+        "TextureUploadBytes": 0.0,
+        "TextureUploads": 0.0,
+        "UniformArrayBytes": 19715.86666666667,
+        "UniformArraySkips": 26.586458333333333,
+        "UniformArrayUploads": 36.98020833333334,
+        "UnlitShaderFrames": 0.0,
+        "UploadBytes": 0.0,
+        "VaoDraws": 33.615624999999994,
+        "WorldShaderVariantSwitches": 0.0
+      }
+    }
+  }
+}
