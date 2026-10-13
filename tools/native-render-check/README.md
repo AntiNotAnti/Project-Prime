@@ -246,6 +246,16 @@ names. This does not enumerate every object in the context or prove driver
 residency release. Historical artifacts preceding this extension contain a
 narrower ownership set and no native `IsList` witness.
 
+Add `-resource-shader-source-ledger` to observe the existing canonical/world
+variant shader-owner hook. The tool hashes GLSL after `ShaderSource` and before
+compilation, retaining at most 64 stage/hash keys and scalar callback counts.
+It restores the previous hook when the fixture closes. This requires a client
+with the existing shader-owner hook; unsupported clients fail explicitly.
+Compile/link callback counts are attempts, not successful operations. The
+ledger excludes graphics pipeline, outline and HUD/UI paths without that hook;
+equal source hashes do not prove identical driver pipeline keys or safe program
+sharing. Source bodies and native owner objects are not retained.
+
 GC telemetry includes cumulative pause milliseconds and the latest collection's
 pause durations/generation/concurrent/compacted flags; transition observations
 include context disposal wall time and GC pause delta. These do not isolate every
