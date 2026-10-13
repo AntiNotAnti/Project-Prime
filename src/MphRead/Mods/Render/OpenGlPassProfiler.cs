@@ -10,7 +10,7 @@ internal enum OpenGlCpuPass
     Preparation, DrawItems, CaptureWorld, ShadowCollection, ShadowSubmission,
     Shadow, WorldSetup, World, Outlines, SceneOverlays, PostProcess, Composite,
     Opaque, Decal, MarkTranslucent, RebuildDepth, TranslucentBehind, TranslucentFront, Ui, Hud,
-    HudImagePrepare, TextureUpload, ProceduralPrepare, ProceduralSubmit
+    HudImagePrepare, TextureUpload, ProceduralPrepare, ProceduralSubmit, ItemSetup, GeometrySubmission
 }
 
 internal enum OpenGlFrameCounter
@@ -68,7 +68,7 @@ internal static class OpenGlPassProfiler
         internal readonly OpenGlSampleWindow Allocations = new();
         internal bool Active;
         internal long Allocated;
-        internal int Frames, Generation, Window;
+        internal int Frames, Generation, Window, CurrentPass = -1;
     }
     internal static void BeginFrame()
     {
@@ -76,6 +76,8 @@ internal static class OpenGlPassProfiler
         State s = _state ??= new State();
         if (s.Active) CancelFrame();
         Array.Clear(s.Ticks); Array.Clear(s.Seen); Array.Clear(s.Counters);
+        OpenGlDrawAttribution.BeginFrame();
+        s.CurrentPass = -1;
         s.Generation = ++_generation;
         s.Active = true;
         s.Allocated = GC.GetAllocatedBytesForCurrentThread();
@@ -83,35 +85,48 @@ internal static class OpenGlPassProfiler
     internal static void CancelFrame()
     {
         if (_state is not { } s) return;
-        s.Active = false; s.Generation = ++_generation; s.Frames = 0;
+        OpenGlDrawAttribution.CancelFrame();
+        s.Active = false; s.Generation = ++_generation; s.Frames = 0; s.CurrentPass = -1;
         foreach (var window in s.Cpu) window.Reset();
         s.Allocations.Reset(); Array.Clear(s.Sums);
     }
-    internal static void ResetContext() { _generation++; _state = null; }
+    internal static void ResetContext() { _generation++; _state = null; OpenGlDrawAttribution.ResetContext(); }
+    internal static int CurrentPass => _state is { Active: true } s ? s.CurrentPass : -1;
     internal static Scope Measure(OpenGlCpuPass pass)
-        => _state is { Active: true } s ? new Scope(s.Generation, pass, Stopwatch.GetTimestamp()) : default;
+    {
+        if (_state is not { Active: true } s) return default;
+        var scope = new Scope(s.Generation, pass, s.CurrentPass, Stopwatch.GetTimestamp());
+        s.CurrentPass = (int)pass;
+        return scope;
+    }
     internal readonly struct Scope : IDisposable
     {
-        private readonly int _generation;
+        private readonly int _generation, _previousPass;
         private readonly OpenGlCpuPass _pass;
         private readonly long _start;
-        internal Scope(int generation, OpenGlCpuPass pass, long start) { _generation = generation; _pass = pass; _start = start; }
+        internal Scope(int generation, OpenGlCpuPass pass, long start) : this(generation, pass, -1, start) { }
+        internal Scope(int generation, OpenGlCpuPass pass, int previousPass, long start) { _generation = generation; _pass = pass; _previousPass = previousPass; _start = start; }
         public void Dispose()
         {
             if (_start == 0 || _state is not { Active: true } s || s.Generation != _generation) return;
             long elapsed = Stopwatch.GetTimestamp() - _start;
             if (elapsed < 0) { CancelFrame(); return; }
-            s.Ticks[(int)_pass] += elapsed; s.Seen[(int)_pass] = true;
+            s.Ticks[(int)_pass] += elapsed; s.Seen[(int)_pass] = true; s.CurrentPass = _previousPass;
         }
     }
     internal static void Count(OpenGlFrameCounter counter, long value = 1)
-    { if (_state is { Active: true } s) s.Counters[(int)counter] += value; }
+    {
+        if (_state is not { Active: true } s) return;
+        s.Counters[(int)counter] += value;
+        if (counter == OpenGlFrameCounter.ImmediateDraws) OpenGlDrawAttribution.NoteImmediate(s.CurrentPass, value);
+    }
     internal static void EndFrame()
     {
         if (_state is not { Active: true } s) return;
         long allocated = GC.GetAllocatedBytesForCurrentThread() - s.Allocated;
         s.Active = false;
         if (allocated < 0) { CancelFrame(); return; }
+        OpenGlDrawAttribution.EndFrame();
         s.Allocations.Add(allocated);
         for (int i = 0; i < s.Cpu.Length; i++)
             if (s.Seen[i]) s.Cpu[i].Add(s.Ticks[i] * 1000.0 / Stopwatch.Frequency);
@@ -125,6 +140,7 @@ internal static class OpenGlPassProfiler
         {
             schema = 1, samples = 240, window = ++s.Window, warmup = s.Window == 1,
             cpu, allocatedBytes = s.Allocations.Summary(bytes: true), counters,
+            drawAttribution = OpenGlDrawAttribution.Summary(),
             // Byte estimates are not driver residency measurements.
 #if !MPHREAD_SERVER && !ANDROID
             retainedBufferBytes = DesktopRetainedGeometry.ResidentBytes,

@@ -449,11 +449,13 @@ namespace MphRead.Mods.Network
                 if (active && player != null)
                 {
                     _position[i, index] = player.Position;
-                    bool turretActive = player.Hunter == Hunter.Weavel
+                    if (player.Hunter == Hunter.Weavel
                         && player.Flags2.TestFlag(PlayerFlags2.Halfturret)
-                        && player.Halfturret != null && player.Halfturret.Health > 0;
-                    _halfturretActive[i, index] = turretActive;
-                    if (turretActive) _halfturretPosition[i, index] = player.Halfturret.Position;
+                        && player.Halfturret is { Health: > 0 } turret)
+                    {
+                        _halfturretActive[i, index] = true;
+                        _halfturretPosition[i, index] = turret.Position;
+                    }
                     _altForm[i, index] = player.IsAltForm;
                     _morphing[i, index] = player.IsMorphing;
                     _targetTeam[i, index] = player.TeamIndex;

@@ -137,7 +137,7 @@ internal sealed partial class ReplayReplicaState
                 int size = protocol == 24 ? 41 + HostRequestPacket.MaxRoomBytes : protocol < 31 ? SessionStatePacket.Protocol28Size : SessionStatePacket.Size;
                 byte[] packet = new byte[size + 1]; packet[0] = (byte)PacketType.SessionState;
                 Read(size).CopyTo(packet, 1);
-                if (!SessionStatePacket.TryRead(ReplayIdentityCompatibility.Convert(packet, protocol)[1..], out var configuration)) throw Malformed();
+                if (!SessionStatePacket.TryReadArchived(ReplayIdentityCompatibility.Convert(packet, protocol)[1..], out var configuration)) throw Malformed();
                 restored.Configuration = configuration;
             }
             int rosterSize = protocol >= 33 ? RosterPacket.Size

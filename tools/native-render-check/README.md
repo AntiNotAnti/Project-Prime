@@ -100,3 +100,275 @@ This separate lifecycle mode rotates `MP9 CRYOCHASM` and `MP3 PROVING GROUND` in
 The fixture verifies exact repeated room pixels, owned-resource cleanup and retained generations per cycle, plus three actual Studio renderer/cache geometry/material reloads. Studio UI interactions are outside this test. RSS/managed memory are informational; unsupported Mac private-memory accounting is null, not a zero-memory claim. Thirty cycles supply longer-run evidence beyond the pilot. Mismatch files preserve reference/candidate RGBA, float depth, PNGs and exact frame metadata in `-resource-evidence` (default `<output>.resource-evidence`).
 
 Independent timing probes accept `-render-scale 25..200` (percent), `-texturequality Automatic|Low|Medium|High|Ultra`, and `-lighting true|false`. The modernization resource runner separates unprofiled ABBA, profiled Low/High/Ultra shadows, and render-scale/texture-response proxies. Such proxies do not directly measure GPU bandwidth or overdraw.
+
+## Controlled memory-attribution arms
+
+`-resource-arm combined|map-gl|studio|audio` selects a lifecycle arm (default
+`combined`). Use one immutable harness/client build for the whole campaign,
+repeat in reverse order, and preserve the recorded identities. The modes are:
+
+| Arm | Work per cycle | Audio | GL / Studio |
+| --- | --- | --- | --- |
+| `combined` | Two real map loads, exact fixed-frame fallback comparison, three Studio cache rebuilds | Ordinary scene audio | One window/context, ordinary renderer plus Studio |
+| `map-gl` | The same two maps, players, RNG, simulation steps, rendering, failure schedule and readbacks | SFX stub; music device closed before measurement | Same window/context, no Studio |
+| `studio` | Three geometry/material rebuilds of the existing 320x180 generated editor fixture | Music device closed before measurement | One window/context, no map scene or simulation |
+| `audio` | Two SFX initialization/update/shutdown loads; exactly `-resourceframes` 1/60-second audio updates per load | Ordinary SFX banks, OpenAL owner and feedback warmup | No window/context, map scene or Studio |
+
+All stress arms omit the historical harness's unused initial map load before
+the first measured cycle. This changes the harness startup fixture; compare
+these arms to a fresh `combined` run from **this same build**. Existing historical
+reports remain unchanged. Non-stress renderer/performance modes retain their
+ordinary startup path.
+
+`map-gl` installs the existing `SfxInstanceBase` stub and wraps `ISceneServices`
+only during `AddRoom`. Every policy is forwarded except
+`AllowsPresentationSideEffects`; the two guarded statements skipped in
+`SceneSetup.LoadGame` are exactly `Sfx.Load` and `Music.TryPlayRoomMusic`.
+The original services are restored in `finally`, before `LoadScene` and every
+simulation/render step. Headless and thumbnail switches are untouched. Music's
+existing static constructor still performs one startup device probe; the tool
+closes that device with its existing shutdown method before window construction.
+`manifest.musicStartupProbeClosed` records this, so these arms **do not claim
+zero startup audio allocation**. Repeated `Music.Init` still reads its managed
+metadata but cannot start a closed device.
+
+`audio` exercises SFX lifecycle and feedback initialization, including the
+existing MiniAudio feedback device. It excludes room music, audible playback,
+map resources, renderer and replay. It requests the same diagnostic unload GC
+as `RenderWindow.EndScene`, without changing production policy. Shutdown may
+overlap the next load by default; add `-resource-audio-wait` to wait up to 15
+seconds after each unload for a separate serialized comparison. Native audio
+fallback to a silent stub fails this arm, so unavailable devices cannot appear
+to pass ownership validation. Context/source/buffer fields and owner-array
+counts are observations of existing owners, not a complete OpenAL handle census.
+
+Every map unload retains the existing release assertions and adds explicit
+scene texture/framebuffer/program ownership release checks. A program still
+bound after deletion may remain a valid driver name; it must have DeleteStatus
+set and no remaining owner field. Such pending deletions are counted explicitly. Records include RSS,
+private/virtual bytes when supported, managed live/committed/fragmented and LOH
+metrics, allocations/collections, process thread/handle counts, thread-pool
+workers/pending work, audio owner/pool counts and outstanding shutdown tasks.
+Detailed task observations are emitted once in the final result, avoiding an
+expanding task-detail array in every sample. GL counts cover the existing owned
+resources; global driver object/residency accounting, VM categories and native
+allocation stacks remain unavailable. Process accounting cannot distinguish
+allocator retention from a driver cache or a native leak.
+
+`-resource-drain` waits for **all** observed audio tasks, verifies completion,
+then performs diagnostic full GC/LOH compaction/finalizers and `GL.Finish` where
+there is a GL context. It records repeated post-drain samples at
+`-resource-quiescent-samples 2..120` (default 6), separated by
+`-resource-quiescent-ms 10..5000` (default 1000). Quiescence performs no more
+loads, draws, audio updates or forced collections. These samples describe the
+process while its context is still alive. They do not establish behavior after
+context destruction. No lifecycle result is FPS evidence.
+
+For a sequential campaign with immutable DLL hashes, SDK/runtime info, source
+SHA/dirty state, environment flags, exact commands, logs and per-arm analyses:
+
+```sh
+PROJECT_PRIME_USER_DATA='/absolute/path/to/user-data' \
+python3 tools/native-render-check/run_resource_arms.py \
+  --dotnet /absolute/path/to/dotnet \
+  --binary tools/native-render-check/bin/Release/net10.0/native-render-check.dll \
+  --output /absolute/path/fresh-campaign-directory \
+  --arms combined map-gl studio audio --cycles 60 --frames 120 \
+  --quiescent-samples 30 --quiescent-ms 1000
+```
+
+The runner records source state from its own checkout, not an inferred commit
+from a DLL. Actual client/harness SHA-256 and MVID are authoritative for build
+identity; a baseline built via `MphReadProject` can have a different source SHA.
+Use a second fresh directory and `--arms audio studio map-gl combined` for
+reverse order. Extra shared harness flags may follow `--`, e.g.
+`-- -failure-stages none`; separate the no-failure workload from the injected
+workload and keep the choice identical in paired map arms. `--dry-run` prepares
+the manifest/commands without opening a window or audio device. Do not rebuild
+the DLLs or run another native diagnostic during a campaign.
+
+Analyze an existing result independently:
+
+```sh
+python3 tools/native-render-check/analyze_resources.py /absolute/path/result.json \
+  --warmup-cycles 5 --block-cycles 10 --output /absolute/path/analysis.json
+python3 -m unittest discover -s tools/native-render-check -p 'test_*.py' -v
+```
+
+The analyzer excludes requested warmup cycles, reports whole-run and latter-half
+OLS slopes per full cycle, block means/ranges and quiescent slopes per second.
+Reference, candidate and Studio cleanup observations are separate series.
+Unavailable/null counters stay unavailable; a short pilot with no post-warmup
+samples yields no slope. R-squared is descriptive and does not supply confidence
+intervals for autocorrelated reload samples. A flat/positive slope never
+changes the report's `boundedness: UNVERIFIED` classification automatically.
+Rendered replay and full Studio UI isolation remain **NOT_RUN**. Windowless
+reader/replica/seek isolation is provided by
+[replay-memory-check](../replay-memory-check/README.md).
+
+## Context teardown and recreation controls
+
+`-resource-context-cycles 120,180` runs those cycle counts sequentially in two
+actual unshared windows/contexts, using the existing map-gl or Studio stress
+fixture. It requires `-resource-drain`. Each ordinary fixture produces its own
+JSON and exact pixel/depth/ownership checks. After `EndScene` and actual window
+`Dispose`, the process stays alive for `-resource-context-post-samples` samples
+at `-resource-context-post-ms` intervals. No additional GC occurs after context
+teardown. The workload helper returns before those observations; the managed
+window wrapper can remain weak-alive until a later collection.
+
+```sh
+PROJECT_PRIME_USER_DATA='/absolute/operator-owned/user-data' \
+PROJECT_PRIME_GL_FORCE_LEGACY=0 \
+python3 tools/native-render-check/run_context_controls.py \
+  --dotnet /absolute/dotnet --binary /absolute/immutable/native-render-check.dll \
+  --output /absolute/fresh-context-campaign --cycles 120 180 --frames 120 \
+  --samples 60 --capture-native-stacks
+```
+
+The optional native sampler adds `MallocStackLogging=1` and preserves live
+`vmmap -summary` and `malloc_history -allBySize -fullStacks` captures before and
+after every context disposal, together with commands, times, statuses and
+hashes. Missing tools/captures are preserved, not reported as zero bytes. Stack
+logging perturbs memory/CPU. Mapped platform resource records can carry AGX
+compiler frames; they are not automatically live malloc bytes. The streaming
+`analyze_graphics_stacks.py` separates explicit VM groups and reports
+`mallocPrefixBytes` only when libsystem_malloc appears in the first three
+frames. That prefix is an observed mechanism, not a complete heap census.
+
+Scene cleanup now corroborates owner counters with actual `IsList`,
+`IsBuffer`, APPLE/core `IsVertexArray`, `IsTexture`, `IsFramebuffer`,
+`IsRenderbuffer`, `IsProgram` and `IsShader` queries against captured names.
+Retail model leases, current character/editor lists, retained/combined geometry,
+all named scene programs/world variants and attached shaders are covered.
+Recognized deletion-pending programs/shaders remain separate from destroyed
+names. This does not enumerate every object in the context or prove driver
+residency release. Historical artifacts preceding this extension contain a
+narrower ownership set and no native `IsList` witness.
+
+Add `-resource-shader-source-ledger` to observe the existing canonical/world
+variant shader-owner hook. The tool hashes GLSL after `ShaderSource` and before
+compilation, retaining at most 64 stage/hash keys and scalar callback counts.
+It restores the previous hook when the fixture closes. This requires a client
+with the existing shader-owner hook; unsupported clients fail explicitly.
+Compile/link callback counts are attempts, not successful operations. The
+ledger excludes graphics pipeline, outline and HUD/UI paths without that hook;
+equal source hashes do not prove identical driver pipeline keys or safe program
+sharing. Source bodies and native owner objects are not retained.
+
+GC telemetry includes cumulative pause milliseconds and the latest collection's
+pause durations/generation/concurrent/compacted flags; transition observations
+include context disposal wall time and GC pause delta. These do not isolate every
+engine transition GC call or justify changing production GC policy.
+
+For a final process-lifetime control, add `--driver-drain` to the runner:
+
+```sh
+PROJECT_PRIME_USER_DATA='/absolute/operator-owned/user-data' \
+PROJECT_PRIME_GL_FORCE_LEGACY=0 \
+python3 tools/native-render-check/run_context_controls.py \
+  --dotnet /absolute/dotnet --binary /absolute/immutable/native-render-check.dll \
+  --output /absolute/fresh-driver-control --cycles 30 --frames 120 --samples 10 \
+  --driver-drain --shader-source-ledger --capture-native-stacks
+```
+
+After every window/context is disposed, the owner thread polls GLFW events,
+observes that phase, terminates GLFW, and observes the still-live process. No
+GLFW/GL/window API or window recreation follows termination. OpenTK's cached
+initialized flag is not reset, so this is a final diagnostic phase, not a
+reusable runtime teardown policy. No extra GC is requested. Default behavior
+is unchanged unless the flag is supplied.
+
+With native capture enabled, the runner supplies
+`-resource-context-phase-acks <fresh-directory>` and acknowledges each capture
+before the fixture advances. Manual reuse of any existing acknowledgement
+directory/file, missing/empty/duplicate arguments, and option-like values are
+rejected. A missing acknowledgement times out after 90 seconds; requested
+captures must all exist and exit successfully for the runner to pass. Failure
+evidence remains in the fresh output directory. Equal idle populations or
+successful teardown do not establish retaining roots, driver cache/leak
+classification, or repeated-workload boundedness.
+
+Device-free argument/NoInlining validation:
+
+```sh
+dotnet run --project tools/native-render-check -c Release -- -resource-context-selftest
+```
+
+## Audio managed-retention probe
+
+The audio arm optionally accepts `-resource-retention-probe`. It runs the
+same loads/updates/shutdowns in a `NoInlining` helper that returns before the
+final drain. A separate non-inlined observer records weak references to every
+actual SFX instance, candidate resource owner when present, bank data/list
+fields, and every already-created decoded sample/stream byte payload. It never
+forces an uncreated Lazy. The snapshots report per-load observations, live
+load/item labels and observed/live payload bytes; shared objects can occur in
+multiple observations, so these are not deduplicated bytes or retaining paths.
+The PreparedAudio wrapper has already left Sfx.Load and is not observed here.
+All record/telemetry values remain scalar-only; completed tasks are retained
+as in the ordinary fixture.
+
+Add `-resource-retention-second-gc` for a separately labeled second compacting
+collection after the first full-GC/finalizer sample. This can reveal memory
+released by finalizers or JIT frame lifetime; it does not change production GC
+policy. The first collection/sample is always preserved, and the unchanged
+ordinary audio fixture remains available when both flags are omitted. Result
+schema stays at 2 with additional optional retention fields/phases. Compare the
+**same new harness DLL** against both baseline and candidate clients, retaining
+the original raw 60-cycle trials. Weak-observation instrumentation adds bounded
+managed allocations and invalidates direct absolute comparison with the older
+uninstrumented fixture.
+
+```sh
+# No assets, audio device or GL context needed; validates non-retaining
+# observations, a retained completed task, and the non-inlined boundary.
+dotnet tools/native-render-check/bin/Release/net10.0/native-render-check.dll \
+  -resource-retention-selftest
+
+# Two separately built/copied client directories can reuse one harness DLL.
+python3 tools/native-render-check/run_resource_arms.py \
+  --dotnet /absolute/path/to/dotnet --binary /absolute/baseline/native-render-check.dll \
+  --output /absolute/fresh-baseline-directory --arms audio --cycles 60 --frames 120 \
+  --quiescent-samples 30 --quiescent-ms 1000 -- \
+  -resource-retention-probe -resource-retention-second-gc
+```
+
+Repeat against the candidate directory and reverse the order if ambiguous.
+`vmmap <pid>` during quiescence can supplement process counters when the host
+permits sampling; preserve unsupported/error output instead of treating it as
+zero native memory. Neither low weak-reference counts nor a second collection
+establishes that a specific native subsystem caused RSS growth.
+
+For macOS native allocation-site attribution, use a separate profiling-only
+process with `MallocStackLogging=1`, preserve the exact environment/binary
+identities, and capture after the workload/drain while quiescence holds:
+
+```sh
+vmmap -summary PID > vmmap-summary.txt
+malloc_history PID -allBySize -fullStacks > malloc-history.txt
+python3 tools/native-render-check/analyze_vmmap.py base-vmmap.txt candidate-vmmap.txt \
+  --output vmmap-comparison.json
+python3 tools/native-render-check/analyze_malloc_history.py malloc-history.txt \
+  --output malloc-stack-summary.json
+```
+
+The installed `malloc_history` manual defines `-allBySize` as currently live
+allocation groups unless `-highWaterMark` is used. Avoid `-allEvents`, which
+reports historical traffic instead. The parser separates mmap/VM reservations
+from malloc-site groups and identifies OpenAL `BufferInfo` vector sites once per
+group. Allocation origin is evidence about a subsystem; it does not isolate
+which teardown operation failed or classify a library cache as a leak. Stack
+logging changes allocator/CPU behavior, and this host warns that its own logging
+pages count toward footprint. These runs provide no FPS evidence or direct
+unprofiled-RSS comparison. Save unsupported/error output and stop escalating
+when native sampling is unavailable.
+
+A scoped `dotnet-gcdump` heap capture can supply object-type/root evidence in a
+separate profiling trial. It requests another Gen-2 collection, so mark that
+perturbation explicitly and retain the original first/second-GC samples and
+unprofiled trials. Keep profiler binaries/dumps outside the repository. The
+[official tool documentation](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-gcdump)
+describes the collection behavior and shared TMPDIR requirement. A cached
+shared-pool byte array and a retained SFX bank are different roots; do not infer
+one from total LOH bytes alone.

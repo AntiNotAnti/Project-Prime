@@ -60,10 +60,10 @@ try
             Check(CollisionDetection.CheckBetweenPoints(spawn + Vector3.UnitY * .3f,
                 spawn - Vector3.UnitY * 4, TestFlags.Players, scene, ref floor)
                 && floor.Field0 == 0 && floor.Plane.Y > .99f, hunter + " authored floor contact");
-            foreach (string rules in new[] { "Vanilla", "Balanced", "Enhanced" })
+            foreach (string rules in new[] { "Vanilla", "Balanced" })
             {
                 scene.GameState.BalancedMode = rules == "Balanced";
-                scene.GameState.EnhancedHunters = rules == "Enhanced";
+                scene.GameState.EnhancedHunters = false;
                 string label = hunter + "/" + rules;
                 for (int life = 0; life < 2; life++)
                 {

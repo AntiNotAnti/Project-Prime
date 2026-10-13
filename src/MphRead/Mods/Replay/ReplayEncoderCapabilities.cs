@@ -20,7 +20,7 @@ internal static class ReplayEncoderCapabilities
             using var process = new Process { StartInfo = new("ffmpeg", "-hide_banner -encoders")
             { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true } };
             if (!process.Start()) return new[] { "libx264" };
-            var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = process.StandardError.ReadToEndAsync();
+            var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = ReplayEncoderErrorDrain.Drain(process.StandardError);
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             try { await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false); }
             catch (OperationCanceledException) { process.Kill(true); await process.WaitForExitAsync().ConfigureAwait(false); }

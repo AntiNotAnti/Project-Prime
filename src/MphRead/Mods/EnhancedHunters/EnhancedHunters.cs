@@ -12,7 +12,11 @@ internal static class EnhancedHunters
 {
     [ThreadStatic] private static int _bonusDepth;
     internal static bool ApplyingBonus => _bonusDepth != 0;
-    internal static bool Enabled(PlayerEntity player) => player.Hunter != Hunter.Guardian
+    // Archived state and reconstruction retain their historical type/field contracts.
+    // No live server, offline scene or network replica may activate this retired rule.
+    internal static bool LegacyReplay(Scene scene) => scene.Services is ReplaySceneServices;
+    internal static bool Enabled(PlayerEntity player) => LegacyReplay(player.OwningScene)
+        && player.Hunter != Hunter.Guardian
         && player.OwningScene.GameState.EnhancedHunters
         && !player.OwningScene.GameState.BalancedMode
         && player.OwningScene.GameState.Multiplayer;
@@ -42,7 +46,7 @@ internal static class EnhancedHunters
         s.TargetSlot = (byte)target.SlotIndex; s.TargetLifeId = Life(target);
         s.TargetGeneration = Generation(target); s.TimerA = frames;
     }
-    internal static bool HasMark(PlayerEntity owner, PlayerEntity target) => owner.EnhancedState.TargetSlot == target.SlotIndex
+    internal static bool HasMark(PlayerEntity owner, PlayerEntity target) => Enabled(owner) && owner.EnhancedState.TargetSlot == target.SlotIndex
         && owner.EnhancedState.TargetLifeId == Life(target) && owner.EnhancedState.TargetGeneration == Generation(target);
     internal static PlayerEntity? Target(PlayerEntity owner)
     {
@@ -57,7 +61,7 @@ internal static class EnhancedHunters
     internal static bool Visible(Scene scene, Vector3 from, Vector3 to)
     {
         CollisionResult result = default;
-        var candidates = CollisionDetection.GetCandidatesForLimits(from, to, 0,
+        using var candidates = CollisionDetection.GetCandidatesForLimits(from, to, 0,
             null, Vector3.Zero, includeEntities: true, scene);
         return !CollisionDetection.CheckBetweenPoints(candidates, from, to, TestFlags.Beams, scene, ref result);
     }
@@ -70,6 +74,7 @@ internal static class EnhancedHunters
     }
     internal static void ResetPlayer(PlayerEntity player)
     {
+        if (!LegacyReplay(player.OwningScene)) return;
         player.EnhancedState.Reset();
         player.EnhancedState.Hunter = player.Hunter;
         foreach (var other in player.OwningScene.Players.Items)
@@ -82,12 +87,14 @@ internal static class EnhancedHunters
     }
     internal static void OnPlayerSpawn(PlayerEntity player)
     {
+        if (!LegacyReplay(player.OwningScene)) return;
         ResetPlayer(player);
         player.EnhancedState.LocalLife++;
         if (player.EnhancedState.LocalLife == 0) player.EnhancedState.LocalLife = 1;
     }
     internal static void OnPlayerFrame(PlayerEntity player)
     {
+        if (!LegacyReplay(player.OwningScene)) return;
         var s = player.EnhancedState;
         if (!Enabled(player) || !Alive(player) || s.Hunter != player.Hunter)
         { ResetPlayer(player); return; }
@@ -142,21 +149,25 @@ internal static class EnhancedHunters
     }
     internal static void OnEnterAlt(PlayerEntity player)
     {
+        if (!Enabled(player)) return;
         if (player.Hunter == Hunter.Weavel) WeavelEnhancement.Enter(player);
         if (player.Hunter == Hunter.Sylux && player.EnhancedState.Flags != 0)
             player.EnhancedState.TimerB = 45;
     }
     internal static void OnExitAlt(PlayerEntity player)
     {
+        if (!Enabled(player)) return;
         if (player.Hunter == Hunter.Weavel)
         { player.EnhancedState.ValueB = 0; player.EnhancedState.TimerB = 0; }
     }
     internal static void OnAltAttackStarted(PlayerEntity player)
     {
+        if (!Enabled(player)) return;
         if (player.Hunter == Hunter.Trace) player.EnhancedState.GhostFrames = 0;
     }
     internal static void OnAltAttackHit(PlayerEntity attacker, PlayerEntity victim)
     {
+        if (!Enabled(attacker)) return;
         switch (attacker.Hunter)
         {
             case Hunter.Kanden: if (HasMark(attacker, victim)) KandenEnhancement.Overload(attacker, victim); break;
