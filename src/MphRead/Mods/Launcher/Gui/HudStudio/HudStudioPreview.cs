@@ -49,7 +49,7 @@ internal static class HudStudioPreview
                 window.Show(); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
                 using var bitmap=new RenderTargetBitmap(new PixelSize(width,height),new Vector(96,96));
                 bitmap.Render(canvas);
-                bitmap.Save(Path.Combine(directory,$"{preset.Replace(' ','-')}-{width}x{height}.png"));
+                bitmap.Save(Path.Combine(directory,$"{preset.Replace(' ','-')}-{width}x{height}.png"),PngBitmapEncoderOptions.Default);
             }
             finally { window.Close(); }
         }

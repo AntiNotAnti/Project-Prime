@@ -68,7 +68,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 using (var bitmap = new Avalonia.Media.Imaging.WriteableBitmap(new PixelSize(8, 8),
                     new Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Opaque))
-                    bitmap.Save(path);
+                    bitmap.Save(path, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
                 var image = LicenseWorkspace.CreateCosmeticThumbnail(path);
                 window.Show();
                 Avalonia.Media.IImage? previous = null;

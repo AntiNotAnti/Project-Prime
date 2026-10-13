@@ -2425,7 +2425,7 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
                 using var bitmap=new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize((int)_viewport.Bounds.Width,(int)_viewport.Bounds.Height),new Avalonia.Vector(96,96));
-                bitmap.Render(_viewport);using var stream=new MemoryStream();bitmap.Save(stream);
+                bitmap.Render(_viewport);using var stream=new MemoryStream();bitmap.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
                 byte[] preview = stream.ToArray();
 #if MPHREAD_SHELL
                 preview = _viewport.CaptureGpuPreview(preview);
