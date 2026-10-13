@@ -268,6 +268,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="nettest" />
     <InternalsVisibleTo Include="audio-check" />
+    <InternalsVisibleTo Include="music-lifecycle-check" />
     <InternalsVisibleTo Include="settings-archive-check" />
     <InternalsVisibleTo Include="fidelity-oracle" />
     <InternalsVisibleTo Include="final-composite-check" />
