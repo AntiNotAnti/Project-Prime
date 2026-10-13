@@ -395,7 +395,8 @@ static class Program
         { entered.Set(); release.Wait(); if (!current()) throw new OperationCanceledException(); return new Graph(request); }, ex => throw ex);
         owner.Load(SeqId.WIN, 1, 1); Require(entered.Wait(5000), "Readiness fixture did not enter");
         Require(!owner.WaitForLoad(TimeSpan.FromMilliseconds(50), 10), "Uncancellable decode ignored readiness deadline");
-        owner.CancelLoading(true); owner.Remove(shutdown: true);
+        Require(owner.StopLoading && !owner.Loading, "Readiness deadline did not atomically cancel the pending request");
+        owner.Remove(shutdown: true);
         Require(!owner.Completion.IsCompleted && !owner.Loading && owner.Current == null,
             "Shutdown hid the active decoder or exposed stale readiness");
         release.Set(); Await(owner.Completion, "Timed out decoder did not finish safely");

@@ -884,7 +884,6 @@ namespace MphRead
             // A third-party decoder constructor cannot be interrupted. Keep
             // the one owner alive, but do not block a synchronous scene/menu
             // wait indefinitely or publish that request after the timeout.
-            _loads.CancelLoading(true);
             Console.Error.WriteLine("[sound] music load exceeded 2 seconds; continuing without that track.");
         }
 
