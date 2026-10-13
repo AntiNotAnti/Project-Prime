@@ -164,9 +164,35 @@ internal static class TimedGrantPresentationTests
         var bytes = Save(duplicate); bytes.AsSpan(75, 48).CopyTo(bytes.AsSpan(127, 48)); Throws(() => Load(bytes), "checkpoint rejects duplicate pending key");
         var truncated = Save(a); Array.Resize(ref truncated, truncated.Length - 1); Throws(() => Load(truncated), "checkpoint rejects truncation");
     }
+    private static void ConsumptionCapacityIsTransactional()
+    {
+        var state = new TimedGrantPresentation();
+        for (uint i = 1; i <= NetTimedGrants.GrantCapacity; i++)
+            Check(state.Accept(Fact(revision: i, sequence: i, spawn: i), 100),
+                "distinct consumed incarnation admitted within bound");
+        uint overflow = NetTimedGrants.GrantCapacity + 1;
+        var before = Save(state);
+        Throws(() => state.Accept(Fact(revision: overflow, sequence: overflow, spawn: overflow), 100),
+            "513th unexpired consumed incarnation refuses explicitly");
+        Check(before.AsSpan().SequenceEqual(Save(state)) && !state.Hides(Claim(overflow, overflow).Spawn, 100),
+            "refused fact preserves prior checkpoint bytes and item visibility");
+        var pending = Claim(overflow, overflow);
+        Check(state.Predict(pending, 100), "delivery overlay remains independent of consumption capacity");
+        before = Save(state);
+        Throws(() => state.Settle(Grant(pending, overflow), 100),
+            "513th terminal grant refuses explicitly");
+        Check(before.AsSpan().SequenceEqual(Save(state)) && state.PendingCount == 1,
+            "refused terminal preserves prediction obligation and prior truth");
+        Check(Load(before).PendingCount == 1, "full bound plus pending prediction roundtrips");
+        Check(state.Accept(Fact(revision: overflow, sequence: overflow, spawn: overflow,
+                contact: 4000, authority: 4000), 4000),
+            "expired history frees capacity for a later native incarnation");
+        Check(!state.Hides(Claim().Spawn, 4000) && state.Hides(pending.Spawn, 4000),
+            "retention pruning keeps only current consumed identities");
+    }
     internal static int Run()
     {
-        try { _checks = 0; PredictionAndTruth(); PendingCannotShortenConfirmedTruth(); RenewalClosurePreservesContactInput(); NativeInputPhase(); FencesClocksAndBounds(); Checkpoints(); Console.WriteLine($"PASS: {_checks} timed grant presentation assertions"); return 0; }
+        try { _checks = 0; PredictionAndTruth(); PendingCannotShortenConfirmedTruth(); RenewalClosurePreservesContactInput(); NativeInputPhase(); FencesClocksAndBounds(); Checkpoints(); ConsumptionCapacityIsTransactional(); Console.WriteLine($"PASS: {_checks} timed grant presentation assertions"); return 0; }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
     }
 }

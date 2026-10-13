@@ -75,6 +75,18 @@ def digest(path):
     return value.hexdigest()
 
 
+def stage_build(build, stage):
+    """Copy the frozen entry point; retain shared dependency links without expansion."""
+    required = ("ProjectPrime.dll", "ProjectPrime.deps.json", "ProjectPrime.runtimeconfig.json")
+    for name in required:
+        path = build / name
+        if path.is_symlink() or not path.is_file():
+            raise RuntimeError(f"Frozen build entry point must be a physical file: {name}")
+    shutil.copytree(build, stage, symlinks=True)
+    return {name: {"sha256": digest(stage / name), "bytes": (stage / name).stat().st_size}
+            for name in required}
+
+
 def save(path, value):
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
@@ -180,7 +192,7 @@ def run(args):
     args.out = args.out.resolve()
     args.out.mkdir(parents=True, exist_ok=False)
     stage = args.out / "bin"
-    shutil.copytree(args.build.resolve(), stage)
+    staged_entry = stage_build(args.build.resolve(), stage)
     assembly = stage / "ProjectPrime.dll"
     if not assembly.exists():
         raise RuntimeError("Build directory has no ProjectPrime.dll")
@@ -207,7 +219,8 @@ def run(args):
     dotnet = str(Path(args.dotnet).resolve()) if Path(args.dotnet).is_file() else args.dotnet
     manifest = {"source": args.source, "platform": platform.platform(), "python": platform.python_version(),
         "dotnetInfo": subprocess.check_output([dotnet, "--info"], text=True),
-        "assemblySha256": digest(assembly), "assetManifestSha256": digest(args.out / "assets.json"),
+        "assemblySha256": digest(assembly), "stagedEntry": staged_entry,
+        "assetManifestSha256": digest(args.out / "assets.json"),
         "harnessSha256": {name: digest(Path(__file__).with_name(name)) for name in
                          (("run-net2.py","net2_evidence.py","bomb-audit.py") if args.scenario in BOMB_HUNTERS else ("run-net2.py","net2_evidence.py"))},
         "settings": {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
