@@ -303,6 +303,8 @@ jobs:
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
       - name: content-free renderer state and lifecycle contracts
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -renderbackendcheck
+      - name: native audio ownership, failure fallback and headless lifecycle
+        run: dotnet run --project tools/audio-check -c Release
 
   enhanced-retirement-checks:
     name: retired hunter compatibility regressions
@@ -436,6 +438,8 @@ jobs:
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -gamepadcheck
       - name: deterministic pointer and stylus checks
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -pointercheck
+      - name: native audio ownership, failure fallback and headless lifecycle
+        run: dotnet run --project tools/audio-check -c Release
 
       - name: high-refresh frame timing and first-person pose checks
         if: matrix.os == 'windows-latest'
