@@ -168,7 +168,7 @@ namespace MphRead.Mods.Network
                     accepted = true;
                     break;
                 case PacketType.SessionState:
-                    if (!SessionStatePacket.TryRead(payload, out var configuration)) throw Malformed();
+                    if (!SessionStatePacket.TryReadArchived(payload, out var configuration)) throw Malformed();
                     if (Match.HasValue && !Matches(configuration.MatchId, configuration.AuthorityEpoch)) break;
                     if (Configuration is SessionStatePacket old && configuration.Revision != old.Revision
                         && !SessionStatePacket.IsNewer(configuration.Revision, old.Revision)) break;

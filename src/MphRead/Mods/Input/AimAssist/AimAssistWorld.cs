@@ -195,7 +195,7 @@ namespace MphRead.Entities
         private bool AssistVisible(Vector3 point)
         {
             CollisionResult result = default;
-            var candidates = CollisionDetection.GetCandidatesForLimits(CameraInfo.Position, point, 0,
+            using var candidates = CollisionDetection.GetCandidatesForLimits(CameraInfo.Position, point, 0,
                 null, Vector3.Zero, includeEntities: true, _scene);
             return !CollisionDetection.CheckBetweenPoints(candidates, CameraInfo.Position, point, TestFlags.Beams, _scene, ref result);
         }

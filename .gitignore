@@ -402,3 +402,6 @@ tools/hitrig/bin/
 /docs/rendering/samus-hd-kit/**/*.jpeg
 /docs/rendering/samus-hd-kit/**/*.tga
 /docs/rendering/samus-hd-kit/**/*.dds
+
+# Finder metadata is local workspace state.
+.DS_Store

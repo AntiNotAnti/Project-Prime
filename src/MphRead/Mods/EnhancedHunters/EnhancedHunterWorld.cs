@@ -90,6 +90,7 @@ public sealed class EnhancedHunterWorld
     }
     internal void Tick(Scene scene)
     {
+        if (!EnhancedHunters.LegacyReplay(scene)) return;
         if (_lastFrame == scene.FrameCount) return;
         _lastFrame = scene.FrameCount;
         if (!scene.GameState.EnhancedHunters) { Reset(); return; }
@@ -123,7 +124,7 @@ public sealed class EnhancedHunterWorld
     }
     internal void Draw(Scene scene)
     {
-        if (!scene.GameState.EnhancedHunters) return;
+        if (!EnhancedHunters.LegacyReplay(scene) || !scene.GameState.EnhancedHunters) return;
         for (int i = 0; i < Capacity; i++)
         {
             var z = Zones[i]; if (z.Type == EnhancedZoneType.None) continue;
@@ -141,7 +142,7 @@ public sealed class EnhancedHunterWorld
     }
     internal void DrawIndicators(Scene scene)
     {
-        if (!scene.GameState.EnhancedHunters) return;
+        if (!EnhancedHunters.LegacyReplay(scene) || !scene.GameState.EnhancedHunters) return;
         foreach (var owner in scene.Players.Items)
         {
             if (!EnhancedHunters.Alive(owner)) continue;

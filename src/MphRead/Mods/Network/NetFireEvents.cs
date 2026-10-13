@@ -672,8 +672,7 @@ public static class NetFireEvents
           if (ReferenceEquals((firedEquip ?? player.EquipInfo).Weapon,
               player.OwningScene.WeaponRules[(int)(firedEquip?.Weapon.Beam ?? player.CurrentWeapon) + 9]))
               shotState |= FireEvent.AffinityStateBit;
-          if (Mods.EnhancedHunters.EnhancedHunters.Enabled(player))
-              shotState |= FireEvent.EnhancedStateBit | Math.Min((uint)player.EnhancedState.ValueA, 3u); }
+        }
         if (!Finite(aim) || aim.LengthSquared < 0.000001f) aim = direction;
         if (!Finite(view) || view.LengthSquared < 0.000001f) view = aim;
         bool reticleValid = hasReticle && float.IsFinite(reticle.X) && float.IsFinite(reticle.Y)

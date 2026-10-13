@@ -6,7 +6,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **41** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **53** (`NetConfig.ProtocolVersion`).
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
 - Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
 
@@ -54,8 +54,9 @@ This file is the short, machine-oriented source of truth for architectural assum
   reconciliation, defender-aware rewind or protocol-18 movement semantics.
 - Never restore IntentBundle, observer bundling, snapshot keyframes/deltas,
   baseline reconstruction or damage sidecars from reverted PR #28.
-- P0 wire optimizations must remain byte-identical to protocol 16. The protocol-17
-  envelope/reliability/queue/start changes form one unreleased migration train.
+- The protocol-16 byte-equivalence and protocol-17 migration notes describe the
+  historical Netcode P0 train; current internal refactors preserve protocol 53
+  packet identities and layouts unless independently justified and versioned.
 - Spawn placements are lifecycle operations, not movement reconciliation.
   Same-life snapshots never correct the local owner collision body or velocity;
   the architecture suite exercises prolonged, extreme position disagreement.
@@ -107,7 +108,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Replay and clips
 
-- Replay formats v3/v4 are protocol-bound and validated before playback.
+- Replay readers preserve formats v1–v5. Historical protocols are adapted by `ReplayIdentityCompatibility` (protocol 4 through the current protocol); live peers still require an exact protocol match. Format v5 preserves indexed-fire continuation, and every replay is validated before playback.
 - Authoritative dedicated servers record canonical replays when enabled.
 - Client replay recording, rolling clip capture, Replay Studio, checkpoints, highlight derivation and deterministic frame export all exist. Do not describe replay/clip recording as a future feature.
 - Replay playback must not open a live gameplay socket or mutate the recorded session through reconnect/authority control packets.
@@ -251,3 +252,20 @@ This file is the short, machine-oriented source of truth for architectural assum
   cannot prove no intervening collision mutation.
 - Direct live snapshot decoding validates the complete packet before mutation;
   replay recording and bootstrap retain owned canonical representations.
+
+## Collision query ownership
+
+- Candidate queries return a synchronous `CollisionQueryWorkspace` lease. Keep it
+  in a `using` scope through every consumer; candidates and enumerators must not
+  escape disposal or cross the borrowing thread.
+- Nested calls borrow separate candidate and face-deduplication scratch. Independent
+  scenes can query concurrently; mutating the same scene concurrently remains unsupported.
+- Thread-local reuse retains at most eight workspaces, each with at most 8,192
+  candidate objects and 16,384 face-set capacity. Oversized queries return all
+  candidates and discard exceptional scratch on disposal. Zero allocation after
+  warmup is verified for tested queries within these reuse budgets; larger valid
+  queries can allocate. Return clears room/entity
+  references. `CollisionDetection.Init()` is a compatibility no-op.
+- Preserve room-then-entity reverse traversal, face order, strict distance tie-breaks
+  and collision floating-point evaluation order. This refactor does not change
+  simulation timing, protocol layouts or replay schemas.
