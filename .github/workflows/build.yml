@@ -335,6 +335,8 @@ jobs:
         run: dotnet run --project tools/nettest -c Release -- --enhanced-retirement
       - name: production waitlist admission and real UDP lifecycle
         run: dotnet run --project tools/nettest -c Release --no-build -- --waitlist
+      - name: scene-owned encounter creation and navigation
+        run: dotnet run --project tools/nettest -c Release --no-build -- --scene-setup-ownership
       - name: replication lane round trip
         run: dotnet run --project tools/nettest -c Release --no-build -- --protocol18
       - name: mixed-quality eight-player transport
