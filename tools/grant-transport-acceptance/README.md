@@ -51,3 +51,10 @@ instrumentation-negative evidence. The final implementation snapshots that list.
 Use the committed result receipt's source/client/tool hashes and scope, and
 rerun after any client or diagnostic change. These controls do not establish
 full A3 acceptance or a natural native gameplay campaign.
+
+The committed [result receipt](result.json) qualifies the code source in its
+`diagnosticSourceCommit` field against frozen client `0c2eefb5`: 303 passing
+checks, 24 states in two bootstrap application datagrams, eight observed
+retransmissions after four lost ACKs, one positive reorder/duplicate control,
+and explicit stalled-peer failure at approximately 15 seconds with unchanged
+healthy state. The receipt remains limited to that exact frozen client.
