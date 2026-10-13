@@ -353,6 +353,9 @@ jobs:
       - name: map editor history and PK3 import regressions
         run: dotnet run --project tools/map-editor-check -c Release
 
+      - name: scoped collision query lifetime and deterministic results
+        run: dotnet run --project tools/collision-query-check -c Release -- --compare docs/audits/engineering-consolidation/collision-query-baseline.txt
+
       # The default map-editor check already runs model import and collision
       # fixtures. Community publishing is a distinct opt-in check.
       - name: community map publishing focused check
