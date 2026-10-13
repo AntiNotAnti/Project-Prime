@@ -1,6 +1,10 @@
 # A3 timed grant reconciliation — work in progress
 
-**Status: NOT ACCEPTED.** This describes current working-tree source, not a verified immutable build. No immutable source/binary SHA or completed acceptance campaign is bound to this document. Replay bootstrap implementation is present; its presence in source is not evidence that all seek, clip, late join or delivery gates pass. The implementing agent will replace this status only after recording actual checks.
+**Status: NOT ACCEPTED — reconciliation acceptance is in progress.** Main `16b1d89b` and the reconciled A1/A2 prerequisites are integrated. The immutable candidate is source `edb97ce1ce94bf74fa3a9f47a95b5f0825b2a08d`, client SHA256 `6999d6f91a9d45026a576f414da4132601ad37e0fb6e51ca5569e7fb058856c2`, MVID `1a6ca1a3-f5d0-4891-8db9-26bc7583e3c7`. Local, hosted CI and native replay gates must finish before merge. Historical development results below are not acceptance of this candidate.
+
+Reconciliation preserves main's NativeTouch input and retired hunter compatibility. It also fixes a discovery room fence, transactional consumption capacity, first-pickup HUD flash, and a healthy grant stream incorrectly retaining its delivery deadline after a complete drain. The A2 terminal retry reservation and corrected stress fixture are inherited. Each repair retains its negative control.
+
+The source58 prototype passed real UDP bootstrap/recovery, native three-effect projection, and genuine Double Damage/Cloak recording and clip checks. **Death Alt native seek color/HUD/depth parity FAILS at its first positive frame**; raw captures are preserved under `work/net21-reconcile/a3-native-authored-DeathAlt-prototype`. This remains a merge blocker. Its gameplay hash matches; that does not override the rendering failure. Current enabled-workload scheduling drops also require a matched main comparison. Neither gate is waived by the passing packet/claim audits.
 
 ## Scope and trust boundary
 
@@ -12,7 +16,7 @@ A1/A2 authority grant ownership remains the source of durable pickup/grant outco
 
 ## Live facts, budgets and bootstrap
 
-Current `NetProtocol.cs` declares protocol **54**, `TimedGrant=77`, `PickupPrediction=78`, and `TimedGrantBootstrap=79`. IDs 78/79 are local replay presentation facts, not live client authority messages. Any incompatible wire change requires matched client/server deployment and regenerated protocol fixtures; the working-tree number is not release acceptance.
+Current `NetProtocol.cs` declares protocol **56**, `TimedGrant=77`, `PickupPrediction=78`, and `TimedGrantBootstrap=79`. IDs 78/79 are local replay presentation facts, not live client authority messages. Protocol56 combines main's NativeTouch contract, A2 pickup claims and A3 grant state. The earlier staged protocol54 used a different intent layout and is retained only as a historical reader capability. Current PPRC12 carries explicit intent/pickup/grant features; PPWC10 carries explicit touch/pickup features. Valid legacy PPRC10/11 and PPWC9 layouts remain supported, with ambiguity or contradiction rejected before publication. Deploy matched client/server protocol56; the source constants do not establish acceptance.
 
 `NetTimedGrantFact.cs` encodes a fixed **53-byte** grant fact: complete authority life identity, room, revision, effect type, grant sequence, spawn identity, authority contact/end frames, end reason and authority observation clock. Life identity uses ShotKey with ShotId zero. Explicit absence is a complete authority-issued retired fact, never an inference from a missing packet. Resume occupies bit 7 of the reason byte.
 
