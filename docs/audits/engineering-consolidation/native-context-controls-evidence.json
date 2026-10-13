@@ -1,0 +1,363 @@
+{
+  "schema": 1,
+  "date": "2026-10-13",
+  "contextRun": {
+    "identity": {
+      "harnessSha256": "de525d7fa93bb768a3d8f8cc08941f51a48c897e8a7e56417fe1230d4c801b35",
+      "clientSha256": "86f075e7c8dd7a06277b4050feedc796680b97a2f259615e2aa81e1faab37328"
+    },
+    "runnerSourceSha": "12de2149f67df76d4a0e868be484598445b26155",
+    "sourceDirtyAtLaunch": false,
+    "cycles": [
+      120,
+      180
+    ],
+    "mapLoads": 600,
+    "exitCode": 0,
+    "wallSeconds": 1191.090050833,
+    "binaryIdentityMatchesAfterRun": true,
+    "captures": 4
+  },
+  "allocationOriginCaptures": [
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-after-disposal.graphics-origin-v2.json",
+      "source": {
+        "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-after-disposal.malloc-history.txt",
+        "sha256": "def81de192a75b00a107dfc18ff91d7d3196054878f048ca4baf8cbed6b5721e"
+      },
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 6629228544,
+          "calls": 1010,
+          "groups": 52,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "agxFragmentVariant": {
+          "bytes": 188844480,
+          "calls": 109232,
+          "groups": 1394,
+          "mallocPrefixBytes": 175933888,
+          "mallocPrefixCalls": 109124
+        },
+        "otherGraphics": {
+          "bytes": 64842240,
+          "calls": 48918,
+          "groups": 708,
+          "mallocPrefixBytes": 40151552,
+          "mallocPrefixCalls": 48383
+        },
+        "coreclr": {
+          "bytes": 22457424,
+          "calls": 80534,
+          "groups": 2036,
+          "mallocPrefixBytes": 7728208,
+          "mallocPrefixCalls": 80505
+        },
+        "other": {
+          "bytes": 238368,
+          "calls": 2929,
+          "groups": 497,
+          "mallocPrefixBytes": 238368,
+          "mallocPrefixCalls": 2929
+        },
+        "ioSurface": {
+          "bytes": 2624,
+          "calls": 6,
+          "groups": 3,
+          "mallocPrefixBytes": 2624,
+          "mallocPrefixCalls": 6
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-before-disposal.graphics-origin-v2.json",
+      "source": {
+        "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-before-disposal.malloc-history.txt",
+        "sha256": "d3dc8ca9b96657a2c559f608f1eb729725ec02d1f0306ef3004da62ec8b49a04"
+      },
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 6542540800,
+          "calls": 1545,
+          "groups": 59,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "agxFragmentVariant": {
+          "bytes": 217958848,
+          "calls": 109237,
+          "groups": 1396,
+          "mallocPrefixBytes": 175933888,
+          "mallocPrefixCalls": 109124
+        },
+        "ioSurface": {
+          "bytes": 16618928,
+          "calls": 49,
+          "groups": 19,
+          "mallocPrefixBytes": 5552,
+          "mallocPrefixCalls": 47
+        },
+        "otherGraphics": {
+          "bytes": 71675616,
+          "calls": 57717,
+          "groups": 942,
+          "mallocPrefixBytes": 46984928,
+          "mallocPrefixCalls": 57182
+        },
+        "coreclr": {
+          "bytes": 21153456,
+          "calls": 78594,
+          "groups": 1975,
+          "mallocPrefixBytes": 5949104,
+          "mallocPrefixCalls": 78567
+        },
+        "other": {
+          "bytes": 239280,
+          "calls": 2934,
+          "groups": 499,
+          "mallocPrefixBytes": 239280,
+          "mallocPrefixCalls": 2934
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-after-disposal.graphics-origin-v2.json",
+      "source": {
+        "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-after-disposal.malloc-history.txt",
+        "sha256": "5df983278bdfb9b1aeaae7f0d92025f56b51d7e5f903566d6b830be4f58399ee"
+      },
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 6605717504,
+          "calls": 1204,
+          "groups": 55,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "agxFragmentVariant": {
+          "bytes": 456429536,
+          "calls": 274757,
+          "groups": 1394,
+          "mallocPrefixBytes": 443518944,
+          "mallocPrefixCalls": 274649
+        },
+        "otherGraphics": {
+          "bytes": 123812736,
+          "calls": 102395,
+          "groups": 697,
+          "mallocPrefixBytes": 98794368,
+          "mallocPrefixCalls": 101850
+        },
+        "coreclr": {
+          "bytes": 26823200,
+          "calls": 85077,
+          "groups": 2141,
+          "mallocPrefixBytes": 9325088,
+          "mallocPrefixCalls": 85042
+        },
+        "other": {
+          "bytes": 244256,
+          "calls": 2955,
+          "groups": 505,
+          "mallocPrefixBytes": 244256,
+          "mallocPrefixCalls": 2955
+        },
+        "ioSurface": {
+          "bytes": 2624,
+          "calls": 6,
+          "groups": 3,
+          "mallocPrefixBytes": 2624,
+          "mallocPrefixCalls": 6
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-before-disposal.graphics-origin-v2.json",
+      "source": {
+        "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-before-disposal.malloc-history.txt",
+        "sha256": "f1c85660e3178f12c05da5a7946a817f1b0cdddeddb1cb8f5ec87b5384f82e9c"
+      },
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 6615056384,
+          "calls": 1736,
+          "groups": 61,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "agxFragmentVariant": {
+          "bytes": 456576992,
+          "calls": 274765,
+          "groups": 1395,
+          "mallocPrefixBytes": 443666400,
+          "mallocPrefixCalls": 274657
+        },
+        "ioSurface": {
+          "bytes": 41538992,
+          "calls": 52,
+          "groups": 20,
+          "mallocPrefixBytes": 5552,
+          "mallocPrefixCalls": 47
+        },
+        "otherGraphics": {
+          "bytes": 133703024,
+          "calls": 113568,
+          "groups": 829,
+          "mallocPrefixBytes": 108684656,
+          "mallocPrefixCalls": 113023
+        },
+        "coreclr": {
+          "bytes": 24580368,
+          "calls": 83891,
+          "groups": 2128,
+          "mallocPrefixBytes": 6508816,
+          "mallocPrefixCalls": 83854
+        },
+        "other": {
+          "bytes": 244272,
+          "calls": 2952,
+          "groups": 503,
+          "mallocPrefixBytes": 244272,
+          "mallocPrefixCalls": 2952
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    }
+  ],
+  "replay120": {
+    "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/replay-memory/candidate-120.json",
+    "replayPath": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-lan-d788bbcb/peer-0/exports/_demos/MP1 SANCTORUS_2026-10-11_21-53-22-699_386d403e1a204dd3bf31e844f961c4f9.ppdemo",
+    "replaySha256": "AA33D78D69AF2FC4573468D912D5DEEA2C1DADF990A4597734947FDE740A405B",
+    "complete": true,
+    "cyclesCompleted": 120,
+    "seekTargets": [
+      120,
+      30,
+      240,
+      120
+    ],
+    "contextCount": 0,
+    "nativeSfx": false,
+    "retention": [
+      {
+        "kind": "passive-player",
+        "observed": 120,
+        "alive": 0
+      },
+      {
+        "kind": "passive-scene",
+        "observed": 360,
+        "alive": 0
+      },
+      {
+        "kind": "scene",
+        "observed": 360,
+        "alive": 0
+      },
+      {
+        "kind": "session",
+        "observed": 360,
+        "alive": 0
+      },
+      {
+        "kind": "reader",
+        "observed": 360,
+        "alive": 0
+      }
+    ],
+    "binaryIdentity": {
+      "clientSha256": "86F075E7C8DD7A06277B4050FEEDC796680B97A2F259615E2AA81E1FAAB37328",
+      "harnessSha256": "DBE6BF2024319C86D771E242B564C820800967399BD2AF2AB5FA518AC6364366",
+      "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c"
+    }
+  },
+  "hashedRawArtifacts": [
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-before-disposal.vmmap.txt",
+      "sha256": "ee81383d4bb4f6b277ae1a790780e98af05259ea6fa60e3ec94fa39bec8f040b",
+      "capturePhase": "context-00-before-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-before-disposal.malloc-history.txt",
+      "sha256": "d3dc8ca9b96657a2c559f608f1eb729725ec02d1f0306ef3004da62ec8b49a04",
+      "capturePhase": "context-00-before-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-after-disposal.vmmap.txt",
+      "sha256": "57f634c262ac85569e4a35c8f0b0473ca1342ea4a0b8ff889d090f7698a4720b",
+      "capturePhase": "context-00-after-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-after-disposal.malloc-history.txt",
+      "sha256": "def81de192a75b00a107dfc18ff91d7d3196054878f048ca4baf8cbed6b5721e",
+      "capturePhase": "context-00-after-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-before-disposal.vmmap.txt",
+      "sha256": "d62fe85518047228c2a8fe0b795aa4bc2a8543fd92ce118846fca1791d8babfc",
+      "capturePhase": "context-01-before-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-before-disposal.malloc-history.txt",
+      "sha256": "f1c85660e3178f12c05da5a7946a817f1b0cdddeddb1cb8f5ec87b5384f82e9c",
+      "capturePhase": "context-01-before-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-after-disposal.vmmap.txt",
+      "sha256": "4ba2ebbd9b1b0ca263aab3f1543e729c57338c21e198d035af4abd21e5d6aa52",
+      "capturePhase": "context-01-after-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-after-disposal.malloc-history.txt",
+      "sha256": "5df983278bdfb9b1aeaae7f0d92025f56b51d7e5f903566d6b830be4f58399ee",
+      "capturePhase": "context-01-after-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context.json",
+      "sha256": "dfbe1df226eb327682a13842bb453e558da79dbce0f3b66bcff04bf53a1f4311"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context.log",
+      "sha256": "070134c7ddfcc8c1295a1d7881a31bd669c3eb32280b2462f8e5f3f535510d90"
+    }
+  ],
+  "hashScope": "Existing runner hashes reused during renderer quiet hold; no large raw file rehashing. Extra per-context/retirement fixture hashes will be appended after the quiet interval; no older artifact is overwritten.",
+  "retirementWitness": "PENDING physical5cycle map/Studio checks in next exclusive native slot",
+  "boundedness": "UNVERIFIED; current AGX malloc-prefix groups grow across destroyed contexts while heavy paging invalidates RSS release/plateau interpretation."
+}
