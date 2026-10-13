@@ -17,6 +17,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 
 if (args.Contains("-resource-retention-selftest")) return AudioRetentionProbe.SelfTest();
+if (args.Contains("-resource-context-selftest")) return ContextControl.SelfTest();
 if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsWindows())
     throw new PlatformNotSupportedException("This QA campaign permits only macOS and Windows.");
 // The client may start a preview worker when an end panel opens. This entry
@@ -70,6 +71,18 @@ if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") == "a
 MphRead.Mods.MapGen.CustomRooms.GenerateMissing(room);
 if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") is "map-gl" or "studio")
     ResourceAttribution.DisableMusic();
+CheckWindow CreateWindow(string[] options)
+{
+    var value = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"));
+    try
+    {
+        value.ConfigureResourceStress(options);
+        value.ConfigureDiagnosticOptions(options);
+        return value;
+    }
+    catch { value.Dispose(); throw; }
+}
+if (args.Contains("-resource-context-cycles")) return ContextControl.Run(args, output, CreateWindow);
 using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"));
 window.ConfigureResourceStress(args);
 window.ConfigureDiagnosticOptions(args);
