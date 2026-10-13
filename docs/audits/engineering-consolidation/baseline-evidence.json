@@ -1,0 +1,281 @@
+{
+  "schema": 1,
+  "sourceSha": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "localDate": "2026-10-12",
+  "timezone": "America/Chicago",
+  "sdk": "10.0.401",
+  "runtime": "10.0.12",
+  "os": "macOS 27.0 (26A428)",
+  "rid": "osx-arm64",
+  "gpu": "Apple M4 Pro",
+  "driver": "OpenGL 2.1 Metal - 91.7",
+  "protocol": 53,
+  "fileFormats": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "replicaCheckpoint": 10,
+  "worldCheckpoint": 9,
+  "assemblyMvid": "bb5922d1-051d-4a89-940b-d14096c550fe",
+  "binarySha256": {
+    "tools/native-render-check/bin/Release/net10.0/native-render-check.dll": "d83960a3f098376359fd602820c72eb5a0a1412092750dc3d2cfa55ac36ad87d",
+    "tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll": "22c7eb0fb0e59c7e40fa656c4bda1c20a58c42b5628e3fdd5f47fb79fb6ff0b2"
+  },
+  "command": "PROJECT_PRIME_USER_DATA='/Users/jarrett/Library/Application Support/Project Prime' /Users/jarrett/.dotnet/dotnet tools/native-render-check/bin/Release/net10.0/native-render-check.dll -room 'MP3 PROVING GROUND' -players 8 -size 1920x1080 -hz -1 -seconds 8 -shadows High -resourcestress -resourcecycles 60 -resourceframes 120 -resource-drain -output artifacts/engineering-consolidation/baseline-memory-60.json",
+  "inputs": "Synthetic frozen input, fixed seeds; resource fixture disables bot control. Two rotating maps, one context, 120 exact steps per reference/candidate arm; 60 Studio renderer sessions with three cache rebuilds. Readbacks and forced drain preclude FPS interpretation. Existing default GL flags; no experimental enablement.",
+  "interference": "Other branches compiled concurrently; one short separate native shader characterization occurred. This is lifecycle evidence, not matched timing or historical A/B.",
+  "cycles": 60,
+  "arms": 120,
+  "blocks": [
+    {
+      "firstArm": 0,
+      "lastArm": 9,
+      "meanMiB": {
+        "workingSetBytes": 704.8703125,
+        "gcCommittedBytes": 675.7234375,
+        "managedLiveBytes": 580.5774993896484,
+        "gcFragmentedBytes": 146.26234512329103
+      },
+      "meanThreads": 31.8
+    },
+    {
+      "firstArm": 10,
+      "lastArm": 19,
+      "meanMiB": {
+        "workingSetBytes": 597.1734375,
+        "gcCommittedBytes": 645.56875,
+        "managedLiveBytes": 580.9360092163085,
+        "gcFragmentedBytes": 123.66485366821288
+      },
+      "meanThreads": 31.8
+    },
+    {
+      "firstArm": 20,
+      "lastArm": 29,
+      "meanMiB": {
+        "workingSetBytes": 605.1921875,
+        "gcCommittedBytes": 576.65,
+        "managedLiveBytes": 508.76625900268556,
+        "gcFragmentedBytes": 128.41229324340821
+      },
+      "meanThreads": 30
+    },
+    {
+      "firstArm": 30,
+      "lastArm": 39,
+      "meanMiB": {
+        "workingSetBytes": 607.5671875,
+        "gcCommittedBytes": 284.13125,
+        "managedLiveBytes": 206.26706085205078,
+        "gcFragmentedBytes": 139.19454040527344
+      },
+      "meanThreads": 30.8
+    },
+    {
+      "firstArm": 40,
+      "lastArm": 49,
+      "meanMiB": {
+        "workingSetBytes": 611.509375,
+        "gcCommittedBytes": 288.3078125,
+        "managedLiveBytes": 209.97114944458008,
+        "gcFragmentedBytes": 141.21489562988282
+      },
+      "meanThreads": 31.1
+    },
+    {
+      "firstArm": 50,
+      "lastArm": 59,
+      "meanMiB": {
+        "workingSetBytes": 528.784375,
+        "gcCommittedBytes": 255.2234375,
+        "managedLiveBytes": 210.41733322143554,
+        "gcFragmentedBytes": 108.04414215087891
+      },
+      "meanThreads": 31.3
+    },
+    {
+      "firstArm": 60,
+      "lastArm": 69,
+      "meanMiB": {
+        "workingSetBytes": 595.95,
+        "gcCommittedBytes": 316.821875,
+        "managedLiveBytes": 214.70217742919922,
+        "gcFragmentedBytes": 167.2505661010742
+      },
+      "meanThreads": 31.2
+    },
+    {
+      "firstArm": 70,
+      "lastArm": 79,
+      "meanMiB": {
+        "workingSetBytes": 620.3375,
+        "gcCommittedBytes": 278.6953125,
+        "managedLiveBytes": 209.94106674194336,
+        "gcFragmentedBytes": 134.64829177856444
+      },
+      "meanThreads": 30.9
+    },
+    {
+      "firstArm": 80,
+      "lastArm": 89,
+      "meanMiB": {
+        "workingSetBytes": 619.4953125,
+        "gcCommittedBytes": 290.8375,
+        "managedLiveBytes": 213.57534713745116,
+        "gcFragmentedBytes": 144.88744583129883
+      },
+      "meanThreads": 30.6
+    },
+    {
+      "firstArm": 90,
+      "lastArm": 99,
+      "meanMiB": {
+        "workingSetBytes": 570.121875,
+        "gcCommittedBytes": 288.5984375,
+        "managedLiveBytes": 219.73365173339843,
+        "gcFragmentedBytes": 136.92103271484376
+      },
+      "meanThreads": 30.7
+    },
+    {
+      "firstArm": 100,
+      "lastArm": 109,
+      "meanMiB": {
+        "workingSetBytes": 550.38125,
+        "gcCommittedBytes": 286.1421875,
+        "managedLiveBytes": 218.08599853515625,
+        "gcFragmentedBytes": 132.67099075317384
+      },
+      "meanThreads": 30.7
+    },
+    {
+      "firstArm": 110,
+      "lastArm": 119,
+      "meanMiB": {
+        "workingSetBytes": 529.553125,
+        "gcCommittedBytes": 289.1875,
+        "managedLiveBytes": 217.56095809936522,
+        "gcFragmentedBytes": 141.86652679443358
+      },
+      "meanThreads": 30.8
+    }
+  ],
+  "audio": {
+    "observations": 120,
+    "distinctTasks": 120,
+    "completed": 120,
+    "remaining": 0,
+    "faulted": 0,
+    "canceled": 0,
+    "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+  },
+  "drainSamples": [
+    {
+      "phase": "before-drain",
+      "memory": {
+        "timestamp": 673803897127291,
+        "workingSetBytes": 550535168,
+        "privateBytes": null,
+        "managedLiveBytes": 236048112,
+        "gcCommittedBytes": 305315840,
+        "gcHeapSizeBytes": 292438856,
+        "gcFragmentedBytes": 145283560,
+        "gcMemoryInfoCollectionIndex": 3002,
+        "processThreadCount": 31
+      },
+      "audio": {
+        "observations": 120,
+        "distinctTasks": 120,
+        "completed": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0,
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      }
+    },
+    {
+      "phase": "after-audio-wait",
+      "waitLimitSeconds": 15,
+      "elapsedMs": 0.0614,
+      "allComplete": true,
+      "memory": {
+        "timestamp": 673803897653041,
+        "workingSetBytes": 552353792,
+        "privateBytes": null,
+        "managedLiveBytes": 236089232,
+        "gcCommittedBytes": 305315840,
+        "gcHeapSizeBytes": 292438856,
+        "gcFragmentedBytes": 145283560,
+        "gcMemoryInfoCollectionIndex": 3002,
+        "processThreadCount": 31
+      },
+      "audio": {
+        "observations": 120,
+        "distinctTasks": 120,
+        "completed": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0,
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      }
+    },
+    {
+      "phase": "after-full-gc-finalizers-gl-finish",
+      "memory": {
+        "timestamp": 673803925712750,
+        "workingSetBytes": 419921920,
+        "privateBytes": null,
+        "managedLiveBytes": 158585064,
+        "gcCommittedBytes": 138788864,
+        "gcHeapSizeBytes": 103958456,
+        "gcFragmentedBytes": 103744,
+        "gcMemoryInfoCollectionIndex": 3003,
+        "processThreadCount": 31
+      },
+      "audio": {
+        "observations": 120,
+        "distinctTasks": 120,
+        "completed": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0,
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      }
+    }
+  ],
+  "resourceAssertions": "PASS: all existing tracked after counters zero, exact per-stage RGBA/depth, repeated-map hashes stable, generation invalidation and Studio cache rebuild cleanup",
+  "nativeBoundedness": "UNVERIFIED: current run does not reproduce historical RSS growth; only immediate final drain samples and no native VM attribution.",
+  "artifacts": [
+    {
+      "path": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/engineering-consolidation/network-python.log",
+      "sha256": "66c0e1f401ce7ce77c3ef118282ee338dcc3677cc913471677326ebf06413f39"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/engineering-consolidation/baseline-memory-60.json",
+      "sha256": "d88e8ba561fac1d17b8f33c743a401f47890abec3db2bc9f14c078b2a4758eea"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/engineering-consolidation/server-build.log",
+      "sha256": "36cf8782a42006845b05dac9036207012618a1a716c4da8017a13d47a3088467"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/engineering-consolidation/desktop-build.log",
+      "sha256": "878f89e7ab71ba14a6e4dbaf8f3dd3f4587fb58c38d19311139216c3dbf5d1c3"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/engineering-consolidation/replayformat.log",
+      "sha256": "bdacefa19fd468ae4d997891416c741d50f08e7e3fe606119a813417686b454a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/engineering-consolidation/render-resources.log",
+      "sha256": "684cdc38891f1e31d24225c9a630cab1d4d24ab0b16d4c5e07c5e74ee42fbba9"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/engineering-consolidation/baseline-memory-60.log",
+      "sha256": "ff6f516f2575ae587354fe937c554fb6f869d48e09214f6bd546d97d5521fe64"
+    }
+  ]
+}
