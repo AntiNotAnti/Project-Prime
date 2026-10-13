@@ -7,6 +7,8 @@ namespace MphRead.Mods.Render;
 internal static class OpenGlFailureInjection
 {
     [ThreadStatic] internal static Action<string>? Callback;
+    [ThreadStatic] internal static Action<string, int>? ShaderObjectCallback;
+    internal static void ShaderObject(string stage, int handle) => ShaderObjectCallback?.Invoke(stage, handle);
     internal static void Hit(string stage) => Callback?.Invoke(stage);
 }
 internal sealed class OpenGlInjectedFailureException : InvalidOperationException
