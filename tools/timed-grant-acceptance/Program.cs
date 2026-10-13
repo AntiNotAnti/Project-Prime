@@ -40,7 +40,9 @@ internal static class Program
                 string candidate = Path.Combine(directory, "runtimes", RuntimeInformation.RuntimeIdentifier, "native", file);
                 if (File.Exists(candidate)) path = candidate;
             }
-            return path == null ? IntPtr.Zero : NativeLibrary.Load(path);
+            // A package may try several platform filenames. Preserve TryLoad's
+            // miss semantics so a foreign candidate cannot abort its own resolver.
+            return path != null && NativeLibrary.TryLoad(path, out IntPtr handle) ? handle : IntPtr.Zero;
         };
         return RunCandidate(args, directory);
     }
