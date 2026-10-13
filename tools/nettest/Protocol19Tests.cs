@@ -214,6 +214,33 @@ internal static class Protocol19Tests
     private static void Pipeline(string root)
     {
         var config = new NetTelemetryConfig { Directory = root, Detail = TelemetryDetail.Study, QueueCapacity = 8192 };
+        // This is a steady-state producer allocation contract. A single Emit
+        // does not warm the full/drop branch or tiered runtime instrumentation;
+        // measuring those first-use costs made the unchanged producer flaky.
+        // Use a separate blocked writer so warmup cannot change the measured
+        // writer's exact accepted/dropped denominators below.
+        using (var warmGate = new ManualResetEventSlim())
+        using (var warmEntered = new ManualResetEventSlim())
+        {
+            var warmWriter = new NetTelemetryWriter(config with { Directory = Path.Combine(root, "allocation-warmup") },
+                Header(), _ => { warmEntered.Set(); warmGate.Wait(); return Stream.Null; });
+            try
+            {
+                Check(warmEntered.Wait(3000), "allocation warmup writer starts off simulation thread");
+                var warmSample = new NetTelemetryEvent(TelemetryEventType.ServerStep, 1, A: 1.5);
+                for (int i = 0; i < 1000000; i++) warmWriter.Emit(warmSample);
+                Check(warmWriter.Counters.EventsQueued == 8192 && warmWriter.Counters.EventsDropped == 991808,
+                    "separate bounded warmup exercises accepted and full/drop paths");
+                long warmTiming = Stopwatch.GetTimestamp();
+                _ = Stopwatch.GetElapsedTime(warmTiming, Stopwatch.GetTimestamp()).TotalNanoseconds;
+                _ = GC.GetAllocatedBytesForCurrentThread();
+            }
+            finally
+            {
+                warmWriter.Stop(); warmGate.Set();
+                Check(warmWriter.WaitForExit(5000), "allocation warmup writer drains independently");
+            }
+        }
         using var gate = new ManualResetEventSlim(); using var entered = new ManualResetEventSlim();
         var writer = new NetTelemetryWriter(config, Header(), _ => { entered.Set(); gate.Wait(); return Stream.Null; });
         Check(entered.Wait(3000), "writer starts off simulation thread");
@@ -223,8 +250,11 @@ internal static class Protocol19Tests
         long allocationStart = GC.GetAllocatedBytesForCurrentThread();
         long emissionStarted = Stopwatch.GetTimestamp();
         for (int i = 0; i < 20000; i++) writer.Emit(sample);
-        double nanosecondsPerEmission = Stopwatch.GetElapsedTime(emissionStarted).TotalNanoseconds / 20000;
+        long emissionEnded = Stopwatch.GetTimestamp();
         long allocations = GC.GetAllocatedBytesForCurrentThread() - allocationStart;
+        // Timing conversion is outside the allocation window: this assertion
+        // covers Emit calls, not first-use timing/formatting infrastructure.
+        double nanosecondsPerEmission = Stopwatch.GetElapsedTime(emissionStarted, emissionEnded).TotalNanoseconds / 20000;
         Check(allocations == 0, $"Emit zero allocations with blocked writer ({allocations} bytes)");
         Console.WriteLine($"V19 MEASURE bounded Emit: {nanosecondsPerEmission:F1} ns/attempt (accepted + dropped, blocked writer)");
         Check(writer.Counters.EventsQueued == 8192 && writer.Counters.EventsDropped == 11809 && writer.Counters.QueueHighWater <= 8192, "queue pressure drops telemetry at fixed capacity");
