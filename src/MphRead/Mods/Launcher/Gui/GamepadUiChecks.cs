@@ -361,13 +361,13 @@ namespace MphRead.Mods.Launcher.Gui
                 Directory.CreateDirectory(shots);
                 AvaloniaHeadlessPlatform.ForceRenderTimerTick();
                 using var bitmap = window.GetLastRenderedFrame();
-                bitmap?.Save(Path.Combine(shots, "controller-bindings.png"));
+                bitmap?.Save(Path.Combine(shots, "controller-bindings.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
                 var gamepad = settings.GetVisualDescendants().OfType<GamepadSettingsPanel>().First();
                 FocusNavigator.Focus(gamepad.GetVisualDescendants().OfType<SliderRow>().First());
                 window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
                 AvaloniaHeadlessPlatform.ForceRenderTimerTick();
                 using var calibration = window.GetLastRenderedFrame();
-                calibration?.Save(Path.Combine(shots, "controller-settings.png"));
+                calibration?.Save(Path.Combine(shots, "controller-settings.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
             }
             CheckControllerSettings(window, settings, shots);
             var pause = new PauseMenuView(false);
@@ -628,7 +628,7 @@ namespace MphRead.Mods.Launcher.Gui
                 AvaloniaHeadlessPlatform.ForceRenderTimerTick(3);
                 Dispatcher.UIThread.RunJobs();
                 using var bitmap = window.CaptureRenderedFrame();
-                bitmap?.Save(Path.Combine(shots, "controller-live-test.png"));
+                bitmap?.Save(Path.Combine(shots, "controller-live-test.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
             }
             GamepadManager.RemoveDevice("settings-xbox"); PadBindings.Reset(); GamepadOptions.Reset();
         }
