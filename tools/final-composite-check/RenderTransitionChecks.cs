@@ -129,7 +129,7 @@ internal static class RenderTransitionChecks
                     using var capture = System.IO.File.Create(System.IO.Path.Combine(captures,
                         alpha <= 0 ? "hidden.png" : "visible.png"));
                     ReFuel.Stb.StbImage.FlipVerticallyOnSave = true;
-                    ReFuel.Stb.StbImage.WritePng<byte>(pixels, width, height, ReFuel.Stb.StbiImageFormat.Rgb, capture);
+                    MphRead.Mods.PngEncoder.Write<byte>(pixels, width, height, ReFuel.Stb.StbiImageFormat.Rgb, capture);
                 }
             }
             layer.Alpha = 0;

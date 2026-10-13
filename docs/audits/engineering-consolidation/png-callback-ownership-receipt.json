@@ -1,0 +1,212 @@
+{
+  "schema": 1,
+  "kind": "native-png-callback-ownership",
+  "sourceBase": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "testedSource": "base plus owned source files identified below",
+  "sourceFileSha256": {
+    "src/MphRead/Mods/PngEncoder.cs": "b444a00f4fb32ed7a6641193a4bc361116b46e07227fa9be3d3915133602a024",
+    "src/MphRead/Mods/ScreenCapture.cs": "fe96b8c665fe1b7ca5c45215252280a8fe2478098d54e7c6449c15849400e5ca",
+    "src/MphRead/Export/Images.cs": "5ccaeda257fd00d2c0a7b05951fa318cd6014c9c32725dc5640a2904ad10317f",
+    "src/MphRead/Formats/Movie.cs": "ccce33d014b6265aaab9c210d54b7ec2e5f6c5d42746d572f5bc530733157fa9",
+    "src/MphRead/Testing/TestMisc.cs": "f1cc43c1212a2ccf11362316ac73f63339705b84b6694246861f69a539e56611",
+    "src/MphRead/Mods/Render/RespawnRenderCheck.cs": "2ea19ea98bac83dc486cdff6acd68ac2f168c59657310a49541b0f49a3b75a66",
+    "tools/final-composite-check/RenderTransitionChecks.cs": "735493a168d2a76783abe71a39a1af81671f0bdfdbc673c00c12342165834b47",
+    "tools/png-callback-check/Program.cs": "9a5d4ae6844e34108363d8e5ca9a42d76b62d7804b429bf846bd5a8d798c489e",
+    "tools/png-callback-check/png-callback-check.csproj": "80cc836e9c6ad1599f6d17e0ba84112a7fd091372c95837cf5c157dfc65c2a1e",
+    ".github/workflows/build.yml": "b42536f229678a2b1d571a6346fb09a9d0f2476a0604d9f6a744b4ef5170e94e"
+  },
+  "package": {
+    "name": "ReFuel.StbImage",
+    "version": "2.1.1",
+    "repositoryCommit": "89d6b5f236fd140f3af0637cb73b5d5b8760631a",
+    "assemblySha256": "191b521ce25d03c73ae10b716b3e55b1a1fcca988201b50cbac9603fcee10ea3",
+    "nativeSha256": "4846bfc05ee2d3af9581c29ab2e0c8f4fe756b8de94452f43b03de83cdbf2d6d",
+    "pinnedSourceSha256": {
+      "StbImage.cs": "a7253ffd99a7b3264df8600f7f615047f866c42d4ea5ab66136b1a55b83857c8",
+      "StbiStreamWrapper.cs": "2c12fb0c3681b685476f9dc15d44a91718a42498ea4b44a6aa38419ea5124b1d",
+      "StbiWrite.cs": "566b8581e35d67c32940e091058528544227e1d70a027ae4705c63e3f3929ae3",
+      "Stbi.Manual.cs": "c3d98dd64413cb70c4929918919569384132f835200cf4ed11f33965fd3dc487"
+    }
+  },
+  "arms": {
+    "baseline": {
+      "sourceBase": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/baseline-build/bin/png-callback-check/release/png-callback-check.dll",
+        "baseline",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/baseline/images"
+      ],
+      "pid": 67624,
+      "exitCode": -6,
+      "wallSeconds": 1.084310667,
+      "environmentOverride": {
+        "DOTNET_TieredCompilation": "0"
+      },
+      "binarySha256": "af1e7a39f078a8c254ee9b0a965a2181a308f202a7f3d0a5838d57d397215282",
+      "logSha256": "9747702516939aba601e4c601002e51a722d5f5b0fcb59f69646736eae5d8dae",
+      "scope": "PNG-only native child, no GL/audio; expected negative control"
+    },
+    "baseline-final-harness": {
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/candidate-build/bin/png-callback-check/release/png-callback-check.dll",
+        "baseline",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/baseline-final-harness/images"
+      ],
+      "pid": 68571,
+      "exitCode": -6,
+      "wallSeconds": 0.8867152079999999,
+      "environmentOverride": {
+        "DOTNET_TieredCompilation": "0"
+      },
+      "binarySha256": "c72a319f66977cb877f4910ca5fb4a7e038b23d001ab5a68aba7cd30a8c5550a",
+      "logSha256": "870b7158ed4200d0f908971de35342db9ade9c1964050741278a1971a544f9fe",
+      "scope": "same immutable harness/input as candidate; baseline mode only chooses package convenience writer; expected fatal negative"
+    },
+    "candidate-tiered-off": {
+      "sourceBase": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/candidate-build/bin/png-callback-check/release/png-callback-check.dll",
+        "candidate",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/candidate-tiered-off/images"
+      ],
+      "pid": 68111,
+      "exitCode": 0,
+      "wallSeconds": 14.223029834,
+      "environmentOverride": {
+        "DOTNET_TieredCompilation": "0"
+      },
+      "binarySha256": "c72a319f66977cb877f4910ca5fb4a7e038b23d001ab5a68aba7cd30a8c5550a",
+      "logSha256": "97cfd90fe1313a17d9f637dc989d0af20135df0cca221ec820bd8422431df436",
+      "scope": "PNG-only native child, no GL/audio; eight RGB/RGBA writes under concurrent forced collections, pixel/alpha/orientation and byte parity plus stream failure ownership"
+    },
+    "candidate-default": {
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/candidate-build/bin/png-callback-check/release/png-callback-check.dll",
+        "candidate",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/candidate-default/images"
+      ],
+      "pid": 68470,
+      "exitCode": 0,
+      "wallSeconds": 14.099453334,
+      "tieredCompilation": "default; override removed",
+      "binarySha256": "c72a319f66977cb877f4910ca5fb4a7e038b23d001ab5a68aba7cd30a8c5550a",
+      "logSha256": "a8b6a33cd364ad87f2c550e018ebf0ddee6444ca020bb7548c74ee2f72d5bfe1",
+      "scope": "same PNG-only pressure/pixel/parity/stream ownership fixture in fresh default-runtime child"
+    },
+    "final-baseline": {
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/final-harness-build/bin/png-callback-check/release/png-callback-check.dll",
+        "baseline",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/final-baseline/images"
+      ],
+      "pid": 68684,
+      "exitCode": -6,
+      "wallSeconds": 1.188231542,
+      "tieredCompilation": "0",
+      "binarySha256": "7fffcedd99c5ee21874b0774c014b7406c9760a120044b0edfa8a4b80305a9d3",
+      "logSha256": "870b7158ed4200d0f908971de35342db9ade9c1964050741278a1971a544f9fe",
+      "scope": "same immutable PNG-only child/harness/input; baseline package convenience writer versus explicit wrapper owner; no GL/audio",
+      "collections": "0"
+    },
+    "final-candidate-tiered-off": {
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/final-harness-build/bin/png-callback-check/release/png-callback-check.dll",
+        "candidate",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/final-candidate-tiered-off/images"
+      ],
+      "pid": 68686,
+      "exitCode": 0,
+      "wallSeconds": 5.617685208,
+      "tieredCompilation": "0",
+      "binarySha256": "7fffcedd99c5ee21874b0774c014b7406c9760a120044b0edfa8a4b80305a9d3",
+      "logSha256": "773e06f8c3507d96ee609124e1bd9296cec7768c3818176790e0dd4b590e5b97",
+      "scope": "same immutable PNG-only child/harness/input; baseline package convenience writer versus explicit wrapper owner; no GL/audio",
+      "collections": "41896"
+    },
+    "final-candidate-default": {
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/final-harness-build/bin/png-callback-check/release/png-callback-check.dll",
+        "candidate",
+        "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/final-candidate-default/images"
+      ],
+      "pid": 68691,
+      "exitCode": 0,
+      "wallSeconds": 5.516900916,
+      "tieredCompilation": "default; override removed",
+      "binarySha256": "7fffcedd99c5ee21874b0774c014b7406c9760a120044b0edfa8a4b80305a9d3",
+      "logSha256": "b8a4cf3200ec5fd75a40c17af12c6b76a106a533495ad472bd18f601de275b97",
+      "scope": "same immutable PNG-only child/harness/input; baseline package convenience writer versus explicit wrapper owner; no GL/audio",
+      "collections": "39895"
+    }
+  },
+  "finalSameImmutableHarness": true,
+  "result": {
+    "baselineExpectedFatalCollectedStbiWriteProc": true,
+    "candidateTieredOff": true,
+    "candidateDefault": true,
+    "eightRGBRGBAWritesPerCandidateUnderForcedCollections": true,
+    "decodedPixelsAlphaOrientationExact": true,
+    "fourFormatsTwoFlipPoliciesNativePngBytesExact": true,
+    "transparentPartialOpaqueAlphaExplicit": true,
+    "streamFailureOriginalExceptionAfterNativeReturn": true,
+    "callerOwnsDestinationStream": true,
+    "encoderReusableAfterFailure": true
+  },
+  "builds": {
+    "baseline-build.log": {
+      "path": "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/baseline-build.log",
+      "sha256": "6d7f8f6fca8981b47487c6986945f79799bd371674d39d69137a9b65036f3eb2"
+    },
+    "candidate-final-build.log": {
+      "path": "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/candidate-final-build.log",
+      "sha256": "68c64d87e8290bbb17fbd783e808b9346c94fce9d151e46834c2432835c474d3"
+    },
+    "final-harness-build.log": {
+      "path": "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/final-harness-build.log",
+      "sha256": "03e374e2187293e89876c238317bcffa515f456f1bbe3c1e6be5351a8904c247"
+    },
+    "desktop-build.log": {
+      "path": "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/desktop-build.log",
+      "sha256": "8316efcc91451c07aab5e891bc6bbfa88ccda49e2b9eb67598c6b9922fcb1d17"
+    },
+    "server-build.log": {
+      "path": "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/server-build.log",
+      "sha256": "4eb57c789eadf0d9a3cc7c50ef51f8a1e73a4531823e70b1a47c153c4f2ce051"
+    },
+    "final-composite-build.log": {
+      "path": "/Users/jarrett/.codex/worktrees/png-callback-lifetime/Prime Hunters Online/artifacts/png-callback-lifetime/final-composite-build.log",
+      "sha256": "2b8d096eea76a64c087bb2303bd55edaec342db8ac49cef1fc6065a4c6a4808c"
+    }
+  },
+  "desktopClientSha256": "0f79539e7d27552419025bd3d1b5a3eea44a90fe4ff8dc0bfd589919899b4ddb",
+  "validation": {
+    "desktop": "PASS;30existingwarnings0errors",
+    "server": "PASS;22existingwarnings0errors",
+    "finalCompositeTool": "PASS;0warnings/errors; compile only",
+    "openGlSourcePackageGuard": "PASS",
+    "workflowYamlSyntax": "PASS via Ruby Psych; bundled Python YAML unavailable",
+    "diffWhitespace": "PASS",
+    "crossPlatformCi": "ADDED; remote pending"
+  },
+  "limits": [
+    "PNG-only isolated native children; no GL/audio/game assets, FPS or memory boundedness claim.",
+    "Existing STB native encoder, parameters, caller flip/filter/compression settings and pixel buffers preserved; no package/framework replacement.",
+    "Production holds actual wrapper/delegate and pixel backing through synchronous native call; no diagnostic GC or tier override in production.",
+    "The independently reproduced one-pixel30FPS replay visual difference is not repaired or waived by callback ownership.",
+    "Physical Android uses the existing PngWriter override; unchanged and not tested here."
+  ],
+  "androidSourceBoundary": {
+    "application": "src/MphRead.Android/MainApplication.cs:102 sets ScreenCapture.PngWriter=AndroidPng.Write",
+    "preview": "src/MphRead.Android/PreviewService.cs:109 sets the same override",
+    "screenCapture": "all3 paths select PngWriter first; helper only existing STB fallback",
+    "package": "MphRead.Android.csproj:127 excludes ReFuel native assets; unchanged",
+    "otherExistingStbExports": "Image/movie/diagnostic STB-only export routes previously required desktop natives; no Android support claim"
+  }
+}
