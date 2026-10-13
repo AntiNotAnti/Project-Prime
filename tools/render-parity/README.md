@@ -1,6 +1,16 @@
 # Renderer parity evidence
 
-`ProjectPrime -renderparitycheck ROOM -renderer metal -output OUTPUT` requires
+Current game rendering uses desktop OpenGL and Android GLES only. See the
+[OpenGL-only runtime contract](../../docs/architecture/opengl-only-migration.md)
+and the [current native renderer capture harness](../native-render-check/README.md)
+for supported capture commands. `-renderparitycheck` is no longer registered;
+explicit Metal/Vulkan/DirectX requests are rejected. Do not use the historical
+Metal/PBR instructions below as current acceptance commands. The Python image
+comparator remains usable with captures from the current harness.
+
+## Historical capture provenance (unsupported command)
+
+The former `ProjectPrime -renderparitycheck ROOM -renderer metal -output OUTPUT` required
 local extracted game data and a working display/device. It writes PNG captures
 and `evidence.json`. The manifest records the original backend request separately
 from the actual created device, platform, adapter/driver, settings, frames, and
@@ -65,14 +75,13 @@ not frozen cross-backend golden references; it provides lifecycle/scope evidence
 
 ```sh
 dotnet run --project tools/final-composite-check -c Release -- opengl
-dotnet run --project tools/final-composite-check -c Release -- metal
 ```
 
 This content-free GPU check draws a synthetic backdrop and final overlay, then
 asserts overlay inclusion, orientation, packed RGB, screenshot delegation and
 state restoration. It requires a real supported graphics session. The backend
-printed in the result is the created device; a missing Metal runtime must not be
-counted as successful Metal evidence. This is a readback contract test, not the
+printed in the result is the created OpenGL device. Historical Metal results
+do not certify the current runtime. This is a readback contract test, not the
 full scene/material/hardware matrix.
 
 The parity harness uses the window's actual framebuffer dimensions (including
@@ -82,7 +91,14 @@ actual framebuffer size; actual adapter/backend metadata accompanies timings.
 Do not compare old benchmark results that changed scene dimensions while leaving
 the native window at its startup size. Render scale remains a separate setting.
 
-## Separating host submission from presentation pacing
+## Historical modern-backend pacing and lifecycle evidence
+
+The following records describe the retired modern-renderer harness. Its Vulkan,
+Metal, `-shelllifecycle` and `-renderadvanced` instructions are unsupported by the
+current OpenGL/GLES-only runtime. Preserve old results as historical evidence;
+use the current native capture harness above for new renderer measurements.
+
+### Separating host submission from presentation pacing
 
 Benchmark evidence now records the requested VSync state and actual modern
 present mode, aggregate surface-acquire calls/time, and separate per-frame present
@@ -106,7 +122,7 @@ A framework-dependent build may resolve `runtimes/osx-arm64/native` ahead of the
 output root, so merely replacing the root library does not prove which native
 library the process loaded. Use the packaged application or verify both paths.
 
-## Content-backed scene lifecycle checks
+### Content-backed scene lifecycle checks
 
 `-shellshot OUTPUT -shelllifecycle REPLAY` appends two match → spectator → rejoin
 → launcher → Forge → replay → paused seek → launcher cycles to the existing
@@ -133,7 +149,10 @@ when bot draws differ. These counts do not establish bounded native VRAM or
 replace the exact-workload 120-cycle native resource check. This check opens
 Forge, but does not author a map or enter an editor playtest.
 
-`-respawnrendercheck 'MP3 PROVING GROUND' -cycles 9 -timeout 300` exercises the
+## Current respawn regression
+
+`-respawnrendercheck 'MP3 PROVING GROUND' -cycles 9 -timeout 300` remains registered
+in the current OpenGL/GLES runtime and exercises the
 existing damage/respawn, overlay, resize and poisoned-render-state controls.
 Requested/actual renderer identity and whiteout state now accompany diagnostics
 for unexpected black frames. Preserve any failed run even when a rerun passes;
