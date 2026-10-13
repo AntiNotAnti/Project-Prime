@@ -202,7 +202,9 @@ Unavailable/null counters stay unavailable; a short pilot with no post-warmup
 samples yields no slope. R-squared is descriptive and does not supply confidence
 intervals for autocorrelated reload samples. A flat/positive slope never
 changes the report's `boundedness: UNVERIFIED` classification automatically.
-Replay-only and full Studio UI isolation remain **NOT_RUN**.
+Rendered replay and full Studio UI isolation remain **NOT_RUN**. Windowless
+reader/replica/seek isolation is provided by
+[replay-memory-check](../replay-memory-check/README.md).
 
 ## Context teardown and recreation controls
 
