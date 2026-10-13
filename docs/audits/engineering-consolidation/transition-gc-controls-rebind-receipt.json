@@ -1,0 +1,1720 @@
+{
+  "purpose": "Diagnostic correctness smoke; no matched performance/policy claim",
+  "base": "749aa12dc89d41dc83823eafe0929c13b1ebfb99",
+  "harness": "7efddf77e0150151863fd6231f57c822a814039d493c47c4e77b00f40937c4fc",
+  "client": "28ec0e5018ef59e43c616cbf209fa2b4be9c6c57f404422573668fc0d6666dba",
+  "runs": [
+    {
+      "policy": "keep",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "8",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-transition-gc",
+        "keep",
+        "-transition-rebind",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/artifacts/transition-gc/rebind-smoke/keep.json"
+      ],
+      "exitCode": 0,
+      "logSha256": "545441551d712b2f72e92d78162dff322e3fc7f45752526d479498f2a5ac6237",
+      "resultSha256": "afaa2cd53055d76610a4acc8cd213a6bdca0d9a019f4bccdf773da45ab7fa76d",
+      "observations": {
+        "schema": 1,
+        "policy": "keep",
+        "maxRecords": 4096,
+        "observedLoadCalls": 2,
+        "observedEndCalls": 2,
+        "complete": true,
+        "records": [
+          {
+            "Phase": "SceneLoad",
+            "Policy": "Keep",
+            "Skipped": false,
+            "StartTimestamp": 686601413534125,
+            "CollectionWallMs": 15.4939,
+            "PauseDeltaMs": 15.24,
+            "Before": {
+              "WorkingSetBytes": 432275456,
+              "ManagedLiveBytes": 212759400,
+              "GcCommittedBytes": 158400512,
+              "GcHeapSizeBytes": 156745304,
+              "GcFragmentedBytes": 7762808,
+              "GcCollectionIndex": 39,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 53.581,
+              "LatestPauseDurationsMs": [
+                1.342,
+                0
+              ],
+              "Gen0Collections": 39,
+              "Gen1Collections": 12,
+              "Gen2Collections": 4
+            },
+            "After": {
+              "WorkingSetBytes": 432357376,
+              "ManagedLiveBytes": 171190264,
+              "GcCommittedBytes": 160759808,
+              "GcHeapSizeBytes": 152042944,
+              "GcFragmentedBytes": 38150224,
+              "GcCollectionIndex": 40,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 68.821,
+              "LatestPauseDurationsMs": [
+                15.24,
+                0
+              ],
+              "Gen0Collections": 40,
+              "Gen1Collections": 13,
+              "Gen2Collections": 5
+            }
+          },
+          {
+            "Stage": "Scene.OnLoad",
+            "Policy": "Keep",
+            "StartTimestamp": 686601302176375,
+            "StageWallMs": 127.4755,
+            "PauseDeltaMs": 17.819,
+            "Before": {
+              "WorkingSetBytes": 420102144,
+              "ManagedLiveBytes": 206384960,
+              "GcCommittedBytes": 155533312,
+              "GcHeapSizeBytes": 144094016,
+              "GcFragmentedBytes": 476400,
+              "GcCollectionIndex": 37,
+              "LatestGeneration": 1,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 51.002,
+              "LatestPauseDurationsMs": [
+                3.93,
+                0
+              ],
+              "Gen0Collections": 37,
+              "Gen1Collections": 12,
+              "Gen2Collections": 4
+            },
+            "After": {
+              "WorkingSetBytes": 432357376,
+              "ManagedLiveBytes": 171190264,
+              "GcCommittedBytes": 160759808,
+              "GcHeapSizeBytes": 152042944,
+              "GcFragmentedBytes": 38150224,
+              "GcCollectionIndex": 40,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 68.821,
+              "LatestPauseDurationsMs": [
+                15.24,
+                0
+              ],
+              "Gen0Collections": 40,
+              "Gen1Collections": 13,
+              "Gen2Collections": 5
+            }
+          },
+          {
+            "Phase": "SceneEnd",
+            "Policy": "Keep",
+            "Skipped": false,
+            "StartTimestamp": 686609697554333,
+            "CollectionWallMs": 20.3877,
+            "PauseDeltaMs": 20.217,
+            "Before": {
+              "WorkingSetBytes": 511410176,
+              "ManagedLiveBytes": 224077824,
+              "GcCommittedBytes": 186236928,
+              "GcHeapSizeBytes": 175925528,
+              "GcFragmentedBytes": 19225144,
+              "GcCollectionIndex": 51,
+              "LatestGeneration": 1,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 82.062,
+              "LatestPauseDurationsMs": [
+                1.303,
+                0
+              ],
+              "Gen0Collections": 51,
+              "Gen1Collections": 15,
+              "Gen2Collections": 5
+            },
+            "After": {
+              "WorkingSetBytes": 465829888,
+              "ManagedLiveBytes": 108317208,
+              "GcCommittedBytes": 142721024,
+              "GcHeapSizeBytes": 127543272,
+              "GcFragmentedBytes": 51991272,
+              "GcCollectionIndex": 52,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 102.279,
+              "LatestPauseDurationsMs": [
+                20.217,
+                0
+              ],
+              "Gen0Collections": 52,
+              "Gen1Collections": 16,
+              "Gen2Collections": 6
+            }
+          },
+          {
+            "Stage": "RenderWindow.EndScene",
+            "Policy": "Keep",
+            "StartTimestamp": 686609683289333,
+            "StageWallMs": 34.7639,
+            "PauseDeltaMs": 20.217,
+            "Before": {
+              "WorkingSetBytes": 529924096,
+              "ManagedLiveBytes": 223009984,
+              "GcCommittedBytes": 186236928,
+              "GcHeapSizeBytes": 175925528,
+              "GcFragmentedBytes": 19225144,
+              "GcCollectionIndex": 51,
+              "LatestGeneration": 1,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 82.062,
+              "LatestPauseDurationsMs": [
+                1.303,
+                0
+              ],
+              "Gen0Collections": 51,
+              "Gen1Collections": 15,
+              "Gen2Collections": 5
+            },
+            "After": {
+              "WorkingSetBytes": 465829888,
+              "ManagedLiveBytes": 108317208,
+              "GcCommittedBytes": 142721024,
+              "GcHeapSizeBytes": 127543272,
+              "GcFragmentedBytes": 51991272,
+              "GcCollectionIndex": 52,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 102.279,
+              "LatestPauseDurationsMs": [
+                20.217,
+                0
+              ],
+              "Gen0Collections": 52,
+              "Gen1Collections": 16,
+              "Gen2Collections": 6
+            }
+          },
+          {
+            "Phase": "SceneLoad",
+            "Policy": "Keep",
+            "Skipped": false,
+            "StartTimestamp": 686610208479666,
+            "CollectionWallMs": 17.8636,
+            "PauseDeltaMs": 17.682,
+            "Before": {
+              "WorkingSetBytes": 526336000,
+              "ManagedLiveBytes": 245189480,
+              "GcCommittedBytes": 186925056,
+              "GcHeapSizeBytes": 173487064,
+              "GcFragmentedBytes": 6672600,
+              "GcCollectionIndex": 70,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 127.498,
+              "LatestPauseDurationsMs": [
+                0.8,
+                0
+              ],
+              "Gen0Collections": 70,
+              "Gen1Collections": 21,
+              "Gen2Collections": 7
+            },
+            "After": {
+              "WorkingSetBytes": 518995968,
+              "ManagedLiveBytes": 212754664,
+              "GcCommittedBytes": 179585024,
+              "GcHeapSizeBytes": 165146512,
+              "GcFragmentedBytes": 22760296,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 145.18,
+              "LatestPauseDurationsMs": [
+                17.682,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 22,
+              "Gen2Collections": 8
+            }
+          },
+          {
+            "Stage": "Scene.OnLoad",
+            "Policy": "Keep",
+            "StartTimestamp": 686610156458750,
+            "StageWallMs": 69.9749,
+            "PauseDeltaMs": 18.482,
+            "Before": {
+              "WorkingSetBytes": 521093120,
+              "ManagedLiveBytes": 233808848,
+              "GcCommittedBytes": 186925056,
+              "GcHeapSizeBytes": 172361920,
+              "GcFragmentedBytes": 9354152,
+              "GcCollectionIndex": 69,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 126.698,
+              "LatestPauseDurationsMs": [
+                0.695,
+                0
+              ],
+              "Gen0Collections": 69,
+              "Gen1Collections": 21,
+              "Gen2Collections": 7
+            },
+            "After": {
+              "WorkingSetBytes": 518995968,
+              "ManagedLiveBytes": 212754664,
+              "GcCommittedBytes": 179585024,
+              "GcHeapSizeBytes": 165146512,
+              "GcFragmentedBytes": 22760296,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 145.18,
+              "LatestPauseDurationsMs": [
+                17.682,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 22,
+              "Gen2Collections": 8
+            }
+          },
+          {
+            "Phase": "SceneEnd",
+            "Policy": "Keep",
+            "Skipped": false,
+            "StartTimestamp": 686610257879208,
+            "CollectionWallMs": 15.4592,
+            "PauseDeltaMs": 15.327,
+            "Before": {
+              "WorkingSetBytes": 509181952,
+              "ManagedLiveBytes": 213566968,
+              "GcCommittedBytes": 179585024,
+              "GcHeapSizeBytes": 165146512,
+              "GcFragmentedBytes": 22760296,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 145.18,
+              "LatestPauseDurationsMs": [
+                17.682,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 22,
+              "Gen2Collections": 8
+            },
+            "After": {
+              "WorkingSetBytes": 501039104,
+              "ManagedLiveBytes": 137187200,
+              "GcCommittedBytes": 171573248,
+              "GcHeapSizeBytes": 137083768,
+              "GcFragmentedBytes": 42210496,
+              "GcCollectionIndex": 72,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 160.507,
+              "LatestPauseDurationsMs": [
+                15.327,
+                0
+              ],
+              "Gen0Collections": 72,
+              "Gen1Collections": 23,
+              "Gen2Collections": 9
+            }
+          },
+          {
+            "Stage": "RenderWindow.EndScene",
+            "Policy": "Keep",
+            "StartTimestamp": 686610226602875,
+            "StageWallMs": 46.782,
+            "PauseDeltaMs": 15.327,
+            "Before": {
+              "WorkingSetBytes": 518995968,
+              "ManagedLiveBytes": 212795400,
+              "GcCommittedBytes": 179585024,
+              "GcHeapSizeBytes": 165146512,
+              "GcFragmentedBytes": 22760296,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 145.18,
+              "LatestPauseDurationsMs": [
+                17.682,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 22,
+              "Gen2Collections": 8
+            },
+            "After": {
+              "WorkingSetBytes": 501039104,
+              "ManagedLiveBytes": 137187200,
+              "GcCommittedBytes": 171573248,
+              "GcHeapSizeBytes": 137083768,
+              "GcFragmentedBytes": 42210496,
+              "GcCollectionIndex": 72,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 160.507,
+              "LatestPauseDurationsMs": [
+                15.327,
+                0
+              ],
+              "Gen0Collections": 72,
+              "Gen1Collections": 23,
+              "Gen2Collections": 9
+            }
+          }
+        ],
+        "scope": "Only original Scene.OnLoad Gen2 forced blocking compacting collection and RenderWindow.EndScene default collection; no added GC.",
+        "limits": "Collection wall excludes memory probes/callback; stage wall includes observer overhead and GL/audio/driver work. Stage scopes cover Scene.OnLoad and EndScene, not scene construction/AddRoom. GCMemoryInfo describes the indexed latest collection, which may predate skipped calls. Managed live bytes are an estimate; RSS includes native/runtime/driver memory. Readback/resource-stress frames are lifecycle evidence, never FPS. Frame tails require separate ordinary completed-frame runs on the same binary/fixture. Observation retains bounded value-only records identically across arms."
+      },
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 742,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "sceneAvailableAfterNextLoad": true,
+        "sceneAvailableAfterNextEnd": true,
+        "nextForegroundCleanup": {
+          "ownedProgramsBefore": 4,
+          "recognizedProgramsAfter": 0,
+          "ownedTexturesBefore": 247,
+          "recognizedTexturesAfter": 0,
+          "ownedFramebuffersBefore": 1,
+          "recognizedFramebuffersAfter": 0,
+          "sceneWeakTargetAvailableAfter": true,
+          "sceneAvailableAfterNextLoad": null,
+          "sceneAvailableAfterNextEnd": null,
+          "nextForegroundCleanup": null,
+          "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+        },
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      }
+    },
+    {
+      "policy": "skip-load",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "8",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-transition-gc",
+        "skip-load",
+        "-transition-rebind",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/artifacts/transition-gc/rebind-smoke/skip-load.json"
+      ],
+      "exitCode": 0,
+      "logSha256": "8d47d208c3a2aedfc6eff0bf6bc09dd916fb7252af7aa4c1f17553752d965bb4",
+      "resultSha256": "db8ac6ac5e19c8055c4015fbd1fd5f13cce61bcbd4b5191b29101873297c647d",
+      "observations": {
+        "schema": 1,
+        "policy": "skip-load",
+        "maxRecords": 4096,
+        "observedLoadCalls": 2,
+        "observedEndCalls": 2,
+        "complete": true,
+        "records": [
+          {
+            "Phase": "SceneLoad",
+            "Policy": "SkipLoad",
+            "Skipped": true,
+            "StartTimestamp": 686611898689875,
+            "CollectionWallMs": 0.0001,
+            "PauseDeltaMs": 0,
+            "Before": {
+              "WorkingSetBytes": 436256768,
+              "ManagedLiveBytes": 213158352,
+              "GcCommittedBytes": 162463744,
+              "GcHeapSizeBytes": 157126728,
+              "GcFragmentedBytes": 8126704,
+              "GcCollectionIndex": 39,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 55.834,
+              "LatestPauseDurationsMs": [
+                1.709,
+                0
+              ],
+              "Gen0Collections": 39,
+              "Gen1Collections": 12,
+              "Gen2Collections": 4
+            },
+            "After": {
+              "WorkingSetBytes": 436256768,
+              "ManagedLiveBytes": 213158352,
+              "GcCommittedBytes": 162463744,
+              "GcHeapSizeBytes": 157126728,
+              "GcFragmentedBytes": 8126704,
+              "GcCollectionIndex": 39,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 55.834,
+              "LatestPauseDurationsMs": [
+                1.709,
+                0
+              ],
+              "Gen0Collections": 39,
+              "Gen1Collections": 12,
+              "Gen2Collections": 4
+            }
+          },
+          {
+            "Stage": "Scene.OnLoad",
+            "Policy": "SkipLoad",
+            "StartTimestamp": 686611785610083,
+            "StageWallMs": 113.3055,
+            "PauseDeltaMs": 3.248,
+            "Before": {
+              "WorkingSetBytes": 424443904,
+              "ManagedLiveBytes": 206784552,
+              "GcCommittedBytes": 160153600,
+              "GcHeapSizeBytes": 144475344,
+              "GcFragmentedBytes": 840200,
+              "GcCollectionIndex": 37,
+              "LatestGeneration": 1,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 52.586,
+              "LatestPauseDurationsMs": [
+                4.415,
+                0
+              ],
+              "Gen0Collections": 37,
+              "Gen1Collections": 12,
+              "Gen2Collections": 4
+            },
+            "After": {
+              "WorkingSetBytes": 436256768,
+              "ManagedLiveBytes": 213158352,
+              "GcCommittedBytes": 162463744,
+              "GcHeapSizeBytes": 157126728,
+              "GcFragmentedBytes": 8126704,
+              "GcCollectionIndex": 39,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 55.834,
+              "LatestPauseDurationsMs": [
+                1.709,
+                0
+              ],
+              "Gen0Collections": 39,
+              "Gen1Collections": 12,
+              "Gen2Collections": 4
+            }
+          },
+          {
+            "Phase": "SceneEnd",
+            "Policy": "SkipLoad",
+            "Skipped": false,
+            "StartTimestamp": 686620154814500,
+            "CollectionWallMs": 16.5534,
+            "PauseDeltaMs": 16.353,
+            "Before": {
+              "WorkingSetBytes": 524648448,
+              "ManagedLiveBytes": 188315168,
+              "GcCommittedBytes": 202817536,
+              "GcHeapSizeBytes": 194281848,
+              "GcFragmentedBytes": 70305504,
+              "GcCollectionIndex": 52,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 73.863,
+              "LatestPauseDurationsMs": [
+                1.5,
+                0
+              ],
+              "Gen0Collections": 52,
+              "Gen1Collections": 14,
+              "Gen2Collections": 5
+            },
+            "After": {
+              "WorkingSetBytes": 523468800,
+              "ManagedLiveBytes": 108203424,
+              "GcCommittedBytes": 201359360,
+              "GcHeapSizeBytes": 163616576,
+              "GcFragmentedBytes": 88158960,
+              "GcCollectionIndex": 53,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 90.216,
+              "LatestPauseDurationsMs": [
+                16.353,
+                0
+              ],
+              "Gen0Collections": 53,
+              "Gen1Collections": 15,
+              "Gen2Collections": 6
+            }
+          },
+          {
+            "Stage": "RenderWindow.EndScene",
+            "Policy": "SkipLoad",
+            "StartTimestamp": 686620138203000,
+            "StageWallMs": 33.3039,
+            "PauseDeltaMs": 17.853,
+            "Before": {
+              "WorkingSetBytes": 543162368,
+              "ManagedLiveBytes": 194638760,
+              "GcCommittedBytes": 202817536,
+              "GcHeapSizeBytes": 193941176,
+              "GcFragmentedBytes": 70308664,
+              "GcCollectionIndex": 51,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 72.363,
+              "LatestPauseDurationsMs": [
+                0.811,
+                0
+              ],
+              "Gen0Collections": 51,
+              "Gen1Collections": 14,
+              "Gen2Collections": 5
+            },
+            "After": {
+              "WorkingSetBytes": 523468800,
+              "ManagedLiveBytes": 108203424,
+              "GcCommittedBytes": 201359360,
+              "GcHeapSizeBytes": 163616576,
+              "GcFragmentedBytes": 88158960,
+              "GcCollectionIndex": 53,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 90.216,
+              "LatestPauseDurationsMs": [
+                16.353,
+                0
+              ],
+              "Gen0Collections": 53,
+              "Gen1Collections": 15,
+              "Gen2Collections": 6
+            }
+          },
+          {
+            "Phase": "SceneLoad",
+            "Policy": "SkipLoad",
+            "Skipped": true,
+            "StartTimestamp": 686620645500500,
+            "CollectionWallMs": 0.0004,
+            "PauseDeltaMs": 0,
+            "Before": {
+              "WorkingSetBytes": 550600704,
+              "ManagedLiveBytes": 245169304,
+              "GcCommittedBytes": 215220224,
+              "GcHeapSizeBytes": 202294240,
+              "GcFragmentedBytes": 35556464,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 115.109,
+              "LatestPauseDurationsMs": [
+                0.854,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            },
+            "After": {
+              "WorkingSetBytes": 550600704,
+              "ManagedLiveBytes": 245169304,
+              "GcCommittedBytes": 215220224,
+              "GcHeapSizeBytes": 202294240,
+              "GcFragmentedBytes": 35556464,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 115.109,
+              "LatestPauseDurationsMs": [
+                0.854,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            }
+          },
+          {
+            "Stage": "Scene.OnLoad",
+            "Policy": "SkipLoad",
+            "StartTimestamp": 686620593807958,
+            "StageWallMs": 51.7471,
+            "PauseDeltaMs": 0.854,
+            "Before": {
+              "WorkingSetBytes": 545570816,
+              "ManagedLiveBytes": 233786688,
+              "GcCommittedBytes": 215220224,
+              "GcHeapSizeBytes": 201168104,
+              "GcFragmentedBytes": 38238016,
+              "GcCollectionIndex": 70,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 114.255,
+              "LatestPauseDurationsMs": [
+                0.788,
+                0
+              ],
+              "Gen0Collections": 70,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            },
+            "After": {
+              "WorkingSetBytes": 550600704,
+              "ManagedLiveBytes": 245177528,
+              "GcCommittedBytes": 215220224,
+              "GcHeapSizeBytes": 202294240,
+              "GcFragmentedBytes": 35556464,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 115.109,
+              "LatestPauseDurationsMs": [
+                0.854,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            }
+          },
+          {
+            "Phase": "SceneEnd",
+            "Policy": "SkipLoad",
+            "Skipped": false,
+            "StartTimestamp": 686620671629458,
+            "CollectionWallMs": 17.409,
+            "PauseDeltaMs": 17.277,
+            "Before": {
+              "WorkingSetBytes": 540786688,
+              "ManagedLiveBytes": 245984912,
+              "GcCommittedBytes": 215220224,
+              "GcHeapSizeBytes": 202294240,
+              "GcFragmentedBytes": 35556464,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 115.109,
+              "LatestPauseDurationsMs": [
+                0.854,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            },
+            "After": {
+              "WorkingSetBytes": 534446080,
+              "ManagedLiveBytes": 136913520,
+              "GcCommittedBytes": 209010688,
+              "GcHeapSizeBytes": 172977608,
+              "GcFragmentedBytes": 78179152,
+              "GcCollectionIndex": 72,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 132.386,
+              "LatestPauseDurationsMs": [
+                17.277,
+                0
+              ],
+              "Gen0Collections": 72,
+              "Gen1Collections": 21,
+              "Gen2Collections": 8
+            }
+          },
+          {
+            "Stage": "RenderWindow.EndScene",
+            "Policy": "SkipLoad",
+            "StartTimestamp": 686620645766125,
+            "StageWallMs": 43.3625,
+            "PauseDeltaMs": 17.277,
+            "Before": {
+              "WorkingSetBytes": 550600704,
+              "ManagedLiveBytes": 245210424,
+              "GcCommittedBytes": 215220224,
+              "GcHeapSizeBytes": 202294240,
+              "GcFragmentedBytes": 35556464,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 115.109,
+              "LatestPauseDurationsMs": [
+                0.854,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            },
+            "After": {
+              "WorkingSetBytes": 534446080,
+              "ManagedLiveBytes": 136913520,
+              "GcCommittedBytes": 209010688,
+              "GcHeapSizeBytes": 172977608,
+              "GcFragmentedBytes": 78179152,
+              "GcCollectionIndex": 72,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 132.386,
+              "LatestPauseDurationsMs": [
+                17.277,
+                0
+              ],
+              "Gen0Collections": 72,
+              "Gen1Collections": 21,
+              "Gen2Collections": 8
+            }
+          }
+        ],
+        "scope": "Only original Scene.OnLoad Gen2 forced blocking compacting collection and RenderWindow.EndScene default collection; no added GC.",
+        "limits": "Collection wall excludes memory probes/callback; stage wall includes observer overhead and GL/audio/driver work. Stage scopes cover Scene.OnLoad and EndScene, not scene construction/AddRoom. GCMemoryInfo describes the indexed latest collection, which may predate skipped calls. Managed live bytes are an estimate; RSS includes native/runtime/driver memory. Readback/resource-stress frames are lifecycle evidence, never FPS. Frame tails require separate ordinary completed-frame runs on the same binary/fixture. Observation retains bounded value-only records identically across arms."
+      },
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 742,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "sceneAvailableAfterNextLoad": true,
+        "sceneAvailableAfterNextEnd": true,
+        "nextForegroundCleanup": {
+          "ownedProgramsBefore": 4,
+          "recognizedProgramsAfter": 0,
+          "ownedTexturesBefore": 247,
+          "recognizedTexturesAfter": 0,
+          "ownedFramebuffersBefore": 1,
+          "recognizedFramebuffersAfter": 0,
+          "sceneWeakTargetAvailableAfter": true,
+          "sceneAvailableAfterNextLoad": null,
+          "sceneAvailableAfterNextEnd": null,
+          "nextForegroundCleanup": null,
+          "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+        },
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      }
+    },
+    {
+      "policy": "skip-end",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "8",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-transition-gc",
+        "skip-end",
+        "-transition-rebind",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/artifacts/transition-gc/rebind-smoke/skip-end.json"
+      ],
+      "exitCode": 0,
+      "logSha256": "1fcf01637e60122e44c53d1081dc39d60b75dea605b61d2a78ae9babeea6c42c",
+      "resultSha256": "ec4b9ff26f640ce2152e41ecca5e7d81f55b42ae9d9f1810acbc95c87343b995",
+      "observations": {
+        "schema": 1,
+        "policy": "skip-end",
+        "maxRecords": 4096,
+        "observedLoadCalls": 2,
+        "observedEndCalls": 2,
+        "complete": true,
+        "records": [
+          {
+            "Phase": "SceneLoad",
+            "Policy": "SkipEnd",
+            "Skipped": false,
+            "StartTimestamp": 686622274315916,
+            "CollectionWallMs": 16.7725,
+            "PauseDeltaMs": 16.614,
+            "Before": {
+              "WorkingSetBytes": 441401344,
+              "ManagedLiveBytes": 216738368,
+              "GcCommittedBytes": 166166528,
+              "GcHeapSizeBytes": 159329920,
+              "GcFragmentedBytes": 9632160,
+              "GcCollectionIndex": 38,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 52.676,
+              "LatestPauseDurationsMs": [
+                0.865,
+                0
+              ],
+              "Gen0Collections": 38,
+              "Gen1Collections": 13,
+              "Gen2Collections": 4
+            },
+            "After": {
+              "WorkingSetBytes": 440647680,
+              "ManagedLiveBytes": 170825512,
+              "GcCommittedBytes": 167952384,
+              "GcHeapSizeBytes": 152665080,
+              "GcFragmentedBytes": 38803112,
+              "GcCollectionIndex": 39,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 69.29,
+              "LatestPauseDurationsMs": [
+                16.614,
+                0
+              ],
+              "Gen0Collections": 39,
+              "Gen1Collections": 14,
+              "Gen2Collections": 5
+            }
+          },
+          {
+            "Stage": "Scene.OnLoad",
+            "Policy": "SkipEnd",
+            "StartTimestamp": 686622172811958,
+            "StageWallMs": 118.6343,
+            "PauseDeltaMs": 17.479,
+            "Before": {
+              "WorkingSetBytes": 428933120,
+              "ManagedLiveBytes": 204293248,
+              "GcCommittedBytes": 163561472,
+              "GcHeapSizeBytes": 148450440,
+              "GcFragmentedBytes": 2766616,
+              "GcCollectionIndex": 37,
+              "LatestGeneration": 1,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 51.811,
+              "LatestPauseDurationsMs": [
+                3.449,
+                0
+              ],
+              "Gen0Collections": 37,
+              "Gen1Collections": 13,
+              "Gen2Collections": 4
+            },
+            "After": {
+              "WorkingSetBytes": 440647680,
+              "ManagedLiveBytes": 170825512,
+              "GcCommittedBytes": 167952384,
+              "GcHeapSizeBytes": 152665080,
+              "GcFragmentedBytes": 38803112,
+              "GcCollectionIndex": 39,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 69.29,
+              "LatestPauseDurationsMs": [
+                16.614,
+                0
+              ],
+              "Gen0Collections": 39,
+              "Gen1Collections": 14,
+              "Gen2Collections": 5
+            }
+          },
+          {
+            "Phase": "SceneEnd",
+            "Policy": "SkipEnd",
+            "Skipped": true,
+            "StartTimestamp": 686630537543333,
+            "CollectionWallMs": 0.0005,
+            "PauseDeltaMs": 0,
+            "Before": {
+              "WorkingSetBytes": 517013504,
+              "ManagedLiveBytes": 223936224,
+              "GcCommittedBytes": 187662336,
+              "GcHeapSizeBytes": 176850392,
+              "GcFragmentedBytes": 20181232,
+              "GcCollectionIndex": 50,
+              "LatestGeneration": 1,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 83.539,
+              "LatestPauseDurationsMs": [
+                1.188,
+                0
+              ],
+              "Gen0Collections": 50,
+              "Gen1Collections": 16,
+              "Gen2Collections": 5
+            },
+            "After": {
+              "WorkingSetBytes": 517013504,
+              "ManagedLiveBytes": 223944448,
+              "GcCommittedBytes": 187662336,
+              "GcHeapSizeBytes": 176850392,
+              "GcFragmentedBytes": 20181232,
+              "GcCollectionIndex": 50,
+              "LatestGeneration": 1,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 83.539,
+              "LatestPauseDurationsMs": [
+                1.188,
+                0
+              ],
+              "Gen0Collections": 50,
+              "Gen1Collections": 16,
+              "Gen2Collections": 5
+            }
+          },
+          {
+            "Stage": "RenderWindow.EndScene",
+            "Policy": "SkipEnd",
+            "StartTimestamp": 686630523537750,
+            "StageWallMs": 14.0442,
+            "PauseDeltaMs": 0,
+            "Before": {
+              "WorkingSetBytes": 535543808,
+              "ManagedLiveBytes": 222868384,
+              "GcCommittedBytes": 187662336,
+              "GcHeapSizeBytes": 176850392,
+              "GcFragmentedBytes": 20181232,
+              "GcCollectionIndex": 50,
+              "LatestGeneration": 1,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 83.539,
+              "LatestPauseDurationsMs": [
+                1.188,
+                0
+              ],
+              "Gen0Collections": 50,
+              "Gen1Collections": 16,
+              "Gen2Collections": 5
+            },
+            "After": {
+              "WorkingSetBytes": 517013504,
+              "ManagedLiveBytes": 223944448,
+              "GcCommittedBytes": 187662336,
+              "GcHeapSizeBytes": 176850392,
+              "GcFragmentedBytes": 20181232,
+              "GcCollectionIndex": 50,
+              "LatestGeneration": 1,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 83.539,
+              "LatestPauseDurationsMs": [
+                1.188,
+                0
+              ],
+              "Gen0Collections": 50,
+              "Gen1Collections": 16,
+              "Gen2Collections": 5
+            }
+          },
+          {
+            "Phase": "SceneLoad",
+            "Policy": "SkipEnd",
+            "Skipped": false,
+            "StartTimestamp": 686631033649541,
+            "CollectionWallMs": 20.3112,
+            "PauseDeltaMs": 20.125,
+            "Before": {
+              "WorkingSetBytes": 542605312,
+              "ManagedLiveBytes": 217770312,
+              "GcCommittedBytes": 200081408,
+              "GcHeapSizeBytes": 194874032,
+              "GcFragmentedBytes": 51395064,
+              "GcCollectionIndex": 70,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 117.49,
+              "LatestPauseDurationsMs": [
+                0.472,
+                0
+              ],
+              "Gen0Collections": 70,
+              "Gen1Collections": 22,
+              "Gen2Collections": 7
+            },
+            "After": {
+              "WorkingSetBytes": 542654464,
+              "ManagedLiveBytes": 212703392,
+              "GcCommittedBytes": 200081408,
+              "GcHeapSizeBytes": 186744032,
+              "GcFragmentedBytes": 44388896,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 137.615,
+              "LatestPauseDurationsMs": [
+                20.125,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 23,
+              "Gen2Collections": 8
+            }
+          },
+          {
+            "Stage": "Scene.OnLoad",
+            "Policy": "SkipEnd",
+            "StartTimestamp": 686630984666083,
+            "StageWallMs": 69.4123,
+            "PauseDeltaMs": 21.859,
+            "Before": {
+              "WorkingSetBytes": 537591808,
+              "ManagedLiveBytes": 212756160,
+              "GcCommittedBytes": 200081408,
+              "GcHeapSizeBytes": 184475840,
+              "GcFragmentedBytes": 45940288,
+              "GcCollectionIndex": 68,
+              "LatestGeneration": 1,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 115.756,
+              "LatestPauseDurationsMs": [
+                5.985,
+                0
+              ],
+              "Gen0Collections": 68,
+              "Gen1Collections": 22,
+              "Gen2Collections": 7
+            },
+            "After": {
+              "WorkingSetBytes": 542654464,
+              "ManagedLiveBytes": 212703392,
+              "GcCommittedBytes": 200081408,
+              "GcHeapSizeBytes": 186744032,
+              "GcFragmentedBytes": 44388896,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 137.615,
+              "LatestPauseDurationsMs": [
+                20.125,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 23,
+              "Gen2Collections": 8
+            }
+          },
+          {
+            "Phase": "SceneEnd",
+            "Policy": "SkipEnd",
+            "Skipped": true,
+            "StartTimestamp": 686631097677875,
+            "CollectionWallMs": 0.001,
+            "PauseDeltaMs": 0,
+            "Before": {
+              "WorkingSetBytes": 532840448,
+              "ManagedLiveBytes": 213515696,
+              "GcCommittedBytes": 200081408,
+              "GcHeapSizeBytes": 186744032,
+              "GcFragmentedBytes": 44388896,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 137.615,
+              "LatestPauseDurationsMs": [
+                20.125,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 23,
+              "Gen2Collections": 8
+            },
+            "After": {
+              "WorkingSetBytes": 532840448,
+              "ManagedLiveBytes": 213515696,
+              "GcCommittedBytes": 200081408,
+              "GcHeapSizeBytes": 186744032,
+              "GcFragmentedBytes": 44388896,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 137.615,
+              "LatestPauseDurationsMs": [
+                20.125,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 23,
+              "Gen2Collections": 8
+            }
+          },
+          {
+            "Stage": "RenderWindow.EndScene",
+            "Policy": "SkipEnd",
+            "StartTimestamp": 686631054350833,
+            "StageWallMs": 43.3361,
+            "PauseDeltaMs": 0,
+            "Before": {
+              "WorkingSetBytes": 542654464,
+              "ManagedLiveBytes": 212744128,
+              "GcCommittedBytes": 200081408,
+              "GcHeapSizeBytes": 186744032,
+              "GcFragmentedBytes": 44388896,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 137.615,
+              "LatestPauseDurationsMs": [
+                20.125,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 23,
+              "Gen2Collections": 8
+            },
+            "After": {
+              "WorkingSetBytes": 532840448,
+              "ManagedLiveBytes": 213515696,
+              "GcCommittedBytes": 200081408,
+              "GcHeapSizeBytes": 186744032,
+              "GcFragmentedBytes": 44388896,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 2,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 137.615,
+              "LatestPauseDurationsMs": [
+                20.125,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 23,
+              "Gen2Collections": 8
+            }
+          }
+        ],
+        "scope": "Only original Scene.OnLoad Gen2 forced blocking compacting collection and RenderWindow.EndScene default collection; no added GC.",
+        "limits": "Collection wall excludes memory probes/callback; stage wall includes observer overhead and GL/audio/driver work. Stage scopes cover Scene.OnLoad and EndScene, not scene construction/AddRoom. GCMemoryInfo describes the indexed latest collection, which may predate skipped calls. Managed live bytes are an estimate; RSS includes native/runtime/driver memory. Readback/resource-stress frames are lifecycle evidence, never FPS. Frame tails require separate ordinary completed-frame runs on the same binary/fixture. Observation retains bounded value-only records identically across arms."
+      },
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 742,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "sceneAvailableAfterNextLoad": true,
+        "sceneAvailableAfterNextEnd": true,
+        "nextForegroundCleanup": {
+          "ownedProgramsBefore": 4,
+          "recognizedProgramsAfter": 0,
+          "ownedTexturesBefore": 247,
+          "recognizedTexturesAfter": 0,
+          "ownedFramebuffersBefore": 1,
+          "recognizedFramebuffersAfter": 0,
+          "sceneWeakTargetAvailableAfter": true,
+          "sceneAvailableAfterNextLoad": null,
+          "sceneAvailableAfterNextEnd": null,
+          "nextForegroundCleanup": null,
+          "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+        },
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      }
+    },
+    {
+      "policy": "skip-both",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "8",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-transition-gc",
+        "skip-both",
+        "-transition-rebind",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/artifacts/transition-gc/rebind-smoke/skip-both.json"
+      ],
+      "exitCode": 0,
+      "logSha256": "7686566dd35699d7aed0db0df38ebc8dd8a8b98a945ca9301641ad94e3d8dc00",
+      "resultSha256": "a738082435daaff4beee7bbf3093b520c49a9264cdf7004ef3fbca392b54456c",
+      "observations": {
+        "schema": 1,
+        "policy": "skip-both",
+        "maxRecords": 4096,
+        "observedLoadCalls": 2,
+        "observedEndCalls": 2,
+        "complete": true,
+        "records": [
+          {
+            "Phase": "SceneLoad",
+            "Policy": "SkipBoth",
+            "Skipped": true,
+            "StartTimestamp": 686632732056541,
+            "CollectionWallMs": 0.0001,
+            "PauseDeltaMs": 0,
+            "Before": {
+              "WorkingSetBytes": 439156736,
+              "ManagedLiveBytes": 212954976,
+              "GcCommittedBytes": 160481280,
+              "GcHeapSizeBytes": 157063144,
+              "GcFragmentedBytes": 8145232,
+              "GcCollectionIndex": 39,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 55.481,
+              "LatestPauseDurationsMs": [
+                1.555,
+                0
+              ],
+              "Gen0Collections": 39,
+              "Gen1Collections": 12,
+              "Gen2Collections": 4
+            },
+            "After": {
+              "WorkingSetBytes": 439156736,
+              "ManagedLiveBytes": 212954976,
+              "GcCommittedBytes": 160481280,
+              "GcHeapSizeBytes": 157063144,
+              "GcFragmentedBytes": 8145232,
+              "GcCollectionIndex": 39,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 55.481,
+              "LatestPauseDurationsMs": [
+                1.555,
+                0
+              ],
+              "Gen0Collections": 39,
+              "Gen1Collections": 12,
+              "Gen2Collections": 4
+            }
+          },
+          {
+            "Stage": "Scene.OnLoad",
+            "Policy": "SkipBoth",
+            "StartTimestamp": 686632619977000,
+            "StageWallMs": 112.3394,
+            "PauseDeltaMs": 2.95,
+            "Before": {
+              "WorkingSetBytes": 426622976,
+              "ManagedLiveBytes": 206641744,
+              "GcCommittedBytes": 157614080,
+              "GcHeapSizeBytes": 144445232,
+              "GcFragmentedBytes": 858736,
+              "GcCollectionIndex": 37,
+              "LatestGeneration": 1,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 52.531,
+              "LatestPauseDurationsMs": [
+                3.797,
+                0
+              ],
+              "Gen0Collections": 37,
+              "Gen1Collections": 12,
+              "Gen2Collections": 4
+            },
+            "After": {
+              "WorkingSetBytes": 439156736,
+              "ManagedLiveBytes": 212954976,
+              "GcCommittedBytes": 160481280,
+              "GcHeapSizeBytes": 157063144,
+              "GcFragmentedBytes": 8145232,
+              "GcCollectionIndex": 39,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 55.481,
+              "LatestPauseDurationsMs": [
+                1.555,
+                0
+              ],
+              "Gen0Collections": 39,
+              "Gen1Collections": 12,
+              "Gen2Collections": 4
+            }
+          },
+          {
+            "Phase": "SceneEnd",
+            "Policy": "SkipBoth",
+            "Skipped": true,
+            "StartTimestamp": 686640994315875,
+            "CollectionWallMs": 0.0001,
+            "PauseDeltaMs": 0,
+            "Before": {
+              "WorkingSetBytes": 531267584,
+              "ManagedLiveBytes": 189084944,
+              "GcCommittedBytes": 203620352,
+              "GcHeapSizeBytes": 194777256,
+              "GcFragmentedBytes": 71070824,
+              "GcCollectionIndex": 52,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 72.61,
+              "LatestPauseDurationsMs": [
+                0.963,
+                0
+              ],
+              "Gen0Collections": 52,
+              "Gen1Collections": 14,
+              "Gen2Collections": 5
+            },
+            "After": {
+              "WorkingSetBytes": 531267584,
+              "ManagedLiveBytes": 189093168,
+              "GcCommittedBytes": 203620352,
+              "GcHeapSizeBytes": 194777256,
+              "GcFragmentedBytes": 71070824,
+              "GcCollectionIndex": 52,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 72.61,
+              "LatestPauseDurationsMs": [
+                0.963,
+                0
+              ],
+              "Gen0Collections": 52,
+              "Gen1Collections": 14,
+              "Gen2Collections": 5
+            }
+          },
+          {
+            "Stage": "RenderWindow.EndScene",
+            "Policy": "SkipBoth",
+            "StartTimestamp": 686640980028000,
+            "StageWallMs": 14.3155,
+            "PauseDeltaMs": 0,
+            "Before": {
+              "WorkingSetBytes": 549748736,
+              "ManagedLiveBytes": 188017560,
+              "GcCommittedBytes": 203620352,
+              "GcHeapSizeBytes": 194777256,
+              "GcFragmentedBytes": 71070824,
+              "GcCollectionIndex": 52,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 72.61,
+              "LatestPauseDurationsMs": [
+                0.963,
+                0
+              ],
+              "Gen0Collections": 52,
+              "Gen1Collections": 14,
+              "Gen2Collections": 5
+            },
+            "After": {
+              "WorkingSetBytes": 531267584,
+              "ManagedLiveBytes": 189093168,
+              "GcCommittedBytes": 203620352,
+              "GcHeapSizeBytes": 194777256,
+              "GcFragmentedBytes": 71070824,
+              "GcCollectionIndex": 52,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 72.61,
+              "LatestPauseDurationsMs": [
+                0.963,
+                0
+              ],
+              "Gen0Collections": 52,
+              "Gen1Collections": 14,
+              "Gen2Collections": 5
+            }
+          },
+          {
+            "Phase": "SceneLoad",
+            "Policy": "SkipBoth",
+            "Skipped": true,
+            "StartTimestamp": 686641486221000,
+            "CollectionWallMs": 0.0005,
+            "PauseDeltaMs": 0,
+            "Before": {
+              "WorkingSetBytes": 564510720,
+              "ManagedLiveBytes": 232258136,
+              "GcCommittedBytes": 224149504,
+              "GcHeapSizeBytes": 217913656,
+              "GcFragmentedBytes": 74779672,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 99.703,
+              "LatestPauseDurationsMs": [
+                1.356,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            },
+            "After": {
+              "WorkingSetBytes": 564510720,
+              "ManagedLiveBytes": 232258136,
+              "GcCommittedBytes": 224149504,
+              "GcHeapSizeBytes": 217913656,
+              "GcFragmentedBytes": 74779672,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 99.703,
+              "LatestPauseDurationsMs": [
+                1.356,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            }
+          },
+          {
+            "Stage": "Scene.OnLoad",
+            "Policy": "SkipBoth",
+            "StartTimestamp": 686641436130375,
+            "StageWallMs": 50.1476,
+            "PauseDeltaMs": 1.356,
+            "Before": {
+              "WorkingSetBytes": 559497216,
+              "ManagedLiveBytes": 219651600,
+              "GcCommittedBytes": 224149504,
+              "GcHeapSizeBytes": 209525024,
+              "GcFragmentedBytes": 69995488,
+              "GcCollectionIndex": 70,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 98.347,
+              "LatestPauseDurationsMs": [
+                0.407,
+                0
+              ],
+              "Gen0Collections": 70,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            },
+            "After": {
+              "WorkingSetBytes": 564510720,
+              "ManagedLiveBytes": 232258136,
+              "GcCommittedBytes": 224149504,
+              "GcHeapSizeBytes": 217913656,
+              "GcFragmentedBytes": 74779672,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 99.703,
+              "LatestPauseDurationsMs": [
+                1.356,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            }
+          },
+          {
+            "Phase": "SceneEnd",
+            "Policy": "SkipBoth",
+            "Skipped": true,
+            "StartTimestamp": 686641511810666,
+            "CollectionWallMs": 0,
+            "PauseDeltaMs": 0,
+            "Before": {
+              "WorkingSetBytes": 554696704,
+              "ManagedLiveBytes": 233068888,
+              "GcCommittedBytes": 224149504,
+              "GcHeapSizeBytes": 217913656,
+              "GcFragmentedBytes": 74779672,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 99.703,
+              "LatestPauseDurationsMs": [
+                1.356,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            },
+            "After": {
+              "WorkingSetBytes": 554696704,
+              "ManagedLiveBytes": 233068888,
+              "GcCommittedBytes": 224149504,
+              "GcHeapSizeBytes": 217913656,
+              "GcFragmentedBytes": 74779672,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 99.703,
+              "LatestPauseDurationsMs": [
+                1.356,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            }
+          },
+          {
+            "Stage": "RenderWindow.EndScene",
+            "Policy": "SkipBoth",
+            "StartTimestamp": 686641486450041,
+            "StageWallMs": 25.3632,
+            "PauseDeltaMs": 0,
+            "Before": {
+              "WorkingSetBytes": 564510720,
+              "ManagedLiveBytes": 232299256,
+              "GcCommittedBytes": 224149504,
+              "GcHeapSizeBytes": 217913656,
+              "GcFragmentedBytes": 74779672,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 99.703,
+              "LatestPauseDurationsMs": [
+                1.356,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            },
+            "After": {
+              "WorkingSetBytes": 554696704,
+              "ManagedLiveBytes": 233068888,
+              "GcCommittedBytes": 224149504,
+              "GcHeapSizeBytes": 217913656,
+              "GcFragmentedBytes": 74779672,
+              "GcCollectionIndex": 71,
+              "LatestGeneration": 0,
+              "LatestConcurrent": false,
+              "LatestCompacted": true,
+              "TotalPauseMs": 99.703,
+              "LatestPauseDurationsMs": [
+                1.356,
+                0
+              ],
+              "Gen0Collections": 71,
+              "Gen1Collections": 20,
+              "Gen2Collections": 7
+            }
+          }
+        ],
+        "scope": "Only original Scene.OnLoad Gen2 forced blocking compacting collection and RenderWindow.EndScene default collection; no added GC.",
+        "limits": "Collection wall excludes memory probes/callback; stage wall includes observer overhead and GL/audio/driver work. Stage scopes cover Scene.OnLoad and EndScene, not scene construction/AddRoom. GCMemoryInfo describes the indexed latest collection, which may predate skipped calls. Managed live bytes are an estimate; RSS includes native/runtime/driver memory. Readback/resource-stress frames are lifecycle evidence, never FPS. Frame tails require separate ordinary completed-frame runs on the same binary/fixture. Observation retains bounded value-only records identically across arms."
+      },
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 742,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "sceneAvailableAfterNextLoad": true,
+        "sceneAvailableAfterNextEnd": true,
+        "nextForegroundCleanup": {
+          "ownedProgramsBefore": 4,
+          "recognizedProgramsAfter": 0,
+          "ownedTexturesBefore": 247,
+          "recognizedTexturesAfter": 0,
+          "ownedFramebuffersBefore": 1,
+          "recognizedFramebuffersAfter": 0,
+          "sceneWeakTargetAvailableAfter": true,
+          "sceneAvailableAfterNextLoad": null,
+          "sceneAvailableAfterNextEnd": null,
+          "nextForegroundCleanup": null,
+          "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+        },
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      }
+    }
+  ]
+}
