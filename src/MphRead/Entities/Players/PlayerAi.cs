@@ -153,6 +153,7 @@ namespace MphRead.Entities
                 _combatStrafeRight = false;
                 _combatJumpCooldown = 0;
                 ResetTacticalState();
+                ResetBotMotor();
                 for (int i = 0; i < _executionTree.Length; i++)
                 {
                     if (_executionTree[i] == null)
@@ -181,6 +182,7 @@ namespace MphRead.Entities
 
             public void InitializeAtSpawn()
             {
+                ResetBotMotor();
                 InitializeMain();
                 ClearInput();
                 UpdateExecutionPath(Personality, depth: 0);
@@ -855,6 +857,7 @@ namespace MphRead.Entities
                 }
                 _buttonAimX = 0;
                 _buttonAimY = 0;
+                ApplyBotMotorAnalogInput();
                 UpdateNodeDataSetSelection();
                 _nodeDataSelOff = 0;
                 _nodeDataSelOn = 0;
@@ -880,6 +883,9 @@ namespace MphRead.Entities
                 ApplyTacticalBrain();
                 ApplyCombatEnhancements();
                 ApplyEnhancedHunterChoices();
+                // The legacy tree and tactical/hunter layers only submit desired inputs.
+                // The final motor resolves one legal, rate-limited player command.
+                ApplyBotMotor();
                 Array.Fill(_slotHits, 0);
                 Array.Fill(_slotDamage, 0);
                 DamageFromHalfturret = 0;
@@ -1001,8 +1007,11 @@ namespace MphRead.Entities
                 // The modern tactical layer owns biped combat movement when it found
                 // a safe, purposeful move. Keep the legacy random strafe as a fallback
                 // for modes or situations the tactical layer deliberately leaves alone.
-                if (_tacticalMovementActive)
+                if (_tacticalMovementActive
+                    || _buttons.A.IsDown || _buttons.B.IsDown
+                    || _buttons.X.IsDown || _buttons.Y.IsDown)
                 {
+                    // Don't inject a competing strafe while navigation already owns the move.
                     return;
                 }
 
@@ -6795,7 +6804,7 @@ namespace MphRead.Entities
                 {
                     vec2 = vec1;
                 }
-                float dot = Vector3.Dot(vec1, vec2);
+                float dot = Math.Clamp(Vector3.Dot(vec1, vec2), -1, 1);
                 if (dot > 255 / 256f)
                 {
                     Flags2 |= AiFlags2.Bit0;
@@ -6826,7 +6835,7 @@ namespace MphRead.Entities
             {
                 var vec1 = new Vector3(_player.CameraInfo.Field48, 0, _player.CameraInfo.Field4C);
                 Vector3 vec2 = _field1038.X != 0 || _field1038.Z != 0 ? _field1038.WithY(0).Normalized() : vec1;
-                float dot = Vector3.Dot(vec1, vec2);
+                float dot = Math.Clamp(Vector3.Dot(vec1, vec2), -1, 1);
                 float value = Difficulty.MaxTurnDegrees;
                 if (dot < 1)
                 {
@@ -6843,8 +6852,8 @@ namespace MphRead.Entities
                         _buttonAimX *= -1;
                     }
                 }
-                float angle1 = 90 - MathHelper.RadiansToDegrees(MathF.Acos(_player.CameraInfo.Facing.Y));
-                float angle2 = 90 - MathHelper.RadiansToDegrees(MathF.Acos(_field1038.Y));
+                float angle1 = BotMotorMath.SafePitchDegrees(_player.CameraInfo.Facing);
+                float angle2 = BotMotorMath.SafePitchDegrees(_field1038);
                 float angleDiff = angle2 - angle1;
                 _buttonAimY = Math.Clamp(angleDiff, -value, value);
             }
@@ -6948,6 +6957,16 @@ namespace MphRead.Entities
                             initialSpeed = weapon.UnchargedSpeed / 4096f / 2;
                         }
 
+                        // Balanced Mode changes projectile speed independently of the
+                        // native ROM weapon table. Lead with the actual tuned flight
+                        // speed, especially for the revised three-round Battlehammer.
+                        bool balancedProjectile = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode;
+                        if (balancedProjectile)
+                        {
+                            initialSpeed = Mods.Multiplayer.BalancedModeRules.ScaleProjectileSpeed(
+                                _player.CurrentWeapon, isCharged, initialSpeed);
+                        }
+
                         // Homing corrects itself in flight. Ordinary projectiles get a
                         // straight-line intercept in the same 60 Hz units the projectile
                         // mover uses. Lower tiers use only a fraction of the correct lead.
@@ -6969,6 +6988,11 @@ namespace MphRead.Entities
                                 projectileSpeed = weapon.UnchargedFinalSpeed / 4096f / 2;
                             }
 
+                            if (balancedProjectile)
+                            {
+                                projectileSpeed = Mods.Multiplayer.BalancedModeRules.ScaleProjectileSpeed(
+                                    _player.CurrentWeapon, isCharged, projectileSpeed);
+                            }
                             if (projectileSpeed > 0)
                             {
                                 Vector3 targetVelocity = _targetPlayer.Speed / 2f;
@@ -7071,7 +7095,7 @@ namespace MphRead.Entities
                 float posYNrm = toPos.Y;
                 toPos = toPos.WithY(0);
                 toPos = toPos != Vector3.Zero ? toPos.Normalized() : toTarget;
-                float dot = Vector3.Dot(toTarget, toPos);
+                float dot = Math.Clamp(Vector3.Dot(toTarget, toPos), -1, 1);
                 BotDifficultyTuning tuning = Difficulty;
                 float value = tuning.MaxTurnDegrees;
                 if (dot < 1)
@@ -7111,7 +7135,20 @@ namespace MphRead.Entities
                 float gravity = (chargedAim
                     ? weapon.MinChargeGravity + ((weapon.ChargedGravity - weapon.MinChargeGravity) * chargePct)
                     : weapon.UnchargedGravity) / 4096f / 2;
-                float div = distToPosH * distToPosH * gravity / (speed * speed);
+                if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                {
+                    speed = Mods.Multiplayer.BalancedModeRules.ScaleProjectileSpeed(
+                        _player.CurrentWeapon, chargedAim, speed);
+                    if (Mods.Multiplayer.BalancedModeRules.IsBattlehammerBurst(
+                        multiplayer: true, balancedMode: true, _player.CurrentWeapon))
+                    {
+                        // All three burst rounds share one muzzle direction and fly
+                        // straight. Legacy Battlehammer elevation was wrong here.
+                        gravity = 0;
+                    }
+                }
+                float div = speed > 0.0001f
+                    ? distToPosH * distToPosH * gravity / (speed * speed) : 0;
                 float angle1;
                 float angle2;
                 if (div != 0)
