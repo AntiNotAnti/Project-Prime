@@ -94,7 +94,8 @@ internal static class Acceptance
             if (Reflection.Bool(Reflection.Type("Mods.Headless"), "Active"))
                 throw new InvalidOperationException("Headless process cannot establish client visual/audio acceptance.");
             GraphicsBackendPolicy.LoadPreference();
-            using var window = new AcceptanceWindow(Value("--room", "MP1 SANCTORUS"), report);
+            using var window = new AcceptanceWindow(Value("--room", "MP1 SANCTORUS"), report,
+                Value("--replay", ""), Value("--clip", ""));
             window.Run();
             if (report.Error != null) throw new InvalidOperationException(report.Error);
             report.Status = report.Missing.Count == 0 ? "PASS" : "INCOMPLETE";
@@ -135,6 +136,7 @@ internal static class Acceptance
 internal sealed class AcceptanceWindow : RenderWindow
 {
     private readonly Acceptance.Report _report;
+    private readonly string _replayPath, _clipPath;
     private PlayerEntity _owner = null!, _victim = null!;
     private object _presentation = null!;
     private TracedAudio _audio = null!;
@@ -143,9 +145,10 @@ internal sealed class AcceptanceWindow : RenderWindow
     private static readonly string[] Timers = { "_doubleDmgTimer", "_cloakTimer", "_deathaltTimer" };
     private static readonly string[] Types = { "DoubleDamage", "Cloak", "DeathAlt" };
 
-    internal AcceptanceWindow(string room, Acceptance.Report report)
+    internal AcceptanceWindow(string room, Acceptance.Report report, string replayPath, string clipPath)
     {
-        _report = report; ClientSize = new Vector2i(640, 480); IsVisible = true;
+        _report = report; _replayPath = replayPath; _clipPath = clipPath;
+        ClientSize = new Vector2i(640, 480); IsVisible = true;
         Title = "Project Prime A3 timed grant acceptance";
         Reflection.Set(Scene, "_keyboardState", SyntheticInput.CreateKeyboard());
         Reflection.Set(Scene, "_mouseState", SyntheticInput.CreateMouse());
@@ -232,7 +235,11 @@ internal sealed class AcceptanceWindow : RenderWindow
             Reflection.Call(_victim, "ModPlaceAt", _owner.Position + new Vector3(20, 0, 0));
             _audio = new(_originalAudio, _report.AudioCalls); Reflection.Set(typeof(Sfx), nameof(Sfx.Instance), _audio);
             for (int type = 0; type < Types.Length; type++) Exercise(type);
-            _report.Missing.Add("NOT_RUN: asset-backed recorded replay seek/clip and historical capsule visual/audio parity.");
+            if (_replayPath.Length == 0) _report.Missing.Add("NOT_RUN: no genuine recorded A3 replay supplied for native linear/seek checks.");
+            else ReplayProbe.Run(Path.GetFullPath(_replayPath), "recording", Scene, _report);
+            if (_clipPath.Length == 0) _report.Missing.Add("NOT_RUN: no genuine exported A3 clip supplied for native linear/seek checks.");
+            else ReplayProbe.Run(Path.GetFullPath(_clipPath), "clip", Scene, _report);
+            _report.Missing.Add("NOT_RUN: historical capsule native audiovisual compatibility; current recording/clip paths cannot establish older format acceptance.");
             _report.Missing.Add("NOT_RUN: live owner/observer UDP settlement, authority damage payment and profile matrix; injected native fixture facts cannot establish those gates.");
         }
         catch (Exception error) { _report.Error = error.ToString(); }

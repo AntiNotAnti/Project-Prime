@@ -19,7 +19,8 @@ dotnet timed-grant-acceptance.dll \
   --binary-dir /absolute/frozen/candidate \
   --expected-client-sha256 EXACT_PROJECTPRIME_DLL_SHA256 \
   --assets /absolute/licensed/profile \
-  --room 'MP5 FUEL SLUICE' --output /absolute/new/evidence-directory
+  --room 'MP5 FUEL SLUICE' --output /absolute/new/evidence-directory \
+  --replay /absolute/genuine-a3-recording.ppdemo --clip /absolute/genuine-exported-clip.ppdemo
 ```
 
 This launches an actual RenderWindow and client Scene with a real GL context,
@@ -63,7 +64,18 @@ Exit 0 means every implemented required gate passed, 1 means a failed assertion,
 and 2 means implemented checks passed but required coverage remains incomplete.
 Native calls must run serially with other native campaigns.
 
-Current broader exclusions are explicit: recorded asset-backed replay seek/clip,
+When genuine `--replay` and `--clip` files are supplied, the optional probe opens
+them through the real asset-backed PassiveReplayScene/PassiveReplayPlayer path.
+It compares native timers with their actual private decoder views, requires
+positive confirmed coverage for all three types, keeps live facade/presentation
+identities unchanged, and compares genuine native seek gameplay hashes plus
+exact captured world/HUD PNG and depth bytes against independent linear playback.
+It does not seed invented replay facts. A file without a positive effect leaves
+that type NOT_RUN; missing paths do not turn into synthetic success. It retains
+the private replay camera/audio policy, so it does not claim player-perspective
+pickup/loop audio from a silent private presentation.
+
+Current broader exclusions are explicit: replay player-perspective stage audio,
 historical capsule audiovisual parity, rendered room transitions, live UDP
 owner/observer settlement, authority damage payment, authored-spawner quota and
 the full profile matrix. Those are NOT_RUN; sampled timers or injected facts
