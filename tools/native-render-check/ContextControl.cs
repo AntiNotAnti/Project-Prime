@@ -21,13 +21,33 @@ static class ContextControl
         bool pass = parsed.Cycles.SequenceEqual(new[] { 120, 180 }) && parsed.Samples == 30 && parsed.Interval == 1000;
         var driver = Parse(valid.Concat(new[] { "-resource-context-driver-drain" }).ToArray());
         pass &= driver.DriverDrain;
-        foreach (var invalid in new[] { Set(valid, "-resource-context-cycles", "0"), Set(valid, "-resource-context-cycles", "201"), Set(valid, "-resource-arm", "combined"), valid.Where(v => v != "-resource-drain").ToArray() })
+        foreach (var invalid in new[] { Set(valid, "-resource-context-cycles", "0"), Set(valid, "-resource-context-cycles", "201"), Set(valid, "-resource-arm", "combined"), valid.Where(v => v != "-resource-drain").ToArray(),
+            valid.Concat(new[] { "-resource-context-phase-acks", "unused" }).ToArray(),
+            valid.Concat(new[] { "-resource-context-driver-drain", "-resource-context-phase-acks" }).ToArray(),
+            valid.Concat(new[] { "-resource-context-driver-drain", "-resource-context-phase-acks", " " }).ToArray(),
+            valid.Concat(new[] { "-resource-context-driver-drain", "-resource-context-phase-acks", "-next-option" }).ToArray(),
+            valid.Concat(new[] { "-resource-context-driver-drain", "-resource-context-phase-acks", "one", "-resource-context-phase-acks", "two" }).ToArray() })
         {
             try { Parse(invalid); pass = false; } catch (ArgumentException) { }
         }
         pass &= (typeof(ContextControl).GetMethod(nameof(Execute), BindingFlags.Static | BindingFlags.NonPublic)!
             .GetMethodImplementationFlags() & MethodImplAttributes.NoInlining) != 0;
-        Console.WriteLine("CONTEXTCONTROL " + (pass ? "PASS" : "FAIL") + " cycleBounds=True isolatedArms=True requiresDrain=True workloadNoInlining=True");
+        string temporary = Path.Combine(Path.GetTempPath(), "context-acks-selftest-" + Guid.NewGuid());
+        Directory.CreateDirectory(temporary);
+        try
+        {
+            string fresh = Path.Combine(temporary, "fresh");
+            PrepareAcknowledgements(fresh);
+            File.WriteAllText(Path.Combine(fresh, "after-glfw-terminate.ack"), "stale");
+            foreach (string existing in new[] { fresh, Path.Combine(temporary, "empty"), Path.Combine(temporary, "file") })
+            {
+                if (existing.EndsWith("empty")) Directory.CreateDirectory(existing);
+                if (existing.EndsWith("file")) File.WriteAllText(existing, "owned test file");
+                try { PrepareAcknowledgements(existing); pass = false; } catch (IOException) { }
+            }
+        }
+        finally { Directory.Delete(temporary, recursive: true); }
+        Console.WriteLine("CONTEXTCONTROL " + (pass ? "PASS" : "FAIL") + " cycleBounds=True isolatedArms=True requiresDrain=True workloadNoInlining=True malformedAndStaleAcksRejected=True");
         return pass ? 0 : 1;
     }
 
@@ -42,7 +62,15 @@ static class ContextControl
             throw new ArgumentException("Context controls require drained map-gl|studio stress and 1..8 comma-separated cycle counts of 1..200.");
         ResourceAttribution.ValidateQuiescence(samples, interval);
         bool driverDrain = args.Contains("-resource-context-driver-drain");
-        string? ack = args.Contains("-resource-context-phase-acks") ? Path.GetFullPath(Value("-resource-context-phase-acks", "")) : null;
+        string? ack = null;
+        if (args.Contains("-resource-context-phase-acks"))
+        {
+            int index = Array.IndexOf(args, "-resource-context-phase-acks");
+            if (args.Count(v => v == "-resource-context-phase-acks") != 1 || index + 1 >= args.Length
+                || string.IsNullOrWhiteSpace(args[index + 1]) || args[index + 1].StartsWith("-", StringComparison.Ordinal))
+                throw new ArgumentException("Phase acknowledgements require exactly one nonempty directory argument.");
+            ack = Path.GetFullPath(args[index + 1]);
+        }
         if (ack != null && !driverDrain) throw new ArgumentException("Phase acknowledgements require final driver-drain control.");
         return (cycles, samples, interval, driverDrain, ack);
     }
@@ -53,8 +81,8 @@ static class ContextControl
         if (File.Exists(output) || Directory.Exists(output + ".contexts")) throw new IOException("Context-control output must be fresh.");
         var records = new List<object>();
         string? error = null;
+        PrepareAcknowledgements(ackDirectory);
         Directory.CreateDirectory(output + ".contexts");
-        if (ackDirectory != null) Directory.CreateDirectory(ackDirectory);
         WeakReference? lastWindow = null;
         void Observe(int index, string phase, WeakReference weak)
         {
@@ -156,6 +184,14 @@ static class ContextControl
                 throw new TimeoutException("External capture acknowledgement missing: " + phase);
             Thread.Sleep(100);
         }
+    }
+
+    private static void PrepareAcknowledgements(string? directory)
+    {
+        if (directory == null) return;
+        if (Directory.Exists(directory) || File.Exists(directory))
+            throw new IOException("Capture acknowledgement directory must be fresh; refusing stale/manual reuse: " + directory);
+        Directory.CreateDirectory(directory);
     }
 
     private static string[] Set(string[] args, string key, string value)

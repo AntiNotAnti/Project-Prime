@@ -57,6 +57,11 @@ def capture(pid, stem, output):
     return {"phase": stem, "pid": pid, "trigger": "at least 3 seconds after phase marker while process alive", "steps": steps}
 
 
+def captures_complete(expected, captures):
+    return len(captures) == expected and all(
+        step["exitCode"] == 0 for record in captures for step in record["steps"])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dotnet", default="dotnet")
@@ -154,8 +159,7 @@ def main():
                 manifest["complete"] = json.loads(result.read_text()).get("complete") is True
             manifest["expectedNativeCaptures"] = (len(args.cycles) * 2 + (2 if args.driver_drain else 0)) if args.capture_native_stacks else 0
             manifest["nativeCaptureCount"] = len(manifest["captures"])
-            manifest["nativeCapturesComplete"] = len(manifest["captures"]) == manifest["expectedNativeCaptures"] and all(
-                step["exitCode"] == 0 for capture_record in manifest["captures"] for step in capture_record["steps"])
+            manifest["nativeCapturesComplete"] = captures_complete(manifest["expectedNativeCaptures"], manifest["captures"])
             save()
     for path in (args.output / "context.json.contexts").glob("*.json"):
         path.with_suffix(".analysis.json").write_text(json.dumps(analyze(json.loads(path.read_text())), indent=2) + "\n")

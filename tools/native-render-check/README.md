@@ -261,6 +261,34 @@ pause durations/generation/concurrent/compacted flags; transition observations
 include context disposal wall time and GC pause delta. These do not isolate every
 engine transition GC call or justify changing production GC policy.
 
+For a final process-lifetime control, add `--driver-drain` to the runner:
+
+```sh
+PROJECT_PRIME_USER_DATA='/absolute/operator-owned/user-data' \
+PROJECT_PRIME_GL_FORCE_LEGACY=0 \
+python3 tools/native-render-check/run_context_controls.py \
+  --dotnet /absolute/dotnet --binary /absolute/immutable/native-render-check.dll \
+  --output /absolute/fresh-driver-control --cycles 30 --frames 120 --samples 10 \
+  --driver-drain --shader-source-ledger --capture-native-stacks
+```
+
+After every window/context is disposed, the owner thread polls GLFW events,
+observes that phase, terminates GLFW, and observes the still-live process. No
+GLFW/GL/window API or window recreation follows termination. OpenTK's cached
+initialized flag is not reset, so this is a final diagnostic phase, not a
+reusable runtime teardown policy. No extra GC is requested. Default behavior
+is unchanged unless the flag is supplied.
+
+With native capture enabled, the runner supplies
+`-resource-context-phase-acks <fresh-directory>` and acknowledges each capture
+before the fixture advances. Manual reuse of any existing acknowledgement
+directory/file, missing/empty/duplicate arguments, and option-like values are
+rejected. A missing acknowledgement times out after 90 seconds; requested
+captures must all exist and exit successfully for the runner to pass. Failure
+evidence remains in the fresh output directory. Equal idle populations or
+successful teardown do not establish retaining roots, driver cache/leak
+classification, or repeated-workload boundedness.
+
 Device-free argument/NoInlining validation:
 
 ```sh

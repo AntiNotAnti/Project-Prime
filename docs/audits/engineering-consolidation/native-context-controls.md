@@ -214,6 +214,57 @@ callers and subsystem workload contributions have not been established by
 allocation stacks. No pool/GC policy change, leak classification or FPS claim
 follows from this profiling-only attempt.
 
+## Final GLFW lifetime control
+
+The final completion pass used the frozen combined client
+`edcf0f1bc6be7cfb0734c42ebaa41ce8b8724ef2` and diagnostic source
+`e9d439e47a3a33c11223700d307faf5c57a5ba00`. This measured source identity remains
+separate from later acknowledgement guards/documentation publication. Immutable
+harness SHA-256 was `d2a2ec8eb2a1ce6441784de28ec667291ac0d9178b83bc9eca1a64529c433240`;
+client SHA-256 was `1b6d4b228c71c81a31d48756474451fab8b21ee1007bda7fe7b6d936e5ff4f8d`.
+
+One 30-cycle/60-load map-GL run completed 120 exact simulation frames per load,
+all five failure stages and reference/failure RGBA/depth comparisons. Actual
+captured lists, VBO/VAO and program names were recognized before cleanup and
+zero afterward; normal bindings left zero pending programs. The bounded shader
+ledger observed 720 compilation and 420 link attempts, ten stage/hash keys and
+nine distinct source hashes with no overflow.
+
+Four live VM/outstanding-allocation captures were acknowledged before the next
+phase: final fixture drain with context live; actual context disposal; GLFW
+event poll; final GLFW termination. All eight sampling commands exited zero,
+the fixture passed, and both immutable hashes matched after 137.374 seconds.
+No extra GC, window recreation, or GLFW/GL/window API follows termination.
+
+| Phase | AGX fragment malloc-prefix MiB / calls | AGX category MiB | IOSurface category MiB | Other graphics malloc-prefix MiB |
+| --- | ---: | ---: | ---: | ---: |
+| Context live | 41.328888 / 27,190 | 44.360138 | 31.693451 | 12.516388 |
+| Context disposed | 41.328888 / 27,190 | 44.360138 | 0.002563 | 10.209930 |
+| Events polled | 41.328888 / 27,190 | 44.360138 | 0.002563 | 10.132492 |
+| GLFW terminated | 41.328888 / 27,190 | 44.360138 | 0.002563 | 10.132492 |
+
+The observed AGX population is exactly unchanged in bytes/calls/groups and
+malloc-prefix bytes/calls. Teardown releases other native resource populations,
+but does not clear these observed fragment allocations. This extends tested
+lifetime beyond the earlier context-disposal controls; it does not identify
+retaining roots, prove a bounded cache, or establish unreachable leakage.
+Earlier 120+180 growth remains unbounded by the evidence. The separately found
+auxiliary-bound-program ownership omission has its own witness/fix and is not
+the demonstrated cause of this frozen normal-binding population.
+
+User-owned app PID57590 remained active at about 79% CPU and was untouched; the
+earlier PID32937 was stale. Both ambient receipts are preserved. A small
+device-free audio fake test build was authorized concurrently. Stack logging
+and host activity preclude quiet performance/FPS conclusions. Measured GC
+collection counts stayed [927,331,143] across the three post-disposal phases;
+weak-alive managed window wrappers do not prove a live native context.
+
+The concise receipt and 22 raw/source/derived hashes are under
+`artifacts/final-completion-pass-20261013/driver-drain-receipt.json`, with full
+captures in `driver-drain-30/`. The original source patch and first failed
+symlink-path assertion are preserved. Later guards reject malformed or stale
+manual acknowledgement directories without changing the measured binary.
+
 ## Validation and preserved artifacts
 
 Release builds against candidate client passed with zero warnings/errors;

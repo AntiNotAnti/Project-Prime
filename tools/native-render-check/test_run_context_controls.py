@@ -10,6 +10,14 @@ import run_context_controls as runner
 
 
 class ContextRunnerTests(unittest.TestCase):
+    def test_missing_or_failed_native_capture_cannot_pass(self):
+        succeeded = {"steps": [{"exitCode": 0}, {"exitCode": 0}]}
+        failed = {"steps": [{"exitCode": 0}, {"exitCode": -1}]}
+        self.assertFalse(runner.captures_complete(4, [succeeded] * 3))
+        self.assertFalse(runner.captures_complete(4, [succeeded] * 3 + [failed]))
+        self.assertTrue(runner.captures_complete(4, [succeeded] * 4))
+        self.assertTrue(runner.captures_complete(0, []))
+
     def test_dry_run_preserves_invariant_workload_and_capture_policy(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
