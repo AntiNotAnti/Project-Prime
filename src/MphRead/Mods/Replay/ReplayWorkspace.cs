@@ -166,7 +166,7 @@ namespace MphRead.Mods.Replay
                     return New(source);
                 doc.SourceReplay = source;
                 doc.Segments ??= new List<ReplayReelSegment>();
-                doc.Segments.RemoveAll(segment => segment.StartFrame >= segment.EndFrame
+                doc.Segments.RemoveAll(segment => segment is null || segment.StartFrame >= segment.EndFrame
                     || segment.EndFrame > ReplayFormatV3.MaxFrame
                     || String.IsNullOrWhiteSpace(segment.Name));
                 return doc;
