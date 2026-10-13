@@ -57,7 +57,7 @@ internal static class EnhancedHunters
     internal static bool Visible(Scene scene, Vector3 from, Vector3 to)
     {
         CollisionResult result = default;
-        var candidates = CollisionDetection.GetCandidatesForLimits(from, to, 0,
+        using var candidates = CollisionDetection.GetCandidatesForLimits(from, to, 0,
             null, Vector3.Zero, includeEntities: true, scene);
         return !CollisionDetection.CheckBetweenPoints(candidates, from, to, TestFlags.Beams, scene, ref result);
     }
