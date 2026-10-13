@@ -89,3 +89,15 @@ Protocol, replay, gameplay, settings and production GC policy are unchanged.
 Rollback is removal/reversion of this diagnostic-only slice. The next gate is
 physical matched-arm attribution; only an identified ownership/concurrency
 failure justifies a runtime fix.
+
+## Preserved pilot findings
+
+The first two-cycle combined pilot stopped after ~5 seconds at the new strict
+`GL.IsProgram` assertion. OpenGL permits a currently bound program marked for
+deletion to remain a valid name. The repaired assertion requires zero owner
+program fields and DeleteStatus for any still-recognized program, counting
+pending deletion separately without changing the binding. The failed JSON/log
+and runner manifest remain in the local `artifacts/native-attribution/pilot-2cycle/`
+directory and are not overwritten by the retry. The retry also restores the
+existing ForceEveryone fixture hook before the stress constructor's early
+return. No production ownership or GL binding policy is changed.

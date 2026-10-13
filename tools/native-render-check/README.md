@@ -143,7 +143,9 @@ to pass ownership validation. Context/source/buffer fields and owner-array
 counts are observations of existing owners, not a complete OpenAL handle census.
 
 Every map unload retains the existing release assertions and adds explicit
-scene texture/framebuffer/program release checks. Records include RSS,
+scene texture/framebuffer/program ownership release checks. A program still
+bound after deletion may remain a valid driver name; it must have DeleteStatus
+set and no remaining owner field. Such pending deletions are counted explicitly. Records include RSS,
 private/virtual bytes when supported, managed live/committed/fragmented and LOH
 metrics, allocations/collections, process thread/handle counts, thread-pool
 workers/pending work, audio owner/pool counts and outstanding shutdown tasks.
