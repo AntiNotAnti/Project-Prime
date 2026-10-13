@@ -21,7 +21,7 @@ internal static class ReplayProbe
         var positive = new int[3];
         long nativeComparisons = 0;
         object livePresentation = Reflection.Get(Reflection.Type("Mods.Network.NetGrantNetwork"), "Presentation")!;
-        var originalState = GameState.Current; var originalPlayers = PlayerEntity.LegacyRegistry; var originalRandom = Rng.Current;
+        var originalState = Reflection.Get(typeof(GameState), "Current"); var originalPlayers = Reflection.Get(typeof(PlayerEntity), "LegacyRegistry"); var originalRandom = Reflection.Get(typeof(Rng), "Current");
         try
         {
             linear = Reflection.Create("PassiveReplayScene", path, new Vector2i(640, 480));
@@ -83,8 +83,8 @@ internal static class ReplayProbe
                         }
                     }
                 }
-                if (!ReferenceEquals(GameState.Current, originalState) || !ReferenceEquals(PlayerEntity.LegacyRegistry, originalPlayers)
-                    || !ReferenceEquals(Rng.Current, originalRandom)
+                if (!ReferenceEquals(Reflection.Get(typeof(GameState), "Current"), originalState) || !ReferenceEquals(Reflection.Get(typeof(PlayerEntity), "LegacyRegistry"), originalPlayers)
+                    || !ReferenceEquals(Reflection.Get(typeof(Rng), "Current"), originalRandom)
                     || !ReferenceEquals(Reflection.Get(Reflection.Type("Mods.Network.NetGrantNetwork"), "Presentation"), livePresentation))
                     throw new InvalidOperationException("Actual private replay mutated a live facade or live grant presentation.");
             }
@@ -129,7 +129,7 @@ internal static class ReplayProbe
         finally
         {
             (seeker as IDisposable)?.Dispose(); (linear as IDisposable)?.Dispose();
-            if (GameState.Current != originalState || PlayerEntity.LegacyRegistry != originalPlayers || Rng.Current != originalRandom)
+            if (Reflection.Get(typeof(GameState), "Current") != originalState || Reflection.Get(typeof(PlayerEntity), "LegacyRegistry") != originalPlayers || Reflection.Get(typeof(Rng), "Current") != originalRandom)
                 throw new InvalidOperationException("Native private replay cleanup changed live facade identities.");
         }
     }

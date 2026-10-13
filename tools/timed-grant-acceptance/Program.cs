@@ -24,9 +24,24 @@ internal static class Program
         string Value(string key) => args.ElementAtOrDefault(Array.IndexOf(args, key) + 1)
             is { } value && Array.IndexOf(args, key) >= 0 ? value : throw new ArgumentException("Required " + key);
         string directory = Path.GetFullPath(Value("--binary-dir"));
+        var dependencies = new AssemblyDependencyResolver(Path.Combine(directory, "ProjectPrime.dll"));
         AssemblyLoadContext.Default.Resolving += (_, name) =>
             File.Exists(Path.Combine(directory, name.Name + ".dll"))
                 ? AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(directory, name.Name + ".dll")) : null;
+        AssemblyLoadContext.Default.ResolvingUnmanagedDll += (_, name) =>
+        {
+            string? path = dependencies.ResolveUnmanagedDllToPath(name);
+            // OpenTK's GLFW import uses an unversioned alias. The supplied
+            // package carries the platform's versioned filename.
+            if (path == null && name is "glfw" or "glfw3")
+            {
+                string file = OperatingSystem.IsWindows() ? "glfw3.dll"
+                    : OperatingSystem.IsMacOS() ? "libglfw.3.dylib" : "libglfw.so.3";
+                string candidate = Path.Combine(directory, "runtimes", RuntimeInformation.RuntimeIdentifier, "native", file);
+                if (File.Exists(candidate)) path = candidate;
+            }
+            return path == null ? IntPtr.Zero : NativeLibrary.Load(path);
+        };
         return RunCandidate(args, directory);
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
