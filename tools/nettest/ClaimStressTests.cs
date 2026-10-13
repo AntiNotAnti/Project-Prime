@@ -105,24 +105,29 @@ internal static class ClaimStressTests
             AgeOutgoing();
             if (NetHitClaims.Compose(wire) > 0) sends++;
         }
-        NetArchitectureTests.Check(sends == 6 && OutgoingValue<int>("Sends") == 6
+        NetArchitectureTests.Check(sends == 4 && OutgoingValue<int>("Sends") == 4
             && OutgoingValue<bool>("Live") && NetHitClaims.Unanswered == 0,
-            "retry keeps six-send cap and remains live through age sixty");
+            "retry preserves four early sends and two terminal reservations through age sixty");
         AgeOutgoing();
         NetArchitectureTests.Check(OutgoingValue<bool>("Live") && NetHitClaims.Unanswered == 0,
             "age sixty-one releases prediction while terminal receipt remains live");
         NetArchitectureTests.Check(OutgoingValue<bool>("PredictionReleased") && ReceiptCount() == 1
             && DrainClaims() == 1 && NetHitClaims.Compose(wire) == 0,
-            "six-send cap retains one receipt in client drain after prediction release");
+            "reserved terminal sends retain one receipt in client drain after prediction release");
         const int deliveryDeadline = 6 * 40 + 2 * NetHitClaims.MaxGraceFrames + 40;
         for (int age = 62; age <= deliveryDeadline; age++)
         {
             AgeOutgoing();
-            NetArchitectureTests.Check(NetHitClaims.Compose(wire) == 0,
-                "delivery retention cannot exceed six sends");
+            bool sent = NetHitClaims.Compose(wire) > 0;
+            if (sent) sends++;
+            NetArchitectureTests.Check(sent == (age == 184 || age == 192),
+                "unknown-RTT terminal retries occur only after bounded arbitration and margin");
+            NetArchitectureTests.Check(sends <= 6 && OutgoingValue<int>("Sends") == sends,
+                "late terminal retries preserve exact six-send cap");
         }
-        NetArchitectureTests.Check(OutgoingValue<bool>("Live") && NetHitClaims.Unanswered == 0
-            && ReceiptCount() == 1, "receipt remains bounded and live through delivery deadline");
+        NetArchitectureTests.Check(sends == 6 && OutgoingValue<int>("Sends") == 6
+            && OutgoingValue<bool>("Live") && NetHitClaims.Unanswered == 0
+            && ReceiptCount() == 1, "all six bounded attempts complete while receipt remains live through delivery deadline");
         AgeOutgoing();
         NetArchitectureTests.Check(!OutgoingValue<bool>("Live") && NetHitClaims.Unanswered == 1
             && NetHitClaims.Compose(wire) == 0 && ReceiptCount() == 0 && DrainClaims() == 0,
