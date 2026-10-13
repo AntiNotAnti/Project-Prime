@@ -12,7 +12,7 @@ The native MPH personality tree remains the navigation/objective backbone, but a
 
 Perception keeps firing fair: geometric LOS and cloak/radar rules gate precision target acquisition and aim. Recent damage records an attacker location, and nearby unseen gunfire creates a low-confidence investigation cue; neither path permits through-wall firing. Difficulty changes tactical reaction cadence, memory and decision quality in addition to the existing aim/prediction profile, so Insane is not only a faster Hard aim profile.
 
-Enhanced-hunter choices still run after the shared tactical layer, preserving hunter-specific combat behavior for Samus, Kanden, Trace, Sylux, Noxus, Weavel and Spire.
+Native Hunter combat decisions run after the shared tactical layer for Samus, Kanden, Trace, Sylux, Noxus, Weavel and Spire. The obsolete Enhanced Hunters bot decision hook was removed in competitive bot phase 4.
 
 Add, remove and update advance slot generations. Ordinary lifecycle cleanup removes cached input, weapon state, history and scores. The per-bot capture state also resets at spawn. Custom maps must pass generated navigation validation before bots can be added.
 

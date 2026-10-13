@@ -1,0 +1,2283 @@
+{
+  "schema": 1,
+  "warmupWindows": 5,
+  "method": "Completed frame records after NATIVERENDER measurement-start, excluding five post-marker windows including the first potentially straddling one. CPU passes match retained window IDs. Descriptive median window statistics, separate harness aggregates; no inferred hardware acceptance.",
+  "experimentGroups": {
+    "combat-next-vertex": "DEPTH_VERTEX only; ROOM_CACHE and prior features enabled",
+    "combat-next-room": "ROOM_CACHE only; DEPTH_VERTEX and prior features enabled",
+    "combat-next-combined": "ROOM_CACHE and DEPTH_VERTEX bundled; profiling disabled, harness aggregate intervals; not isolated attribution"
+  },
+  "assemblyMvids": [
+    "0d952d3c-b569-4816-862c-86808bbfb828"
+  ],
+  "runs": [
+    {
+      "name": "combat-next-combined-baseline-a",
+      "profiled": false,
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "harness": {
+        "meanCompletedFrameFps": 425.5863136197103,
+        "frameIntervalP50Ms": 1.9932,
+        "frameIntervalP95Ms": 4.3104,
+        "frameIntervalP99Ms": 5.8642,
+        "onePercentLowEstimateFps": 170.5262439889499,
+        "samples": 15321,
+        "simulationHz": 59.99756109914134,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 36.0291558
+      },
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "renderSize": [
+          1920,
+          1080
+        ],
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1338757,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1467011,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "effectiveCap": -1,
+        "softwareFrequency": 0,
+        "vsync": "Off"
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 768960,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1186776,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 135,
+        "glyphBytesBefore": 34560,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 45,
+        "spriteBytesBefore": 11520,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-combined-baseline-a.json",
+      "rawResultSha256": "a667a3ef5d9df14cb22043ca2eb09fabe5c501d438f6f51e3cb5fc931591fe13",
+      "rawLog": "artifacts/opengl-modernization/combat-next-combined-baseline-a.log",
+      "rawLogSha256": "10ed2f68e14ed3b4e2e4fe4f836645b541ebb35aef13f91c83b579da4add608b",
+      "requestedFlags": {
+        "roomCache": false,
+        "depthVertex": false,
+        "otherModernizationPolicies": "enabled",
+        "forceLegacy": false
+      },
+      "requestedFlagSource": "artifacts/opengl-modernization/run-combat-next-performance.py",
+      "experiment": "combat-next-combined"
+    },
+    {
+      "name": "combat-next-combined-baseline-b",
+      "profiled": false,
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "harness": {
+        "meanCompletedFrameFps": 427.81368520394693,
+        "frameIntervalP50Ms": 1.9701,
+        "frameIntervalP95Ms": 4.2906,
+        "frameIntervalP99Ms": 5.8388,
+        "onePercentLowEstimateFps": 171.26806878125643,
+        "samples": 15401,
+        "simulationHz": 59.925458721895865,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 36.0447638
+      },
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "renderSize": [
+          1920,
+          1080
+        ],
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1463095,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1546467,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "effectiveCap": -1,
+        "softwareFrequency": 0,
+        "vsync": "Off"
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 768960,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1186776,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 135,
+        "glyphBytesBefore": 34560,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 45,
+        "spriteBytesBefore": 11520,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-combined-baseline-b.json",
+      "rawResultSha256": "94127f390364563e12308babfe28f2793484ce307e4dce7cad44271ab7323020",
+      "rawLog": "artifacts/opengl-modernization/combat-next-combined-baseline-b.log",
+      "rawLogSha256": "c9aa4df0354f4c30d6e21d8d340baf9f6b766b29132ac1d2b5e3c7b1aca8960b",
+      "requestedFlags": {
+        "roomCache": false,
+        "depthVertex": false,
+        "otherModernizationPolicies": "enabled",
+        "forceLegacy": false
+      },
+      "requestedFlagSource": "artifacts/opengl-modernization/run-combat-next-performance.py",
+      "experiment": "combat-next-combined"
+    },
+    {
+      "name": "combat-next-combined-optimized-a",
+      "profiled": false,
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "harness": {
+        "meanCompletedFrameFps": 429.60006267577364,
+        "frameIntervalP50Ms": 1.9671,
+        "frameIntervalP95Ms": 4.3373,
+        "frameIntervalP99Ms": 6.0835,
+        "onePercentLowEstimateFps": 164.37905810799705,
+        "samples": 15465,
+        "simulationHz": 59.93642543354265,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 36.0308353
+      },
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "renderSize": [
+          1920,
+          1080
+        ],
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1333419,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.145604,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "effectiveCap": -1,
+        "softwareFrequency": 0,
+        "vsync": "Off"
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 768960,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1186776,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 135,
+        "glyphBytesBefore": 34560,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 45,
+        "spriteBytesBefore": 11520,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-combined-optimized-a.json",
+      "rawResultSha256": "dff496e405705c829294e65a60f365f676a50fd562536516701ff5f8cd0534aa",
+      "rawLog": "artifacts/opengl-modernization/combat-next-combined-optimized-a.log",
+      "rawLogSha256": "b4767dd10eef82fa1ac067400034a5fefdc2889474c49bc35692e83465b760ba",
+      "requestedFlags": {
+        "roomCache": true,
+        "depthVertex": true,
+        "otherModernizationPolicies": "enabled",
+        "forceLegacy": false
+      },
+      "requestedFlagSource": "artifacts/opengl-modernization/run-combat-next-performance.py",
+      "experiment": "combat-next-combined"
+    },
+    {
+      "name": "combat-next-combined-optimized-b",
+      "profiled": false,
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "harness": {
+        "meanCompletedFrameFps": 425.18954059174104,
+        "frameIntervalP50Ms": 1.9982,
+        "frameIntervalP95Ms": 4.3331,
+        "frameIntervalP99Ms": 5.9433,
+        "onePercentLowEstimateFps": 168.2566924099406,
+        "samples": 15307,
+        "simulationHz": 59.919528073796926,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 36.0345907
+      },
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "renderSize": [
+          1920,
+          1080
+        ],
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1355849,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1479182,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "effectiveCap": -1,
+        "softwareFrequency": 0,
+        "vsync": "Off"
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 768960,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1186776,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 135,
+        "glyphBytesBefore": 34560,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 45,
+        "spriteBytesBefore": 11520,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-combined-optimized-b.json",
+      "rawResultSha256": "60cd11ca1f2e30de45ef0915a76a54b67e28dd94e5a8c0007c445fc0ed25673a",
+      "rawLog": "artifacts/opengl-modernization/combat-next-combined-optimized-b.log",
+      "rawLogSha256": "780f624bc9326384a9cbcc24a403ba69e1e9158e90f90f8f781b2052cbab0a51",
+      "requestedFlags": {
+        "roomCache": true,
+        "depthVertex": true,
+        "otherModernizationPolicies": "enabled",
+        "forceLegacy": false
+      },
+      "requestedFlagSource": "artifacts/opengl-modernization/run-combat-next-performance.py",
+      "experiment": "combat-next-combined"
+    },
+    {
+      "name": "combat-next-room-baseline-a",
+      "profiled": true,
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "harness": {
+        "meanCompletedFrameFps": 429.967533187404,
+        "frameIntervalP50Ms": 1.9243,
+        "frameIntervalP95Ms": 4.342,
+        "frameIntervalP99Ms": 5.9807,
+        "onePercentLowEstimateFps": 167.2045078335312,
+        "samples": 15479,
+        "simulationHz": 59.960258340771766,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 36.0325225
+      },
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "renderSize": [
+          1920,
+          1080
+        ],
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1357402,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1484049,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "effectiveCap": -1,
+        "softwareFrequency": 0,
+        "vsync": "Off"
+      },
+      "context": {
+        "machine": "Jarretts-MBP",
+        "os": "macOS 27.0.0",
+        "vendor": "Apple",
+        "playerCount": 8,
+        "vsync": "Off",
+        "vertexArrayApi": "Apple",
+        "flags": {
+          "roomCache": false,
+          "depthVertex": true,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        },
+        "room": "MP3 PROVING GROUND",
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Off",
+        "renderScale": 100,
+        "cap": -1,
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828"
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 768960,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1186776,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 135,
+        "glyphBytesBefore": 34560,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 45,
+        "spriteBytesBefore": 11520,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-room-baseline-a.json",
+      "rawResultSha256": "9ab865078ea28cbd9ed57d6e1cbbb4f03f45eca25a061ddbbd43d21f04e701ef",
+      "rawLog": "artifacts/opengl-modernization/combat-next-room-baseline-a.log",
+      "rawLogSha256": "2a52fc7d6c23d1dcb846839e7c82ed622aebece356885de72ab5531c777c5be3",
+      "retainedWindows": 60,
+      "preMeasurementWindows": 2,
+      "postMeasurementWarmupWindows": 5,
+      "firstRetainedWindow": 8,
+      "lastRetainedWindow": 67,
+      "zeroSimulationTelemetryWindows": 0,
+      "metrics": {
+        "frameIntervalP95Ms": 3.694292,
+        "frameIntervalP99Ms": 4.3593329999999995,
+        "renderCpuP99Ms": 1.9249585,
+        "onePercentLowEstimateFps": 229.4111743095359,
+        "simulationHz": 59.97062638719555
+      },
+      "cpuP99Ms": {
+        "Preparation": 0.233271,
+        "DrawItems": 0.1741875,
+        "CaptureWorld": 0.070479,
+        "ShadowCollection": null,
+        "ShadowSubmission": null,
+        "Shadow": 0.000209,
+        "WorldSetup": 0.005292,
+        "World": 1.4823335,
+        "Outlines": 0.0009584999999999999,
+        "SceneOverlays": 0.0080835,
+        "PostProcess": 8.3e-05,
+        "Composite": 0.0298125,
+        "Opaque": 0.46991649999999996,
+        "Decal": 0.016125,
+        "MarkTranslucent": 0.1909795,
+        "RebuildDepth": 0.4253125,
+        "TranslucentBehind": 0.2217085,
+        "TranslucentFront": 0.218916,
+        "Ui": null,
+        "Hud": 0.1836035,
+        "HudImagePrepare": 0.026084,
+        "TextureUpload": 0.049833
+      },
+      "counters": {
+        "IndexedDraws": 56.0,
+        "DisplayListCalls": 142.17083333333335,
+        "ImmediateDraws": 514.1666666666666,
+        "MergedDraws": 23.299999999999997,
+        "BufferUploads": 0.0,
+        "UploadBytes": 0.0,
+        "BufferOrphans": 0.0,
+        "ProgramBinds": 9.0,
+        "StateSkips": 688.14375,
+        "UniformArrayUploads": 43.44375,
+        "UniformArrayBytes": 25381.2,
+        "UniformArraySkips": 97.63958333333333,
+        "VaoDraws": 56.0,
+        "AvoidedPointerCalls": 168.0,
+        "SamplerWrites": 184.0,
+        "SamplerSkips": 176.8,
+        "DynamicBatches": 0.0,
+        "DynamicMergedPrimitives": 0.0,
+        "TextureUploads": 0.0,
+        "TextureUploadBytes": 0.0,
+        "HudGlyphCacheHits": 65.30416666666667,
+        "HudGlyphCacheMisses": 0.0,
+        "HudGlyphCacheFallbacks": 0.0,
+        "HudSpriteCacheHits": 5.0,
+        "HudSpriteCacheMisses": 0.0,
+        "HudSpriteCacheFallbacks": 0.0,
+        "DepthPreparedItems": 88.15833333333333,
+        "RoomDescriptorHits": 0.0,
+        "RoomDescriptorLookups": 261.66666666666663,
+        "RoomBatchProofs": 0.0,
+        "RoomBatchProofReuses": 0.0
+      },
+      "allocatedP50Bytes": 31200.0,
+      "maxDroppedSteps": 0,
+      "maxStalls": 0,
+      "gpuStatus": "UNVERIFIED",
+      "experiment": "combat-next-room"
+    },
+    {
+      "name": "combat-next-room-baseline-b",
+      "profiled": true,
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "harness": {
+        "meanCompletedFrameFps": 427.4558260965008,
+        "frameIntervalP50Ms": 1.9479,
+        "frameIntervalP95Ms": 4.3237,
+        "frameIntervalP99Ms": 6.1942,
+        "onePercentLowEstimateFps": 161.44134835814148,
+        "samples": 15386,
+        "simulationHz": 59.958275036402156,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 36.0260352
+      },
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "renderSize": [
+          1920,
+          1080
+        ],
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1327752,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1470887,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "effectiveCap": -1,
+        "softwareFrequency": 0,
+        "vsync": "Off"
+      },
+      "context": {
+        "machine": "Jarretts-MBP",
+        "os": "macOS 27.0.0",
+        "vendor": "Apple",
+        "playerCount": 8,
+        "vsync": "Off",
+        "vertexArrayApi": "Apple",
+        "flags": {
+          "roomCache": false,
+          "depthVertex": true,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        },
+        "room": "MP3 PROVING GROUND",
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Off",
+        "renderScale": 100,
+        "cap": -1,
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828"
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 768960,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1186776,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 135,
+        "glyphBytesBefore": 34560,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 45,
+        "spriteBytesBefore": 11520,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-room-baseline-b.json",
+      "rawResultSha256": "3d5f3cfd2a18bc15ae9b61096e3a89b309fb016fedaae96ec340a4b7bd7580da",
+      "rawLog": "artifacts/opengl-modernization/combat-next-room-baseline-b.log",
+      "rawLogSha256": "b36e92e72db328d3391dfc90c4f69139f2bdb2c9baa3918adb9b00c45ba8cd78",
+      "retainedWindows": 59,
+      "preMeasurementWindows": 2,
+      "postMeasurementWarmupWindows": 5,
+      "firstRetainedWindow": 8,
+      "lastRetainedWindow": 66,
+      "zeroSimulationTelemetryWindows": 0,
+      "metrics": {
+        "frameIntervalP95Ms": 3.547792,
+        "frameIntervalP99Ms": 4.24025,
+        "renderCpuP99Ms": 1.88475,
+        "onePercentLowEstimateFps": 235.83515122929074,
+        "simulationHz": 59.95912286798468
+      },
+      "cpuP99Ms": {
+        "Preparation": 0.235875,
+        "DrawItems": 0.169958,
+        "CaptureWorld": 0.072875,
+        "ShadowCollection": null,
+        "ShadowSubmission": null,
+        "Shadow": 0.000208,
+        "WorldSetup": 0.005125,
+        "World": 1.464458,
+        "Outlines": 0.001042,
+        "SceneOverlays": 0.00875,
+        "PostProcess": 0.000125,
+        "Composite": 0.029,
+        "Opaque": 0.469833,
+        "Decal": 0.015708,
+        "MarkTranslucent": 0.196791,
+        "RebuildDepth": 0.445208,
+        "TranslucentBehind": 0.22525,
+        "TranslucentFront": 0.218917,
+        "Ui": null,
+        "Hud": 0.196042,
+        "HudImagePrepare": 0.037332,
+        "TextureUpload": 0.053376
+      },
+      "counters": {
+        "IndexedDraws": 56,
+        "DisplayListCalls": 143.2,
+        "ImmediateDraws": 491.5541666666667,
+        "MergedDraws": 22.4,
+        "BufferUploads": 0,
+        "UploadBytes": 0,
+        "BufferOrphans": 0,
+        "ProgramBinds": 9,
+        "StateSkips": 667.3375,
+        "UniformArrayUploads": 43.19166666666667,
+        "UniformArrayBytes": 25396.266666666666,
+        "UniformArraySkips": 97.37916666666666,
+        "VaoDraws": 56,
+        "AvoidedPointerCalls": 168,
+        "SamplerWrites": 184,
+        "SamplerSkips": 179.7,
+        "DynamicBatches": 0,
+        "DynamicMergedPrimitives": 0,
+        "TextureUploads": 0,
+        "TextureUploadBytes": 0,
+        "HudGlyphCacheHits": 69.32083333333334,
+        "HudGlyphCacheMisses": 0,
+        "HudGlyphCacheFallbacks": 0,
+        "HudSpriteCacheHits": 5,
+        "HudSpriteCacheMisses": 0,
+        "HudSpriteCacheFallbacks": 0,
+        "DepthPreparedItems": 88.56666666666666,
+        "RoomDescriptorHits": 0,
+        "RoomDescriptorLookups": 255.39166666666668,
+        "RoomBatchProofs": 0,
+        "RoomBatchProofReuses": 0
+      },
+      "allocatedP50Bytes": 30880,
+      "maxDroppedSteps": 0,
+      "maxStalls": 0,
+      "gpuStatus": "UNVERIFIED",
+      "experiment": "combat-next-room"
+    },
+    {
+      "name": "combat-next-room-optimized-a",
+      "profiled": true,
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "harness": {
+        "meanCompletedFrameFps": 423.6994833685976,
+        "frameIntervalP50Ms": 2.0083,
+        "frameIntervalP95Ms": 4.31,
+        "frameIntervalP99Ms": 5.9893,
+        "onePercentLowEstimateFps": 166.9644198821231,
+        "samples": 15252,
+        "simulationHz": 59.98086310562613,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 36.0317665
+      },
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "renderSize": [
+          1920,
+          1080
+        ],
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1306509,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1429503,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "effectiveCap": -1,
+        "softwareFrequency": 0,
+        "vsync": "Off"
+      },
+      "context": {
+        "machine": "Jarretts-MBP",
+        "os": "macOS 27.0.0",
+        "vendor": "Apple",
+        "playerCount": 8,
+        "vsync": "Off",
+        "vertexArrayApi": "Apple",
+        "flags": {
+          "roomCache": true,
+          "depthVertex": true,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        },
+        "room": "MP3 PROVING GROUND",
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Off",
+        "renderScale": 100,
+        "cap": -1,
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828"
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 768960,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1186776,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 135,
+        "glyphBytesBefore": 34560,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 45,
+        "spriteBytesBefore": 11520,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-room-optimized-a.json",
+      "rawResultSha256": "b6123f022246b69169929a423e27bc609d9a69ae6f9fc9fc33a43af2e49b6ac3",
+      "rawLog": "artifacts/opengl-modernization/combat-next-room-optimized-a.log",
+      "rawLogSha256": "666b550f46ca102c20bb71cb044238668874f545a0b17eeb6704a92d03524bf6",
+      "retainedWindows": 59,
+      "preMeasurementWindows": 2,
+      "postMeasurementWarmupWindows": 5,
+      "firstRetainedWindow": 8,
+      "lastRetainedWindow": 66,
+      "zeroSimulationTelemetryWindows": 0,
+      "metrics": {
+        "frameIntervalP95Ms": 3.620208,
+        "frameIntervalP99Ms": 4.375,
+        "renderCpuP99Ms": 1.89275,
+        "onePercentLowEstimateFps": 228.57142857142858,
+        "simulationHz": 59.96973627259011
+      },
+      "cpuP99Ms": {
+        "Preparation": 0.245666,
+        "DrawItems": 0.173917,
+        "CaptureWorld": 0.071375,
+        "ShadowCollection": null,
+        "ShadowSubmission": null,
+        "Shadow": 0.000333,
+        "WorldSetup": 0.005125,
+        "World": 1.496542,
+        "Outlines": 0.00125,
+        "SceneOverlays": 0.009,
+        "PostProcess": 0.000125,
+        "Composite": 0.030708,
+        "Opaque": 0.466083,
+        "Decal": 0.016917,
+        "MarkTranslucent": 0.193959,
+        "RebuildDepth": 0.438375,
+        "TranslucentBehind": 0.239833,
+        "TranslucentFront": 0.230125,
+        "Ui": null,
+        "Hud": 0.193042,
+        "HudImagePrepare": 0.026121,
+        "TextureUpload": 0.053854
+      },
+      "counters": {
+        "IndexedDraws": 56,
+        "DisplayListCalls": 142.67083333333332,
+        "ImmediateDraws": 502.4166666666667,
+        "MergedDraws": 22.033333333333335,
+        "BufferUploads": 0,
+        "UploadBytes": 0,
+        "BufferOrphans": 0,
+        "ProgramBinds": 9,
+        "StateSkips": 690.1333333333333,
+        "UniformArrayUploads": 44.170833333333334,
+        "UniformArrayBytes": 25641.866666666665,
+        "UniformArraySkips": 98.25,
+        "VaoDraws": 56,
+        "AvoidedPointerCalls": 168,
+        "SamplerWrites": 184,
+        "SamplerSkips": 180,
+        "DynamicBatches": 0,
+        "DynamicMergedPrimitives": 0,
+        "TextureUploads": 0,
+        "TextureUploadBytes": 0,
+        "HudGlyphCacheHits": 65.50833333333334,
+        "HudGlyphCacheMisses": 0,
+        "HudGlyphCacheFallbacks": 0,
+        "HudSpriteCacheHits": 5,
+        "HudSpriteCacheMisses": 0,
+        "HudSpriteCacheFallbacks": 0,
+        "DepthPreparedItems": 88.725,
+        "RoomDescriptorHits": 44.82083333333333,
+        "RoomDescriptorLookups": 214.55416666666667,
+        "RoomBatchProofs": 13.4,
+        "RoomBatchProofReuses": 13.4
+      },
+      "allocatedP50Bytes": 31152,
+      "maxDroppedSteps": 0,
+      "maxStalls": 0,
+      "gpuStatus": "UNVERIFIED",
+      "experiment": "combat-next-room"
+    },
+    {
+      "name": "combat-next-room-optimized-b",
+      "profiled": true,
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "harness": {
+        "meanCompletedFrameFps": 426.8484763962108,
+        "frameIntervalP50Ms": 1.9448,
+        "frameIntervalP95Ms": 4.4956,
+        "frameIntervalP99Ms": 5.9136,
+        "onePercentLowEstimateFps": 169.10173160173161,
+        "samples": 15367,
+        "simulationHz": 59.9446291460578,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 36.0287407
+      },
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "renderSize": [
+          1920,
+          1080
+        ],
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1345308,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1476322,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "effectiveCap": -1,
+        "softwareFrequency": 0,
+        "vsync": "Off"
+      },
+      "context": {
+        "machine": "Jarretts-MBP",
+        "os": "macOS 27.0.0",
+        "vendor": "Apple",
+        "playerCount": 8,
+        "vsync": "Off",
+        "vertexArrayApi": "Apple",
+        "flags": {
+          "roomCache": true,
+          "depthVertex": true,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        },
+        "room": "MP3 PROVING GROUND",
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Off",
+        "renderScale": 100,
+        "cap": -1,
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828"
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 768960,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1186776,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 135,
+        "glyphBytesBefore": 34560,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 45,
+        "spriteBytesBefore": 11520,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-room-optimized-b.json",
+      "rawResultSha256": "32f9a3c83b4b5551e417529c5c0aa1c636cb36704a08c82882be0903156ce77e",
+      "rawLog": "artifacts/opengl-modernization/combat-next-room-optimized-b.log",
+      "rawLogSha256": "93befa700078e2187e3d4c5e24414007152254eac6f71096899aa8693128c69c",
+      "retainedWindows": 59,
+      "preMeasurementWindows": 2,
+      "postMeasurementWarmupWindows": 5,
+      "firstRetainedWindow": 8,
+      "lastRetainedWindow": 66,
+      "zeroSimulationTelemetryWindows": 0,
+      "metrics": {
+        "frameIntervalP95Ms": 3.938042,
+        "frameIntervalP99Ms": 4.640667,
+        "renderCpuP99Ms": 1.8985,
+        "onePercentLowEstimateFps": 215.48626522868375,
+        "simulationHz": 59.96956544553638
+      },
+      "cpuP99Ms": {
+        "Preparation": 0.243583,
+        "DrawItems": 0.172083,
+        "CaptureWorld": 0.07525,
+        "ShadowCollection": null,
+        "ShadowSubmission": null,
+        "Shadow": 0.00025,
+        "WorldSetup": 0.005333,
+        "World": 1.488042,
+        "Outlines": 0.001125,
+        "SceneOverlays": 0.007958,
+        "PostProcess": 0.000125,
+        "Composite": 0.028208,
+        "Opaque": 0.473167,
+        "Decal": 0.016333,
+        "MarkTranslucent": 0.2005,
+        "RebuildDepth": 0.447292,
+        "TranslucentBehind": 0.234708,
+        "TranslucentFront": 0.222,
+        "Ui": null,
+        "Hud": 0.181458,
+        "HudImagePrepare": 0.027124,
+        "TextureUpload": 0.055625
+      },
+      "counters": {
+        "IndexedDraws": 56,
+        "DisplayListCalls": 139.87916666666666,
+        "ImmediateDraws": 511.90833333333336,
+        "MergedDraws": 23.191666666666666,
+        "BufferUploads": 0,
+        "UploadBytes": 0,
+        "BufferOrphans": 0,
+        "ProgramBinds": 9,
+        "StateSkips": 712.75,
+        "UniformArrayUploads": 43.19583333333333,
+        "UniformArrayBytes": 25752,
+        "UniformArraySkips": 97.49583333333334,
+        "VaoDraws": 56,
+        "AvoidedPointerCalls": 168,
+        "SamplerWrites": 184.46666666666667,
+        "SamplerSkips": 178.7,
+        "DynamicBatches": 0,
+        "DynamicMergedPrimitives": 0,
+        "TextureUploads": 0,
+        "TextureUploadBytes": 0,
+        "HudGlyphCacheHits": 67.21666666666667,
+        "HudGlyphCacheMisses": 0,
+        "HudGlyphCacheFallbacks": 0,
+        "HudSpriteCacheHits": 5,
+        "HudSpriteCacheMisses": 0,
+        "HudSpriteCacheFallbacks": 0,
+        "DepthPreparedItems": 87.67083333333333,
+        "RoomDescriptorHits": 44.145833333333336,
+        "RoomDescriptorLookups": 217.60833333333332,
+        "RoomBatchProofs": 13.566666666666666,
+        "RoomBatchProofReuses": 13.566666666666666
+      },
+      "allocatedP50Bytes": 30880,
+      "maxDroppedSteps": 0,
+      "maxStalls": 0,
+      "gpuStatus": "UNVERIFIED",
+      "experiment": "combat-next-room"
+    },
+    {
+      "name": "combat-next-vertex-baseline-a",
+      "profiled": true,
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "harness": {
+        "meanCompletedFrameFps": 439.3137121468117,
+        "frameIntervalP50Ms": 1.8807,
+        "frameIntervalP95Ms": 4.3175,
+        "frameIntervalP99Ms": 5.9508,
+        "onePercentLowEstimateFps": 168.044632654433,
+        "samples": 15815,
+        "simulationHz": 59.99751910258513,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 36.0146277
+      },
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "renderSize": [
+          1920,
+          1080
+        ],
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1244313,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1370889,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "effectiveCap": -1,
+        "softwareFrequency": 0,
+        "vsync": "Off"
+      },
+      "context": {
+        "machine": "Jarretts-MBP",
+        "os": "macOS 27.0.0",
+        "vendor": "Apple",
+        "playerCount": 8,
+        "vsync": "Off",
+        "vertexArrayApi": "Apple",
+        "flags": {
+          "roomCache": true,
+          "depthVertex": false,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        },
+        "room": "MP3 PROVING GROUND",
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Off",
+        "renderScale": 100,
+        "cap": -1,
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828"
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 768960,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1186776,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 135,
+        "glyphBytesBefore": 34560,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 45,
+        "spriteBytesBefore": 11520,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-vertex-baseline-a.json",
+      "rawResultSha256": "75cd932946bb1a827964e4382a1308a98bb48470394653984dacd9f1cc3028c6",
+      "rawLog": "artifacts/opengl-modernization/combat-next-vertex-baseline-a.log",
+      "rawLogSha256": "c78bb4c4cc9f254d7be80640fe36712922f8d900dcef8d7d76fef5d19095b595",
+      "retainedWindows": 61,
+      "preMeasurementWindows": 2,
+      "postMeasurementWarmupWindows": 5,
+      "firstRetainedWindow": 8,
+      "lastRetainedWindow": 68,
+      "zeroSimulationTelemetryWindows": 0,
+      "metrics": {
+        "frameIntervalP95Ms": 3.645542,
+        "frameIntervalP99Ms": 4.42125,
+        "renderCpuP99Ms": 1.876375,
+        "onePercentLowEstimateFps": 226.1803788521346,
+        "simulationHz": 59.974172122775265
+      },
+      "cpuP99Ms": {
+        "Preparation": 0.247667,
+        "DrawItems": 0.177916,
+        "CaptureWorld": 0.070708,
+        "ShadowCollection": null,
+        "ShadowSubmission": null,
+        "Shadow": 0.00025,
+        "WorldSetup": 0.005167,
+        "World": 1.486292,
+        "Outlines": 0.001042,
+        "SceneOverlays": 0.008208,
+        "PostProcess": 8.3e-05,
+        "Composite": 0.029958,
+        "Opaque": 0.47575,
+        "Decal": 0.016083,
+        "MarkTranslucent": 0.199625,
+        "RebuildDepth": 0.427292,
+        "TranslucentBehind": 0.231375,
+        "TranslucentFront": 0.219333,
+        "Ui": null,
+        "Hud": 0.189875,
+        "HudImagePrepare": 0.027584,
+        "TextureUpload": 0.055083
+      },
+      "counters": {
+        "IndexedDraws": 56,
+        "DisplayListCalls": 143.5625,
+        "ImmediateDraws": 488.5208333333333,
+        "MergedDraws": 22.758333333333333,
+        "BufferUploads": 0,
+        "UploadBytes": 0,
+        "BufferOrphans": 0,
+        "ProgramBinds": 9,
+        "StateSkips": 700.5125,
+        "UniformArrayUploads": 43.733333333333334,
+        "UniformArrayBytes": 25619.2,
+        "UniformArraySkips": 98.23333333333333,
+        "VaoDraws": 56,
+        "AvoidedPointerCalls": 168,
+        "SamplerWrites": 184.9,
+        "SamplerSkips": 180,
+        "DynamicBatches": 0,
+        "DynamicMergedPrimitives": 0,
+        "TextureUploads": 0,
+        "TextureUploadBytes": 0,
+        "HudGlyphCacheHits": 67.7125,
+        "HudGlyphCacheMisses": 0,
+        "HudGlyphCacheFallbacks": 0,
+        "HudSpriteCacheHits": 5,
+        "HudSpriteCacheMisses": 0,
+        "HudSpriteCacheFallbacks": 0,
+        "DepthPreparedItems": 88.9875,
+        "RoomDescriptorHits": 43.94166666666667,
+        "RoomDescriptorLookups": 212.6125,
+        "RoomBatchProofs": 13.166666666666666,
+        "RoomBatchProofReuses": 13.166666666666666
+      },
+      "allocatedP50Bytes": 30832,
+      "maxDroppedSteps": 0,
+      "maxStalls": 0,
+      "gpuStatus": "UNVERIFIED",
+      "experiment": "combat-next-vertex"
+    },
+    {
+      "name": "combat-next-vertex-baseline-b",
+      "profiled": true,
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "harness": {
+        "meanCompletedFrameFps": 424.64037395063946,
+        "frameIntervalP50Ms": 1.9948,
+        "frameIntervalP95Ms": 4.3444,
+        "frameIntervalP99Ms": 6.1465,
+        "onePercentLowEstimateFps": 162.69421622061336,
+        "samples": 15287,
+        "simulationHz": 60.445411748649825,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 36.0257725
+      },
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "renderSize": [
+          1920,
+          1080
+        ],
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1395634,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1531081,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "effectiveCap": -1,
+        "softwareFrequency": 0,
+        "vsync": "Off"
+      },
+      "context": {
+        "machine": "Jarretts-MBP",
+        "os": "macOS 27.0.0",
+        "vendor": "Apple",
+        "playerCount": 8,
+        "vsync": "Off",
+        "vertexArrayApi": "Apple",
+        "flags": {
+          "roomCache": true,
+          "depthVertex": false,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        },
+        "room": "MP3 PROVING GROUND",
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Off",
+        "renderScale": 100,
+        "cap": -1,
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828"
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 768960,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1186776,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 135,
+        "glyphBytesBefore": 34560,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 45,
+        "spriteBytesBefore": 11520,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-vertex-baseline-b.json",
+      "rawResultSha256": "1a34e90ac8f53b0e0bbfa7eb2a58954273c7694ab3a037dc63f17b34d5c57959",
+      "rawLog": "artifacts/opengl-modernization/combat-next-vertex-baseline-b.log",
+      "rawLogSha256": "5c67272fd2cf6c85836a6caa8c6dd10fb09a77c768dcdf53f58cbcfbd3174c14",
+      "retainedWindows": 59,
+      "preMeasurementWindows": 2,
+      "postMeasurementWarmupWindows": 5,
+      "firstRetainedWindow": 8,
+      "lastRetainedWindow": 66,
+      "zeroSimulationTelemetryWindows": 0,
+      "metrics": {
+        "frameIntervalP95Ms": 3.564625,
+        "frameIntervalP99Ms": 4.328459,
+        "renderCpuP99Ms": 1.901917,
+        "onePercentLowEstimateFps": 231.0291029671299,
+        "simulationHz": 59.974594761658935
+      },
+      "cpuP99Ms": {
+        "Preparation": 0.240958,
+        "DrawItems": 0.178791,
+        "CaptureWorld": 0.071375,
+        "ShadowCollection": null,
+        "ShadowSubmission": null,
+        "Shadow": 0.000291,
+        "WorldSetup": 0.005333,
+        "World": 1.498458,
+        "Outlines": 0.001125,
+        "SceneOverlays": 0.008583,
+        "PostProcess": 0.000125,
+        "Composite": 0.029916,
+        "Opaque": 0.468084,
+        "Decal": 0.017292,
+        "MarkTranslucent": 0.191167,
+        "RebuildDepth": 0.43625,
+        "TranslucentBehind": 0.232875,
+        "TranslucentFront": 0.216958,
+        "Ui": null,
+        "Hud": 0.188292,
+        "HudImagePrepare": 0.027914,
+        "TextureUpload": 0.059625
+      },
+      "counters": {
+        "IndexedDraws": 56,
+        "DisplayListCalls": 143.58333333333334,
+        "ImmediateDraws": 498.375,
+        "MergedDraws": 21.833333333333332,
+        "BufferUploads": 0,
+        "UploadBytes": 0,
+        "BufferOrphans": 0,
+        "ProgramBinds": 9,
+        "StateSkips": 700.4041666666667,
+        "UniformArrayUploads": 44.07083333333333,
+        "UniformArrayBytes": 25726.933333333334,
+        "UniformArraySkips": 98.26666666666667,
+        "VaoDraws": 56,
+        "AvoidedPointerCalls": 168,
+        "SamplerWrites": 184,
+        "SamplerSkips": 184.08333333333334,
+        "DynamicBatches": 0,
+        "DynamicMergedPrimitives": 0,
+        "TextureUploads": 0,
+        "TextureUploadBytes": 0,
+        "HudGlyphCacheHits": 65.7625,
+        "HudGlyphCacheMisses": 0,
+        "HudGlyphCacheFallbacks": 0,
+        "HudSpriteCacheHits": 5,
+        "HudSpriteCacheMisses": 0,
+        "HudSpriteCacheFallbacks": 0,
+        "DepthPreparedItems": 89.00416666666666,
+        "RoomDescriptorHits": 44.37083333333333,
+        "RoomDescriptorLookups": 211.14166666666668,
+        "RoomBatchProofs": 13.179166666666667,
+        "RoomBatchProofReuses": 13.179166666666667
+      },
+      "allocatedP50Bytes": 30832,
+      "maxDroppedSteps": 0,
+      "maxStalls": 0,
+      "gpuStatus": "UNVERIFIED",
+      "experiment": "combat-next-vertex"
+    },
+    {
+      "name": "combat-next-vertex-optimized-a",
+      "profiled": true,
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "harness": {
+        "meanCompletedFrameFps": 431.0476379481196,
+        "frameIntervalP50Ms": 1.9583,
+        "frameIntervalP95Ms": 4.2976,
+        "frameIntervalP99Ms": 6.4227,
+        "onePercentLowEstimateFps": 155.69775950924065,
+        "samples": 15516,
+        "simulationHz": 59.97159745144699,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 36.0333012
+      },
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "renderSize": [
+          1920,
+          1080
+        ],
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1436729,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.3294043,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "effectiveCap": -1,
+        "softwareFrequency": 0,
+        "vsync": "Off"
+      },
+      "context": {
+        "machine": "Jarretts-MBP",
+        "os": "macOS 27.0.0",
+        "vendor": "Apple",
+        "playerCount": 8,
+        "vsync": "Off",
+        "vertexArrayApi": "Apple",
+        "flags": {
+          "roomCache": true,
+          "depthVertex": true,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        },
+        "room": "MP3 PROVING GROUND",
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Off",
+        "renderScale": 100,
+        "cap": -1,
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828"
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 768960,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1186776,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 135,
+        "glyphBytesBefore": 34560,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 45,
+        "spriteBytesBefore": 11520,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-vertex-optimized-a.json",
+      "rawResultSha256": "a0f85786198d69c2cc33ad63626a22f838c19b685cd74f6f8606b72db6b3d672",
+      "rawLog": "artifacts/opengl-modernization/combat-next-vertex-optimized-a.log",
+      "rawLogSha256": "268eeb92cde8dc1ad8e55113be2b852d0dacdc2c97d0a2d9f5c66e25cb616a21",
+      "retainedWindows": 59,
+      "preMeasurementWindows": 2,
+      "postMeasurementWarmupWindows": 5,
+      "firstRetainedWindow": 8,
+      "lastRetainedWindow": 66,
+      "zeroSimulationTelemetryWindows": 0,
+      "metrics": {
+        "frameIntervalP95Ms": 3.497583,
+        "frameIntervalP99Ms": 4.2855,
+        "renderCpuP99Ms": 1.842541,
+        "onePercentLowEstimateFps": 233.34500058336252,
+        "simulationHz": 59.967716379886916
+      },
+      "cpuP99Ms": {
+        "Preparation": 0.233042,
+        "DrawItems": 0.170416,
+        "CaptureWorld": 0.070458,
+        "ShadowCollection": null,
+        "ShadowSubmission": null,
+        "Shadow": 0.000167,
+        "WorldSetup": 0.005125,
+        "World": 1.473292,
+        "Outlines": 0.001042,
+        "SceneOverlays": 0.008333,
+        "PostProcess": 8.3e-05,
+        "Composite": 0.029625,
+        "Opaque": 0.466125,
+        "Decal": 0.0155,
+        "MarkTranslucent": 0.1905,
+        "RebuildDepth": 0.427208,
+        "TranslucentBehind": 0.231958,
+        "TranslucentFront": 0.215125,
+        "Ui": null,
+        "Hud": 0.1765,
+        "HudImagePrepare": 0.02758,
+        "TextureUpload": 0.0488325
+      },
+      "counters": {
+        "IndexedDraws": 56,
+        "DisplayListCalls": 139.47083333333333,
+        "ImmediateDraws": 494.98333333333335,
+        "MergedDraws": 23.55,
+        "BufferUploads": 0,
+        "UploadBytes": 0,
+        "BufferOrphans": 0,
+        "ProgramBinds": 9,
+        "StateSkips": 677.9791666666666,
+        "UniformArrayUploads": 42.62083333333333,
+        "UniformArrayBytes": 25495.466666666667,
+        "UniformArraySkips": 97.20833333333333,
+        "VaoDraws": 56,
+        "AvoidedPointerCalls": 168,
+        "SamplerWrites": 184,
+        "SamplerSkips": 180,
+        "DynamicBatches": 0,
+        "DynamicMergedPrimitives": 0,
+        "TextureUploads": 0,
+        "TextureUploadBytes": 0,
+        "HudGlyphCacheHits": 69.7875,
+        "HudGlyphCacheMisses": 0,
+        "HudGlyphCacheFallbacks": 0,
+        "HudSpriteCacheHits": 5,
+        "HudSpriteCacheMisses": 0,
+        "HudSpriteCacheFallbacks": 0,
+        "DepthPreparedItems": 87.4875,
+        "RoomDescriptorHits": 45.00833333333333,
+        "RoomDescriptorLookups": 207.53333333333333,
+        "RoomBatchProofs": 13.375,
+        "RoomBatchProofReuses": 13.375
+      },
+      "allocatedP50Bytes": 30992,
+      "maxDroppedSteps": 0,
+      "maxStalls": 0,
+      "gpuStatus": "UNVERIFIED",
+      "experiment": "combat-next-vertex"
+    },
+    {
+      "name": "combat-next-vertex-optimized-b",
+      "profiled": true,
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "harness": {
+        "meanCompletedFrameFps": 427.06169338111175,
+        "frameIntervalP50Ms": 1.9699,
+        "frameIntervalP95Ms": 4.348,
+        "frameIntervalP99Ms": 6.1124,
+        "onePercentLowEstimateFps": 163.60185851711276,
+        "samples": 15374,
+        "simulationHz": 59.840945758221956,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 36.0134005
+      },
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "renderSize": [
+          1920,
+          1080
+        ],
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "windowEvents": [
+          {
+            "wallSeconds": 0.137255,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1502908,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "effectiveCap": -1,
+        "softwareFrequency": 0,
+        "vsync": "Off"
+      },
+      "context": {
+        "machine": "Jarretts-MBP",
+        "os": "macOS 27.0.0",
+        "vendor": "Apple",
+        "playerCount": 8,
+        "vsync": "Off",
+        "vertexArrayApi": "Apple",
+        "flags": {
+          "roomCache": true,
+          "depthVertex": true,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        },
+        "room": "MP3 PROVING GROUND",
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Off",
+        "renderScale": 100,
+        "cap": -1,
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828"
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 768960,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1186776,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 135,
+        "glyphBytesBefore": 34560,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 45,
+        "spriteBytesBefore": 11520,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-vertex-optimized-b.json",
+      "rawResultSha256": "5c345bdd27b3f0794b96e828ba688b02bac841280817f059687373510266cd09",
+      "rawLog": "artifacts/opengl-modernization/combat-next-vertex-optimized-b.log",
+      "rawLogSha256": "2ea18a864f7136cd1bebe686b3e86707ad8e852be191d9a8aa5ae2b45b58db85",
+      "retainedWindows": 59,
+      "preMeasurementWindows": 3,
+      "postMeasurementWarmupWindows": 5,
+      "firstRetainedWindow": 9,
+      "lastRetainedWindow": 67,
+      "zeroSimulationTelemetryWindows": 0,
+      "metrics": {
+        "frameIntervalP95Ms": 3.570709,
+        "frameIntervalP99Ms": 4.476584,
+        "renderCpuP99Ms": 1.842917,
+        "onePercentLowEstimateFps": 223.38461648435504,
+        "simulationHz": 59.955237419742495
+      },
+      "cpuP99Ms": {
+        "Preparation": 0.239167,
+        "DrawItems": 0.17,
+        "CaptureWorld": 0.071375,
+        "ShadowCollection": null,
+        "ShadowSubmission": null,
+        "Shadow": 0.000208,
+        "WorldSetup": 0.005375,
+        "World": 1.464542,
+        "Outlines": 0.001209,
+        "SceneOverlays": 0.009166,
+        "PostProcess": 8.4e-05,
+        "Composite": 0.028792,
+        "Opaque": 0.451584,
+        "Decal": 0.01575,
+        "MarkTranslucent": 0.185583,
+        "RebuildDepth": 0.434208,
+        "TranslucentBehind": 0.219083,
+        "TranslucentFront": 0.234,
+        "Ui": null,
+        "Hud": 0.182041,
+        "HudImagePrepare": 0.026918,
+        "TextureUpload": 0.054542
+      },
+      "counters": {
+        "IndexedDraws": 56,
+        "DisplayListCalls": 142.5,
+        "ImmediateDraws": 474.4875,
+        "MergedDraws": 22.708333333333332,
+        "BufferUploads": 0,
+        "UploadBytes": 0,
+        "BufferOrphans": 0,
+        "ProgramBinds": 9,
+        "StateSkips": 684.5,
+        "UniformArrayUploads": 43.229166666666664,
+        "UniformArrayBytes": 25333.866666666665,
+        "UniformArraySkips": 97.7625,
+        "VaoDraws": 56,
+        "AvoidedPointerCalls": 168,
+        "SamplerWrites": 184,
+        "SamplerSkips": 187.3,
+        "DynamicBatches": 0,
+        "DynamicMergedPrimitives": 0,
+        "TextureUploads": 0,
+        "TextureUploadBytes": 0,
+        "HudGlyphCacheHits": 67.91666666666667,
+        "HudGlyphCacheMisses": 0,
+        "HudGlyphCacheFallbacks": 0,
+        "HudSpriteCacheHits": 5,
+        "HudSpriteCacheMisses": 0,
+        "HudSpriteCacheFallbacks": 0,
+        "DepthPreparedItems": 88.2625,
+        "RoomDescriptorHits": 45.37916666666667,
+        "RoomDescriptorLookups": 208.71666666666667,
+        "RoomBatchProofs": 13.3875,
+        "RoomBatchProofReuses": 13.3875
+      },
+      "allocatedP50Bytes": 30992,
+      "maxDroppedSteps": 0,
+      "maxStalls": 0,
+      "gpuStatus": "UNVERIFIED",
+      "experiment": "combat-next-vertex"
+    }
+  ]
+}

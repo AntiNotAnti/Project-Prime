@@ -34,6 +34,9 @@ namespace MphRead.Mods.Network
                 Check(shooter.ModIsInPlay && victim.ModIsInPlay && sim.StepFailures == 0, "spawn both players");
                 var scene = (Scene)typeof(ServerSim).GetField("_scene", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(sim)!;
                 var fire = typeof(PlayerEntity).GetMethod("TryFireWeapon", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                var initialPosition = shooter.Position;
+                var initialFacing = shooter.FacingVector;
+                var initialNode = shooter.NodeRef;
                 InvalidHitClaimIsRefused();
                 InvulnerableClaimIsRefused();
                 MutualKillOrdering();
@@ -43,6 +46,9 @@ namespace MphRead.Mods.Network
                 HistoricalCacheEquivalence();
                 GameState.PointGoal = 1000; GameState.MatchTime = 3600;
                 Array.Clear(GameState.Points);
+                // Recovery/history fixtures move the shooter above the room. Restore its
+                // settled pose before testing held input so falling cannot kill it.
+                shooter.Spawn(initialPosition, initialFacing, Vector3.UnitY, initialNode, respawn: true);
                 shooter.Health = victim.Health = 99;
                 uint frame = 200;
                 foreach (BeamType weapon in new[] { BeamType.PowerBeam, BeamType.Missile, BeamType.Imperialist,
@@ -524,16 +530,13 @@ namespace MphRead.Mods.Network
                     Drain(Carrier(enhancedFire));
                     var flights = shooter.EquipInfo.Beams.Where(candidate => candidate.Lifespan > 0
                         && candidate.ModShotId == 50).ToArray();
-                    Check(flights.Length == 3 && flights.Count(candidate => candidate.EnhancedMicroSeeker) == 2
-                        && flights.All(candidate => candidate.Beam == BeamType.Missile
-                            && candidate.ModLaunchKey == flights[0].ModLaunchKey
-                            && candidate.ModLaunchLife == sourceLife)
-                        && flights.Where(candidate => candidate.EnhancedMicroSeeker).All(candidate => candidate.Target == victim),
-                        "accepted Samus barrage uses captured two pips, fenced target and authored Missile child identity: "
+                    Check(flights.Length == 1 && flights.All(candidate => !candidate.EnhancedMicroSeeker
+                            && candidate.Beam == BeamType.Missile && candidate.ModLaunchLife == sourceLife),
+                        "retired Enhanced context cannot spawn a live Samus barrage; native old-life Missile remains: "
                         + string.Join(";", shooter.EquipInfo.Beams.Where(b => b.ModShotId == 50).Select(b => $"{b.Beam}/micro={b.EnhancedMicroSeeker}/life={b.Lifespan}/key={b.ModLaunchKey}/target={b.Target?.Id}")));
                     Check(enhanced.ValueA == 3 && enhanced.ValueB == 7
                         && enhanced.TimerB == 91 && enhanced.ContactFrames == 17,
-                        "accepted old-life Samus barrage preserves present enhanced pips and timers");
+                        "retired old-life context preserves inert compatibility pips and timers");
                     Unchanged();
                 }
                 finally

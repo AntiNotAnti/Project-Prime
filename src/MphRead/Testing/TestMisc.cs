@@ -306,7 +306,7 @@ namespace MphRead.Testing
                     string outputPath = $@"C:\Users\auser\Home\MPH\Data\_Export\_FV\{movieName}\{imageFilename}";
                     Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
                     using FileStream fs = File.Create(outputPath);
-                    StbImage.WritePng<byte>(imageOutput, 256, 192, StbiImageFormat.Rgb, fs);
+                    global::MphRead.Mods.PngEncoder.Write<byte>(imageOutput, 256, 192, StbiImageFormat.Rgb, fs);
                 }
                 // audio
                 int audioFrameCount = audioSize / 40;

@@ -9,7 +9,18 @@ namespace MphRead.Mods.Network;
 internal readonly record struct NetBurnSource(ShotKey Key, uint Component, uint LaunchFrame,
     BeamType Weapon, ushort Duration, int TickFrames, uint Damage, bool Balanced)
 {
-    internal static NetBurnSource? Current { get; private set; }
+    // Mono can re-enter Nullable<NetBurnSource> layout through a static field
+    // on NetBurnSource before the nullable instance size is initialized. Keep
+    // that storage on a reference type; the source remains a value snapshot.
+    internal static NetBurnSource? Current
+    {
+        get => CurrentState.Value;
+        private set => CurrentState.Value = value;
+    }
+    private static class CurrentState
+    {
+        internal static NetBurnSource? Value;
+    }
     private readonly record struct Tick(ShotKey Source, uint Component, NetTargetIdentity Victim,
         uint Frame, bool Turret);
     private static readonly Tick?[,] LastTicks = new Tick?[8, 2];

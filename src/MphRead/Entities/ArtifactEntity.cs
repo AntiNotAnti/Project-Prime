@@ -214,7 +214,7 @@ namespace MphRead.Entities
                     if (Mods.DebugLog.Active)
                     {
                         Mods.DebugLog.Line("save", $"artifact collected id={_data.ArtifactId} "
-                            + $"set={_data.ModelId} room={_scene.Room.RoomId} "
+                            + $"set={_data.ModelId} room={_scene.RoomId} "
                             + $"artifacts=0x{_scene.GameState.StorySave.Artifacts:X8}");
                     }
                     // ARTIFACT DISCOVERED you retrieved an ALIMBIC ARTIFACT!

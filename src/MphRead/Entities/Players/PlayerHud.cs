@@ -239,11 +239,11 @@ namespace MphRead.Entities
             HudObject healthbarSub = HudInfo.GetHudObject(_hudObjects.HealthBarB);
             _healthbarMainMeter = HudElements.MainHealthbars[(int)Hunter];
             _healthbarSubMeter = HudElements.SubHealthbars[(int)Hunter];
-            _healthbarMainMeter.BarInst = new HudObjectInstance(healthbarMain.Width, healthbarMain.Height);
+            _healthbarMainMeter.BarInst = new HudObjectInstance(healthbarMain.Width, healthbarMain.Height) { CacheSpriteImages = true };
             _healthbarMainMeter.BarInst.SetCharacterData(healthbarMain.CharacterData, _scene);
             _healthbarMainMeter.BarInst.SetPaletteData(healthbarMain.PaletteData, _scene);
             _healthbarMainMeter.BarInst.Enabled = true;
-            _healthbarSubMeter.BarInst = new HudObjectInstance(healthbarSub.Width, healthbarSub.Height);
+            _healthbarSubMeter.BarInst = new HudObjectInstance(healthbarSub.Width, healthbarSub.Height) { CacheSpriteImages = true };
             _healthbarSubMeter.BarInst.SetCharacterData(healthbarSub.CharacterData, _scene);
             _healthbarSubMeter.BarInst.SetPaletteData(healthbarSub.PaletteData, _scene);
             _healthbarSubMeter.BarInst.Enabled = true;
@@ -256,7 +256,7 @@ namespace MphRead.Entities
             {
                 HudObject damageBar = HudInfo.GetHudObject(_hudObjects.DamageBar);
                 _enemyHealthMeter = new HudMeter() { Horizontal = true, };
-                _enemyHealthMeter.BarInst = new HudObjectInstance(damageBar.Width, damageBar.Height);
+                _enemyHealthMeter.BarInst = new HudObjectInstance(damageBar.Width, damageBar.Height) { CacheSpriteImages = true };
                 _enemyHealthMeter.BarInst.SetCharacterData(damageBar.CharacterData, _scene);
                 _enemyHealthMeter.BarInst.SetPaletteData(damageBar.PaletteData, _scene);
                 _enemyHealthMeter.BarInst.Enabled = true;
@@ -264,7 +264,7 @@ namespace MphRead.Entities
             else
             {
                 _enemyHealthMeter = HudElements.EnemyHealthbar;
-                _enemyHealthMeter.BarInst = new HudObjectInstance(samusSubBar.Width, samusSubBar.Height);
+                _enemyHealthMeter.BarInst = new HudObjectInstance(samusSubBar.Width, samusSubBar.Height) { CacheSpriteImages = true };
                 _enemyHealthMeter.BarInst.SetCharacterData(samusSubBar.CharacterData, _scene);
                 _enemyHealthMeter.BarInst.SetPaletteData(healthbarSub.PaletteData, _scene);
                 _enemyHealthMeter.BarInst.Enabled = true;
@@ -362,7 +362,7 @@ namespace MphRead.Entities
             if (_scene.GameState.SinglePlayer && _hudObjects.EnergyTanks != null)
             {
                 HudObject healthbarTank = HudInfo.GetHudObject(_hudObjects.EnergyTanks);
-                _healthbarMainMeter.TankInst = new HudObjectInstance(healthbarTank.Width, healthbarTank.Height);
+                _healthbarMainMeter.TankInst = new HudObjectInstance(healthbarTank.Width, healthbarTank.Height) { CacheSpriteImages = true };
                 _healthbarMainMeter.TankInst.SetCharacterData(healthbarTank.CharacterData, _scene);
                 if (Hunter == Hunter.Samus || Hunter == Hunter.Guardian)
                 {
@@ -377,7 +377,7 @@ namespace MphRead.Entities
             _healthbarYOffset = _hudObjects.HealthOffsetY;
             HudObject ammoBar = HudInfo.GetHudObject(_hudObjects.AmmoBar);
             _ammoBarMeter = HudElements.AmmoBars[(int)Hunter];
-            _ammoBarMeter.BarInst = new HudObjectInstance(ammoBar.Width, ammoBar.Height);
+            _ammoBarMeter.BarInst = new HudObjectInstance(ammoBar.Width, ammoBar.Height) { CacheSpriteImages = true };
             _ammoBarMeter.BarInst.SetCharacterData(ammoBar.CharacterData, _scene);
             _ammoBarMeter.BarInst.SetPaletteData(ammoBar.PaletteData, _scene);
             _textPaletteData = ammoBar.PaletteData;
@@ -492,11 +492,12 @@ namespace MphRead.Entities
             _nodesInst.Enabled = true;
             HudObject systemLoad = HudInfo.GetHudObject(HudElements.SystemLoad);
             _nodeProgressMeter = HudElements.NodeProgressBar;
-            _nodeProgressMeter.BarInst = new HudObjectInstance(systemLoad.Width, systemLoad.Height);
+            _nodeProgressMeter.BarInst = new HudObjectInstance(systemLoad.Width, systemLoad.Height) { CacheSpriteImages = true };
             _nodeProgressMeter.BarInst.SetCharacterData(systemLoad.CharacterData, _scene);
             _nodeProgressMeter.BarInst.SetPaletteData(systemLoad.PaletteData, _scene);
             _nodeProgressMeter.BarInst.Enabled = true;
-            _textInst = new HudObjectInstance(width: 8, height: 8, maxWidth: 16, maxHeight: 16);
+            _textInst = new HudObjectInstance(width: 8, height: 8, maxWidth: 16, maxHeight: 16)
+                { CacheGlyphImages = true };
             _textInst.SetCharacterData(Font.Normal.CharacterData, _scene);
             _textInst.SetPaletteData(ammoBar.PaletteData, _scene);
             _textInst.Enabled = true;
@@ -545,7 +546,7 @@ namespace MphRead.Entities
                     _scanIconInsts[i] = scanIconInst;
                 }
                 _scanProgressMeter = HudElements.SubHealthbars[(int)Hunter.Samus];
-                _scanProgressMeter.BarInst = new HudObjectInstance(samusSubBar.Width, samusSubBar.Height);
+                _scanProgressMeter.BarInst = new HudObjectInstance(samusSubBar.Width, samusSubBar.Height) { CacheSpriteImages = true };
                 _scanProgressMeter.BarInst.SetCharacterData(samusSubBar.CharacterData, _scene);
                 _scanProgressMeter.BarInst.SetPaletteData(healthbarSub.PaletteData, _scene);
                 _scanProgressMeter.Horizontal = true;
@@ -726,8 +727,11 @@ namespace MphRead.Entities
 
         public void UpdateHud()
         {
-            Mods.EnhancedHunters.EnhancedHunterHud.Queue(this);
-            ModEnhancedFeedback();
+            if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(_scene))
+            {
+                Mods.EnhancedHunters.EnhancedHunterHud.Queue(this);
+                ModEnhancedFeedback();
+            }
             if (_scene.GameState.MenuPause)
             {
                 InitHudState();

@@ -60,10 +60,13 @@ internal static class TurretFireOutcomeTests
             original.Key with { Generation = 0 }, original.Key with { LifeId = 0 }, original.Key with { ShotId = 0 } })
             RejectObject(original with { Key = key }, "invalid full identity");
         foreach (var fire in new[] { original.Fire with { ShotId = 7 }, original.Fire with { SourceLife = 6 },
+            original.Fire with { SourceLife = 0 },
             original.Fire with { Kind = FireEventKind.AutomaticFire }, original.Fire with { Weapon = (byte)BeamType.PowerBeam },
             original.Fire with { Charge = 1 }, original.Fire with { PoseFlags = 0 },
             original.Fire with { Direction = Vector3.Zero }, original.Fire with { Aim = Vector3.Zero } })
             RejectObject(original with { Fire = fire }, "invalid source fire");
+        RejectObject(original with { Key = original.Key with { LifeId = 0 }, Fire = original.Fire with { SourceLife = 0 } },
+            "matching zero source/key life is still invalid authority identity");
         foreach (var value in new[] { Single.NaN, Single.PositiveInfinity, Single.NegativeInfinity })
         {
             RejectObject(original with { EmissionOrigin = new Vector3(value, 0, 0) }, "nonfinite native origin");
@@ -264,15 +267,17 @@ internal static class TurretFireOutcomeTests
         state.Accept(ReplayPacket(outcome with { Key = outcome.Key with { AuthorityEpoch = 10 } }), 133);
         Check(state.PendingTurretOutcomeCount == 1, "foreign authority stream never queues an outcome");
         var checkpoint = state.CaptureCheckpoint();
-        Check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 9,
-            "replica checkpoint explicitly carries the v9 outcome appendix");
+        // Protocol 53 introduces checkpoint schema 10 for native Morph Ball
+        // state. The v9 turret-outcome appendix remains present and readable.
+        Check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 10,
+            "replica checkpoint v10 retains the v9 turret outcome appendix");
         var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(checkpoint);
         Check(restored.PendingTurretOutcomeCount == 1
             && restored.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes),
-            "v9 roundtrip preserves pending outcomes and complete decoder state");
+            "v10 roundtrip preserves pending outcomes and complete decoder state");
         accepted = restored.AcceptedPackets; restored.Accept(packet, 134);
         Check(restored.PendingTurretOutcomeCount == 1 && restored.AcceptedPackets == accepted,
-            "v9 restoration preserves duplicate-terminal suppression");
+            "v10 restoration preserves duplicate-terminal suppression");
         var baseline = restored.CaptureCheckpoint();
         var mismatch = checkpoint.Bytes.ToArray();
         // The final row is the pending terminal. Keep its key valid, but make

@@ -137,6 +137,7 @@ internal static class NetCampaignEvidence
         if (!Enabled) return;
         if (offered) _offeredCarriers++; else _acceptedCarriers++;
         var seen = offered ? Offered : Accepted;
+        Span<byte> source = stackalloc byte[PlayerFormState.Size];
         for (int i = 0; i < intent.FireEventCount; i++)
         {
             var fire = intent.FireEvents[i];
@@ -150,7 +151,7 @@ internal static class NetCampaignEvidence
             if (!offered && fire.Kind == FireEventKind.TurretFire && NetSession.IsAuthority
                 && NetFireEvents.TryTurretRecovery(key, out uint acceptedAt, out var acceptedForm, out bool available))
             {
-                Span<byte> source = stackalloc byte[PlayerFormState.Size]; acceptedForm.Write(source);
+                acceptedForm.Write(source);
                 acceptedFormSource = Convert.ToHexString(source); acceptedObserved = acceptedAt; everAvailable = available;
                 var owner = PlayerEntity.Players[slot];
                 Form(new PlayerState { SlotIndex = (byte)slot, SlotGeneration = key.Generation, LifeId = key.LifeId,

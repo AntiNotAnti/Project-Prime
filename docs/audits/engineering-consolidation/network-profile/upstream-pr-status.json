@@ -1,0 +1,839 @@
+[
+  {
+    "baseRefName": "codex/net21-turret-outcomes",
+    "headRefOid": "8563b672a4f4cfa0c7d34c071113f1d81e5bf011",
+    "mergeStateStatus": "CLEAN",
+    "mergeable": "MERGEABLE",
+    "number": 472,
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:23:54Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649720843",
+        "name": "no game assets",
+        "startedAt": "2026-10-12T03:23:34Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:23:54Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563628/job/114649721018",
+        "name": "content-free",
+        "startedAt": "2026-10-12T03:23:34Z",
+        "status": "COMPLETED",
+        "workflowName": "semantic event foundation"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:24:02Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649720791",
+        "name": "Windows/Linux release updater and rollback (ubuntu-latest)",
+        "startedAt": "2026-10-12T03:23:34Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:24:54Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649720747",
+        "name": "Windows/Linux release updater and rollback (windows-latest)",
+        "startedAt": "2026-10-12T03:23:34Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:25:59Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649720649",
+        "name": "dedicated server compile gate",
+        "startedAt": "2026-10-12T03:23:34Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:26:40Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649720778",
+        "name": "HD character model contract",
+        "startedAt": "2026-10-12T03:23:35Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:26:29Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649720737",
+        "name": "content-free fidelity oracle (F0/F1)",
+        "startedAt": "2026-10-12T03:23:34Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:27:51Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649720762",
+        "name": "OpenGL compatibility and retained graph smoke",
+        "startedAt": "2026-10-12T03:23:34Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:24:08Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649720783",
+        "name": "Android frame pacing and governor policy",
+        "startedAt": "2026-10-12T03:23:34Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:26:38Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649720787",
+        "name": "Desktop frame pacing policy",
+        "startedAt": "2026-10-12T03:23:34Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:26:40Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649720780",
+        "name": "renderer state, lifecycle and low-latency policy",
+        "startedAt": "2026-10-12T03:23:34Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:27:05Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649720836",
+        "name": "input regressions (windows-latest)",
+        "startedAt": "2026-10-12T03:23:34Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:26:35Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649720839",
+        "name": "input regressions (macos-latest)",
+        "startedAt": "2026-10-12T03:23:39Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:28:46Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649720820",
+        "name": "input regressions (macos-15-intel)",
+        "startedAt": "2026-10-12T03:23:36Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:27:40Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649793121",
+        "name": "enhanced hunter regressions",
+        "startedAt": "2026-10-12T03:23:56Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:26:43Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649793603",
+        "name": "map editor regressions (ubuntu-latest)",
+        "startedAt": "2026-10-12T03:23:56Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:28:40Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649793161",
+        "name": "map editor regressions (windows-latest)",
+        "startedAt": "2026-10-12T03:23:56Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:28:47Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649793162",
+        "name": "map editor regressions (macos-latest)",
+        "startedAt": "2026-10-12T03:24:03Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:28:26Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649793212",
+        "name": "win-x64",
+        "startedAt": "2026-10-12T03:23:57Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:31:34Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649793289",
+        "name": "linux-x64",
+        "startedAt": "2026-10-12T03:23:56Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:28:58Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649793187",
+        "name": "linux-x64-server",
+        "startedAt": "2026-10-12T03:23:56Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:27:22Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649793229",
+        "name": "linux-arm64",
+        "startedAt": "2026-10-12T03:23:56Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:31:07Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649793143",
+        "name": "macOS osx-arm64",
+        "startedAt": "2026-10-12T03:24:03Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:36:56Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649793128",
+        "name": "macOS osx-x64",
+        "startedAt": "2026-10-12T03:23:59Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:36:27Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649793164",
+        "name": "android",
+        "startedAt": "2026-10-12T03:23:56Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:28:10Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38199563557/job/114649793136",
+        "name": "win-x64 dedicated server",
+        "startedAt": "2026-10-12T03:23:56Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      }
+    ],
+    "title": "Add authority timed power-up reservations and source history",
+    "url": "https://github.com/AntiNotAnti/Project-Prime/pull/472",
+    "checksSummary": {
+      "SUCCESS": 26,
+      "FAILURE": 0,
+      "CANCELLED": 0,
+      "TIMED_OUT": 0,
+      "NEUTRAL": 0,
+      "SKIPPED": 0
+    }
+  },
+  {
+    "baseRefName": "codex/net21-authority-grant-ledger",
+    "headRefOid": "a4f4371a441f700b6b9c8d8a37b54e95ea92acea",
+    "mergeStateStatus": "CLEAN",
+    "mergeable": "MERGEABLE",
+    "number": 473,
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:04:37Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670612168",
+        "name": "no game assets",
+        "startedAt": "2026-10-12T05:04:14Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:04:26Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206360995/job/114670611580",
+        "name": "content-free",
+        "startedAt": "2026-10-12T05:04:14Z",
+        "status": "COMPLETED",
+        "workflowName": "semantic event foundation"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:04:53Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670612220",
+        "name": "Windows/Linux release updater and rollback (ubuntu-latest)",
+        "startedAt": "2026-10-12T05:04:14Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:05:52Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670612187",
+        "name": "Windows/Linux release updater and rollback (windows-latest)",
+        "startedAt": "2026-10-12T05:04:14Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:06:47Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670612164",
+        "name": "dedicated server compile gate",
+        "startedAt": "2026-10-12T05:04:14Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:07:14Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670612001",
+        "name": "HD character model contract",
+        "startedAt": "2026-10-12T05:04:14Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:07:13Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670612259",
+        "name": "content-free fidelity oracle (F0/F1)",
+        "startedAt": "2026-10-12T05:04:14Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:08:31Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670612204",
+        "name": "OpenGL compatibility and retained graph smoke",
+        "startedAt": "2026-10-12T05:04:14Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:04:40Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670612301",
+        "name": "Android frame pacing and governor policy",
+        "startedAt": "2026-10-12T05:04:14Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:07:19Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670612239",
+        "name": "Desktop frame pacing policy",
+        "startedAt": "2026-10-12T05:04:14Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:06:58Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670612252",
+        "name": "renderer state, lifecycle and low-latency policy",
+        "startedAt": "2026-10-12T05:04:14Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:09:14Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670612279",
+        "name": "input regressions (windows-latest)",
+        "startedAt": "2026-10-12T05:04:14Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:08:24Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670612221",
+        "name": "input regressions (macos-latest)",
+        "startedAt": "2026-10-12T05:04:21Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:11:01Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670612232",
+        "name": "input regressions (macos-15-intel)",
+        "startedAt": "2026-10-12T05:04:16Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:08:29Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670700023",
+        "name": "enhanced hunter regressions",
+        "startedAt": "2026-10-12T05:04:39Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:07:22Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670700038",
+        "name": "map editor regressions (ubuntu-latest)",
+        "startedAt": "2026-10-12T05:04:39Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:09:29Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670700164",
+        "name": "map editor regressions (windows-latest)",
+        "startedAt": "2026-10-12T05:04:40Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:08:03Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670700131",
+        "name": "map editor regressions (macos-latest)",
+        "startedAt": "2026-10-12T05:04:44Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:09:04Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670700100",
+        "name": "win-x64",
+        "startedAt": "2026-10-12T05:04:39Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:15:15Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670700096",
+        "name": "linux-x64",
+        "startedAt": "2026-10-12T05:04:39Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:08:53Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670700097",
+        "name": "linux-x64-server",
+        "startedAt": "2026-10-12T05:04:39Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:09:02Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670700013",
+        "name": "linux-arm64",
+        "startedAt": "2026-10-12T05:04:39Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:12:19Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670700081",
+        "name": "macOS osx-arm64",
+        "startedAt": "2026-10-12T05:04:47Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:17:53Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670700012",
+        "name": "macOS osx-x64",
+        "startedAt": "2026-10-12T05:04:40Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:13:11Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670700032",
+        "name": "android",
+        "startedAt": "2026-10-12T05:04:38Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:08:42Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38206361044/job/114670699950",
+        "name": "win-x64 dedicated server",
+        "startedAt": "2026-10-12T05:04:38Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      }
+    ],
+    "title": "A2: verify timed pickup claims against authority contact history",
+    "url": "https://github.com/AntiNotAnti/Project-Prime/pull/473",
+    "checksSummary": {
+      "SUCCESS": 26,
+      "FAILURE": 0,
+      "CANCELLED": 0,
+      "TIMED_OUT": 0,
+      "NEUTRAL": 0,
+      "SKIPPED": 0
+    }
+  },
+  {
+    "baseRefName": "codex/net21-pickup-claims",
+    "headRefOid": "31cdd16d80624e1a5c1fbdafafbed48336b5a86f",
+    "mergeStateStatus": "CLEAN",
+    "mergeable": "MERGEABLE",
+    "number": 474,
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:42:13Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114678944127",
+        "name": "no game assets",
+        "startedAt": "2026-10-12T05:41:47Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:41:54Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059268/job/114678923192",
+        "name": "content-free",
+        "startedAt": "2026-10-12T05:41:42Z",
+        "status": "COMPLETED",
+        "workflowName": "semantic event foundation"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:42:20Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114678944035",
+        "name": "Windows/Linux release updater and rollback (ubuntu-latest)",
+        "startedAt": "2026-10-12T05:41:47Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:42:59Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114678944237",
+        "name": "Windows/Linux release updater and rollback (windows-latest)",
+        "startedAt": "2026-10-12T05:41:47Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:44:19Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114678944002",
+        "name": "dedicated server compile gate",
+        "startedAt": "2026-10-12T05:41:48Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:44:49Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114678944015",
+        "name": "HD character model contract",
+        "startedAt": "2026-10-12T05:41:47Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:44:56Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114678944100",
+        "name": "content-free fidelity oracle (F0/F1)",
+        "startedAt": "2026-10-12T05:41:47Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:46:09Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114678944113",
+        "name": "OpenGL compatibility and retained graph smoke",
+        "startedAt": "2026-10-12T05:41:47Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:42:23Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114678944122",
+        "name": "Android frame pacing and governor policy",
+        "startedAt": "2026-10-12T05:41:48Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:44:34Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114678944005",
+        "name": "Desktop frame pacing policy",
+        "startedAt": "2026-10-12T05:41:47Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:43:58Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114678944132",
+        "name": "renderer state, lifecycle and low-latency policy",
+        "startedAt": "2026-10-12T05:41:47Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:46:36Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114678944194",
+        "name": "input regressions (windows-latest)",
+        "startedAt": "2026-10-12T05:41:47Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:45:22Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114678944159",
+        "name": "input regressions (macos-latest)",
+        "startedAt": "2026-10-12T05:41:53Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:47:58Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114678944161",
+        "name": "input regressions (macos-15-intel)",
+        "startedAt": "2026-10-12T05:41:48Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:46:02Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114679050085",
+        "name": "enhanced hunter regressions",
+        "startedAt": "2026-10-12T05:42:15Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:45:35Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114679050069",
+        "name": "map editor regressions (ubuntu-latest)",
+        "startedAt": "2026-10-12T05:42:15Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:48:06Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114679050058",
+        "name": "map editor regressions (windows-latest)",
+        "startedAt": "2026-10-12T05:42:15Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:46:16Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114679050071",
+        "name": "map editor regressions (macos-latest)",
+        "startedAt": "2026-10-12T05:42:22Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:46:44Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114679050113",
+        "name": "win-x64",
+        "startedAt": "2026-10-12T05:42:15Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:52:36Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114679050142",
+        "name": "linux-x64",
+        "startedAt": "2026-10-12T05:42:16Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:46:47Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114679050106",
+        "name": "linux-x64-server",
+        "startedAt": "2026-10-12T05:42:16Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:47:13Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114679050060",
+        "name": "linux-arm64",
+        "startedAt": "2026-10-12T05:42:16Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:48:23Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114679050021",
+        "name": "macOS osx-arm64",
+        "startedAt": "2026-10-12T05:42:20Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:51:46Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114679050009",
+        "name": "macOS osx-x64",
+        "startedAt": "2026-10-12T05:42:16Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:54:28Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114679049981",
+        "name": "android",
+        "startedAt": "2026-10-12T05:42:15Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T05:46:45Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38209059228/job/114679050000",
+        "name": "win-x64 dedicated server",
+        "startedAt": "2026-10-12T05:42:15Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      }
+    ],
+    "title": "Reconcile timed pickup effects across clients and replay",
+    "url": "https://github.com/AntiNotAnti/Project-Prime/pull/474",
+    "checksSummary": {
+      "SUCCESS": 26,
+      "FAILURE": 0,
+      "CANCELLED": 0,
+      "TIMED_OUT": 0,
+      "NEUTRAL": 0,
+      "SKIPPED": 0
+    }
+  }
+]

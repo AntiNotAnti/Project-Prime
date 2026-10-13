@@ -163,7 +163,7 @@ public static class GameModeCheck
             foreach (var modifierMatch in new[] { match with { Fiesta = true, EnhancedHunters = true }, match with { OneInTheChamber = true, EnhancedHunters = true } })
             {
                 var modifierSession = session; modifierSession.Match = modifierMatch; modifierSession.Write(bytes);
-                Check(SessionStatePacket.TryRead(bytes, out var modRead) && modRead.Match == modifierMatch, "spawn modifier roundtrips session wire");
+                Check(SessionStatePacket.TryReadArchived(bytes, out var modRead) && modRead.Match == modifierMatch, "spawn modifier roundtrips session wire");
             }
             restored.Match.ApplyModifiers(state);
             Check(state.OctolithReset, "authoritative auto reset applies");
@@ -180,7 +180,7 @@ public static class GameModeCheck
             foreach (int protocol in new[] { 29, 30 })
             {
                 BinaryPrimitives.WriteUInt16LittleEndian(old.AsSpan(15), 8 | 16 | 32 | 64 | 2048 | 8192);
-                Check(SessionStatePacket.TryRead(ReplayIdentityCompatibility.Convert(old, protocol)[1..], out restored)
+                Check(SessionStatePacket.TryReadArchived(ReplayIdentityCompatibility.Convert(old, protocol)[1..], out restored)
                     && restored.Match.EnhancedHunters && restored.Match.LowTier && restored.RequireReady,
                     $"protocol {protocol} retains Enhanced Hunters with separated rule bits");
                 var oldMatch = new MatchStatePacket { RuleBits = 8192, RoomKey = "MP1 SANCTORUS", NextRoomKey = "" };

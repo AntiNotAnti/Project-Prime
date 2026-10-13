@@ -645,6 +645,9 @@ namespace MphRead.Mods.Network
                         _continuousIntent.ContinuousFireTick = owner.ModContinuousFireTick;
                         _continuousIntent.HasContinuousFireTick = true;
                     }
+                    // CaptureIntent preceded the fixed simulation step; native touch was sampled
+                    // DURING that step. Send the actual 30 Hz sample and substep now.
+                    _continuousIntent.NativeTouch = owner.ModNativeTouchReport();
                     NetShotInputHistory.Fill(NetSession.NetFrame, ShotKey.For(owner.SlotIndex, 0), ref _continuousIntent);
                     NetSession.SendIntent(_continuousIntent);
                 }

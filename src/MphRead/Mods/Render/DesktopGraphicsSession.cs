@@ -26,6 +26,11 @@ internal sealed class DesktopGraphicsSession : IDisposable
 
     internal static void Present(NativeWindow window) => window.Context.SwapBuffers();
 
-    public void Dispose() { }
+    public void Dispose()
+    {
+#if !MPHREAD_SERVER
+        OpenGlGpuProfiler.ReleaseCurrentContext();
+#endif
+    }
 }
 #endif

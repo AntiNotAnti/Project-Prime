@@ -135,10 +135,10 @@ namespace MphRead.Mods.Replay
                 document.Tags = CleanLabels(document.Tags ?? new List<string>());
                 document.Collections = CleanLabels(document.Collections ?? new List<string>());
                 document.Bookmarks.RemoveAll(bookmark =>
-                    String.IsNullOrWhiteSpace(bookmark.Name)
+                    bookmark is null || String.IsNullOrWhiteSpace(bookmark.Name)
                     || bookmark.Frame > ReplayFormatV3.MaxFrame);
                 document.Highlights.RemoveAll(highlight =>
-                    String.IsNullOrWhiteSpace(highlight.Name)
+                    highlight is null || String.IsNullOrWhiteSpace(highlight.Name)
                     || highlight.StartFrame >= highlight.EndFrame
                     || highlight.EndFrame > ReplayFormatV3.MaxFrame);
                 return document;

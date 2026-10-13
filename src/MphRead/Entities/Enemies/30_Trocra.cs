@@ -66,7 +66,7 @@ namespace MphRead.Entities.Enemies
                 CollisionResult discard = default;
                 var limitMin = new Vector3(Position.X - 2, Position.Y - 2, Position.Z - 2);
                 var limitMax = new Vector3(Position.X + 2, Position.Y + 2, Position.Z + 2);
-                IReadOnlyList<CollisionCandidate> candidates
+                using var candidates
                     = CollisionDetection.GetCandidatesForLimits(null, Vector3.Zero, 0, limitMin, limitMax, includeEntities: false, _scene);
                 if (!CollisionDetection.CheckBetweenPoints(candidates, _prevPos, Position, TestFlags.Beams, _scene, ref discard))
                 {

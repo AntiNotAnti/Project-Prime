@@ -168,7 +168,7 @@ namespace MphRead.Mods.Network
                     accepted = true;
                     break;
                 case PacketType.SessionState:
-                    if (!SessionStatePacket.TryRead(payload, out var configuration)) throw Malformed();
+                    if (!SessionStatePacket.TryReadArchived(payload, out var configuration)) throw Malformed();
                     if (Match.HasValue && !Matches(configuration.MatchId, configuration.AuthorityEpoch)) break;
                     if (Configuration is SessionStatePacket old && configuration.Revision != old.Revision
                         && !SessionStatePacket.IsNewer(configuration.Revision, old.Revision)) break;
@@ -249,7 +249,8 @@ namespace MphRead.Mods.Network
                     accepted = AcceptSnapshot(payload);
                     break;
                 case PacketType.SlotIntent:
-                    if ((payload.Length != 1 + IntentPacket.Size && payload.Length != 1 + IntentPacket.FullSize
+                    if ((payload.Length != 1 + IntentPacket.Size && payload.Length != 1 + IntentPacket.TouchCanonicalSize
+                        && payload.Length != 1 + IntentPacket.FullSize
                         && payload.Length != 1 + IntentPacket.Protocol42FullSize)
                         || payload[0] >= _intents.Length) throw Malformed();
                     int actor = payload[0];

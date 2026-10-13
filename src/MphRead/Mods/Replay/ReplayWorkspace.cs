@@ -166,7 +166,7 @@ namespace MphRead.Mods.Replay
                     return New(source);
                 doc.SourceReplay = source;
                 doc.Segments ??= new List<ReplayReelSegment>();
-                doc.Segments.RemoveAll(segment => segment.StartFrame >= segment.EndFrame
+                doc.Segments.RemoveAll(segment => segment is null || segment.StartFrame >= segment.EndFrame
                     || segment.EndFrame > ReplayFormatV3.MaxFrame
                     || String.IsNullOrWhiteSpace(segment.Name));
                 return doc;
@@ -244,77 +244,134 @@ namespace MphRead.Mods.Replay
 
     internal static class ReplayExportQueue
     {
+        // One active render/encoder is owned separately by ReplayVideoExporter.
+        internal const int MaximumPending = 8;
+        private static readonly object Gate = new();
         private static readonly Queue<ReplayVideoExportManifest> Pending = new();
         private static ReplayVideoExportManifest? _last, _failed;
         private static readonly List<string> Failures = new();
-        internal static IReadOnlyList<string> RecentFailures => Failures;
+        private static volatile string[] _failureSnapshot = Array.Empty<string>();
+        private static bool _starting;
+        private static string _status = "Export queue idle.";
+        internal static IReadOnlyList<string> RecentFailures => _failureSnapshot;
         internal static void NoteFailure(ReplayVideoExportManifest? job, string error)
         {
-            if (job != null) _failed = job;
-            Failures.Add(DateTime.Now.ToString("HH:mm") + " · " + (error.Length > 180 ? error[..180] + "…" : error));
-            if (Failures.Count > 5) Failures.RemoveAt(0);
+            lock (Gate)
+            {
+                if (job != null) _failed = job;
+                Failures.Add(DateTime.Now.ToString("HH:mm") + " · " + (error.Length > 180 ? error[..180] + "…" : error));
+                if (Failures.Count > 5) Failures.RemoveAt(0);
+                _failureSnapshot = Failures.ToArray();
+            }
         }
 
-        public static int PendingCount => Pending.Count;
-        public static string Status { get; private set; } = "Export queue idle.";
+        public static int PendingCount { get { lock (Gate) return Pending.Count; } }
+        public static string Status { get { lock (Gate) return _status; } }
 
-        public static void Enqueue(ReplayVideoExportManifest manifest)
+        // UI preflights before creating output directories and manifests. Actual
+        // admission repeats the check atomically with enqueue for every caller.
+        public static bool CheckCapacity()
         {
-            Pending.Enqueue(manifest);
-            _last = manifest;
-            Status = $"Queued {Pending.Count} export{(Pending.Count == 1 ? "" : "s")}.";
+            lock (Gate) return CheckCapacityLocked();
+        }
+        private static bool CheckCapacityLocked()
+        {
+            if (Pending.Count < MaximumPending) return true;
+            _status = "Export queue is full. Wait for an export to finish or clear pending exports.";
+            return false;
+        }
+
+        public static bool Enqueue(ReplayVideoExportManifest manifest)
+        {
+            lock (Gate)
+            {
+                if (!CheckCapacityLocked()) return false;
+                Pending.Enqueue(manifest);
+                _last = manifest;
+                _status = $"Queued {Pending.Count} export{(Pending.Count == 1 ? "" : "s")}.";
+                return true;
+            }
         }
 
         public static bool Pump()
-        {
-            if (ReplayVideoExporter.Active || Pending.Count == 0)
-                return ReplayVideoExporter.Active;
+            => Pump(static () => ReplayVideoExporter.Active, ReplayVideoExporter.Start,
+                static () => ReplayVideoExporter.Status, static () => ReplayVideoExporter.HasOwnedJob);
 
-            ReplayVideoExportManifest next = Pending.Dequeue();
-            _last = next;
-            if (!ReplayVideoExporter.Start(next))
+        // The scheduling seam also permits device-free recursion/failure checks.
+        internal static bool Pump(Func<bool> isActive, Func<ReplayVideoExportManifest, bool> start,
+            Func<string> getStatus, Func<bool>? currentActive = null)
+        {
+            if (isActive()) return true;
+            ReplayVideoExportManifest next;
+            lock (Gate)
             {
-                Status = ReplayVideoExporter.Status;
-                return false;
+                // The first poll may precede another caller's completed start.
+                // Recheck ownership here; the production predicate only reads fields.
+                if (_starting || (currentActive ?? isActive)()) return true;
+                if (Pending.Count == 0) return false;
+                next = Pending.Dequeue();
+                _last = next;
+                _starting = true;
             }
-            Status = $"Rendering {(next.PresetName.Length == 0 ? "export" : next.PresetName)}"
-                + $" · {Pending.Count} queued after this.";
-            return true;
+            try
+            {
+                // Renderer/encoder work never runs while the queue gate is held.
+                if (!start(next))
+                {
+                    string failure = getStatus();
+                    lock (Gate) _status = failure;
+                    return false;
+                }
+                lock (Gate)
+                    _status = $"Rendering {(next.PresetName.Length == 0 ? "export" : next.PresetName)}"
+                        + $" · {Pending.Count} queued after this.";
+                return true;
+            }
+            finally { lock (Gate) _starting = false; }
         }
 
         public static void CancelActive()
         {
             if (ReplayVideoExporter.Active)
                 ReplayVideoExporter.Cancel();
-            Status = $"Export cancelled · {Pending.Count} still queued.";
+            lock (Gate) _status = $"Export cancelled · {Pending.Count} still queued.";
         }
 
         public static bool RetryLast()
         {
-            var retry = _failed ?? _last;
-            if (retry == null)
+            lock (Gate)
             {
-                Status = "Nothing to retry.";
-                return false;
+                var retry = _failed ?? _last;
+                if (retry == null)
+                {
+                    _status = "Nothing to retry.";
+                    return false;
+                }
+                if (!CheckCapacityLocked()) return false;
+                Pending.Enqueue(retry);
+                _status = "Last export queued again.";
+                return true;
             }
-            Pending.Enqueue(retry);
-            Status = "Last export queued again.";
-            return true;
         }
 
         internal static void NoteFinished(string status)
         {
-            Status = Pending.Count == 0
-                ? status
-                : $"{status} {Pending.Count} export{(Pending.Count == 1 ? "" : "s")} queued.";
+            lock (Gate)
+                _status = Pending.Count == 0
+                    ? status
+                    : $"{status} {Pending.Count} export{(Pending.Count == 1 ? "" : "s")} queued.";
         }
 
         public static void ClearPending()
         {
-            Pending.Clear();
-            Status = ReplayVideoExporter.Active
-                ? "Pending exports cleared; current render continues."
-                : "Export queue cleared.";
+            bool active = ReplayVideoExporter.Active;
+            lock (Gate)
+            {
+                Pending.Clear();
+                _status = active
+                    ? "Pending exports cleared; current render continues."
+                    : "Export queue cleared.";
+            }
         }
     }
 
