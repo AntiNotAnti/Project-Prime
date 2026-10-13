@@ -17,7 +17,7 @@ using OpenTK.Mathematics;
 static class AudioRetentionProbe
 {
     internal sealed record Observation(int Cycle, int Load, string Kind, int Item, long? Bytes, WeakReference Reference);
-    private const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance;
+    private const BindingFlags InstanceFields = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance;
 
     internal static int SelfTest()
     {
@@ -31,10 +31,12 @@ static class AudioRetentionProbe
         bool noTargetsRetained = observations.All(o => !o.Reference.IsAlive);
         bool noInlining = (typeof(AudioRetentionProbe).GetMethod(nameof(RunWorkload), BindingFlags.Static | BindingFlags.NonPublic)!
             .GetMethodImplementationFlags() & MethodImplAttributes.NoInlining) != 0;
+        bool bankFieldsVisible = typeof(SfxInstance).GetField("_soundData", InstanceFields)?.FieldType == typeof(SoundData)
+            && typeof(SfxInstance).GetField("_samples", InstanceFields) != null;
         GC.KeepAlive(tasks);
         GC.KeepAlive(snapshotWhileTargetsRecentlyObserved);
-        Console.WriteLine($"AUDIORETENTION {(noTargetsRetained && noInlining ? "PASS" : "FAIL")} weakOnly={noTargetsRetained} workloadNoInlining={noInlining} observations={observations.Count}");
-        return noTargetsRetained && noInlining ? 0 : 1;
+        Console.WriteLine($"AUDIORETENTION {(noTargetsRetained && noInlining && bankFieldsVisible ? "PASS" : "FAIL")} weakOnly={noTargetsRetained} workloadNoInlining={noInlining} publicPrivateBankFields={bankFieldsVisible} observations={observations.Count}");
+        return noTargetsRetained && noInlining && bankFieldsVisible ? 0 : 1;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -84,7 +86,7 @@ static class AudioRetentionProbe
         {
             if (value != null) observations.Add(new(cycle, load, kind, item, value is byte[] bytes ? bytes.LongLength : null, new WeakReference(value)));
         }
-        object? Field(string name) => instance.GetType().GetField(name, PrivateInstance)?.GetValue(instance);
+        object? Field(string name) => instance.GetType().GetField(name, InstanceFields)?.GetValue(instance);
         Observe("sfx-instance", instance);
         Observe("resource-owner", Field("_resources"));
         foreach (string field in new[] { "_samples", "_rangeData", "_dgnFiles", "_sfxScripts", "_soundData" })
