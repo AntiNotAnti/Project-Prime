@@ -10,13 +10,15 @@ internal enum OpenGlDrawOwner
     Particle, TrailSingle, TrailMulti, TrailStack, ProceduralShape, Hud
 }
 
+internal enum OpenGlItemOrigin { Unscoped, Setup, Geometry }
+
 // Diagnostic CPU wall scopes include GL submission/backpressure. They do not
 // identify GPU execution or pure CPU preparation. No scene/item references survive.
 internal static class OpenGlDrawAttribution
 {
     [ThreadStatic] private static State? _state;
     private const int OwnerCount = (int)OpenGlDrawOwner.Hud + 1;
-    private const int PassCount = (int)OpenGlCpuPass.GeometrySubmission + 2;
+    private const int PassCount = (int)OpenGlCpuPass.PaletteCollection + 2;
     internal sealed class State
     {
         internal readonly long[] FrameImmediate = new long[OwnerCount * PassCount];
@@ -28,6 +30,7 @@ internal static class OpenGlDrawAttribution
         internal bool Active, HasOwner;
         internal int Generation, Frames, OwnerPass = -1;
         internal OpenGlDrawOwner Owner;
+        internal OpenGlItemOrigin Origin;
     }
     internal static OpenGlDrawOwner Classify(RenderItem item)
         => item.ViewModel ? OpenGlDrawOwner.FirstPerson : item.Type switch
@@ -63,8 +66,18 @@ internal static class OpenGlDrawAttribution
         if (_state is not { Active: true } s) return default;
         OpenGlDrawOwner kind = Classify(item);
         var scope = new Scope(s, kind, geometry);
-        if (geometry) { s.Owner = kind; s.OwnerPass = pass; s.HasOwner = true; }
+        s.Owner = kind; s.OwnerPass = pass; s.HasOwner = true;
+        s.Origin = geometry ? OpenGlItemOrigin.Geometry : OpenGlItemOrigin.Setup;
         return scope;
+    }
+    internal static (OpenGlDrawOwner Owner, int Pass, OpenGlItemOrigin Origin) Source(int pass)
+    {
+        State? s = _state;
+        OpenGlDrawOwner owner = s is { Active: true, HasOwner: true } ? s.Owner
+            : pass == (int)OpenGlCpuPass.Hud ? OpenGlDrawOwner.Hud : OpenGlDrawOwner.Unclassified;
+        int sourcePass = s is { Active: true, HasOwner: true } ? s.OwnerPass : pass;
+        if (sourcePass < 0 || sourcePass >= PassCount - 1) sourcePass = PassCount - 1;
+        return (owner, sourcePass, s is { Active: true, HasOwner: true } ? s.Origin : OpenGlItemOrigin.Unscoped);
     }
     internal readonly struct Scope : IDisposable
     {
@@ -72,11 +85,13 @@ internal static class OpenGlDrawAttribution
         private readonly int _generation, _previousPass;
         private readonly long _start;
         private readonly OpenGlDrawOwner _kind, _previousOwner;
+        private readonly OpenGlItemOrigin _previousOrigin;
         private readonly bool _geometry, _previousHasOwner;
         internal Scope(State owner, OpenGlDrawOwner kind, bool geometry)
         {
             _owner = owner; _generation = owner.Generation; _kind = kind; _geometry = geometry;
             _previousPass = owner.OwnerPass; _previousOwner = owner.Owner; _previousHasOwner = owner.HasOwner;
+            _previousOrigin = owner.Origin;
             _start = Stopwatch.GetTimestamp();
         }
         public void Dispose()
@@ -86,19 +101,17 @@ internal static class OpenGlDrawAttribution
             if (_geometry)
             {
                 s.GeometryTicks[(int)_kind] += ticks; s.GeometrySeen[(int)_kind] = true;
-                s.Owner = _previousOwner; s.OwnerPass = _previousPass; s.HasOwner = _previousHasOwner;
             }
             else { s.SetupTicks[(int)_kind] += ticks; s.SetupSeen[(int)_kind] = true; }
+            s.Owner = _previousOwner; s.OwnerPass = _previousPass; s.HasOwner = _previousHasOwner;
+            s.Origin = _previousOrigin;
         }
     }
     internal static void NoteImmediate(int pass, long count)
     {
         if (_state is not { Active: true } s) return;
-        OpenGlDrawOwner owner = s.HasOwner ? s.Owner
-            : pass == (int)OpenGlCpuPass.Hud ? OpenGlDrawOwner.Hud : OpenGlDrawOwner.Unclassified;
-        int sourcePass = s.HasOwner ? s.OwnerPass : pass;
-        if (sourcePass < 0 || sourcePass >= PassCount - 1) sourcePass = PassCount - 1;
-        s.FrameImmediate[sourcePass * OwnerCount + (int)owner] += count;
+        var source = Source(pass);
+        s.FrameImmediate[source.Pass * OwnerCount + (int)source.Owner] += count;
     }
     internal static void EndFrame()
     {

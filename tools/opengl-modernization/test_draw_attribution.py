@@ -71,3 +71,48 @@ class AttributionTests(unittest.TestCase):
         stats['p99Ms'] = 1
         with self.assertRaises(ValueError):
             draw.validate_attribution(record)
+
+    def uniform_record(self):
+        average = dict(requests=3, uploads=2, bytes=128, skips=1)
+        return {'counters': {'UniformArrayUploads': 2, 'UniformArrayBytes': 128, 'UniformArraySkips': 1,
+                             'LegacyScalarUniformRequests': 5, 'LegacyScalarUniformSubmissions': 2,
+                             'LegacyScalarUniformSkips': 3}, 'uniformAttribution': {
+            'schema': 1, 'frames': 240, 'programCapacity': 32, 'legacyScalarBackend': 'MEASURED_DESKTOP_FACADE',
+            'matrixArraysByProgram': [{'program': 7, 'status': 'TRACKED', 'average': copy.deepcopy(average)}],
+            'matrixArraysBySource': [{'pass': 'Opaque', 'owner': 'PaletteMesh', 'origin': 'Setup',
+                                     'average': copy.deepcopy(average)}]}}
+
+    def test_uniform_partitions_and_unknown_availability(self):
+        record = self.uniform_record()
+        draw.validate_uniform_attribution(record)
+        record['uniformAttribution']['matrixArraysByProgram'][0].update(program=None, status='CAPACITY_OVERFLOW')
+        record['uniformAttribution']['matrixArraysBySource'][0].update({'pass': 'Unscoped', 'owner': 'Unclassified', 'origin': 'Unscoped'})
+        record['uniformAttribution']['legacyScalarBackend'] = 'UNVERIFIED_PLATFORM'
+        draw.validate_uniform_attribution(record)
+        self.assertIsNone(draw.validate_uniform_attribution({}))
+
+    def test_uniform_counter_loss_duplicate_owner_and_false_bytes_rejected(self):
+        for change in ('loss', 'duplicate', 'owner', 'bytes', 'scalar', 'partial'):
+            record = self.uniform_record()
+            value = record['uniformAttribution']
+            if change == 'loss':
+                record['counters']['UniformArrayUploads'] = 3
+            elif change == 'duplicate':
+                value['matrixArraysByProgram'].append(copy.deepcopy(value['matrixArraysByProgram'][0]))
+            elif change == 'owner':
+                value['matrixArraysBySource'][0]['owner'] = 'InventedOwner'
+            elif change == 'bytes':
+                value['matrixArraysBySource'][0]['average'].update(uploads=0, skips=3)
+            elif change == 'scalar':
+                record['counters']['LegacyScalarUniformRequests'] = 6
+            elif change == 'partial':
+                value['frames'] = 239
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                draw.validate_uniform_attribution(record)
+
+    def test_uniform_program_capacity_never_claims_unbounded_identity(self):
+        record = self.uniform_record()
+        template = record['uniformAttribution']['matrixArraysByProgram'][0]
+        record['uniformAttribution']['matrixArraysByProgram'] = [dict(copy.deepcopy(template), program=i + 1) for i in range(33)]
+        with self.assertRaises(ValueError):
+            draw.validate_uniform_attribution(record)

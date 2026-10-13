@@ -4770,15 +4770,21 @@ namespace MphRead
                 || matrixStack.Count != 16 * matrixStackCount)
                 throw new ArgumentOutOfRangeException(nameof(matrixStackCount),
                     "Render item matrix palette exceeds the shader's 32-slot contract.");
-            item.MatrixPaletteSource = matrixStack;
-            item.MatrixPaletteVersion = Mods.Render.MatrixPaletteRevision.Read(matrixStack);
-            item.MatrixPaletteScale = scaleFactor;
-            item.MatrixStackCount = matrixStackCount;
-            for (int i = 0; i < matrixStack.Count; i++)
+            using (matrixStackCount > 0
+                ? Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.PaletteCollection) : default)
             {
-                float value = matrixStack[i];
-                item.MatrixStack[i] = value * _scaleFactors[i - (i / 16) * 16];
+                item.MatrixPaletteSource = matrixStack;
+                item.MatrixPaletteVersion = Mods.Render.MatrixPaletteRevision.Read(matrixStack);
+                item.MatrixPaletteScale = scaleFactor;
+                item.MatrixStackCount = matrixStackCount;
+                for (int i = 0; i < matrixStack.Count; i++)
+                {
+                    float value = matrixStack[i];
+                    item.MatrixStack[i] = value * _scaleFactors[i - (i / 16) * 16];
+                }
             }
+            Mods.Render.OpenGlPassProfiler.NotePaletteCollection(matrixStack, matrixStackCount * 16,
+                item.MatrixPaletteVersion, scaleFactor, reused: false);
             item.OverrideColor = overrideColor;
             item.TexturedPlayerSkin = texturedPlayerSkin;
             item.PlayerOutlineColor = playerOutlineColor;
@@ -4851,16 +4857,24 @@ namespace MphRead
                 || matrixStack.Count != 16 * matrixStackCount)
                 throw new ArgumentOutOfRangeException(nameof(matrixStackCount),
                     "Retained matrix palette exceeds the shader's 32-slot contract.");
-            long paletteVersion = Mods.Render.MatrixPaletteRevision.Read(matrixStack);
-            bool reusePalette = paletteVersion > 0 && item.MatrixPaletteVersion == paletteVersion
-                && ReferenceEquals(item.MatrixPaletteSource, matrixStack) && item.MatrixStackCount == matrixStackCount;
-            item.MatrixPaletteSource = matrixStack;
-            item.MatrixPaletteVersion = paletteVersion;
-            item.MatrixPaletteScale = 1f;
-            item.MatrixStackCount = matrixStackCount;
-            if (!reusePalette)
-                for (int i = 0; i < matrixStack.Count; i++)
-                    item.MatrixStack[i] = matrixStack[i];
+            long paletteVersion;
+            bool reusePalette;
+            using (matrixStackCount > 0
+                ? Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.PaletteCollection) : default)
+            {
+                paletteVersion = Mods.Render.MatrixPaletteRevision.Read(matrixStack);
+                reusePalette = paletteVersion > 0 && item.MatrixPaletteVersion == paletteVersion
+                    && ReferenceEquals(item.MatrixPaletteSource, matrixStack) && item.MatrixStackCount == matrixStackCount;
+                item.MatrixPaletteSource = matrixStack;
+                item.MatrixPaletteVersion = paletteVersion;
+                item.MatrixPaletteScale = 1f;
+                item.MatrixStackCount = matrixStackCount;
+                if (!reusePalette)
+                    for (int i = 0; i < matrixStack.Count; i++)
+                        item.MatrixStack[i] = matrixStack[i];
+            }
+            Mods.Render.OpenGlPassProfiler.NotePaletteCollection(matrixStack, matrixStackCount * 16,
+                paletteVersion, 1f, reusePalette);
             item.OverrideColor = null;
             item.PaletteOverride = null;
             item.TexturedPlayerSkin = false;
@@ -5612,8 +5626,9 @@ namespace MphRead
             Mods.Render.RetainedMeshDescriptor? retainedMesh = null,
             bool drawGeometry = true, bool applyObjectState = true)
         {
+            int sourcePass = Mods.Render.OpenGlPassProfiler.CurrentPass;
             using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.ItemSetup))
-            using (Mods.Render.OpenGlDrawAttribution.Measure(item, Mods.Render.OpenGlPassProfiler.CurrentPass, geometry: false))
+            using (Mods.Render.OpenGlDrawAttribution.Measure(item, sourcePass, geometry: false))
                 PrepareRenderItemState(item, applySharedState, applyObjectState);
             if (drawGeometry)
                 DrawRenderItemGeometry(item, retainedMesh);
