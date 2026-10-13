@@ -107,6 +107,7 @@ public partial class PlayerEntity
             _botSuppressFireThisTick = false;
             ResetBotPerception();
             ResetBotPositioning();
+            ResetBotStrategy();
         }
 
         private void RecordTacticalThreat(PlayerEntity? attacker, int damage)
@@ -375,6 +376,7 @@ public partial class PlayerEntity
             _combatStrafeTimer = 0;
             _tacticalEscapeFrames = 0;
             ResetBotPositioning();
+            ResetBotStrategy();
             _botReactionTarget = null;
             _botReactionFrames = 0;
             _botReactionHadSight = false;
@@ -549,6 +551,11 @@ public partial class PlayerEntity
                     candidate == _tacticalTarget, false, healthFraction, aggro, recentThreat,
                     Math.Clamp(_player.BotLevel, 0, 3));
                 score += objectivePriority;
+                if (_scene.GameState.Teams && _player.BotLevel >= 2 && visible)
+                {
+                    score += BotStrategicPolicy.TargetBonus(
+                        BotAssignedRole(), objective, recentThreat);
+                }
                 if (!visible)
                 {
                     score -= (1 - confidence) * 26f;
