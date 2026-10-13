@@ -49,3 +49,8 @@ Local actual child/process tests are macOS; Windows/Linux retirement requires th
 Existing exact rendered export FAIL remains separate: unchanged main/frozen/final controls reproduce the same one-pixel difference at source352. No renderer tolerance, JIT policy, audio mux, schema, user file or gameplay changes are made here. Actual replay audiovisual export, physical Android/display, FPS/RSS, and whole ingress safety are not claimed.
 
 Rollback: revert this focused commit while preserving earlier stderr/progress and independent job cancellation changes. No settings or migration change.
+
+## Windows fixture cleanup follow-up
+Initial exact-head CI at `ad82281a`, run38430515244/job115411384326, passed all17 actual process assertions, then failed with UnauthorizedAccessException deleting its copied ffmpeg.exe before grammar checks. Linux/macOS capability steps passed. The negative raw/clean logs and hash receipt are preserved. [File.Delete documentation](https://learn.microsoft.com/en-us/dotnet/api/system.io.file.delete?view=net-10.0) lists executable-in-use and read-only files as possible causes; the log alone does not distinguish them.
+
+The fixture verifies its last parent has exited, retains explicit holder-child identity/kill/wait cleanup, normalizes only the copied host's read-only attribute and retries deletion on Windows for at most a two-second retry budget. Persistent cleanup failures still throw. Runtime sources and ownership assertions are unchanged. Corrected local tool:62 PASS; fresh actual Windows CI is required, not waived. No unchanged client/gameplay reruns are implied by this fixture-only change.

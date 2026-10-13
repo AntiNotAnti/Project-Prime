@@ -66,6 +66,23 @@ async Task CleanupChild()
     }
     childPid=0;
 }
+async Task DeleteCopiedHost()
+{
+    // Windows can briefly retain the image after its process exits. Only our
+    // copied fixture host is retried; permanent cleanup failures still surface.
+    var wait=Stopwatch.StartNew();
+    while(true)
+    {
+        try
+        {
+            if(File.Exists(fake)) File.SetAttributes(fake,File.GetAttributes(fake)&~FileAttributes.ReadOnly);
+            File.Delete(fake); return;
+        }
+        catch(Exception ex) when(OperatingSystem.IsWindows() && (ex is IOException or UnauthorizedAccessException)
+            && wait.Elapsed<TimeSpan.FromSeconds(2))
+        { await Task.Delay(100); }
+    }
+}
 try
 {
     Environment.SetEnvironmentVariable("PRIME_CAPABILITY_FIXTURE", "ordinary");
@@ -125,7 +142,9 @@ finally
 {
     await CleanupChild();
     Environment.SetEnvironmentVariable("PATH",priorPath); Environment.SetEnvironmentVariable("PRIME_CAPABILITY_FIXTURE",null); Environment.SetEnvironmentVariable("PRIME_CAPABILITY_DIRECTORY",null);
-    File.Delete(fake); Directory.Delete(directory,true);
+    if(File.Exists(Path.Combine(directory,"parent.pid")) && Alive(int.Parse(File.ReadAllText(Path.Combine(directory,"parent.pid")))))
+        throw new InvalidOperationException("Fixture refuses executable cleanup while its last owned parent is alive.");
+    await DeleteCopiedHost(); Directory.Delete(directory,true);
 }
 if(!args.Contains("--process-only")) await GrammarChecks.Run(Check);
 Console.WriteLine($"{passed} PASS / {failed} FAIL (actual source-linked probe/synthetic processes; no GL/native audio/real FFmpeg)"); return failed==0 ? 0 : 1;

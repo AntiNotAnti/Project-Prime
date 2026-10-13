@@ -157,8 +157,8 @@
     },
     {
       "path": "tools/encoder-capability-check/Program.cs",
-      "sha256": "ff66543ba5fc28568957ab3ebe1bf3e6d9e984f90df1bc9bc1760e711eb92093",
-      "bytes": 9714
+      "sha256": "84ca9484f183d2fced8215ef63e8cea549988ace35351c087f7a0204786c69b5",
+      "bytes": 10616
     },
     {
       "path": "tools/encoder-capability-check/GrammarChecks.cs",
@@ -182,5 +182,25 @@
     }
   ],
   "integration_base": "9bd938a54c73a8871da7eca387ae883415468eb3",
-  "integration": "ordinary merge preserves all32 earlier product fixes and current CI union; no change to #518"
+  "integration": "ordinary merge preserves all32 earlier product fixes and current CI union; no change to #518",
+  "windows_initial_negative": {
+    "recorded_at_utc": "2026-10-13T16:40:01.227374+00:00",
+    "head": "ad82281af7e2829f6e9c73e8fad625c508b8d8e6",
+    "run": 38430515244,
+    "failed_job": 115411384326,
+    "negative": "All17 actual process assertions passed on Windows; File.Delete(fake) UnauthorizedAccessException before grammar checks",
+    "not_proven": "Log does not distinguish retained executable image lock from copied readonly attribute",
+    "official_source": "https://learn.microsoft.com/en-us/dotnet/api/system.io.file.delete?view=net-10.0",
+    "raw_log_sha256": "ae050a329051d6a357fa3960a0dccdd01dcd4f00a535b6e17b5ba565c6b46cb2",
+    "clean_log_sha256": "15eb74a53778339abeb7f9c1ce009ea259c9901b5a9538f66282b89b984c5d40",
+    "runtime_sources_unchanged": {
+      "capabilities": "2772a92cf155646d8f140c4ce88f5cbb74eaf778354a25fcbef4f040af35adf1",
+      "stderr": "e595c8a841102ecd9da958a4e31c4263627b1e76bafece6980c986995639db66"
+    }
+  },
+  "fixture_cleanup_followup": "Verify last owned parent gone, normalize only copied ReadOnly attribute, bounded Windows delete retry; permanent failures throw; local62 PASS; fresh Windows CI pending",
+  "fixture_fix_local_log": {
+    "path": "artifacts/final-completion-pass-20261013/encoder-capability/windows-cleanup-local.log",
+    "sha256": "c0a42a2399e2edf93e988d3aca0878772843c16f7f54dd37dc5f05919c9d7fca"
+  }
 }
