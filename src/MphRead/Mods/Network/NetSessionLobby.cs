@@ -170,6 +170,11 @@ namespace MphRead.Mods.Network
 
         internal static void ApplySessionState(SessionStatePacket state)
         {
+            if (LobbyRules.ValidateDefinition(state.Match, out string ruleError, allowRetiredEnhanced: _playback) != LobbyResultCode.Ok)
+            {
+                LastError = ruleError;
+                return;
+            }
             // Match control can arrive before its session packet. Check that
             // stream too, before a stale lobby packet resets the running world.
             if (state.MatchId == 0 || state.AuthorityEpoch == 0) return;

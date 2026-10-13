@@ -639,7 +639,7 @@ namespace MphRead.Mods.Render
                     {
                         using FileStream output = File.Create(path);
                         StbImage.FlipVerticallyOnSave = true;
-                        StbImage.WritePng<byte>(_pixels, _scene.Size.X, _scene.Size.Y, StbiImageFormat.Rgb, output);
+                        global::MphRead.Mods.PngEncoder.Write<byte>(_pixels, _scene.Size.X, _scene.Size.Y, StbiImageFormat.Rgb, output);
                     }
                     Console.WriteLine($"RESPAWNRENDER failure image: {path}");
                 }

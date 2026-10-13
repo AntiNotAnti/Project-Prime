@@ -2,3 +2,6 @@ dist/ProjectPrime-macarm-a1f2f84/Project[[:space:]]Prime.app/Contents/MacOS/Proj
 
 # Keep measured evidence in the PR while focusing review on source and findings.
 docs/performance/*.json linguist-generated=true
+
+# Exact collision-result golden rows use LF on every CI checkout.
+docs/audits/engineering-consolidation/collision-query-baseline.txt text eol=lf
