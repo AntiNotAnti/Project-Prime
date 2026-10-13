@@ -292,6 +292,8 @@ jobs:
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
       - name: content-free renderer state and lifecycle contracts
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -renderbackendcheck
+      - name: device-free Music startup failure ownership
+        run: dotnet run --project tools/music-startup-check -c Release
 
   enhanced-hunter-checks:
     name: enhanced hunter regressions

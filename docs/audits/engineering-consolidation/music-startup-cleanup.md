@@ -6,7 +6,8 @@
 - Baseline: `91b1c0c6c44e8c90effd250729709f791a84765e`; branch `codex/consolidation-music-failure-cleanup`.
 - Changed ownership boundary: MusicPlayer's static constructor delegates playback-device acquisition to `MusicStartup.InitializeDevice`. A successful call preserves the exact engine/device and existing shutdown ownership. Failure disposes the engine before the existing silent fallback clears its fields.
 - Disposal errors are logged separately; the original startup exception reaches the existing diagnostics/fallback unchanged.
-- Phase 1 slice following baseline #489. SFX lifecycle cleanup is an independent family; no SFX files are modified here.
+- Phase 1 slice following baseline #489 and native-attribution #493. SFX lifecycle cleanup is an independent family; no SFX files are modified here.
+- CI runs the device-free startup fixture in the existing renderer state/lifecycle policy job. Its workflow anchor is shared with the SFX check addition and must retain both checks when integrating the independent PRs.
 
 ## Source evidence
 
