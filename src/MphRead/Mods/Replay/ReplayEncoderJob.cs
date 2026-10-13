@@ -51,11 +51,8 @@ internal sealed class ReplayEncoderJob : IDisposable
                 // The owned process has exited. A descendant may still hold its
                 // inherited pipes, so cancellation retires our reads rather than
                 // waiting for an EOF that belongs to that separate process.
-                readCancellation.Cancel();
-                try { await readers.ConfigureAwait(false); }
-                catch (OperationCanceledException) when (readCancellation.IsCancellationRequested) { }
-                try { process.StandardOutput.Dispose(); }
-                finally { process.StandardError.Dispose(); }
+                await RetireReaders(readers, readCancellation,
+                    process.StandardOutput, process.StandardError).ConfigureAwait(false);
             }
             string log = terminationError + tail.ToString();
             try { await File.WriteAllTextAsync(Path.Combine(directory, "encode.log"), log).ConfigureAwait(false); }
@@ -69,6 +66,22 @@ internal sealed class ReplayEncoderJob : IDisposable
     }
     private Task ReadProgress(StreamReader reader, CancellationToken cancellation)
         => ReplayEncoderProgress.Read(reader, frame => Volatile.Write(ref _frames, frame), cancellation);
+    internal static async Task RetireReaders(Task readers, CancellationTokenSource cancellation,
+        StreamReader stdout, StreamReader stderr)
+    {
+        cancellation.Cancel();
+        try
+        {
+            try { await readers.ConfigureAwait(false); }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        }
+        finally
+        {
+            // WhenAll has retired both reads even when one reports an I/O fault.
+            try { stdout.Dispose(); }
+            finally { stderr.Dispose(); }
+        }
+    }
     private static async Task ReadError(StreamReader reader, StringBuilder tail, CancellationToken cancellation)
     {
         char[] buffer = new char[2048];

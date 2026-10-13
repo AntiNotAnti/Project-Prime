@@ -93,4 +93,43 @@ try
  }
 }
 finally{Directory.Delete(root,true);}
+// Real pending reads: one faults on cancellation, the other cancels. Both must
+// finish before either owned reader closes; the I/O fault must remain visible.
+var retire=typeof(ReplayEncoderJob).GetMethod("RetireReaders",BindingFlags.Static|BindingFlags.NonPublic);
+if(retire!=null)
+{
+ using var cancellation=new CancellationTokenSource();using var output=new FaultRead(true);using var error=new FaultRead(false);
+ using var stdout=new StreamReader(output);using var stderr=new StreamReader(error);char[] first=new char[32],second=new char[32];
+ Task one=stdout.ReadAsync(first.AsMemory(),cancellation.Token).AsTask(),two=stderr.ReadAsync(second.AsMemory(),cancellation.Token).AsTask();
+ await Task.WhenAll(output.Entered.Task,error.Entered.Task).WaitAsync(TimeSpan.FromSeconds(5));
+ output.SafeToClose=error.SafeToClose=()=>one.IsCompleted&&two.IsCompleted;
+ Task readers=Task.WhenAll(one,two);bool fault=false;
+ try
+ {
+  if(args.Contains("--baseline-reader-fault"))
+  {
+   // Exact pre-review70747bd6 retirement pattern: IOException bypasses close.
+   cancellation.Cancel();try{await readers;}catch(OperationCanceledException)when(cancellation.IsCancellationRequested){}
+   try{stdout.Dispose();}finally{stderr.Dispose();}
+  }
+  else await (Task)retire.Invoke(null,new object[]{readers,cancellation,stdout,stderr})!;
+ }
+ catch(IOException){fault=true;}
+ Check(fault,"post-exit cancelled read IO fault remains visible");
+ Check(output.Closed&&error.Closed&&output.ClosedAfterRetirement&&error.ClosedAfterRetirement,"fault closes both owned readers only after both reads retire");
+}
+else Console.WriteLine("NOT_RUN post-exit fault retirement seam absent in selected baseline job");
 Console.WriteLine($"{pass} PASS / {fail} FAIL (actual synthetic subprocesses; no FFmpeg/GL/native audio/device)");return fail==0?0:1;
+
+sealed class FaultRead(bool ioFailure):Stream
+{
+ public TaskCompletionSource Entered=new(TaskCreationOptions.RunContinuationsAsynchronously);public Func<bool> SafeToClose=()=>false;public bool Closed,ClosedAfterRetirement;
+ public override async ValueTask<int> ReadAsync(Memory<byte> buffer,CancellationToken token=default)
+ {
+  Entered.TrySetResult();try{await Task.Delay(Timeout.Infinite,token);return 0;}
+  catch(OperationCanceledException)when(ioFailure){throw new IOException("synthetic post-exit read fault");}
+ }
+ protected override void Dispose(bool disposing){Closed=true;ClosedAfterRetirement=SafeToClose();base.Dispose(disposing);}
+ public override bool CanRead=>true;public override bool CanSeek=>false;public override bool CanWrite=>false;public override long Length=>throw new NotSupportedException();public override long Position{get=>throw new NotSupportedException();set=>throw new NotSupportedException();}
+ public override int Read(byte[]b,int o,int n)=>throw new NotSupportedException();public override void Flush(){}public override long Seek(long o,SeekOrigin s)=>throw new NotSupportedException();public override void SetLength(long l)=>throw new NotSupportedException();public override void Write(byte[]b,int o,int n)=>throw new NotSupportedException();
+}

@@ -3,9 +3,9 @@
   "host": "macOS arm64",
   "sdk": "10.0.401",
   "source_files": {
-    "src/MphRead/Mods/Replay/ReplayEncoderJob.cs": "b9072557795be1d15e0f2dec2efd949967bb8b78cfb9f457b247b1cf40758ce3",
+    "src/MphRead/Mods/Replay/ReplayEncoderJob.cs": "e30ad1abf5550f06e7214ccbb66985f8c639656486129ff5b68922fbb7ab9a77",
     "src/MphRead/Mods/Replay/ReplayEncoderProgress.cs": "b644972b78aab6a2453c32f8e02e91b0aee17914e43c7cb5872f7a375512022a",
-    "tools/encoder-pipe-check/Program.cs": "fc35792c5d82c09336fc58214b0382d5d64e8b0510fe71de9240d1cfcb0044b1"
+    "tools/encoder-pipe-check/Program.cs": "c25a4c99e7bae84fd090a97643247fc86061e9109552691e8b07901d9d3465c5"
   },
   "artifacts": [
     {
@@ -39,6 +39,20 @@
     {
       "path": "ReplayEncoderJob.baseline.cs",
       "sha256": "2d66a142fba5d9537b55289460a6bf191b34447b73fc74139322bd8d0d98995d"
+    },
+    {
+      "path": "io-fault-baseline.log",
+      "sha256": "d50710f424000337df380db183d24ba4c58c57b57edb63bacdcda834e2bd7a3e"
+    },
+    {
+      "path": "io-fault-candidate.log",
+      "sha256": "26444701add9c768ed2f34c861956021bf8ced764c22496a6db68f1c39eeda50"
+    },
+    {
+      "path": "final-desktop-build.log",
+      "sha256": "72f9fd36aa8b62242d49091f631434d4bce0c65c8e94103564f10ada4d9e450f"
     }
-  ]
+  ],
+  "final_child_and_fault_checks": "21 PASS /0 FAIL",
+  "review_pattern_baseline": "20 PASS /1 FAIL (source-equivalent70747bd6 fault retirement pattern)"
 }
