@@ -1,19 +1,19 @@
 {
   "baseline_sha": "91b1c0c6c44e8c90effd250729709f791a84765e",
-  "candidate_source_sha": "b83491e334a40ec548a44800e8518e8591cdc4a6",
+  "candidate_source_sha": "c605f755c30ade462d331d3ba13d87d38db0c8db",
   "baseline_assembly_sha256": "20e48325d25ff24ae4b483385c45707e10713ae1f149e20f178af59c4d6680d4",
-  "candidate_assembly_sha256": "b4e88d518b78afc8478295589038420dea0fbf574d0a90eb3ce39f571e2cad59",
+  "candidate_assembly_sha256": "7dfa5ef9c7cd34be100b0a2fa1cd8a82c70287fa4ac2aca3bf2f3e7687c96570",
   "source_file_sha256": {
     "src/MphRead/Entities/Enemies/30_Trocra.cs": "b8e97205f0a4c6000820e5eac85a56a9da113e1caac4fc5e997311f9ec83b16d",
     "src/MphRead/Entities/Enemies/33_GoreaMeteor.cs": "03d12a82e8eed1b8ab53bc83fe142fa5833c56dac2763ad35fd7a2a2a834a819",
     "src/MphRead/Entities/Players/PlayerCamera.cs": "906d85768b12fea8ddd928317ae157c9f0a2cfec27dd07db506b6a2898618480",
     "src/MphRead/Entities/Players/PlayerCollision.cs": "cecda4a51b6d8b66c6efc9636272ac8b2fcde9d0d41ab198413b2a1b2feedfff",
     "src/MphRead/Formats/CollisionDetection.cs": "ef878d7eb53df6be1abcbcb07c3a8c0f51166cf1fc0e2fa0fca361eb737adbb3",
-    "src/MphRead/Formats/CollisionQueryWorkspace.cs": "259a15ca4bf0196e5ea6d50717d227d5641d6d4bd55ddd365d3a830444508be1",
+    "src/MphRead/Formats/CollisionQueryWorkspace.cs": "ee75efe785be0bcbc61db0f93d21ff0dda865936202949fa279fd5350c4cf06a",
     "src/MphRead/Mods/EnhancedHunters/EnhancedHunterProjectiles.cs": "b7241013821eb0f761e71d5fefba5dde6193dd66dcae0277c42f5f732f7d78a7",
     "src/MphRead/Mods/EnhancedHunters/EnhancedHunters.cs": "05588cf063644ae65eb2a24a379f0f41b0ba548041f68df9510eb8d2c308598f",
     "src/MphRead/Mods/Input/AimAssist/AimAssistWorld.cs": "95bc8a2f596ac680fbd26ae2db7c6966991cde2489a525187eaafe6fb311b8d0",
-    "tools/collision-query-check/Program.cs": "b4e291fad8581234957693375665c05a160f9485649d1a0e1780391137d3f299"
+    "tools/collision-query-check/Program.cs": "debd0c2f331fd0dda83960f93ebd870ed1cbbca02f6dfdf5e4b18e2e1686ff81"
   },
   "environment": {
     "sdk": "10.0.401",
@@ -70,12 +70,38 @@
       "retained": 8
     },
     "oversized_query": {
-      "candidates": 4225,
+      "candidates": 8193,
       "pool_before": 8,
-      "pool_after": 7
+      "pool_after": 7,
+      "scene_references_cleared": true
     },
     "disposed_references": "PASS",
-    "exception_return": "PASS"
+    "exception_return": "PASS",
+    "large_warm_allocation": {
+      "candidates": 4225,
+      "queries": 100,
+      "warmup": 20,
+      "baseline_bytes": 0,
+      "initial_candidate_bytes": 43387200,
+      "fixed_candidate_bytes": 0
+    },
+    "capacity_boundary_warm_allocation": {
+      "candidates": 8192,
+      "queries": 100,
+      "warmup": 20,
+      "baseline_bytes": 0,
+      "fixed_candidate_bytes": 0
+    },
+    "large_retained_pool": {
+      "workspaces": 8,
+      "retained_objects": 8252,
+      "item_capacity": 8640,
+      "pending_capacity": 8640,
+      "inactive_capacity": 8640,
+      "maximum_workspaces": 8,
+      "maximum_objects_per_workspace": 8192,
+      "maximum_objects_per_lane": 65536
+    }
   },
   "stdout_summaries": {
     "baseline": [
@@ -93,8 +119,15 @@
       "NESTED_CANDIDATE_LIFETIME PASS",
       "NESTED_DEDUPLICATION expected=1 actual=1",
       "INDEPENDENT_SCENES failures=0/2000",
+      "CONCURRENT_QUERY_STRESS failures=0/32000",
       "RETURN_CLEARS_SCENE_REFERENCES PASS",
+      "RETAINED_POOL count=8 nested=24",
       "EXCEPTION_RETURNS_WORKSPACE PASS",
+      "LARGE_WARM_ALLOCATION candidates=4225 queries=100 bytes=0",
+      "LARGE_RETAINED_POOL workspaces=8 candidateCap=8192 objects=4285 itemCapacity=8640 pendingCapacity=8640 inactiveCapacity=8640 maximumObjects=65536",
+      "LARGE_WARM_ALLOCATION candidates=8192 queries=100 bytes=0",
+      "LARGE_RETAINED_POOL workspaces=8 candidateCap=8192 objects=8252 itemCapacity=8640 pendingCapacity=8640 inactiveCapacity=8640 maximumObjects=65536",
+      "OVERSIZED_QUERY candidates=8193 poolBefore=8 poolAfter=7 sceneReferencesCleared=true",
       "WARM_ALLOCATION bytes=0 queries=40000",
       "BORROWED_WARM_ALLOCATION bytes=0 borrows=10000 checks=10000"
     ],
@@ -150,6 +183,17 @@
       "MOVEMENT TOUR Weavel: native activation PASS, frames=603, samples=603, hardRejections=0, wouldRefuseCandidates=0, evaluatedBiped=336, maximumBipedHorizontal=0.112789266, maximumBipedUpward=0.14990234, unsupportedAlt=166, exempt=100, inputAbsentWhileMoving=5",
       "MOVEMENT TOUR: native local body controls, seven hunters, Roam camera; no dedicated kernel proof.",
       "UNSUPPORTED/UNEXERCISED: pad, moving platform, teleport, external knockback, grapple, Spire wall climb, HUD/camera input parity."
+    ],
+    "large_baseline": [
+      "LARGE_WARM_ALLOCATION candidates=4225 queries=100 bytes=0",
+      "LARGE_WARM_ALLOCATION candidates=8192 queries=100 bytes=0"
+    ],
+    "large_initial_candidate": [
+      "LARGE_WARM_ALLOCATION candidates=4225 queries=100 bytes=43387200",
+      "LARGE_RETAINED_POOL workspaces=0 candidateCap=2048 objects=0 itemCapacity=0 pendingCapacity=0 inactiveCapacity=0 maximumObjects=16384"
     ]
-  }
+  },
+  "initial_candidate_source_sha": "b83491e334a40ec548a44800e8518e8591cdc4a6",
+  "initial_candidate_assembly_sha256": "b4e88d518b78afc8478295589038420dea0fbf574d0a90eb3ce39f571e2cad59",
+  "zero_allocation_scope": "Verified for tested queries within retained candidate/face capacities and nesting budgets; above-budget valid inputs can allocate and return all candidates."
 }

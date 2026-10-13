@@ -209,5 +209,6 @@
       111.529
     ],
     "reason": "Concurrent compilation and ongoing tiered JIT warming caused large within-process drift; not used to estimate game frame cost."
-  }
+  },
+  "status": "HISTORICAL: initial2048-cap implementation; predates large-query allocation regression fix c605f755"
 }
