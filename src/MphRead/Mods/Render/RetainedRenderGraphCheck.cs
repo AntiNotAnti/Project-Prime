@@ -13,6 +13,7 @@ namespace MphRead.Mods.Render
                 + HudGlyphTextureCacheCheck.Run() + ProceduralFrameGeometryCheck.Run() + DepthReplayPolicyCheck.Run()
                 + DisplayListAttributeEffects.Check() + WorldShaderVariantCheck.Run();
             failures += OpenGlDrawAttribution.Check();
+            failures += TransitionGcDiagnostics.Check();
             failures += RetainedRoomBatchPlan.CheckMembershipPolicy() + ShadowCasterPreparationCacheCheck.Run()
                 + ShadowCasterSpatialGroups.Check()
                 + OpenGlFailureInjectionCheck.Run() + RetainedMaterialIdentity.Check() + MeshObjectStateReuse.Check();
