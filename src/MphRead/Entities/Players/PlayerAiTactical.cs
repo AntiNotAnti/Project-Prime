@@ -855,6 +855,23 @@ public partial class PlayerEntity
             float healthFraction = _player.HealthMax <= 0 ? 1
                 : Math.Clamp(_player.Health / (float)_player.HealthMax, 0, 1);
             bool lowHealth = healthFraction <= tuning.RetreatHealthFraction;
+            if (_scene.GameState.Teams && _player.BotLevel >= 2)
+            {
+                int nearbyEnemies = 0;
+                int nearbyAllies = 0;
+                foreach (PlayerEntity other in _scene.GetPlayerEntities())
+                {
+                    if (other == _player || other.Health <= 0 || !other.ModInPlay
+                        || (other.Position - _player.Position).WithY(0).LengthSquared >= 16 * 16)
+                    {
+                        continue;
+                    }
+                    if (other.TeamIndex == _player.TeamIndex) nearbyAllies++;
+                    else if (TacticalCanSee(other)) nearbyEnemies++;
+                }
+                lowHealth |= BotStrategicPolicy.ShouldDisengage(
+                    teamMode: true, nearbyEnemies, nearbyAllies, healthFraction);
+            }
             bool retreat = lowHealth || distance < ideal * 0.60f;
             bool advance = !retreat && distance > ideal * 1.35f;
 

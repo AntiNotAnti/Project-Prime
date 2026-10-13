@@ -303,6 +303,13 @@ public static class BotAiChecks
                 ItemType.ArtifactKey, .5f, false, 0, 0)),
             "strategy ignores unrelated or unsupported pickup types");
 
+        Check(BotStrategicPolicy.ShouldDisengage(true, 3, 0, .55f)
+            && !BotStrategicPolicy.ShouldDisengage(true, 1, 0, .55f)
+            && !BotStrategicPolicy.ShouldDisengage(true, 3, 3, .55f),
+            "wounded team bot escapes an unfavorable multi-enemy fight");
+        Check(!BotStrategicPolicy.ShouldDisengage(false, 5, 0, .4f),
+            "free-for-all duels do not become permanent retreats");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }

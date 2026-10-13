@@ -17,6 +17,10 @@ reachable scoring nodes using authority-observed node ownership, contest state,
 hostile occupation, teammate proximity, and other bots already committed to
 that destination. Hardpoint bots only evaluate the current active point.
 
+Outnumbered Hard/Insane team bots at low health now reconsider a duel and
+create space when at least two nearby visible enemies substantially outnumber
+supporting allies. This does not make FFA bots permanently avoid engagements.
+
 Team bots acquire deterministic roles derived from active teammate slot order:
 Anchor, Vanguard, and Flanker. An Anchor prefers to defend an owned node,
 Vanguards favor capturing/contesting, and Flankers avoid crowded owned zones.

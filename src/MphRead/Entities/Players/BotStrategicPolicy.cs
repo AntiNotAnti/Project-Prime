@@ -34,6 +34,14 @@ internal static class BotStrategicPolicy
         };
     }
 
+    internal static bool ShouldDisengage(bool teamMode, int visibleEnemies,
+        int nearbyAllies, float healthFraction)
+    {
+        if (!teamMode || !float.IsFinite(healthFraction)) return false;
+        return visibleEnemies >= 2 && visibleEnemies > nearbyAllies + 1
+            && healthFraction < .72f;
+    }
+
     internal static float TargetBonus(BotSquadRole role, bool objectiveThreat, bool recentAttacker)
     {
         if (!objectiveThreat && !recentAttacker) return 0f;
