@@ -68,6 +68,9 @@ GraphicsBackendPolicy.LoadPreference();
 Paths.UpdatePaths(); Paths.ChooseMphPath(); Paths.ChooseFhPath();
 if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") == "audio")
     return AudioResourceStress.Run(args, output);
+using var transitionGc = TransitionGcObservation.Create(args);
+if (args.Contains("-transition-rebind") && transitionGc == null)
+    throw new ArgumentException("-transition-rebind requires -transition-gc and is separate reachability evidence, not frame timing.");
 MphRead.Mods.MapGen.CustomRooms.GenerateMissing(room);
 if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") is "map-gl" or "studio")
     ResourceAttribution.DisableMusic();
@@ -90,7 +93,9 @@ try
 {
     window.Run();
     var result = JsonSerializer.SerializeToNode(window.ResourceStressEnabled ? window.ResourceStressResult() : window.Result())!;
-    if (!window.ResourceStressEnabled) result["cleanup"] = JsonSerializer.SerializeToNode(window.CleanupAndInspect());
+    if (!window.ResourceStressEnabled) result["cleanup"] = JsonSerializer.SerializeToNode(transitionGc == null
+        ? window.CleanupAndInspect() : window.CleanupTransitionGcAndInspect(args.Contains("-transition-rebind")));
+    if (transitionGc != null) result["transitionGc"] = JsonSerializer.SerializeToNode(transitionGc.Result(window.Complete));
     Directory.CreateDirectory(Path.GetDirectoryName(output)!);
     File.WriteAllText(output, result.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n");
     Console.WriteLine("NATIVERENDER " + (window.Complete ? "PASS " : "FAIL ") + output);
