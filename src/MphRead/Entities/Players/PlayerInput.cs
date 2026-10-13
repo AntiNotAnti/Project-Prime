@@ -1272,7 +1272,7 @@ namespace MphRead.Entities
                 if (trainer.OwnsTarget(this) || trainer.Completed) return false;
                 if (CurrentWeapon != trainer.Definition.Weapon) ModArmWeapon(trainer.Definition.Weapon);
             }
-            ModEnhancedBeforeShot();
+            if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(_scene)) ModEnhancedBeforeShot();
             if (!Flags2.TestFlag(PlayerFlags2.Cloaking))
             {
                 _cloakTimer = 0;

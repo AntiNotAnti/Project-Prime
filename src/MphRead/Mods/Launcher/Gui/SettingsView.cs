@@ -451,7 +451,7 @@ namespace MphRead.Mods.Launcher.Gui
 
                 _settingsSearch = new TextBox
                 {
-                    Watermark = "Search settings...",
+                    PlaceholderText = "Search settings...",
                     Height = 36,
                     MinWidth = 260,
                     FontFamily = PrimeTypography.Ui,

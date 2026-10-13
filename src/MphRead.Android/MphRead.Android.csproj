@@ -53,13 +53,9 @@
          around it. Fixing them properly means editing upstream files, which is
          what keeps a pull from NoneGiven/MphRead a fast-forward. -->
     <NoWarn>$(NoWarn);CA1416</NoWarn>
-    <!-- XA0141: Android 16 will want 16 KB page sizes and libSkiaSharp.so did
-         not have them while Avalonia 11.3 bound against SkiaSharp 2.88.
-         Avalonia 12 binds 3.119, whose natives are aligned, so this is
-         expected to be dead and should be dropped the next time this head is
-         built with the Android workload installed and the warning does not
-         come back. -->
-    <NoWarn>$(NoWarn);XA0141</NoWarn>
+    <WarningsAsErrors>$(WarningsAsErrors);CA2014;IL3000</WarningsAsErrors>
+    <!-- Native page-size compatibility warnings remain visible. The old
+         SkiaSharp 2.88 XA0141 exemption is no longer needed by Avalonia 12. -->
     <!-- The results panel is drawn into the game's own frame through an
          ITopLevelImpl of ours (Mods/Launcher/Gui/UiTopLevel.cs, shared with
          the desktop), because a second Avalonia surface z-ordered over the GL

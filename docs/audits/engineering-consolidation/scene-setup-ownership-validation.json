@@ -1,0 +1,25 @@
+{
+  "baseSha": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "runtime": ".NET 10.0.12",
+  "sdk": "10.0.401",
+  "sourceHashes": {
+    "src/MphRead/SceneSetup.cs": "d0b0b3c489819690718321e1707ff7552278c6244c50b08f7c8eb79b096fb50f",
+    "src/MphRead/Entities/RoomEntity.cs": "674c20fb143880c4ec2b7724a5dc2c526ab33981bfe3c1609f8d78ee8845ff3b",
+    "tools/nettest/SceneSetupOwnershipTests.cs": "5d7a9de6d46225c8805f55de3dae9f202586ea3beb3e2b53502866daf6153546"
+  },
+  "fixture": {
+    "baselineFailures": 4,
+    "candidateFailures": 0,
+    "assertions": 6
+  },
+  "headlessChecks": {
+    "bipedAssertions": 51,
+    "movementHunters": 7,
+    "movementFramesPerHunter": 603,
+    "replayFormAssertions": 43,
+    "replayFormatAssertions": 3034,
+    "allSelectableMultiplayerReplayModes": "PASS",
+    "gameplayPresentationHashesPerMode": 1801
+  },
+  "physicalRenderedAcceptance": "NOT_RUN"
+}

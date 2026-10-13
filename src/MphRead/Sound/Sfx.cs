@@ -282,24 +282,35 @@ namespace MphRead.Sound
         }
 
         public static SoundCapability CheckAudioLoad()
+            => CheckAudioLoad(SfxOpenAlBackend.Instance, AL.LoopPoints.IsExtensionPresent);
+
+        internal static SoundCapability CheckAudioLoad(ISfxNativeBackend backend, Func<bool> supportsLoopPoints)
         {
             bool loopPointsSupported = false;
+            bool available = false;
+            var resources = new SfxResourceOwner(backend, 0, 0, closeOnWorker: false);
             try
             {
-                ALDevice device = ALC.OpenDevice(null);
-                ALContext context = ALC.CreateContext(device, new ALContextAttributes());
-                ALC.MakeContextCurrent(context);
-                loopPointsSupported = AL.LoopPoints.IsExtensionPresent();
-                ALC.MakeContextCurrent(ALContext.Null);
-                ALC.DestroyContext(context);
-                ALC.CloseDevice(device);
+                resources.Initialize();
+                loopPointsSupported = supportsLoopPoints();
+                available = true;
             }
-            catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException or TypeInitializationException)
+            catch (Exception ex)
             {
                 Mods.Diagnostics.PlatformDiagnostics.Report("libopenal.1.dylib", ex);
-                return SoundCapability.None;
             }
-            return loopPointsSupported ? SoundCapability.Supported : SoundCapability.Unsupported;
+            finally
+            {
+                resources.Release();
+                try { resources.Completion.GetAwaiter().GetResult(); }
+                catch (Exception ex)
+                {
+                    available = false;
+                    Mods.Diagnostics.PlatformDiagnostics.Report("libopenal.1.dylib", ex);
+                }
+            }
+            return !available ? SoundCapability.None
+                : loopPointsSupported ? SoundCapability.Supported : SoundCapability.Unsupported;
         }
 
         public static float CalculatePitchDiv(float pitchFac)
@@ -342,6 +353,7 @@ namespace MphRead.Sound
 
         public static void Load(Scene scene)
         {
+            ShutDown();
             Mods.Replay.ReplayAudioOwner.Reset();
             if (Mods.ThumbnailMode.Active || Mods.Headless.Active)
             {
@@ -373,11 +385,11 @@ namespace MphRead.Sound
                 // device -- not just a missing native library -- must fall
                 // back to a silent stub the same way Sound.Music does,
                 // instead of taking the scene load down with it. The failed
-                // instance is not shut down: Load can throw before _device,
-                // _context or the buffer/source arrays are assigned, and
-                // ShutDown assumes they are.
+                // instance releases every native acquisition even when Load
+                // fails before the managed voice arrays are populated.
                 Mods.Diagnostics.PlatformDiagnostics.Report("libopenal.1.dylib", ex);
                 Console.WriteLine($"[sound] SFX device unavailable ({ex.Message}); continuing without SFX");
+                ShutdownCompletion = Instance.ShutdownCompletion;
                 Instance = new SfxInstanceBase();
             }
             SfxMute = false;
@@ -389,13 +401,25 @@ namespace MphRead.Sound
 
         public static void ShutDown()
         {
-            Mods.Sound.UiFeedbackAudio.Shutdown();
-            Mods.Sound.CombatFeedbackAudio.Shutdown();
-            if (Instance != null)
+            try { Mods.Sound.UiFeedbackAudio.Shutdown(); }
+            finally
             {
-                Instance.ShutDown();
-                ShutdownCompletion = Instance.ShutdownCompletion;
-                Instance = null!;
+                try { Mods.Sound.CombatFeedbackAudio.Shutdown(); }
+                finally
+                {
+                    SfxInstanceBase? instance = Instance;
+                    if (instance != null)
+                    {
+                        try { instance.ShutDown(); }
+                        finally
+                        {
+                            // A silent fallback owns no new native work; keep
+                            // the failed load's close task visible at process exit.
+                            if (instance is SfxInstance) ShutdownCompletion = instance.ShutdownCompletion;
+                            if (ReferenceEquals(Instance, instance)) Instance = null!;
+                        }
+                    }
+                }
             }
         }
 
@@ -584,8 +608,8 @@ namespace MphRead.Sound
             }
         }
 
-        private ALDevice _device = ALDevice.Null;
-        private ALContext _context = ALContext.Null;
+        private SfxResourceOwner? _resources;
+        private bool _shutdown;
         private bool _loopPointSupport = false;
         private readonly SoundBuffer[] _buffers = new SoundBuffer[64];
         private readonly SoundChannel[] _channels = new SoundChannel[128];
@@ -1584,6 +1608,8 @@ namespace MphRead.Sound
 
         public override void Load(Scene scene)
         {
+            if (_resources != null || _shutdown)
+                throw new InvalidOperationException("SFX instance cannot be loaded twice.");
             var loadClock = Stopwatch.StartNew();
             _scene = scene;
             Sfx.PreparedAudio prepared = Sfx.TakePreparedAudio();
@@ -1596,75 +1622,57 @@ namespace MphRead.Sound
             {
                 _inactiveQueue.Enqueue(new QueueItem());
             }
-            _device = ALC.OpenDevice(null);
-            _context = ALC.CreateContext(_device, new ALContextAttributes());
-            ALC.MakeContextCurrent(_context);
-            _loopPointSupport = AL.LoopPoints.IsExtensionPresent();
-            int[] bufferIds = new int[_buffers.Length * 2];
-            AL.GenBuffers(bufferIds);
-            for (int i = 0; i < _buffers.Length; i++)
+#if ANDROID
+            const bool closeOnWorker = false;
+#else
+            const bool closeOnWorker = true;
+#endif
+            _resources = new SfxResourceOwner(SfxOpenAlBackend.Instance,
+                _buffers.Length + 1, _channels.Length + 1, closeOnWorker);
+            try
             {
-                _buffers[i] = new SoundBuffer(bufferIds[i * 2]);
+                _resources.Initialize();
+                _loopPointSupport = AL.LoopPoints.IsExtensionPresent();
+                for (int i = 0; i < _buffers.Length; i++)
+                    _buffers[i] = new SoundBuffer(_resources.Buffers[i]);
+                for (int i = 0; i < _channels.Length; i++)
+                    _channels[i] = new SoundChannel(_resources.Sources[i]);
+                for (int i = 0; i < _instances.Length; i++)
+                    _instances[i] = new SoundInstance();
+                _streamBuffer = _resources.Buffers[^1];
+                _streamInstance = _resources.Sources[^1];
+                if (!Features.LogSpatialAudio)
+                    AL.DistanceModel(ALDistanceModel.LinearDistanceClamped);
+                Console.WriteLine($"[load] SFX device ready in {loadClock.Elapsed.TotalSeconds:0.00}s");
             }
-            int[] channelIds = new int[_channels.Length];
-            AL.GenSources(channelIds);
-            for (int i = 0; i < _channels.Length; i++)
+            catch
             {
-                _channels[i] = new SoundChannel(channelIds[i]);
+                _resources.Release();
+                _scene = null;
+                throw;
             }
-            for (int i = 0; i < _instances.Length; i++)
-            {
-                _instances[i] = new SoundInstance();
-            }
-            _streamBuffer = AL.GenBuffer();
-            _streamInstance = AL.GenSource();
-            if (!Features.LogSpatialAudio)
-            {
-                AL.DistanceModel(ALDistanceModel.LinearDistanceClamped);
-            }
-            Console.WriteLine($"[load] SFX device ready in {loadClock.Elapsed.TotalSeconds:0.00}s");
         }
 
         public override void ShutDown()
         {
-            MusicPlayer.Remove(shutdown: true);
-            for (int i = 0; i < _instances.Length; i++)
+            if (_resources == null || _shutdown) return;
+            _shutdown = true;
+            try
             {
-                SoundInstance inst = _instances[i];
-                for (int j = 0; j < _maxPerInst; j++)
-                {
-                    SoundChannel? channel = inst.Channels[j];
-                    if (channel == null)
-                    {
-                        continue;
-                    }
-                    AL.GetSource(channel.Id, ALGetSourcei.SourceState, out int value);
-                    var state = (ALSourceState)value;
-                    if (state == ALSourceState.Playing)
-                    {
-                        inst.Stop();
-                        break;
-                    }
-                }
+                MusicPlayer.Remove(shutdown: true);
+                foreach (SoundInstance? inst in _instances)
+                    inst?.Stop();
+                foreach (EnvironmentItem item in _environmentItems)
+                    item.Reset();
             }
-            for (int i = 0; i < _environmentItems.Count; i++)
+            finally
             {
-                _environmentItems[i].Reset();
+                _resources.Release();
+                _scene = null;
             }
-            AL.SourceStop(_streamInstance);
-            ALC.MakeContextCurrent(ALContext.Null);
-            _shutdownCompletion = Task.Run(() =>
-            {
-                ALC.DestroyContext(_context);
-                ALC.CloseDevice(_device);
-                _context = ALContext.Null;
-                _device = ALDevice.Null;
-            });
-            _scene = null;
         }
 
-        private Task _shutdownCompletion = Task.CompletedTask;
-        internal override Task ShutdownCompletion => _shutdownCompletion;
+        internal override Task ShutdownCompletion => _resources?.Completion ?? Task.CompletedTask;
     }
 
     public class SfxInstanceBase

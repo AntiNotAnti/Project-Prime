@@ -28,7 +28,7 @@ namespace MphRead.Export
             name ??= DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString();
             using FileStream fileStream = File.Create(Paths.Combine(path, $"{name}.png"));
             StbImage.FlipVerticallyOnSave = true;
-            StbImage.WritePng<byte>(buffer, width, height, StbiImageFormat.Rgb, fileStream);
+            global::MphRead.Mods.PngEncoder.Write<byte>(buffer, width, height, StbiImageFormat.Rgb, fileStream);
         }
 
         public static void Record(int width, int height, string name)
@@ -58,7 +58,7 @@ namespace MphRead.Export
                     Directory.CreateDirectory(path);
                     using FileStream fileStream = File.Create(Paths.Combine(path, $"{result.Name}.png"));
                     StbImage.FlipVerticallyOnSave = true;
-                    StbImage.WritePng<byte>(result.Buffer, result.Width, result.Height, StbiImageFormat.Rgb, fileStream);
+                    global::MphRead.Mods.PngEncoder.Write<byte>(result.Buffer, result.Width, result.Height, StbiImageFormat.Rgb, fileStream);
                     ArrayPool<byte>.Shared.Return(result.Buffer);
                 }
                 await Task.Delay(1);
@@ -166,7 +166,7 @@ namespace MphRead.Export
             Span<ColorRgba> pixelBuffer = pixels.ToArray();
             using FileStream fileStream = File.Create(imagePath);
             StbImage.FlipVerticallyOnSave = false;
-            StbImage.WritePng<ColorRgba>(pixelBuffer, width, height, StbiImageFormat.Rgba, fileStream);
+            global::MphRead.Mods.PngEncoder.Write<ColorRgba>(pixelBuffer, width, height, StbiImageFormat.Rgba, fileStream);
         }
 
         public static void ExportHudLayers()

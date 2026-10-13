@@ -866,10 +866,11 @@ namespace MphRead.Mods.Network
             uint burstEventId = 0, int copies = 1)
         {
             int budget = copies > 1 ? NetReliableChannel.Capacity : 4;
+            Span<byte> bytes = stackalloc byte[NetConfig.MaxPacketSize];
             for (int i = 0; i < budget; i++)
             {
                 ReliableTransmission eventPacket;
-                NetConnection source;
+                NetConnection? source;
                 long stamp = EnterConnectionLock();
                 try
                 {
@@ -884,7 +885,6 @@ namespace MphRead.Mods.Network
                 int transmissions = eventPacket.EventId == burstEventId ? copies : 1;
                 for (int copy = 0; copy < transmissions; copy++)
                 {
-                    Span<byte> bytes = stackalloc byte[NetConfig.MaxPacketSize];
                     stamp = EnterConnectionLock();
                     try
                     {
@@ -932,6 +932,7 @@ namespace MphRead.Mods.Network
                 }
                 finally { ExitConnectionLock(stamp); }
 
+                Span<byte> ack = stackalloc byte[NetHeader.Size];
                 for (int i = 0; i < count; i++)
                 {
                     IPEndPoint endpoint = _expiredConnections[i]!;
@@ -962,7 +963,6 @@ namespace MphRead.Mods.Network
                     string? failureReason = null;
                     NetReliableSnapshot? failureSnapshot = null;
                     bool sendAck = false;
-                    Span<byte> ack = stackalloc byte[NetHeader.Size];
                     stamp = EnterConnectionLock();
                     try
                     {

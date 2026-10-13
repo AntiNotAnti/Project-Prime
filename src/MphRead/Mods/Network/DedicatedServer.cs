@@ -330,7 +330,6 @@ namespace MphRead.Mods.Network
         /// row of the damage table. <c>-affinityweapons</c>.
         /// </summary>
         public bool AffinityWeapons { get; set; }
-        public bool EnhancedHunters { get; set; }
 
         /// <summary>
         /// Whether the shadow freeze glitch is allowed here. Off by default;

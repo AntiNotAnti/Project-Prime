@@ -818,117 +818,33 @@ namespace MphRead
             }
         }
 
-        private void InitShaders()
+        private void InitShadersCore()
         {
-            string fragmentLog;
-            string vertexLog;
-            int vertexShader = GL.CreateShader(ShaderType.VertexShader);
-            GL.ShaderSource(vertexShader, Shaders.SelectedVertexShader);
-            GL.CompileShader(vertexShader);
-            int fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
-            GL.ShaderSource(fragmentShader, Shaders.FragmentShader);
-            GL.CompileShader(fragmentShader);
-            GL.GetShader(vertexShader, ShaderParameter.CompileStatus, out int vertexStatus);
-            GL.GetShader(fragmentShader, ShaderParameter.CompileStatus, out int fragmentStatus);
-            if (Debugger.IsAttached)
+            int vertexShader = 0, fragmentShader = 0;
+            try
             {
-                vertexLog = GL.GetShaderInfoLog(vertexShader);
-                fragmentLog = GL.GetShaderInfoLog(fragmentShader);
-                if (vertexLog != "" || fragmentLog != "")
-                {
-                    Debugger.Break();
-                }
-            }
-            if (vertexStatus == 0 || fragmentStatus == 0)
-            {
-                // The driver's own message. Without it a shader that will not
-                // compile is one sentence with nothing in it to act on.
-                throw new ProgramException("Failed to compile main shaders."
-                    + $" vertex: {GL.GetShaderInfoLog(vertexShader)}"
-                    + $" fragment: {GL.GetShaderInfoLog(fragmentShader)}");
-            }
+                vertexShader = CompileSceneShader(ShaderType.VertexShader, Shaders.SelectedVertexShader, "main-vertex");
+                fragmentShader = CompileSceneShader(ShaderType.FragmentShader, Shaders.FragmentShader, "main-fragment");
+                _shaderProgramId = LinkSceneProgram(vertexShader, fragmentShader, "main-program");
+                DeleteSceneShader(ref fragmentShader);
+                DeleteSceneShader(ref vertexShader);
 
-            _shaderProgramId = GL.CreateProgram();
-            GL.AttachShader(_shaderProgramId, vertexShader);
-            GL.AttachShader(_shaderProgramId, fragmentShader);
-            GL.LinkProgram(_shaderProgramId);
-            GL.DetachShader(_shaderProgramId, vertexShader);
-            GL.DetachShader(_shaderProgramId, fragmentShader);
-            GL.DeleteShader(fragmentShader);
-            GL.DeleteShader(vertexShader);
-
-            vertexShader = GL.CreateShader(ShaderType.VertexShader);
-            GL.ShaderSource(vertexShader, Shaders.RttVertexShader);
-            GL.CompileShader(vertexShader);
-            fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
-            GL.ShaderSource(fragmentShader, Shaders.RttFragmentShader);
-            GL.CompileShader(fragmentShader);
-            GL.GetShader(vertexShader, ShaderParameter.CompileStatus, out vertexStatus);
-            GL.GetShader(fragmentShader, ShaderParameter.CompileStatus, out fragmentStatus);
-            if (Debugger.IsAttached)
-            {
-                vertexLog = GL.GetShaderInfoLog(vertexShader);
-                fragmentLog = GL.GetShaderInfoLog(fragmentShader);
-                if (vertexLog != "" || fragmentLog != "")
-                {
-                    Debugger.Break();
-                }
+                // RTT, shift and cel programs continue to share one compiled vertex shader.
+                vertexShader = CompileSceneShader(ShaderType.VertexShader, Shaders.RttVertexShader, "rtt-vertex");
+                fragmentShader = CompileSceneShader(ShaderType.FragmentShader, Shaders.RttFragmentShader, "rtt-fragment");
+                _rttShaderProgramId = LinkSceneProgram(vertexShader, fragmentShader, "rtt-program");
+                DeleteSceneShader(ref fragmentShader);
+                fragmentShader = CompileSceneShader(ShaderType.FragmentShader, Shaders.ShiftFragmentShader, "shift-fragment");
+                _shiftShaderProgramId = LinkSceneProgram(vertexShader, fragmentShader, "shift-program");
+                DeleteSceneShader(ref fragmentShader);
+                fragmentShader = CompileSceneShader(ShaderType.FragmentShader, Shaders.CelFragmentShader, "cel-fragment");
+                _celShaderProgramId = LinkSceneProgram(vertexShader, fragmentShader, "cel-program");
             }
-            if (vertexStatus == 0 || fragmentStatus == 0)
+            finally
             {
-                throw new ProgramException("Failed to compile RTT shaders.");
+                DeleteSceneShader(ref fragmentShader);
+                DeleteSceneShader(ref vertexShader);
             }
-            _rttShaderProgramId = GL.CreateProgram();
-            GL.AttachShader(_rttShaderProgramId, vertexShader);
-            GL.AttachShader(_rttShaderProgramId, fragmentShader);
-            GL.LinkProgram(_rttShaderProgramId);
-            GL.DetachShader(_rttShaderProgramId, vertexShader);
-            GL.DetachShader(_rttShaderProgramId, fragmentShader);
-            GL.DeleteShader(fragmentShader);
-
-            // use same vertex shader
-            fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
-            GL.ShaderSource(fragmentShader, Shaders.ShiftFragmentShader);
-            GL.CompileShader(fragmentShader);
-            GL.GetShader(fragmentShader, ShaderParameter.CompileStatus, out fragmentStatus);
-            if (Debugger.IsAttached)
-            {
-                fragmentLog = GL.GetShaderInfoLog(fragmentShader);
-                if (fragmentLog != "")
-                {
-                    Debugger.Break();
-                }
-            }
-            if (fragmentStatus == 0)
-            {
-                throw new ProgramException("Failed to compile shift shader.");
-            }
-            _shiftShaderProgramId = GL.CreateProgram();
-            GL.AttachShader(_shiftShaderProgramId, vertexShader);
-            GL.AttachShader(_shiftShaderProgramId, fragmentShader);
-            GL.LinkProgram(_shiftShaderProgramId);
-            GL.DetachShader(_shiftShaderProgramId, vertexShader);
-            GL.DetachShader(_shiftShaderProgramId, fragmentShader);
-            GL.DeleteShader(fragmentShader);
-
-            // use same vertex shader
-            fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
-            GL.ShaderSource(fragmentShader, Shaders.CelFragmentShader);
-            GL.CompileShader(fragmentShader);
-            GL.GetShader(fragmentShader, ShaderParameter.CompileStatus, out fragmentStatus);
-            if (fragmentStatus == 0)
-            {
-                throw new ProgramException("Failed to compile the cel shading shader."
-                    + $" {GL.GetShaderInfoLog(fragmentShader)}");
-            }
-            _celShaderProgramId = GL.CreateProgram();
-            GL.AttachShader(_celShaderProgramId, vertexShader);
-            GL.AttachShader(_celShaderProgramId, fragmentShader);
-            GL.LinkProgram(_celShaderProgramId);
-            GL.DetachShader(_celShaderProgramId, vertexShader);
-            GL.DetachShader(_celShaderProgramId, fragmentShader);
-            GL.DeleteShader(fragmentShader);
-            GL.DeleteShader(vertexShader);
 
             _frameBuffer = GL.GenFramebuffer();
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
@@ -5138,7 +5054,7 @@ namespace MphRead
 
         private void UpdateScene()
         {
-            EnhancedWorld.Tick(this);
+            if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(this)) EnhancedWorld.Tick(this);
             if (_playingLandingMovie)
             {
                 return;
@@ -5232,8 +5148,11 @@ namespace MphRead
             if (_room != null)
             {
                 _room.GetDrawInfo();
-                EnhancedWorld.Draw(this);
-                EnhancedWorld.DrawIndicators(this);
+                if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(this))
+                {
+                    EnhancedWorld.Draw(this);
+                    EnhancedWorld.DrawIndicators(this);
+                }
                 _room.GetDisplayVolumes();
             }
             foreach (PlayerEntity player in GetPlayerEntities())
@@ -5588,32 +5507,7 @@ namespace MphRead
             DisposeGraphicsPipeline();
             DisposeShadowMap();
             DisposeFrameTransientTextures();
-            // The cel target also owns a reference to _screenTexture. Release
-            // it before deleting that texture in the shell's persistent context.
-            if (_celFrameBuffer != 0)
-            {
-                GL.DeleteFramebuffer(_celFrameBuffer);
-                _celFrameBuffer = 0;
-            }
-            _celFrameBufferColor = 0;
-            if (_frameBuffer != 0)
-            {
-                GL.DeleteFramebuffer(_frameBuffer);
-                _frameBuffer = 0;
-            }
-            if (_renderBuffer != 0)
-            {
-                GL.DeleteRenderbuffer(_renderBuffer);
-                _renderBuffer = 0;
-            }
-            DeleteTexture(ref _screenTexture);
-            DeleteTexture(ref _celTexture);
-            DeleteTexture(ref _depthTexture);
-            ReleaseWorldShaderVariants();
-            DeleteProgram(ref _shaderProgramId);
-            DeleteProgram(ref _rttShaderProgramId);
-            DeleteProgram(ref _shiftShaderProgramId);
-            DeleteProgram(ref _celShaderProgramId);
+            ReleaseSceneShaderInitialization();
             Mods.MapGen.MapRuntimeUsage.Release(this);
         }
 
@@ -5630,6 +5524,11 @@ namespace MphRead
         {
             if (program != 0)
             {
+                // Deletion is deferred while current. Auxiliary scene programs
+                // use this helper before the canonical ownership guard runs.
+                // Preserve an independent owner's current binding.
+                if (GL.GetInteger(GetPName.CurrentProgram) == program)
+                    GL.UseProgram(0);
                 GL.DeleteProgram(program);
                 program = 0;
             }
@@ -5712,6 +5611,15 @@ namespace MphRead
             Mods.Render.RetainedMeshDescriptor? retainedMesh = null,
             bool drawGeometry = true, bool applyObjectState = true)
         {
+            using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.ItemSetup))
+            using (Mods.Render.OpenGlDrawAttribution.Measure(item, Mods.Render.OpenGlPassProfiler.CurrentPass, geometry: false))
+                PrepareRenderItemState(item, applySharedState, applyObjectState);
+            if (drawGeometry)
+                DrawRenderItemGeometry(item, retainedMesh);
+        }
+
+        private void PrepareRenderItemState(RenderItem item, bool applySharedState, bool applyObjectState)
+        {
             bool depthCoverage = _depthPreparationEnabled
                 && Mods.Render.DepthCoveragePreparation.CanUse(item, _depthOnlyWorldPass, _drawingPlayerOutlineMask, _proceduralBatchEnabled);
             if (applyObjectState)
@@ -5767,8 +5675,6 @@ namespace MphRead
 
             // Mesh lists can change the current color; uniform reuse must not inherit it.
             if (applyObjectState || item.Type == RenderItemType.Mesh) GL.Color3(item.Diffuse);
-            if (drawGeometry)
-                DrawRenderItemGeometry(item, retainedMesh);
         }
 
         private void ApplyRenderItemSharedState(RenderItem item, bool depthCoverage)
@@ -5806,6 +5712,8 @@ namespace MphRead
         private void DrawRenderItemGeometry(RenderItem item,
             Mods.Render.RetainedMeshDescriptor? retainedMesh)
         {
+            using var ownerTiming = Mods.Render.OpenGlDrawAttribution.Measure(item, Mods.Render.OpenGlPassProfiler.CurrentPass, geometry: true);
+            using var geometryTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.GeometrySubmission);
 #if !MPHREAD_SERVER && !ANDROID
             if (_proceduralStream?.TryDraw(item) == true) return;
             if (_proceduralBatchEnabled && GL.TryDrawProceduralImmediate(item)) return;
