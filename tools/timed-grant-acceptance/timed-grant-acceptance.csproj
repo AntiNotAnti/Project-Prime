@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <!-- Compile against the exact supplied candidate; never rebuild/copy its
+       client or 650 MB dependency tree from this independent diagnostic. -->
+  <ItemGroup Condition="'$(AcceptanceBinaryDirectory)' != ''">
+    <Reference Include="$(AcceptanceBinaryDirectory)/ProjectPrime.dll"><Private>false</Private></Reference>
+    <Reference Include="$(AcceptanceBinaryDirectory)/OpenTK.*.dll"><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="RequireFrozenCandidate" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(AcceptanceBinaryDirectory)' == '' or !Exists('$(AcceptanceBinaryDirectory)/ProjectPrime.dll')"
+           Text="Supply -p:AcceptanceBinaryDirectory=/absolute/frozen/candidate; this tool does not build the client." />
+  </Target>
+</Project>

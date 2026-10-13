@@ -61,7 +61,7 @@ public partial class PlayerEntity
                     if (starting || stage != oldStage) UpdateDoubleDamageSpeed(stage);
                     if (_dblDamageSfxId != _dblDamageIds[stage - 1]) UpdateDoubleDamageSfx(stage - 1, play: true);
                     if (starting && !quiet && !view.Resume)
-                    { _soundSource.PlayFreeSfx(SfxId.DOUBLE_DAMAGE_POWER_UP); }
+                    { _timeSincePickup = 0; _soundSource.PlayFreeSfx(SfxId.DOUBLE_DAMAGE_POWER_UP); }
                 }
                 break;
             case TimedPowerUp.Cloak:
@@ -71,7 +71,7 @@ public partial class PlayerEntity
                 int cloakStage = remaining <= 240 ? 2 : remaining <= 420 ? 1 : 0;
                 if (IsMainPlayer && _cloakSfxId != _cloakSfxIds[cloakStage]) UpdateCloakSfx(cloakStage, play: true);
                 if (!cloaking && IsMainPlayer && !quiet && !view.Resume)
-                { _soundSource.PlayFreeSfx(SfxId.CLOAK_POWER_UP); }
+                { _timeSincePickup = 0; _soundSource.PlayFreeSfx(SfxId.CLOAK_POWER_UP); }
                 break;
             case TimedPowerUp.DeathAlt:
                 bool deathStarting = _deathaltTimer == 0 && remaining > 0;
@@ -80,6 +80,7 @@ public partial class PlayerEntity
                 // forms remain under their existing N9 lifecycle stream.
                 if (deathStarting && !quiet && !view.Resume && !_scene.Services.IsReplica && SlotIndex == NetSession.LocalSlot)
                 {
+                    _timeSincePickup = 0;
                     if (!IsAltForm && !IsMorphing) TrySwitchForms(force: true);
                     if (IsMainPlayer) _soundSource.PlayFreeSfx(SfxId.DOUBLE_DAMAGE_POWER_UP);
                 }
