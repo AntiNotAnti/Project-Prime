@@ -791,7 +791,8 @@ namespace MphRead
             try
             {
                 _audioEngine = new MiniAudioEngine();
-                _playbackDevice = _audioEngine.InitializePlaybackDevice(deviceInfo: null, _format);
+                _playbackDevice = Sound.MusicStartup.InitializeDevice(_audioEngine,
+                    () => _audioEngine.InitializePlaybackDevice(deviceInfo: null, _format));
                 Available = true;
                 Sound.AudioLifetime.RequestMusicShutdown = RequestShutdown;
                 Sound.AudioLifetime.StopMusic = Shutdown;
