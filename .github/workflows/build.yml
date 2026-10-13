@@ -360,6 +360,9 @@ jobs:
       - name: community map publishing focused check
         run: dotnet run --no-build --project tools/map-editor-check -c Release -- --community-only
 
+      - name: encoder worker exit and inherited-pipe cancellation
+        run: dotnet run --project tools/encoder-pipe-check -c Release
+
       - name: isolated multiplayer and historical package acceptance
         timeout-minutes: 10
         run: dotnet run --project tools/map-multiplayer-check -c Release -- "${{ runner.temp }}/map-multiplayer-check"

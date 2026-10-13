@@ -1,0 +1,44 @@
+{
+  "parent_sha": "0c55a955cc10b4b534e869b1e6f35e18cbce1d7e",
+  "host": "macOS arm64",
+  "sdk": "10.0.401",
+  "source_files": {
+    "src/MphRead/Mods/Replay/ReplayEncoderJob.cs": "b9072557795be1d15e0f2dec2efd949967bb8b78cfb9f457b247b1cf40758ce3",
+    "src/MphRead/Mods/Replay/ReplayEncoderProgress.cs": "b644972b78aab6a2453c32f8e02e91b0aee17914e43c7cb5872f7a375512022a",
+    "tools/encoder-pipe-check/Program.cs": "fc35792c5d82c09336fc58214b0382d5d64e8b0510fe71de9240d1cfcb0044b1"
+  },
+  "artifacts": [
+    {
+      "path": "baseline.log",
+      "sha256": "763a3298d5188addf70d016084e6fdb85dff2d57ceb484955511bc887fed8f48"
+    },
+    {
+      "path": "candidate.log",
+      "sha256": "bed17f8beb7b3112b1a9f5843c1aacad201c51e8846f6a3ef6be23d638e83524"
+    },
+    {
+      "path": "final-baseline.log",
+      "sha256": "763a3298d5188addf70d016084e6fdb85dff2d57ceb484955511bc887fed8f48"
+    },
+    {
+      "path": "final-candidate.log",
+      "sha256": "bed17f8beb7b3112b1a9f5843c1aacad201c51e8846f6a3ef6be23d638e83524"
+    },
+    {
+      "path": "progress-regression.log",
+      "sha256": "fc18df1f0f766d41eb67ab740bd57269aca5e7896097659854f7cfc654c69e53"
+    },
+    {
+      "path": "desktop-build.log",
+      "sha256": "d1b9b84e2c455a4a2f35d159c5a2d331f676d556e0e8f0916e6d9eb52b5bd9d9"
+    },
+    {
+      "path": "actual-ffmpeg.log",
+      "sha256": "9d209432f1f0f87c5551e029530c1250efc7f57b0b1d83d5735df0cd1bd80075"
+    },
+    {
+      "path": "ReplayEncoderJob.baseline.cs",
+      "sha256": "2d66a142fba5d9537b55289460a6bf191b34447b73fc74139322bd8d0d98995d"
+    }
+  ]
+}

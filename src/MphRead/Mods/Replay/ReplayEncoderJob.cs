@@ -9,7 +9,7 @@ namespace MphRead.Mods.Replay;
 
 internal sealed record ReplayEncodingResult(bool Cancelled, int? ExitCode, string? Error, string Stderr);
 
-/// <summary>One owned encoder. Completion includes process exit and both redirected pipes.</summary>
+/// <summary>One owned encoder. Completion includes process exit and both pipe readers' retirement.</summary>
 internal sealed class ReplayEncoderJob : IDisposable
 {
     private readonly CancellationTokenSource _cancel = new();
@@ -31,8 +31,9 @@ internal sealed class ReplayEncoderJob : IDisposable
                 RedirectStandardOutput = true, WorkingDirectory = directory } };
             if (!process.Start()) return new(false, null, "Encoder did not start.", "");
             // Cancellation only signals from the render thread. Kill/wait occur here.
-            Task stdout = ReadProgress(process.StandardOutput);
-            Task stderr = ReadError(process.StandardError, tail);
+            using var readCancellation = new CancellationTokenSource();
+            Task stdout = ReadProgress(process.StandardOutput, readCancellation.Token);
+            Task stderr = ReadError(process.StandardError, tail, readCancellation.Token);
             string? terminationError = null;
             try { await process.WaitForExitAsync(_cancel.Token).ConfigureAwait(false); }
             catch (OperationCanceledException)
@@ -43,7 +44,19 @@ internal sealed class ReplayEncoderJob : IDisposable
                 { terminationError = "Could not terminate encoder: " + ex.Message + "\n"; }
                 await process.WaitForExitAsync().ConfigureAwait(false);
             }
-            await Task.WhenAll(stdout, stderr).ConfigureAwait(false);
+            Task readers = Task.WhenAll(stdout, stderr);
+            try { await readers.WaitAsync(_cancel.Token).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (_cancel.IsCancellationRequested)
+            {
+                // The owned process has exited. A descendant may still hold its
+                // inherited pipes, so cancellation retires our reads rather than
+                // waiting for an EOF that belongs to that separate process.
+                readCancellation.Cancel();
+                try { await readers.ConfigureAwait(false); }
+                catch (OperationCanceledException) when (readCancellation.IsCancellationRequested) { }
+                try { process.StandardOutput.Dispose(); }
+                finally { process.StandardError.Dispose(); }
+            }
             string log = terminationError + tail.ToString();
             try { await File.WriteAllTextAsync(Path.Combine(directory, "encode.log"), log).ConfigureAwait(false); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { log += "\nLog: " + ex.Message; }
@@ -54,13 +67,13 @@ internal sealed class ReplayEncoderJob : IDisposable
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)
         { return new(_cancel.IsCancellationRequested, null, ex.Message, tail.ToString()); }
     }
-    private Task ReadProgress(StreamReader reader)
-        => ReplayEncoderProgress.Read(reader, frame => Volatile.Write(ref _frames, frame));
-    private static async Task ReadError(StreamReader reader, StringBuilder tail)
+    private Task ReadProgress(StreamReader reader, CancellationToken cancellation)
+        => ReplayEncoderProgress.Read(reader, frame => Volatile.Write(ref _frames, frame), cancellation);
+    private static async Task ReadError(StreamReader reader, StringBuilder tail, CancellationToken cancellation)
     {
         char[] buffer = new char[2048];
         int count;
-        while ((count = await reader.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+        while ((count = await reader.ReadAsync(buffer.AsMemory(), cancellation).ConfigureAwait(false)) > 0)
         {
             tail.Append(buffer, 0, count);
             if (tail.Length > 16384) tail.Remove(0, tail.Length - 16384);
