@@ -42,6 +42,13 @@ jobs:
       - name: native campaign evidence and failure receipts
         run: python3 -m unittest discover -s tools/native-render-check -p 'test_*.py' -v
 
+      - name: compiler ledger and lifecycle self-tests without native startup
+        run: |
+          dotnet build tools/native-render-check/native-render-check.csproj -c Release
+          dotnet tools/native-render-check/bin/Release/net10.0/native-render-check.dll -resource-shader-ledger-selftest
+          dotnet tools/native-render-check/bin/Release/net10.0/native-render-check.dll --minimal-gl-selftest
+          dotnet tools/native-render-check/bin/Release/net10.0/native-render-check.dll -resource-context-selftest
+
       - name: Android startup acceptance failure fixtures
         run: python3 -m unittest discover -s tools -p 'test_android_startup_check.py' -v
 
