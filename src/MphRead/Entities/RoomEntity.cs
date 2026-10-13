@@ -633,7 +633,7 @@ namespace MphRead.Entities
             {
                 return;
             }
-            SetNodeData(SceneSetup.LoadNodeData(roomMeta.NodePath, roomMeta.Id, _scene.GameState.Mode, entities, roomMeta.FirstHunt));
+            SetNodeData(SceneSetup.LoadNodeData(roomMeta.NodePath, roomMeta.Id, _scene.GameState.Mode, entities, roomMeta.FirstHunt, _scene));
             PlayerEntity.PlayerAiData.InitializeGlobals();
             if (token.IsCancellationRequested)
             {
