@@ -22,7 +22,6 @@ static class ContextControl
         var driver = Parse(valid.Concat(new[] { "-resource-context-driver-drain" }).ToArray());
         pass &= driver.DriverDrain;
         foreach (var invalid in new[] { Set(valid, "-resource-context-cycles", "0"), Set(valid, "-resource-context-cycles", "201"), Set(valid, "-resource-arm", "combined"), valid.Where(v => v != "-resource-drain").ToArray(),
-            valid.Concat(new[] { "-resource-context-phase-acks", "unused" }).ToArray(),
             valid.Concat(new[] { "-resource-context-driver-drain", "-resource-context-phase-acks" }).ToArray(),
             valid.Concat(new[] { "-resource-context-driver-drain", "-resource-context-phase-acks", " " }).ToArray(),
             valid.Concat(new[] { "-resource-context-driver-drain", "-resource-context-phase-acks", "-next-option" }).ToArray(),
@@ -71,7 +70,6 @@ static class ContextControl
                 throw new ArgumentException("Phase acknowledgements require exactly one nonempty directory argument.");
             ack = Path.GetFullPath(args[index + 1]);
         }
-        if (ack != null && !driverDrain) throw new ArgumentException("Phase acknowledgements require final driver-drain control.");
         return (cycles, samples, interval, driverDrain, ack);
     }
 
@@ -141,9 +139,12 @@ static class ContextControl
         var window = create(args);
         var weak = new WeakReference(window);
         records.Add(new { context = index, phase = "context-created", exists = window.Exists,
-            contextCurrent = window.Context.IsCurrent, memory = ResourceAttribution.MemorySample() });
+            contextCurrent = window.Context.IsCurrent, contextGeneration = index + 1,
+            shareGroup = index + 1, shared = false, ownerThread = Environment.CurrentManagedThreadId,
+            memory = ResourceAttribution.MemorySample() });
         try
         {
+            AwaitCapture(ackDirectory, $"context-{index:D2}-before-workload");
             window.Run();
             File.WriteAllText(output, JsonSerializer.Serialize(window.ResourceStressResult(), new JsonSerializerOptions { WriteIndented = true }) + "\n");
             if (!window.Complete) throw new InvalidOperationException("Per-context workload incomplete: " + output);
@@ -177,6 +178,7 @@ static class ContextControl
     private static void AwaitCapture(string? directory, string phase)
     {
         if (directory == null) return;
+        Console.WriteLine($"NATIVERENDER capture-phase={phase} pid={Environment.ProcessId}");
         long started = Stopwatch.GetTimestamp();
         while (!File.Exists(Path.Combine(directory, phase + ".ack")))
         {

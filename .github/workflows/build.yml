@@ -39,6 +39,9 @@ jobs:
       - name: telemetry collector and report checks
         run: python3 -m unittest discover -s tools/telemetry -p 'test_*.py'
 
+      - name: native campaign evidence and failure receipts
+        run: python3 -m unittest discover -s tools/native-render-check -p 'test_*.py' -v
+
       - name: Android startup acceptance failure fixtures
         run: python3 -m unittest discover -s tools -p 'test_android_startup_check.py' -v
 

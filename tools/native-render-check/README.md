@@ -372,3 +372,15 @@ unprofiled trials. Keep profiler binaries/dumps outside the repository. The
 describes the collection behavior and shared TMPDIR requirement. A cached
 shared-pool byte array and a retained SFX bank are different roots; do not infer
 one from total LOH bytes alone.
+
+## AGX-01 immutable evidence gate
+
+Context campaigns require `--user-data-template /absolute/operator-user-data`.
+Only paths.txt is read; a fresh user-data root is created in the campaign. Asset
+contents, binaries, capture files and per-context receipts have separate hashes.
+All requested native phases are held until external sampling is acknowledged;
+`--capture-native-stacks` no longer requires final GLFW termination. Source-dirty
+or unsupported profiler evidence remains UNVERIFIED. The runner defaults to no
+allocation failure injection; use a separate `--failure-stages ...` campaign.
+Run `validate_context_campaign.py /absolute/campaign` to check existing evidence.
+See [AGX-01](../../docs/engineering-next/agx01.md) for limits and rollback.

@@ -126,6 +126,8 @@ static class ResourceAttribution
             architecture = RuntimeInformation.ProcessArchitecture.ToString(), cpuCount = Environment.ProcessorCount,
             stopwatchFrequency = Stopwatch.Frequency, clientPath = client, clientSha256 = Hash(client),
             harnessPath = harness, harnessSha256 = Hash(harness), assemblyMvid = typeof(Scene).Module.ModuleVersionId,
+            harnessAssemblyMvid = typeof(ResourceAttribution).Module.ModuleVersionId,
+            openTkVersion = typeof(OpenTK.Graphics.OpenGL.GL).Assembly.GetName().Version?.ToString(),
             musicStartupProbeClosed = MusicStartupProbeClosed,
             environment = Environment.GetEnvironmentVariables().Cast<DictionaryEntry>()
                 .Where(e => e.Key.ToString()!.StartsWith("PROJECT_PRIME_GL_", StringComparison.Ordinal)
