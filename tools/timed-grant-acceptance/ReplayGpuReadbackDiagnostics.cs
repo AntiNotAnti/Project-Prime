@@ -26,7 +26,7 @@ internal static class ReplayGpuReadbackDiagnostics
                 string key = Reflection.Get(model, "Name") + "/tex=" + Reflection.Get(value, "Item2")
                     + "/pal=" + Reflection.Get(value, "Item3") + "/recolor=" + Reflection.Get(value, "Item4");
                 GL.BindTexture(TextureTarget.Texture2D, id);
-                int Parameter(TextureParameterName parameter)
+                int Parameter(GetTextureParameter parameter)
                 { GL.GetTexParameter(TextureTarget.Texture2D, parameter, out int result); return result; }
                 var levels = new List<object>();
                 for (int level = 0; level < 12; level++)
@@ -41,8 +41,8 @@ internal static class ReplayGpuReadbackDiagnostics
                     levels.Add(new { level, width, height, sha256 = Convert.ToHexString(SHA256.HashData(bytes)) });
                 }
                 textures[key] = new { binding = id,
-                    min = Parameter(TextureParameterName.TextureMinFilter), mag = Parameter(TextureParameterName.TextureMagFilter),
-                    wrapS = Parameter(TextureParameterName.TextureWrapS), wrapT = Parameter(TextureParameterName.TextureWrapT), levels };
+                    min = Parameter(GetTextureParameter.TextureMinFilter), mag = Parameter(GetTextureParameter.TextureMagFilter),
+                    wrapS = Parameter(GetTextureParameter.TextureWrapS), wrapT = Parameter(GetTextureParameter.TextureWrapT), levels };
             }
         }
         finally
