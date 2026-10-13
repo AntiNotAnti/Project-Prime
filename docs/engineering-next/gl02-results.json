@@ -36,7 +36,8 @@
           0
         ],
         "managedBytes": 222486720,
-        "workingSetBytes": 384696320
+        "workingSetBytes": 384696320,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 5.658
       },
       {
         "index": 1,
@@ -64,7 +65,8 @@
           0
         ],
         "managedBytes": 218157584,
-        "workingSetBytes": 534609920
+        "workingSetBytes": 534609920,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 10.3071
       },
       {
         "index": 2,
@@ -92,7 +94,8 @@
           0
         ],
         "managedBytes": 220696608,
-        "workingSetBytes": 530956288
+        "workingSetBytes": 530956288,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 8.9914
       },
       {
         "index": 3,
@@ -120,7 +123,8 @@
           0
         ],
         "managedBytes": 225621360,
-        "workingSetBytes": 532692992
+        "workingSetBytes": 532692992,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 8.2627
       },
       {
         "index": 4,
@@ -148,7 +152,8 @@
           0
         ],
         "managedBytes": 222479784,
-        "workingSetBytes": 535396352
+        "workingSetBytes": 535396352,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 8.1302
       },
       {
         "index": 5,
@@ -176,7 +181,8 @@
           0
         ],
         "managedBytes": 220778704,
-        "workingSetBytes": 533544960
+        "workingSetBytes": 533544960,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 6.8198
       },
       {
         "index": 6,
@@ -204,7 +210,8 @@
           0
         ],
         "managedBytes": 217961232,
-        "workingSetBytes": 534691840
+        "workingSetBytes": 534691840,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 9.3245
       },
       {
         "index": 7,
@@ -232,7 +239,8 @@
           0
         ],
         "managedBytes": 218545192,
-        "workingSetBytes": 540655616
+        "workingSetBytes": 540655616,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 6.645900000000001
       },
       {
         "index": 8,
@@ -260,7 +268,8 @@
           0
         ],
         "managedBytes": 225243720,
-        "workingSetBytes": 534102016
+        "workingSetBytes": 534102016,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 7.0084
       },
       {
         "index": 9,
@@ -288,7 +297,8 @@
           0
         ],
         "managedBytes": 219700408,
-        "workingSetBytes": 530726912
+        "workingSetBytes": 530726912,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 11.8534
       },
       {
         "index": 10,
@@ -316,7 +326,8 @@
           0
         ],
         "managedBytes": 219313176,
-        "workingSetBytes": 533512192
+        "workingSetBytes": 533512192,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 7.8289
       }
     ],
     "medianPerRun": {
@@ -332,7 +343,8 @@
         "stalls": 0,
         "allocatedBytes": 106181856,
         "managedBytes": 220778704,
-        "workingSetBytes": 533544960
+        "workingSetBytes": 533544960,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 7.8289
       },
       "1": {
         "frameIntervalP50Ms": 2.1414,
@@ -346,7 +358,8 @@
         "stalls": 0,
         "allocatedBytes": 105872280,
         "managedBytes": 219700408,
-        "workingSetBytes": 534609920
+        "workingSetBytes": 534609920,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 8.9914
       }
     },
     "candidatePercentChange": {
@@ -362,7 +375,6 @@
       "sourceSha256": "ae489a9c236fc402294003c932f6fd69ea71f5add7c023f40f4abf1a96568cea",
       "context": {
         "assemblyMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
-        "machine": "Jarretts-MacBook-Pro",
         "renderer": "Apple M4 Pro",
         "glVersion": "2.1 Metal - 91.7",
         "room": "MP3 PROVING GROUND",
@@ -630,7 +642,6 @@
       "sourceSha256": "06fe7ad64b5e2017d2e2584530439356a6b8a36b1b1ac70878c91229acc80e2d",
       "context": {
         "assemblyMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
-        "machine": "Jarretts-MacBook-Pro",
         "renderer": "Apple M4 Pro",
         "glVersion": "2.1 Metal - 91.7",
         "room": "MP3 PROVING GROUND",
