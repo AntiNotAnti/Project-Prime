@@ -221,9 +221,9 @@ internal static class MatchSemanticWireChecks
             var source = empty.CaptureCheckpoint().Bytes.ToArray();
             // Empty decoder: fixed header, present match, absent configuration,
             // fixed roster, then eight lifecycle/player/intent blocks.
-            int firstPlayer = 46 + MatchStatePacket.Size + 1 + RosterPacket.Size;
+            int firstPlayer = 47 + MatchStatePacket.Size + 1 + RosterPacket.Size;
             using var historical = new MemoryStream();
-            historical.Write(source.AsSpan(0, firstPlayer));
+            historical.Write(source.AsSpan(0, 7)); historical.Write(source.AsSpan(8, firstPlayer - 8));
             int at = firstPlayer;
             for (int slot = 0; slot < RosterPacket.MaxSlots; slot++)
             {
@@ -231,7 +231,7 @@ internal static class MatchSemanticWireChecks
                 at += 7 + PlayerState.Size;
                 historical.Write(source.AsSpan(at, 1)); at++;
                 historical.Write(source.AsSpan(at, intentSize));
-                // Source checkpoint is protocol 53, with the native touch
+                // Source checkpoint explicitly declares the native touch
                 // tail in every canonical intent. Historical schemas wrote
                 // fewer bytes, but the source cursor still skips the full
                 // current stride to keep later slots and semantic facts aligned.
