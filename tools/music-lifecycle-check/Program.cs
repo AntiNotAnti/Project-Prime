@@ -48,6 +48,8 @@ static class Program
         Require(MusicPlayer.Available, "Native MiniAudio playback device unavailable");
         var owner = (MusicLoadOwner)typeof(MusicPlayer).GetField("_loads", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
         var device = MusicPlayer.PlaybackDevice!;
+        int renderedCallbacks = 0;
+        MusicPlayer.Engine!.AudioFramesRendered += (_, _) => Interlocked.Increment(ref renderedCallbacks);
         using var cueProvider = new RawDataProvider(new float[128], 32728);
         using var cue = new SoundPlayer(MusicPlayer.Engine!, MusicPlayer.Format, cueProvider);
         device.MasterMixer.AddComponent(cue);
@@ -67,7 +69,10 @@ static class Program
                     if (track != null && (tracks & (1 << trackId)) == 0)
                         Require(track.Mute && track.Volume == 0, "Native initial track mask changed");
                 }
-                MusicPlayer.Play(.4f); Thread.Sleep(20);
+                int callbacksBefore = Volatile.Read(ref renderedCallbacks);
+                MusicPlayer.Play(.4f);
+                Require(SpinWait.SpinUntil(() => Volatile.Read(ref renderedCallbacks) > callbacksBefore && graph.Stream.Position > 0,
+                    TimeSpan.FromSeconds(5)), "Native callback did not consume the published NCSF stream");
                 Require(MusicPlayer.State == PlaybackState.Playing, "Native playback did not start");
                 MusicPlayer.Tempo = 300; MusicPlayer.Volume = .3f;
                 Require(MusicPlayer.Tempo == 300 && MusicPlayer.Volume == .3f, "Native tempo/volume controls changed");
