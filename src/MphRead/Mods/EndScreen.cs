@@ -6,29 +6,8 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace MphRead.Mods
 {
-    /// <summary>
-    /// Who to come back as, asked at the one moment there is nothing else to
-    /// do: the results screen.
-    ///
-    /// The question used to live in the pause menu, two rows down a list of
-    /// eight, and it was the wrong place for it in every way that matters.
-    /// Opening the pause menu mid-match is a thing you do instead of playing,
-    /// so the one screen where changing hunter is free was the one screen that
-    /// never offered it -- and a drop-down row reading "Respawn as: SYLUX" is
-    /// a settings control, not a choice anybody makes in the eight seconds
-    /// between two maps. So both rows are gone from there, and the question is
-    /// asked here instead, over the results, with the hunter's own portrait
-    /// and an arrow either side of it.
-    ///
-    /// The answer is <see cref="RespawnChoice"/>'s, unchanged: it is cashed in
-    /// at the next spawn, which after a match is the first spawn on the next
-    /// map. Nothing here applies anything itself.
-    ///
-    /// <para>
-    /// Only for a player. A demo has nobody to ask, a spectator has no player
-    /// to change, and the adventure is one hunter's story.
-    /// </para>
-    /// </summary>
+    /// <summary>Owns results input and map ballot presentation. Hunter/suit choices
+    /// remain in lobby/settings and are applied by RespawnChoice at the next spawn.</summary>
     public static class EndScreen
     {
         /// <summary>
@@ -274,22 +253,8 @@ namespace MphRead.Mods
             }
         }
 
-        /// <summary>Which suit swatch the pointer is over, or -1.</summary>
-        public static int HoveredSuit()
-        {
-            if (!CharacterChangeEnabled || !Available)
-            {
-                return -1;
-            }
-            for (int i = 0; i < _hitSuits.Length; i++)
-            {
-                if (_hitSuits[i].Contains(PointerX, PointerY))
-                {
-                    return i;
-                }
-            }
-            return -1;
-        }
+        /// <summary>Retained rendering adapter; the post-match picker is disabled.</summary>
+        public static int HoveredSuit() => -1;
 
         public static bool HoveredPrev => CharacterChangeEnabled && Available
             && _hitPrev.Contains(PointerX, PointerY);
@@ -314,29 +279,8 @@ namespace MphRead.Mods
             {
                 return false;
             }
-            if (CharacterChangeEnabled)
-            {
-                if (_hitPrev.Contains(PointerX, PointerY))
-                {
-                    Step(-1, 0);
-                    return true;
-                }
-                if (_hitNext.Contains(PointerX, PointerY))
-                {
-                    Step(1, 0);
-                    return true;
-                }
-                for (int i = 0; i < _hitSuits.Length; i++)
-                {
-                    if (_hitSuits[i].Contains(PointerX, PointerY))
-                    {
-                        Choose(Hunter, i);
-                        return true;
-                    }
-                }
-            }
-            // The ballot under the picker. Last only because it is the
-            // cheapest test to reach; the two layouts do not overlap.
+
+            // The results ballot retains its actual layout and selection owner.
             return MapPick.HandleClick();
         }
 
@@ -358,18 +302,7 @@ namespace MphRead.Mods
             switch (key)
             {
                 case Keys.Left:
-                    if (CharacterChangeEnabled)
-                    {
-                        Step(-1, 0);
-                        return true;
-                    }
-                    return false;
                 case Keys.Right:
-                    if (CharacterChangeEnabled)
-                    {
-                        Step(1, 0);
-                        return true;
-                    }
                     return false;
                 case Keys.Up:
                     StepList(-1);
@@ -403,10 +336,7 @@ namespace MphRead.Mods
                 switch (action)
                 {
                     case Input.UiAction.Left:
-                        if (CharacterChangeEnabled) Step(-1, 0);
-                        break;
                     case Input.UiAction.Right:
-                        if (CharacterChangeEnabled) Step(1, 0);
                         break;
                     case Input.UiAction.Up: StepList(-1); break;
                     case Input.UiAction.Down: StepList(1); break;
@@ -426,26 +356,7 @@ namespace MphRead.Mods
                 Environment.TickCount64);
         }
 
-        /// <summary>
-        /// Move the choice and keep it.
-        ///
-        /// Written to <c>launcher.txt</c> on every press rather than on the
-        /// way out, for the reason the pause menu did the same: a results
-        /// screen is somewhere people alt-F4 from, and a choice made and lost
-        /// is worse than no choice at all. It is a handful of writes across a
-        /// ten-second screen, which is nothing next to what the match itself
-        /// was doing a second ago.
-        /// </summary>
-        /// <summary>
-        /// Up and down: the map ballot while there is one, and the suit
-        /// otherwise.
-        ///
-        /// The ballot wins the arrows because a list is what they are for and
-        /// because the suit already has a better answer -- all four swatches
-        /// are on screen and are clicked directly, which is why they were laid
-        /// out that way rather than stepped through. The arrows were a bonus
-        /// there and are the only way to move a list.
-        /// </summary>
+        /// <summary>Up and down move the active map ballot.</summary>
         private static void StepList(int by)
         {
             if (MapPick.Available)
@@ -453,57 +364,6 @@ namespace MphRead.Mods
                 MapPick.Step(by);
                 return;
             }
-            if (CharacterChangeEnabled)
-            {
-                Step(0, by);
-            }
-        }
-
-        private static void Step(int hunterBy, int suitBy)
-        {
-            if (!CharacterChangeEnabled)
-            {
-                return;
-            }
-            int hunter = (int)Multiplayer.HunterRules.Resolve(Hunter, GameState.LowTier);
-            if (hunterBy != 0)
-            {
-                do { hunter = ((hunter + hunterBy) % Hunters.Playable + Hunters.Playable) % Hunters.Playable; }
-                while (!Multiplayer.HunterRules.Allowed((Hunter)hunter, GameState.LowTier));
-            }
-            int suit = Suit;
-            if (suitBy != 0)
-            {
-                suit = ((suit + suitBy) % PlayerColors.Count + PlayerColors.Count)
-                    % PlayerColors.Count;
-            }
-            Choose((Hunter)hunter, suit);
-        }
-
-        /// <summary>
-        /// Set both, from a screen that offers them as rows rather than as
-        /// arrows and swatches.
-        ///
-        /// The deck panel over the results asks the question with a stepper
-        /// and a turntable, which is the same question this screen has always
-        /// asked; what it does not have is the HUD's own hit rectangles, so it
-        /// needs a way in that is not "pretend the player clicked a swatch".
-        /// </summary>
-        public static void Pick(Hunter hunter, int suit)
-        {
-            if (CharacterChangeEnabled)
-            {
-                Choose(hunter, suit);
-            }
-        }
-
-        private static void Choose(Hunter hunter, int suit)
-        {
-            hunter = Multiplayer.HunterRules.Resolve(hunter, GameState.LowTier);
-            RespawnChoice.Request(hunter, suit);
-            LauncherPrefs.LastHunter = hunter;
-            LauncherPrefs.LastColor = suit;
-            LauncherPrefs.Save();
         }
     }
 }
