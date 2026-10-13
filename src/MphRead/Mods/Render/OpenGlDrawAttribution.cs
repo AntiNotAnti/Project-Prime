@@ -137,7 +137,7 @@ internal static class OpenGlDrawAttribution
         }
         return new { frames = s?.Frames ?? 0, averageImmediateDraws = total / (double)Math.Max(1, s?.Frames ?? 0),
             averageImmediateDrawsByPassAndOwner = passes, cpuByOwner = owners,
-            limits = "CPU scopes are inclusive and not additive; scopes include driver wall time; mesh ownership is metadata, not an immutable geometry proof. CPU samples include only frames containing that owner. Immediate bins exclude compiled-list commands and partition the existing executed ImmediateDraws counter." };
+            limits = "CPU scopes are inclusive and not additive; scopes include driver wall time; mesh ownership is metadata, not an immutable geometry proof. Owner CPU scopes cover RenderItem setup/geometry entries only; direct HUD/fullscreen helpers and combined room batches remain in parent pass scopes. CPU samples include only frames with those entries. Immediate bins exclude compiled-list commands and partition the existing executed ImmediateDraws counter." };
     }
 
     internal static int Check()
