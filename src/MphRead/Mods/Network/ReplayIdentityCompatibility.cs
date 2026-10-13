@@ -29,7 +29,10 @@ internal static class ReplayIdentityCompatibility
         if (converted.IsEmpty) return converted;
 
         PacketType type = (PacketType)converted[0];
-        if (protocol < 54 && type is PacketType.TimedGrant or PacketType.PickupPrediction or PacketType.TimedGrantBootstrap) return ReadOnlySpan<byte>.Empty;
+        // Staged A3 used 54. Reconciled A2 uses 55 without grant presentation;
+        // the combined touch/pickup/grant contract begins at 56.
+        bool hasGrantPresentation = protocol == 54 || protocol >= 56;
+        if (!hasGrantPresentation && type is PacketType.TimedGrant or PacketType.PickupPrediction or PacketType.TimedGrantBootstrap) return ReadOnlySpan<byte>.Empty;
         if (protocol < 53 && type is PacketType.PickupClaim or PacketType.PickupVerdict or PacketType.PickupItem) return ReadOnlySpan<byte>.Empty;
         if (protocol < 52 && type == PacketType.TurretFireOutcome) return ReadOnlySpan<byte>.Empty;
         if (protocol < 48 && type is PacketType.BombState or PacketType.BombEvent) return ReadOnlySpan<byte>.Empty;

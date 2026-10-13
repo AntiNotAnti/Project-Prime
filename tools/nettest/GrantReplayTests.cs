@@ -178,10 +178,8 @@ internal static class GrantReplayTests
         var historical = State(); historical.Accept(Packet(grant), 121);
         Check(historical.PickupVerdicts[claim.Key] == grant && !historical.TimedGrants.HasCoverage,
             "protocol53 terminal evidence alone retains historical presentation semantics");
-        var empty = State().CaptureCheckpoint().Bytes.ToArray();
-        // v11 adds length4 plus the canonical empty presentation83 bytes.
-        byte[] ten = empty.AsSpan(0, empty.Length - 87).ToArray();
-        BinaryPrimitives.WriteUInt16LittleEndian(ten.AsSpan(4), 10); ten[6] = 53;
+        byte[] ten = ReplicaCheckpointCompatibilityTests.HistoricalFixture(State().CaptureCheckpoint(),
+            touch: false, pickups: true, version: 10, protocol: 53);
         var restored = State(); restored.RestoreCheckpoint(new ReplayReplicaCheckpoint(ten));
         Check(!restored.TimedGrants.HasCoverage && restored.TimedGrants.PendingCount == 0,
             "v10 checkpoint has unknown A3 coverage and no invented predictions");
@@ -191,6 +189,10 @@ internal static class GrantReplayTests
         recorder.Accepted += record => prediction = record.Payload.ToArray(); recorder.AcceptPickupPrediction(claim, 100, 100);
         Check(ReplayIdentityCompatibility.Convert(prediction, 53).IsEmpty
             && ReplayIdentityCompatibility.Convert(prediction, 54).SequenceEqual(prediction), "prediction protocol gate preserves native54 bytes");
+        foreach (byte[] packet in new[] { Packet(Fact(claim)), prediction })
+            Check(ReplayIdentityCompatibility.Convert(packet, 55).IsEmpty
+                && ReplayIdentityCompatibility.Convert(packet, 56).SequenceEqual(packet),
+                "reconciled A2 keeps unknown grant coverage; combined A3 retains canonical bytes");
         recorder.Reset();
     }
     private static void DiscoveryRoomFence()
