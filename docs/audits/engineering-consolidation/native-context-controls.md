@@ -159,6 +159,61 @@ with no production GC policy change. Declining RSS in this run is also affected
 by paging and is not a global boundedness conclusion. Managed assets/cache roots
 outside observed owners remain separately attributable work.
 
+## Reproduced high-LOH roots
+
+One further controlled audio60 attempt reproduced the previously missing high
+managed state. It reused immutable harness
+`0be05bd547efffbba64afae93646fc427733b1bc21cc3f822d1b37fa28aeb5b1` and unchanged
+candidate client `86f075e7`, with the earlier NoInlining probe, first/second GC,
+120 loads of 120 SFX updates, and 120 one-second quiescent observations. No
+malloc stack logging was enabled. A temporary observer used already-cached
+DiagnosticsClient/TraceEvent libraries and requested GCHeapStats events without
+requesting GC; a separate managed-only 8 MiB target validated its LOH readings.
+
+After the fixture's final drain, the live observer reported LOH 403,048,464 bytes
+(384.377 MiB), above the predeclared 350 MiB threshold. Exactly one conditional
+gcdump succeeded in 1.13 seconds and one live VM capture succeeded. The receipt
+marks the extra Gen2 collection induced by gcdump. LOH stayed 403,048,464 bytes
+before and after that extra collection, including the final fixture sample.
+The one run completed PASS in 145.13 seconds with both binary hashes unchanged.
+No second retry was run.
+
+The captured graph contains 450,425,114 bytes and 1,046,463 objects. Breadth-first
+paths from the graph root account for 403,047,288 bytes in 36 rooted objects of
+at least 85,000 bytes. That differs from observed LOH by 1,176 bytes; the fixture
+reported 1,152 bytes of LOH fragmentation. The remaining 24 bytes are not assigned
+to a fabricated object or owner.
+
+| Captured root population | Object bytes, including headers |
+| --- | ---: |
+| Thread-local shared byte/char array pools | 397,935,048 |
+| Diagnostic weak-observation list backing array | 2,097,176 |
+| Current Scene byte buffers | 294,960 |
+| Eight current registry/player radar arrays | 1,835,200 |
+| Static map-definition arrays | 786,552 |
+| Static integer lookup table | 98,352 |
+| Total rooted objects at least 85,000 bytes | 403,047,288 |
+
+The dominant arrays have actual paths
+`[.NET Roots] → [local vars] → Object[] → Object[] → SharedArrayPoolThreadLocalArray[] → Byte[]/Char[]`.
+Large payloads alone include seven byte arrays totaling 127 MiB and seven char
+arrays totaling 251 MiB; smaller pool arrays and object headers bring their
+captured pool total to 379.500 MiB. This is actual high-state root evidence,
+not an extrapolation from the earlier 63 MiB byte-pool capture or a five-thread
+bucket hypothesis. Other paths explicitly identify diagnostic ownership and
+the current Scene/registry/static map roots. They do not show a chain of earlier
+SFX instances. All 120 SFX instances, candidate owners, bank structures and
+observed nonempty decoded bank payloads were weak-dead. Shared zero-length arrays
+remain alive and account for zero payload bytes.
+
+The tool warns that .NET 10 lacks its non-lossy Block buffering and that gcdump
+may be incomplete on large heaps. The close numerical LOH match is independent
+coverage evidence, not permission to remove that warning or claim a complete
+small-object/root census. Captured paths establish retaining roots; allocation
+callers and subsystem workload contributions have not been established by
+allocation stacks. No pool/GC policy change, leak classification or FPS claim
+follows from this profiling-only attempt.
+
 ## Validation and preserved artifacts
 
 Release builds against candidate client passed with zero warnings/errors;
@@ -177,16 +232,17 @@ Raw evidence is preserved in the managed native-context-controls worktree:
 - `artifacts/context-controls/candidate-120-180-stacks-retry/`: completed context workload, four VM/malloc captures, v1 and v2 origin summaries, manifests and exact per-context fixtures.
 - `artifacts/context-controls/retirement-source-5cycles-v2/`: actual five-cycle map/Studio retirement and bounded shader-source witness, exact output hashes and immutable binary manifest.
 - `artifacts/replay-memory/pilot-2.json` and `candidate-120.json`: actual headless replay results/logs.
+- `artifacts/audio-high-loh/one-candidate-60/`: the single reproduced high-state run, live observer source/log/selftest, gcdump and induced-GC receipt, VM capture, graph-reader source, type report and complete captured large-object root paths.
 
 Source markers distinguish the running immutable DLL from later tool/source
 changes. New origin summaries have new filenames; earlier #489/#493 referenced
-artifacts were never overwritten. Current high-LOH 384 MiB root proof remains
-unavailable; the earlier 63 MiB pool-root proof is not extrapolated to it.
+artifacts were never overwritten. The reproduced high-state root accounting now
+closes the earlier missing high-LOH attribution gate within the capture scope.
 
 P0 graphics boundedness/retaining-root classification remains open despite the
 passing physical list/program retirement witness. The next gate is targeted
 driver pipeline-key/retaining-root attribution or a bounded ownership correction
 with a demonstrated repeated-workload plateau. Headless replay ownership passed;
-rendered replay/full Studio UI and high-LOH 384 MiB roots remain open. Any engine
+rendered replay/full Studio UI, pool allocation callers and hardware gates remain open. Any engine
 lifetime/cache or GC policy change requires its own attributable evidence and
 matched parity/measurement controls.
