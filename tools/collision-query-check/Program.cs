@@ -42,6 +42,14 @@ if (args.Length >= 2 && args[0] == "--replay-integration")
 // --baseline records the observed lifetime hazard without requiring it to pass.
 bool baseline = args.Contains("--baseline");
 CollisionDetection.Init();
+if (args.Contains("--large-allocation-only"))
+{
+    bool requireZero = !baseline && !args.Contains("--characterize");
+    MeasureLargeQuery(requireZero);
+    MeasureLargeQuery(requireZero, candidateCount: 8192);
+    if (!baseline && !args.Contains("--characterize")) CheckOversizedQuery();
+    return;
+}
 var a = MakeScene("A", Vector3.Zero);
 var b = MakeScene("B", new Vector3(20, 3, -8));
 if (!args.Contains("--benchmark-only"))
@@ -285,22 +293,9 @@ if (!baseline)
     }
     Console.WriteLine("EXCEPTION_RETURNS_WORKSPACE PASS");
 
-    // A valid large room still returns every candidate, then releases its exceptional high-water scratch.
-    var large = MakeScene("large", Vector3.Zero);
-    var face = new CollisionDataEditor { Plane = new Vector4(Vector3.UnitY, 0), LayerMask = 5 };
-    face.Points.AddRange(new[] { Vector3.Zero, new Vector3(0,0,256), new Vector3(256,0,256), new Vector3(256,0,0) });
-    byte[] largeBytes = MapCollisionPacker.Pack(new[] { face });
-    var info = Collision.ReadMphCollision(Read.ReadStruct<CollisionHeader>(largeBytes), largeBytes, -1);
-    var roomCollisions = (List<CollisionInstance>)large.Room!.RoomCollision;
-    roomCollisions.Clear(); roomCollisions.Add(new CollisionInstance("large", info, false));
-    int cachedBefore = pool.Count;
-    var largeLease = CollisionDetection.GetCandidatesForLimits(null, Vector3.Zero, 0,
-        new Vector3(-1), new Vector3(257, 1, 257), false, large);
-    int largeCount = largeLease.Count;
-    if (largeCount <= 2048) throw new Exception("Large-room fixture does not exceed retained scratch budget.");
-    ((IDisposable)largeLease).Dispose();
-    if (pool.Count != cachedBefore - 1) throw new Exception("Oversized scratch returned to the retained pool.");
-    Console.WriteLine($"OVERSIZED_QUERY candidates={largeCount} poolBefore={cachedBefore} poolAfter={pool.Count}");
+    MeasureLargeQuery(requireZero: true);
+    MeasureLargeQuery(requireZero: true, candidateCount: 8192);
+    CheckOversizedQuery();
 }
 
 }
@@ -337,6 +332,8 @@ allocation = GC.GetAllocatedBytesForCurrentThread() - beforeAllocation;
 Console.WriteLine($"BORROWED_WARM_ALLOCATION bytes={allocation} borrows=10000 checks=10000");
 if (!baseline && allocation != 0) throw new Exception("Warmed borrowed collision queries allocate.");
 
+if (args.Contains("--benchmark-only"))
+{
 var samples = new double[9];
 for (int run = 0; run < samples.Length; run++)
 {
@@ -345,6 +342,90 @@ for (int run = 0; run < samples.Length; run++)
     samples[run] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
 }
 Console.WriteLine("QUERY_TIMING batchesMs=" + string.Join(",", samples.Select(ms => ms.ToString("F3", System.Globalization.CultureInfo.InvariantCulture))));
+}
+
+static void MeasureLargeQuery(bool requireZero, int candidateCount = 4225)
+{
+    var large = MakeLargeScene(candidateCount);
+    const int measuredQueries = 100;
+    int count = 0;
+    void Query()
+    {
+        using var lease = Own(CollisionDetection.GetCandidatesForLimits(null, Vector3.Zero, 0,
+            new Vector3(-1), new Vector3(1025, 1, 1025), false, large));
+        count = lease.Items.Count;
+        if (count != candidateCount) throw new Exception("Large query candidates were truncated.");
+    }
+    for (int i = 0; i < 20; i++) Query();
+    long before = GC.GetAllocatedBytesForCurrentThread();
+    for (int i = 0; i < measuredQueries; i++) Query();
+    long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+    Console.WriteLine($"LARGE_WARM_ALLOCATION candidates={count} queries={measuredQueries} bytes={bytes}");
+    var workspaceType = typeof(CollisionDetection).Assembly.GetType("MphRead.Formats.CollisionQueryWorkspace");
+    if (workspaceType != null)
+    {
+        var pool = (System.Collections.ICollection)workspaceType.GetField("_available", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+        int cap = (int)workspaceType.GetField("MaxRetainedCandidates", BindingFlags.Static | BindingFlags.NonPublic)!.GetRawConstantValue()!;
+        int retainedCandidates = 0, candidateCapacity = 0, pendingCapacity = 0, inactiveCapacity = 0;
+        foreach (object workspace in pool)
+        {
+            var items = (List<CollisionCandidate>)workspaceType.GetProperty("Items", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(workspace)!;
+            var pending = (Stack<CollisionCandidate>)workspaceType.GetProperty("PendingItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(workspace)!;
+            var inactive = (Queue<CollisionCandidate>)workspaceType.GetField("_inactiveItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(workspace)!;
+            candidateCapacity += items.Capacity;
+            pendingCapacity += pending.EnsureCapacity(0);
+            inactiveCapacity += inactive.EnsureCapacity(0);
+            retainedCandidates += inactive.Count;
+            if (inactive.Any(c => c.Collision != null || c.EntityCollision != null))
+                throw new Exception("Large cached candidates retain their previous scene.");
+            if (items.Capacity > cap || pending.EnsureCapacity(0) > cap || inactive.EnsureCapacity(0) > cap)
+                throw new Exception("Large query exceeds a retained collection capacity budget.");
+        }
+        Console.WriteLine($"LARGE_RETAINED_POOL workspaces={pool.Count} candidateCap={cap} objects={retainedCandidates} itemCapacity={candidateCapacity} pendingCapacity={pendingCapacity} inactiveCapacity={inactiveCapacity} maximumObjects={8 * cap}");
+        if (pool.Count > 8 || retainedCandidates > 8 * cap) throw new Exception("Retained large scratch is unbounded.");
+    }
+    if (requireZero && bytes != 0) throw new Exception("Repeated warmed large queries allocate.");
+}
+
+static void CheckOversizedQuery()
+{
+    var large = MakeLargeScene(candidateCount: 8193);
+    var workspaceType = typeof(CollisionDetection).Assembly.GetType("MphRead.Formats.CollisionQueryWorkspace")!;
+    var pool = (System.Collections.ICollection)workspaceType.GetField("_available", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+    int cachedBefore = pool.Count;
+    var lease = CollisionDetection.GetCandidatesForLimits(null, Vector3.Zero, 0,
+        new Vector3(-1), new Vector3(1025, 1, 1025), false, large);
+    int count = lease.Count;
+    CollisionCandidate first = lease[0];
+    if (count != 8193) throw new Exception("Oversized query candidates were truncated.");
+    ((IDisposable)lease).Dispose();
+    if (pool.Count != cachedBefore - 1) throw new Exception("Oversized scratch returned to the retained pool.");
+    if (first.Collision != null || first.EntityCollision != null)
+        throw new Exception("Discarded oversized candidates retain their scene.");
+    Console.WriteLine($"OVERSIZED_QUERY candidates={count} poolBefore={cachedBefore} poolAfter={pool.Count} sceneReferencesCleared=true");
+}
+
+static Scene MakeLargeScene(int candidateCount = 4225)
+{
+    var large = MakeScene("large", Vector3.Zero);
+    var face = new CollisionDataEditor { Plane = new Vector4(Vector3.UnitY, 0), LayerMask = 5 };
+    int x = candidateCount == 4225 ? 256 : 508;
+    int z = candidateCount == 4225 ? 256 : 252;
+    face.Points.AddRange(new[] { Vector3.Zero, new Vector3(0,0,z), new Vector3(x,0,z), new Vector3(x,0,0) });
+    byte[] bytes = MapCollisionPacker.Pack(new[] { face });
+    var info = Collision.ReadMphCollision(Read.ReadStruct<CollisionHeader>(bytes), bytes, -1);
+    var roomCollisions = (List<CollisionInstance>)large.Room!.RoomCollision;
+    roomCollisions.Clear(); roomCollisions.Add(new CollisionInstance("large", info, false));
+    if (candidateCount == 8193)
+    {
+        var extra = new CollisionDataEditor { Plane = new Vector4(Vector3.UnitY, 0), LayerMask = 5 };
+        extra.Points.AddRange(new[] { Vector3.Zero, new Vector3(0,0,1), new Vector3(1,0,1), new Vector3(1,0,0) });
+        byte[] extraBytes = MapCollisionPacker.Pack(new[] { extra });
+        var extraInfo = Collision.ReadMphCollision(Read.ReadStruct<CollisionHeader>(extraBytes), extraBytes, -1);
+        roomCollisions.Add(new CollisionInstance("large-plus-one", extraInfo, false));
+    }
+    return large;
+}
 
 static Owner Own(IReadOnlyList<CollisionCandidate> items) => new(items);
 static string CandidateSignature(IReadOnlyList<CollisionCandidate> items) => string.Join(";", items.Select(c =>

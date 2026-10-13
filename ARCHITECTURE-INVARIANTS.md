@@ -259,9 +259,11 @@ This file is the short, machine-oriented source of truth for architectural assum
   escape disposal or cross the borrowing thread.
 - Nested calls borrow separate candidate and face-deduplication scratch. Independent
   scenes can query concurrently; mutating the same scene concurrently remains unsupported.
-- Thread-local reuse retains at most eight workspaces, each with at most 2,048
+- Thread-local reuse retains at most eight workspaces, each with at most 8,192
   candidate objects and 16,384 face-set capacity. Oversized queries return all
-  candidates and discard exceptional scratch on disposal. Return clears room/entity
+  candidates and discard exceptional scratch on disposal. Zero allocation after
+  warmup is verified for tested queries within these reuse budgets; larger valid
+  queries can allocate. Return clears room/entity
   references. `CollisionDetection.Init()` is a compatibility no-op.
 - Preserve room-then-entity reverse traversal, face order, strict distance tie-breaks
   and collision floating-point evaluation order. This refactor does not change
