@@ -87,7 +87,7 @@ internal static class CompactIntentReplayTests
                 Flags = PlayerState.FlagActive | PlayerState.FlagSpawned }.Write(snapshot.AsSpan(1 + SnapshotHeader.Size));
             BinaryPrimitives.WriteUInt16LittleEndian(snapshot.AsSpan(healthOffset), 7);
             replicaAccept(snapshot, 1);
-            byte[] carrierBytes = new byte[2 + IntentPacket.FullSize]; carrierBytes[0] = (byte)PacketType.SlotIntent;
+            byte[] carrierBytes = new byte[2 + IntentPacket.TouchCanonicalSize]; carrierBytes[0] = (byte)PacketType.SlotIntent;
             newer.Write(carrierBytes.AsSpan(2)); replicaAccept(carrierBytes, 102);
             long acceptedBefore = (long)replicaType.GetProperty("AcceptedPackets", All)!.GetValue(replica)!;
             older.Write(carrierBytes.AsSpan(2)); replicaAccept(carrierBytes, 104);
