@@ -99,7 +99,7 @@ and cannot substitute for unprofiled measurements.
 | OpenGL-only guard / whitespace | PASS | Existing guard and `git diff --check` |
 | Native profiler attribution | PASS | Five 25-second pilots; complete source partitions, explicit four-window warmup; GPU timers UNVERIFIED |
 | Real color/depth/shadow/occlusion parity matrix | PASS | Six matched cross-build pairs: solo, one-bot/outline, eight-player Off/Low/High/Ultra |
-| Quiet-host unprofiled A/B performance | NOT_RUN | No optimization hypothesis supported yet |
+| Matched unprofiled disabled-seam A/B | PASS with ambient limitation | Five per arm, reversed order; agent builds idle, user game running; no quiet-host gain claim |
 | Physical Android and other GPU attribution | NOT_RUN | Desktop local work only so far |
 
 No GC policy changes are included. Transition collection pause/residency remains
@@ -134,3 +134,16 @@ file matched exactly; Low/High/Ultra shadow-depth witnesses matched as present.
 The MP9 one-bot Red-outline witness hid all outline pixels behind near depth
 (0) and exposed 2154 pixels with far depth in both builds. Readback measurements
 are not FPS evidence. Physical Android and other GPU families remain NOT_RUN.
+
+## Matched disabled-seam controls
+
+Ten unprofiled 24-second Original-preset/eight-player/High-shadow runs completed
+in reversed arm order with identical fixture and fixed 60 Hz simulation. Each
+arm has five valid runs; there were no stalls, dropped simulation steps or GL
+cleanup failures. Median FPS was 301.43 baseline versus 300.76 attribution
+(-0.22%); median per-run completed-frame p99 was 6.550 versus 6.623 ms (+1.11%).
+These are conditional ambient results with all agent builds idle. The untouched
+user-owned game remained running; safe process CPU/RSS/state and VM receipts
+are hashed for each run. They do not prove global quiet-host improvement or a
+GPU bottleneck. The separate overhead receipt includes all individual outcomes,
+MVIDs, binary and result hashes, p99.9-derived estimates and ambient conditions.
