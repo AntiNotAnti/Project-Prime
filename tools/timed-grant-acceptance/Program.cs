@@ -422,7 +422,7 @@ internal sealed class AcceptanceWindow : RenderWindow
         try
         {
             Reflection.Call(_owner, "ModForceForm", true); Reflection.Call(_victim, "ModForceForm", false);
-            _victim.Health = 399;
+            _victim.Health = _victim.HealthMax;
             Reflection.Set(_victim, "_damageInvulnTimer", 0);
             Reflection.Set(_victim, "_spawnInvulnTimer", 0);
             Reflection.Call(_victim, "ModSetSpawnProtectionFromAuthority", false);
