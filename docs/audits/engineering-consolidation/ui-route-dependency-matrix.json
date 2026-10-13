@@ -1,0 +1,1334 @@
+{
+  "schemaVersion": 1,
+  "capturedAtUtc": "2026-10-13T06:43:49.400906+00:00",
+  "baselineSource": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "rmluiPR": {
+    "url": "https://github.com/AntiNotAnti/Project-Prime/pull/424",
+    "title": "Add RmlUi version badge, notification center and update progress",
+    "state": "OPEN",
+    "isDraft": true,
+    "headRefOid": "38f09b0e77497d2de3c94985f42c2adbfc954b1b",
+    "headRefName": "feature/rmlui-update-notifications-center-20261009",
+    "baseRefName": "main",
+    "mergeable": "CONFLICTING",
+    "mergeStateStatus": "DIRTY"
+  },
+  "rmluiChecks": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:23Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720033",
+      "name": "engineering-contracts / contracts",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:57:08Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256039",
+      "name": "engineering-contracts / contracts",
+      "startedAt": "2026-10-09T11:49:19Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:46:30Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925786911/job/113804288429",
+      "name": "cancel superseded build runs",
+      "startedAt": "2026-10-09T11:46:25Z",
+      "status": "COMPLETED",
+      "workflowName": "cancel stale builds"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970096/job/113804865918",
+      "name": "content-free",
+      "startedAt": "2026-10-09T11:48:09Z",
+      "status": "COMPLETED",
+      "workflowName": "semantic event foundation"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:13Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720047",
+      "name": "no game assets",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:49:46Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805255972",
+      "name": "no game assets",
+      "startedAt": "2026-10-09T11:49:19Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:23Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720290",
+      "name": "dedicated server compile gate",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:50:46Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805255896",
+      "name": "dedicated server compile gate",
+      "startedAt": "2026-10-09T11:49:19Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:24Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720054",
+      "name": "HD character model contract",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:52:26Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256049",
+      "name": "HD character model contract",
+      "startedAt": "2026-10-09T11:49:20Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:49:13Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720084",
+      "name": "content-free fidelity oracle (F0/F1)",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:52:29Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256300",
+      "name": "content-free fidelity oracle (F0/F1)",
+      "startedAt": "2026-10-09T11:49:20Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:14Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720147",
+      "name": "patched native win-x64",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:54:41Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805255940",
+      "name": "patched native win-x64",
+      "startedAt": "2026-10-09T11:49:19Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720045",
+      "name": "patched native linux-x64",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:50:52Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256002",
+      "name": "patched native linux-x64",
+      "startedAt": "2026-10-09T11:49:19Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:49:30Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805255916",
+      "name": "Android frame pacing and governor policy",
+      "startedAt": "2026-10-09T11:49:19Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:47:58Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720085",
+      "name": "Android frame pacing and governor policy",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:12Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720165",
+      "name": "RmlUi home POC macOS osx-arm64 compile gate",
+      "startedAt": "2026-10-09T11:47:50Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:54:52Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256006",
+      "name": "RmlUi home POC macOS osx-arm64 compile gate",
+      "startedAt": "2026-10-09T11:49:25Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:07Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720116",
+      "name": "RmlUi home POC macOS osx-x64 compile gate",
+      "startedAt": "2026-10-09T11:47:40Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:58:50Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805255748",
+      "name": "RmlUi home POC macOS osx-x64 compile gate",
+      "startedAt": "2026-10-09T11:49:21Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:52:44Z",
+      "conclusion": "FAILURE",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256040",
+      "name": "RmlUi without a desktop OpenGL dependency (win-x64)",
+      "startedAt": "2026-10-09T11:49:20Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:20Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720133",
+      "name": "RmlUi without a desktop OpenGL dependency (win-x64)",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:51:22Z",
+      "conclusion": "FAILURE",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256131",
+      "name": "RmlUi without a desktop OpenGL dependency (linux-x64)",
+      "startedAt": "2026-10-09T11:49:19Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:23Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720283",
+      "name": "RmlUi without a desktop OpenGL dependency (linux-x64)",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:52:15Z",
+      "conclusion": "FAILURE",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805255994",
+      "name": "RmlUi without a desktop OpenGL dependency (osx-arm64)",
+      "startedAt": "2026-10-09T11:49:25Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:11Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720164",
+      "name": "RmlUi without a desktop OpenGL dependency (osx-arm64)",
+      "startedAt": "2026-10-09T11:47:50Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:01:56Z",
+      "conclusion": "FAILURE",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256092",
+      "name": "RmlUi without a desktop OpenGL dependency (osx-x64)",
+      "startedAt": "2026-10-09T11:54:55Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:12Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804719848",
+      "name": "RmlUi without a desktop OpenGL dependency (osx-x64)",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720167",
+      "name": "RmlUi Android android-arm64 NDK compile gate",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:51:52Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805255885",
+      "name": "RmlUi Android android-arm64 NDK compile gate",
+      "startedAt": "2026-10-09T11:49:19Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720139",
+      "name": "RmlUi Android android-x64 NDK compile gate",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:51:52Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256032",
+      "name": "RmlUi Android android-x64 NDK compile gate",
+      "startedAt": "2026-10-09T11:49:20Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:49:43Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256118",
+      "name": "Desktop frame pacing policy",
+      "startedAt": "2026-10-09T11:49:20Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:47:58Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720027",
+      "name": "Desktop frame pacing policy",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:49:12Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720489",
+      "name": "renderer state, lifecycle and low-latency policy",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:51:45Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805255945",
+      "name": "renderer state, lifecycle and low-latency policy",
+      "startedAt": "2026-10-09T11:49:19Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720123",
+      "name": "modern shaders match shared rendering sources",
+      "startedAt": "2026-10-09T11:47:43Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:53:04Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256017",
+      "name": "modern shaders match shared rendering sources",
+      "startedAt": "2026-10-09T11:49:19Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:07Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720327",
+      "name": "modern renderer macOS osx-arm64",
+      "startedAt": "2026-10-09T11:47:40Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:03:39Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256146",
+      "name": "modern renderer macOS osx-arm64",
+      "startedAt": "2026-10-09T11:57:20Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:07Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720212",
+      "name": "modern renderer macOS osx-x64",
+      "startedAt": "2026-10-09T11:47:40Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:59:00Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256013",
+      "name": "modern renderer macOS osx-x64",
+      "startedAt": "2026-10-09T11:49:20Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:14Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720319",
+      "name": "input regressions (windows-latest)",
+      "startedAt": "2026-10-09T11:47:42Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:53:49Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805255969",
+      "name": "input regressions (windows-latest)",
+      "startedAt": "2026-10-09T11:49:20Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:10Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720237",
+      "name": "input regressions (macos-latest)",
+      "startedAt": "2026-10-09T11:47:48Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:57:14Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805256106",
+      "name": "input regressions (macos-latest)",
+      "startedAt": "2026-10-09T11:52:24Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:12Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804720166",
+      "name": "input regressions (macos-15-intel)",
+      "startedAt": "2026-10-09T11:47:43Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:58:03Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805255987",
+      "name": "input regressions (macos-15-intel)",
+      "startedAt": "2026-10-09T11:49:21Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:14Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804906692",
+      "name": "enhanced hunter regressions",
+      "startedAt": "2026-10-09T11:48:14Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:53:33Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805413621",
+      "name": "enhanced hunter regressions",
+      "startedAt": "2026-10-09T11:49:48Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:14Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804906475",
+      "name": "map editor regressions (${{ matrix.os }})",
+      "startedAt": "2026-10-09T11:48:14Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:53:30Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805413791",
+      "name": "map editor regressions (ubuntu-latest)",
+      "startedAt": "2026-10-09T11:49:48Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:54:59Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805413751",
+      "name": "map editor regressions (windows-latest)",
+      "startedAt": "2026-10-09T11:49:48Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:04:18Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805413927",
+      "name": "map editor regressions (macos-latest)",
+      "startedAt": "2026-10-09T11:59:06Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:14Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804907447",
+      "name": "macOS ${{ matrix.rid }}",
+      "startedAt": "2026-10-09T11:48:14Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:14:53Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805413806",
+      "name": "macOS osx-arm64",
+      "startedAt": "2026-10-09T11:58:11Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:24:20Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805413760",
+      "name": "macOS osx-x64",
+      "startedAt": "2026-10-09T11:58:53Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:14Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804907098",
+      "name": "win-x64 dedicated server",
+      "startedAt": "2026-10-09T11:48:14Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:54:22Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113805413627",
+      "name": "win-x64 dedicated server",
+      "startedAt": "2026-10-09T11:49:48Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804955698",
+      "name": "RmlUi home POC Linux render gate",
+      "startedAt": "2026-10-09T11:48:23Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:59:34Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113807070052",
+      "name": "RmlUi home POC Linux render gate",
+      "startedAt": "2026-10-09T11:54:43Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804955631",
+      "name": "RmlUi Windows x64 bridge and opt-in package",
+      "startedAt": "2026-10-09T11:48:23Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:01:22Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113807069894",
+      "name": "RmlUi Windows x64 bridge and opt-in package",
+      "startedAt": "2026-10-09T11:54:43Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:57:41Z",
+      "conclusion": "FAILURE",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113806120023",
+      "name": "modern renderer Android Vulkan surface and lifecycle",
+      "startedAt": "2026-10-09T11:51:54Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804957594",
+      "name": "modern renderer Android Vulkan surface and lifecycle",
+      "startedAt": "2026-10-09T11:48:23Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:02:32Z",
+      "conclusion": "FAILURE",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113806120084",
+      "name": "android",
+      "startedAt": "2026-10-09T11:51:55Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804957508",
+      "name": "android",
+      "startedAt": "2026-10-09T11:48:23Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804956351",
+      "name": "modern renderer Vulkan smoke",
+      "startedAt": "2026-10-09T11:48:23Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:02:51Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113808727674",
+      "name": "modern renderer Vulkan smoke",
+      "startedAt": "2026-10-09T11:59:36Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:07:18Z",
+      "conclusion": "FAILURE",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113808727858",
+      "name": "RmlUi full client, shared routes and module acceptance",
+      "startedAt": "2026-10-09T11:59:36Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804956041",
+      "name": "RmlUi full client, shared routes and module acceptance",
+      "startedAt": "2026-10-09T11:48:23Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804956504",
+      "name": "Studio desktop acceptance (${{ matrix.os }})",
+      "startedAt": "2026-10-09T11:48:23Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:09:56Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113809365057",
+      "name": "Studio desktop acceptance (windows-latest)",
+      "startedAt": "2026-10-09T12:01:24Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:11:22Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113809364795",
+      "name": "Studio desktop acceptance (ubuntu-latest)",
+      "startedAt": "2026-10-09T12:01:24Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:16:41Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113809364774",
+      "name": "Studio desktop acceptance (macos-latest)",
+      "startedAt": "2026-10-09T12:02:02Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804956454",
+      "name": "modern renderer Windows ${{ matrix.renderer }} smoke",
+      "startedAt": "2026-10-09T11:48:23Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:06:20Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113809364828",
+      "name": "modern renderer Windows dx12 smoke",
+      "startedAt": "2026-10-09T12:01:24Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:05:54Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113809364806",
+      "name": "modern renderer Windows vulkan smoke",
+      "startedAt": "2026-10-09T12:01:24Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:07:26Z",
+      "conclusion": "FAILURE",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113809364743",
+      "name": "win-x64",
+      "startedAt": "2026-10-09T12:01:24Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:48:22Z",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113804955656",
+      "name": "matrix.id",
+      "startedAt": "2026-10-09T11:48:23Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:16:08Z",
+      "conclusion": "FAILURE",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113809364873",
+      "name": "linux-x64",
+      "startedAt": "2026-10-09T12:01:24Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:07:53Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113809364969",
+      "name": "linux-x64-server",
+      "startedAt": "2026-10-09T12:01:24Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:07:51Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113809365004",
+      "name": "linux-arm64",
+      "startedAt": "2026-10-09T12:01:24Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T12:24:28Z",
+      "conclusion": "FAILURE",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925970371/job/113817459425",
+      "name": "RmlUi migration acceptance",
+      "startedAt": "2026-10-09T12:24:23Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-09T11:49:17Z",
+      "conclusion": "FAILURE",
+      "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37925787322/job/113805230657",
+      "name": "RmlUi migration acceptance",
+      "startedAt": "2026-10-09T11:49:14Z",
+      "status": "COMPLETED",
+      "workflowName": "build"
+    }
+  ],
+  "routes": [
+    {
+      "route": "navigation/home",
+      "desktop": "Prime News default, seven tab workspaces, overlay/back guards",
+      "android": "shared StartScreen in activity; same router",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Shell/PrimeRouter.cs",
+          "line": 5,
+          "sha256": "aab4442970ee442455ff329fada665b5af7e765ae4b6e30f6abc6ce3f100e7e9"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/StartScreen.cs",
+          "line": 42,
+          "sha256": "866d8b22bddf73793c29c854e88ad90cfe8befb506a8dbff640e464f3ccf93a6"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "settings",
+      "desktop": "category drafts/apply/reset, keyboard/controller/touch/HUD/archive",
+      "android": "shared controls, Android startup loads InputSettings; real touch/IME need device",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/SettingsView.cs",
+          "line": 45,
+          "sha256": "88268aaba1c46e1ed19313eca43b480886fc74bfdc35580d63da09d13245552d"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Workspaces/SettingsDraft.cs",
+          "line": 13,
+          "sha256": "3dfada6b8b665c0a77e4a7d6a482b7372143a28a4334fe19bc8885bc3b97b8e0"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "home/news/updater",
+      "desktop": "bundled News, update prompt/version manager, verified installer",
+      "android": "shared updater view; AndroidUpdateInstaller uses APK platform flow",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Workspaces/NewsWorkspace.cs",
+          "line": 33,
+          "sha256": "f35ff93fe7b7eb036653d8c90c2dea19db7e349a5a8d56ce66b1b23fa1a4649b"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/StartScreen.cs",
+          "line": 50,
+          "sha256": "866d8b22bddf73793c29c854e88ad90cfe8befb506a8dbff640e464f3ccf93a6"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "multiplayer/browser/quick-play",
+      "desktop": "PlayWorkspace discovery/join/queue/favorites and quick matchmaking",
+      "android": "same PlayWorkspace on Android; shared transport/services",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Workspaces/PlayWorkspace.cs",
+          "line": 144,
+          "sha256": "4ca1565fcf0856d27d8d3a8d47e554162f6420e9db9816856af3d89d072266ad"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Workspaces/PlayWorkspace.cs",
+          "line": 132,
+          "sha256": "4ca1565fcf0856d27d8d3a8d47e554162f6420e9db9816856af3d89d072266ad"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "lobby/create/queue",
+      "desktop": "host/ready/team/chat/map voting and queue overlays",
+      "android": "shared lobby/queue views",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/LobbyScreen.cs",
+          "line": 21,
+          "sha256": "699ae57bb0e4c36a38ae1f1edf65a84e9267eafab7681762e2e4544a4a783f0a"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/CreateServerScreen.cs",
+          "line": 55,
+          "sha256": "2093ee0973433b3bd825d6a08647149786ce0cac515f103b06b3129e9f82ed96"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "social/account",
+      "desktop": "Hunter License guest/secure account/OAuth linking/career/customization",
+      "android": "shared account view; no separate friends/party route on current main",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Workspaces/LicenseWorkspace.cs",
+          "line": 23,
+          "sha256": "18798090ba5ae097b0bde4d4c4bbb56942346151b3544429a0d56429b860b73b"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Workspaces/LicenseWorkspace.cs",
+          "line": 320,
+          "sha256": "18798090ba5ae097b0bde4d4c4bbb56942346151b3544429a0d56429b860b73b"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "offline/adventure/trainer",
+      "desktop": "OfflineWorkspace chooses match/adventure/training launch plans",
+      "android": "same plans -> MainActivity.StartMatch",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Workspaces/OfflineWorkspace.cs",
+          "line": 13,
+          "sha256": "32814877c34a62194b14c1f7aa448c92cee70f43671ec82d6add138b1e32743b"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/StartScreen.cs",
+          "line": 160,
+          "sha256": "866d8b22bddf73793c29c854e88ad90cfe8befb506a8dbff640e464f3ccf93a6"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "pause/results",
+      "desktop": "PauseMenuView+Settings/ReplayControls/Confirm and EndPanelView",
+      "android": "activity shared pause; AndroidUiSurface draws results into game frame",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/StartScreen.cs",
+          "line": 396,
+          "sha256": "866d8b22bddf73793c29c854e88ad90cfe8befb506a8dbff640e464f3ccf93a6"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/EndPanelView.cs",
+          "line": 20,
+          "sha256": "ac0b01fd646193c03b9629d61b7816f2dafb5866320717d9f9cf303f760a8fff"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "hud/customization",
+      "desktop": "game HUD engine + Avalonia HUD Studio drafts/preview",
+      "android": "shared HUD editor; gameplay sprites remain GL/GLES, no Avalonia replacement needed",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/HudStudio/HudStudioView.cs",
+          "line": 11,
+          "sha256": "0dbe8bc0312955c7feafece89f151fa8fc06364bf9c3811cc3126c20ac179d0c"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/SettingsView.cs",
+          "line": 1458,
+          "sha256": "88268aaba1c46e1ed19313eca43b480886fc74bfdc35580d63da09d13245552d"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "replay/theatre/studio",
+      "desktop": "TheatreWorkspace library/import/editor/timeline/viewport/export",
+      "android": "shared editor; Android activity owns replay presentation; desktop-only export subprocess controls are conditionally excluded",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Workspaces/TheatreWorkspace.cs",
+          "line": 29,
+          "sha256": "fe491d5e6a437c6417f29fd31f8d443596dd1bdd48fb8e4a59472140ac13b785"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/ReplayViewport.cs",
+          "line": 14,
+          "sha256": "074eab3e1489eddb2f1a2085f3346c00f924d511897c769b55bc5075bf2a4d92"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "map/forge/editor",
+      "desktop": "MapStudioScreen/MapViewport/GL editor, import/material/UV/recovery/playtest",
+      "android": "explicit desktop-renderer requirement panel on Android; no Android editor parity claimed",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/StartScreen.cs",
+          "line": 164,
+          "sha256": "866d8b22bddf73793c29c854e88ad90cfe8befb506a8dbff640e464f3ccf93a6"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/MapStudioScreen.cs",
+          "line": 22,
+          "sha256": "7c5c1b5bebe43b2e61cab590d256dfa5130df8001d8982977b22f1e5c1bd39f7"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "dialogs/file-picker",
+      "desktop": "PrimeOverlayHost modal ownership + Confirm/Setup/archive; NativeFilePicker fallback",
+      "android": "activity StorageProvider/content intents for files and settings archives",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Shell/PrimeOverlayHost.cs",
+          "line": 15,
+          "sha256": "d229be4950116b0f2f42e410b1154cd31ae96fc2e553f706ad79847d26b0711c"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/ConfirmScreen.cs",
+          "line": 16,
+          "sha256": "f08a8516d97efdb3727c8b5535cae40da6e28f834cc51d12b284fb60b2477243"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "focus/input",
+      "desktop": "PrimeWorkspaceHost restores focus; modal traps; ControllerNav/FocusNavigator/capture guards",
+      "android": "activity focus resets, gamepad bridge, TouchControls and soft-keyboard ownership",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Shell/PrimeWorkspaceHost.cs",
+          "line": 16,
+          "sha256": "42837ba04a96df8653ae0cb071250f812c9f4c12516010b4be4d60990d39c02a"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Shell/PrimeShell.cs",
+          "line": 54,
+          "sha256": "d76d6dd0c26e4353efe6c32d28162bd16eb9d8e783c65025b06a188fedc423bc"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "accessibility",
+      "desktop": "control names, high contrast/outline/HUD presets/reduce motion; limited platform evidence",
+      "android": "TalkBack/real device not run; no screen-reader parity certificate",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Rows.cs",
+          "line": 491,
+          "sha256": "d987f9b39bbc75ecda4a952c50d25e24d46a30e444757afccbc5198a1052ff7b"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/SettingsView.cs",
+          "line": 1527,
+          "sha256": "88268aaba1c46e1ed19313eca43b480886fc74bfdc35580d63da09d13245552d"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    },
+    {
+      "route": "localization",
+      "desktop": "settings Language selects retail game text; shell authored English strings",
+      "android": "same selection; no full shell translation system found",
+      "sources": [
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/SettingsView.cs",
+          "line": 1750,
+          "sha256": "88268aaba1c46e1ed19313eca43b480886fc74bfdc35580d63da09d13245552d"
+        },
+        {
+          "path": "src/MphRead/Mods/Launcher/Gui/Shell/PrimeHeader.cs",
+          "line": 9,
+          "sha256": "671bd67b7ddb93b5b738092946c121372adaa3239fde3303d6fa8d2c9e919eec"
+        }
+      ],
+      "validationScope": "source reachability plus existing offscreen tests; physical/native acceptance NOT_RUN"
+    }
+  ],
+  "persistedContracts": [
+    {
+      "path": "src/MphRead/Mods/Launcher/Portable/LauncherPrefs.cs",
+      "sha256": "e9afc3333b1940acb7a0b690b8b0292edf49e470f74257727c8105229a0ccd45",
+      "unchangedFromMain": true
+    },
+    {
+      "path": "src/MphRead/Menu.cs",
+      "sha256": "5087204bfd1150d45cb2a110a314ed476f20697158074989e74acffce8cc014e",
+      "unchangedFromMain": true
+    },
+    {
+      "path": "src/MphRead/Mods/InputSettings.cs",
+      "sha256": "bbc9ff7d4cf6d2fefe4e738b01044f2b8955b49ffcd350c113164494b514a7ce",
+      "unchangedFromMain": true
+    },
+    {
+      "path": "src/MphRead/Mods/SettingsMigration.cs",
+      "sha256": "ee27107a0744f0a49483336023b93f1ddd2adf95421ff24658a9b85bb6d43848",
+      "unchangedFromMain": true
+    },
+    {
+      "path": "src/MphRead/Mods/Settings/SettingsArchiveRegistry.cs",
+      "sha256": "821cc1b11cf1052f63ca430bb62d7ed14e3ca7cceec2628c397a5cc0a96cbca9",
+      "unchangedFromMain": true
+    },
+    {
+      "path": "src/MphRead/Mods/Replay/ReplayWorldSchemas.cs",
+      "sha256": "bb105fe8d675e9af94f4bcc728412f27704ce36354936bf2db2711c539fafaee",
+      "unchangedFromMain": true
+    }
+  ],
+  "removedViews": {
+    "HubQuickPlayView": "only declaration+constructor, internal; no persisted type or constructor registry",
+    "HubServerBrowserView": "only declaration+constructor, internal; active owner PlayWorkspace remains"
+  },
+  "runtimeValidation": {
+    "sourceBase": "91b1c0c6c44e8c90effd250729709f791a84765e",
+    "removedViews": [
+      "HubQuickPlayView",
+      "HubServerBrowserView"
+    ],
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/tmp/consolidation-ui-route-check/bin/Release/net10.0/nettest.dll"
+    ],
+    "environment": {
+      "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/artifacts/ui-reality-check/user-data",
+      "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+    },
+    "headlessBeforeToolkit": true,
+    "gameGlContext": false,
+    "audioDevices": false,
+    "realAccountRequests": false,
+    "startedAtUtc": "2026-10-13T06:25:36.851248+00:00",
+    "exitCode": 0,
+    "log": "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/artifacts/ui-reality-check/offscreen-routes-native-assets.log",
+    "logSha256": "218b0333dcf1a507f80f788411e26ae64084e62049b72d4c601a7667e9f8d9b2",
+    "supersededHarnessFailure": {
+      "exitCode": 1,
+      "log": "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/artifacts/ui-reality-check/offscreen-routes.log",
+      "logSha256": "f5907d79b73e10e68141c8d7457092737671f77af08d6c8e281b13a2a2ffd259",
+      "classification": "TEMP_HARNESS_MISSING_SKIA_NATIVE_ASSETS"
+    },
+    "lastLine": "[primeuicheck] PASS: 165 checks"
+  },
+  "additionalValidation": [
+    {
+      "name": "settings-archive-check",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/consolidation-ui-tool-wrapper/bin/Release/net10.0/wrapper.dll",
+        "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/tools/settings-archive-check/bin/Release/net10.0/settings-archive-check.dll"
+      ],
+      "exitCode": 0,
+      "log": "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/artifacts/ui-reality-check/settings-archive-check.log",
+      "logSha256": "c64d0724cb4e0e9774f20183f143709403c2dde3d7cb89d13a8816cbc14f6f32"
+    },
+    {
+      "name": "hud-ui-check",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/consolidation-ui-tool-wrapper/bin/Release/net10.0/wrapper.dll",
+        "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/tools/hud-ui-check/bin/Release/net10.0/hud-ui-check.dll"
+      ],
+      "exitCode": 0,
+      "log": "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/artifacts/ui-reality-check/hud-ui-check.log",
+      "logSha256": "b31c7007818ba89c00a29df5dd4c8ffae36db09f9958ed1e29785da2187007bd"
+    },
+    {
+      "name": "touchcheck",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/consolidation-ui-tool-wrapper/bin/Release/net10.0/wrapper.dll",
+        "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/tools/touchcheck/bin/Release/net10.0/touchcheck.dll"
+      ],
+      "exitCode": 0,
+      "log": "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/artifacts/ui-reality-check/touchcheck.log",
+      "logSha256": "61270a0f3ab75e9ccd45f54ae49bd27738b3fb64ff1bfeac6817299191f37e03"
+    }
+  ],
+  "inputValidation": [
+    {
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/consolidation-ui-route-check/bin/Release/net10.0/nettest.dll",
+        "pointer"
+      ],
+      "exitCode": 1,
+      "log": "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/artifacts/ui-reality-check/pointer-product-identified.log",
+      "logSha256": "df2eb2eb1e354a8bb8c6c67b48b0050ef2178418fc84190f42da477b898fffef"
+    },
+    {
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/consolidation-ui-route-check/bin/Release/net10.0/nettest.dll",
+        "gamepad"
+      ],
+      "exitCode": 0,
+      "log": "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/artifacts/ui-reality-check/gamepad-product-identified.log",
+      "logSha256": "1a7be1ffcec4a825b2e9b99dab7fb2e0e11dcf19b51c6f66dd8d52a1e890af89"
+    },
+    {
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/consolidation-ui-route-check/bin/Release/net10.0/nettest.dll",
+        "pointer-client"
+      ],
+      "headless": false,
+      "runtimeInitialization": false,
+      "exitCode": 0,
+      "log": "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/artifacts/ui-reality-check/pointer-client-product-identified.log",
+      "logSha256": "50617fdccc46d155070bbf54e2dca7d479558ab0e8bc77d3aefacd7713b640f0",
+      "supersedes": "pointer-product-identified.log (misused headless policy)"
+    }
+  ],
+  "buildEvidence": [
+    {
+      "path": "/tmp/consolidation-ui-cleanup-build.log",
+      "sha256": "72069c2a1344e32b54aa39b2c087256de2fa6425aa61edb09a00a459c177bde1",
+      "lastLines": [
+        "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/src/MphRead/Mods/Network/NetCampaignEvidence.cs(142,37): warning CA2014: Potential stack overflow. Move the stackalloc out of the loop. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2014) [/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/src/MphRead/MphRead.csproj]",
+        "/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/src/MphRead/Mods/Network/NetBombVisibilityProbe.cs(156,82): warning IL3000: 'System.Reflection.Assembly.Location.get' always returns an empty string for assemblies embedded in a single-file app. If the path to the app directory is needed, consider calling 'System.AppContext.BaseDirectory'. [/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/src/MphRead/MphRead.csproj]",
+        "    30 Warning(s)",
+        "    0 Error(s)",
+        "",
+        "Time Elapsed 00:00:36.56"
+      ]
+    },
+    {
+      "path": "/tmp/consolidation-ui-cleanup-android-build.log",
+      "sha256": "f5c2a0eec353050856e07dc43d70d21eb6a745b23a93ad131ac6df26ebee8332",
+      "lastLines": [
+        "MSBUILD : error MSB4166: Child node \"3\" exited prematurely. Shutting down. Diagnostic information may be found in files in \"/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/MSBuildTempDqSy4W/\" and will be named MSBuild_*.failure.txt. This location can be changed by setting the MSBUILDDEBUGPATH environment variable to a different directory.",
+        "/Users/jarrett/.nuget/packages/microsoft.net.illink.tasks/10.0.12/build/Microsoft.NET.ILLink.targets(184,9): error MSB4027: The \"ILLink\" task generated invalid items from the \"ExitCode\" output parameter. This object is no longer valid because the MetadataLoadContext that created it has been disposed. [/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/src/MphRead.Android/MphRead.Android.csproj]",
+        "    55 Warning(s)",
+        "    2 Error(s)",
+        "",
+        "Time Elapsed 00:00:33.56"
+      ]
+    },
+    {
+      "path": "/tmp/consolidation-ui-cleanup-android-compile.log",
+      "sha256": "804c745010f6e68585bca9fa8d33ab1a3f98b5f3b389b520c1c73a243c873317",
+      "lastLines": [
+        "/Users/jarrett/.dotnet/packs/Microsoft.Android.Sdk.Darwin/36.1.69/targets/Microsoft.Android.Sdk.Tooling.targets(22,5): warning XA0033: OpenJDK 64-Bit Server VM (build 27+35-2325, mixed mode, sharing) [/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/src/MphRead.Android/MphRead.Android.csproj]",
+        "/Users/jarrett/.dotnet/packs/Microsoft.Android.Sdk.Darwin/36.1.69/targets/Microsoft.Android.Sdk.Tooling.targets(22,5): warning XA0033: ``` [/Users/jarrett/.codex/worktrees/consolidation-ui-history/Prime Hunters Online/src/MphRead.Android/MphRead.Android.csproj]",
+        "    1 Warning(s)",
+        "    0 Error(s)",
+        "",
+        "Time Elapsed 00:00:02.90"
+      ]
+    }
+  ]
+}
