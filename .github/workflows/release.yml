@@ -345,8 +345,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      # Install the pinned workload set only on the Android release runner.
+      # The globally pinned SDK alone is sufficient for desktop/server jobs.
       - name: install the android workload
-        run: dotnet workload install android
+        run: dotnet workload install android --version 10.0.401
       - uses: actions/download-artifact@v8
         with:
           name: prepared-maps

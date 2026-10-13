@@ -1,9 +1,8 @@
 {
-  "//": "Pin the tested SDK and workload set so local and CI Android builds use the same compiler, trimmer and Mono runtime.",
+  "//": "Pin the .NET SDK consistently across platforms. Install the matching workload set only in Android-specific CI jobs; a global workloadVersion prevents non-Android jobs from resolving the SDK before any workloads are installed.",
   "sdk": {
     "version": "10.0.401",
     "rollForward": "disable",
-    "allowPrerelease": false,
-    "workloadVersion": "10.0.401"
+    "allowPrerelease": false
   }
 }

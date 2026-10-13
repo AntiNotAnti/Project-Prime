@@ -797,8 +797,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Keep Android's workload set deterministic without requiring it in every
+      # desktop/server job. global.json pins only the SDK.
       - name: install the android workload
-        run: dotnet workload install android
+        run: dotnet workload install android --version 10.0.401
 
       # Cook every custom map into the one file it ships as. The recipe, the
       # level it converts and the textures baked from it go into a .ppmap,
