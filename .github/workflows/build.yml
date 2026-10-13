@@ -319,16 +319,22 @@ jobs:
           key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
+      - name: device-free Theatre storage producer bounds
+        run: dotnet run --project tools/theatre-storage-check -c Release
       - name: device-free encoder capability stderr drain
         run: dotnet run --project tools/encoder-error-drain-check -c Release
       - name: device-free bounded encoder progress and parsing parity
         run: dotnet run --project tools/encoder-progress-check -c Release
       - name: content-free renderer state and lifecycle contracts
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -renderbackendcheck
+      - name: device-free replay export queue bounds and ownership
+        run: dotnet run --project tools/replay-export-queue-check -c Release
       - name: native audio ownership, failure fallback and headless lifecycle
         run: dotnet run --project tools/audio-check -c Release
       - name: device-free Music startup failure ownership
         run: dotnet run --project tools/music-startup-check -c Release
+      - name: device-free music loading, PCM parity and callback retirement
+        run: dotnet run --project tools/music-lifecycle-check -c Release
 
   enhanced-retirement-checks:
     name: retired hunter compatibility regressions
@@ -404,6 +410,9 @@ jobs:
       # fixtures. Community publishing is a distinct opt-in check.
       - name: community map publishing focused check
         run: dotnet run --no-build --project tools/map-editor-check -c Release -- --community-only
+
+      - name: encoder worker exit and inherited-pipe cancellation
+        run: dotnet run --project tools/encoder-pipe-check -c Release
 
       - name: isolated multiplayer and historical package acceptance
         timeout-minutes: 10

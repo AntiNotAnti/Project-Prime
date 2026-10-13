@@ -269,13 +269,16 @@
        game API. -->
   <ItemGroup>
     <InternalsVisibleTo Include="nettest" />
+    <InternalsVisibleTo Include="replay-export-queue-check" />
     <InternalsVisibleTo Include="audio-check" />
+    <InternalsVisibleTo Include="music-lifecycle-check" />
     <InternalsVisibleTo Include="settings-archive-check" />
     <InternalsVisibleTo Include="fidelity-oracle" />
     <InternalsVisibleTo Include="final-composite-check" />
     <InternalsVisibleTo Include="hud-ui-check" />
     <InternalsVisibleTo Include="material-pack" />
     <InternalsVisibleTo Include="map-editor-check" />
+    <InternalsVisibleTo Include="theatre-storage-check" />
     <InternalsVisibleTo Include="replay-sidecar-check" />
   </ItemGroup>
 
