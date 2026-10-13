@@ -1,0 +1,277 @@
+{
+  "schema": 1,
+  "date": "2026-10-13",
+  "source": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "runtime": "10.0.12",
+  "sdk": "10.0.401",
+  "claims": "Frequency and device-free correctness only; no performance, physical input or thermal claim. Production source restored after temporary instrumentation.",
+  "campaigns": [
+    {
+      "mainSha": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "sourceSha": "db71a0a03506012baa53c7513645fc258185557a",
+      "diagnosticOnly": true,
+      "concurrentHostWork": true,
+      "noTimingComparison": true,
+      "clientSha256": "94d04d0bf712ebbc1610a7038844ebc02cb6f36bae6c6fa9a6709f8a592af8d1",
+      "harnessSha256": "b68a23bbc6bdbbc8c20c771be8f6c89026fdad8cb7336ff6023c99533a2b6168",
+      "counterPatchSha256": "98c2bf0ab07209a902b582c94710b79528bf78af866a40991513fd38c5960633",
+      "checks": [
+        {
+          "name": "mp1-sanctorus-1",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/build/bin/ai-navigation-check/release/ai-navigation-check.dll",
+            "profile",
+            "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/userdata/mp1-sanctorus-1",
+            "1",
+            "MP1 SANCTORUS"
+          ],
+          "status": "PASS",
+          "exitCode": 0,
+          "seconds": 3.5021109580993652,
+          "log": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/mp1-sanctorus-1.log",
+          "sha256": "26745279225d9e07722e98710979212bcb794557fd48d434d10d9b5eb89e6e0a",
+          "profile": [
+            {
+              "room": "MP1 SANCTORUS",
+              "bots": 1,
+              "steps": 1800,
+              "engineMvid": "976098bb-fcc4-4310-8876-51c3690a20b6",
+              "runtimeVersion": "10.0.12",
+              "queryInvocations": 6,
+              "respawnQueries": 1,
+              "StepFailures": 0,
+              "allocatedBytes": 23451888,
+              "StepSeconds": 1.505882999999996
+            }
+          ]
+        },
+        {
+          "name": "mp1-sanctorus-4",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/build/bin/ai-navigation-check/release/ai-navigation-check.dll",
+            "profile",
+            "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/userdata/mp1-sanctorus-4",
+            "4",
+            "MP1 SANCTORUS"
+          ],
+          "status": "PASS",
+          "exitCode": 0,
+          "seconds": 3.341008186340332,
+          "log": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/mp1-sanctorus-4.log",
+          "sha256": "17d73b5a7c2f8ab4b23008081bff88426444be6cb2c0cbb3708be0a09e4ab4ff",
+          "profile": [
+            {
+              "room": "MP1 SANCTORUS",
+              "bots": 4,
+              "steps": 1800,
+              "engineMvid": "976098bb-fcc4-4310-8876-51c3690a20b6",
+              "runtimeVersion": "10.0.12",
+              "queryInvocations": 66,
+              "respawnQueries": 9,
+              "StepFailures": 0,
+              "allocatedBytes": 24392280,
+              "StepSeconds": 1.7704601999999974
+            }
+          ]
+        },
+        {
+          "name": "mp1-sanctorus-8",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/build/bin/ai-navigation-check/release/ai-navigation-check.dll",
+            "profile",
+            "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/userdata/mp1-sanctorus-8",
+            "8",
+            "MP1 SANCTORUS"
+          ],
+          "status": "PASS",
+          "exitCode": 0,
+          "seconds": 3.4636740684509277,
+          "log": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/mp1-sanctorus-8.log",
+          "sha256": "6d0aba978a064f2b9f1b97bbc313c6e4e32e2b7249cb72fd7d02c1821070c7c6",
+          "profile": [
+            {
+              "room": "MP1 SANCTORUS",
+              "bots": 8,
+              "steps": 1800,
+              "engineMvid": "976098bb-fcc4-4310-8876-51c3690a20b6",
+              "runtimeVersion": "10.0.12",
+              "queryInvocations": 200,
+              "respawnQueries": 14,
+              "StepFailures": 0,
+              "allocatedBytes": 25263984,
+              "StepSeconds": 2.657968599999998
+            }
+          ]
+        },
+        {
+          "name": "mp3-proving-ground-1",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/build/bin/ai-navigation-check/release/ai-navigation-check.dll",
+            "profile",
+            "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/userdata/mp3-proving-ground-1",
+            "1",
+            "MP3 PROVING GROUND"
+          ],
+          "status": "PASS",
+          "exitCode": 0,
+          "seconds": 1.0127739906311035,
+          "log": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/mp3-proving-ground-1.log",
+          "sha256": "8b1038cff0fd8bdf8f3fec20270fc4169ed7ede86c64c5910b75f727499cea04",
+          "profile": [
+            {
+              "room": "MP3 PROVING GROUND",
+              "bots": 1,
+              "steps": 1800,
+              "engineMvid": "976098bb-fcc4-4310-8876-51c3690a20b6",
+              "runtimeVersion": "10.0.12",
+              "queryInvocations": 12,
+              "respawnQueries": 1,
+              "StepFailures": 0,
+              "allocatedBytes": 23464800,
+              "StepSeconds": 0.3114186999999999
+            }
+          ]
+        },
+        {
+          "name": "mp3-proving-ground-4",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/build/bin/ai-navigation-check/release/ai-navigation-check.dll",
+            "profile",
+            "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/userdata/mp3-proving-ground-4",
+            "4",
+            "MP3 PROVING GROUND"
+          ],
+          "status": "PASS",
+          "exitCode": 0,
+          "seconds": 2.3202130794525146,
+          "log": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/mp3-proving-ground-4.log",
+          "sha256": "285c62d3d7dc0b22a94026a571fbec606e114a7039e990d503eb253907a7bd08",
+          "profile": [
+            {
+              "room": "MP3 PROVING GROUND",
+              "bots": 4,
+              "steps": 1800,
+              "engineMvid": "976098bb-fcc4-4310-8876-51c3690a20b6",
+              "runtimeVersion": "10.0.12",
+              "queryInvocations": 119,
+              "respawnQueries": 7,
+              "StepFailures": 0,
+              "allocatedBytes": 25198776,
+              "StepSeconds": 1.6215681000000035
+            }
+          ]
+        },
+        {
+          "name": "mp3-proving-ground-8",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/build/bin/ai-navigation-check/release/ai-navigation-check.dll",
+            "profile",
+            "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/userdata/mp3-proving-ground-8",
+            "8",
+            "MP3 PROVING GROUND"
+          ],
+          "status": "PASS",
+          "exitCode": 0,
+          "seconds": 3.6096949577331543,
+          "log": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/mp3-proving-ground-8.log",
+          "sha256": "63a036b1662e36fa67e4da98f89f1c4261112269d91948be88ebf90d3b521739",
+          "profile": [
+            {
+              "room": "MP3 PROVING GROUND",
+              "bots": 8,
+              "steps": 1800,
+              "engineMvid": "976098bb-fcc4-4310-8876-51c3690a20b6",
+              "runtimeVersion": "10.0.12",
+              "queryInvocations": 235,
+              "respawnQueries": 18,
+              "StepFailures": 0,
+              "allocatedBytes": 25673928,
+              "StepSeconds": 2.9172349999999945
+            }
+          ]
+        }
+      ],
+      "manifestSha256": "7429573be6c89c7b56c876e72ed4902dc554a4bea34b293077401c270c642896",
+      "manifestPath": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-frequency-confirmation-20261013/manifest.json"
+    },
+    {
+      "fixture": "Existing device-free checks, no physical input, rendering, native audio or thermal claims",
+      "compositeSha": "87617f47dd67d4cae77931c43f9dce6af87b3fd4",
+      "mainSha": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "nettestSha256": "273294e1185e234560f0f1021900a73f41dafe294884f8c7c9b9873afbcffd7d",
+      "clientSha256": "2edee59479183f3599ae4fded663be2c357176388743167c10ab1acf18cf2a40",
+      "checks": [
+        {
+          "name": "bot-ai",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+            "--bot-ai"
+          ],
+          "cwd": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online",
+          "exitCode": 0,
+          "status": "PASS",
+          "seconds": 0.1510310173034668,
+          "log": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-additional-validation-20261013/bot-ai.log",
+          "logSha256": "7ab66b10876664edff8806c49f1f77de765c39c6910c965b7a0d02c1700b01f9"
+        },
+        {
+          "name": "ai-client-driver",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+            "--ai-client-driver"
+          ],
+          "cwd": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online",
+          "exitCode": 0,
+          "status": "PASS",
+          "seconds": 0.1965789794921875,
+          "log": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-additional-validation-20261013/ai-client-driver.log",
+          "logSha256": "faf48ac68303b3d6637abf8a63b6f4eb5f61cf9d3300aaf35db8ebc7dfa027df"
+        },
+        {
+          "name": "android-pacing",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "run",
+            "--project",
+            "tools/android-pacing-check",
+            "-c",
+            "Release"
+          ],
+          "cwd": "/Users/jarrett/.codex/worktrees/consolidation-ai-scratch/Prime Hunters Online",
+          "exitCode": 0,
+          "status": "PASS",
+          "seconds": 2.2807416915893555,
+          "log": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-additional-validation-20261013/android-pacing.log",
+          "logSha256": "afbe4459f77db59e68f06a2e24bd97d0c58875b30dd7feb2f24613b8c932c113"
+        },
+        {
+          "name": "desktop-pacing",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "run",
+            "--project",
+            "tools/desktop-pacing-check",
+            "-c",
+            "Release"
+          ],
+          "cwd": "/Users/jarrett/.codex/worktrees/consolidation-ai-scratch/Prime Hunters Online",
+          "exitCode": 0,
+          "status": "PASS",
+          "seconds": 2.3662941455841064,
+          "log": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-additional-validation-20261013/desktop-pacing.log",
+          "logSha256": "482dad969566a8c020c46142423cfd5f22a030c2c8b5d0670ff6ad350a925a61"
+        }
+      ],
+      "manifestSha256": "5c51628ed03ffb4db4912a552ed8de2ff5673793669f0e86801fccc54f67365d",
+      "manifestPath": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/phase7-additional-validation-20261013/manifest.json"
+    }
+  ]
+}
