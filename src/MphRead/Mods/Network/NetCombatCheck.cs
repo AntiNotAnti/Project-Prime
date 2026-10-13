@@ -34,6 +34,9 @@ namespace MphRead.Mods.Network
                 Check(shooter.ModIsInPlay && victim.ModIsInPlay && sim.StepFailures == 0, "spawn both players");
                 var scene = (Scene)typeof(ServerSim).GetField("_scene", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(sim)!;
                 var fire = typeof(PlayerEntity).GetMethod("TryFireWeapon", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                var initialPosition = shooter.Position;
+                var initialFacing = shooter.FacingVector;
+                var initialNode = shooter.NodeRef;
                 InvalidHitClaimIsRefused();
                 InvulnerableClaimIsRefused();
                 MutualKillOrdering();
@@ -43,6 +46,9 @@ namespace MphRead.Mods.Network
                 HistoricalCacheEquivalence();
                 GameState.PointGoal = 1000; GameState.MatchTime = 3600;
                 Array.Clear(GameState.Points);
+                // Recovery/history fixtures move the shooter above the room. Restore its
+                // settled pose before testing held input so falling cannot kill it.
+                shooter.Spawn(initialPosition, initialFacing, Vector3.UnitY, initialNode, respawn: true);
                 shooter.Health = victim.Health = 99;
                 uint frame = 200;
                 foreach (BeamType weapon in new[] { BeamType.PowerBeam, BeamType.Missile, BeamType.Imperialist,
