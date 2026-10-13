@@ -147,3 +147,25 @@ user-owned game remained running; safe process CPU/RSS/state and VM receipts
 are hashed for each run. They do not prove global quiet-host improvement or a
 GPU bottleneck. The separate overhead receipt includes all individual outcomes,
 MVIDs, binary and result hashes, p99.9-derived estimates and ambient conditions.
+
+## Rejected individual-model promotion experiment
+
+An explicit default-off prototype registered nonroom model lists for individual
+retained VBO/IBO submission, preserving palette uniforms, native fallback and
+list ordering. It bounded additional buffers to 32 MiB, capture to 100,000 vertices,
+and retained no model CPU arrays. Build, source-bound and asset-free checks passed.
+
+Its first same-binary MP9 solo pair failed exact parity: 7,380 world pixels changed
+(maximum channel delta 185), 7,369 HUD pixels changed, and 16,366 world-depth values
+changed (maximum absolute delta 0.083406). Both arms completed at the same exact
+fixture/frame; repeat witnesses were internally exact. 194 models promoted using
+625392 additional bytes, and all 904 retained VBO/IBO names became unrecognized
+after teardown. Correct retirement does not excuse visual changes. The runner
+stopped at this failed gate; other fixture arms and performance were NOT_RUN.
+
+The production prototype d90c5488 was reverted by d050f9b1; permanent submission
+complexity was not retained. Private validation source 15baee21 and all failed
+logs/captures remain recoverable. The negative receipt preserves binary/source
+hashes, exact file witnesses, matching context, retirement and difference counts.
+Particle order-sensitive work and unverified native-list model semantics remain
+unoptimized; the measured draw partition alone does not justify caching.
