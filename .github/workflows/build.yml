@@ -290,6 +290,8 @@ jobs:
           key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
+      - name: device-free Theatre storage producer bounds
+        run: dotnet run --project tools/theatre-storage-check -c Release
       - name: content-free renderer state and lifecycle contracts
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -renderbackendcheck
 

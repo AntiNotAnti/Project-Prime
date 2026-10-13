@@ -273,6 +273,7 @@
     <InternalsVisibleTo Include="hud-ui-check" />
     <InternalsVisibleTo Include="material-pack" />
     <InternalsVisibleTo Include="map-editor-check" />
+    <InternalsVisibleTo Include="theatre-storage-check" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(MphReadServer)' != 'true'">
