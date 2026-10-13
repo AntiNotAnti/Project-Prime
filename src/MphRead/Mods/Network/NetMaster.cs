@@ -1115,9 +1115,9 @@ namespace MphRead.Mods.Network
             {
                 using var socket = new UdpClient(AddressFamily.InterNetwork);
                 ulong hostNonce;
+                Span<byte> nonceBytes = stackalloc byte[8];
                 do
                 {
-                    Span<byte> nonceBytes = stackalloc byte[8];
                     RandomNumberGenerator.Fill(nonceBytes);
                     hostNonce = System.Buffers.Binary.BinaryPrimitives
                         .ReadUInt64LittleEndian(nonceBytes);
