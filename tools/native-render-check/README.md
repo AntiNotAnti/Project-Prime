@@ -204,6 +204,57 @@ intervals for autocorrelated reload samples. A flat/positive slope never
 changes the report's `boundedness: UNVERIFIED` classification automatically.
 Replay-only and full Studio UI isolation remain **NOT_RUN**.
 
+## Context teardown and recreation controls
+
+`-resource-context-cycles 120,180` runs those cycle counts sequentially in two
+actual unshared windows/contexts, using the existing map-gl or Studio stress
+fixture. It requires `-resource-drain`. Each ordinary fixture produces its own
+JSON and exact pixel/depth/ownership checks. After `EndScene` and actual window
+`Dispose`, the process stays alive for `-resource-context-post-samples` samples
+at `-resource-context-post-ms` intervals. No additional GC occurs after context
+teardown. The workload helper returns before those observations; the managed
+window wrapper can remain weak-alive until a later collection.
+
+```sh
+PROJECT_PRIME_USER_DATA='/absolute/operator-owned/user-data' \
+PROJECT_PRIME_GL_FORCE_LEGACY=0 \
+python3 tools/native-render-check/run_context_controls.py \
+  --dotnet /absolute/dotnet --binary /absolute/immutable/native-render-check.dll \
+  --output /absolute/fresh-context-campaign --cycles 120 180 --frames 120 \
+  --samples 60 --capture-native-stacks
+```
+
+The optional native sampler adds `MallocStackLogging=1` and preserves live
+`vmmap -summary` and `malloc_history -allBySize -fullStacks` captures before and
+after every context disposal, together with commands, times, statuses and
+hashes. Missing tools/captures are preserved, not reported as zero bytes. Stack
+logging perturbs memory/CPU. Mapped platform resource records can carry AGX
+compiler frames; they are not automatically live malloc bytes. The streaming
+`analyze_graphics_stacks.py` separates explicit VM groups and reports
+`mallocPrefixBytes` only when libsystem_malloc appears in the first three
+frames. That prefix is an observed mechanism, not a complete heap census.
+
+Scene cleanup now corroborates owner counters with actual `IsList`,
+`IsBuffer`, APPLE/core `IsVertexArray`, `IsTexture`, `IsFramebuffer`,
+`IsRenderbuffer`, `IsProgram` and `IsShader` queries against captured names.
+Retail model leases, current character/editor lists, retained/combined geometry,
+all named scene programs/world variants and attached shaders are covered.
+Recognized deletion-pending programs/shaders remain separate from destroyed
+names. This does not enumerate every object in the context or prove driver
+residency release. Historical artifacts preceding this extension contain a
+narrower ownership set and no native `IsList` witness.
+
+GC telemetry includes cumulative pause milliseconds and the latest collection's
+pause durations/generation/concurrent/compacted flags; transition observations
+include context disposal wall time and GC pause delta. These do not isolate every
+engine transition GC call or justify changing production GC policy.
+
+Device-free argument/NoInlining validation:
+
+```sh
+dotnet run --project tools/native-render-check -c Release -- -resource-context-selftest
+```
+
 ## Audio managed-retention probe
 
 The audio arm optionally accepts `-resource-retention-probe`. It runs the
