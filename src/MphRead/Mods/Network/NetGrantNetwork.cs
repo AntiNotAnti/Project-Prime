@@ -93,6 +93,9 @@ internal static class NetGrantNetwork
         ReplayCapture.AcceptTimedGrant(fact);
         NetCampaignEvidence.TimedGrantState(fact, "received"); return true;
     }
+    internal static bool ObserveItemRoom(PickupItemFact fact)
+        => fact.IsValid && NetSession.MatchesStream(fact.Spawn.Match, fact.Spawn.Epoch)
+            && Presentation.ObserveRoom(fact.Spawn.Epoch, fact.Spawn.Match, fact.Spawn.Room);
     internal static void BeforePlayer(PlayerEntity player)
     {
         if (!NetSession.IsClient || NetSession.IsAuthority || player.OwningScene.Services.IsReplica) return;

@@ -87,20 +87,22 @@ internal sealed partial class ReplayReplicaState
         if (!ReplayGrantBootstrap.TryRead(payload, out uint originalFrame, out var state)) throw Malformed();
         ulong epoch = BinaryPrimitives.ReadUInt64LittleEndian(payload[4..]);
         ushort match = BinaryPrimitives.ReadUInt16LittleEndian(payload[12..]);
-        if (!Matches(match, epoch)) return false;
+        if (!Matches(match, epoch) || !PickupRoom(state.RoomIdentity)) return false;
         state.Rebase(originalFrame, frame); TimedGrants = state; return true;
     }
     private bool AcceptTimedGrant(ReadOnlySpan<byte> payload, uint frame)
     {
         if (!TimedGrantFact.TryRead(payload, out var fact)) throw Malformed();
-        return Matches(fact.Life.MatchId, fact.Life.AuthorityEpoch) && TimedGrants.Accept(fact, frame);
+        return Matches(fact.Life.MatchId, fact.Life.AuthorityEpoch) && PickupRoom(fact.Room)
+            && TimedGrants.Accept(fact, frame);
     }
     private bool AcceptPickupPrediction(ReadOnlySpan<byte> payload, uint frame)
     {
         if (!ReplayPickupPrediction.TryRead(payload, out var claim, out _)) throw Malformed();
         // Capture frames belong to the original producer. A clip can rebase the
         // timeline; projection uses this consumer's arrival frame consistently.
-        return Matches(claim.Key.Match, claim.Key.Epoch) && TimedGrants.Predict(claim, frame);
+        return Matches(claim.Key.Match, claim.Key.Epoch) && PickupRoom(claim.Spawn.Room)
+            && TimedGrants.Predict(claim, frame);
     }
     private void WriteGrantFacts(BinaryWriter writer)
     {
@@ -121,5 +123,9 @@ internal sealed partial class ReplayReplicaState
         using var stream = new MemoryStream(bytes, writable: false); using var data = new BinaryReader(stream);
         TimedGrants = TimedGrantPresentation.Read(data);
         if (stream.Position != stream.Length) throw Malformed();
+        // The discovery fence already belongs to the existing pickup appendix.
+        // Reconstruct it without adding bytes or fabricating A3 coverage.
+        if (_pickupRoom != 0 && Match is { } current
+            && !TimedGrants.ObserveRoom(current.AuthorityEpoch, current.MatchId, _pickupRoom)) throw Malformed();
     }
 }

@@ -160,6 +160,48 @@ internal static class GrantNetworkTests
         Check(NetGrantNetwork.Presentation.View(Life(0), TimedPowerUp.DoubleDamage, 700).Remaining == 1200,
             "matching client receive projects remaining time without renewing the grant");
     }
+    private static void DiscoveryRoomFence()
+    {
+        NetPickupNetwork.Reset(); Session(nameof(NetSession.Role), NetRole.Client);
+        Session(nameof(NetSession.IsAuthority), false); Session(nameof(NetSession.LocalSlot), 0);
+        Session(nameof(NetSession.NetFrame), 700u);
+        var old = new TimedGrantFact(Life(0), 3, 1, TimedPowerUp.DoubleDamage, 1, 10, 1,
+            100, 1900, TimedGrantEnd.Active, 700);
+        var oldPrediction = new PickupClaim(new(11, 7, 0, 1, 1, 20), new(11, 7, 3, 11, 1),
+            TimedPowerUp.Cloak, 700, Vector3.Zero);
+        Check(NetGrantNetwork.Receive(old) && NetGrantNetwork.Presentation.Predict(oldPrediction, 700),
+            "live room fixture begins with confirmed grant and independent pending overlay");
+        var item = new PickupItemFact(new(11, 7, 4, 12, 1), TimedPowerUp.DoubleDamage, 700, true, Vector3.Zero);
+        Check(!NetPickupNetwork.ReceiveItem(item with { Spawn = item.Spawn with { Epoch = 12, Room = 5 } })
+            && NetGrantNetwork.Presentation.View(Life(0), old.Type, 700).ConfirmedRemaining == 1200,
+            "foreign discovery cannot fence matching life presentation");
+        Check(NetPickupNetwork.ReceiveItem(item) && NetGrantNetwork.Presentation.RoomIdentity == 4
+            && !NetGrantNetwork.Presentation.HasCoverage && !NetGrantNetwork.Presentation.Facts.Any()
+            && NetGrantNetwork.Presentation.PendingCount == 0
+            && !NetGrantNetwork.Presentation.View(Life(0), old.Type, 700).Active,
+            "new-room item clears prior confirmation and prediction before any new-room grant without fake absence");
+        Check(!NetGrantNetwork.Receive(old with { Revision = 99, AuthorityFrame = 701 })
+            && !NetGrantNetwork.Presentation.Predict(oldPrediction, 701)
+            && !NetPickupNetwork.ReceiveItem(item with { Spawn = item.Spawn with { Room = 3 } }),
+            "reordered older room grant prediction and discovery cannot resurrect old presentation");
+        var prediction = new PickupClaim(new(11, 7, 0, 1, 1, 21), item.Spawn, item.Type, 700, Vector3.Zero);
+        Check(NetGrantNetwork.Presentation.Predict(prediction, 700), "matching new-room owner prediction remains eligible");
+        var independent = old with { Life = Life(1), Room = 4, Type = TimedPowerUp.Cloak,
+            Sequence = 2, Revision = 2, SpawnId = 13, ContactFrame = 600, EndFrame = 2400 };
+        Check(NetGrantNetwork.Receive(independent) && NetGrantNetwork.Presentation.PendingCount == 1
+            && NetGrantNetwork.Presentation.View(Life(1), independent.Type, 700).ConfirmedRemaining == 1700,
+            "independent new-room grant preserves owner prediction and exact other life");
+        var confirmed = old with { Room = 4, Sequence = 3, Revision = 3, SpawnId = 12,
+            ContactFrame = 600, EndFrame = 2400 };
+        Check(NetGrantNetwork.Receive(confirmed) && NetGrantNetwork.Presentation.PendingCount == 0
+            && NetGrantNetwork.Presentation.View(Life(0), confirmed.Type, 700).ConfirmedRemaining == 1700,
+            "matching new-room delta confirms and retires only matching prediction");
+        Check(NetPickupNetwork.ReceiveItem(item with { AuthorityFrame = 701, Available = false })
+            && NetGrantNetwork.Presentation.View(Life(0), confirmed.Type, 700).ConfirmedRemaining == 1700
+            && NetGrantNetwork.Presentation.View(Life(1), independent.Type, 700).ConfirmedRemaining == 1700,
+            "same-room discovery update preserves both new-room confirmations");
+        NetPickupNetwork.Reset();
+    }
     internal static int Run()
     {
         var role = NetSession.Role; var authority = NetSession.IsAuthority; var slot = NetSession.LocalSlot;
@@ -173,7 +215,7 @@ internal static class GrantNetworkTests
             for (int i = 0; i < 8; i++) trackers[i].Restore(new(1, 1, NetworkPlayerState.Alive, false));
             Check(NetReliableChannel.IsReliable(PacketType.TimedGrant) && !NetReliableChannel.IsCritical(PacketType.TimedGrant),
                 "grant transitions use ordinary reliable delivery");
-            ImmutableTransition(); DenseLateJoin(); IndependentCursorsAndFailure(); ClientScope();
+            ImmutableTransition(); DenseLateJoin(); IndependentCursorsAndFailure(); ClientScope(); DiscoveryRoomFence();
             Console.WriteLine($"PASS: grant network {_checks} assertions; immutable transitions, dense bootstrap, remaining time and bounded peer delivery.");
             return 0;
         }

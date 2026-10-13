@@ -22,8 +22,7 @@ internal sealed partial class ReplayRecorder
     {
         if (room < _pickupSeedRoom) return false;
         if (room > _pickupSeedRoom) { ResetPickupSeed(); _pickupSeedRoom = room; }
-        if (_grantSeed.RoomIdentity != 0 && _grantSeed.RoomIdentity < room) _grantSeed.Reset();
-        return true;
+        return _grantSeed.ObserveRoom(_epoch, _matchId, room);
     }
     private void SeedPickupItems(uint frame, Action<ReplayTimelineRecord> accept)
     {
@@ -88,6 +87,7 @@ internal sealed partial class ReplayReplicaState
     private bool PickupRoom(uint room)
     {
         if (room < _pickupRoom) return false;
+        if (Match is not { } match || !TimedGrants.ObserveRoom(match.AuthorityEpoch, match.MatchId, room)) return false;
         if (room > _pickupRoom) { ResetPickupFacts(); _pickupRoom = room; }
         return true;
     }

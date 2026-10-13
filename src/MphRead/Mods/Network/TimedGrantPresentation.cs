@@ -31,13 +31,18 @@ internal sealed class TimedGrantPresentation
     private ulong _epoch;
     private ushort _match;
     private uint _room;
+    // Discovery can fence an older room before any A3 fact arrives. Keep that
+    // watermark separate from coverage so historical item facts invent no grant.
+    private ulong _fenceEpoch;
+    private ushort _fenceMatch;
+    private uint _roomFence;
     private bool _clock;
     private uint _authorityAnchor, _localAnchor;
     internal int PendingCount => _pending.Count;
     internal IEnumerable<TimedGrantFact> Facts
     { get { foreach (var fact in _facts) if (fact.HasValue) yield return fact.Value; } }
     internal bool HasCoverage => _room != 0;
-    internal uint RoomIdentity => _room;
+    internal uint RoomIdentity => _roomFence;
     private static bool Before(uint a, uint b) => unchecked((int)(a - b)) < 0;
     private static bool OlderLife(ShotKey candidate, ShotKey known)
         => candidate.Generation != known.Generation ? !NetLifecycleTracker.Newer(candidate.Generation, known.Generation)
@@ -59,12 +64,20 @@ internal sealed class TimedGrantPresentation
     {
         Array.Clear(_facts); Array.Clear(_acks); Array.Clear(_resumeCoverage); _pending.Clear(); _consumed.Clear();
         _epoch = 0; _match = 0; _room = 0; _clock = false; _authorityAnchor = _localAnchor = 0;
+        _fenceEpoch = 0; _fenceMatch = 0; _roomFence = 0;
+    }
+    internal bool ObserveRoom(ulong epoch, ushort match, uint room)
+    {
+        if (epoch == 0 || match == 0 || room == 0) return false;
+        if (_roomFence != 0 && (_fenceEpoch != epoch || _fenceMatch != match || room < _roomFence)) return false;
+        if (room > _roomFence)
+        { Reset(); _fenceEpoch = epoch; _fenceMatch = match; _roomFence = room; }
+        return true;
     }
     private bool Scope(ulong epoch, ushort match, uint room)
     {
-        if (epoch == 0 || match == 0 || room == 0) return false;
-        if (_room != 0 && (_epoch != epoch || _match != match || room < _room)) return false;
-        if (_room != room) { Reset(); _epoch = epoch; _match = match; _room = room; }
+        if (!ObserveRoom(epoch, match, room)) return false;
+        _epoch = epoch; _match = match; _room = room;
         return true;
     }
     internal uint AuthorityNow(uint localFrame) => _clock

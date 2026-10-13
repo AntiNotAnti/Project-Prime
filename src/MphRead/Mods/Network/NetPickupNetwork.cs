@@ -208,6 +208,7 @@ internal static class NetPickupNetwork
     {
         if (!NetSession.MatchesStream(fact.Spawn.Match, fact.Spawn.Epoch) || !fact.IsValid) return false;
         if (_room != 0 && fact.Spawn.Room < _room) return false;
+        if (!NetGrantNetwork.ObserveItemRoom(fact)) return false;
         if (_room != fact.Spawn.Room)
         { KnownItems.Clear(); Owners.Clear(); _room = fact.Spawn.Room; }
         var accepted = PickupItemHistory.Accept(KnownItems, fact);

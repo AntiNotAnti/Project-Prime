@@ -193,9 +193,72 @@ internal static class GrantReplayTests
             && ReplayIdentityCompatibility.Convert(prediction, 54).SequenceEqual(prediction), "prediction protocol gate preserves native54 bytes");
         recorder.Reset();
     }
+    private static void DiscoveryRoomFence()
+    {
+        var recorder = new ReplayRecorder(); recorder.AcceptMatch(Match(), 0);
+        var claim = Claim(); var old = Fact(claim);
+        var state = State(); state.Accept(Packet(old), 100);
+        recorder.AcceptTimedGrant(old, 100);
+        byte[] oldBootstrap = Array.Empty<byte>(); recorder.SeedGrantFacts(100, r => oldBootstrap = r.Payload.ToArray());
+        var item = new PickupItemFact(claim.Spawn with { Room = 8, SpawnId = 20 }, claim.Type, 130, true, Vector3.Zero);
+        long before = state.AcceptedPackets;
+        state.Accept(Packet(item with { Spawn = item.Spawn with { Epoch = 10, Room = 9 } }), 129);
+        Check(state.AcceptedPackets == before && state.TimedGrants.RoomIdentity == 7
+            && state.TimedGrants.View(claim.Key.LifeKey, claim.Type, 100).ConfirmedRemaining > 0,
+            "foreign replay discovery cannot fence current authority life");
+        state.Accept(Packet(item), 130); recorder.AcceptPickupItem(item, 130);
+        Check(state.PickupRoomIdentity == 8 && state.TimedGrants.RoomIdentity == 8
+            && !state.TimedGrants.HasCoverage && !state.TimedGrants.Facts.Any()
+            && !state.TimedGrants.View(claim.Key.LifeKey, claim.Type, 130).Active,
+            "ongoing private item discovery fences old confirmation before new grant without invented coverage");
+        var restored = State(); restored.RestoreCheckpoint(state.CaptureCheckpoint());
+        Check(restored.TimedGrants.RoomIdentity == 8 && !restored.TimedGrants.HasCoverage,
+            "existing item checkpoint appendix reconstructs the room fence without new serialized fields");
+        byte[] oldPrediction = new byte[1 + ReplayPickupPrediction.Size];
+        oldPrediction[0] = (byte)PacketType.PickupPrediction; claim.Write(oldPrediction.AsSpan(1, PickupClaim.Size));
+        BinaryPrimitives.WriteUInt32LittleEndian(oldPrediction.AsSpan(1 + PickupClaim.Size), 100);
+        foreach (var replica in new[] { state, restored })
+        {
+            before = replica.AcceptedPackets;
+            replica.Accept(oldPrediction, 131); replica.Accept(Packet(old with { Revision = 99 }), 131); replica.Accept(oldBootstrap, 132);
+            Check(replica.AcceptedPackets == before && replica.TimedGrants.RoomIdentity == 8
+                && !replica.TimedGrants.View(claim.Key.LifeKey, claim.Type, 132).Active,
+                "reordered old prediction grant and bootstrap cannot cross discovery fence live or after restore");
+        }
+        var seeded = State(); recorder.AcceptTimedGrant(old with { Revision = 99 }, 131);
+        recorder.SeedGrantFacts(132, r => seeded.Accept(r.Payload, 0));
+        Check(seeded.PickupItems.ContainsKey(item.Spawn) && seeded.TimedGrants.RoomIdentity == 8
+            && !seeded.TimedGrants.HasCoverage && !seeded.TimedGrants.Facts.Any(),
+            "recorder seed retains new-room item and fence while ignoring reordered old grant");
+        var nextClaim = claim with { Key = claim.Key with { Sequence = 7 }, Spawn = item.Spawn };
+        byte[] prediction = Array.Empty<byte>();
+        recorder.Accepted += r => prediction = r.Payload.ToArray();
+        recorder.AcceptPickupPrediction(nextClaim, 133, 133); state.Accept(prediction, 133);
+        Check(state.TimedGrants.PendingCount == 1 && state.TimedGrants.Hides(item.Spawn, 133),
+            "ongoing replay accepts new-room owner prediction and item hiding");
+        var independent = old with { Room = 8, Type = TimedPowerUp.DoubleDamage, Revision = 2, Sequence = 13, SpawnId = 21 };
+        state.Accept(Packet(independent), 134); recorder.AcceptTimedGrant(independent, 134);
+        Check(state.TimedGrants.PendingCount == 1
+            && state.TimedGrants.View(claim.Key.LifeKey, independent.Type, 134).ConfirmedRemaining > 0,
+            "new-room independent type confirmation preserves pending owner overlay");
+        var next = old with { Room = 8, Revision = 3, Sequence = 14, SpawnId = 20 };
+        state.Accept(Packet(next), 135); recorder.AcceptTimedGrant(next, 135);
+        Check(state.TimedGrants.PendingCount == 0 && state.TimedGrants.Facts.Count() == 2
+            && state.TimedGrants.View(claim.Key.LifeKey, next.Type, 135).ConfirmedRemaining > 0,
+            "new-room matching delta confirms without losing independent grant");
+        state.Accept(Packet(item with { AuthorityFrame = 136, Available = false }), 136);
+        Check(state.TimedGrants.Facts.Count() == 2,
+            "same-room item update never clears new-room replay grants");
+        var newSeed = State(); recorder.SeedGrantFacts(136, r => newSeed.Accept(r.Payload, 0));
+        Check(newSeed.PickupItems.ContainsKey(item.Spawn) && newSeed.TimedGrants.RoomIdentity == 8
+            && newSeed.TimedGrants.Facts.Count() == 2 && newSeed.TimedGrants.PendingCount == 0
+            && newSeed.TimedGrants.View(claim.Key.LifeKey, next.Type, 0).ConfirmedRemaining > 0,
+            "new-room recorder bootstrap preserves both confirmations and settled prediction beside discovery");
+        recorder.Reset();
+    }
     internal static int Run()
     {
-        try { _checks = 0; RecorderAndProjection(); BootstrapAgeAndQuietResume(); StationaryItemSeed(); HistoricalCompatibility(); Console.WriteLine($"PASS: {_checks} grant replay assertions"); return 0; }
+        try { _checks = 0; RecorderAndProjection(); BootstrapAgeAndQuietResume(); StationaryItemSeed(); HistoricalCompatibility(); DiscoveryRoomFence(); Console.WriteLine($"PASS: {_checks} grant replay assertions"); return 0; }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
     }
 }
