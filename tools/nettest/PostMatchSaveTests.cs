@@ -253,7 +253,7 @@ internal static class PostMatchSaveTests
         foreach (string call in calls) if (at < required.Length && call == required[at]) at++;
         return at == required.Length;
     }
-    private static IReadOnlyList<string> Calls(Type type, string name)
+    internal static IReadOnlyList<string> Calls(Type type, string name)
     {
         var method = type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance)!;
         byte[] il = method.GetMethodBody()!.GetILAsByteArray()!;

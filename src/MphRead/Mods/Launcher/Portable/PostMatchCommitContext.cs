@@ -14,6 +14,7 @@ internal sealed class PostMatchCommitContext
     internal long RequestVersion { get; }
     internal long SceneGeneration { get; }
     internal byte Slot { get; }
+    internal bool LegacyTransitionTiming { get; }
     internal int WriteAttempts { get; private set; }
     internal bool HasPayload => _payload.HasValue;
 
@@ -22,6 +23,7 @@ internal sealed class PostMatchCommitContext
         RequestVersion = requestVersion;
         SceneGeneration = state.Owner?.LifetimeGeneration ?? 0;
         Slot = slot;
+        LegacyTransitionTiming = state.InRoomTransition;
         State = PostMatchCommitState.Ending;
         if (requested != SaveWhen.Never && slot != 0) _payload = state.CaptureSaveCommit(slot);
         State = PostMatchCommitState.CommitPending;

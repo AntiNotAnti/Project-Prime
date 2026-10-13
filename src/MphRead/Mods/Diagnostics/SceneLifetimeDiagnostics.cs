@@ -5,7 +5,7 @@ using System.Threading;
 namespace MphRead.Mods.Diagnostics;
 
 internal enum SceneLifetimeRole { Live, HeadlessLive, Replica, SideScene, ReplayLab }
-internal enum SceneLifetimeStage { Constructed, Loading, Loaded, CleanupStarted, CleanupComplete, VisualResourcesReleased }
+internal enum SceneLifetimeStage { Constructed, Loading, Loaded, CleanupStarted, CleanupComplete, VisualResourcesReleased, CompatibilityReleased }
 [Flags]
 internal enum SceneFacadeRoots { None = 0, GameState = 1, Players = 2, Random = 4 }
 
