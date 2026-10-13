@@ -182,6 +182,8 @@ namespace MphRead.Entities
 
             public void InitializeAtSpawn()
             {
+                // A new life must not inherit exact knowledge of the prior one.
+                ResetTacticalState();
                 ResetBotMotor();
                 InitializeMain();
                 ClearInput();
@@ -2352,8 +2354,21 @@ namespace MphRead.Entities
                 {
                     return beam == BeamType.Imperialist && _player._availableWeapons[beam];
                 }
-                WeaponInfo info = _scene.WeaponRules[(int)beam];
-                return _player._ammo[info.AmmoType] >= info.AmmoCost && _player._availableWeapons[beam];
+                // Preserve native scripted-encounter weapon policy in Adventure.
+                if (_scene.GameState.SinglePlayer)
+                {
+                    WeaponInfo native = _scene.WeaponRules[(int)beam];
+                    return _player._availableWeapons[beam]
+                        && _player._ammo[native.AmmoType] >= native.AmmoCost;
+                }
+                // The old bot gate checked raw UA, so Balanced Imperialist
+                // appeared usable even after its private five-shot reserve ran
+                // dry. Use the same actual rules as native shot payment.
+                int affinityIndex = Weapons.GetAffinityBeam(_player.Hunter) == beam ? 9 : 0;
+                WeaponInfo info = _scene.WeaponRules[(int)beam + affinityIndex];
+                return _player._availableWeapons[beam]
+                    && _player.ModAmmoForWeapon(beam, info)
+                        >= _player.ModAmmoCostForWeapon(beam, info);
             }
 
             // helper
@@ -2363,9 +2378,18 @@ namespace MphRead.Entities
                 {
                     return false;
                 }
-                WeaponInfo info = _scene.WeaponRules[(int)beam];
+                if (_scene.GameState.SinglePlayer)
+                {
+                    WeaponInfo native = _scene.WeaponRules[(int)beam];
+                    return native.Flags.TestFlag(WeaponFlags.CanCharge)
+                        && _player._ammo[native.AmmoType] >= native.ChargeCost
+                        && _player._availableCharges[beam];
+                }
+                int affinityIndex = Weapons.GetAffinityBeam(_player.Hunter) == beam ? 9 : 0;
+                WeaponInfo info = _scene.WeaponRules[(int)beam + affinityIndex];
                 return info.Flags.TestFlag(WeaponFlags.CanCharge)
-                    && _player._ammo[info.AmmoType] >= info.ChargeCost && _player._availableCharges[beam];
+                    && _player.ModAmmoForWeapon(beam, info) >= info.ChargeCost
+                    && _player._availableCharges[beam];
             }
 
             private void Func1_214A39C()
@@ -6995,7 +7019,7 @@ namespace MphRead.Entities
                             }
                             if (projectileSpeed > 0)
                             {
-                                Vector3 targetVelocity = _targetPlayer.Speed / 2f;
+                                Vector3 targetVelocity = BotAimObservedVelocity(_targetPlayer);
                                 float muzzleDist = (targetPos - _player._muzzlePos).Length;
                                 lead = targetVelocity * (muzzleDist / projectileSpeed) * tuning.PredictionStrength;
                                 for (int i = 0; i < tuning.PredictionIterations; i++)

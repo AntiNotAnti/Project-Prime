@@ -203,6 +203,59 @@ public static class BotAiChecks
         Check(burstHammer > stockHammer,
             "balanced burst rifle favors midrange where its actual projectiles excel");
 
+        Vector3 gunshot = BotPerceptionMath.QuantizedSoundCue(
+            Vector3.Zero, new Vector3(11.7f, 1.3f, 6.1f));
+        Check(Vector3.Distance(gunshot, new Vector3(11.7f, 1.3f, 6.1f)) > 0.2f,
+            "hearing remembers a coarse position, never a live exact target");
+        Vector3 prediction = BotPerceptionMath.RememberedPosition(
+            new(2, 0, 3), new(.48f, 0, 0), unseenFrames: 120);
+        Check(MathF.Abs(prediction.X - 4.88f) < .02f,
+            "visual memory stops extrapolating after twelve frames");
+        Check(BotPerceptionMath.Confidence(40, 80, heardOnly: true) < .25f
+            && BotPerceptionMath.Confidence(40, 80, heardOnly: false) == .5f,
+            "audio uncertainty stays below last-seen visual confidence");
+        Check(BotPerceptionMath.Confidence(0, 80, heardOnly: false) == 0,
+            "expired contact has zero target confidence");
+
+        Check(BotPositionUtility.Score(17, 15, 15, false, false, 0, 0, 0)
+              > BotPositionUtility.Score(17, 19, 15, false, false, 0, 0, 0),
+            "combat planner prefers movement toward useful weapon range");
+        Check(BotPositionUtility.Score(12, 16, 12, true, true, 0, 0, 0)
+              > BotPositionUtility.Score(12, 10, 12, true, false, 0, 0, 0),
+            "wounded bot prefers breaking sight and making space");
+        Check(BotPositionUtility.Score(12, 12, 12, false, false, -0.8f, 0, 0)
+              > BotPositionUtility.Score(12, 12, 12, false, false, 0.8f, 0, 0),
+            "healthy flanking bot prefers leaving the enemy aim cone");
+        Check(BotPositionUtility.Score(12, 12, 12, false, false, 0, 7, 0)
+              < BotPositionUtility.Score(12, 12, 12, false, false, 0, 0, 0),
+            "combat planner reduces teammate crowding");
+
+        Vector3 filteredVelocity = BotPerceptionMath.SmoothObservedVelocity(
+            new(1, 0, 0), new(-1, 0, 0), reacquired: false);
+        Check(filteredVelocity.X > -1 && filteredVelocity.X < 1
+            && BotPerceptionMath.SmoothObservedVelocity(
+                Vector3.Zero, new(-1, 0, 0), reacquired: true).X == -1,
+            "bot prediction smooths visible reversal jitter but resets on reacquisition");
+        Check(BotReactionPolicy.AcquisitionFrames(3, reacquired: false) <
+                BotReactionPolicy.AcquisitionFrames(2, reacquired: false)
+            && BotReactionPolicy.AcquisitionFrames(3, reacquired: true) <
+                BotReactionPolicy.AcquisitionFrames(3, reacquired: false),
+            "elite reaction is fast but not instantaneous; familiar corners reacquire quicker");
+        Check(BotReactionPolicy.AcquisitionFrames(-200, false) ==
+              BotReactionPolicy.AcquisitionFrames(0, false),
+            "reaction difficulty clamps invalid tiers");
+
+        Check(PlayerEntity.PlayerAiData.TacticalAmmoReserveBiasForTest(
+                    BeamType.Imperialist, 1) <
+              PlayerEntity.PlayerAiData.TacticalAmmoReserveBiasForTest(
+                    BeamType.Imperialist, 5),
+            "nearly depleted weapons are less valuable than well-supplied alternatives");
+        Check(PlayerEntity.PlayerAiData.TacticalAmmoReserveBiasForTest(
+                    BeamType.OmegaCannon, 1) == 0
+              && PlayerEntity.PlayerAiData.TacticalAmmoReserveBiasForTest(
+                    BeamType.PowerBeam, 100) == 0,
+            "Omega Cannon and free Power Beam are not penalized for ammo scarcity");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }

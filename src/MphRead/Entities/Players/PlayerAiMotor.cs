@@ -67,6 +67,13 @@ namespace MphRead.Entities
                     return;
                 }
 
+                // Tactical fire suppression must be resolved *after* legacy,
+                // enhancement and mode-specific combat writers. Otherwise the
+                // Insta-Gib fallback can bypass the visual acquisition delay.
+                if (_botSuppressFireThisTick)
+                {
+                    _buttons.R.IsDown = false;
+                }
                 // Treat observed incoming projectiles as time-limited dodge goals.
                 // They can supersede ordinary footwork, but only when visible and
                 // after a difficulty-dependent reaction delay.
