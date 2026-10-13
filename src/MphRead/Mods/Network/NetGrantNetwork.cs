@@ -79,7 +79,11 @@ internal static class NetGrantNetwork
         else if (NetPickupNetwork.Now - peer.Since >= NetPickupNetwork.DeadlineSeconds) return false;
         while (peer.Baseline.TryPeek(out var bytes))
         { if (!send(PacketType.TimedGrant, bytes)) return true; peer.Baseline.Dequeue(); }
-        return peer.Store.PumpBatched(peer.Cursor, send, budget: 64);
+        if (!peer.Store.PumpBatched(peer.Cursor, send, budget: 64)) return false;
+        // A new transition may precede every pump. Retire a completed delivery
+        // deadline here, rather than requiring a later pump to begin empty.
+        if (Pending(peer) == 0) peer.Since = double.NaN;
+        return true;
     }
     internal static bool Receive(TimedGrantFact fact)
     {

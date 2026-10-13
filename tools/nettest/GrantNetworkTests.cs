@@ -160,6 +160,34 @@ internal static class GrantNetworkTests
         Check(NetGrantNetwork.Presentation.View(Life(0), TimedPowerUp.DoubleDamage, 700).Remaining == 1200,
             "matching client receive projects remaining time without renewing the grant");
     }
+    private static void DrainedPeersStartFreshDeadline()
+    {
+        Authority(); var healthy = NetGrantNetwork.Join();
+        NetGrantNetwork.Changed(Grant());
+        Check(NetGrantNetwork.Pump(healthy, (_, _) => true) && NetGrantNetwork.Pending(healthy) == 0,
+            "healthy peer fully admits its first grant update");
+        Check(double.IsNaN(healthy.Since), "fully drained grant queue retires its delivery deadline immediately");
+        // A fresh update can arrive before the next Pump sees an empty queue.
+        // Finishing the first update must keep its age out of this obligation.
+        NetGrantNetwork.Changed(Grant()); int sent = 0;
+        Check(NetGrantNetwork.Pump(healthy, (_, payload) => { sent += Decode(payload).Count; return true; })
+            && sent == 1 && NetGrantNetwork.Pending(healthy) == 0 && double.IsNaN(healthy.Since),
+            "consecutive fully admitted updates each end their own deadline");
+
+        Authority(); NetGrantNetwork.Changed(Grant()); var baseline = NetGrantNetwork.Join();
+        Check(NetGrantNetwork.Pump(baseline, (_, _) => true) && NetGrantNetwork.Pending(baseline) == 0
+            && double.IsNaN(baseline.Since), "fully admitted bootstrap retires its deadline immediately");
+
+        Authority(); var partial = NetGrantNetwork.Join();
+        for (int i = 0; i < 65; i++) NetGrantNetwork.Changed(Grant());
+        partial.Since = NetPickupNetwork.Now - 14;
+        double started = partial.Since;
+        Check(NetGrantNetwork.Pump(partial, (_, _) => true) && NetGrantNetwork.Pending(partial) == 1
+            && partial.Since == started, "partial admission preserves oldest outstanding deadline");
+        partial.Since = NetPickupNetwork.Now - 16; int callbacks = 0;
+        Check(!NetGrantNetwork.Pump(partial, (_, _) => { callbacks++; return true; }) && callbacks == 0,
+            "partial progress cannot extend stalled outstanding delivery past its deadline");
+    }
     private static void DiscoveryRoomFence()
     {
         NetPickupNetwork.Reset(); Session(nameof(NetSession.Role), NetRole.Client);
@@ -215,7 +243,7 @@ internal static class GrantNetworkTests
             for (int i = 0; i < 8; i++) trackers[i].Restore(new(1, 1, NetworkPlayerState.Alive, false));
             Check(NetReliableChannel.IsReliable(PacketType.TimedGrant) && !NetReliableChannel.IsCritical(PacketType.TimedGrant),
                 "grant transitions use ordinary reliable delivery");
-            ImmutableTransition(); DenseLateJoin(); IndependentCursorsAndFailure(); ClientScope(); DiscoveryRoomFence();
+            ImmutableTransition(); DenseLateJoin(); IndependentCursorsAndFailure(); DrainedPeersStartFreshDeadline(); ClientScope(); DiscoveryRoomFence();
             Console.WriteLine($"PASS: grant network {_checks} assertions; immutable transitions, dense bootstrap, remaining time and bounded peer delivery.");
             return 0;
         }
