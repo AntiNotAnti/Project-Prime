@@ -40,6 +40,7 @@ namespace MphRead.Entities
             private float _botMotorYawVelocity;
             private float _botMotorPitchVelocity;
             private bool _botMotorBiped;
+            private bool _botMotorAlt;
 
             private void ResetBotMotor()
             {
@@ -47,6 +48,7 @@ namespace MphRead.Entities
                 _botMotorYawVelocity = 0;
                 _botMotorPitchVelocity = 0;
                 _botMotorBiped = false;
+                _botMotorAlt = false;
                 ResetBotDodge();
                 _player.Controls?.ClearAnalogMovement();
             }
@@ -58,22 +60,37 @@ namespace MphRead.Entities
             /// </summary>
             private void ApplyBotMotor()
             {
-                if (_player.Health <= 0 || !_player.ModInPlay || _player.IsAltForm
+                if (_botSuppressFireThisTick)
+                {
+                    // No pre-acquisition fire, alt attack or boost from the
+                    // legacy personality tree. The veto must run before the
+                    // biped/alt separation, otherwise alt forms bypass it.
+                    _buttons.R.IsDown = false;
+                    if (_player.IsAltForm) _buttons.L.IsDown = false;
+                }
+                if (_player.Health <= 0 || !_player.ModInPlay
                     || _player.IsMorphing || _player.IsUnmorphing)
                 {
-                    // Leave native alt-form controls entirely untouched. Morph Ball,
-                    // Lockjaw, Triskelion and other alt attacks need their own tuning.
                     ResetBotMotor();
                     return;
                 }
-
-                // Tactical fire suppression must be resolved *after* legacy,
-                // enhancement and mode-specific combat writers. Otherwise the
-                // Insta-Gib fallback can bypass the visual acquisition delay.
-                if (_botSuppressFireThisTick)
+                if (_player.IsAltForm)
                 {
-                    _buttons.R.IsDown = false;
+                    // Input smoothing applies equally to hunter alt locomotion,
+                    // without replacing native rolling, bombs or boost physics.
+                    ApplyBotAltMotor();
+                    return;
                 }
+                if (_botMotorAlt)
+                {
+                    // Never carry the previous form's analog momentum into a
+                    // new biped life or morph/unmorph transition.
+                    _botMotorMovement = Vector2.Zero;
+                    _botMotorYawVelocity = 0;
+                    _botMotorPitchVelocity = 0;
+                    _botMotorAlt = false;
+                }
+
                 // Treat observed incoming projectiles as time-limited dodge goals.
                 // They can supersede ordinary footwork, but only when visible and
                 // after a difficulty-dependent reaction delay.
@@ -128,12 +145,70 @@ namespace MphRead.Entities
                     _buttonAimY, tuning.MaxPitchPerTick, tuning.TurnAcceleration);
             }
 
+            private void ApplyBotAltMotor()
+            {
+                if (!_botMotorAlt)
+                {
+                    // A newly entered alt form begins with its own grounded
+                    // input-rate history. We do not inherit biped strafe speed.
+                    _botMotorMovement = Vector2.Zero;
+                    _botMotorYawVelocity = 0;
+                    _botMotorPitchVelocity = 0;
+                    _botMotorAlt = true;
+                    _botMotorBiped = false;
+                    ResetBotDodge();
+                }
+
+                bool strafingAlt = _player.Values.AltFormStrafe != 0;
+                Vector2 requested = BotMotorMath.AltDesiredAxes(strafingAlt,
+                    _buttons.A.IsDown, _buttons.Y.IsDown, _buttons.X.IsDown, _buttons.B.IsDown,
+                    _buttons.Right.IsDown, _buttons.Left.IsDown, _buttons.Up.IsDown, _buttons.Down.IsDown);
+                BotMotorTuning tuning = _motorTuning[Math.Clamp(_player.BotLevel, 0, 3)];
+                float x = BotMotorMath.StepMoveAxis(_botMotorMovement.X, requested.X,
+                    tuning.MoveAcceleration, tuning.MoveBraking);
+                float y = BotMotorMath.StepMoveAxis(_botMotorMovement.Y, requested.Y,
+                    tuning.MoveAcceleration, tuning.MoveBraking);
+                float lengthSquared = x * x + y * y;
+                if (lengthSquared > 1)
+                {
+                    float inverse = 1f / MathF.Sqrt(lengthSquared);
+                    x *= inverse;
+                    y *= inverse;
+                }
+                _botMotorMovement = new Vector2(x, y);
+                if (strafingAlt)
+                {
+                    // Trace, Sylux and Weavel turn their alt-form cameras, so
+                    // retain the same bounded turning as their biped forms.
+                    _buttonAimX = BotMotorMath.StepAimAxis(ref _botMotorYawVelocity,
+                        _buttonAimX, tuning.MaxYawPerTick, tuning.TurnAcceleration);
+                    _buttonAimY = BotMotorMath.StepAimAxis(ref _botMotorPitchVelocity,
+                        _buttonAimY, tuning.MaxPitchPerTick, tuning.TurnAcceleration);
+                    _buttons.A.IsDown = x > 0.001f;
+                    _buttons.Y.IsDown = x < -0.001f;
+                    _buttons.X.IsDown = y > 0.001f;
+                    _buttons.B.IsDown = y < -0.001f;
+                }
+                else
+                {
+                    // Samus/Kanden/Spire/Noxus use camera-relative Roll input
+                    // rather than alt-form strafing. The native roll physics
+                    // consume the same analog magnitude as human controllers.
+                    _buttons.Right.IsDown = x > 0.001f;
+                    _buttons.Left.IsDown = x < -0.001f;
+                    _buttons.Up.IsDown = y > 0.001f;
+                    _buttons.Down.IsDown = y < -0.001f;
+                }
+            }
+
             private void ApplyBotMotorAnalogInput()
             {
-                // Bot input is consumed by the exact same native locomotion and
-                // SlotIntent axis path as a human controller, including replay.
-                if (_botMotorBiped && _player.Health > 0 && _player.ModInPlay
-                    && !_player.IsAltForm && !_player.IsMorphing && !_player.IsUnmorphing)
+                // Native locomotion consumes analog axes in *either* form. The
+                // SlotIntent and replay codecs already transport these values.
+                bool stable = _player.Health > 0 && _player.ModInPlay
+                    && !_player.IsMorphing && !_player.IsUnmorphing;
+                if (stable && (_botMotorBiped && !_player.IsAltForm
+                    || _botMotorAlt && _player.IsAltForm))
                 {
                     _player.Controls.SetAnalogMovement(_botMotorMovement.X, _botMotorMovement.Y);
                 }

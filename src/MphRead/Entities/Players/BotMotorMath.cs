@@ -47,6 +47,17 @@ namespace MphRead.Entities
             return MathF.Abs(next) < 0.001f ? 0 : next;
         }
 
+        internal static Vector2 AltDesiredAxes(bool strafingAlt,
+            bool strafeRight, bool strafeLeft, bool moveUp, bool moveDown,
+            bool rollRight, bool rollLeft, bool rollUp, bool rollDown)
+        {
+            return strafingAlt
+                ? new Vector2((strafeRight ? 1f : 0f) - (strafeLeft ? 1f : 0f),
+                    (moveUp ? 1f : 0f) - (moveDown ? 1f : 0f))
+                : new Vector2((rollRight ? 1f : 0f) - (rollLeft ? 1f : 0f),
+                    (rollUp ? 1f : 0f) - (rollDown ? 1f : 0f));
+        }
+
         internal static float SafePitchDegrees(Vector3 direction)
         {
             if (!float.IsFinite(direction.X) || !float.IsFinite(direction.Y)

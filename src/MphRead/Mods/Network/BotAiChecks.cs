@@ -315,6 +315,91 @@ public static class BotAiChecks
                 && BotStrategicPolicy.PickupAllowedForMode(ItemType.Imperialist, weaponLocked: false),
             "locked-weapon modes do not divert bots toward unusable weapon pickups");
 
+        Check(BotHunterCombatPolicy.ShouldEnterAlt(Hunter.Samus, 6, .30f,
+                true, true, false, false, false)
+            && !BotHunterCombatPolicy.ShouldEnterAlt(Hunter.Samus, 6, .90f,
+                true, true, false, false, false),
+            "Samus uses Morph Ball defensively rather than random high-health morphing");
+        Check(BotHunterCombatPolicy.ShouldEnterAlt(Hunter.Kanden, 4, .75f,
+                true, true, false, false, false)
+            && BotHunterCombatPolicy.ChooseAltAction(Hunter.Kanden, 4, true, false)
+                == BotHunterAltAction.Bomb,
+            "Kanden chooses short-range Stinglarva bomb pressure");
+        Check(BotHunterCombatPolicy.ShouldEnterAlt(Hunter.Trace, 3, .80f,
+                true, true, false, false, false)
+            && BotHunterCombatPolicy.ChooseAltAction(Hunter.Trace, 3, true, false)
+                == BotHunterAltAction.Lunge,
+            "Trace commits to close-range lunge while retaining long-range sniping");
+        Check(BotHunterCombatPolicy.ShouldEnterAlt(Hunter.Sylux, 5, .85f,
+                true, true, false, false, false)
+            && BotHunterCombatPolicy.ChooseAltAction(Hunter.Sylux, 5, true, false)
+                == BotHunterAltAction.Bomb,
+            "Sylux can set Lockjaw bombs when entering close range");
+        Check(!BotHunterCombatPolicy.ShouldEnterAlt(Hunter.Noxus, 3, .8f,
+                true, true, false, false, false)
+            && BotHunterCombatPolicy.ShouldEnterAlt(Hunter.Noxus, 3, .8f,
+                true, true, false, true, false)
+            && BotHunterCombatPolicy.ChooseAltAction(Hunter.Noxus, 3, true, true)
+                == BotHunterAltAction.Spin,
+            "Noxus reserves Vhoscythe spin for genuine frozen-target setup");
+        Check(BotHunterCombatPolicy.ShouldEnterAlt(Hunter.Spire, 3, .8f,
+                true, true, false, false, false)
+            && BotHunterCombatPolicy.ChooseAltAction(Hunter.Spire, 3, true, false)
+                == BotHunterAltAction.Slam,
+            "Spire performs close-range Dialanche slam");
+        Check(BotHunterCombatPolicy.ShouldEnterAlt(Hunter.Weavel, 8, .55f,
+                true, true, false, false, false)
+            && BotHunterCombatPolicy.ChooseAltAction(Hunter.Weavel, 8, true, false)
+                == BotHunterAltAction.HoldTurret,
+            "Weavel uses defensive Halfturret without synthetic projectile attacks");
+        Check(!BotHunterCombatPolicy.ShouldEnterAlt(Hunter.Kanden, 4, .8f,
+                false, true, false, false, false)
+            && !BotHunterCombatPolicy.ShouldEnterAlt(Hunter.Weavel, 8, .5f,
+                true, true, true, false, true)
+            && BotHunterCombatPolicy.ChooseAltAction(Hunter.Trace, 3, false, false)
+                == BotHunterAltAction.None,
+            "hunter abilities require visible enemies and do not interrupt navigation");
+        Check(BotHunterCombatPolicy.ShouldExitAlt(Hunter.Trace, 80, true, 3)
+            && !BotHunterCombatPolicy.ShouldExitAlt(Hunter.Sylux, 15, false, 3),
+            "hunter form tactics have finite commitment and cannot spam switches");
+        Check(BotHunterCombatPolicy.WantsChargedAffinity(Hunter.Kanden,
+                BeamType.VoltDriver, 18, false)
+            && BotHunterCombatPolicy.WantsChargedAffinity(Hunter.Noxus,
+                BeamType.Judicator, 10, false)
+            && !BotHunterCombatPolicy.WantsChargedAffinity(Hunter.Noxus,
+                BeamType.Judicator, 10, true),
+            "charged affinity attacks exploit disruption/freeze without charging frozen targets");
+
+        Check(BotHunterCombatPolicy.ChooseAltAction(
+                Hunter.Noxus, 2.5f, targetVisible: true, targetFrozen: true)
+                == BotHunterAltAction.Spin
+            && BotHunterCombatPolicy.ChooseAltAction(
+                Hunter.Noxus, 2.5f, targetVisible: false, targetFrozen: true)
+                == BotHunterAltAction.None,
+            "Noxus native spin initiation requires a real visible frozen opponent");
+
+        Check(BotHunterCombatPolicy.ShouldExitAlt(Hunter.Weavel, 110,
+                targetVisible: false, distance: float.PositiveInfinity)
+            && BotHunterCombatPolicy.ShouldExitAlt(Hunter.Noxus, 41,
+                targetVisible: false, distance: float.PositiveInfinity),
+            "hunter alt combat eventually exits after lost sight or long commitment");
+
+        Vector2 rollRequest = BotMotorMath.AltDesiredAxes(false,
+            false, false, false, false, true, false, true, false);
+        Vector2 strafeRequest = BotMotorMath.AltDesiredAxes(true,
+            true, false, true, false, false, false, false, false);
+        Check(rollRequest == new Vector2(1, 1)
+            && strafeRequest == new Vector2(1, 1),
+            "native roll and strafe alt forms map to the same smooth analog axes");
+        Check(BotMotorMath.AltDesiredAxes(false,
+                false, false, false, false, true, true, false, false) == Vector2.Zero,
+            "opposing alt roll inputs cancel instead of generating abrupt movement");
+        float altRate = 0;
+        float altFirst = BotMotorMath.StepMoveAxis(altRate, 1, 0.4f, 0.52f);
+        float altReverse = BotMotorMath.StepMoveAxis(altFirst, -1, 0.4f, 0.52f);
+        Check(altFirst > 0 && altFirst < 1 && altReverse == 0,
+            "alt motor brakes on direction reversal without snapping across zero");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }
