@@ -50,6 +50,8 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return BipedEdgeCollisionTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
+            if (args.Length > 0 && args[0] == "--scene-setup-ownership")
+                return SceneSetupOwnershipTests.Run(Array.IndexOf(args, "--baseline") >= 0);
             if (args.Length > 0 && args[0] == "--ai-client-driver") return NetAiClientTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-claims") return CampaignClaimEvidenceTests.Run();
             if (args.Length > 0 && args[0] == "--replay-form-history") return ReplayFormHistoryTests.Run();
