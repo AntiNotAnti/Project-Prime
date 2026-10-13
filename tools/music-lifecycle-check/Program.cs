@@ -48,8 +48,9 @@ static class Program
         Require(MusicPlayer.Available, "Native MiniAudio playback device unavailable");
         var owner = (MusicLoadOwner)typeof(MusicPlayer).GetField("_loads", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
         var device = MusicPlayer.PlaybackDevice!;
+        var engine = MusicPlayer.Engine!;
         int renderedCallbacks = 0;
-        MusicPlayer.Engine!.AudioFramesRendered += (_, _) => Interlocked.Increment(ref renderedCallbacks);
+        engine.AudioFramesRendered += (_, _) => Interlocked.Increment(ref renderedCallbacks);
         using var cueProvider = new RawDataProvider(new float[128], 32728);
         using var cue = new SoundPlayer(MusicPlayer.Engine!, MusicPlayer.Format, cueProvider);
         device.MasterMixer.AddComponent(cue);
@@ -81,7 +82,7 @@ static class Program
                 long started = Stopwatch.GetTimestamp(); MusicPlayer.Remove(shutdown: true);
                 Require(Stopwatch.GetElapsedTime(started) < TimeSpan.FromMilliseconds(100), "Native scene Remove blocked");
                 Await(owner.Completion, "Native callback retirement did not drain");
-                Require(owner.Current == null && graph.Component.IsDisposed && !device.MasterMixer.Components.Contains(graph.Component),
+                Require(owner.Current == null && graph.Component.IsIdle && graph.Component.IsDisposed && !device.MasterMixer.Components.Contains(graph.Component),
                     "Native graph or mixer component retained after removal");
                 Require(device.MasterMixer.Components.Contains(cue) && device.IsRunning,
                     "Music removal disrupted process-shared output/cue");
@@ -97,6 +98,10 @@ static class Program
             AudioLifetime.Shutdown();
         }
         Require(owner.Completion.IsCompletedSuccessfully && !MusicPlayer.Available, "Native final shutdown retained worker/engine");
+        Require(engine.IsDisposed && device.IsDisposed && !device.IsRunning && device.MasterMixer.IsDisposed
+            && device.MasterMixer.Components.Count == 0 && owner.Current == null,
+            "Native final shutdown retained engine/device/mixer resources");
+        Console.WriteLine($"NATIVE postdrain current=0 ownerCompleted={owner.Completion.IsCompletedSuccessfully} engineDisposed={engine.IsDisposed} deviceDisposed={device.IsDisposed} deviceRunning={device.IsRunning} mixerDisposed={device.MasterMixer.IsDisposed} components={device.MasterMixer.Components.Count} callbacks={Volatile.Read(ref renderedCallbacks)}");
         Console.WriteLine("PASS: native MiniAudio/NCSF 120 load/play/pause/control/remove cycles; shared output retained; final owner drained");
     }
 
