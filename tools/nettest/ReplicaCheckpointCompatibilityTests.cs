@@ -16,7 +16,7 @@ internal static class ReplicaCheckpointCompatibilityTests
     // A2 v10 has no touch bytes and appends room/counts/facts. The converter
     // preserves the source row's received-frame bytes separately from touch.
     internal static byte[] HistoricalFixture(ReplayReplicaCheckpoint checkpoint,
-        bool touch, bool pickups, ushort version = 10, byte protocol = 53)
+        bool touch, bool pickups, ushort version = 10, byte protocol = 53, bool grants = false)
     {
         byte[] current = checkpoint.Bytes.ToArray();
         using var input = new MemoryStream(current, writable: false);
@@ -40,10 +40,21 @@ internal static class ReplicaCheckpointCompatibilityTests
             output.Write(current.AsSpan(at, sizeof(uint))); at += sizeof(uint);
         }
         int tail = current.Length - at;
+        if (!grants)
+        {
+            // Grant state is a final length-delimited component. Decode the
+            // source state first; never silently drop real coverage/predictions.
+            var decoded = new ReplayReplicaState(); decoded.RestoreCheckpoint(checkpoint);
+            if (decoded.TimedGrants.HasCoverage || decoded.TimedGrants.PendingCount != 0)
+                throw new InvalidOperationException("Historical fixture cannot discard populated grants.");
+            using var grantStream = new MemoryStream(); using var grantWriter = new BinaryWriter(grantStream);
+            decoded.TimedGrants.Write(grantWriter); grantWriter.Flush();
+            tail -= sizeof(int) + checked((int)grantStream.Length);
+        }
         if (!pickups)
         {
             const int emptyPickupBytes = sizeof(uint) + 3 * sizeof(int);
-            if (current.AsSpan(current.Length - emptyPickupBytes).IndexOfAnyExcept((byte)0) >= 0)
+            if (current.AsSpan(at + tail - emptyPickupBytes, emptyPickupBytes).IndexOfAnyExcept((byte)0) >= 0)
                 throw new InvalidOperationException("Historical touch/legacy fixture cannot discard populated pickup state.");
             tail -= emptyPickupBytes;
         }
@@ -106,8 +117,8 @@ internal static class ReplicaCheckpointCompatibilityTests
             && restored.PickupVerdicts[claim.Key] == verdict,
             "actual staged A2 v10/protocol53 layout restores populated claim/verdict/item tail without invented touch");
         var checkpoint = state.CaptureCheckpoint();
-        check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 12 && checkpoint.Bytes[7] == 3,
-            "current v12 explicitly declares native touch and pickup features");
+        check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 12 && checkpoint.Bytes[7] == 7,
+            "current v12 explicitly declares native touch, pickup and grant features");
         restored.RestoreCheckpoint(checkpoint);
         check(restored.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes),
             "v12 roundtrip preserves both nonzero touch and complete pickup state");
@@ -125,14 +136,44 @@ internal static class ReplicaCheckpointCompatibilityTests
         Reject(badBoolean, "invalid historical boolean cannot disguise the other source layout");
         var badFlags = checkpoint.Bytes.ToArray(); badFlags[7] |= 0x80;
         Reject(badFlags, "unknown explicit feature bits are refused transactionally");
-        var a3 = staged.ToArray(); a3[4] = 11; a3[6] = 54;
-        Reject(a3, "staged v11 grant schema stays unsupported until A3 installs its decoder");
-        var absent = checkpoint.Bytes.ToArray(); absent[7] |= (byte)ReplayReplicaCheckpointFeatures.Grants;
-        Reject(absent, "reserved grant feature cannot fabricate A3 coverage in A2");
+        var a2Tagged = checkpoint.Bytes.ToArray();
+        // This fixture has no grant coverage, so exact empty state can be removed.
+        using var emptyGrant = new MemoryStream(); using var emptyGrantWriter = new BinaryWriter(emptyGrant);
+        state.TimedGrants.Write(emptyGrantWriter); emptyGrantWriter.Flush();
+        a2Tagged = a2Tagged[..^(sizeof(int) + checked((int)emptyGrant.Length))]; a2Tagged[6] = 55; a2Tagged[7] = 3;
+        restored.RestoreCheckpoint(new(a2Tagged));
+        check(restored.TryGetIntent(0, out var taggedTouch) && taggedTouch.NativeTouch == touch
+            && restored.PickupItems[item.Spawn] == item && !restored.TimedGrants.HasCoverage,
+            "accepted A2 v12/55 flags3 restores touch and pickups without fabricated grant coverage");
+        restored.RestoreCheckpoint(checkpoint);
+        var badContract = checkpoint.Bytes.ToArray(); badContract[7] = 3;
+        Reject(badContract, "A3 protocol56 cannot masquerade as the A2 feature contract");
+        var legacyWrong = staged.ToArray(); legacyWrong[4] = 11; legacyWrong[6] = 53;
+        Reject(legacyWrong, "staged v11 requires its exact historical protocol54 source contract");
         bool ambiguous = false;
         try { ReplayReplicaCheckpointLayout.DecodeUnique(main, _ => true); }
         catch (InvalidDataException) { ambiguous = true; }
         check(ambiguous, "two successful historical candidate decoders are rejected rather than chosen by order");
+        var life = claim.Key.LifeKey;
+        var grant = new TimedGrantFact(life, 7, 1, TimedPowerUp.DoubleDamage, 12, -1, 8,
+            20, 1820, TimedGrantEnd.Active, 24);
+        state.TimedGrants.Accept(grant, 24);
+        var pending = claim with { Key = claim.Key with { Sequence = 7 }, Spawn = claim.Spawn with { Generation = 9 }, Type = TimedPowerUp.DeathAlt };
+        state.TimedGrants.Predict(pending, 24);
+        byte[] oldA3 = HistoricalFixture(state.CaptureCheckpoint(), touch: false, pickups: true,
+            version: 11, protocol: 54, grants: true);
+        restored.RestoreCheckpoint(new(oldA3));
+        check(restored.TryGetIntent(0, out var a3Intent) && a3Intent.NativeTouch == default
+            && restored.TimedGrants.HasCoverage && restored.TimedGrants.PendingCount == 1
+            && restored.TimedGrants.View(life, TimedPowerUp.DoubleDamage, 24).ConfirmedRemaining > 0
+            && restored.TimedGrants.Hides(grant.Spawn, 24),
+            "staged A3 v11/protocol54 retains confirmed, pending and consumed state without inventing native touch");
+        check(ReplayReplicaState.InspectCheckpointLayout(new(oldA3)).Features
+            == (ReplayReplicaCheckpointFeatures.Pickups | ReplayReplicaCheckpointFeatures.Grants),
+            "staged A3 descriptor exposes pickup/grant appendices independently of numeric thresholds");
+        restored.RestoreCheckpoint(state.CaptureCheckpoint());
+        check(restored.CaptureCheckpoint().Bytes.SequenceEqual(state.CaptureCheckpoint().Bytes),
+            "current combined A3 roundtrip retains actual grant coverage and native touch together");
         check(ReferenceEquals(foreground, GameState.Current) && ReferenceEquals(random, Rng.Current)
             && ReferenceEquals(ledger, NetPowerUpLedger.Ledger),
             "historical and current private restoration never mutates foreground or authority grant owners");

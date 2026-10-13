@@ -156,6 +156,8 @@ internal static class PickupReplayTests
             LongItemHistory();
             ItemAppendix();
             ReplicaCheckpointCompatibilityTests.Run(Check);
+            WorldCheckpointCompatibilityTests.Run(Check);
+            NativeTouchCheckpointTests.Run(Check);
             Console.WriteLine($"PICKUP REPLAY PASS: {_checks} checks"); return 0;
         }
         catch (Exception ex) { Console.WriteLine("PICKUP REPLAY FAIL: " + ex); return 1; }
