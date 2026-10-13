@@ -443,6 +443,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         public void Dispose()
         {
+            _disposed = true; _reloadCancellation?.Cancel();
             _searchTimer.Stop(); _libraryGeneration++; _selectionGeneration++; _recoveryCancellation?.Cancel();
             // A retained launcher view can be measured again on return from
             // playback. Detach the image before releasing its native bitmap.
@@ -520,38 +521,62 @@ namespace MphRead.Mods.Launcher.Gui
         }
         internal void SearchCheck(string text) { _search.Value = text; _searchTimer.Stop(); Populate(_selected); }
 
+        private bool _disposed, _reloading, _exporting;
+        private System.Threading.CancellationTokenSource? _reloadCancellation;
+        private (long Generation, long SelectionGeneration, string? Preserve, string? Selection) _reloadRequest;
+
         private async void Reload(string? preserve = null)
         {
-            long generation = ++_libraryGeneration;
-            long selectionGeneration = _selectionGeneration;
-            string? selection = preserve ?? _selected;
+            if (_disposed) return;
+            _reloadRequest = (++_libraryGeneration, _selectionGeneration, preserve, preserve ?? _selected);
             _summary.Text = "SCANNING LIBRARY...";
             _libraryState.Set(
                 PrimeStateKind.Loading,
                 "SCANNING REPLAY LIBRARY",
                 "Reading replay metadata, clips, annotations and integrity state.",
                 showActions: false);
+            if (_reloading) return;
+            _reloading = true;
+            using var cancellation = new System.Threading.CancellationTokenSource();
+            _reloadCancellation = cancellation;
             try
             {
-                var snapshot = await ReplayStorageJobs.Run(ScanLibrary);
-                if (generation != _libraryGeneration) return;
-                _recordings.Clear(); foreach (var pair in snapshot.Recordings) _recordings.Add(pair.Key, pair.Value);
-                _virtual.Clear(); foreach (var pair in snapshot.Clips) _virtual.Add(pair.Key, pair.Value);
-                _entries.Clear(); _entries.AddRange(snapshot.Entries);
-                Populate(selectionGeneration == _selectionGeneration
-                    ? preserve ?? _selected ?? selection : _selected);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
-            {
-                if (generation == _libraryGeneration)
+                long generation;
+                do
                 {
-                    Fail("Could not load replay library: " + ex.Message);
-                    _libraryState.Set(
-                        PrimeStateKind.Error,
-                        "REPLAY LIBRARY UNAVAILABLE",
-                        ex.Message + " Import remains available, or reopen Replay Studio to retry the scan.",
-                        showActions: true);
-                }
+                    var request = _reloadRequest;
+                    generation = request.Generation;
+                    try
+                    {
+                        var snapshot = await ReplayStorageJobs.Run(ScanLibrary, cancellation.Token);
+                        if (_disposed) return;
+                        if (generation != _libraryGeneration) continue;
+                        _recordings.Clear(); foreach (var pair in snapshot.Recordings) _recordings.Add(pair.Key, pair.Value);
+                        _virtual.Clear(); foreach (var pair in snapshot.Clips) _virtual.Add(pair.Key, pair.Value);
+                        _entries.Clear(); _entries.AddRange(snapshot.Entries);
+                        Populate(request.SelectionGeneration == _selectionGeneration
+                            ? request.Preserve ?? _selected ?? request.Selection : _selected);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+                    {
+                        if (!_disposed && generation == _libraryGeneration)
+                        {
+                            Fail("Could not load replay library: " + ex.Message);
+                            _libraryState.Set(
+                                PrimeStateKind.Error,
+                                "REPLAY LIBRARY UNAVAILABLE",
+                                ex.Message + " Import remains available, or reopen Replay Studio to retry the scan.",
+                                showActions: true);
+                        }
+                    }
+                } while (!_disposed && generation != _reloadRequest.Generation);
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+            finally
+            {
+                _reloadCancellation = null;
+                _reloadRequest = default;
+                _reloading = false;
             }
         }
         private sealed record LibrarySnapshot(Dictionary<string, DemoRecording> Recordings,
@@ -1045,7 +1070,7 @@ namespace MphRead.Mods.Launcher.Gui
             _validate.IsEnabled = selected && !_validating;
             _recover.IsVisible = interrupted;
             _recover.IsEnabled = interrupted;
-            _export.IsEnabled = selected && !interrupted;
+            _export.IsEnabled = selected && !interrupted && !_exporting && !_disposed;
             _delete.IsEnabled = selected;
 #if !ANDROID
             _reveal.IsEnabled = selected;
@@ -1465,68 +1490,89 @@ namespace MphRead.Mods.Launcher.Gui
 
         private async Task ExportAsync()
         {
-            if (_selected is not string path)
+            if (_disposed || _selected is not string path)
                 return;
-            string source = path;
-            if (_virtual.ContainsKey(path))
+            if (_exporting)
             {
-                (string? resolved, ReplayOpenResult result) =
-                    await ReplayStorageJobs.Run(() =>
-                    {
-                        string? output = ReplayVirtualClips.ResolveForPlayback(
-                            path, out ReplayOpenResult open);
-                        return (output, open);
-                    });
-                if (resolved == null)
-                {
-                    Fail($"Export failed: {result}");
-                    return;
-                }
-                source = resolved;
+                _status.Text = "An export is already running. Wait for it to finish.";
+                return;
             }
+            _exporting = true;
+            _export.IsEnabled = false;
+            _export.Label = "EXPORTING";
+            try
+            {
+                string source = path;
+                if (_virtual.ContainsKey(path))
+                {
+                    (string? resolved, ReplayOpenResult result) =
+                        await ReplayStorageJobs.Run(() =>
+                        {
+                            string? output = ReplayVirtualClips.ResolveForPlayback(
+                                path, out ReplayOpenResult open);
+                            return (output, open);
+                        });
+                    if (resolved == null)
+                    {
+                        if (!_disposed) Fail($"Export failed: {result}");
+                        return;
+                    }
+                    source = resolved;
+                }
 
 #if !ANDROID
-            try
-            {
-                string directory = Path.Combine(DemoLibrary.Directory, "exports");
-                string destination = Path.Combine(directory,
-                    Path.GetFileNameWithoutExtension(path)
-                    + $"_{Guid.NewGuid():N}{DemoFile.Extension}");
-                await ReplayStorageJobs.Run(() => { Directory.CreateDirectory(directory); File.Copy(source, destination, overwrite: false); return true; });
-                _status.Text = $"EXPORTED  {destination}";
-            }
-            catch (Exception ex) when (
-                ex is IOException or UnauthorizedAccessException
-                or ArgumentException)
-            {
-                Fail("Export failed: " + ex.Message);
-            }
-            await Task.CompletedTask;
+                try
+                {
+                    string directory = Path.Combine(DemoLibrary.Directory, "exports");
+                    string destination = Path.Combine(directory,
+                        Path.GetFileNameWithoutExtension(path)
+                        + $"_{Guid.NewGuid():N}{DemoFile.Extension}");
+                    await ReplayStorageJobs.Run(() => { Directory.CreateDirectory(directory); File.Copy(source, destination, overwrite: false); return true; });
+                    if (!_disposed) _status.Text = $"EXPORTED  {destination}";
+                }
+                catch (Exception ex) when (
+                    ex is IOException or UnauthorizedAccessException
+                    or ArgumentException)
+                {
+                    if (!_disposed) Fail("Export failed: " + ex.Message);
+                }
+                await Task.CompletedTask;
 #else
-            if (TopLevel.GetTopLevel(this) is not TopLevel top)
-                return;
-            try
-            {
-                IStorageFile? target = await top.StorageProvider.SaveFilePickerAsync(
-                    new FilePickerSaveOptions
-                    {
-                        Title = "Export replay",
-                        SuggestedFileName =
-                            Path.GetFileNameWithoutExtension(path) + DemoFile.Extension,
-                        DefaultExtension = DemoFile.Extension.TrimStart('.')
-                    });
-                if (target == null)
+                if (TopLevel.GetTopLevel(this) is not TopLevel top)
                     return;
-                await using Stream output = await target.OpenWriteAsync();
-                using Stream input = File.OpenRead(source);
-                await input.CopyToAsync(output);
-                _status.Text = "REPLAY EXPORTED";
-            }
-            catch (Exception ex)
-            {
-                Fail("Export failed: " + ex.Message);
-            }
+                try
+                {
+                    IStorageFile? target = await top.StorageProvider.SaveFilePickerAsync(
+                        new FilePickerSaveOptions
+                        {
+                            Title = "Export replay",
+                            SuggestedFileName =
+                                Path.GetFileNameWithoutExtension(path) + DemoFile.Extension,
+                            DefaultExtension = DemoFile.Extension.TrimStart('.')
+                        });
+                    if (target == null)
+                        return;
+                    await using Stream output = await target.OpenWriteAsync();
+                    using Stream input = File.OpenRead(source);
+                    await input.CopyToAsync(output);
+                    if (!_disposed) _status.Text = "REPLAY EXPORTED";
+                }
+                catch (Exception ex)
+                {
+                    if (!_disposed) Fail("Export failed: " + ex.Message);
+                }
 #endif
+            }
+            finally
+            {
+                _exporting = false;
+                if (!_disposed)
+                {
+                    _export.Label = "EXPORT";
+                    _export.IsEnabled = _selected != null
+                        && !_selected.EndsWith(".part", StringComparison.OrdinalIgnoreCase);
+                }
+            }
         }
 
         private async Task ImportAsync()
