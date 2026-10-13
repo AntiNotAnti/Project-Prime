@@ -16,6 +16,7 @@ import shutil
 import signal
 import subprocess
 import time
+import uuid
 from net2_evidence import adjudicate, drain_barrier, drain_prepared, DrainStability
 
 PROFILES = {"lan": (0, 0, 0, 0, 0), "moderate": (100, 20, 1, 0, 0),
@@ -26,6 +27,8 @@ BOMB_HUNTERS = {"bomb-samus": "Samus", "bomb-kanden": "Kanden", "bomb-lockjaw": 
 
 def server_flags(args):
     """Explicit server-only rule switches; ordinary campaign defaults stay off."""
+    if getattr(args, "pacing_lobby_client", None):
+        return ["-lobby", "-ownertoken", args.pacing_owner_token]
     return ["-powerups"] if args.powerups else []
 
 
@@ -193,6 +196,14 @@ def run(args):
     args.out.mkdir(parents=True, exist_ok=False)
     stage = args.out / "bin"
     staged_entry = stage_build(args.build.resolve(), stage)
+    if args.pacing_lobby_client:
+        args.pacing_owner_token = str(uuid.uuid4())
+        # The frozen nettest metadata supplies the unchanged client's complete
+        # dependency graph; only this isolated entry DLL is replaced in this run.
+        for name in ("nettest.dll", "nettest.deps.json", "nettest.runtimeconfig.json"):
+            if not (stage / name).is_file():
+                raise RuntimeError("Pacing route requires physical frozen nettest loader metadata")
+        shutil.copy2(args.pacing_lobby_client.resolve(), stage / "nettest.dll")
     assembly = stage / "ProjectPrime.dll"
     if not assembly.exists():
         raise RuntimeError("Build directory has no ProjectPrime.dll")
@@ -228,6 +239,11 @@ def run(args):
                          "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
                          "seedRule": "base seed + client launch index"},
         "commands": [], "startedUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    if args.pacing_lobby_client:
+        manifest["pacingLobbyClient"] = {"sha256": digest(stage / "nettest.dll"),
+            "mode": "Eight native AI clients; authenticated lobby UpdateMatch enables powerups on both sources",
+            "sourcePath": str(args.pacing_lobby_client.resolve()),
+            "loaderMetadata": {name: digest(stage / name) for name in ("nettest.deps.json", "nettest.runtimeconfig.json")}}
     if args.ai_net_client is not None:
         manifest["harnessSha256"]["net_ai_evidence.py"] = digest(Path(__file__).with_name("net_ai_evidence.py"))
     if args.server_performance:
@@ -274,7 +290,12 @@ def run(args):
         if args.server_performance and name == "server":
             env["PRIME_SERVER_PERF_OUTPUT"] = str(args.out / "server-performance.json")
         env.update(bomb_visibility_environment(args,name))
-        command = [dotnet, str(assembly), "-mapdir", str(maps), "-noupdate", "-noautoupdate", *extra]
+        entry = assembly
+        if args.pacing_lobby_client and name != "server":
+            entry = stage / "nettest.dll"
+            env["PRIME_PACING_EXPECTED_CLIENT_SHA256"] = digest(assembly)
+            env["PRIME_PACING_LOBBY_RECEIPT"] = str(args.out / f"{name}.lobby.json")
+        command = [dotnet, str(entry), "-mapdir", str(maps), "-noupdate", "-noautoupdate", *extra]
         handle = open(args.out / f"{name}.log", "w", encoding="utf-8")
         handles.append(handle)
         process = subprocess.Popen(command, cwd=stage, env=env, stdin=subprocess.DEVNULL,
@@ -304,6 +325,9 @@ def run(args):
             manifest["commands"][-1]["environment"]["PRIME_NET_AI_SERVER_BOT"] = env["PRIME_NET_AI_SERVER_BOT"]
         if args.server_performance and name == "server":
             manifest["commands"][-1]["environment"]["PRIME_SERVER_PERF_OUTPUT"] = env["PRIME_SERVER_PERF_OUTPUT"]
+        if args.pacing_lobby_client and name != "server":
+            for key in ("PRIME_PACING_EXPECTED_CLIENT_SHA256", "PRIME_PACING_LOBBY_RECEIPT"):
+                manifest["commands"][-1]["environment"][key] = env[key]
         save(args.out / "manifest.json", manifest)
         return process, record
 
@@ -332,6 +356,10 @@ def run(args):
                 *fault_arguments(args, slot)]
             if args.ai_net_client is not None:
                 extra += ["-ai-net-client", str(args.ai_net_client), "-ai-seed", str(args.ai_seed + slot)]
+            if args.pacing_lobby_client:
+                extra += ["-pacing-room", args.rooms, "-pacing-players", str(args.players)]
+                if slot == 0:
+                    extra += ["-pacing-owner", "-pacing-token", args.pacing_owner_token]
             if not args.rendered:
                 extra.append("-nographics")
             if args.record:
@@ -546,6 +574,8 @@ def parse_args(argv=None):
     p.add_argument("--server-bot", action="store_true", help="Add one normal authority bot to an AI campaign")
     p.add_argument("--powerups", action="store_true",
                    help="Enable native power-up pickups on the server; disabled by default")
+    p.add_argument("--pacing-lobby-client", type=Path,
+                   help="Isolated compiled friend-assembly native client entry; enables powerups through authenticated lobby commands on main and A1")
     p.add_argument("--seconds", type=float, default=90)
     p.add_argument("--drain-seconds", type=float, default=0,
                    help="Opt-in bounded quiescence/frontier/empty-reliable-queue barrier; zero preserves legacy shutdown")
@@ -574,6 +604,10 @@ def parse_args(argv=None):
     p.add_argument("--record", action="store_true")
     p.add_argument("--soak", action="store_true")
     args = p.parse_args(argv)
+    if args.pacing_lobby_client and (not args.pacing_lobby_client.is_file() or args.players != 8
+            or args.ai_net_client is None or not args.powerups or args.server_bot or args.rendered
+            or args.soak or args.observer_delay or args.scenario != "tour" or "," in args.rooms):
+        p.error("--pacing-lobby-client requires an existing entry DLL, eight native AI clients, --powerups, one room and no rendered/bot/soak/scripted variants")
     if args.ai_net_client is None and (args.server_bot or args.ai_seed is not None):
         p.error("--server-bot and --ai-seed require --ai-net-client")
     if args.ai_net_client is not None:

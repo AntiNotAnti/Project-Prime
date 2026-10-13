@@ -95,6 +95,29 @@ class FrozenBuildStagingTests(unittest.TestCase):
                 RUNNER.stage_build(build, root / "stage")
             self.assertFalse((root / "stage").exists())
 
+class PacingLobbyParserTests(unittest.TestCase):
+    parse = AiParserTests.parse
+    rejects = AiParserTests.rejects
+
+    def test_lobby_route_uses_common_authentication_not_a1_server_switch(self):
+        with tempfile.TemporaryDirectory() as root:
+            entry = Path(root) / "nettest.dll"
+            entry.write_bytes(b"isolated entry")
+            args = self.parse('--pacing-lobby-client', str(entry), '--players', '8',
+                              '--ai-net-client', '2', '--powerups')
+            args.pacing_owner_token = 'explicit-test-token'
+            self.assertEqual(RUNNER.server_flags(args), ['-lobby', '-ownertoken', 'explicit-test-token'])
+
+    def test_lobby_route_refuses_incompatible_workloads_before_staging(self):
+        with tempfile.TemporaryDirectory() as root:
+            entry = Path(root) / "nettest.dll"
+            entry.write_bytes(b"isolated entry")
+            valid = ['--pacing-lobby-client', str(entry), '--players', '8', '--ai-net-client', '--powerups']
+            for extra in (('--players', '4'), ('--rendered',), ('--server-bot',), ('--rooms', 'A,B')):
+                self.rejects(*valid, *extra)
+            self.rejects('--pacing-lobby-client', str(entry), '--players', '8', '--ai-net-client')
+            self.rejects('--pacing-lobby-client', str(entry) + '.missing', '--players', '8', '--ai-net-client', '--powerups')
+
 
 if __name__ == '__main__':
     unittest.main()
