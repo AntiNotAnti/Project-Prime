@@ -449,6 +449,22 @@ jobs:
       - name: native audio ownership, failure fallback and headless lifecycle
         run: dotnet run --project tools/audio-check -c Release
 
+      - name: post-match ballot and retired picker UI checks
+        shell: pwsh
+        run: |
+          $env:PROJECT_PRIME_USER_DATA = Join-Path $env:RUNNER_TEMP 'results-ui-check-user-data'
+          $env:PROJECT_PRIME_MAP_COMMUNITY = 'https://maps.example.test/'
+          New-Item -ItemType Directory -Force $env:PROJECT_PRIME_USER_DATA | Out-Null
+          dotnet run --project tools/results-ui-check/results-ui-check.csproj -c Release -- artifacts/results-ui-check
+
+      - name: upload post-match UI witnesses
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: results-ui-${{ matrix.os }}
+          path: artifacts/results-ui-check
+          if-no-files-found: ignore
+
       - name: high-refresh frame timing and first-person pose checks
         if: matrix.os == 'windows-latest'
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -frametimingcheck
