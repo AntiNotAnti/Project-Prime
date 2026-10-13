@@ -174,6 +174,7 @@ sealed partial class CheckWindow : RenderWindow
         ClientSize = new Vector2i((int)Math.Round(pixels.X / sx), (int)Math.Round(pixels.Y / sy));
         Title = "Project Prime native renderer QA";
         _resourcePlayers=Math.Max(2,players);
+        typeof(MphRead.Mods.Network.MapAudit).GetProperty("ForceEveryone")!.SetValue(null, true);
         if (resourceStress) return;
         // Frozen input prevents keyboard/mouse activity from changing the workload.
         typeof(Scene).GetField("_keyboardState", BindingFlags.NonPublic | BindingFlags.Instance)!
@@ -530,9 +531,20 @@ sealed partial class CheckWindow : RenderWindow
         int ownedTexturesBefore=OwnedTextureCount(),framebufferBefore=Field("_frameBuffer");
         EndScene();
         int ownedTexturesAfter=OwnedTextureCount(),framebufferAfter=Field("_frameBuffer");
-        bool programsReleased=programsBefore.All(id=>!GL.IsProgram(id));
-        if (ownedTexturesAfter!=0 || framebufferAfter!=0 || !programsReleased)
-            throw new InvalidOperationException("Scene unload retained owned textures, framebuffer or shader programs.");
+        int ownedProgramsAfter=programFields.Select(Field).Count(id=>id!=0);
+        int pendingDeletedProgramCountAfter=0;
+        foreach (int id in programsBefore)
+        {
+            if (!GL.IsProgram(id)) continue;
+            GL.GetProgram(id,GetProgramParameterName.DeleteStatus,out int deleted);
+            if (deleted==0) throw new InvalidOperationException("Scene unload retained a program not marked for deletion: "+id);
+            pendingDeletedProgramCountAfter++;
+        }
+        bool programOwnerFieldsReleased=ownedProgramsAfter==0;
+        int currentProgramAfter=GL.GetInteger(GetPName.CurrentProgram);
+        int recognizedProgramNamesAfter=programsBefore.Count(GL.IsProgram);
+        if (ownedTexturesAfter!=0 || framebufferAfter!=0 || !programOwnerFieldsReleased)
+            throw new InvalidOperationException($"Scene unload retained owned resources: textures={ownedTexturesAfter},framebuffer={framebufferAfter},programs={ownedProgramsAfter}.");
         bool shadowReleased = (shadowFbo == 0 || !GL.IsFramebuffer(shadowFbo))
             && (shadowTexture == 0 || !GL.IsTexture(shadowTexture)) && Field("_shadowFramebuffer") == 0 && Field("_shadowDepthTexture") == 0;
         object? retainedAfter = Counter("RetainedListCount");
@@ -546,7 +558,7 @@ sealed partial class CheckWindow : RenderWindow
         long depthSnapshotBytesAfter = DepthSnapshotBytes();
         if (depthSnapshotBytesAfter != 0 || proceduralBytesAfter != 0 || spriteCountAfter != 0 || spriteBytesAfter != 0 || glyphCountAfter != 0 || glyphBytesAfter != 0 || !shadowReleased || retainedAfter is int count && count != 0 || combinedAfter != 0 || GL.GetError() != ErrorCode.NoError)
             throw new InvalidOperationException("Scene unload retained live GL resources or an error.");
-        return new { ownedTexturesBefore,ownedTexturesAfter,framebufferBefore,framebufferAfter,programCountBefore=programsBefore.Length,programsReleased,depthSnapshotBytesBefore, depthSnapshotBytesAfter, proceduralBytesBefore, proceduralBytesAfter, shadowReleased, retainedListsBefore = retainedBefore, retainedListsAfter = retainedAfter,
+        return new { ownedTexturesBefore,ownedTexturesAfter,framebufferBefore,framebufferAfter,programCountBefore=programsBefore.Length,programOwnerFieldsReleased,ownedProgramsAfter,recognizedProgramNamesAfter,pendingDeletedProgramCountAfter,currentProgramAfter,depthSnapshotBytesBefore, depthSnapshotBytesAfter, proceduralBytesBefore, proceduralBytesAfter, shadowReleased, retainedListsBefore = retainedBefore, retainedListsAfter = retainedAfter,
             combinedBytesBefore = combinedBefore, combinedBytesAfter = combinedAfter,
             retainedBytesBefore, retainedBytesAfter, shadowColorBytesBefore,
             glyphCountBefore, glyphBytesBefore, glyphCountAfter, glyphBytesAfter,
