@@ -149,6 +149,7 @@ internal static class Acceptance
         public List<string> Checks { get; } = new();
         public List<string> Missing { get; } = new();
         public List<object> Stages { get; } = new();
+        public List<object> Phases { get; } = new();
         public List<object> AudioCalls { get; } = new();
         public string Scope => "True client GL/OpenAL with explicit injected authority/prediction facts; no live UDP, authority payment or physical audibility claim.";
     }
@@ -202,6 +203,41 @@ internal sealed class AcceptanceWindow : RenderWindow
         Reflection.Set(_owner, "_timeSincePickup", 55); Reflection.Set(_owner, "_ammoBarChangedColor", false);
         Reflection.Call(_owner, "UpdateAmmoBar");
     }
+    private void Observe(int type, string phase)
+    {
+        object view = Reflection.Call(_presentation, "View", Life, Effect(type), _frame)!;
+        object current = Reflection.Get(Reflection.Type("Mods.Network.NetGrantNetwork"), "Presentation")!;
+        _report.Phases.Add(new { effect = Types[type], phase, fixtureFrame = _frame,
+            netFrame = NetSession.NetFrame, sceneFrame = Scene.FrameCount,
+            role = NetSession.Role.ToString(), NetSession.IsAuthority, NetSession.LocalSlot,
+            worldReady = Reflection.Bool(typeof(NetSession), "WorldIsReady"),
+            gameplayReady = Reflection.Bool(Reflection.Type("Mods.Network.NetRoomChange"), "GameplayReady"),
+            matchState = Scene.GameState.MatchState.ToString(), Scene.GameState.MenuPause, Scene.GameState.DialogPause,
+            life = new { Life.AuthorityEpoch, Life.MatchId, Life.ShooterSlot, Life.Generation, Life.LifeId },
+            owner = new { _owner.Health, inPlay = Reflection.Bool(_owner, "ModIsInPlay"),
+                loadFlags = _owner.LoadFlags.ToString(), flags1 = _owner.Flags1.ToString(), flags2 = _owner.Flags2.ToString(),
+                _owner.IsMainPlayer, _owner.IsAltForm, _owner.IsMorphing,
+                usesPresentation = Reflection.Bool(_owner, "ModUsesTimedGrantPresentation"),
+                pickupFlash = Reflection.Int(_owner, "_timeSincePickup"),
+                nativeTimer = Reflection.Int(_owner, Timers[type]), respawnTimer = Reflection.Int(_owner, "_respawnTimer"),
+                timeSinceDead = Reflection.Int(_owner, "_timeSinceDead"), position = _owner.Position.ToString() },
+            victim = new { _victim.Health, inPlay = Reflection.Bool(_victim, "ModIsInPlay"), loadFlags = _victim.LoadFlags.ToString() },
+            presentationIsCurrent = ReferenceEquals(current, _presentation),
+            pendingCount = Reflection.Int(_presentation, "PendingCount"),
+            view = new { Covered = Reflection.Bool(view, "Covered"), Remaining = Reflection.Int(view, "Remaining"),
+                ConfirmedRemaining = Reflection.Int(view, "ConfirmedRemaining"),
+                GrantSequence = Reflection.Get(view, "GrantSequence"), PredictionSequence = Reflection.Get(view, "PredictionSequence"),
+                Resume = Reflection.Bool(view, "Resume") } });
+    }
+    private void NativeSpawn(PlayerEntity player)
+    {
+        // Allocate the life through the real Spawn path after slot activation.
+        // OnSpawn alone advances network counters but never initializes a body.
+        var spawn = (PlayerSpawnEntity?)Reflection.Call(player, "GetRespawnPoint");
+        Check(spawn != null, "authored native respawn point available for slot " + player.SlotIndex);
+        Reflection.Call(player, "ModNetSpawn", spawn!.Position, spawn.FacingVector);
+        Check(player.Health > 0 && Reflection.Bool(player, "ModIsInPlay"), "actual native body spawned for slot " + player.SlotIndex);
+    }
     private object Claim(int type, uint id, uint? sequence = null)
     {
         var key = Reflection.Create("PickupClaimKey", Life.AuthorityEpoch, Life.MatchId, Life.ShooterSlot, Life.Generation, Life.LifeId, sequence ?? id);
@@ -215,7 +251,9 @@ internal sealed class AcceptanceWindow : RenderWindow
         Check((bool)Reflection.Static("NetPickupNetwork", "ReceiveItem", birth)!, "authority item fact admitted " + Types[type]);
         Reflection.Static("TimedPickupProjection", "ApplyDynamic", Scene);
         var item = Entities<ItemInstanceEntity>().Single(i => Equals(Reflection.Get(i, "ModPickupSpawn"), key));
+        Observe(type, "before-owner-contact");
         Reflection.Static("NetPickupNetwork", "OwnerContact", _owner, item);
+        Observe(type, "after-owner-contact");
         var view = Reflection.Call(_presentation, "View", Life, Effect(type), _frame)!;
         uint sequence = Convert.ToUInt32(Reflection.Get(view, "PredictionSequence"));
         Check(sequence != 0 && Reflection.Bool(item, "ModPickupHidden"), "real owner contact predicts and hides exact item " + Types[type]);
@@ -246,7 +284,21 @@ internal sealed class AcceptanceWindow : RenderWindow
                 Flags = 1, TimeRemaining = -1, PointGoal = 0 }, false);
             Reflection.Session(nameof(NetSession.Role), Reflection.Enum("NetRole", "Host"));
             Reflection.Session(nameof(NetSession.IsAuthority), true);
-            foreach (var p in new[] { _owner, _victim }) { NetPlayerLifecycle.SetOccupant(p.SlotIndex, 1); NetPlayerLifecycle.OnSpawn(p); }
+            Reflection.Session(nameof(NetSession.LocalSlot), 0);
+            var roster = RosterPacket.Create(); roster.AuthorityEpoch = 1; roster.MatchId = 1; roster.Revision = 1; roster.Count = 2;
+            for (int slot = 0; slot < 2; slot++)
+            {
+                roster.Slots[slot] = (byte)slot; roster.Generations[slot] = 1;
+                roster.Hunters[slot] = (byte)Hunter.Samus; roster.Teams[slot] = (sbyte)slot;
+                roster.Names[slot] = "native-fixture-" + slot;
+            }
+            NetSession.ApplyRoster(roster);
+            // The first AfterInput would otherwise activate these slots by calling
+            // Initialize() after our body/life setup, clearing native health. Admit
+            // both actual actors first, then use native authored Spawn under Host.
+            NetPlayerSetup.ApplyOnce(); NetSlotManager.Sync();
+            Frame(100);
+            foreach (var p in new[] { _owner, _victim }) NativeSpawn(p);
             Reflection.Session(nameof(NetSession.Role), Reflection.Enum("NetRole", "Client"));
             Reflection.Session(nameof(NetSession.IsAuthority), false); Reflection.Session(nameof(NetSession.LocalSlot), 0);
             Reflection.Session(nameof(NetSession.ServerSession), null);
@@ -273,13 +325,16 @@ internal sealed class AcceptanceWindow : RenderWindow
 
     private void Exercise(int type)
     {
-        Frame(100); Reset(); Capture(type, "baseline");
-        float baseBeam = Fire(); int baseBomb = Bomb();
+        Frame(100); Reset(); Observe(type, "after-reset"); Capture(type, "baseline");
+        Observe(type, "after-baseline");
+        Check(_owner.Health > 0 && Reflection.Bool(_owner, "ModIsInPlay"), "baseline retains actual admitted native owner " + Types[type]);
+        float baseBeam = Fire(); Observe(type, "after-baseline-beam");
+        int baseBomb = Bomb(); Observe(type, "after-baseline-bomb");
         uint id = _spawn++;
         int gainCue = type == 1 ? (int)SfxId.CLOAK_POWER_UP : (int)SfxId.DOUBLE_DAMAGE_POWER_UP;
         int cues = _audio.FreeCalls(gainCue);
         object claim = NativeContact(type, id);
-        Project();
+        Project(); Observe(type, "after-provisional-project");
         Check(Reflection.Int(_owner, Timers[type]) == 1800, "actual provisional timer " + Types[type]);
         Check(Reflection.Int(_owner, "_timeSincePickup") == 0, "native first pickup HUD flash restored " + Types[type]);
         Reflection.Call(_owner, "UpdateAmmoBar");
@@ -337,7 +392,7 @@ internal sealed class AcceptanceWindow : RenderWindow
         Capture(type, "dead"); _owner.Health = 199;
         NetPlayerLifecycle.SetOccupant(_owner.SlotIndex, (ushort)(Life.Generation + 1));
         Reflection.Session(nameof(NetSession.Role), Reflection.Enum("NetRole", "Host")); Reflection.Session(nameof(NetSession.IsAuthority), true);
-        NetPlayerLifecycle.OnSpawn(_owner);
+        NativeSpawn(_owner);
         Reflection.Session(nameof(NetSession.Role), Reflection.Enum("NetRole", "Client")); Reflection.Session(nameof(NetSession.IsAuthority), false);
         Project(quiet: true);
         Check(Reflection.Int(_owner, Timers[type]) == 0, "new actual slot/life cannot inherit old grant " + Types[type]);
@@ -419,7 +474,9 @@ internal sealed class AcceptanceWindow : RenderWindow
         // With no transport, NetSession.Update cannot invent a new authority
         // clock. Run the entire actual client simulation phase at the explicit
         // fixture observation clock, including native effects/HUD/audio updates.
+        Observe(type, "before-simulation-" + stage);
         Scene.OnSimulationFrame();
+        Observe(type, "after-simulation-" + stage);
         Check(NetSession.NetFrame == _frame, "native phase retains explicit injected authority observation clock");
         if (_owner.Health > 0 && Reflection.Int(_owner, Timers[type]) > 0 && type < 2)
         {

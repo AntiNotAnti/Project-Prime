@@ -39,6 +39,19 @@ No socket or live UDP campaign is started. The actual DeathAlt collision invokes
 CheckPlayerCollision against overlapping loaded player volumes, then records
 native/client-predicted victim debit; it is not authority combat payment proof.
 Health, life, position, protection release and clocks are explicit fixture inputs.
+The fixture admits its two slots through ApplyRoster and NetSlotManager.Sync
+before invoking actual native Spawn at authored respawn points. This matters:
+Sync calls Initialize on first admission, so manually incrementing a life before
+admission lets the next full frame clear native health after the setup check.
+The new slot/life case also uses actual Spawn, rather than counters alone.
+Value-only `Phases` receipts record health, native in-play/load/death/form flags,
+life identity, native/model timers, prediction/confirmation state and fixture,
+network and scene clocks before and after simulation/contact/projection. A
+failed provisional assertion therefore retains its exact state. These fixture
+changes leave the production alive and exact-scope gates intact. The corrected
+fixture can run against compatible original A3 31cdd APIs; its first HUD-flash
+assertion precedes the later, new room-fence API. Native rerun is required; source
+review alone does not validate this correction.
 
 All three effects exercise initial native contact, positive projection,
 contact-frame versus next-input confirmation, delta/verdict ordering, pending
