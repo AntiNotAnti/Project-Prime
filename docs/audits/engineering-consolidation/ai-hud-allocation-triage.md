@@ -109,3 +109,45 @@ reproducible diagnostic and this negative-result record.
 | Other maps, physical clients, Android AOT/device | NOT_RUN | No cross-platform allocation/behavior inference |
 
 Rollback removes the diagnostic/report only; production gameplay is unchanged.
+
+## Additional scene and respawn frequency confirmation
+
+The October 13 continuation ran independent, sequential headless processes on
+the same main source and runtime with temporary invocation counters in both
+`PlayerAiData.Func2138D28` and `PlayerEntity.GetRespawnPoint`. The counters and
+temporary harness output field were restored byte-for-byte after measurement.
+Each fixture advances 1,800 fixed simulation steps with the same slot-modulo
+hunter/difficulty and default RNG policy used above. The instrumented engine
+MVID is `976098bb-fcc4-4310-8876-51c3690a20b6`.
+
+| Room | Bots | Navigation calls | Respawn queries | Step failures |
+| --- | ---: | ---: | ---: | ---: |
+| MP1 SANCTORUS | 1 | 6 | 1 | 0 |
+| MP1 SANCTORUS | 4 | 66 | 9 | 0 |
+| MP1 SANCTORUS | 8 | 200 | 14 | 0 |
+| MP3 PROVING GROUND | 1 | 12 | 1 | 0 |
+| MP3 PROVING GROUND | 4 | 119 | 7 | 0 |
+| MP3 PROVING GROUND | 8 | 235 | 18 | 0 |
+
+`GetRespawnPoint` is reached while resolving a dead/unspawned player, after
+single-player transition handling. Its temporary list is limited to the first
+25 spawn points and preserves their order before selecting by frame modulo.
+The observed maximum was 18 queries in 30 simulation seconds, rather than an
+allocation per live-player frame. This evidence does not justify replacing its
+selection algorithm or introducing another reusable owner. No respawn runtime
+edit is proposed. This is call-frequency evidence; concurrent host builds and
+profilers make total step timing unsuitable for performance comparisons.
+
+Additional existing checks passed against the integrated lifecycle/collision/
+retirement/fixture source: BotAiChecks 85 assertions and NetAiClientTests 102
+assertions. The current-source pure desktop and Android pacing tools also pass
+their deterministic deadline, native-presentation, cap-change and resume
+fixtures. These are simulated policy checks; physical mouse/controller/touch
+latency, Android battery/thermal behavior and rendered bot snapping remain
+NOT_RUN. The existing Android coarse-sleep/short-spin policy stays unchanged.
+
+Raw command, source-patch, engine/harness and log SHA-256 receipts are preserved
+under the baseline worktree's `artifacts/phase7-frequency-confirmation-20261013/`
+and `artifacts/phase7-additional-validation-20261013/`. Both manifests explicitly
+exclude timing comparisons and hardware acceptance. Pristine production source
+remains unchanged, and no previous microbenchmark binary was overwritten.
