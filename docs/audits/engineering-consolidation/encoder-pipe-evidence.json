@@ -1,0 +1,58 @@
+{
+  "parent_sha": "0c55a955cc10b4b534e869b1e6f35e18cbce1d7e",
+  "host": "macOS arm64",
+  "sdk": "10.0.401",
+  "source_files": {
+    "src/MphRead/Mods/Replay/ReplayEncoderJob.cs": "e30ad1abf5550f06e7214ccbb66985f8c639656486129ff5b68922fbb7ab9a77",
+    "src/MphRead/Mods/Replay/ReplayEncoderProgress.cs": "b644972b78aab6a2453c32f8e02e91b0aee17914e43c7cb5872f7a375512022a",
+    "tools/encoder-pipe-check/Program.cs": "c25a4c99e7bae84fd090a97643247fc86061e9109552691e8b07901d9d3465c5"
+  },
+  "artifacts": [
+    {
+      "path": "baseline.log",
+      "sha256": "763a3298d5188addf70d016084e6fdb85dff2d57ceb484955511bc887fed8f48"
+    },
+    {
+      "path": "candidate.log",
+      "sha256": "bed17f8beb7b3112b1a9f5843c1aacad201c51e8846f6a3ef6be23d638e83524"
+    },
+    {
+      "path": "final-baseline.log",
+      "sha256": "763a3298d5188addf70d016084e6fdb85dff2d57ceb484955511bc887fed8f48"
+    },
+    {
+      "path": "final-candidate.log",
+      "sha256": "bed17f8beb7b3112b1a9f5843c1aacad201c51e8846f6a3ef6be23d638e83524"
+    },
+    {
+      "path": "progress-regression.log",
+      "sha256": "fc18df1f0f766d41eb67ab740bd57269aca5e7896097659854f7cfc654c69e53"
+    },
+    {
+      "path": "desktop-build.log",
+      "sha256": "d1b9b84e2c455a4a2f35d159c5a2d331f676d556e0e8f0916e6d9eb52b5bd9d9"
+    },
+    {
+      "path": "actual-ffmpeg.log",
+      "sha256": "9d209432f1f0f87c5551e029530c1250efc7f57b0b1d83d5735df0cd1bd80075"
+    },
+    {
+      "path": "ReplayEncoderJob.baseline.cs",
+      "sha256": "2d66a142fba5d9537b55289460a6bf191b34447b73fc74139322bd8d0d98995d"
+    },
+    {
+      "path": "io-fault-baseline.log",
+      "sha256": "d50710f424000337df380db183d24ba4c58c57b57edb63bacdcda834e2bd7a3e"
+    },
+    {
+      "path": "io-fault-candidate.log",
+      "sha256": "26444701add9c768ed2f34c861956021bf8ced764c22496a6db68f1c39eeda50"
+    },
+    {
+      "path": "final-desktop-build.log",
+      "sha256": "72f9fd36aa8b62242d49091f631434d4bce0c65c8e94103564f10ada4d9e450f"
+    }
+  ],
+  "final_child_and_fault_checks": "21 PASS /0 FAIL",
+  "review_pattern_baseline": "20 PASS /1 FAIL (source-equivalent70747bd6 fault retirement pattern)"
+}
