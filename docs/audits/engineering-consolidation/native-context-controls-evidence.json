@@ -415,9 +415,89 @@
     {
       "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/replay-memory/pilot-2.log",
       "sha256": "2148e252a22d1323c2e14fb5212317bd1f93163c3585bd0fd9936c2ba243cdbd"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/Program.cs",
+      "sha256": "b74ee62b4da29729f312ccc9e356cb3ff3fb7dc11edc3b0044e3c838c08592cf"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/campaign/00-audio.analysis.json",
+      "sha256": "4115bd57ec6c97c1dc483efbb49a39081b501ff2059cf0bd4dcafc5b4e0cb302"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/campaign/00-audio.json",
+      "sha256": "60fdcbe3372ecddc64419b0fc2b1755ae4e89b281c667064f9ae275e442f6e0b"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/campaign/00-audio.log",
+      "sha256": "b8be533873b18c0dddc1108215ba5d84d1b1c9f2021cf42458d1f1dd2e66398d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/campaign/manifest.json",
+      "sha256": "64d2e227f2b1d946dacf39cd38c3fe2bfc7622e06d715d015685d2e31c813d2e"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/gcdump.log",
+      "sha256": "cb015b90db7fefc3b11adc517454993a40b554b17297b1c8222fca5f0878b34f"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh-large-array-roots.json",
+      "sha256": "8403144b70035962ef2c37a5cb88f4ca18fd673757fca50512e420462ab37fca"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh.gcdump",
+      "sha256": "ca2928218a890d34f1d2522790fd34004f50869fb1951b378592fcdfcd12c8a5"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/observer-heap-stats.jsonl",
+      "sha256": "04dccdbc3b8752c5488a55a54713f8a9f336e02d09f2d4f8d9757a47bd60228d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/observer.csproj",
+      "sha256": "095f7f3c3b53900cc5e8b6d49801606b39135f7e8ff771fcebd5d2c8147c2306"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/run-native-high-loh-control.py",
+      "sha256": "e12ca986a5ed0a22558df89901edba11b16e5d73cbea229697766f718499a2cd"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/selftest.log",
+      "sha256": "e7f2e16e2572f29a2ab86bd45e110759bb29d9af011ac41cb9020c074532880e"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/vmmap.txt",
+      "sha256": "305fa230e8913f59c7736fc207f68a4a0da311635db7a90bbcf6a1c62531952a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/graph-reader-Program.cs",
+      "sha256": "a5d350747f5e75e3425f5b51a72c8f6da3d23f150bebaf12bab7c8742e9de832"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/graph-reader-graph-all.csproj",
+      "sha256": "ccaea0fedf2cb65de0c443c850006f49fb90402e4892707e2b95957940dbe5da"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh-large-object-roots-v2.json",
+      "sha256": "6cfe177b1f20b95c522adb26def91952f67f2337dbba4321a473903d7850e051"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh-object-roots-85k-v3.json",
+      "sha256": "870d351887d1f1e20f50c223dc42a4d205f0e486a91cf1f29f704738db43b73e"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh-type-report.txt",
+      "sha256": "7df5bcd5fe5097db7d9d343187009fa8225836e20d1bb57524f9fb8e47f2581d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/profiling-manifest.json",
+      "sha256": "ee73f0880910881f66c3bd0a86708b3b38378e52567c6446f7722eef1921ea42"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh-root-accounting-summary.json",
+      "sha256": "e97cbb20b2e8eda0af939d01bb8c599c022aba2f448e7e2c4cb682ee4c2cdfb4"
     }
   ],
-  "hashScope": "Earlier large native capture hashes reused from immutable runner/origin manifests; fresh retirement-source, per-context and headless replay JSON/log hashes added after quiet hold. Screenshot/evidence PNG files are not indexed; no prior raw artifact overwritten.",
+  "hashScope": "Earlier large native capture hashes reused from immutable runner/origin manifests. New retirement-source, per-context, headless replay, reproduced high-LOH observer/gcdump/VM/root-reader/summary JSON/log/source hashes added. Screenshot/evidence PNGs are not indexed; no prior raw artifact overwritten.",
   "retirementWitness": {
     "sourceSha": "22764624b5e90d388d90d444155bce3ce65ec542",
     "sourceDirtyAtLaunch": false,
@@ -736,5 +816,129 @@
       }
     ]
   },
-  "boundedness": "UNVERIFIED; current AGX malloc-prefix groups grow across destroyed contexts while heavy paging invalidates RSS release/plateau interpretation."
+  "boundedness": "UNVERIFIED; current AGX malloc-prefix groups grow across destroyed contexts while heavy paging invalidates RSS release/plateau interpretation.",
+  "reproducedHighLoh": {
+    "runnerExitCode": 0,
+    "identity": {
+      "native-render-check.dll": "0be05bd547efffbba64afae93646fc427733b1bc21cc3f822d1b37fa28aeb5b1",
+      "ProjectPrime.dll": "86f075e7c8dd7a06277b4050feedc796680b97a2f259615e2aa81e1faab37328"
+    },
+    "identityMatchesAfterRun": true,
+    "gcdumpStatus": "PASS",
+    "extraGcMarker": {
+      "utc": 1791878754.542262,
+      "reason": "gcdump induces Gen2 collection",
+      "lohObservedBeforeCapture": 403048464
+    },
+    "observedPreCaptureLohBytes": 403048464,
+    "observedPostCaptureLohBytes": 403048464,
+    "lohFragmentationBytes": 1152,
+    "capturedGraphTotalBytes": 450425114,
+    "capturedGraphNodes": 1046463,
+    "rootedObjectsAtLeast85000Bytes": 36,
+    "rootedObjectsAtLeast85000TotalBytes": 403047288,
+    "differenceFromObservedLohBytes": 1176,
+    "poolRootedByteCharArrays": 19,
+    "poolRootedArrayBytesIncludingHeaders": 397935048,
+    "sfxWeakKinds": [
+      {
+        "kind": "sfx-instance",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "resource-owner",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "_samples",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "_rangeData",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "_dgnFiles",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "_sfxScripts",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "_soundData",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "sound-sample",
+        "observed": 63360,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "sample-encoded-data",
+        "observed": 63360,
+        "alive": 2160,
+        "observedPayloadBytes": 501203040,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "sample-payload",
+        "observed": 63360,
+        "alive": 2160,
+        "observedPayloadBytes": 2003832960,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "sound-stream",
+        "observed": 1440,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "stream-channel",
+        "observed": 1560,
+        "alive": 0,
+        "observedPayloadBytes": 334182000,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "stream-payload",
+        "observed": 1440,
+        "alive": 0,
+        "observedPayloadBytes": 334182000,
+        "alivePayloadBytes": 0
+      }
+    ],
+    "limitations": [
+      "gcdump explicitly induces Gen2 collection; observed LOH stayed unchanged before/after",
+      "Tool warns.NET10 lacks nonlossyBlock buffering, capture may be incomplete despite near-complete numerical LOH match",
+      "Root paths establish retention for captured arrays, not allocation callers or subsystem workload contribution",
+      "No thread-count bucket guess, policy change, FPS claim, unprofiled RSS comparison or driver classification"
+    ],
+    "rootSummaryPath": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh-root-accounting-summary.json"
+  }
 }
