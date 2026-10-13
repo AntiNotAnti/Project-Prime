@@ -248,3 +248,36 @@ Repeat against the candidate directory and reverse the order if ambiguous.
 permits sampling; preserve unsupported/error output instead of treating it as
 zero native memory. Neither low weak-reference counts nor a second collection
 establishes that a specific native subsystem caused RSS growth.
+
+For macOS native allocation-site attribution, use a separate profiling-only
+process with `MallocStackLogging=1`, preserve the exact environment/binary
+identities, and capture after the workload/drain while quiescence holds:
+
+```sh
+vmmap -summary PID > vmmap-summary.txt
+malloc_history PID -allBySize -fullStacks > malloc-history.txt
+python3 tools/native-render-check/analyze_vmmap.py base-vmmap.txt candidate-vmmap.txt \
+  --output vmmap-comparison.json
+python3 tools/native-render-check/analyze_malloc_history.py malloc-history.txt \
+  --output malloc-stack-summary.json
+```
+
+The installed `malloc_history` manual defines `-allBySize` as currently live
+allocation groups unless `-highWaterMark` is used. Avoid `-allEvents`, which
+reports historical traffic instead. The parser separates mmap/VM reservations
+from malloc-site groups and identifies OpenAL `BufferInfo` vector sites once per
+group. Allocation origin is evidence about a subsystem; it does not isolate
+which teardown operation failed or classify a library cache as a leak. Stack
+logging changes allocator/CPU behavior, and this host warns that its own logging
+pages count toward footprint. These runs provide no FPS evidence or direct
+unprofiled-RSS comparison. Save unsupported/error output and stop escalating
+when native sampling is unavailable.
+
+A scoped `dotnet-gcdump` heap capture can supply object-type/root evidence in a
+separate profiling trial. It requests another Gen-2 collection, so mark that
+perturbation explicitly and retain the original first/second-GC samples and
+unprofiled trials. Keep profiler binaries/dumps outside the repository. The
+[official tool documentation](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-gcdump)
+describes the collection behavior and shared TMPDIR requirement. A cached
+shared-pool byte array and a retained SFX bank are different roots; do not infer
+one from total LOH bytes alone.
