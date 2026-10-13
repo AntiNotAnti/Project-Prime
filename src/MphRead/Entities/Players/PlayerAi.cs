@@ -883,6 +883,7 @@ namespace MphRead.Entities
                 Func2148ABC();
                 Execute(_executionTree[0]);
                 ApplyTacticalBrain();
+                ApplyStrategicMapControl();
                 ApplyCombatEnhancements();
                 ApplyEnhancedHunterChoices();
                 // The legacy tree and tactical/hunter layers only submit desired inputs.

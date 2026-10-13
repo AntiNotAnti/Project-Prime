@@ -256,6 +256,65 @@ public static class BotAiChecks
                     BeamType.PowerBeam, 100) == 0,
             "Omega Cannon and free Power Beam are not penalized for ammo scarcity");
 
+        Check(BotStrategicPolicy.RoleForOrdinal(0, objectiveMode: true)
+                == BotSquadRole.Anchor
+            && BotStrategicPolicy.RoleForOrdinal(1, objectiveMode: true)
+                == BotSquadRole.Vanguard
+            && BotStrategicPolicy.RoleForOrdinal(2, objectiveMode: true)
+                == BotSquadRole.Flanker,
+            "team bots divide objective roles instead of all chasing one target");
+        Check(BotStrategicPolicy.TargetBonus(BotSquadRole.Anchor,
+                objectiveThreat: true, recentAttacker: false)
+                > BotStrategicPolicy.TargetBonus(BotSquadRole.Flanker,
+                    objectiveThreat: true, recentAttacker: false),
+            "objective defenders prioritize threats to scoring zones");
+        Check(BotStrategicPolicy.NodeScore(BotSquadRole.Vanguard, 5,
+                owned: false, contested: true, hostileOccupier: true,
+                teammateClaims: 0, nearbyTeammates: 0, hardpoint: false)
+                > BotStrategicPolicy.NodeScore(BotSquadRole.Vanguard, 5,
+                    owned: true, contested: false, hostileOccupier: false,
+                    teammateClaims: 0, nearbyTeammates: 0, hardpoint: false),
+            "assault roles prioritize contested enemy nodes");
+        Check(BotStrategicPolicy.NodeScore(BotSquadRole.Anchor, 5,
+                owned: true, contested: false, hostileOccupier: false,
+                teammateClaims: 0, nearbyTeammates: 0, hardpoint: false)
+                > BotStrategicPolicy.NodeScore(BotSquadRole.Flanker, 5,
+                    owned: true, contested: false, hostileOccupier: false,
+                    teammateClaims: 0, nearbyTeammates: 0, hardpoint: false),
+            "anchor roles protect owned nodes more than flankers");
+        Check(BotStrategicPolicy.NodeScore(BotSquadRole.Anchor, 5,
+                owned: false, contested: false, hostileOccupier: false,
+                teammateClaims: 2, nearbyTeammates: 1, hardpoint: false)
+                < BotStrategicPolicy.NodeScore(BotSquadRole.Anchor, 5,
+                    owned: false, contested: false, hostileOccupier: false,
+                    teammateClaims: 0, nearbyTeammates: 0, hardpoint: false),
+            "objective claims spread bots rather than clustering them");
+        Check(BotStrategicPolicy.PickupScore(ItemType.HealthBig, .15f,
+                alreadyOwned: false, uaFraction: 1, missileFraction: 1)
+                > BotStrategicPolicy.PickupScore(ItemType.HealthBig, .95f,
+                    alreadyOwned: false, uaFraction: 1, missileFraction: 1),
+            "wounded bots recognize high-value live health pickups");
+        Check(BotStrategicPolicy.PickupScore(ItemType.OmegaCannon, 1,
+                alreadyOwned: true, uaFraction: 1, missileFraction: 1)
+                > BotStrategicPolicy.PickupScore(ItemType.UASmall, 1,
+                    alreadyOwned: true, uaFraction: 1, missileFraction: 1),
+            "omega pickups outrank unnecessary ammo");
+        Check(float.IsNegativeInfinity(BotStrategicPolicy.PickupScore(
+                ItemType.ArtifactKey, .5f, false, 0, 0)),
+            "strategy ignores unrelated or unsupported pickup types");
+
+        Check(BotStrategicPolicy.ShouldDisengage(true, 3, 0, .55f)
+            && !BotStrategicPolicy.ShouldDisengage(true, 1, 0, .55f)
+            && !BotStrategicPolicy.ShouldDisengage(true, 3, 3, .55f),
+            "wounded team bot escapes an unfavorable multi-enemy fight");
+        Check(!BotStrategicPolicy.ShouldDisengage(false, 5, 0, .4f),
+            "free-for-all duels do not become permanent retreats");
+
+        Check(!BotStrategicPolicy.PickupAllowedForMode(ItemType.Imperialist, weaponLocked: true)
+                && BotStrategicPolicy.PickupAllowedForMode(ItemType.HealthBig, weaponLocked: true)
+                && BotStrategicPolicy.PickupAllowedForMode(ItemType.Imperialist, weaponLocked: false),
+            "locked-weapon modes do not divert bots toward unusable weapon pickups");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }
