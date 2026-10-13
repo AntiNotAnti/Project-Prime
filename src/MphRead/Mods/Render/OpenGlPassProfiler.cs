@@ -23,6 +23,7 @@ internal enum OpenGlFrameCounter
     ProceduralDraws, ProceduralVertices, ProceduralItems, ProceduralMaterialReuses, ProceduralObjectReuses, ProceduralUnlitPreparations, DepthSnapshotCopies, DepthReplayDrawsSaved, WorldShaderVariantSwitches,
     PaletteCollectionRequests, PaletteCollectionVersionedRequests, PaletteCollectionCopiedFloats, PaletteCollectionReuses,
     PaletteRepeatedPreparations, PaletteRepeatedCopiedFloats,
+    PaletteSourceFloatsScaled, PalettePreparationHits, PalettePreparationMisses, PalettePreparationFallbacks, PalettePreparationSnapshotCopyFloats,
     LegacyScalarUniformRequests, LegacyScalarUniformSubmissions, LegacyScalarUniformSkips
 }
 

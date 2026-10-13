@@ -181,6 +181,9 @@ def summarize(path, warmup_windows=2):
                                         for key in ('PaletteCollectionRequests', 'PaletteCollectionVersionedRequests',
                                                     'PaletteCollectionCopiedFloats', 'PaletteCollectionReuses',
                                                     'PaletteRepeatedPreparations', 'PaletteRepeatedCopiedFloats',
+                                                    'PaletteSourceFloatsScaled', 'PalettePreparationHits',
+                                                    'PalettePreparationMisses', 'PalettePreparationFallbacks',
+                                                    'PalettePreparationSnapshotCopyFloats',
                                                     'UniformArrayUploads', 'UniformArrayBytes', 'UniformArraySkips',
                                                     'LegacyScalarUniformRequests', 'LegacyScalarUniformSubmissions',
                                                     'LegacyScalarUniformSkips')

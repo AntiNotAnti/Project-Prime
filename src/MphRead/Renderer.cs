@@ -2783,8 +2783,18 @@ namespace MphRead
             if (Services.IsReplica)
                 GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
             UpdateProjection();
-            using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.DrawItems))
-                GetDrawItems();
+            _palettePreparation?.Clear();
+            _palettePreparationCollecting = _palettePreparationEnabled;
+            try
+            {
+                using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.DrawItems))
+                    GetDrawItems();
+            }
+            finally
+            {
+                _palettePreparationCollecting = false;
+                _palettePreparation?.Clear();
+            }
             using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.CaptureWorld))
                 CaptureRetainedRenderWorld();
         }
@@ -4689,6 +4699,9 @@ namespace MphRead
         }
 
         private readonly float[] _scaleFactors = new float[16];
+        private static readonly bool _palettePreparationEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("PALETTE_PREP");
+        private Mods.Render.PalettePreparationCache? _palettePreparation;
+        private bool _palettePreparationCollecting;
 
         // for meshes
         public void AddRenderItem(Material material, int polygonId, float alphaScale, Vector3 emission, LightInfo lightInfo, Matrix4 texcoordMatrix,
@@ -4770,6 +4783,7 @@ namespace MphRead
                 || matrixStack.Count != 16 * matrixStackCount)
                 throw new ArgumentOutOfRangeException(nameof(matrixStackCount),
                     "Render item matrix palette exceeds the shader's 32-slot contract.");
+            bool preparedPalette = false, reusedPreparation = false;
             using (matrixStackCount > 0
                 ? Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.PaletteCollection) : default)
             {
@@ -4777,14 +4791,37 @@ namespace MphRead
                 item.MatrixPaletteVersion = Mods.Render.MatrixPaletteRevision.Read(matrixStack);
                 item.MatrixPaletteScale = scaleFactor;
                 item.MatrixStackCount = matrixStackCount;
-                for (int i = 0; i < matrixStack.Count; i++)
+                if (_palettePreparationCollecting)
                 {
-                    float value = matrixStack[i];
-                    item.MatrixStack[i] = value * _scaleFactors[i - (i / 16) * 16];
+                    if (item.MatrixPaletteVersion > 0 && matrixStackCount > 0)
+                        preparedPalette = (_palettePreparation ??= new()).TryCopy(matrixStack,
+                            item.MatrixPaletteVersion, matrixStackCount, scaleFactor, item.MatrixStack,
+                            out reusedPreparation);
+                    else _palettePreparation?.Clear();
+                }
+                if (!preparedPalette)
+                {
+                    for (int i = 0; i < matrixStack.Count; i++)
+                    {
+                        float value = matrixStack[i];
+                        item.MatrixStack[i] = value * _scaleFactors[i - (i / 16) * 16];
+                    }
                 }
             }
             Mods.Render.OpenGlPassProfiler.NotePaletteCollection(matrixStack, matrixStackCount * 16,
                 item.MatrixPaletteVersion, scaleFactor, reused: false);
+            Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.PaletteSourceFloatsScaled,
+                reusedPreparation ? 0 : matrixStackCount * 16);
+            if (preparedPalette)
+            {
+                Mods.Render.OpenGlPassProfiler.Count(reusedPreparation
+                    ? Mods.Render.OpenGlFrameCounter.PalettePreparationHits
+                    : Mods.Render.OpenGlFrameCounter.PalettePreparationMisses);
+                Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.PalettePreparationSnapshotCopyFloats,
+                    matrixStackCount * 16);
+            }
+            else if (_palettePreparationCollecting && matrixStackCount > 0)
+                Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.PalettePreparationFallbacks);
             item.OverrideColor = overrideColor;
             item.TexturedPlayerSkin = texturedPlayerSkin;
             item.PlayerOutlineColor = playerOutlineColor;
@@ -5471,6 +5508,9 @@ namespace MphRead
         /// </summary>
         public void UnloadGl()
         {
+            _palettePreparationCollecting = false;
+            _palettePreparation?.Clear();
+            _palettePreparation = null;
             ReleaseReplayOutput();
             if (Mods.Headless.Active)
             {
