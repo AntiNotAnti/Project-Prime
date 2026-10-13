@@ -1,0 +1,424 @@
+{
+  "schema": 1,
+  "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+  "clientSha256": "2215b9b666743adc3258249aaaf1fabbb7ee84b724d029378bf9f39ce8f85c7a",
+  "builds": [
+    {
+      "target": "desktop",
+      "errors": 0,
+      "warnings": 31,
+      "log": "/tmp/prime-combat-next-build.log",
+      "logSha256": "106300487582f82d921d5d5de10a680c0cd1ca2ffc019b34bf1982cfcc0fddcc"
+    },
+    {
+      "target": "server",
+      "errors": 0,
+      "warnings": 20,
+      "log": "/tmp/prime-combat-server-build.log",
+      "logSha256": "56fd2d9fea1ebb363636fada994e72600a578636d383135b8ef111c774fd4f40"
+    },
+    {
+      "target": "android",
+      "errors": 0,
+      "warnings": 52,
+      "log": "/tmp/prime-combat-android-build.log",
+      "logSha256": "53e8b5cb38c7eb82a6e4670a77c8c990d0c34e439f8bb5f25d8c5ac24f71b357"
+    }
+  ],
+  "tests": [
+    {
+      "name": "pure-default",
+      "lastLine": "[rendergraphcheck] PASS",
+      "passedChecks": 264,
+      "log": "/tmp/prime-combat-next-pure.log",
+      "logSha256": "ad8fad2c876e60145d6c95f31cd9fa77f9cd2777df38dc593eb409cca591d839"
+    },
+    {
+      "name": "pure-legacy",
+      "lastLine": "[rendergraphcheck] PASS",
+      "passedChecks": 259,
+      "log": "/tmp/prime-combat-next-legacy-pure.log",
+      "logSha256": "174b456674c7f4b2c8a40ae1e9b8d7edce0e942df5f367cea5994f66f11bb59d"
+    },
+    {
+      "name": "synthetic-default",
+      "lastLine": "[glvisualcheck] PASS 201 pixel checks, 5 captures",
+      "passedChecks": 201,
+      "log": "/tmp/prime-combat-next-synthetic.log",
+      "logSha256": "a4a916f1ab56e011fc1a4f033afc0dfa926e0421a3dce97646783ad8116003f9"
+    },
+    {
+      "name": "synthetic-legacy",
+      "lastLine": "[glvisualcheck] PASS 199 pixel checks, 5 captures",
+      "passedChecks": 199,
+      "log": "/tmp/prime-combat-next-legacy-synthetic.log",
+      "logSha256": "d2dbff7191ed8c806dd5cb6e99ccc4cae993b829c67bfe8b5b46d1aecb4c6d95"
+    }
+  ],
+  "nativeFixtures": [
+    {
+      "case": "solo",
+      "arm": "baseline",
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "probes": {},
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 185064,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1308096,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 28,
+        "glyphBytesBefore": 7168,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-visual-solo-baseline.json",
+      "rawResultSha256": "88a1f03415ce665eebba8b3b4d1d7a07a77a7b09094e7bf384c6810f8e2fcd8f"
+    },
+    {
+      "case": "solo",
+      "arm": "optimized",
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "probes": {},
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 185064,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1308096,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 28,
+        "glyphBytesBefore": 7168,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-visual-solo-optimized.json",
+      "rawResultSha256": "084b007b5fc88e20eefb488bad93d7fbee33af1b51e80d93c2509aa3053cff5d"
+    },
+    {
+      "case": "two",
+      "arm": "baseline",
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "probes": {
+        "outlineOcclusion": {
+          "occludedPixels": 0,
+          "visiblePixels": 2619
+        }
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 839040,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1962072,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 27,
+        "glyphBytesBefore": 6912,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 10,
+        "spriteBytesBefore": 2560,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-visual-two-baseline.json",
+      "rawResultSha256": "b04e01d314197a20c38a4ed0c18d60619c57e0cd09c3a7feb2082f243a2717e9"
+    },
+    {
+      "case": "two",
+      "arm": "optimized",
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "probes": {
+        "outlineOcclusion": {
+          "occludedPixels": 0,
+          "visiblePixels": 2619
+        }
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 839040,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1962072,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 27,
+        "glyphBytesBefore": 6912,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 10,
+        "spriteBytesBefore": 2560,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-visual-two-optimized.json",
+      "rawResultSha256": "0a4cbfedd969a2aedc768553fa8f2707719d3416de6fa0916ea1429a4bf40612"
+    },
+    {
+      "case": "shadow",
+      "arm": "baseline",
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "probes": {},
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 185064,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1308096,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 28,
+        "glyphBytesBefore": 7168,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-visual-shadow-baseline.json",
+      "rawResultSha256": "7a0495be33e2c61fb8a3d6e6a76efefc1bd00408c0cce67bfe1c7f36366551e0"
+    },
+    {
+      "case": "shadow",
+      "arm": "optimized",
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "probes": {},
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 185064,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1308096,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 28,
+        "glyphBytesBefore": 7168,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-visual-shadow-optimized.json",
+      "rawResultSha256": "4eaf6e152cadaee3132c4f00c1a20d13111f01e17056a3352cd48839cf1a05f8"
+    },
+    {
+      "case": "bomb",
+      "arm": "baseline",
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "probes": {
+        "bombVisibility": {
+          "status": "PASS",
+          "failures": []
+        }
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 829920,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1952952,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 23,
+        "glyphBytesBefore": 5888,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-visual-bomb-baseline.json",
+      "rawResultSha256": "43ead05ae3c6bc1c4c24b5315c8523ac8730b472a5ecc7e9ede7f015192eed86"
+    },
+    {
+      "case": "bomb",
+      "arm": "optimized",
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "probes": {
+        "bombVisibility": {
+          "status": "PASS",
+          "failures": []
+        }
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 829920,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1952952,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 23,
+        "glyphBytesBefore": 5888,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-visual-bomb-optimized.json",
+      "rawResultSha256": "4ec0250d637194f028eb56e8ce7d6dad176d19f93c1138d2b3a228095722ba2e"
+    },
+    {
+      "case": "impact",
+      "arm": "baseline",
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "probes": {
+        "impactPresentation": {
+          "status": "PASS",
+          "failures": []
+        }
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 839040,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1962072,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 23,
+        "glyphBytesBefore": 5888,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-visual-impact-baseline.json",
+      "rawResultSha256": "336d16df0cd617e679b23e340841e267dde0565a5ec226566fcbec4710b85809"
+    },
+    {
+      "case": "impact",
+      "arm": "optimized",
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "probes": {
+        "impactPresentation": {
+          "status": "PASS",
+          "failures": []
+        }
+      },
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 839040,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1962072,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 23,
+        "glyphBytesBefore": 5888,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-visual-impact-optimized.json",
+      "rawResultSha256": "bf00cb382b7ddf6953d18c970b7e881cea19651b818d9b44c72ed2f1d9a111a5"
+    },
+    {
+      "case": "combat",
+      "arm": "baseline",
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "probes": {},
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 732000,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1149816,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 103,
+        "glyphBytesBefore": 26368,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 34,
+        "spriteBytesBefore": 8704,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-visual-combat-baseline.json",
+      "rawResultSha256": "ca52d1df0e52c5a5a9c650d1735e66b0b8d43adaf9d2dd65e0813182b977d3a4"
+    },
+    {
+      "case": "combat",
+      "arm": "optimized",
+      "assemblyMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "probes": {},
+      "cleanup": {
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 732000,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1149816,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 103,
+        "glyphBytesBefore": 26368,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 34,
+        "spriteBytesBefore": 8704,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawResult": "artifacts/opengl-modernization/combat-next-visual-combat-optimized.json",
+      "rawResultSha256": "076d26ad44cefdf305f4449cf24845e79b365c05fd9481f59f17bc23b552bae6"
+    }
+  ],
+  "visualComparisons": [
+    {
+      "name": "opengl-combat-next-visual",
+      "comparisons": 112,
+      "identical": 112,
+      "result": "docs/performance/opengl-combat-next-visual.json",
+      "resultSha256": "e49cbf9bc590b992d09dc6516634108cea700a100e06ff9c9d99345a8010f7f3",
+      "referenceMvid": "0d952d3c-b569-4816-862c-86808bbfb828",
+      "candidateMvid": "0d952d3c-b569-4816-862c-86808bbfb828"
+    },
+    {
+      "name": "opengl-combat-upgrade-visual",
+      "comparisons": 112,
+      "identical": 112,
+      "result": "docs/performance/opengl-combat-upgrade-visual.json",
+      "resultSha256": "cd9740aa334e435c6c7c024ec13fad8174053d49234de377d4aa1e645a9eb4c7",
+      "referenceMvid": "55ee892c-1932-4822-8b50-8dadccaf8e3a",
+      "candidateMvid": "0d952d3c-b569-4816-862c-86808bbfb828"
+    }
+  ],
+  "sourceSnapshotNote": "A fixture-only change after server and Android builds is excluded from those targets. Desktop fixtures and synthetic tests use the final client assembly.",
+  "limitations": "Mac native results only. No current capped or lifecycle run is included. Window transitions do not recreate the GL context or establish input latency. Intentional transition stalls are lifecycle observations, not benchmark samples. Combat pixel captures stabilize kill-feed wall time with -stablehud; performance never does. No Windows/Linux/Android runtime acceptance or complete original-plan acceptance claimed."
+}

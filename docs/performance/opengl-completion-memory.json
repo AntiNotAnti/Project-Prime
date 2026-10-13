@@ -1,0 +1,3188 @@
+{
+  "schema": 1,
+  "assemblyMvid": "680c26eb-c1eb-411a-aaaa-1d5434de33bd",
+  "cycles": 60,
+  "resourceAssertionsPassed": true,
+  "nativeMemoryBoundedness": "UNVERIFIED: inspect block trends and final drain; owned-object release does not establish process/native memory boundedness",
+  "blocks": [
+    {
+      "firstArm": 0,
+      "lastArm": 9,
+      "arms": 10,
+      "means": {
+        "workingSetBytes": 796092006.4,
+        "managedLiveBytes": 235123678.4,
+        "gcCommittedBytes": 324943872,
+        "gcHeapSizeBytes": 310490235.2,
+        "gcFragmentedBytes": 147575437.6,
+        "processThreadCount": 32
+      }
+    },
+    {
+      "firstArm": 10,
+      "lastArm": 19,
+      "arms": 10,
+      "means": {
+        "workingSetBytes": 870599884.8,
+        "managedLiveBytes": 202052124,
+        "gcCommittedBytes": 291227238.4,
+        "gcHeapSizeBytes": 278398094.4,
+        "gcFragmentedBytes": 151151884,
+        "processThreadCount": 29.8
+      }
+    },
+    {
+      "firstArm": 20,
+      "lastArm": 29,
+      "arms": 10,
+      "means": {
+        "workingSetBytes": 902332416,
+        "managedLiveBytes": 205883295.2,
+        "gcCommittedBytes": 281259212.8,
+        "gcHeapSizeBytes": 267772704.8,
+        "gcFragmentedBytes": 138511560.8,
+        "processThreadCount": 30
+      }
+    },
+    {
+      "firstArm": 30,
+      "lastArm": 39,
+      "arms": 10,
+      "means": {
+        "workingSetBytes": 942769766.4,
+        "managedLiveBytes": 207078702.4,
+        "gcCommittedBytes": 283775795.2,
+        "gcHeapSizeBytes": 270624961.6,
+        "gcFragmentedBytes": 140532370.4,
+        "processThreadCount": 29
+      }
+    },
+    {
+      "firstArm": 40,
+      "lastArm": 49,
+      "arms": 10,
+      "means": {
+        "workingSetBytes": 979858227.2,
+        "managedLiveBytes": 211026637.6,
+        "gcCommittedBytes": 284355788.8,
+        "gcHeapSizeBytes": 270918555.2,
+        "gcFragmentedBytes": 138830473.6,
+        "processThreadCount": 29.8
+      }
+    },
+    {
+      "firstArm": 50,
+      "lastArm": 59,
+      "arms": 10,
+      "means": {
+        "workingSetBytes": 1018609664,
+        "managedLiveBytes": 211500342.4,
+        "gcCommittedBytes": 285997465.6,
+        "gcHeapSizeBytes": 272846898.4,
+        "gcFragmentedBytes": 140555153.6,
+        "processThreadCount": 30.2
+      }
+    },
+    {
+      "firstArm": 60,
+      "lastArm": 69,
+      "arms": 10,
+      "means": {
+        "workingSetBytes": 1063945830.4,
+        "managedLiveBytes": 216037663.2,
+        "gcCommittedBytes": 290342502.4,
+        "gcHeapSizeBytes": 277227283.2,
+        "gcFragmentedBytes": 142283613.6,
+        "processThreadCount": 29.6
+      }
+    },
+    {
+      "firstArm": 70,
+      "lastArm": 79,
+      "arms": 10,
+      "means": {
+        "workingSetBytes": 1097508454.4,
+        "managedLiveBytes": 216937961.6,
+        "gcCommittedBytes": 288165068.8,
+        "gcHeapSizeBytes": 275033854.4,
+        "gcFragmentedBytes": 139485342.4,
+        "processThreadCount": 30.9
+      }
+    },
+    {
+      "firstArm": 80,
+      "lastArm": 89,
+      "arms": 10,
+      "means": {
+        "workingSetBytes": 1139651379.2,
+        "managedLiveBytes": 220754396,
+        "gcCommittedBytes": 295800012.8,
+        "gcHeapSizeBytes": 282757899.2,
+        "gcFragmentedBytes": 145309524.8,
+        "processThreadCount": 29.5
+      }
+    },
+    {
+      "firstArm": 90,
+      "lastArm": 99,
+      "arms": 10,
+      "means": {
+        "workingSetBytes": 1172534067.2,
+        "managedLiveBytes": 221299142.4,
+        "gcCommittedBytes": 291223961.6,
+        "gcHeapSizeBytes": 278043757.6,
+        "gcFragmentedBytes": 140313168.8,
+        "processThreadCount": 29.4
+      }
+    },
+    {
+      "firstArm": 100,
+      "lastArm": 109,
+      "arms": 10,
+      "means": {
+        "workingSetBytes": 1207874355.2,
+        "managedLiveBytes": 225105616.8,
+        "gcCommittedBytes": 290861875.2,
+        "gcHeapSizeBytes": 277448307.2,
+        "gcFragmentedBytes": 137804113.6,
+        "processThreadCount": 30.1
+      }
+    },
+    {
+      "firstArm": 110,
+      "lastArm": 119,
+      "arms": 10,
+      "means": {
+        "workingSetBytes": 1240961843.2,
+        "managedLiveBytes": 225739430.4,
+        "gcCommittedBytes": 291001139.2,
+        "gcHeapSizeBytes": 277766498.4,
+        "gcFragmentedBytes": 137807521.6,
+        "processThreadCount": 29.3
+      }
+    }
+  ],
+  "drainSamples": [
+    {
+      "phase": "before-drain",
+      "memory": {
+        "timestamp": 665261672395000,
+        "workingSetBytes": 1243103232,
+        "privateBytes": null,
+        "managedLiveBytes": 235351768,
+        "gcCommittedBytes": 287981568,
+        "gcHeapSizeBytes": 274162904,
+        "gcFragmentedBytes": 127338240,
+        "gcMemoryInfoCollectionIndex": 3050,
+        "processThreadCount": 28
+      },
+      "audio": {
+        "observations": 120,
+        "distinctTasks": 120,
+        "completed": 119,
+        "remaining": 1,
+        "faulted": 0,
+        "canceled": 0,
+        "tasks": [
+          {
+            "index": 0,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.6397,
+            "observedCompletionFromCleanupStartMs": 75.9615
+          },
+          {
+            "index": 1,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.1625,
+            "observedCompletionFromCleanupStartMs": 80.2357
+          },
+          {
+            "index": 2,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.3542,
+            "observedCompletionFromCleanupStartMs": 85.8919
+          },
+          {
+            "index": 3,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.1947,
+            "observedCompletionFromCleanupStartMs": 91.4898
+          },
+          {
+            "index": 4,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 29.2006,
+            "observedCompletionFromCleanupStartMs": 13090.9838
+          },
+          {
+            "index": 5,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.3692,
+            "observedCompletionFromCleanupStartMs": 81.5978
+          },
+          {
+            "index": 6,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.1575,
+            "observedCompletionFromCleanupStartMs": 75.8412
+          },
+          {
+            "index": 7,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.3211,
+            "observedCompletionFromCleanupStartMs": 78.8588
+          },
+          {
+            "index": 8,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.605,
+            "observedCompletionFromCleanupStartMs": 91.1347
+          },
+          {
+            "index": 9,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.9756,
+            "observedCompletionFromCleanupStartMs": 81.7403
+          },
+          {
+            "index": 10,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 43.4117,
+            "observedCompletionFromCleanupStartMs": 90.7237
+          },
+          {
+            "index": 11,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 49.6643,
+            "observedCompletionFromCleanupStartMs": 93.949
+          },
+          {
+            "index": 12,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.5041,
+            "observedCompletionFromCleanupStartMs": 14107.8302
+          },
+          {
+            "index": 13,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.8112,
+            "observedCompletionFromCleanupStartMs": 82.2619
+          },
+          {
+            "index": 14,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.0124,
+            "observedCompletionFromCleanupStartMs": 89.3535
+          },
+          {
+            "index": 15,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.4406,
+            "observedCompletionFromCleanupStartMs": 90.4092
+          },
+          {
+            "index": 16,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.2394,
+            "observedCompletionFromCleanupStartMs": 85.4405
+          },
+          {
+            "index": 17,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.3097,
+            "observedCompletionFromCleanupStartMs": 83.2108
+          },
+          {
+            "index": 18,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.1992,
+            "observedCompletionFromCleanupStartMs": 89.4015
+          },
+          {
+            "index": 19,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.2853,
+            "observedCompletionFromCleanupStartMs": 75.3815
+          },
+          {
+            "index": 20,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.9253,
+            "observedCompletionFromCleanupStartMs": 85.0444
+          },
+          {
+            "index": 21,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.8348,
+            "observedCompletionFromCleanupStartMs": 76.6835
+          },
+          {
+            "index": 22,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.6832,
+            "observedCompletionFromCleanupStartMs": 87.6948
+          },
+          {
+            "index": 23,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.2109,
+            "observedCompletionFromCleanupStartMs": 74.5744
+          },
+          {
+            "index": 24,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 45.9475,
+            "observedCompletionFromCleanupStartMs": 14105.5855
+          },
+          {
+            "index": 25,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 45.2122,
+            "observedCompletionFromCleanupStartMs": 89.658
+          },
+          {
+            "index": 26,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.2751,
+            "observedCompletionFromCleanupStartMs": 79.3785
+          },
+          {
+            "index": 27,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 43.0128,
+            "observedCompletionFromCleanupStartMs": 87.0915
+          },
+          {
+            "index": 28,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.0602,
+            "observedCompletionFromCleanupStartMs": 14091.6295
+          },
+          {
+            "index": 29,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.7512,
+            "observedCompletionFromCleanupStartMs": 74.6695
+          },
+          {
+            "index": 30,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.2806,
+            "observedCompletionFromCleanupStartMs": 14101.2095
+          },
+          {
+            "index": 31,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 30.9005,
+            "observedCompletionFromCleanupStartMs": 74.6247
+          },
+          {
+            "index": 32,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.4175,
+            "observedCompletionFromCleanupStartMs": 82.5772
+          },
+          {
+            "index": 33,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 35.4325,
+            "observedCompletionFromCleanupStartMs": 78.124
+          },
+          {
+            "index": 34,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.0853,
+            "observedCompletionFromCleanupStartMs": 14098.9582
+          },
+          {
+            "index": 35,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.5727,
+            "observedCompletionFromCleanupStartMs": 90.1162
+          },
+          {
+            "index": 36,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.0943,
+            "observedCompletionFromCleanupStartMs": 79.2071
+          },
+          {
+            "index": 37,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 35.0737,
+            "observedCompletionFromCleanupStartMs": 77.3117
+          },
+          {
+            "index": 38,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 30.167,
+            "observedCompletionFromCleanupStartMs": 14092.2226
+          },
+          {
+            "index": 39,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.6688,
+            "observedCompletionFromCleanupStartMs": 78.3074
+          },
+          {
+            "index": 40,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.6902,
+            "observedCompletionFromCleanupStartMs": 87.1504
+          },
+          {
+            "index": 41,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.7008,
+            "observedCompletionFromCleanupStartMs": 84.8457
+          },
+          {
+            "index": 42,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.077,
+            "observedCompletionFromCleanupStartMs": 83.9978
+          },
+          {
+            "index": 43,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.5364,
+            "observedCompletionFromCleanupStartMs": 86.3349
+          },
+          {
+            "index": 44,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.5072,
+            "observedCompletionFromCleanupStartMs": 85.3604
+          },
+          {
+            "index": 45,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.398,
+            "observedCompletionFromCleanupStartMs": 87.3984
+          },
+          {
+            "index": 46,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.4343,
+            "observedCompletionFromCleanupStartMs": 93.0487
+          },
+          {
+            "index": 47,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.2924,
+            "observedCompletionFromCleanupStartMs": 90.6491
+          },
+          {
+            "index": 48,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.6869,
+            "observedCompletionFromCleanupStartMs": 82.2192
+          },
+          {
+            "index": 49,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.9677,
+            "observedCompletionFromCleanupStartMs": 79.6974
+          },
+          {
+            "index": 50,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.7499,
+            "observedCompletionFromCleanupStartMs": 92.9342
+          },
+          {
+            "index": 51,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.428,
+            "observedCompletionFromCleanupStartMs": 84.1078
+          },
+          {
+            "index": 52,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.6577,
+            "observedCompletionFromCleanupStartMs": 14097.9907
+          },
+          {
+            "index": 53,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.2958,
+            "observedCompletionFromCleanupStartMs": 83.7645
+          },
+          {
+            "index": 54,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.0092,
+            "observedCompletionFromCleanupStartMs": 14107.643
+          },
+          {
+            "index": 55,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 50.8078,
+            "observedCompletionFromCleanupStartMs": 93.1398
+          },
+          {
+            "index": 56,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.2521,
+            "observedCompletionFromCleanupStartMs": 87.4243
+          },
+          {
+            "index": 57,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.2732,
+            "observedCompletionFromCleanupStartMs": 89.9885
+          },
+          {
+            "index": 58,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 30.3026,
+            "observedCompletionFromCleanupStartMs": 76.4845
+          },
+          {
+            "index": 59,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 50.1095,
+            "observedCompletionFromCleanupStartMs": 92.5299
+          },
+          {
+            "index": 60,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.5838,
+            "observedCompletionFromCleanupStartMs": 81.9663
+          },
+          {
+            "index": 61,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.6671,
+            "observedCompletionFromCleanupStartMs": 81.3005
+          },
+          {
+            "index": 62,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.3943,
+            "observedCompletionFromCleanupStartMs": 77.6119
+          },
+          {
+            "index": 63,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.823,
+            "observedCompletionFromCleanupStartMs": 87.9747
+          },
+          {
+            "index": 64,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.3865,
+            "observedCompletionFromCleanupStartMs": 14109.164
+          },
+          {
+            "index": 65,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 19.4302,
+            "observedCompletionFromCleanupStartMs": 59.4065
+          },
+          {
+            "index": 66,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 32.9576,
+            "observedCompletionFromCleanupStartMs": 78.0027
+          },
+          {
+            "index": 67,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.081,
+            "observedCompletionFromCleanupStartMs": 82.7841
+          },
+          {
+            "index": 68,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.8521,
+            "observedCompletionFromCleanupStartMs": 14102.4263
+          },
+          {
+            "index": 69,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.3207,
+            "observedCompletionFromCleanupStartMs": 81.4615
+          },
+          {
+            "index": 70,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.3828,
+            "observedCompletionFromCleanupStartMs": 79.4812
+          },
+          {
+            "index": 71,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 28.6817,
+            "observedCompletionFromCleanupStartMs": 71.4938
+          },
+          {
+            "index": 72,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 49.254,
+            "observedCompletionFromCleanupStartMs": 93.2181
+          },
+          {
+            "index": 73,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.5167,
+            "observedCompletionFromCleanupStartMs": 85.7654
+          },
+          {
+            "index": 74,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.5372,
+            "observedCompletionFromCleanupStartMs": 86.5178
+          },
+          {
+            "index": 75,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 28.2642,
+            "observedCompletionFromCleanupStartMs": 72.1455
+          },
+          {
+            "index": 76,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.6209,
+            "observedCompletionFromCleanupStartMs": 92.944
+          },
+          {
+            "index": 77,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.2813,
+            "observedCompletionFromCleanupStartMs": 82.237
+          },
+          {
+            "index": 78,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.0404,
+            "observedCompletionFromCleanupStartMs": 77.354
+          },
+          {
+            "index": 79,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.8705,
+            "observedCompletionFromCleanupStartMs": 75.661
+          },
+          {
+            "index": 80,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.7053,
+            "observedCompletionFromCleanupStartMs": 81.5475
+          },
+          {
+            "index": 81,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.7285,
+            "observedCompletionFromCleanupStartMs": 82.8234
+          },
+          {
+            "index": 82,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.2011,
+            "observedCompletionFromCleanupStartMs": 87.934
+          },
+          {
+            "index": 83,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.8225,
+            "observedCompletionFromCleanupStartMs": 86.2462
+          },
+          {
+            "index": 84,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.0362,
+            "observedCompletionFromCleanupStartMs": 14099.0985
+          },
+          {
+            "index": 85,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.5814,
+            "observedCompletionFromCleanupStartMs": 73.5391
+          },
+          {
+            "index": 86,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.2725,
+            "observedCompletionFromCleanupStartMs": 84.6063
+          },
+          {
+            "index": 87,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.232,
+            "observedCompletionFromCleanupStartMs": 85.93
+          },
+          {
+            "index": 88,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.9443,
+            "observedCompletionFromCleanupStartMs": 13098.9657
+          },
+          {
+            "index": 89,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.2939,
+            "observedCompletionFromCleanupStartMs": 78.2736
+          },
+          {
+            "index": 90,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 35.7712,
+            "observedCompletionFromCleanupStartMs": 13093.9467
+          },
+          {
+            "index": 91,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 28.9941,
+            "observedCompletionFromCleanupStartMs": 71.5772
+          },
+          {
+            "index": 92,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.5489,
+            "observedCompletionFromCleanupStartMs": 76.9557
+          },
+          {
+            "index": 93,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.6802,
+            "observedCompletionFromCleanupStartMs": 79.8236
+          },
+          {
+            "index": 94,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.9983,
+            "observedCompletionFromCleanupStartMs": 92.154
+          },
+          {
+            "index": 95,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.6257,
+            "observedCompletionFromCleanupStartMs": 83.1023
+          },
+          {
+            "index": 96,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 32.4034,
+            "observedCompletionFromCleanupStartMs": 76.9197
+          },
+          {
+            "index": 97,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.3427,
+            "observedCompletionFromCleanupStartMs": 81.3479
+          },
+          {
+            "index": 98,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.7307,
+            "observedCompletionFromCleanupStartMs": 14105.0116
+          },
+          {
+            "index": 99,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.395,
+            "observedCompletionFromCleanupStartMs": 76.2151
+          },
+          {
+            "index": 100,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.1678,
+            "observedCompletionFromCleanupStartMs": 80.0156
+          },
+          {
+            "index": 101,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.2212,
+            "observedCompletionFromCleanupStartMs": 80.1607
+          },
+          {
+            "index": 102,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.2951,
+            "observedCompletionFromCleanupStartMs": 91.7635
+          },
+          {
+            "index": 103,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.0356,
+            "observedCompletionFromCleanupStartMs": 90.437
+          },
+          {
+            "index": 104,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.7676,
+            "observedCompletionFromCleanupStartMs": 92.8829
+          },
+          {
+            "index": 105,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.3772,
+            "observedCompletionFromCleanupStartMs": 79.6479
+          },
+          {
+            "index": 106,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.9749,
+            "observedCompletionFromCleanupStartMs": 88.3096
+          },
+          {
+            "index": 107,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.1147,
+            "observedCompletionFromCleanupStartMs": 78.699
+          },
+          {
+            "index": 108,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 18.0145,
+            "observedCompletionFromCleanupStartMs": 62.3175
+          },
+          {
+            "index": 109,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.3196,
+            "observedCompletionFromCleanupStartMs": 78.9694
+          },
+          {
+            "index": 110,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.2896,
+            "observedCompletionFromCleanupStartMs": 14093.7103
+          },
+          {
+            "index": 111,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.6612,
+            "observedCompletionFromCleanupStartMs": 81.8953
+          },
+          {
+            "index": 112,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.3032,
+            "observedCompletionFromCleanupStartMs": 14104.7467
+          },
+          {
+            "index": 113,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.3527,
+            "observedCompletionFromCleanupStartMs": 77.4353
+          },
+          {
+            "index": 114,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 30.0961,
+            "observedCompletionFromCleanupStartMs": 74.7369
+          },
+          {
+            "index": 115,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.2723,
+            "observedCompletionFromCleanupStartMs": 78.7491
+          },
+          {
+            "index": 116,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 43.5147,
+            "observedCompletionFromCleanupStartMs": 88.3714
+          },
+          {
+            "index": 117,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.364,
+            "observedCompletionFromCleanupStartMs": 83.6663
+          },
+          {
+            "index": 118,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.8596,
+            "observedCompletionFromCleanupStartMs": 13107.8311
+          },
+          {
+            "index": 119,
+            "status": "Running",
+            "observedAfterCleanupMs": 42.3587,
+            "observedCompletionFromCleanupStartMs": null
+          }
+        ],
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      }
+    },
+    {
+      "phase": "after-audio-wait",
+      "waitLimitSeconds": 15,
+      "elapsedMs": 5.5148,
+      "allComplete": true,
+      "memory": {
+        "timestamp": 665261678067083,
+        "workingSetBytes": 1243136000,
+        "privateBytes": null,
+        "managedLiveBytes": 235384664,
+        "gcCommittedBytes": 287981568,
+        "gcHeapSizeBytes": 274162904,
+        "gcFragmentedBytes": 127338240,
+        "gcMemoryInfoCollectionIndex": 3050,
+        "processThreadCount": 27
+      },
+      "audio": {
+        "observations": 120,
+        "distinctTasks": 120,
+        "completed": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0,
+        "tasks": [
+          {
+            "index": 0,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.6397,
+            "observedCompletionFromCleanupStartMs": 75.9615
+          },
+          {
+            "index": 1,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.1625,
+            "observedCompletionFromCleanupStartMs": 80.2357
+          },
+          {
+            "index": 2,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.3542,
+            "observedCompletionFromCleanupStartMs": 85.8919
+          },
+          {
+            "index": 3,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.1947,
+            "observedCompletionFromCleanupStartMs": 91.4898
+          },
+          {
+            "index": 4,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 29.2006,
+            "observedCompletionFromCleanupStartMs": 13090.9838
+          },
+          {
+            "index": 5,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.3692,
+            "observedCompletionFromCleanupStartMs": 81.5978
+          },
+          {
+            "index": 6,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.1575,
+            "observedCompletionFromCleanupStartMs": 75.8412
+          },
+          {
+            "index": 7,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.3211,
+            "observedCompletionFromCleanupStartMs": 78.8588
+          },
+          {
+            "index": 8,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.605,
+            "observedCompletionFromCleanupStartMs": 91.1347
+          },
+          {
+            "index": 9,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.9756,
+            "observedCompletionFromCleanupStartMs": 81.7403
+          },
+          {
+            "index": 10,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 43.4117,
+            "observedCompletionFromCleanupStartMs": 90.7237
+          },
+          {
+            "index": 11,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 49.6643,
+            "observedCompletionFromCleanupStartMs": 93.949
+          },
+          {
+            "index": 12,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.5041,
+            "observedCompletionFromCleanupStartMs": 14107.8302
+          },
+          {
+            "index": 13,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.8112,
+            "observedCompletionFromCleanupStartMs": 82.2619
+          },
+          {
+            "index": 14,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.0124,
+            "observedCompletionFromCleanupStartMs": 89.3535
+          },
+          {
+            "index": 15,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.4406,
+            "observedCompletionFromCleanupStartMs": 90.4092
+          },
+          {
+            "index": 16,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.2394,
+            "observedCompletionFromCleanupStartMs": 85.4405
+          },
+          {
+            "index": 17,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.3097,
+            "observedCompletionFromCleanupStartMs": 83.2108
+          },
+          {
+            "index": 18,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.1992,
+            "observedCompletionFromCleanupStartMs": 89.4015
+          },
+          {
+            "index": 19,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.2853,
+            "observedCompletionFromCleanupStartMs": 75.3815
+          },
+          {
+            "index": 20,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.9253,
+            "observedCompletionFromCleanupStartMs": 85.0444
+          },
+          {
+            "index": 21,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.8348,
+            "observedCompletionFromCleanupStartMs": 76.6835
+          },
+          {
+            "index": 22,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.6832,
+            "observedCompletionFromCleanupStartMs": 87.6948
+          },
+          {
+            "index": 23,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.2109,
+            "observedCompletionFromCleanupStartMs": 74.5744
+          },
+          {
+            "index": 24,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 45.9475,
+            "observedCompletionFromCleanupStartMs": 14105.5855
+          },
+          {
+            "index": 25,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 45.2122,
+            "observedCompletionFromCleanupStartMs": 89.658
+          },
+          {
+            "index": 26,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.2751,
+            "observedCompletionFromCleanupStartMs": 79.3785
+          },
+          {
+            "index": 27,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 43.0128,
+            "observedCompletionFromCleanupStartMs": 87.0915
+          },
+          {
+            "index": 28,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.0602,
+            "observedCompletionFromCleanupStartMs": 14091.6295
+          },
+          {
+            "index": 29,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.7512,
+            "observedCompletionFromCleanupStartMs": 74.6695
+          },
+          {
+            "index": 30,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.2806,
+            "observedCompletionFromCleanupStartMs": 14101.2095
+          },
+          {
+            "index": 31,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 30.9005,
+            "observedCompletionFromCleanupStartMs": 74.6247
+          },
+          {
+            "index": 32,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.4175,
+            "observedCompletionFromCleanupStartMs": 82.5772
+          },
+          {
+            "index": 33,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 35.4325,
+            "observedCompletionFromCleanupStartMs": 78.124
+          },
+          {
+            "index": 34,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.0853,
+            "observedCompletionFromCleanupStartMs": 14098.9582
+          },
+          {
+            "index": 35,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.5727,
+            "observedCompletionFromCleanupStartMs": 90.1162
+          },
+          {
+            "index": 36,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.0943,
+            "observedCompletionFromCleanupStartMs": 79.2071
+          },
+          {
+            "index": 37,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 35.0737,
+            "observedCompletionFromCleanupStartMs": 77.3117
+          },
+          {
+            "index": 38,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 30.167,
+            "observedCompletionFromCleanupStartMs": 14092.2226
+          },
+          {
+            "index": 39,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.6688,
+            "observedCompletionFromCleanupStartMs": 78.3074
+          },
+          {
+            "index": 40,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.6902,
+            "observedCompletionFromCleanupStartMs": 87.1504
+          },
+          {
+            "index": 41,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.7008,
+            "observedCompletionFromCleanupStartMs": 84.8457
+          },
+          {
+            "index": 42,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.077,
+            "observedCompletionFromCleanupStartMs": 83.9978
+          },
+          {
+            "index": 43,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.5364,
+            "observedCompletionFromCleanupStartMs": 86.3349
+          },
+          {
+            "index": 44,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.5072,
+            "observedCompletionFromCleanupStartMs": 85.3604
+          },
+          {
+            "index": 45,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.398,
+            "observedCompletionFromCleanupStartMs": 87.3984
+          },
+          {
+            "index": 46,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.4343,
+            "observedCompletionFromCleanupStartMs": 93.0487
+          },
+          {
+            "index": 47,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.2924,
+            "observedCompletionFromCleanupStartMs": 90.6491
+          },
+          {
+            "index": 48,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.6869,
+            "observedCompletionFromCleanupStartMs": 82.2192
+          },
+          {
+            "index": 49,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.9677,
+            "observedCompletionFromCleanupStartMs": 79.6974
+          },
+          {
+            "index": 50,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.7499,
+            "observedCompletionFromCleanupStartMs": 92.9342
+          },
+          {
+            "index": 51,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.428,
+            "observedCompletionFromCleanupStartMs": 84.1078
+          },
+          {
+            "index": 52,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.6577,
+            "observedCompletionFromCleanupStartMs": 14097.9907
+          },
+          {
+            "index": 53,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.2958,
+            "observedCompletionFromCleanupStartMs": 83.7645
+          },
+          {
+            "index": 54,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.0092,
+            "observedCompletionFromCleanupStartMs": 14107.643
+          },
+          {
+            "index": 55,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 50.8078,
+            "observedCompletionFromCleanupStartMs": 93.1398
+          },
+          {
+            "index": 56,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.2521,
+            "observedCompletionFromCleanupStartMs": 87.4243
+          },
+          {
+            "index": 57,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.2732,
+            "observedCompletionFromCleanupStartMs": 89.9885
+          },
+          {
+            "index": 58,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 30.3026,
+            "observedCompletionFromCleanupStartMs": 76.4845
+          },
+          {
+            "index": 59,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 50.1095,
+            "observedCompletionFromCleanupStartMs": 92.5299
+          },
+          {
+            "index": 60,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.5838,
+            "observedCompletionFromCleanupStartMs": 81.9663
+          },
+          {
+            "index": 61,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.6671,
+            "observedCompletionFromCleanupStartMs": 81.3005
+          },
+          {
+            "index": 62,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.3943,
+            "observedCompletionFromCleanupStartMs": 77.6119
+          },
+          {
+            "index": 63,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.823,
+            "observedCompletionFromCleanupStartMs": 87.9747
+          },
+          {
+            "index": 64,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.3865,
+            "observedCompletionFromCleanupStartMs": 14109.164
+          },
+          {
+            "index": 65,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 19.4302,
+            "observedCompletionFromCleanupStartMs": 59.4065
+          },
+          {
+            "index": 66,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 32.9576,
+            "observedCompletionFromCleanupStartMs": 78.0027
+          },
+          {
+            "index": 67,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.081,
+            "observedCompletionFromCleanupStartMs": 82.7841
+          },
+          {
+            "index": 68,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.8521,
+            "observedCompletionFromCleanupStartMs": 14102.4263
+          },
+          {
+            "index": 69,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.3207,
+            "observedCompletionFromCleanupStartMs": 81.4615
+          },
+          {
+            "index": 70,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.3828,
+            "observedCompletionFromCleanupStartMs": 79.4812
+          },
+          {
+            "index": 71,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 28.6817,
+            "observedCompletionFromCleanupStartMs": 71.4938
+          },
+          {
+            "index": 72,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 49.254,
+            "observedCompletionFromCleanupStartMs": 93.2181
+          },
+          {
+            "index": 73,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.5167,
+            "observedCompletionFromCleanupStartMs": 85.7654
+          },
+          {
+            "index": 74,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.5372,
+            "observedCompletionFromCleanupStartMs": 86.5178
+          },
+          {
+            "index": 75,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 28.2642,
+            "observedCompletionFromCleanupStartMs": 72.1455
+          },
+          {
+            "index": 76,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.6209,
+            "observedCompletionFromCleanupStartMs": 92.944
+          },
+          {
+            "index": 77,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.2813,
+            "observedCompletionFromCleanupStartMs": 82.237
+          },
+          {
+            "index": 78,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.0404,
+            "observedCompletionFromCleanupStartMs": 77.354
+          },
+          {
+            "index": 79,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.8705,
+            "observedCompletionFromCleanupStartMs": 75.661
+          },
+          {
+            "index": 80,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.7053,
+            "observedCompletionFromCleanupStartMs": 81.5475
+          },
+          {
+            "index": 81,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.7285,
+            "observedCompletionFromCleanupStartMs": 82.8234
+          },
+          {
+            "index": 82,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.2011,
+            "observedCompletionFromCleanupStartMs": 87.934
+          },
+          {
+            "index": 83,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.8225,
+            "observedCompletionFromCleanupStartMs": 86.2462
+          },
+          {
+            "index": 84,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.0362,
+            "observedCompletionFromCleanupStartMs": 14099.0985
+          },
+          {
+            "index": 85,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.5814,
+            "observedCompletionFromCleanupStartMs": 73.5391
+          },
+          {
+            "index": 86,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.2725,
+            "observedCompletionFromCleanupStartMs": 84.6063
+          },
+          {
+            "index": 87,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.232,
+            "observedCompletionFromCleanupStartMs": 85.93
+          },
+          {
+            "index": 88,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.9443,
+            "observedCompletionFromCleanupStartMs": 13098.9657
+          },
+          {
+            "index": 89,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.2939,
+            "observedCompletionFromCleanupStartMs": 78.2736
+          },
+          {
+            "index": 90,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 35.7712,
+            "observedCompletionFromCleanupStartMs": 13093.9467
+          },
+          {
+            "index": 91,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 28.9941,
+            "observedCompletionFromCleanupStartMs": 71.5772
+          },
+          {
+            "index": 92,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.5489,
+            "observedCompletionFromCleanupStartMs": 76.9557
+          },
+          {
+            "index": 93,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.6802,
+            "observedCompletionFromCleanupStartMs": 79.8236
+          },
+          {
+            "index": 94,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.9983,
+            "observedCompletionFromCleanupStartMs": 92.154
+          },
+          {
+            "index": 95,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.6257,
+            "observedCompletionFromCleanupStartMs": 83.1023
+          },
+          {
+            "index": 96,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 32.4034,
+            "observedCompletionFromCleanupStartMs": 76.9197
+          },
+          {
+            "index": 97,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.3427,
+            "observedCompletionFromCleanupStartMs": 81.3479
+          },
+          {
+            "index": 98,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.7307,
+            "observedCompletionFromCleanupStartMs": 14105.0116
+          },
+          {
+            "index": 99,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.395,
+            "observedCompletionFromCleanupStartMs": 76.2151
+          },
+          {
+            "index": 100,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.1678,
+            "observedCompletionFromCleanupStartMs": 80.0156
+          },
+          {
+            "index": 101,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.2212,
+            "observedCompletionFromCleanupStartMs": 80.1607
+          },
+          {
+            "index": 102,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.2951,
+            "observedCompletionFromCleanupStartMs": 91.7635
+          },
+          {
+            "index": 103,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.0356,
+            "observedCompletionFromCleanupStartMs": 90.437
+          },
+          {
+            "index": 104,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.7676,
+            "observedCompletionFromCleanupStartMs": 92.8829
+          },
+          {
+            "index": 105,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.3772,
+            "observedCompletionFromCleanupStartMs": 79.6479
+          },
+          {
+            "index": 106,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.9749,
+            "observedCompletionFromCleanupStartMs": 88.3096
+          },
+          {
+            "index": 107,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.1147,
+            "observedCompletionFromCleanupStartMs": 78.699
+          },
+          {
+            "index": 108,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 18.0145,
+            "observedCompletionFromCleanupStartMs": 62.3175
+          },
+          {
+            "index": 109,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.3196,
+            "observedCompletionFromCleanupStartMs": 78.9694
+          },
+          {
+            "index": 110,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.2896,
+            "observedCompletionFromCleanupStartMs": 14093.7103
+          },
+          {
+            "index": 111,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.6612,
+            "observedCompletionFromCleanupStartMs": 81.8953
+          },
+          {
+            "index": 112,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.3032,
+            "observedCompletionFromCleanupStartMs": 14104.7467
+          },
+          {
+            "index": 113,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.3527,
+            "observedCompletionFromCleanupStartMs": 77.4353
+          },
+          {
+            "index": 114,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 30.0961,
+            "observedCompletionFromCleanupStartMs": 74.7369
+          },
+          {
+            "index": 115,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.2723,
+            "observedCompletionFromCleanupStartMs": 78.7491
+          },
+          {
+            "index": 116,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 43.5147,
+            "observedCompletionFromCleanupStartMs": 88.3714
+          },
+          {
+            "index": 117,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.364,
+            "observedCompletionFromCleanupStartMs": 83.6663
+          },
+          {
+            "index": 118,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.8596,
+            "observedCompletionFromCleanupStartMs": 13107.8311
+          },
+          {
+            "index": 119,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.3587,
+            "observedCompletionFromCleanupStartMs": 82.7359
+          }
+        ],
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      }
+    },
+    {
+      "phase": "after-full-gc-finalizers-gl-finish",
+      "memory": {
+        "timestamp": 665261695414583,
+        "workingSetBytes": 1093025792,
+        "privateBytes": null,
+        "managedLiveBytes": 157907480,
+        "gcCommittedBytes": 138297344,
+        "gcHeapSizeBytes": 103611976,
+        "gcFragmentedBytes": 88368,
+        "gcMemoryInfoCollectionIndex": 3051,
+        "processThreadCount": 28
+      },
+      "audio": {
+        "observations": 120,
+        "distinctTasks": 120,
+        "completed": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0,
+        "tasks": [
+          {
+            "index": 0,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.6397,
+            "observedCompletionFromCleanupStartMs": 75.9615
+          },
+          {
+            "index": 1,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.1625,
+            "observedCompletionFromCleanupStartMs": 80.2357
+          },
+          {
+            "index": 2,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.3542,
+            "observedCompletionFromCleanupStartMs": 85.8919
+          },
+          {
+            "index": 3,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.1947,
+            "observedCompletionFromCleanupStartMs": 91.4898
+          },
+          {
+            "index": 4,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 29.2006,
+            "observedCompletionFromCleanupStartMs": 13090.9838
+          },
+          {
+            "index": 5,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.3692,
+            "observedCompletionFromCleanupStartMs": 81.5978
+          },
+          {
+            "index": 6,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.1575,
+            "observedCompletionFromCleanupStartMs": 75.8412
+          },
+          {
+            "index": 7,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.3211,
+            "observedCompletionFromCleanupStartMs": 78.8588
+          },
+          {
+            "index": 8,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.605,
+            "observedCompletionFromCleanupStartMs": 91.1347
+          },
+          {
+            "index": 9,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.9756,
+            "observedCompletionFromCleanupStartMs": 81.7403
+          },
+          {
+            "index": 10,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 43.4117,
+            "observedCompletionFromCleanupStartMs": 90.7237
+          },
+          {
+            "index": 11,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 49.6643,
+            "observedCompletionFromCleanupStartMs": 93.949
+          },
+          {
+            "index": 12,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.5041,
+            "observedCompletionFromCleanupStartMs": 14107.8302
+          },
+          {
+            "index": 13,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.8112,
+            "observedCompletionFromCleanupStartMs": 82.2619
+          },
+          {
+            "index": 14,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.0124,
+            "observedCompletionFromCleanupStartMs": 89.3535
+          },
+          {
+            "index": 15,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.4406,
+            "observedCompletionFromCleanupStartMs": 90.4092
+          },
+          {
+            "index": 16,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.2394,
+            "observedCompletionFromCleanupStartMs": 85.4405
+          },
+          {
+            "index": 17,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.3097,
+            "observedCompletionFromCleanupStartMs": 83.2108
+          },
+          {
+            "index": 18,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.1992,
+            "observedCompletionFromCleanupStartMs": 89.4015
+          },
+          {
+            "index": 19,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.2853,
+            "observedCompletionFromCleanupStartMs": 75.3815
+          },
+          {
+            "index": 20,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.9253,
+            "observedCompletionFromCleanupStartMs": 85.0444
+          },
+          {
+            "index": 21,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.8348,
+            "observedCompletionFromCleanupStartMs": 76.6835
+          },
+          {
+            "index": 22,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.6832,
+            "observedCompletionFromCleanupStartMs": 87.6948
+          },
+          {
+            "index": 23,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.2109,
+            "observedCompletionFromCleanupStartMs": 74.5744
+          },
+          {
+            "index": 24,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 45.9475,
+            "observedCompletionFromCleanupStartMs": 14105.5855
+          },
+          {
+            "index": 25,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 45.2122,
+            "observedCompletionFromCleanupStartMs": 89.658
+          },
+          {
+            "index": 26,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.2751,
+            "observedCompletionFromCleanupStartMs": 79.3785
+          },
+          {
+            "index": 27,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 43.0128,
+            "observedCompletionFromCleanupStartMs": 87.0915
+          },
+          {
+            "index": 28,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.0602,
+            "observedCompletionFromCleanupStartMs": 14091.6295
+          },
+          {
+            "index": 29,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.7512,
+            "observedCompletionFromCleanupStartMs": 74.6695
+          },
+          {
+            "index": 30,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.2806,
+            "observedCompletionFromCleanupStartMs": 14101.2095
+          },
+          {
+            "index": 31,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 30.9005,
+            "observedCompletionFromCleanupStartMs": 74.6247
+          },
+          {
+            "index": 32,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.4175,
+            "observedCompletionFromCleanupStartMs": 82.5772
+          },
+          {
+            "index": 33,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 35.4325,
+            "observedCompletionFromCleanupStartMs": 78.124
+          },
+          {
+            "index": 34,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.0853,
+            "observedCompletionFromCleanupStartMs": 14098.9582
+          },
+          {
+            "index": 35,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.5727,
+            "observedCompletionFromCleanupStartMs": 90.1162
+          },
+          {
+            "index": 36,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.0943,
+            "observedCompletionFromCleanupStartMs": 79.2071
+          },
+          {
+            "index": 37,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 35.0737,
+            "observedCompletionFromCleanupStartMs": 77.3117
+          },
+          {
+            "index": 38,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 30.167,
+            "observedCompletionFromCleanupStartMs": 14092.2226
+          },
+          {
+            "index": 39,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.6688,
+            "observedCompletionFromCleanupStartMs": 78.3074
+          },
+          {
+            "index": 40,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.6902,
+            "observedCompletionFromCleanupStartMs": 87.1504
+          },
+          {
+            "index": 41,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.7008,
+            "observedCompletionFromCleanupStartMs": 84.8457
+          },
+          {
+            "index": 42,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.077,
+            "observedCompletionFromCleanupStartMs": 83.9978
+          },
+          {
+            "index": 43,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.5364,
+            "observedCompletionFromCleanupStartMs": 86.3349
+          },
+          {
+            "index": 44,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.5072,
+            "observedCompletionFromCleanupStartMs": 85.3604
+          },
+          {
+            "index": 45,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.398,
+            "observedCompletionFromCleanupStartMs": 87.3984
+          },
+          {
+            "index": 46,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.4343,
+            "observedCompletionFromCleanupStartMs": 93.0487
+          },
+          {
+            "index": 47,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.2924,
+            "observedCompletionFromCleanupStartMs": 90.6491
+          },
+          {
+            "index": 48,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.6869,
+            "observedCompletionFromCleanupStartMs": 82.2192
+          },
+          {
+            "index": 49,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.9677,
+            "observedCompletionFromCleanupStartMs": 79.6974
+          },
+          {
+            "index": 50,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.7499,
+            "observedCompletionFromCleanupStartMs": 92.9342
+          },
+          {
+            "index": 51,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.428,
+            "observedCompletionFromCleanupStartMs": 84.1078
+          },
+          {
+            "index": 52,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.6577,
+            "observedCompletionFromCleanupStartMs": 14097.9907
+          },
+          {
+            "index": 53,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.2958,
+            "observedCompletionFromCleanupStartMs": 83.7645
+          },
+          {
+            "index": 54,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.0092,
+            "observedCompletionFromCleanupStartMs": 14107.643
+          },
+          {
+            "index": 55,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 50.8078,
+            "observedCompletionFromCleanupStartMs": 93.1398
+          },
+          {
+            "index": 56,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.2521,
+            "observedCompletionFromCleanupStartMs": 87.4243
+          },
+          {
+            "index": 57,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.2732,
+            "observedCompletionFromCleanupStartMs": 89.9885
+          },
+          {
+            "index": 58,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 30.3026,
+            "observedCompletionFromCleanupStartMs": 76.4845
+          },
+          {
+            "index": 59,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 50.1095,
+            "observedCompletionFromCleanupStartMs": 92.5299
+          },
+          {
+            "index": 60,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.5838,
+            "observedCompletionFromCleanupStartMs": 81.9663
+          },
+          {
+            "index": 61,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.6671,
+            "observedCompletionFromCleanupStartMs": 81.3005
+          },
+          {
+            "index": 62,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.3943,
+            "observedCompletionFromCleanupStartMs": 77.6119
+          },
+          {
+            "index": 63,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.823,
+            "observedCompletionFromCleanupStartMs": 87.9747
+          },
+          {
+            "index": 64,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.3865,
+            "observedCompletionFromCleanupStartMs": 14109.164
+          },
+          {
+            "index": 65,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 19.4302,
+            "observedCompletionFromCleanupStartMs": 59.4065
+          },
+          {
+            "index": 66,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 32.9576,
+            "observedCompletionFromCleanupStartMs": 78.0027
+          },
+          {
+            "index": 67,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.081,
+            "observedCompletionFromCleanupStartMs": 82.7841
+          },
+          {
+            "index": 68,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.8521,
+            "observedCompletionFromCleanupStartMs": 14102.4263
+          },
+          {
+            "index": 69,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.3207,
+            "observedCompletionFromCleanupStartMs": 81.4615
+          },
+          {
+            "index": 70,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.3828,
+            "observedCompletionFromCleanupStartMs": 79.4812
+          },
+          {
+            "index": 71,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 28.6817,
+            "observedCompletionFromCleanupStartMs": 71.4938
+          },
+          {
+            "index": 72,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 49.254,
+            "observedCompletionFromCleanupStartMs": 93.2181
+          },
+          {
+            "index": 73,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.5167,
+            "observedCompletionFromCleanupStartMs": 85.7654
+          },
+          {
+            "index": 74,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.5372,
+            "observedCompletionFromCleanupStartMs": 86.5178
+          },
+          {
+            "index": 75,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 28.2642,
+            "observedCompletionFromCleanupStartMs": 72.1455
+          },
+          {
+            "index": 76,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.6209,
+            "observedCompletionFromCleanupStartMs": 92.944
+          },
+          {
+            "index": 77,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.2813,
+            "observedCompletionFromCleanupStartMs": 82.237
+          },
+          {
+            "index": 78,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.0404,
+            "observedCompletionFromCleanupStartMs": 77.354
+          },
+          {
+            "index": 79,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.8705,
+            "observedCompletionFromCleanupStartMs": 75.661
+          },
+          {
+            "index": 80,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.7053,
+            "observedCompletionFromCleanupStartMs": 81.5475
+          },
+          {
+            "index": 81,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.7285,
+            "observedCompletionFromCleanupStartMs": 82.8234
+          },
+          {
+            "index": 82,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.2011,
+            "observedCompletionFromCleanupStartMs": 87.934
+          },
+          {
+            "index": 83,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.8225,
+            "observedCompletionFromCleanupStartMs": 86.2462
+          },
+          {
+            "index": 84,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 41.0362,
+            "observedCompletionFromCleanupStartMs": 14099.0985
+          },
+          {
+            "index": 85,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 31.5814,
+            "observedCompletionFromCleanupStartMs": 73.5391
+          },
+          {
+            "index": 86,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.2725,
+            "observedCompletionFromCleanupStartMs": 84.6063
+          },
+          {
+            "index": 87,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.232,
+            "observedCompletionFromCleanupStartMs": 85.93
+          },
+          {
+            "index": 88,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 40.9443,
+            "observedCompletionFromCleanupStartMs": 13098.9657
+          },
+          {
+            "index": 89,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.2939,
+            "observedCompletionFromCleanupStartMs": 78.2736
+          },
+          {
+            "index": 90,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 35.7712,
+            "observedCompletionFromCleanupStartMs": 13093.9467
+          },
+          {
+            "index": 91,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 28.9941,
+            "observedCompletionFromCleanupStartMs": 71.5772
+          },
+          {
+            "index": 92,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.5489,
+            "observedCompletionFromCleanupStartMs": 76.9557
+          },
+          {
+            "index": 93,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.6802,
+            "observedCompletionFromCleanupStartMs": 79.8236
+          },
+          {
+            "index": 94,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.9983,
+            "observedCompletionFromCleanupStartMs": 92.154
+          },
+          {
+            "index": 95,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.6257,
+            "observedCompletionFromCleanupStartMs": 83.1023
+          },
+          {
+            "index": 96,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 32.4034,
+            "observedCompletionFromCleanupStartMs": 76.9197
+          },
+          {
+            "index": 97,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.3427,
+            "observedCompletionFromCleanupStartMs": 81.3479
+          },
+          {
+            "index": 98,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 44.7307,
+            "observedCompletionFromCleanupStartMs": 14105.0116
+          },
+          {
+            "index": 99,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 34.395,
+            "observedCompletionFromCleanupStartMs": 76.2151
+          },
+          {
+            "index": 100,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.1678,
+            "observedCompletionFromCleanupStartMs": 80.0156
+          },
+          {
+            "index": 101,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.2212,
+            "observedCompletionFromCleanupStartMs": 80.1607
+          },
+          {
+            "index": 102,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.2951,
+            "observedCompletionFromCleanupStartMs": 91.7635
+          },
+          {
+            "index": 103,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.0356,
+            "observedCompletionFromCleanupStartMs": 90.437
+          },
+          {
+            "index": 104,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 48.7676,
+            "observedCompletionFromCleanupStartMs": 92.8829
+          },
+          {
+            "index": 105,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.3772,
+            "observedCompletionFromCleanupStartMs": 79.6479
+          },
+          {
+            "index": 106,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.9749,
+            "observedCompletionFromCleanupStartMs": 88.3096
+          },
+          {
+            "index": 107,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.1147,
+            "observedCompletionFromCleanupStartMs": 78.699
+          },
+          {
+            "index": 108,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 18.0145,
+            "observedCompletionFromCleanupStartMs": 62.3175
+          },
+          {
+            "index": 109,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 39.3196,
+            "observedCompletionFromCleanupStartMs": 78.9694
+          },
+          {
+            "index": 110,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 33.2896,
+            "observedCompletionFromCleanupStartMs": 14093.7103
+          },
+          {
+            "index": 111,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 38.6612,
+            "observedCompletionFromCleanupStartMs": 81.8953
+          },
+          {
+            "index": 112,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 46.3032,
+            "observedCompletionFromCleanupStartMs": 14104.7467
+          },
+          {
+            "index": 113,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 36.3527,
+            "observedCompletionFromCleanupStartMs": 77.4353
+          },
+          {
+            "index": 114,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 30.0961,
+            "observedCompletionFromCleanupStartMs": 74.7369
+          },
+          {
+            "index": 115,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 37.2723,
+            "observedCompletionFromCleanupStartMs": 78.7491
+          },
+          {
+            "index": 116,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 43.5147,
+            "observedCompletionFromCleanupStartMs": 88.3714
+          },
+          {
+            "index": 117,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.364,
+            "observedCompletionFromCleanupStartMs": 83.6663
+          },
+          {
+            "index": 118,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 47.8596,
+            "observedCompletionFromCleanupStartMs": 13107.8311
+          },
+          {
+            "index": 119,
+            "status": "RanToCompletion",
+            "observedAfterCleanupMs": 42.3587,
+            "observedCompletionFromCleanupStartMs": 82.7359
+          }
+        ],
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      }
+    }
+  ],
+  "drainError": null,
+  "audioShutdown": {
+    "observations": 120,
+    "distinctTasks": 120,
+    "completed": 120,
+    "remaining": 0,
+    "faulted": 0,
+    "canceled": 0,
+    "tasks": [
+      {
+        "index": 0,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 48.6397,
+        "observedCompletionFromCleanupStartMs": 75.9615
+      },
+      {
+        "index": 1,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 47.1625,
+        "observedCompletionFromCleanupStartMs": 80.2357
+      },
+      {
+        "index": 2,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 47.3542,
+        "observedCompletionFromCleanupStartMs": 85.8919
+      },
+      {
+        "index": 3,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 46.1947,
+        "observedCompletionFromCleanupStartMs": 91.4898
+      },
+      {
+        "index": 4,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 29.2006,
+        "observedCompletionFromCleanupStartMs": 13090.9838
+      },
+      {
+        "index": 5,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 36.3692,
+        "observedCompletionFromCleanupStartMs": 81.5978
+      },
+      {
+        "index": 6,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 31.1575,
+        "observedCompletionFromCleanupStartMs": 75.8412
+      },
+      {
+        "index": 7,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 34.3211,
+        "observedCompletionFromCleanupStartMs": 78.8588
+      },
+      {
+        "index": 8,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 48.605,
+        "observedCompletionFromCleanupStartMs": 91.1347
+      },
+      {
+        "index": 9,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 38.9756,
+        "observedCompletionFromCleanupStartMs": 81.7403
+      },
+      {
+        "index": 10,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 43.4117,
+        "observedCompletionFromCleanupStartMs": 90.7237
+      },
+      {
+        "index": 11,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 49.6643,
+        "observedCompletionFromCleanupStartMs": 93.949
+      },
+      {
+        "index": 12,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 44.5041,
+        "observedCompletionFromCleanupStartMs": 14107.8302
+      },
+      {
+        "index": 13,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 39.8112,
+        "observedCompletionFromCleanupStartMs": 82.2619
+      },
+      {
+        "index": 14,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 42.0124,
+        "observedCompletionFromCleanupStartMs": 89.3535
+      },
+      {
+        "index": 15,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 42.4406,
+        "observedCompletionFromCleanupStartMs": 90.4092
+      },
+      {
+        "index": 16,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 40.2394,
+        "observedCompletionFromCleanupStartMs": 85.4405
+      },
+      {
+        "index": 17,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 39.3097,
+        "observedCompletionFromCleanupStartMs": 83.2108
+      },
+      {
+        "index": 18,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 42.1992,
+        "observedCompletionFromCleanupStartMs": 89.4015
+      },
+      {
+        "index": 19,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 31.2853,
+        "observedCompletionFromCleanupStartMs": 75.3815
+      },
+      {
+        "index": 20,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 38.9253,
+        "observedCompletionFromCleanupStartMs": 85.0444
+      },
+      {
+        "index": 21,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 33.8348,
+        "observedCompletionFromCleanupStartMs": 76.6835
+      },
+      {
+        "index": 22,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 40.6832,
+        "observedCompletionFromCleanupStartMs": 87.6948
+      },
+      {
+        "index": 23,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 31.2109,
+        "observedCompletionFromCleanupStartMs": 74.5744
+      },
+      {
+        "index": 24,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 45.9475,
+        "observedCompletionFromCleanupStartMs": 14105.5855
+      },
+      {
+        "index": 25,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 45.2122,
+        "observedCompletionFromCleanupStartMs": 89.658
+      },
+      {
+        "index": 26,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 33.2751,
+        "observedCompletionFromCleanupStartMs": 79.3785
+      },
+      {
+        "index": 27,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 43.0128,
+        "observedCompletionFromCleanupStartMs": 87.0915
+      },
+      {
+        "index": 28,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 34.0602,
+        "observedCompletionFromCleanupStartMs": 14091.6295
+      },
+      {
+        "index": 29,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 33.7512,
+        "observedCompletionFromCleanupStartMs": 74.6695
+      },
+      {
+        "index": 30,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 39.2806,
+        "observedCompletionFromCleanupStartMs": 14101.2095
+      },
+      {
+        "index": 31,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 30.9005,
+        "observedCompletionFromCleanupStartMs": 74.6247
+      },
+      {
+        "index": 32,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 37.4175,
+        "observedCompletionFromCleanupStartMs": 82.5772
+      },
+      {
+        "index": 33,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 35.4325,
+        "observedCompletionFromCleanupStartMs": 78.124
+      },
+      {
+        "index": 34,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 38.0853,
+        "observedCompletionFromCleanupStartMs": 14098.9582
+      },
+      {
+        "index": 35,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 46.5727,
+        "observedCompletionFromCleanupStartMs": 90.1162
+      },
+      {
+        "index": 36,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 33.0943,
+        "observedCompletionFromCleanupStartMs": 79.2071
+      },
+      {
+        "index": 37,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 35.0737,
+        "observedCompletionFromCleanupStartMs": 77.3117
+      },
+      {
+        "index": 38,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 30.167,
+        "observedCompletionFromCleanupStartMs": 14092.2226
+      },
+      {
+        "index": 39,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 34.6688,
+        "observedCompletionFromCleanupStartMs": 78.3074
+      },
+      {
+        "index": 40,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 41.6902,
+        "observedCompletionFromCleanupStartMs": 87.1504
+      },
+      {
+        "index": 41,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 41.7008,
+        "observedCompletionFromCleanupStartMs": 84.8457
+      },
+      {
+        "index": 42,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 40.077,
+        "observedCompletionFromCleanupStartMs": 83.9978
+      },
+      {
+        "index": 43,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 41.5364,
+        "observedCompletionFromCleanupStartMs": 86.3349
+      },
+      {
+        "index": 44,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 37.5072,
+        "observedCompletionFromCleanupStartMs": 85.3604
+      },
+      {
+        "index": 45,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 44.398,
+        "observedCompletionFromCleanupStartMs": 87.3984
+      },
+      {
+        "index": 46,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 47.4343,
+        "observedCompletionFromCleanupStartMs": 93.0487
+      },
+      {
+        "index": 47,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 47.2924,
+        "observedCompletionFromCleanupStartMs": 90.6491
+      },
+      {
+        "index": 48,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 37.6869,
+        "observedCompletionFromCleanupStartMs": 82.2192
+      },
+      {
+        "index": 49,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 37.9677,
+        "observedCompletionFromCleanupStartMs": 79.6974
+      },
+      {
+        "index": 50,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 47.7499,
+        "observedCompletionFromCleanupStartMs": 92.9342
+      },
+      {
+        "index": 51,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 39.428,
+        "observedCompletionFromCleanupStartMs": 84.1078
+      },
+      {
+        "index": 52,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 37.6577,
+        "observedCompletionFromCleanupStartMs": 14097.9907
+      },
+      {
+        "index": 53,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 42.2958,
+        "observedCompletionFromCleanupStartMs": 83.7645
+      },
+      {
+        "index": 54,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 46.0092,
+        "observedCompletionFromCleanupStartMs": 14107.643
+      },
+      {
+        "index": 55,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 50.8078,
+        "observedCompletionFromCleanupStartMs": 93.1398
+      },
+      {
+        "index": 56,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 39.2521,
+        "observedCompletionFromCleanupStartMs": 87.4243
+      },
+      {
+        "index": 57,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 48.2732,
+        "observedCompletionFromCleanupStartMs": 89.9885
+      },
+      {
+        "index": 58,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 30.3026,
+        "observedCompletionFromCleanupStartMs": 76.4845
+      },
+      {
+        "index": 59,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 50.1095,
+        "observedCompletionFromCleanupStartMs": 92.5299
+      },
+      {
+        "index": 60,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 37.5838,
+        "observedCompletionFromCleanupStartMs": 81.9663
+      },
+      {
+        "index": 61,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 38.6671,
+        "observedCompletionFromCleanupStartMs": 81.3005
+      },
+      {
+        "index": 62,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 31.3943,
+        "observedCompletionFromCleanupStartMs": 77.6119
+      },
+      {
+        "index": 63,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 44.823,
+        "observedCompletionFromCleanupStartMs": 87.9747
+      },
+      {
+        "index": 64,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 48.3865,
+        "observedCompletionFromCleanupStartMs": 14109.164
+      },
+      {
+        "index": 65,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 19.4302,
+        "observedCompletionFromCleanupStartMs": 59.4065
+      },
+      {
+        "index": 66,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 32.9576,
+        "observedCompletionFromCleanupStartMs": 78.0027
+      },
+      {
+        "index": 67,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 40.081,
+        "observedCompletionFromCleanupStartMs": 82.7841
+      },
+      {
+        "index": 68,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 34.8521,
+        "observedCompletionFromCleanupStartMs": 14102.4263
+      },
+      {
+        "index": 69,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 40.3207,
+        "observedCompletionFromCleanupStartMs": 81.4615
+      },
+      {
+        "index": 70,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 34.3828,
+        "observedCompletionFromCleanupStartMs": 79.4812
+      },
+      {
+        "index": 71,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 28.6817,
+        "observedCompletionFromCleanupStartMs": 71.4938
+      },
+      {
+        "index": 72,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 49.254,
+        "observedCompletionFromCleanupStartMs": 93.2181
+      },
+      {
+        "index": 73,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 44.5167,
+        "observedCompletionFromCleanupStartMs": 85.7654
+      },
+      {
+        "index": 74,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 41.5372,
+        "observedCompletionFromCleanupStartMs": 86.5178
+      },
+      {
+        "index": 75,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 28.2642,
+        "observedCompletionFromCleanupStartMs": 72.1455
+      },
+      {
+        "index": 76,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 46.6209,
+        "observedCompletionFromCleanupStartMs": 92.944
+      },
+      {
+        "index": 77,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 40.2813,
+        "observedCompletionFromCleanupStartMs": 82.237
+      },
+      {
+        "index": 78,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 33.0404,
+        "observedCompletionFromCleanupStartMs": 77.354
+      },
+      {
+        "index": 79,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 31.8705,
+        "observedCompletionFromCleanupStartMs": 75.661
+      },
+      {
+        "index": 80,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 36.7053,
+        "observedCompletionFromCleanupStartMs": 81.5475
+      },
+      {
+        "index": 81,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 41.7285,
+        "observedCompletionFromCleanupStartMs": 82.8234
+      },
+      {
+        "index": 82,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 41.2011,
+        "observedCompletionFromCleanupStartMs": 87.934
+      },
+      {
+        "index": 83,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 42.8225,
+        "observedCompletionFromCleanupStartMs": 86.2462
+      },
+      {
+        "index": 84,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 41.0362,
+        "observedCompletionFromCleanupStartMs": 14099.0985
+      },
+      {
+        "index": 85,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 31.5814,
+        "observedCompletionFromCleanupStartMs": 73.5391
+      },
+      {
+        "index": 86,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 40.2725,
+        "observedCompletionFromCleanupStartMs": 84.6063
+      },
+      {
+        "index": 87,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 44.232,
+        "observedCompletionFromCleanupStartMs": 85.93
+      },
+      {
+        "index": 88,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 40.9443,
+        "observedCompletionFromCleanupStartMs": 13098.9657
+      },
+      {
+        "index": 89,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 36.2939,
+        "observedCompletionFromCleanupStartMs": 78.2736
+      },
+      {
+        "index": 90,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 35.7712,
+        "observedCompletionFromCleanupStartMs": 13093.9467
+      },
+      {
+        "index": 91,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 28.9941,
+        "observedCompletionFromCleanupStartMs": 71.5772
+      },
+      {
+        "index": 92,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 33.5489,
+        "observedCompletionFromCleanupStartMs": 76.9557
+      },
+      {
+        "index": 93,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 37.6802,
+        "observedCompletionFromCleanupStartMs": 79.8236
+      },
+      {
+        "index": 94,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 47.9983,
+        "observedCompletionFromCleanupStartMs": 92.154
+      },
+      {
+        "index": 95,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 39.6257,
+        "observedCompletionFromCleanupStartMs": 83.1023
+      },
+      {
+        "index": 96,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 32.4034,
+        "observedCompletionFromCleanupStartMs": 76.9197
+      },
+      {
+        "index": 97,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 39.3427,
+        "observedCompletionFromCleanupStartMs": 81.3479
+      },
+      {
+        "index": 98,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 44.7307,
+        "observedCompletionFromCleanupStartMs": 14105.0116
+      },
+      {
+        "index": 99,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 34.395,
+        "observedCompletionFromCleanupStartMs": 76.2151
+      },
+      {
+        "index": 100,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 36.1678,
+        "observedCompletionFromCleanupStartMs": 80.0156
+      },
+      {
+        "index": 101,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 37.2212,
+        "observedCompletionFromCleanupStartMs": 80.1607
+      },
+      {
+        "index": 102,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 46.2951,
+        "observedCompletionFromCleanupStartMs": 91.7635
+      },
+      {
+        "index": 103,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 48.0356,
+        "observedCompletionFromCleanupStartMs": 90.437
+      },
+      {
+        "index": 104,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 48.7676,
+        "observedCompletionFromCleanupStartMs": 92.8829
+      },
+      {
+        "index": 105,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 38.3772,
+        "observedCompletionFromCleanupStartMs": 79.6479
+      },
+      {
+        "index": 106,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 46.9749,
+        "observedCompletionFromCleanupStartMs": 88.3096
+      },
+      {
+        "index": 107,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 37.1147,
+        "observedCompletionFromCleanupStartMs": 78.699
+      },
+      {
+        "index": 108,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 18.0145,
+        "observedCompletionFromCleanupStartMs": 62.3175
+      },
+      {
+        "index": 109,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 39.3196,
+        "observedCompletionFromCleanupStartMs": 78.9694
+      },
+      {
+        "index": 110,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 33.2896,
+        "observedCompletionFromCleanupStartMs": 14093.7103
+      },
+      {
+        "index": 111,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 38.6612,
+        "observedCompletionFromCleanupStartMs": 81.8953
+      },
+      {
+        "index": 112,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 46.3032,
+        "observedCompletionFromCleanupStartMs": 14104.7467
+      },
+      {
+        "index": 113,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 36.3527,
+        "observedCompletionFromCleanupStartMs": 77.4353
+      },
+      {
+        "index": 114,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 30.0961,
+        "observedCompletionFromCleanupStartMs": 74.7369
+      },
+      {
+        "index": 115,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 37.2723,
+        "observedCompletionFromCleanupStartMs": 78.7491
+      },
+      {
+        "index": 116,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 43.5147,
+        "observedCompletionFromCleanupStartMs": 88.3714
+      },
+      {
+        "index": 117,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 42.364,
+        "observedCompletionFromCleanupStartMs": 83.6663
+      },
+      {
+        "index": 118,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 47.8596,
+        "observedCompletionFromCleanupStartMs": 13107.8311
+      },
+      {
+        "index": 119,
+        "status": "RanToCompletion",
+        "observedAfterCleanupMs": 42.3587,
+        "observedCompletionFromCleanupStartMs": 82.7359
+      }
+    ],
+    "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+  },
+  "rawResult": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-memory.json",
+  "rawResultSha256": "b9e494a68ae9d58730db6d038b1e5b36ed32685dae8d37081075aba09b30eaff",
+  "rawLog": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-memory.log",
+  "rawLogSha256": "5b420d593dd3f1cfd6764c8ad4105c44f84848eb652ffdee10e29046f55950c9",
+  "invocation": {
+    "schema": 1,
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-size",
+      "1920x1080",
+      "-hz",
+      "-1",
+      "-seconds",
+      "8",
+      "-shadows",
+      "High",
+      "-resourcestress",
+      "-resourcecycles",
+      "60",
+      "-resourceframes",
+      "120",
+      "-resource-drain",
+      "-output",
+      "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-memory.json"
+    ],
+    "binarySha256": {
+      "harness": "31618aa46ea9fd1e265aae2ec9f58640898ff55c4d1bb02fb72b0590d4446590",
+      "client": "5c4eb5ad548b7678800e8e72e483790369f71811ef2390ab770c359dcbd97446"
+    },
+    "requestedCycles": 60,
+    "requestedFrames": 120,
+    "requestedFlags": {
+      "PROJECT_PRIME_GL_FORCE_LEGACY": "0",
+      "PROJECT_PRIME_GL_ROOM_IDENTITY": "1",
+      "PROJECT_PRIME_GL_MESH_OBJECT": "1",
+      "PROJECT_PRIME_GL_SHADOW_PREP": "1",
+      "PROJECT_PRIME_GL_SHADOW_GROUPS": "1",
+      "PROJECT_PRIME_GL_UNLIT_SHADER": "1"
+    },
+    "purpose": "Lifecycle/memory diagnosis with final drain; no FPS interpretation",
+    "actualAssemblyMvid": "680c26eb-c1eb-411a-aaaa-1d5434de33bd",
+    "elapsedWallSeconds": 368.522058791,
+    "rawResultSha256": "b9e494a68ae9d58730db6d038b1e5b36ed32685dae8d37081075aba09b30eaff",
+    "rawLogSha256": "5b420d593dd3f1cfd6764c8ad4105c44f84848eb652ffdee10e29046f55950c9"
+  },
+  "limits": "Live managed heap differs from GC committed/fragmented memory and RSS. Private memory may be unavailable on Mac. Audio waits, GC/finalizers and GL.Finish are diagnostic-only and excluded from FPS evidence."
+}

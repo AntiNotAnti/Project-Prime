@@ -27,16 +27,32 @@ internal static class OpenGlFrameProfiler
     private static double _renderElapsed;
     private static bool _renderActive, _presentActive;
     private static MphRead.Scene? _measuredScene;
+    private static WeakReference<MphRead.Scene>? _previousScene;
+    private static string _vsync = "unknown";
+    private static bool _renderComplete;
+    private static int _window;
 
     internal static bool Enabled => _enabled;
+
+    internal static void ResetContext()
+    {
+        CancelFrame();
+        _previousScene = null;
+        _window = 0;
+    }
 
     internal static double OnePercentLowFromP99Milliseconds(double p99Ms)
         => p99Ms > 0 && double.IsFinite(p99Ms) ? 1000.0 / p99Ms : 0.0;
 
-    internal static void BeginRender(MphRead.Scene scene)
+    internal static void BeginRender(MphRead.Scene scene, string vsync = "unknown")
     {
         if (!_enabled) return;
+        if (_previousScene != null && (!_previousScene.TryGetTarget(out var priorScene) || !ReferenceEquals(priorScene, scene))) CancelFrame();
+        if (_previousScene == null) _previousScene = new(scene);
+        else _previousScene.SetTarget(scene);
         _measuredScene = scene;
+        _vsync = vsync;
+        _renderComplete = false;
         // Scene/window transitions may leave long idle intervals between
         // real gameplay presentations. Never include that idle time in the
         // next 240-frame percentile window.
@@ -46,7 +62,9 @@ internal static class OpenGlFrameProfiler
         {
             _previousPresentEnd = 0;
             _count = 0;
+            OpenGlPassProfiler.CancelFrame();
         }
+        OpenGlPassProfiler.BeginFrame();
         _renderStart = now;
         _renderActive = true;
         _presentActive = false;
@@ -55,8 +73,12 @@ internal static class OpenGlFrameProfiler
     internal static void CancelFrame()
     {
         _renderActive = false;
+        _renderComplete = false;
         _presentActive = false;
         _measuredScene = null;
+        _previousPresentEnd = 0;
+        _count = 0;
+        OpenGlPassProfiler.CancelFrame();
     }
 
     internal static void EndRender()
@@ -64,11 +86,12 @@ internal static class OpenGlFrameProfiler
         if (!_renderActive) return;
         _renderElapsed = ElapsedMs(_renderStart, Stopwatch.GetTimestamp());
         _renderActive = false;
+        _renderComplete = true;
     }
 
     internal static void BeginPresent()
     {
-        if (!_enabled) return;
+        if (!_enabled || !_renderComplete) return;
         _presentStart = Stopwatch.GetTimestamp();
         _presentActive = true;
     }
@@ -78,6 +101,8 @@ internal static class OpenGlFrameProfiler
         if (!_presentActive) return;
         long end = Stopwatch.GetTimestamp();
         _presentActive = false;
+        if (end <= _presentStart || (_previousPresentEnd != 0 && end <= _previousPresentEnd))
+        { CancelFrame(); return; }
         if (_previousPresentEnd != 0)
         {
             // Sample interval includes scheduled frame pacing, simulation,
@@ -107,6 +132,12 @@ internal static class OpenGlFrameProfiler
                 {
                     schema = 1,
                     samples = Window,
+                    window = ++_window,
+                    warmup = _window == 1,
+                    renderCpuP50Ms = P(_renderMs, 50),
+                    presentWallP50Ms = P(_presentMs, 50),
+                    presentWallP95Ms = P(_presentMs, 95),
+                    frameIntervalP50Ms = P(_intervalMs, 50),
                     renderCpuP95Ms = renderP95,
                     renderCpuP99Ms = P(_renderMs, 99),
                     presentWallP99Ms = P(_presentMs, 99),
@@ -122,6 +153,13 @@ internal static class OpenGlFrameProfiler
                     batching = DesktopRetainedGeometry.BatchEnabled,
                     context = new
                     {
+                        machine = Environment.MachineName,
+                        os = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+                        vendor = GraphicsApi.GetString(StringName.Vendor) ?? "",
+                        playerCount = MphRead.Entities.PlayerEntity.PlayerCount,
+                        vsync = _vsync,
+                        vertexArrayApi = OpenGlContextPolicy.VaoApi.ToString(),
+                        flags = new { shadowGroups = OpenGlOptimizationPolicy.Enabled("SHADOW_GROUPS"), unlitShader = OpenGlOptimizationPolicy.Enabled("UNLIT_SHADER"), shadowPrep = OpenGlOptimizationPolicy.Enabled("SHADOW_PREP"), roomIdentity = OpenGlOptimizationPolicy.Enabled("ROOM_IDENTITY"), meshObject = OpenGlOptimizationPolicy.Enabled("MESH_OBJECT"), roomGroups = OpenGlOptimizationPolicy.Enabled("ROOM_GROUPS"), plainShader = OpenGlOptimizationPolicy.Enabled("PLAIN_SHADER"), shaderVariants = OpenGlOptimizationPolicy.Enabled("SHADER_VARIANTS"), depthKeep = OpenGlOptimizationPolicy.Enabled("DEPTH_KEEP"), proceduralBatch = OpenGlOptimizationPolicy.Enabled("PROCEDURAL_BATCH"), proceduralStream = OpenGlOptimizationPolicy.Enabled("PROCEDURAL_STREAM"), roomCache = OpenGlOptimizationPolicy.Enabled("ROOM_CACHE"), depthVertex = OpenGlOptimizationPolicy.Enabled("DEPTH_VERTEX"), depthPrep = OpenGlOptimizationPolicy.Enabled("DEPTH_PREP"), hudSprites = OpenGlOptimizationPolicy.Enabled("HUD_SPRITES"), hudGlyphs = OpenGlOptimizationPolicy.Enabled("HUD_GLYPHS"), glesUniforms = OpenGlOptimizationPolicy.Enabled("GLES_UNIFORMS"), depthBatch = OpenGlOptimizationPolicy.Enabled("DEPTH_BATCH"), depthShader = OpenGlOptimizationPolicy.Enabled("DEPTH_SHADER"), atlasEviction = OpenGlOptimizationPolicy.Enabled("ATLAS_EVICTION"), hudDiscard = OpenGlOptimizationPolicy.Enabled("HUD_DISCARD"), dynamicStream = OpenGlOptimizationPolicy.Enabled("DYNAMIC_STREAM"), hudSamplers = HudSamplerCache.Enabled, vbo = DesktopRetainedGeometry.Enabled, bindingCache = OpenGlScopedBindingCache.Enabled, batching = DesktopRetainedGeometry.BatchEnabled, vao = OpenGlContextPolicy.Vao, uniformRevisions = MatrixPaletteRevision.Enabled, staticCache = OpenGlOptimizationPolicy.Enabled("STATIC_CACHE"), shadowFast = OpenGlOptimizationPolicy.Enabled("SHADOW_FAST") },
                         room = _measuredScene?.Room?.Meta.Name ?? "",
                         width = _measuredScene?.Size.X ?? 0,
                         height = _measuredScene?.Size.Y ?? 0,
@@ -136,6 +174,9 @@ internal static class OpenGlFrameProfiler
                 _count = 0;
             }
         }
+        if (_previousPresentEnd != 0) OpenGlPassProfiler.EndFrame();
+        else OpenGlPassProfiler.CancelFrame();
+        _renderComplete = false;
         _previousPresentEnd = end;
         // Profiler must not extend the lifetime of a scene after returning
         // to launcher/Studio or switching maps.

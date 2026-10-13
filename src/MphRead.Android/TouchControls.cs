@@ -1052,6 +1052,26 @@ namespace MphRead.Droid
         public bool PointerIsAbsolute { get; set; }
 
         /// <summary>Where the aiming finger is, for the parts that read a position.</summary>
+        /// <summary>The one aim finger eligible for DS Morph Ball contact; not the stick or wheel.</summary>
+        public (bool Down, int X, int Y) NativeMorphBallAim()
+        {
+            lock (_lock)
+            {
+                float x = 0, y = 0;
+                bool down = false;
+                if (_aimPointer != -1)
+                {
+                    down = true; x = _aimAbsX; y = _aimAbsY;
+                }
+                else if (_fireAimPointer != -1)
+                {
+                    down = true; x = _fireAimX; y = _fireAimY;
+                }
+                return (down, (int)MathF.Round(Math.Clamp(x / Math.Max(1f, Width), 0f, 1f) * 255),
+                    (int)MathF.Round(Math.Clamp(y / Math.Max(1f, Height), 0f, 1f) * 191));
+            }
+        }
+
         public (bool Down, float X, float Y) AimPosition()
         {
             lock (_lock)

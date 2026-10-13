@@ -726,7 +726,8 @@ namespace MphRead.Entities
 
         public void Spawn(Vector3 pos, Vector3 facing, Vector3 up, NodeRef nodeRef, bool respawn)
         {
-            Mods.EnhancedHunters.EnhancedHunters.OnPlayerSpawn(this);
+            if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(_scene))
+                Mods.EnhancedHunters.EnhancedHunters.OnPlayerSpawn(this);
             if (!_scene.Services.PlayerReplication.CanSpawn) return;
             _scene.Services.PlayerReplication.OnSpawn(this);
             _modFormStartedFrame = 0;
@@ -2042,8 +2043,9 @@ namespace MphRead.Entities
             uint combatUnsplitDamage = damage;
             if (flags.TestFlag(DamageFlags.Halfturret) && !ignoreDamage) // todo?: and either main player or not wifi
             {
+                var ownedTurret = _halfturret ?? throw new InvalidOperationException("Half-turret damage requires the owned turret.");
                 uint turretDamage;
-                if (_health > Halfturret.Health)
+                if (_health > ownedTurret.Health)
                 {
                     turretDamage = damage - damage / 2;
                 }
@@ -2051,13 +2053,13 @@ namespace MphRead.Entities
                 {
                     turretDamage = damage / 2;
                 }
-                if (_halfturret.Health <= turretDamage)
+                if (ownedTurret.Health <= turretDamage)
                 {
-                    _halfturret.Die();
+                    ownedTurret.Die();
                 }
                 else
                 {
-                    _halfturret.Health -= (int)turretDamage;
+                    ownedTurret.Health -= (int)turretDamage;
                 }
                 damage -= turretDamage;
                 if (IsBot && _scene.GameState.SinglePlayer && AiData.Flags1)
@@ -2071,7 +2073,7 @@ namespace MphRead.Entities
                 {
                     damage = (uint)(_health - 1);
                 }
-                _halfturret.TimeSinceDamage = 0;
+                ownedTurret.TimeSinceDamage = 0;
                 if (IsBot)
                 {
                     AiData.DamageFromHalfturret = turretDamage;

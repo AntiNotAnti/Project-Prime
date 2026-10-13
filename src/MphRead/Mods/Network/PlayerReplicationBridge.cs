@@ -466,6 +466,9 @@ namespace MphRead.Mods.Network
         public void ApplyIntent(PlayerEntity player, in IntentPacket intent)
         {
             if (intent.LifeId == 0 || !_host.Matches(player.SlotIndex, intent.SlotGeneration, intent.LifeId)) return;
+            // Touch input is life-fenced and admitted ahead of ProcessAlt, never
+            // reconstructed from the arrival interval or authored pose.
+            player.ModReceiveNativeTouch(intent.NativeTouch, intent.SlotGeneration, intent.LifeId, intent.Frame);
             if (!Sane(intent.Aim))
             {
                 RejectedUpdates++;
@@ -816,7 +819,7 @@ namespace MphRead.Mods.Network
             // actual answer; this is what fixes join-in-progress false protection.
             player.ModSetSpawnProtectionFromAuthority(state.SpawnProtected);
             player.EnhancedState.Hunter = player.Hunter;
-            if (isLocal && !fresh && state.Health > 0 && player.OwningScene.GameState.EnhancedHunters)
+            if (isLocal && !fresh && state.Health > 0 && Mods.EnhancedHunters.EnhancedHunters.Enabled(player))
                 Mods.EnhancedHunters.EnhancedHunterMovement.Apply(player, state.Enhanced.Impulse1, state.Enhanced.Impulse0);
             state.Enhanced.Apply(player.EnhancedState);
             bool spawned = (state.Flags & PlayerState.FlagSpawned) != 0 && state.Health > 0;

@@ -18,6 +18,12 @@ public static class NetProjectileCounterfactual
     public static ShadowOutcome Compare(PlayerEntity shooter, Vector3 origin, Vector3 direction,
         double hardDepth, double shadowDepth)
     {
+        // The stock table describes one arcing shell. Balanced Battlehammer has
+        // three delayed straight rounds, so native single-projectile shadow
+        // estimates would be false evidence until a dedicated model exists.
+        if (shooter.OwningScene.GameState.Multiplayer && shooter.OwningScene.GameState.BalancedMode
+            && shooter.EquipInfo.Weapon.Beam == BeamType.Battlehammer)
+            return ShadowOutcome.HistoricalDataUnavailable;
         if (!TryBallistic(shooter.EquipInfo, out var ballistic)
             || direction.LengthSquared < .000001f)
             return ShadowOutcome.HistoricalDataUnavailable;

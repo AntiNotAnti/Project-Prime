@@ -77,6 +77,9 @@
     <PublishReadyToRun Condition="'$(MphReadServer)' == 'true'">true</PublishReadyToRun>
     <DebugType>embedded</DebugType>
     <Nullable>enable</Nullable>
+    <!-- These warning causes are repaired and must not regress. Remaining
+         warnings retain their existing severity while their owners review them. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CA2014;IL3000</WarningsAsErrors>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
     <!-- The launcher's screens are drawn into the game window through an
@@ -98,9 +101,8 @@
          using unstable internal APIs". It is saying something true and it has
          been acted on rather than waved away, which is what the exact version
          pins are for: bumping Avalonia means rebuilding against the new shape
-         of ITopLevelImpl and IRenderTimer, deliberately. Silenced because the
-         build has no other warnings and one that fires unconditionally is one
-         that teaches people to stop reading them. -->
+         of ITopLevelImpl and IRenderTimer, deliberately. Other compiler and
+         analyzer diagnostics retain their own severity and review. -->
     <NoWarn Condition="'$(MphReadAvalonia)' == 'true'">$(NoWarn);AVA3001</NoWarn>
   </PropertyGroup>
 
@@ -267,12 +269,17 @@
        game API. -->
   <ItemGroup>
     <InternalsVisibleTo Include="nettest" />
+    <InternalsVisibleTo Include="replay-export-queue-check" />
+    <InternalsVisibleTo Include="audio-check" />
+    <InternalsVisibleTo Include="music-lifecycle-check" />
     <InternalsVisibleTo Include="settings-archive-check" />
     <InternalsVisibleTo Include="fidelity-oracle" />
     <InternalsVisibleTo Include="final-composite-check" />
     <InternalsVisibleTo Include="hud-ui-check" />
     <InternalsVisibleTo Include="material-pack" />
     <InternalsVisibleTo Include="map-editor-check" />
+    <InternalsVisibleTo Include="theatre-storage-check" />
+    <InternalsVisibleTo Include="replay-sidecar-check" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(MphReadServer)' != 'true'">

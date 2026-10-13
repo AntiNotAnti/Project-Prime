@@ -59,7 +59,13 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt64LittleEndian(dest[(LegacySize - 8)..], AuthorityEpoch);
         }
 
-        public static bool TryRead(ReadOnlySpan<byte> src, out SessionStatePacket state, bool validateDefinition = true)
+        // Archived recordings retain the original match-definition checks. Only
+        // support for the retired Enhanced rule differs from live admission.
+        public static bool TryReadArchived(ReadOnlySpan<byte> src, out SessionStatePacket state)
+            => TryRead(src, out state, allowRetiredEnhanced: true);
+
+        public static bool TryRead(ReadOnlySpan<byte> src, out SessionStatePacket state,
+            bool validateDefinition = true, bool allowRetiredEnhanced = false)
         {
             state = default;
             if (src.Length != Size || src[LegacySize + 4] > (byte)StartStage.InMatch || src[0] > (byte)SessionPhase.PostMatch
@@ -117,7 +123,7 @@ namespace MphRead.Mods.Network
                     BalancedMode = modifiers.HasFlag(MatchModifierFlags.BalancedMode)
                 }.NormalizeLegacy()
             };
-            return (!validateDefinition || LobbyRules.ValidateDefinition(state.Match, out _) == LobbyResultCode.Ok)
+            return (!validateDefinition || LobbyRules.ValidateDefinition(state.Match, out _, allowRetiredEnhanced) == LobbyResultCode.Ok)
                 && (state.Match.Format != MatchFormat.Custom || state.Match.CustomTeams.IsValid)
                 && (state.WorldProfile.IsValid || (state.Phase == SessionPhase.Lobby && state.WorldProfile == default));
         }

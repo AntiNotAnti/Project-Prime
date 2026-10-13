@@ -104,7 +104,7 @@ internal static class EnhancedHunterProjectiles
             || !EnhancedHunters.Authority(owner) || !EnhancedHunters.UsingAffinity(owner, beam.Beam)) return;
         Vector3 from = beam.Position, to = from + beam.Direction * beam.MaxDistance;
         CollisionResult collision = default;
-        var candidates = CollisionDetection.GetCandidatesForLimits(from, to, 0, null, Vector3.Zero,
+        using var candidates = CollisionDetection.GetCandidatesForLimits(from, to, 0, null, Vector3.Zero,
             includeEntities: false, owner.OwningScene);
         if (CollisionDetection.CheckBetweenPoints(candidates, from, to, TestFlags.Beams,
             owner.OwningScene, ref collision) && collision.Plane.Y >= .65f)

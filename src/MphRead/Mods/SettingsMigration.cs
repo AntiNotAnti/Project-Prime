@@ -15,12 +15,17 @@ namespace MphRead.Mods
     /// </summary>
     public static class SettingsMigration
     {
-        public const int CurrentSchema = 10;
+        public const int CurrentSchema = 11;
 
         public static bool Apply(MenuSettings settings, out string summary)
         {
             var changed = new List<string>();
             int from = settings.SettingsSchemaVersion;
+
+            // Preserve the selected supported mode and independent affinity/Balanced
+            // options. Retired gameplay must not survive even a current-schema import.
+            settings.EnhancedHunters = Normalize(settings.EnhancedHunters, "off",
+                "retired Enhanced Hunters -> off (existing mode preserved)", changed);
 
             // Retired DX12/Vulkan/Metal and Auto preferences must never survive
             // into a renderer restart or be shown as selectable settings.

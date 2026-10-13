@@ -1,0 +1,114 @@
+using System;
+using OpenTK.Mathematics;
+
+namespace MphRead.Entities
+{
+    /// <summary>
+    /// Deterministic, allocation-free rate shaping used by the authoritative bot motor.
+    /// This changes requested inputs, never physics, hit detection, or player speed caps.
+    /// </summary>
+    internal static class BotMotorMath
+    {
+        internal static float MoveTowards(float current, float target, float maxDelta)
+        {
+            float delta = target - current;
+            if (MathF.Abs(delta) <= maxDelta)
+            {
+                return target;
+            }
+            return current + MathF.CopySign(maxDelta, delta);
+        }
+
+        internal static float StepMoveAxis(float current, float desired,
+            float accelerationPerTick, float brakingPerTick)
+        {
+            if (!float.IsFinite(current) || !float.IsFinite(desired)
+                || !float.IsFinite(accelerationPerTick) || !float.IsFinite(brakingPerTick)
+                || accelerationPerTick <= 0 || brakingPerTick <= 0)
+            {
+                return 0;
+            }
+
+            current = Math.Clamp(current, -1, 1);
+            desired = Math.Clamp(desired, -1, 1);
+            // Reversals always pass through a stop, instead of instantly jumping
+            // from full-left to full-right digital traction.
+            if (current * desired < 0)
+            {
+                // Braking cannot overshoot through zero in a single tick, even
+                // when the old speed is smaller than the braking allowance.
+                // This is the actual input discontinuity users saw in reversal.
+                float stopped = MoveTowards(current, 0, brakingPerTick);
+                return MathF.Abs(stopped) < 0.001f ? 0 : stopped;
+            }
+            bool braking = MathF.Abs(desired) < MathF.Abs(current);
+            float amount = braking ? brakingPerTick : accelerationPerTick;
+            float next = MoveTowards(current, desired, amount);
+            return MathF.Abs(next) < 0.001f ? 0 : next;
+        }
+
+        internal static Vector2 AltDesiredAxes(bool strafingAlt,
+            bool strafeRight, bool strafeLeft, bool moveUp, bool moveDown,
+            bool rollRight, bool rollLeft, bool rollUp, bool rollDown)
+        {
+            return strafingAlt
+                ? new Vector2((strafeRight ? 1f : 0f) - (strafeLeft ? 1f : 0f),
+                    (moveUp ? 1f : 0f) - (moveDown ? 1f : 0f))
+                : new Vector2((rollRight ? 1f : 0f) - (rollLeft ? 1f : 0f),
+                    (rollUp ? 1f : 0f) - (rollDown ? 1f : 0f));
+        }
+
+        internal static float SafePitchDegrees(Vector3 direction)
+        {
+            if (!float.IsFinite(direction.X) || !float.IsFinite(direction.Y)
+                || !float.IsFinite(direction.Z) || direction.LengthSquared <= 0.00000001f)
+            {
+                return 0;
+            }
+            // The legacy hearing/position vectors are not unit length. Computing
+            // acos(raw Y) caused NaN turn requests for ordinary height differences.
+            float y = Math.Clamp(direction.Y / MathF.Sqrt(direction.LengthSquared), -1, 1);
+            return MathF.Asin(y) * (180f / MathF.PI);
+        }
+
+        internal static float StepAimAxis(ref float angularVelocity, float requestedDelta,
+            float maxDegreesPerTick, float accelerationDegreesPerTick)
+        {
+            if (!float.IsFinite(angularVelocity) || !float.IsFinite(requestedDelta)
+                || !float.IsFinite(maxDegreesPerTick) || !float.IsFinite(accelerationDegreesPerTick)
+                || maxDegreesPerTick <= 0 || accelerationDegreesPerTick <= 0)
+            {
+                angularVelocity = 0;
+                return 0;
+            }
+
+            angularVelocity = Math.Clamp(angularVelocity,
+                -maxDegreesPerTick, maxDegreesPerTick);
+
+            // Brake as the aim error becomes small. Otherwise a smooth high-speed
+            // flick oscillates around the target when the sign changes.
+            float remaining = MathF.Abs(requestedDelta);
+            float stoppingRate = MathF.Sqrt(2 * accelerationDegreesPerTick * remaining);
+            float targetRate = MathF.CopySign(
+                MathF.Min(maxDegreesPerTick, MathF.Min(remaining, stoppingRate)),
+                requestedDelta);
+            if (remaining < 0.0001f)
+            {
+                targetRate = 0;
+            }
+            angularVelocity = MoveTowards(angularVelocity, targetRate, accelerationDegreesPerTick);
+            float output = Math.Clamp(angularVelocity, -remaining, remaining);
+            if (output * requestedDelta < 0)
+            {
+                // During a turn reversal, don't move *away* from the new aim
+                // target just because momentum still carries the old heading.
+                return 0;
+            }
+            if (MathF.Abs(output) < MathF.Abs(angularVelocity))
+            {
+                angularVelocity = output;
+            }
+            return output;
+        }
+    }
+}

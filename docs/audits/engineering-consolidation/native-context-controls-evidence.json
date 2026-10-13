@@ -1,0 +1,1599 @@
+{
+  "schema": 1,
+  "date": "2026-10-13",
+  "contextRun": {
+    "identity": {
+      "harnessSha256": "de525d7fa93bb768a3d8f8cc08941f51a48c897e8a7e56417fe1230d4c801b35",
+      "clientSha256": "86f075e7c8dd7a06277b4050feedc796680b97a2f259615e2aa81e1faab37328"
+    },
+    "runnerSourceSha": "12de2149f67df76d4a0e868be484598445b26155",
+    "sourceDirtyAtLaunch": false,
+    "cycles": [
+      120,
+      180
+    ],
+    "mapLoads": 600,
+    "exitCode": 0,
+    "wallSeconds": 1191.090050833,
+    "binaryIdentityMatchesAfterRun": true,
+    "captures": 4
+  },
+  "allocationOriginCaptures": [
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-after-disposal.graphics-origin-v2.json",
+      "source": {
+        "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-after-disposal.malloc-history.txt",
+        "sha256": "def81de192a75b00a107dfc18ff91d7d3196054878f048ca4baf8cbed6b5721e"
+      },
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 6629228544,
+          "calls": 1010,
+          "groups": 52,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "agxFragmentVariant": {
+          "bytes": 188844480,
+          "calls": 109232,
+          "groups": 1394,
+          "mallocPrefixBytes": 175933888,
+          "mallocPrefixCalls": 109124
+        },
+        "otherGraphics": {
+          "bytes": 64842240,
+          "calls": 48918,
+          "groups": 708,
+          "mallocPrefixBytes": 40151552,
+          "mallocPrefixCalls": 48383
+        },
+        "coreclr": {
+          "bytes": 22457424,
+          "calls": 80534,
+          "groups": 2036,
+          "mallocPrefixBytes": 7728208,
+          "mallocPrefixCalls": 80505
+        },
+        "other": {
+          "bytes": 238368,
+          "calls": 2929,
+          "groups": 497,
+          "mallocPrefixBytes": 238368,
+          "mallocPrefixCalls": 2929
+        },
+        "ioSurface": {
+          "bytes": 2624,
+          "calls": 6,
+          "groups": 3,
+          "mallocPrefixBytes": 2624,
+          "mallocPrefixCalls": 6
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-before-disposal.graphics-origin-v2.json",
+      "source": {
+        "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-before-disposal.malloc-history.txt",
+        "sha256": "d3dc8ca9b96657a2c559f608f1eb729725ec02d1f0306ef3004da62ec8b49a04"
+      },
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 6542540800,
+          "calls": 1545,
+          "groups": 59,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "agxFragmentVariant": {
+          "bytes": 217958848,
+          "calls": 109237,
+          "groups": 1396,
+          "mallocPrefixBytes": 175933888,
+          "mallocPrefixCalls": 109124
+        },
+        "ioSurface": {
+          "bytes": 16618928,
+          "calls": 49,
+          "groups": 19,
+          "mallocPrefixBytes": 5552,
+          "mallocPrefixCalls": 47
+        },
+        "otherGraphics": {
+          "bytes": 71675616,
+          "calls": 57717,
+          "groups": 942,
+          "mallocPrefixBytes": 46984928,
+          "mallocPrefixCalls": 57182
+        },
+        "coreclr": {
+          "bytes": 21153456,
+          "calls": 78594,
+          "groups": 1975,
+          "mallocPrefixBytes": 5949104,
+          "mallocPrefixCalls": 78567
+        },
+        "other": {
+          "bytes": 239280,
+          "calls": 2934,
+          "groups": 499,
+          "mallocPrefixBytes": 239280,
+          "mallocPrefixCalls": 2934
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-after-disposal.graphics-origin-v2.json",
+      "source": {
+        "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-after-disposal.malloc-history.txt",
+        "sha256": "5df983278bdfb9b1aeaae7f0d92025f56b51d7e5f903566d6b830be4f58399ee"
+      },
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 6605717504,
+          "calls": 1204,
+          "groups": 55,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "agxFragmentVariant": {
+          "bytes": 456429536,
+          "calls": 274757,
+          "groups": 1394,
+          "mallocPrefixBytes": 443518944,
+          "mallocPrefixCalls": 274649
+        },
+        "otherGraphics": {
+          "bytes": 123812736,
+          "calls": 102395,
+          "groups": 697,
+          "mallocPrefixBytes": 98794368,
+          "mallocPrefixCalls": 101850
+        },
+        "coreclr": {
+          "bytes": 26823200,
+          "calls": 85077,
+          "groups": 2141,
+          "mallocPrefixBytes": 9325088,
+          "mallocPrefixCalls": 85042
+        },
+        "other": {
+          "bytes": 244256,
+          "calls": 2955,
+          "groups": 505,
+          "mallocPrefixBytes": 244256,
+          "mallocPrefixCalls": 2955
+        },
+        "ioSurface": {
+          "bytes": 2624,
+          "calls": 6,
+          "groups": 3,
+          "mallocPrefixBytes": 2624,
+          "mallocPrefixCalls": 6
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-before-disposal.graphics-origin-v2.json",
+      "source": {
+        "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-before-disposal.malloc-history.txt",
+        "sha256": "f1c85660e3178f12c05da5a7946a817f1b0cdddeddb1cb8f5ec87b5384f82e9c"
+      },
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 6615056384,
+          "calls": 1736,
+          "groups": 61,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "agxFragmentVariant": {
+          "bytes": 456576992,
+          "calls": 274765,
+          "groups": 1395,
+          "mallocPrefixBytes": 443666400,
+          "mallocPrefixCalls": 274657
+        },
+        "ioSurface": {
+          "bytes": 41538992,
+          "calls": 52,
+          "groups": 20,
+          "mallocPrefixBytes": 5552,
+          "mallocPrefixCalls": 47
+        },
+        "otherGraphics": {
+          "bytes": 133703024,
+          "calls": 113568,
+          "groups": 829,
+          "mallocPrefixBytes": 108684656,
+          "mallocPrefixCalls": 113023
+        },
+        "coreclr": {
+          "bytes": 24580368,
+          "calls": 83891,
+          "groups": 2128,
+          "mallocPrefixBytes": 6508816,
+          "mallocPrefixCalls": 83854
+        },
+        "other": {
+          "bytes": 244272,
+          "calls": 2952,
+          "groups": 503,
+          "mallocPrefixBytes": 244272,
+          "mallocPrefixCalls": 2952
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    }
+  ],
+  "replay120": {
+    "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/replay-memory/candidate-120.json",
+    "replayPath": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-lan-d788bbcb/peer-0/exports/_demos/MP1 SANCTORUS_2026-10-11_21-53-22-699_386d403e1a204dd3bf31e844f961c4f9.ppdemo",
+    "replaySha256": "AA33D78D69AF2FC4573468D912D5DEEA2C1DADF990A4597734947FDE740A405B",
+    "complete": true,
+    "cyclesCompleted": 120,
+    "seekTargets": [
+      120,
+      30,
+      240,
+      120
+    ],
+    "contextCount": 0,
+    "nativeSfx": false,
+    "retention": [
+      {
+        "kind": "passive-player",
+        "observed": 120,
+        "alive": 0
+      },
+      {
+        "kind": "passive-scene",
+        "observed": 360,
+        "alive": 0
+      },
+      {
+        "kind": "scene",
+        "observed": 360,
+        "alive": 0
+      },
+      {
+        "kind": "session",
+        "observed": 360,
+        "alive": 0
+      },
+      {
+        "kind": "reader",
+        "observed": 360,
+        "alive": 0
+      }
+    ],
+    "binaryIdentity": {
+      "clientSha256": "86F075E7C8DD7A06277B4050FEEDC796680B97A2F259615E2AA81E1FAAB37328",
+      "harnessSha256": "DBE6BF2024319C86D771E242B564C820800967399BD2AF2AB5FA518AC6364366",
+      "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c"
+    }
+  },
+  "hashedRawArtifacts": [
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-before-disposal.vmmap.txt",
+      "sha256": "ee81383d4bb4f6b277ae1a790780e98af05259ea6fa60e3ec94fa39bec8f040b",
+      "capturePhase": "context-00-before-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-before-disposal.malloc-history.txt",
+      "sha256": "d3dc8ca9b96657a2c559f608f1eb729725ec02d1f0306ef3004da62ec8b49a04",
+      "capturePhase": "context-00-before-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-after-disposal.vmmap.txt",
+      "sha256": "57f634c262ac85569e4a35c8f0b0473ca1342ea4a0b8ff889d090f7698a4720b",
+      "capturePhase": "context-00-after-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-00-after-disposal.malloc-history.txt",
+      "sha256": "def81de192a75b00a107dfc18ff91d7d3196054878f048ca4baf8cbed6b5721e",
+      "capturePhase": "context-00-after-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-before-disposal.vmmap.txt",
+      "sha256": "d62fe85518047228c2a8fe0b795aa4bc2a8543fd92ce118846fca1791d8babfc",
+      "capturePhase": "context-01-before-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-before-disposal.malloc-history.txt",
+      "sha256": "f1c85660e3178f12c05da5a7946a817f1b0cdddeddb1cb8f5ec87b5384f82e9c",
+      "capturePhase": "context-01-before-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-after-disposal.vmmap.txt",
+      "sha256": "4ba2ebbd9b1b0ca263aab3f1543e729c57338c21e198d035af4abd21e5d6aa52",
+      "capturePhase": "context-01-after-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context-01-after-disposal.malloc-history.txt",
+      "sha256": "5df983278bdfb9b1aeaae7f0d92025f56b51d7e5f903566d6b830be4f58399ee",
+      "capturePhase": "context-01-after-disposal",
+      "exitCode": 0
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context.json",
+      "sha256": "dfbe1df226eb327682a13842bb453e558da79dbce0f3b66bcff04bf53a1f4311"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context.log",
+      "sha256": "070134c7ddfcc8c1295a1d7881a31bd669c3eb32280b2462f8e5f3f535510d90"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context.json.contexts/context-00-120cycles.analysis.json",
+      "sha256": "7b1154394ebde49564657717d3dcc078f14f6dbfd915b4bc364bcc06e762cb0c"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context.json.contexts/context-00-120cycles.json",
+      "sha256": "74bc2b265fd11ca73b20dc3fac9326f2da862a8984d375d1dca7a0c0be2bc28f"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context.json.contexts/context-01-180cycles.analysis.json",
+      "sha256": "5ca5f5a2524553ab8f01deeac00622ca15484846e886c128b986566b9bb058d7"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context.json.contexts/context-01-180cycles.json",
+      "sha256": "79ff1847e473a042200a03a2d26728e7a85ba4f15b41bfe111fb668719e75354"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/00-map-gl.analysis.json",
+      "sha256": "ecc25c62b67f1376baeb7f9f4412ebbd7283ef565d6a36c968724fd58bac8516"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/00-map-gl.json",
+      "sha256": "6948459c9f547b33bc1e34fca6a60d1e1f814f75793d8cfad821af216202018a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/00-map-gl.log",
+      "sha256": "a9824db294f9c783779c5ce997fc4f6679d6a3d333516bcd59e4c6c3646ca576"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/01-studio.analysis.json",
+      "sha256": "1c809d7b308b6dc68158443ba9fe2f9fb20d200438dc51e62c8a6a42d1b1d04a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/01-studio.json",
+      "sha256": "d0cf5bb87ff798d6a15d3792ffc42b126cfe254fe79f3d88c13995f8f07ebec0"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/01-studio.log",
+      "sha256": "7d72a3b013ba5fda468c9efc3ed60933fca4321b6f62cdfab2c381a09a6e3822"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/manifest.json",
+      "sha256": "463768b9f59bed21d3969327b8459be08c9c4f3c8c917afe67bf8435d0cf911f"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/replay-memory/candidate-120.json",
+      "sha256": "e41648c795ad4290a16d0bb229a90af2ebfcd81d274a7b588f29b612c817f2f1"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/replay-memory/candidate-120.log",
+      "sha256": "67623aad167e27bf9795e2f847b8f2a74af5375432a4ca90ddc0430334486e60"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/replay-memory/pilot-2.json",
+      "sha256": "b7b922fc6ade7b4c737094a4e897e393fba1f9af370c8be9a83ff2e4130489ab"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/replay-memory/pilot-2.log",
+      "sha256": "2148e252a22d1323c2e14fb5212317bd1f93163c3585bd0fd9936c2ba243cdbd"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/Program.cs",
+      "sha256": "b74ee62b4da29729f312ccc9e356cb3ff3fb7dc11edc3b0044e3c838c08592cf"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/campaign/00-audio.analysis.json",
+      "sha256": "4115bd57ec6c97c1dc483efbb49a39081b501ff2059cf0bd4dcafc5b4e0cb302"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/campaign/00-audio.json",
+      "sha256": "60fdcbe3372ecddc64419b0fc2b1755ae4e89b281c667064f9ae275e442f6e0b"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/campaign/00-audio.log",
+      "sha256": "b8be533873b18c0dddc1108215ba5d84d1b1c9f2021cf42458d1f1dd2e66398d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/campaign/manifest.json",
+      "sha256": "64d2e227f2b1d946dacf39cd38c3fe2bfc7622e06d715d015685d2e31c813d2e"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/gcdump.log",
+      "sha256": "cb015b90db7fefc3b11adc517454993a40b554b17297b1c8222fca5f0878b34f"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh-large-array-roots.json",
+      "sha256": "8403144b70035962ef2c37a5cb88f4ca18fd673757fca50512e420462ab37fca"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh.gcdump",
+      "sha256": "ca2928218a890d34f1d2522790fd34004f50869fb1951b378592fcdfcd12c8a5"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/observer-heap-stats.jsonl",
+      "sha256": "04dccdbc3b8752c5488a55a54713f8a9f336e02d09f2d4f8d9757a47bd60228d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/observer.csproj",
+      "sha256": "095f7f3c3b53900cc5e8b6d49801606b39135f7e8ff771fcebd5d2c8147c2306"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/run-native-high-loh-control.py",
+      "sha256": "e12ca986a5ed0a22558df89901edba11b16e5d73cbea229697766f718499a2cd"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/selftest.log",
+      "sha256": "e7f2e16e2572f29a2ab86bd45e110759bb29d9af011ac41cb9020c074532880e"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/vmmap.txt",
+      "sha256": "305fa230e8913f59c7736fc207f68a4a0da311635db7a90bbcf6a1c62531952a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/graph-reader-Program.cs",
+      "sha256": "a5d350747f5e75e3425f5b51a72c8f6da3d23f150bebaf12bab7c8742e9de832"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/graph-reader-graph-all.csproj",
+      "sha256": "ccaea0fedf2cb65de0c443c850006f49fb90402e4892707e2b95957940dbe5da"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh-large-object-roots-v2.json",
+      "sha256": "6cfe177b1f20b95c522adb26def91952f67f2337dbba4321a473903d7850e051"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh-object-roots-85k-v3.json",
+      "sha256": "870d351887d1f1e20f50c223dc42a4d205f0e486a91cf1f29f704738db43b73e"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh-type-report.txt",
+      "sha256": "7df5bcd5fe5097db7d9d343187009fa8225836e20d1bb57524f9fb8e47f2581d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/profiling-manifest.json",
+      "sha256": "ee73f0880910881f66c3bd0a86708b3b38378e52567c6446f7722eef1921ea42"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh-root-accounting-summary.json",
+      "sha256": "e97cbb20b2e8eda0af939d01bb8c599c022aba2f448e7e2c4cb682ee4c2cdfb4"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context-00-before-disposal.vmmap.txt",
+      "sha256": "ddf53a95e949e05402d933b3b7540c7a849c0bec46c2ab6e2f017eb453ffd791"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context-00-before-disposal.malloc-history.txt",
+      "sha256": "a4db851e821c09f1c4b0c9dd63fe165380a8dd2828a8428bebd78d19e01a64da"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context-00-after-disposal.vmmap.txt",
+      "sha256": "5d80c76b6dd938270d7243075e1fdf7694d076781336ad582d2e1c09ca23b5f4"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context-00-after-disposal.malloc-history.txt",
+      "sha256": "39a8c8198fc897976d76a584550f67991a6b129c606ed3784e3bc1a60022c9dd"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/after-glfw-poll.vmmap.txt",
+      "sha256": "67196601a48d28f8edb01c57b51e0711f01b34c29022009e77c6aac4a518fa31"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/after-glfw-poll.malloc-history.txt",
+      "sha256": "92f0b19975124faae05e1e997fc33fba106a7454e53b7e4d5bdd8dff04b22723"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/after-glfw-terminate.vmmap.txt",
+      "sha256": "976fabd70c8a0b280477d4f923b7eaafbb8475dd67cf16ce33c098ce16b419f5"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/after-glfw-terminate.malloc-history.txt",
+      "sha256": "49b14723f0cadb85312132d661628bd318acfbda081b6cc01166654bbe8432a7"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/after-glfw-poll.malloc-history.graphics-origin-v1.json",
+      "sha256": "bba0466e16e1eb66b069d846b9fb12f540d0e0b85a23c73d1266d3722044377a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/after-glfw-terminate.malloc-history.graphics-origin-v1.json",
+      "sha256": "11d086351b7b75b4f7907f8f690fc0bf3f109f5392150d57b223fbab00f5495d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context-00-after-disposal.malloc-history.graphics-origin-v1.json",
+      "sha256": "a5d23002825a18311b1de143e86f2411449b3e6272de36926f9452e24a751fa9"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context-00-before-disposal.malloc-history.graphics-origin-v1.json",
+      "sha256": "35b22611ffd8bef955b80a0cd197d8991343c4f6fa32c01c6f2de8f023f4c118"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context.json",
+      "sha256": "eadb196b436c0b9da2fadc715a5e0660be0ee661ab48fc0800d0e5e2f20aa6e1"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/runner-manifest.json",
+      "sha256": "b365fd96ea631cbaa032ad8927355ef94183e60d2ca93cf46c1795ac0838c150"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context.log",
+      "sha256": "588a1d4ee363faa0c3bf71f4935857bd16dec939efc6ca51808f6408bb4f2c4d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context.json.contexts/context-00-30cycles.analysis.json",
+      "sha256": "156feee3109c9b2ccbbb9e9fbbde5db8b1282d13b509a021363fbf3b9deca801"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context.json.contexts/context-00-30cycles.json",
+      "sha256": "40c81aee13f227f942532f8cbb34665a97c30c66d2a27804b191795e19772d30"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/preflight/python-tests-fixed.log",
+      "sha256": "de7b518398ee4495a4e542c223f3aebf493ce0131bbf8ddd72c9c64cd435db60"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/preflight/python-tests-first-path-failure.log",
+      "sha256": "cbbd5ddb74b40fd8ec67cc5b9496bd8d69657f72c10ef0000462004d32c781c6"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/pilot-plan-identity.json",
+      "sha256": "7c1d1e5a20ea3f4236b55e7e16a26f077799166db898d790d3a06c859d5f8bea"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/ambient-current.json",
+      "sha256": "e588e955b617f6db10542711a03c4380367b0c8d76f77fd66e698b0a46037c7a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/diagnostic-source-e9d439e4.diff",
+      "sha256": "3cfc0763608db6ba4cf81048d7562c83066b06b52cc86627e1199219aef187eb"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-receipt.json",
+      "sha256": "dbb6bf6e75111304240e7862cd5ebbe2552bb9c0d483b8e94d771059b989e282"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-summary.md",
+      "sha256": "7e0b4932912fd15b0c1188b70cd915895df6a9e85c14ba0e3668dd6523af5849"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/preflight/publication-build.log",
+      "sha256": "541efe83a9711c1b153070e0282bcfae6b330160fed876b57a1d1d1a26a182ce"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/preflight/publication-selftest.log",
+      "sha256": "588524ed562e987fa167e311f855d973ce60cba2ecd7c7c12ef039318849433e"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/preflight/publication-python-tests.log",
+      "sha256": "89fb6cbdd9b4eaa6006b3d08a575d6c379bba2c57f274494a4e22d446c398c47"
+    }
+  ],
+  "hashScope": "Existing immutable native capture manifests supply large raw hashes; all fresh driver-control raw/source/derived, source/build/selftest receipts indexed. Screenshot PNGs not indexed; old artifacts unchanged; measured e9 source/binary identity remains separate from later default-off guard/documentation publication.",
+  "retirementWitness": {
+    "sourceSha": "22764624b5e90d388d90d444155bce3ce65ec542",
+    "sourceDirtyAtLaunch": false,
+    "identity": {
+      "harnessSha256": "1a530c6e79c0f77ab35ec2736303abff3ce5a9dc19c83222d776385c7ac3e8eb",
+      "clientSha256": "86f075e7c8dd7a06277b4050feedc796680b97a2f259615e2aa81e1faab37328"
+    },
+    "binaryIdentityMatches": true,
+    "arms": [
+      {
+        "arm": "map-gl",
+        "complete": true,
+        "cycles": 5,
+        "retirementRecords": 10,
+        "observedNameCounts": {
+          "legacyListNamesBefore": [
+            270,
+            454
+          ],
+          "legacyListsRecognizedBefore": [
+            270,
+            454
+          ],
+          "legacyListsRecognizedAfter": [
+            0
+          ],
+          "meshListFieldsAfter": [
+            0
+          ],
+          "sceneModelLeasesAfter": [
+            0
+          ],
+          "bufferNamesBefore": [
+            208,
+            542,
+            544
+          ],
+          "buffersRecognizedBefore": [
+            208,
+            542,
+            544
+          ],
+          "bufferNamesRecognizedAfter": [
+            0
+          ],
+          "vertexArrayNamesBefore": [
+            103,
+            104,
+            271,
+            272
+          ],
+          "vertexArraysRecognizedBefore": [
+            103,
+            104,
+            271,
+            272
+          ],
+          "vertexArraysRecognizedAfter": [
+            0
+          ],
+          "programNamesBefore": [
+            8,
+            9
+          ],
+          "programsRecognizedBefore": [
+            8,
+            9
+          ],
+          "programsRecognizedAfter": [
+            0
+          ],
+          "deletionPendingProgramsAfter": [
+            0
+          ],
+          "attachedShaderNamesBefore": [
+            2,
+            4
+          ],
+          "shadersRecognizedAfter": [
+            0
+          ],
+          "deletionPendingShadersAfter": [
+            0
+          ],
+          "textureNamesBefore": [
+            395,
+            414,
+            415,
+            417
+          ],
+          "texturesRecognizedAfter": [
+            0
+          ],
+          "framebufferNamesBefore": [
+            2,
+            4
+          ],
+          "framebuffersRecognizedAfter": [
+            0
+          ],
+          "renderbufferNamesBefore": [
+            1
+          ],
+          "renderbuffersRecognizedAfter": [
+            0
+          ]
+        },
+        "shaderSourceLedger": {
+          "compileAttemptCallbacks": 120,
+          "linkAttemptCallbacks": 70,
+          "sourceStageKeys": 10,
+          "uniqueSourceHashes": 9,
+          "overflowCallbacks": 0,
+          "sources": [
+            {
+              "stage": "main-vertex",
+              "sourceSha256": "10D6837ED1A7531C81F5EC6D5F39473C03EFC0266541B66A79DE89EB268D63DB",
+              "callbacks": 10
+            },
+            {
+              "stage": "main-fragment",
+              "sourceSha256": "D98139690FE19E9C909353639701B5550E50D30840A8886D35C591403A214B23",
+              "callbacks": 10
+            },
+            {
+              "stage": "rtt-vertex",
+              "sourceSha256": "AF070F447840BF1FC51D6BBA88A339FAB067A4E3A01E460351A2549CA9107F4F",
+              "callbacks": 10
+            },
+            {
+              "stage": "rtt-fragment",
+              "sourceSha256": "E2D19241B220426AC18BB3C74ACC7195E4DE947168020C979F9CD2A053399B31",
+              "callbacks": 10
+            },
+            {
+              "stage": "shift-fragment",
+              "sourceSha256": "C211FF39501D0621308D2AF61925BDC726B640F2E6CD3EBB7CD4A27ED898577A",
+              "callbacks": 10
+            },
+            {
+              "stage": "cel-fragment",
+              "sourceSha256": "0FCB40630809A0E5B2D78448ED8B9518686FB6A5FC3B1A69914A37FECF28F7D5",
+              "callbacks": 10
+            },
+            {
+              "stage": "variant-vertex",
+              "sourceSha256": "10D6837ED1A7531C81F5EC6D5F39473C03EFC0266541B66A79DE89EB268D63DB",
+              "callbacks": 20
+            },
+            {
+              "stage": "variant-fragment",
+              "sourceSha256": "BC14F811D243637825C7FC8AAE82CA026A1CDC6DA6A52DF529D24B6C39D33EDE",
+              "callbacks": 10
+            },
+            {
+              "stage": "variant-fragment",
+              "sourceSha256": "5B21F12D86F8DE5222C1E9FF6895A862E684365683C97AF605E95890F44F1BB8",
+              "callbacks": 20
+            },
+            {
+              "stage": "variant-vertex",
+              "sourceSha256": "1D6AF4F1398712C0C37BBE571B0C85C481FE804F7BD5B999F4BAD8161CC3AD6C",
+              "callbacks": 10
+            }
+          ],
+          "scope": "Existing canonical/world-variant shader-owner callback after ShaderSource and before compilation/link. GraphicsPipeline, outlines, HUD/UI paths without that hook are not profiled here. Attempts are not compile/link success; identical GLSL does not prove identical driver pipeline keys or safe program sharing."
+        },
+        "failureStagesReached": [
+          "retained-promotion-after-vbo",
+          "retained-vao-after-create",
+          "retained-combined-after-vbo",
+          "depth-snapshot-after-framebuffer",
+          "shadow-after-framebuffer"
+        ]
+      },
+      {
+        "arm": "studio",
+        "complete": true,
+        "cycles": 5,
+        "retirementRecords": 5,
+        "observedNameCounts": {
+          "legacyListNamesBefore": [
+            11
+          ],
+          "legacyListsRecognizedBefore": [
+            11
+          ],
+          "legacyListsRecognizedAfter": [
+            0
+          ],
+          "meshListFieldsAfter": [
+            0
+          ],
+          "sceneModelLeasesAfter": [
+            0
+          ],
+          "bufferNamesBefore": [
+            0
+          ],
+          "buffersRecognizedBefore": [
+            0
+          ],
+          "bufferNamesRecognizedAfter": [
+            0
+          ],
+          "vertexArrayNamesBefore": [
+            0
+          ],
+          "vertexArraysRecognizedBefore": [
+            0
+          ],
+          "vertexArraysRecognizedAfter": [
+            0
+          ],
+          "programNamesBefore": [
+            7
+          ],
+          "programsRecognizedBefore": [
+            7
+          ],
+          "programsRecognizedAfter": [
+            0
+          ],
+          "deletionPendingProgramsAfter": [
+            0
+          ],
+          "attachedShaderNamesBefore": [
+            0
+          ],
+          "shadersRecognizedAfter": [
+            0
+          ],
+          "deletionPendingShadersAfter": [
+            0
+          ],
+          "textureNamesBefore": [
+            2
+          ],
+          "texturesRecognizedAfter": [
+            0
+          ],
+          "framebufferNamesBefore": [
+            1
+          ],
+          "framebuffersRecognizedAfter": [
+            0
+          ],
+          "renderbufferNamesBefore": [
+            1
+          ],
+          "renderbuffersRecognizedAfter": [
+            0
+          ]
+        },
+        "shaderSourceLedger": {
+          "compileAttemptCallbacks": 60,
+          "linkAttemptCallbacks": 35,
+          "sourceStageKeys": 10,
+          "uniqueSourceHashes": 9,
+          "overflowCallbacks": 0,
+          "sources": [
+            {
+              "stage": "main-vertex",
+              "sourceSha256": "10D6837ED1A7531C81F5EC6D5F39473C03EFC0266541B66A79DE89EB268D63DB",
+              "callbacks": 5
+            },
+            {
+              "stage": "main-fragment",
+              "sourceSha256": "D98139690FE19E9C909353639701B5550E50D30840A8886D35C591403A214B23",
+              "callbacks": 5
+            },
+            {
+              "stage": "rtt-vertex",
+              "sourceSha256": "AF070F447840BF1FC51D6BBA88A339FAB067A4E3A01E460351A2549CA9107F4F",
+              "callbacks": 5
+            },
+            {
+              "stage": "rtt-fragment",
+              "sourceSha256": "E2D19241B220426AC18BB3C74ACC7195E4DE947168020C979F9CD2A053399B31",
+              "callbacks": 5
+            },
+            {
+              "stage": "shift-fragment",
+              "sourceSha256": "C211FF39501D0621308D2AF61925BDC726B640F2E6CD3EBB7CD4A27ED898577A",
+              "callbacks": 5
+            },
+            {
+              "stage": "cel-fragment",
+              "sourceSha256": "0FCB40630809A0E5B2D78448ED8B9518686FB6A5FC3B1A69914A37FECF28F7D5",
+              "callbacks": 5
+            },
+            {
+              "stage": "variant-vertex",
+              "sourceSha256": "10D6837ED1A7531C81F5EC6D5F39473C03EFC0266541B66A79DE89EB268D63DB",
+              "callbacks": 10
+            },
+            {
+              "stage": "variant-fragment",
+              "sourceSha256": "BC14F811D243637825C7FC8AAE82CA026A1CDC6DA6A52DF529D24B6C39D33EDE",
+              "callbacks": 5
+            },
+            {
+              "stage": "variant-fragment",
+              "sourceSha256": "5B21F12D86F8DE5222C1E9FF6895A862E684365683C97AF605E95890F44F1BB8",
+              "callbacks": 10
+            },
+            {
+              "stage": "variant-vertex",
+              "sourceSha256": "1D6AF4F1398712C0C37BBE571B0C85C481FE804F7BD5B999F4BAD8161CC3AD6C",
+              "callbacks": 5
+            }
+          ],
+          "scope": "Existing canonical/world-variant shader-owner callback after ShaderSource and before compilation/link. GraphicsPipeline, outlines, HUD/UI paths without that hook are not profiled here. Attempts are not compile/link success; identical GLSL does not prove identical driver pipeline keys or safe program sharing."
+        },
+        "failureStagesReached": []
+      }
+    ]
+  },
+  "boundedness": "UNVERIFIED; current AGX malloc-prefix groups grow across destroyed contexts while heavy paging invalidates RSS release/plateau interpretation.",
+  "reproducedHighLoh": {
+    "runnerExitCode": 0,
+    "identity": {
+      "native-render-check.dll": "0be05bd547efffbba64afae93646fc427733b1bc21cc3f822d1b37fa28aeb5b1",
+      "ProjectPrime.dll": "86f075e7c8dd7a06277b4050feedc796680b97a2f259615e2aa81e1faab37328"
+    },
+    "identityMatchesAfterRun": true,
+    "gcdumpStatus": "PASS",
+    "extraGcMarker": {
+      "utc": 1791878754.542262,
+      "reason": "gcdump induces Gen2 collection",
+      "lohObservedBeforeCapture": 403048464
+    },
+    "observedPreCaptureLohBytes": 403048464,
+    "observedPostCaptureLohBytes": 403048464,
+    "lohFragmentationBytes": 1152,
+    "capturedGraphTotalBytes": 450425114,
+    "capturedGraphNodes": 1046463,
+    "rootedObjectsAtLeast85000Bytes": 36,
+    "rootedObjectsAtLeast85000TotalBytes": 403047288,
+    "differenceFromObservedLohBytes": 1176,
+    "poolRootedByteCharArrays": 19,
+    "poolRootedArrayBytesIncludingHeaders": 397935048,
+    "sfxWeakKinds": [
+      {
+        "kind": "sfx-instance",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "resource-owner",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "_samples",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "_rangeData",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "_dgnFiles",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "_sfxScripts",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "_soundData",
+        "observed": 120,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "sound-sample",
+        "observed": 63360,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "sample-encoded-data",
+        "observed": 63360,
+        "alive": 2160,
+        "observedPayloadBytes": 501203040,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "sample-payload",
+        "observed": 63360,
+        "alive": 2160,
+        "observedPayloadBytes": 2003832960,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "sound-stream",
+        "observed": 1440,
+        "alive": 0,
+        "observedPayloadBytes": 0,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "stream-channel",
+        "observed": 1560,
+        "alive": 0,
+        "observedPayloadBytes": 334182000,
+        "alivePayloadBytes": 0
+      },
+      {
+        "kind": "stream-payload",
+        "observed": 1440,
+        "alive": 0,
+        "observedPayloadBytes": 334182000,
+        "alivePayloadBytes": 0
+      }
+    ],
+    "limitations": [
+      "gcdump explicitly induces Gen2 collection; observed LOH stayed unchanged before/after",
+      "Tool warns.NET10 lacks nonlossyBlock buffering, capture may be incomplete despite near-complete numerical LOH match",
+      "Root paths establish retention for captured arrays, not allocation callers or subsystem workload contribution",
+      "No thread-count bucket guess, policy change, FPS claim, unprofiled RSS comparison or driver classification"
+    ],
+    "rootSummaryPath": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/audio-high-loh/one-candidate-60/high-loh-root-accounting-summary.json"
+  },
+  "finalGlfwLifetimeControl": {
+    "diagnosticSourceSha": "e9d439e47a3a33c11223700d307faf5c57a5ba00",
+    "clientSourceSha": "edcf0f1bc6be7cfb0734c42ebaa41ce8b8724ef2",
+    "identity": {
+      "harnessSha256": "d2a2ec8eb2a1ce6441784de28ec667291ac0d9178b83bc9eca1a64529c433240",
+      "clientSha256": "1b6d4b228c71c81a31d48756474451fab8b21ee1007bda7fe7b6d936e5ff4f8d"
+    },
+    "identityMatchesAfterRun": true,
+    "complete": true,
+    "runnerExitCode": 0,
+    "capturesComplete": true,
+    "wallSeconds": 137.373932958,
+    "workload": {
+      "cycles": 30,
+      "loads": 60,
+      "simulationFrames": [
+        120
+      ],
+      "failureStages": [
+        "depth-snapshot-after-framebuffer",
+        "retained-combined-after-vbo",
+        "retained-promotion-after-vbo",
+        "retained-vao-after-create",
+        "shadow-after-framebuffer"
+      ],
+      "exactColorDepthComparisonsPassed": true,
+      "additionalGcAfterDisposal": false,
+      "finalOnlyGlfwPollThenTerminate": true,
+      "ackGatedExternalCapture": true
+    },
+    "ownedGlNames": {
+      "legacyListNamesBefore": [
+        270,
+        454
+      ],
+      "legacyListsRecognizedBefore": [
+        270,
+        454
+      ],
+      "legacyListsRecognizedAfter": [
+        0
+      ],
+      "meshListFieldsAfter": [
+        0
+      ],
+      "sceneModelLeasesAfter": [
+        0
+      ],
+      "bufferNamesBefore": [
+        206,
+        208,
+        542,
+        544
+      ],
+      "buffersRecognizedBefore": [
+        206,
+        208,
+        542,
+        544
+      ],
+      "bufferNamesRecognizedAfter": [
+        0
+      ],
+      "vertexArrayNamesBefore": [
+        103,
+        104,
+        271,
+        272
+      ],
+      "vertexArraysRecognizedBefore": [
+        103,
+        104,
+        271,
+        272
+      ],
+      "vertexArraysRecognizedAfter": [
+        0
+      ],
+      "programNamesBefore": [
+        8,
+        9
+      ],
+      "programsRecognizedBefore": [
+        8,
+        9
+      ],
+      "programsRecognizedAfter": [
+        0
+      ],
+      "deletionPendingProgramsAfter": [
+        0
+      ],
+      "attachedShaderNamesBefore": [
+        2,
+        4
+      ],
+      "shadersRecognizedAfter": [
+        0
+      ],
+      "deletionPendingShadersAfter": [
+        0
+      ],
+      "textureNamesBefore": [
+        392,
+        393,
+        395,
+        414,
+        415,
+        417
+      ],
+      "texturesRecognizedAfter": [
+        0
+      ],
+      "framebufferNamesBefore": [
+        2,
+        4
+      ],
+      "framebuffersRecognizedAfter": [
+        0
+      ],
+      "renderbufferNamesBefore": [
+        1
+      ],
+      "renderbuffersRecognizedAfter": [
+        0
+      ]
+    },
+    "shaderSources": {
+      "compileAttemptCallbacks": 720,
+      "linkAttemptCallbacks": 420,
+      "sourceStageKeys": 10,
+      "uniqueSourceHashes": 9,
+      "overflowCallbacks": 0,
+      "sources": [
+        {
+          "stage": "main-vertex",
+          "sourceSha256": "10D6837ED1A7531C81F5EC6D5F39473C03EFC0266541B66A79DE89EB268D63DB",
+          "callbacks": 60
+        },
+        {
+          "stage": "main-fragment",
+          "sourceSha256": "D98139690FE19E9C909353639701B5550E50D30840A8886D35C591403A214B23",
+          "callbacks": 60
+        },
+        {
+          "stage": "rtt-vertex",
+          "sourceSha256": "AF070F447840BF1FC51D6BBA88A339FAB067A4E3A01E460351A2549CA9107F4F",
+          "callbacks": 60
+        },
+        {
+          "stage": "rtt-fragment",
+          "sourceSha256": "E2D19241B220426AC18BB3C74ACC7195E4DE947168020C979F9CD2A053399B31",
+          "callbacks": 60
+        },
+        {
+          "stage": "shift-fragment",
+          "sourceSha256": "C211FF39501D0621308D2AF61925BDC726B640F2E6CD3EBB7CD4A27ED898577A",
+          "callbacks": 60
+        },
+        {
+          "stage": "cel-fragment",
+          "sourceSha256": "0FCB40630809A0E5B2D78448ED8B9518686FB6A5FC3B1A69914A37FECF28F7D5",
+          "callbacks": 60
+        },
+        {
+          "stage": "variant-vertex",
+          "sourceSha256": "10D6837ED1A7531C81F5EC6D5F39473C03EFC0266541B66A79DE89EB268D63DB",
+          "callbacks": 120
+        },
+        {
+          "stage": "variant-fragment",
+          "sourceSha256": "BC14F811D243637825C7FC8AAE82CA026A1CDC6DA6A52DF529D24B6C39D33EDE",
+          "callbacks": 60
+        },
+        {
+          "stage": "variant-fragment",
+          "sourceSha256": "5B21F12D86F8DE5222C1E9FF6895A862E684365683C97AF605E95890F44F1BB8",
+          "callbacks": 120
+        },
+        {
+          "stage": "variant-vertex",
+          "sourceSha256": "1D6AF4F1398712C0C37BBE571B0C85C481FE804F7BD5B999F4BAD8161CC3AD6C",
+          "callbacks": 60
+        }
+      ],
+      "scope": "Existing canonical/world-variant shader-owner callback after ShaderSource and before compilation/link. GraphicsPipeline, outlines, HUD/UI paths without that hook are not profiled here. Attempts are not compile/link success; identical GLSL does not prove identical driver pipeline keys or safe program sharing."
+    },
+    "agxFragmentPopulationExactlyUnchanged": true,
+    "limitations": [
+      "One profiled30cycle/60load map-gl control; no performance/pacing/hardware acceptance",
+      "MSL changes allocator/CPU; user-owned application remains active and untouched, actualPID57590 ~79%CPU, old32937 stale; source plan preserved",
+      "Small fake-only audio witness build was authorized concurrently; no native audio/GL, scoped ambient work rather than quiet performance",
+      "Current normal binding cleanup ownedGLnames0; separate auxiliary-bound program omission has its own witness/fix and is not proven cause of theseAGXallocations",
+      "DirectAGXmalloc groups survivingDestroyWindow/PollEvents/GLFW.Terminate identify allocationorigin and testedlifetime, not retainingroot/cachevsleak or plateau",
+      "No extraGC and no GLFW/GL/window APIs after final termination; OpenTK initializedflag cannot be reused without explicit reinit",
+      "Prior120+180 evidence grew167.784\u2192422.973MiB; this new teardowncontrol does not convert that growth into boundedness proof",
+      "No speculativeproductioncache/GC/policy fix; finalP0 classification remainsconditional"
+    ],
+    "phases": [
+      {
+        "phase": "context-00-before-disposal",
+        "categories": {
+          "explicitMmapVm": {
+            "bytes": 6808174592,
+            "calls": 1432,
+            "groups": 55,
+            "mallocPrefixBytes": 0,
+            "mallocPrefixCalls": 0
+          },
+          "ioSurface": {
+            "bytes": 33232992,
+            "calls": 48,
+            "groups": 23,
+            "mallocPrefixBytes": 6240,
+            "mallocPrefixCalls": 44
+          },
+          "agxFragmentVariant": {
+            "bytes": 46514976,
+            "calls": 27287,
+            "groups": 653,
+            "mallocPrefixBytes": 43336480,
+            "mallocPrefixCalls": 27190
+          },
+          "coreclr": {
+            "bytes": 28320576,
+            "calls": 82564,
+            "groups": 2536,
+            "mallocPrefixBytes": 14738240,
+            "mallocPrefixCalls": 82539
+          },
+          "otherGraphics": {
+            "bytes": 29836064,
+            "calls": 31713,
+            "groups": 553,
+            "mallocPrefixBytes": 13124384,
+            "mallocPrefixCalls": 31424
+          },
+          "other": {
+            "bytes": 225616,
+            "calls": 2900,
+            "groups": 600,
+            "mallocPrefixBytes": 225616,
+            "mallocPrefixCalls": 2900
+          },
+          "agxVertexVariant": {
+            "bytes": 1024,
+            "calls": 8,
+            "groups": 1,
+            "mallocPrefixBytes": 1024,
+            "mallocPrefixCalls": 8
+          }
+        },
+        "capture": {
+          "phase": "context-00-before-disposal",
+          "pid": 62024,
+          "trigger": "at least 3 seconds after phase marker while process alive",
+          "steps": [
+            {
+              "command": [
+                "vmmap",
+                "-summary",
+                "62024"
+              ],
+              "exitCode": 0,
+              "wallSeconds": 1.4504932499999938,
+              "captureUtc": "2026-10-13T13:15:11Z",
+              "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context-00-before-disposal.vmmap.txt",
+              "sha256": "ddf53a95e949e05402d933b3b7540c7a849c0bec46c2ab6e2f017eb453ffd791"
+            },
+            {
+              "command": [
+                "malloc_history",
+                "62024",
+                "-allBySize",
+                "-fullStacks"
+              ],
+              "exitCode": 0,
+              "wallSeconds": 3.114059707999999,
+              "captureUtc": "2026-10-13T13:15:14Z",
+              "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context-00-before-disposal.malloc-history.txt",
+              "sha256": "a4db851e821c09f1c4b0c9dd63fe165380a8dd2828a8428bebd78d19e01a64da"
+            }
+          ]
+        }
+      },
+      {
+        "phase": "context-00-after-disposal",
+        "categories": {
+          "explicitMmapVm": {
+            "bytes": 6898810880,
+            "calls": 904,
+            "groups": 50,
+            "mallocPrefixBytes": 0,
+            "mallocPrefixCalls": 0
+          },
+          "agxFragmentVariant": {
+            "bytes": 46514976,
+            "calls": 27287,
+            "groups": 653,
+            "mallocPrefixBytes": 43336480,
+            "mallocPrefixCalls": 27190
+          },
+          "coreclr": {
+            "bytes": 31681712,
+            "calls": 84678,
+            "groups": 2592,
+            "mallocPrefixBytes": 14855344,
+            "mallocPrefixCalls": 84649
+          },
+          "otherGraphics": {
+            "bytes": 24173536,
+            "calls": 22846,
+            "groups": 390,
+            "mallocPrefixBytes": 10705888,
+            "mallocPrefixCalls": 22561
+          },
+          "other": {
+            "bytes": 222704,
+            "calls": 2881,
+            "groups": 586,
+            "mallocPrefixBytes": 222704,
+            "mallocPrefixCalls": 2881
+          },
+          "ioSurface": {
+            "bytes": 2688,
+            "calls": 6,
+            "groups": 3,
+            "mallocPrefixBytes": 2688,
+            "mallocPrefixCalls": 6
+          },
+          "agxVertexVariant": {
+            "bytes": 1024,
+            "calls": 8,
+            "groups": 1,
+            "mallocPrefixBytes": 1024,
+            "mallocPrefixCalls": 8
+          }
+        },
+        "capture": {
+          "phase": "context-00-after-disposal",
+          "pid": 62024,
+          "trigger": "at least 3 seconds after phase marker while process alive",
+          "steps": [
+            {
+              "command": [
+                "vmmap",
+                "-summary",
+                "62024"
+              ],
+              "exitCode": 0,
+              "wallSeconds": 0.9554451249999971,
+              "captureUtc": "2026-10-13T13:15:24Z",
+              "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context-00-after-disposal.vmmap.txt",
+              "sha256": "5d80c76b6dd938270d7243075e1fdf7694d076781336ad582d2e1c09ca23b5f4"
+            },
+            {
+              "command": [
+                "malloc_history",
+                "62024",
+                "-allBySize",
+                "-fullStacks"
+              ],
+              "exitCode": 0,
+              "wallSeconds": 1.6222685839999968,
+              "captureUtc": "2026-10-13T13:15:25Z",
+              "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/context-00-after-disposal.malloc-history.txt",
+              "sha256": "39a8c8198fc897976d76a584550f67991a6b129c606ed3784e3bc1a60022c9dd"
+            }
+          ]
+        }
+      },
+      {
+        "phase": "after-glfw-poll",
+        "categories": {
+          "explicitMmapVm": {
+            "bytes": 6898761728,
+            "calls": 901,
+            "groups": 50,
+            "mallocPrefixBytes": 0,
+            "mallocPrefixCalls": 0
+          },
+          "agxFragmentVariant": {
+            "bytes": 46514976,
+            "calls": 27287,
+            "groups": 653,
+            "mallocPrefixBytes": 43336480,
+            "mallocPrefixCalls": 27190
+          },
+          "coreclr": {
+            "bytes": 28433920,
+            "calls": 84632,
+            "groups": 2576,
+            "mallocPrefixBytes": 14851584,
+            "mallocPrefixCalls": 84607
+          },
+          "otherGraphics": {
+            "bytes": 24092336,
+            "calls": 21831,
+            "groups": 388,
+            "mallocPrefixBytes": 10624688,
+            "mallocPrefixCalls": 21546
+          },
+          "other": {
+            "bytes": 215312,
+            "calls": 2834,
+            "groups": 580,
+            "mallocPrefixBytes": 215312,
+            "mallocPrefixCalls": 2834
+          },
+          "ioSurface": {
+            "bytes": 2688,
+            "calls": 6,
+            "groups": 3,
+            "mallocPrefixBytes": 2688,
+            "mallocPrefixCalls": 6
+          },
+          "agxVertexVariant": {
+            "bytes": 1024,
+            "calls": 8,
+            "groups": 1,
+            "mallocPrefixBytes": 1024,
+            "mallocPrefixCalls": 8
+          }
+        },
+        "capture": {
+          "phase": "after-glfw-poll",
+          "pid": 62024,
+          "trigger": "at least 3 seconds after phase marker while process alive",
+          "steps": [
+            {
+              "command": [
+                "vmmap",
+                "-summary",
+                "62024"
+              ],
+              "exitCode": 0,
+              "wallSeconds": 0.9767535000000009,
+              "captureUtc": "2026-10-13T13:15:35Z",
+              "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/after-glfw-poll.vmmap.txt",
+              "sha256": "67196601a48d28f8edb01c57b51e0711f01b34c29022009e77c6aac4a518fa31"
+            },
+            {
+              "command": [
+                "malloc_history",
+                "62024",
+                "-allBySize",
+                "-fullStacks"
+              ],
+              "exitCode": 0,
+              "wallSeconds": 1.632083625000007,
+              "captureUtc": "2026-10-13T13:15:36Z",
+              "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/after-glfw-poll.malloc-history.txt",
+              "sha256": "92f0b19975124faae05e1e997fc33fba106a7454e53b7e4d5bdd8dff04b22723"
+            }
+          ]
+        }
+      },
+      {
+        "phase": "after-glfw-terminate",
+        "categories": {
+          "explicitMmapVm": {
+            "bytes": 6898745344,
+            "calls": 900,
+            "groups": 50,
+            "mallocPrefixBytes": 0,
+            "mallocPrefixCalls": 0
+          },
+          "agxFragmentVariant": {
+            "bytes": 46514976,
+            "calls": 27287,
+            "groups": 653,
+            "mallocPrefixBytes": 43336480,
+            "mallocPrefixCalls": 27190
+          },
+          "coreclr": {
+            "bytes": 28433360,
+            "calls": 84630,
+            "groups": 2574,
+            "mallocPrefixBytes": 14851024,
+            "mallocPrefixCalls": 84605
+          },
+          "otherGraphics": {
+            "bytes": 24092336,
+            "calls": 21831,
+            "groups": 388,
+            "mallocPrefixBytes": 10624688,
+            "mallocPrefixCalls": 21546
+          },
+          "other": {
+            "bytes": 215312,
+            "calls": 2834,
+            "groups": 580,
+            "mallocPrefixBytes": 215312,
+            "mallocPrefixCalls": 2834
+          },
+          "ioSurface": {
+            "bytes": 2688,
+            "calls": 6,
+            "groups": 3,
+            "mallocPrefixBytes": 2688,
+            "mallocPrefixCalls": 6
+          },
+          "agxVertexVariant": {
+            "bytes": 1024,
+            "calls": 8,
+            "groups": 1,
+            "mallocPrefixBytes": 1024,
+            "mallocPrefixCalls": 8
+          }
+        },
+        "capture": {
+          "phase": "after-glfw-terminate",
+          "pid": 62024,
+          "trigger": "at least 3 seconds after phase marker while process alive",
+          "steps": [
+            {
+              "command": [
+                "vmmap",
+                "-summary",
+                "62024"
+              ],
+              "exitCode": 0,
+              "wallSeconds": 0.9678148330000056,
+              "captureUtc": "2026-10-13T13:15:45Z",
+              "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/after-glfw-terminate.vmmap.txt",
+              "sha256": "976fabd70c8a0b280477d4f923b7eaafbb8475dd67cf16ce33c098ce16b419f5"
+            },
+            {
+              "command": [
+                "malloc_history",
+                "62024",
+                "-allBySize",
+                "-fullStacks"
+              ],
+              "exitCode": 0,
+              "wallSeconds": 1.6172389580000015,
+              "captureUtc": "2026-10-13T13:15:47Z",
+              "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-30/after-glfw-terminate.malloc-history.txt",
+              "sha256": "49b14723f0cadb85312132d661628bd318acfbda081b6cc01166654bbe8432a7"
+            }
+          ]
+        }
+      }
+    ],
+    "receiptPath": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/final-completion-pass-20261013/driver-drain-receipt.json",
+    "publicationAddsGuardsWithoutRemeasuring": true
+  }
+}

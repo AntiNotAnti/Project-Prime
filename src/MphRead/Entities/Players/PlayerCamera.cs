@@ -231,7 +231,7 @@ namespace MphRead.Entities
                 Vector3 point1 = Volume.SpherePosition;
                 Vector3 point2 = CameraInfo.Position;
                 float margin = Volume.SphereRadius;
-                IReadOnlyList<CollisionCandidate> candidates = CollisionDetection.GetCandidatesForLimits(point1, point2,
+                using var candidates = CollisionDetection.GetCandidatesForLimits(point1, point2,
                     margin, null, Vector3.Zero, includeEntities: true, _scene);
                 float v35 = CameraInfo.Field50 * margin;
                 float v36 = CameraInfo.Field54 * margin;
@@ -414,11 +414,11 @@ namespace MphRead.Entities
                 point1 = CameraInfo.PrevPosition;
                 point2 = CameraInfo.Position;
                 margin = Fixed.ToFloat(Values.Field90);
-                candidates = CollisionDetection.GetCandidatesForLimits(point1, point2,
+                using var cameraCandidates = CollisionDetection.GetCandidatesForLimits(point1, point2,
                     margin, null, Vector3.Zero, includeEntities: true, _scene);
                 var results = _cameraCollisionScratch;
             Array.Clear(results);
-                int count = CollisionDetection.CheckSphereBetweenPoints(candidates, point1, point2, margin,
+                int count = CollisionDetection.CheckSphereBetweenPoints(cameraCandidates, point1, point2, margin,
                     limit: 8, includeOffset: true, TestFlags.Players, _scene, results);
                 bool v85 = false;
                 for (int i = 0; i < count; i++)
@@ -785,7 +785,7 @@ namespace MphRead.Entities
             Vector3 point1 = CameraInfo.PrevPosition;
             Vector3 point2 = CameraInfo.Position;
             float margin = 0.5f;
-            IReadOnlyList<CollisionCandidate> candidates = CollisionDetection.GetCandidatesForLimits(point1, point2,
+            using var candidates = CollisionDetection.GetCandidatesForLimits(point1, point2,
                 margin, null, Vector3.Zero, includeEntities: true, _scene);
             var results = _cameraCollisionScratch;
             Array.Clear(results);

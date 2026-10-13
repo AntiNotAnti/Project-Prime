@@ -213,7 +213,7 @@ namespace MphRead.Mods.Network
             return (PacketType)packet[0] switch
             {
                 PacketType.SessionState => payload.Length == SessionStatePacket.Size
-                    && SessionStatePacket.TryRead(payload, out _),
+                    && SessionStatePacket.TryReadArchived(payload, out _),
                 PacketType.MatchState => payload.Length == MatchStatePacket.Size,
                 PacketType.BombState => BombStatePage.TryRead(payload, out _),
                 PacketType.PickupClaim => PickupClaim.TryRead(payload, out _),
@@ -225,7 +225,7 @@ namespace MphRead.Mods.Network
                     && payload.Length <= Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size,
                 PacketType.Roster => payload.Length == RosterPacket.Size,
                 PacketType.Snapshot => ValidSnapshotBootstrap(payload),
-                PacketType.SlotIntent => (payload.Length == 1 + IntentPacket.FullSize || payload.Length == 1 + IntentPacket.Protocol42FullSize) && payload[0] < RosterPacket.MaxSlots,
+                PacketType.SlotIntent => (payload.Length == 1 + IntentPacket.TouchCanonicalSize || payload.Length == 1 + IntentPacket.FullSize || payload.Length == 1 + IntentPacket.Protocol42FullSize) && payload[0] < RosterPacket.MaxSlots,
                 _ => false
             };
         }

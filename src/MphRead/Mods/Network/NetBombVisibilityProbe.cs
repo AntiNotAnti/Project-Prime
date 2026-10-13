@@ -27,6 +27,7 @@ internal static class NetBombVisibilityProbe
     private static readonly PropertyInfo ShouldDraw = typeof(EntityBase).GetProperty("ShouldDraw")!;
     private static readonly string[] CameraFields = { "_cameraMode", "_cameraPosition", "_cameraFacing", "_cameraRight", "_cameraUp", "_freeCam", "_inputMode", "_cameraFov", "_viewModelFov" };
     private static string EngineSha256 = "";
+    private static string EngineImageKind = "";
     private sealed class Lifetime
     {
         internal required Scene Scene;
@@ -153,7 +154,10 @@ internal static class NetBombVisibilityProbe
             if (File.Exists(Output)) throw new IOException("Live bomb pixel evidence already exists: " + Output);
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(Output))!);
             Directory.CreateDirectory(Output + ".frames");
-            EngineSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(typeof(Scene).Assembly.Location))).ToLowerInvariant();
+            // A single-file release has no standalone assembly Location. Hash
+            // the deployed assembly when present, otherwise its bundled host,
+            // and record which image the witness identifies.
+            (EngineSha256, EngineImageKind) = Diagnostics.RuntimeApplicationImage.Capture(typeof(Scene).Assembly);
             Initialized = true;
         }
         foreach (BombEntity bomb in bombs)
@@ -427,7 +431,7 @@ internal static class NetBombVisibilityProbe
     }
     private static void Save()
     {
-        var doc = new { Schema = 1, Source = Environment.GetEnvironmentVariable("PRIME_NET2_SOURCE") ?? "unknown", EngineSha256,
+        var doc = new { Schema = 1, Source = Environment.GetEnvironmentVariable("PRIME_NET2_SOURCE") ?? "unknown", EngineSha256, EngineImageKind,
             EngineMvid = typeof(Scene).Module.ModuleVersionId.ToString(), ClientSlot = NetSession.LocalSlot,
             Scope = "existing accepted live replica pixels at a diagnostic clear camera; no prior-to-damage assertion",
             PixelThreshold = 2, Overflow, Rows = Rows.Values.ToArray(), DrawIndex,

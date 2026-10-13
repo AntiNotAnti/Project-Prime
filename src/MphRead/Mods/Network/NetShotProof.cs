@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MphRead.Entities;
+using MphRead.Mods.Multiplayer;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
@@ -142,7 +143,10 @@ public static class NetShotProof
                 charge=(fire.Charge-mechanics.MinCharge*2)/(float)Math.Max(1,(mechanics.FullCharge-mechanics.MinCharge)*2);
             else if(fire.Charge>=mechanics.FullCharge*2) charge=1;
         }
-        int cost=(int)(charge<=0?mechanics.AmmoCost:mechanics.MinChargeCost+(mechanics.ChargeCost-mechanics.MinChargeCost)*charge);
+        bool battlehammerBurst = BalancedModeRules.IsBattlehammerBurst(
+            player.OwningScene.GameState.Multiplayer, player.OwningScene.GameState.BalancedMode, (BeamType)weapon);
+        int cost = battlehammerBurst ? BalancedModeRules.BattlehammerBurstAmmoCost
+            : (int)(charge<=0?mechanics.AmmoCost:mechanics.MinChargeCost+(mechanics.ChargeCost-mechanics.MinChargeCost)*charge);
         var poseReason=ShotProofReason.SourcePoseUnavailable;
         ref var pose=ref _poses[key.ShooterSlot,fire.SourceFrame%128];
         if(!fire.HasPose || !Finite(fire.Origin) || !Finite(fire.Direction)
@@ -160,8 +164,9 @@ public static class NetShotProof
                 : !NetDynamicGeometryHistory.TryTraceDistanceAtFrame(player.OwningScene,body,fire.Origin,pose.WorldFrame,out float wall)
                     ? ShotProofReason.HistoryUnavailable : wall<.999f?ShotProofReason.BlockedMuzzle:ShotProofReason.Verified;
         }
-        int cooldown = (fire.Kind == FireEventKind.AutomaticFire
-            ? Math.Max(inputMechanics.ShotCooldown, inputMechanics.AutofireCooldown) : inputMechanics.ShotCooldown) * 2;
+        int cooldown = battlehammerBurst ? BalancedModeRules.BattlehammerBurstCooldownFrames
+            : (fire.Kind == FireEventKind.AutomaticFire
+                ? Math.Max(inputMechanics.ShotCooldown, inputMechanics.AutofireCooldown) : inputMechanics.ShotCooldown) * 2;
         var sourceReason = NetShotSourceJournal.Inspect(key, fire, mechanics.AmmoType, cost, cooldown);
         bool charged = mechanics.Flags.TestFlag(WeaponFlags.CanCharge)
             && fire.Charge >= (mechanics.Flags.TestFlag(WeaponFlags.PartialCharge) ? mechanics.MinCharge : mechanics.FullCharge) * 2;

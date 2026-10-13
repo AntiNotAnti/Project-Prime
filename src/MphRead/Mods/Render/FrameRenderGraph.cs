@@ -24,7 +24,8 @@ namespace MphRead.Mods.Render
         Outlines,
         SceneOverlays,
         PostProcess,
-        Composite
+        Composite,
+        Hud
     }
 
     internal readonly record struct FrameRenderGraphPass(
@@ -134,6 +135,11 @@ namespace MphRead
         {
             foreach (Mods.Render.FrameRenderGraphPass pass in _frameRenderGraph.Passes)
             {
+                using var cpuTiming = Mods.Render.OpenGlPassProfiler.Measure(
+                    (Mods.Render.OpenGlCpuPass)((int)Mods.Render.OpenGlCpuPass.Shadow + (int)pass.Kind));
+#if !MPHREAD_SERVER
+                using var gpuTiming = Mods.Render.OpenGlGpuProfiler.Measure(pass.Kind);
+#endif
                 switch (pass.Kind)
                 {
                 case Mods.Render.FrameRenderPassKind.Shadow:

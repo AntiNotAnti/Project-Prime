@@ -64,7 +64,7 @@ internal sealed partial class ReplayReplicaState
         }
         Span<byte> rosterBytes = stackalloc byte[RosterPacket.Size]; roster.Write(rosterBytes); writer.Write(rosterBytes);
         Span<byte> playerBytes = stackalloc byte[PlayerState.Size];
-        Span<byte> intentBytes = stackalloc byte[IntentPacket.FullSize];
+        Span<byte> intentBytes = stackalloc byte[IntentPacket.TouchCanonicalSize];
         for (int i = 0; i < _roster.Length; i++)
         {
             var life = _lives[i].Capture();
@@ -138,7 +138,7 @@ internal sealed partial class ReplayReplicaState
                 int size = protocol == 24 ? 41 + HostRequestPacket.MaxRoomBytes : protocol < 31 ? SessionStatePacket.Protocol28Size : SessionStatePacket.Size;
                 byte[] packet = new byte[size + 1]; packet[0] = (byte)PacketType.SessionState;
                 Read(size).CopyTo(packet, 1);
-                if (!SessionStatePacket.TryRead(ReplayIdentityCompatibility.Convert(packet, protocol)[1..], out var configuration)) throw Malformed();
+                if (!SessionStatePacket.TryReadArchived(ReplayIdentityCompatibility.Convert(packet, protocol)[1..], out var configuration)) throw Malformed();
                 restored.Configuration = configuration;
             }
             int rosterSize = protocol >= 33 ? RosterPacket.Size
@@ -162,7 +162,8 @@ internal sealed partial class ReplayReplicaState
                 restored._lives[i].Restore(new(reader.ReadUInt16(), reader.ReadUInt16(),
                     (NetworkPlayerState)reader.ReadByte(), reader.ReadBoolean()));
                 restored._hasPlayer[i] = reader.ReadBoolean(); restored._players[i] = ReadPlayer();
-                restored._hasIntent[i] = reader.ReadBoolean(); restored._intents[i] = IntentPacket.Read(Read(protocol >= 43 ? IntentPacket.FullSize
+                restored._hasIntent[i] = reader.ReadBoolean(); restored._intents[i] = IntentPacket.Read(Read(protocol >= 53 ? IntentPacket.TouchCanonicalSize
+                    : protocol >= 43 ? IntentPacket.FullSize
                     : protocol >= 39 ? IntentPacket.Protocol42FullSize
                     : protocol >= 30 ? IntentPacket.Protocol38FullSize : IntentPacket.LegacyFullSize));
                 restored._intentReceivedFrame[i] = reader.ReadUInt32();

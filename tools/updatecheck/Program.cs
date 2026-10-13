@@ -91,5 +91,9 @@ if (args.Length == 0)
     Check(!BuildVersion.IsRelease, "unstamped assembly remains a local build");
 else
     Check(BuildVersion.Current == Version.Parse(args[0]), "assembly release stamp survives commit metadata");
-if (args.Length == 0) InstallationChecks.Run(Check);
+if (args.Length == 0)
+{
+    ArchiveChecks.Run(Check);
+    InstallationChecks.Run(Check);
+}
 return failures == 0 ? 0 : 1;

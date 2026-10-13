@@ -1,0 +1,3174 @@
+{
+  "schema": 1,
+  "scope": "Final build, pure/synthetic, native-game visual and combat performance evidence; Mac hardware only.",
+  "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+  "client": {
+    "path": "tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll",
+    "sha256": "56b7de1721d56eeb4aa778f0e41d7174a571eaf4cdd7327ccb997c8dca0c3982"
+  },
+  "builds": {
+    "server": {
+      "path": "artifacts/opengl-modernization/prime-procedural-verified-server-build.log",
+      "sha256": "e78949f2bcf92072eb20440936971e37960e6ec4cc5de406c1c7568bb454bac6",
+      "succeeded": true,
+      "warnings": 20,
+      "errors": 0
+    },
+    "desktop": {
+      "path": "artifacts/opengl-modernization/prime-procedural-verified-desktop-build.log",
+      "sha256": "8852a4e00b98b33d0ca0ae1d922bf65b8a313e84a688f8dc005877e2cd3e56c8",
+      "succeeded": true,
+      "warnings": 31,
+      "errors": 0
+    },
+    "android": {
+      "path": "artifacts/opengl-modernization/prime-procedural-verified-android-build.log",
+      "sha256": "6b5b48bdfb3acb82cf54bbbb871f67a8a85168286bd7f2d54ac1a3f818a34ed9",
+      "succeeded": true,
+      "warnings": 64,
+      "errors": 0
+    }
+  },
+  "checks": {
+    "pure": {
+      "path": "artifacts/opengl-modernization/prime-procedural-verified-pure.log",
+      "sha256": "454b64efaa116f2f37d28eb96eaffa958d68986e6811d03c87273b123386c3a7",
+      "passLines": 348,
+      "failLines": 0,
+      "lastLine": "[rendergraphcheck] PASS"
+    },
+    "pure-legacy": {
+      "path": "artifacts/opengl-modernization/prime-procedural-verified-pure-legacy.log",
+      "sha256": "0f49541bad08356587237cf49466f8a3a797bf40c331c9283a3f20df5323783d",
+      "passLines": 343,
+      "failLines": 0,
+      "lastLine": "[rendergraphcheck] PASS"
+    },
+    "synthetic": {
+      "path": "artifacts/opengl-modernization/prime-procedural-verified-synthetic.log",
+      "sha256": "76ca7c6361cee06630ad771ee12041f6af471176bf89688c9ec647990216abc7",
+      "passLines": 1,
+      "failLines": 0,
+      "lastLine": "[glvisualcheck] PASS 316 pixel checks, 5 captures",
+      "pixelChecks": 316,
+      "captures": 5
+    },
+    "synthetic-legacy": {
+      "path": "artifacts/opengl-modernization/prime-procedural-verified-synthetic-legacy.log",
+      "sha256": "be995c0f3a5ae6e955e398377298ffed16a675ba65472c4f42e1ab1b1b819cdb",
+      "passLines": 1,
+      "failLines": 0,
+      "lastLine": "[glvisualcheck] PASS 206 pixel checks, 5 captures",
+      "pixelChecks": 206,
+      "captures": 5
+    }
+  },
+  "androidRuntimeIdentifier": "android-arm64",
+  "androidRestoreNote": "An earlier restore using osx-arm64 was the wrong target RID; the complete android-arm64 build subsequently succeeded. This is not a source compile failure.",
+  "nativeVisualStatus": "PASS: 112 same-build and 112 prior-build exact image/depth comparisons",
+  "performanceStatus": "MEASURED: repeated world CPU p99 improvement; small throughput improvement; frame tails mixed, no universal performance non-regression claim.",
+  "gpuAcceptance": "UNVERIFIED",
+  "platformLimits": [
+    "Desktop and server compilation do not establish Windows/Linux/macOS hardware performance acceptance.",
+    "Android arm64 compilation does not establish real-device GLES correctness, lifecycle, thermal or performance acceptance.",
+    "Synthetic pixels run on the current Mac context and do not replace native-game scenario comparisons.",
+    "Pure checks cover procedural geometry validation/material-object reuse and fallbacks; no FPS improvement is claimed by this report."
+  ],
+  "nativeScenarios": [
+    {
+      "path": "artifacts/opengl-modernization/procedural-visual-bomb-baseline.json",
+      "sha256": "f40752b296f63f23994f3e78fcac05ec6960c4c3b45debe116e8f42d13a7c479",
+      "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+      "room": "MP9 CRYOCHASM",
+      "complete": true,
+      "cleanup": {
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 829920,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1952952,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 23,
+        "glyphBytesBefore": 5888,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "outlineOcclusion": null,
+      "bombVisibility": {
+        "schema": 1,
+        "scope": "local canonical replica GPU fixture; UDP sequencing audited separately",
+        "emitterInitialization": "production canonical replica initialization/Process and normal native effect draw pass; no fixture priming",
+        "status": "PASS",
+        "simulationFrame": 248,
+        "matchState": "InProgress",
+        "MenuPause": false,
+        "DialogPause": false,
+        "processFrame": true,
+        "effectFrame": 248,
+        "positiveCamera": [
+          -10.519531,
+          24.80664,
+          13.055176
+        ],
+        "negativeCamera": [
+          -10.519531,
+          24.80664,
+          -8.727817
+        ],
+        "wallIntersection": [
+          -10.519531,
+          24.80664,
+          -6.7278166
+        ],
+        "pixelThreshold": 2,
+        "effectSnapshot": [
+          {
+            "key": "1/1/0/1/1/1",
+            "effectId": 119,
+            "elements": [
+              {
+                "EffectName": "bombStartMP",
+                "ElementName": "sparkler",
+                "flags": "UseTransform, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 5.499997,
+                "Expired": false,
+                "particleCount": 1
+              },
+              {
+                "EffectName": "bombStartMP",
+                "ElementName": "ring",
+                "flags": "UseTransform, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 6.999997,
+                "Expired": false,
+                "particleCount": 1
+              }
+            ]
+          },
+          {
+            "key": "1/1/1/1/1/1",
+            "effectId": null,
+            "elements": null
+          },
+          {
+            "key": "1/1/3/1/1/1",
+            "effectId": 113,
+            "elements": [
+              {
+                "EffectName": "bombStartSylux",
+                "ElementName": "ring",
+                "flags": "UseTransform, ParticleExtension, DestroyOnDetach, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 4.299802,
+                "Expired": false,
+                "particleCount": 1
+              },
+              {
+                "EffectName": "bombStartSylux",
+                "ElementName": "glow",
+                "flags": "UseTransform, ParticleExtension, DestroyOnDetach, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 4.299802,
+                "Expired": false,
+                "particleCount": 1
+              }
+            ]
+          },
+          {
+            "key": "1/1/3/1/1/2",
+            "effectId": 113,
+            "elements": [
+              {
+                "EffectName": "bombStartSylux",
+                "ElementName": "ring",
+                "flags": "UseTransform, ParticleExtension, DestroyOnDetach, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 4.299802,
+                "Expired": false,
+                "particleCount": 1
+              },
+              {
+                "EffectName": "bombStartSylux",
+                "ElementName": "glow",
+                "flags": "UseTransform, ParticleExtension, DestroyOnDetach, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 4.299802,
+                "Expired": false,
+                "particleCount": 1
+              }
+            ]
+          },
+          {
+            "key": "1/1/3/1/1/3",
+            "effectId": 113,
+            "elements": [
+              {
+                "EffectName": "bombStartSylux",
+                "ElementName": "ring",
+                "flags": "UseTransform, ParticleExtension, DestroyOnDetach, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 4.299802,
+                "Expired": false,
+                "particleCount": 1
+              },
+              {
+                "EffectName": "bombStartSylux",
+                "ElementName": "glow",
+                "flags": "UseTransform, ParticleExtension, DestroyOnDetach, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 4.299802,
+                "Expired": false,
+                "particleCount": 1
+              }
+            ]
+          }
+        ],
+        "fixtures": [
+          {
+            "key": "1/1/0/1/1/1",
+            "kind": "MorphBall",
+            "position": [
+              -10.519531,
+              24.80664,
+              8.055176
+            ],
+            "Index": 0,
+            "Link0": 0,
+            "Link1": 0
+          },
+          {
+            "key": "1/1/1/1/1/1",
+            "kind": "Stinglarva",
+            "position": [
+              -10.519531,
+              24.80664,
+              8.055176
+            ],
+            "Index": 0,
+            "Link0": 0,
+            "Link1": 0
+          },
+          {
+            "key": "1/1/3/1/1/1",
+            "kind": "Lockjaw",
+            "position": [
+              -11.319531,
+              24.80664,
+              8.055176
+            ],
+            "Index": 0,
+            "Link0": 0,
+            "Link1": 0
+          },
+          {
+            "key": "1/1/3/1/1/2",
+            "kind": "Lockjaw",
+            "position": [
+              -9.719531,
+              24.80664,
+              8.055176
+            ],
+            "Index": 1,
+            "Link0": 1,
+            "Link1": 0
+          },
+          {
+            "key": "1/1/3/1/1/3",
+            "kind": "Lockjaw",
+            "position": [
+              -10.519531,
+              24.80664,
+              9.455175
+            ],
+            "Index": 2,
+            "Link0": 1,
+            "Link1": 2
+          }
+        ],
+        "cases": [
+          {
+            "name": "body-0",
+            "occluded": false,
+            "key": "1/1/0/1/1/1",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "fixtureDepth": 0.9875061,
+            "changedPixels": 6093,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-0-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-0-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "f5fd2ce7bb86b1fe0d6326bdf86f3614e46e74f4458075d3b73aca87b3c1c1d5",
+                "pngSha256": "488d7ab499deeb252f849cc0577d706656335e669957fd95e9447a1be4353f84"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-0-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "body-0",
+            "occluded": true,
+            "key": "1/1/0/1/1/1",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9955118,
+            "fixtureDepth": 0.9962822,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-0-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-0-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-0-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "body-1",
+            "occluded": false,
+            "key": "1/1/1/1/1/1",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "fixtureDepth": 0.9875061,
+            "changedPixels": 577,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-1-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-1-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "c228e12b806f9037827947acb4baf39e320a2150e3d6d367ead05c12af0fc4c1",
+                "pngSha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-1-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "body-1",
+            "occluded": true,
+            "key": "1/1/1/1/1/1",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9955118,
+            "fixtureDepth": 0.9962822,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-1-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-1-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-1-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "body-2",
+            "occluded": false,
+            "key": "1/1/3/1/1/1",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.998561,
+            "fixtureDepth": 0.9875061,
+            "changedPixels": 470,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-2-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-2-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "222572a872dbddd56c44f76cc71997f15412bb0f3068788902580af138ba032a",
+                "pngSha256": "e256d3013675fb40ac5522fc1ccee12120dec109c92d3348c955a89f0c9f25ae"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-2-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "body-2",
+            "occluded": true,
+            "key": "1/1/3/1/1/1",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.99500036,
+            "fixtureDepth": 0.9962822,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-2-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-2-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-2-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "body-3",
+            "occluded": false,
+            "key": "1/1/3/1/1/2",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9973698,
+            "fixtureDepth": 0.9875061,
+            "changedPixels": 474,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-3-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-3-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5d1b81cff4e36d094b1612833934ef41bd88c7a9b58d57be26968d0f3a043e5d",
+                "pngSha256": "fffa6b95e43d83f6b96064dbddb6a752090e22c4abd74f4e1d52b022a734f916"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-3-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "body-3",
+            "occluded": true,
+            "key": "1/1/3/1/1/2",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9959885,
+            "fixtureDepth": 0.9962822,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-3-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-3-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-3-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "body-4",
+            "occluded": false,
+            "key": "1/1/3/1/1/3",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "fixtureDepth": 0.982645,
+            "changedPixels": 943,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-4-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-4-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "3f7ab0e4c0ea9e0473fcf8f4b6c4de41b55e4fdd26c6f05cb29bb3a74ae5ae07",
+                "pngSha256": "b3bfa9fb688c18cef6551653d2a68e2ca4112418472bfe9701c20b6e330256f0"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-4-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "body-4",
+            "occluded": true,
+            "key": "1/1/3/1/1/3",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9955118,
+            "fixtureDepth": 0.99656904,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-4-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-4-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-4-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "edge-2-1",
+            "occluded": false,
+            "key": "1/1/3/1/1/2",
+            "targetKey": "1/1/3/1/1/1",
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "fixtureDepth": 0.9875061,
+            "changedPixels": 2559,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-2-1-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-2-1-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "2af903665c04ea6d2e57ebff7ecb3b2faeb7172573c94fffdc08db02d9bb99da",
+                "pngSha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-2-1-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "edge-2-1",
+            "occluded": true,
+            "key": "1/1/3/1/1/2",
+            "targetKey": "1/1/3/1/1/1",
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9955118,
+            "fixtureDepth": 0.9962822,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-2-1-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-2-1-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-2-1-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "edge-3-1",
+            "occluded": false,
+            "key": "1/1/3/1/1/3",
+            "targetKey": "1/1/3/1/1/1",
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9953901,
+            "fixtureDepth": 0.98547125,
+            "changedPixels": 2289,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-1-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-1-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "429f9c13e400e131ddbaf606033e5cf376df3f7b3631558ac2133b731cdff65c",
+                "pngSha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-1-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "edge-3-1",
+            "occluded": true,
+            "key": "1/1/3/1/1/3",
+            "targetKey": "1/1/3/1/1/1",
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9952683,
+            "fixtureDepth": 0.99643135,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-1-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-1-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-1-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "edge-3-2",
+            "occluded": false,
+            "key": "1/1/3/1/1/3",
+            "targetKey": "1/1/3/1/1/2",
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.997163,
+            "fixtureDepth": 0.98547125,
+            "changedPixels": 1729,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-2-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-2-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "07067ebe579528b81b40e8b35cd9839365a97e4194d03c356f7853c0c3ce4b74",
+                "pngSha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-2-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "edge-3-2",
+            "occluded": true,
+            "key": "1/1/3/1/1/3",
+            "targetKey": "1/1/3/1/1/2",
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9957797,
+            "fixtureDepth": 0.99643135,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-2-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-2-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-2-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          }
+        ],
+        "failures": []
+      },
+      "impactPresentation": null
+    },
+    {
+      "path": "artifacts/opengl-modernization/procedural-visual-bomb-optimized.json",
+      "sha256": "3fd8a35fb2419b3d588f64fd1d3e53be8301ded07879e8bd2ea062381924ffba",
+      "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+      "room": "MP9 CRYOCHASM",
+      "complete": true,
+      "cleanup": {
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 829920,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1952952,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 23,
+        "glyphBytesBefore": 5888,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "outlineOcclusion": null,
+      "bombVisibility": {
+        "schema": 1,
+        "scope": "local canonical replica GPU fixture; UDP sequencing audited separately",
+        "emitterInitialization": "production canonical replica initialization/Process and normal native effect draw pass; no fixture priming",
+        "status": "PASS",
+        "simulationFrame": 248,
+        "matchState": "InProgress",
+        "MenuPause": false,
+        "DialogPause": false,
+        "processFrame": true,
+        "effectFrame": 248,
+        "positiveCamera": [
+          -10.519531,
+          24.80664,
+          13.055176
+        ],
+        "negativeCamera": [
+          -10.519531,
+          24.80664,
+          -8.727817
+        ],
+        "wallIntersection": [
+          -10.519531,
+          24.80664,
+          -6.7278166
+        ],
+        "pixelThreshold": 2,
+        "effectSnapshot": [
+          {
+            "key": "1/1/0/1/1/1",
+            "effectId": 119,
+            "elements": [
+              {
+                "EffectName": "bombStartMP",
+                "ElementName": "sparkler",
+                "flags": "UseTransform, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 5.499997,
+                "Expired": false,
+                "particleCount": 1
+              },
+              {
+                "EffectName": "bombStartMP",
+                "ElementName": "ring",
+                "flags": "UseTransform, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 6.999997,
+                "Expired": false,
+                "particleCount": 1
+              }
+            ]
+          },
+          {
+            "key": "1/1/1/1/1/1",
+            "effectId": null,
+            "elements": null
+          },
+          {
+            "key": "1/1/3/1/1/1",
+            "effectId": 113,
+            "elements": [
+              {
+                "EffectName": "bombStartSylux",
+                "ElementName": "ring",
+                "flags": "UseTransform, ParticleExtension, DestroyOnDetach, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 4.299802,
+                "Expired": false,
+                "particleCount": 1
+              },
+              {
+                "EffectName": "bombStartSylux",
+                "ElementName": "glow",
+                "flags": "UseTransform, ParticleExtension, DestroyOnDetach, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 4.299802,
+                "Expired": false,
+                "particleCount": 1
+              }
+            ]
+          },
+          {
+            "key": "1/1/3/1/1/2",
+            "effectId": 113,
+            "elements": [
+              {
+                "EffectName": "bombStartSylux",
+                "ElementName": "ring",
+                "flags": "UseTransform, ParticleExtension, DestroyOnDetach, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 4.299802,
+                "Expired": false,
+                "particleCount": 1
+              },
+              {
+                "EffectName": "bombStartSylux",
+                "ElementName": "glow",
+                "flags": "UseTransform, ParticleExtension, DestroyOnDetach, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 4.299802,
+                "Expired": false,
+                "particleCount": 1
+              }
+            ]
+          },
+          {
+            "key": "1/1/3/1/1/3",
+            "effectId": 113,
+            "elements": [
+              {
+                "EffectName": "bombStartSylux",
+                "ElementName": "ring",
+                "flags": "UseTransform, ParticleExtension, DestroyOnDetach, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 4.299802,
+                "Expired": false,
+                "particleCount": 1
+              },
+              {
+                "EffectName": "bombStartSylux",
+                "ElementName": "glow",
+                "flags": "UseTransform, ParticleExtension, DestroyOnDetach, ElementExtension, DrawEnabled",
+                "CreationTime": 3.999997,
+                "ExpirationTime": 4.299802,
+                "Expired": false,
+                "particleCount": 1
+              }
+            ]
+          }
+        ],
+        "fixtures": [
+          {
+            "key": "1/1/0/1/1/1",
+            "kind": "MorphBall",
+            "position": [
+              -10.519531,
+              24.80664,
+              8.055176
+            ],
+            "Index": 0,
+            "Link0": 0,
+            "Link1": 0
+          },
+          {
+            "key": "1/1/1/1/1/1",
+            "kind": "Stinglarva",
+            "position": [
+              -10.519531,
+              24.80664,
+              8.055176
+            ],
+            "Index": 0,
+            "Link0": 0,
+            "Link1": 0
+          },
+          {
+            "key": "1/1/3/1/1/1",
+            "kind": "Lockjaw",
+            "position": [
+              -11.319531,
+              24.80664,
+              8.055176
+            ],
+            "Index": 0,
+            "Link0": 0,
+            "Link1": 0
+          },
+          {
+            "key": "1/1/3/1/1/2",
+            "kind": "Lockjaw",
+            "position": [
+              -9.719531,
+              24.80664,
+              8.055176
+            ],
+            "Index": 1,
+            "Link0": 1,
+            "Link1": 0
+          },
+          {
+            "key": "1/1/3/1/1/3",
+            "kind": "Lockjaw",
+            "position": [
+              -10.519531,
+              24.80664,
+              9.455175
+            ],
+            "Index": 2,
+            "Link0": 1,
+            "Link1": 2
+          }
+        ],
+        "cases": [
+          {
+            "name": "body-0",
+            "occluded": false,
+            "key": "1/1/0/1/1/1",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "fixtureDepth": 0.9875061,
+            "changedPixels": 6093,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-0-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-0-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "f5fd2ce7bb86b1fe0d6326bdf86f3614e46e74f4458075d3b73aca87b3c1c1d5",
+                "pngSha256": "488d7ab499deeb252f849cc0577d706656335e669957fd95e9447a1be4353f84"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-0-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "body-0",
+            "occluded": true,
+            "key": "1/1/0/1/1/1",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9955118,
+            "fixtureDepth": 0.9962822,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-0-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-0-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-0-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "body-1",
+            "occluded": false,
+            "key": "1/1/1/1/1/1",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "fixtureDepth": 0.9875061,
+            "changedPixels": 577,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-1-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-1-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "c228e12b806f9037827947acb4baf39e320a2150e3d6d367ead05c12af0fc4c1",
+                "pngSha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-1-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "body-1",
+            "occluded": true,
+            "key": "1/1/1/1/1/1",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9955118,
+            "fixtureDepth": 0.9962822,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-1-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-1-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-1-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "body-2",
+            "occluded": false,
+            "key": "1/1/3/1/1/1",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.998561,
+            "fixtureDepth": 0.9875061,
+            "changedPixels": 470,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-2-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-2-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "222572a872dbddd56c44f76cc71997f15412bb0f3068788902580af138ba032a",
+                "pngSha256": "e256d3013675fb40ac5522fc1ccee12120dec109c92d3348c955a89f0c9f25ae"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-2-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "body-2",
+            "occluded": true,
+            "key": "1/1/3/1/1/1",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.99500036,
+            "fixtureDepth": 0.9962822,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-2-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-2-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-2-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "body-3",
+            "occluded": false,
+            "key": "1/1/3/1/1/2",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9973698,
+            "fixtureDepth": 0.9875061,
+            "changedPixels": 474,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-3-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-3-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5d1b81cff4e36d094b1612833934ef41bd88c7a9b58d57be26968d0f3a043e5d",
+                "pngSha256": "fffa6b95e43d83f6b96064dbddb6a752090e22c4abd74f4e1d52b022a734f916"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-3-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "body-3",
+            "occluded": true,
+            "key": "1/1/3/1/1/2",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9959885,
+            "fixtureDepth": 0.9962822,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-3-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-3-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-3-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "body-4",
+            "occluded": false,
+            "key": "1/1/3/1/1/3",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "fixtureDepth": 0.982645,
+            "changedPixels": 943,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-4-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-4-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "3f7ab0e4c0ea9e0473fcf8f4b6c4de41b55e4fdd26c6f05cb29bb3a74ae5ae07",
+                "pngSha256": "b3bfa9fb688c18cef6551653d2a68e2ca4112418472bfe9701c20b6e330256f0"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-4-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "body-4",
+            "occluded": true,
+            "key": "1/1/3/1/1/3",
+            "targetKey": null,
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9955118,
+            "fixtureDepth": 0.99656904,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-4-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-4-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-4-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "edge-2-1",
+            "occluded": false,
+            "key": "1/1/3/1/1/2",
+            "targetKey": "1/1/3/1/1/1",
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "fixtureDepth": 0.9875061,
+            "changedPixels": 2559,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-2-1-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-2-1-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "2af903665c04ea6d2e57ebff7ecb3b2faeb7172573c94fffdc08db02d9bb99da",
+                "pngSha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-2-1-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "edge-2-1",
+            "occluded": true,
+            "key": "1/1/3/1/1/2",
+            "targetKey": "1/1/3/1/1/1",
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9955118,
+            "fixtureDepth": 0.9962822,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-2-1-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-2-1-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-2-1-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "edge-3-1",
+            "occluded": false,
+            "key": "1/1/3/1/1/3",
+            "targetKey": "1/1/3/1/1/1",
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9953901,
+            "fixtureDepth": 0.98547125,
+            "changedPixels": 2289,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-1-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-1-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "429f9c13e400e131ddbaf606033e5cf376df3f7b3631558ac2133b731cdff65c",
+                "pngSha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-1-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "edge-3-1",
+            "occluded": true,
+            "key": "1/1/3/1/1/3",
+            "targetKey": "1/1/3/1/1/1",
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9952683,
+            "fixtureDepth": 0.99643135,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-1-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-1-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-1-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          },
+          {
+            "name": "edge-3-2",
+            "occluded": false,
+            "key": "1/1/3/1/1/3",
+            "targetKey": "1/1/3/1/1/2",
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.997163,
+            "fixtureDepth": 0.98547125,
+            "changedPixels": 1729,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-2-visible-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-2-visible-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "07067ebe579528b81b40e8b35cd9839365a97e4194d03c356f7853c0c3ce4b74",
+                "pngSha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-2-visible-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "5200f097db884971159d9d377e3c247e41ef4ccfe2514848d745bf4e24c135fc",
+                "pngSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+              }
+            ]
+          },
+          {
+            "name": "edge-3-2",
+            "occluded": true,
+            "key": "1/1/3/1/1/3",
+            "targetKey": "1/1/3/1/1/2",
+            "status": "PASS",
+            "geometryVerified": true,
+            "worldDepth": 0.9957797,
+            "fixtureDepth": 0.99643135,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-2-wall-suppressed-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-2-wall-enabled.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-2-wall-suppressed-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "cefdb17f5647f459b818b2f3fdd894ac28a8d3a5872bc65f4e9e6c0c870d9da7",
+                "pngSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+              }
+            ]
+          }
+        ],
+        "failures": []
+      },
+      "impactPresentation": null
+    },
+    {
+      "path": "artifacts/opengl-modernization/procedural-visual-combat-baseline.json",
+      "sha256": "482549deb7beb70e0ef4d681e49205c94e6e26034866a06236552e39a6883e9d",
+      "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+      "room": "MP3 PROVING GROUND",
+      "complete": true,
+      "cleanup": {
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 732000,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1149816,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 103,
+        "glyphBytesBefore": 26368,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 34,
+        "spriteBytesBefore": 8704,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "outlineOcclusion": null,
+      "bombVisibility": null,
+      "impactPresentation": null
+    },
+    {
+      "path": "artifacts/opengl-modernization/procedural-visual-combat-optimized.json",
+      "sha256": "9839715ec9a4319f32fa86a31a1a02c8f4669275d26895365759ae68f6e04fb9",
+      "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+      "room": "MP3 PROVING GROUND",
+      "complete": true,
+      "cleanup": {
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 732000,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1149816,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 103,
+        "glyphBytesBefore": 26368,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 34,
+        "spriteBytesBefore": 8704,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "outlineOcclusion": null,
+      "bombVisibility": null,
+      "impactPresentation": null
+    },
+    {
+      "path": "artifacts/opengl-modernization/procedural-visual-impact-baseline.json",
+      "sha256": "b99e346a84d3688e255ce158be3a68874d907904586543872c895b77a7637e37",
+      "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+      "room": "MP9 CRYOCHASM",
+      "complete": true,
+      "cleanup": {
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 839040,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1962072,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 23,
+        "glyphBytesBefore": 5888,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "outlineOcclusion": null,
+      "bombVisibility": null,
+      "impactPresentation": {
+        "schema": 1,
+        "status": "PASS",
+        "scope": "isolated authority-backed native asset/framebuffer fixture; explicit fixture source identity; native TakePlayerDamageAt endpoint; no UDP delivery or physical collision replay claim",
+        "assemblySha256": "56b7de1721d56eeb4aa778f0e41d7174a571eaf4cdd7327ccb997c8dca0c3982",
+        "source": "unknown",
+        "authorityFrame": 400,
+        "receivingLocalFrame": 1400,
+        "authoritySnapshotFrame": 400,
+        "sourceIdentity": {
+          "AuthorityEpoch": 77,
+          "MatchId": 77,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 77001
+        },
+        "component": 1,
+        "healthBefore": 99,
+        "healthAfter": 98,
+        "publishedFact": {
+          "Key": {
+            "AuthorityEpoch": 77,
+            "MatchId": 77,
+            "ShooterSlot": 0,
+            "Generation": 1,
+            "LifeId": 1,
+            "ShotId": 77001
+          },
+          "Component": 1,
+          "Phase": 0,
+          "Victim": 1,
+          "VictimGeneration": 1,
+          "VictimLife": 1,
+          "DamageEvent": 1,
+          "Frame": 400,
+          "Weapon": 0,
+          "Flags": "Direct",
+          "Provenance": "NativePoint",
+          "Point": [
+            -10.519531,
+            24.80664,
+            8.055176
+          ]
+        },
+        "positiveCamera": [
+          -10.519531,
+          24.80664,
+          13.055176
+        ],
+        "negativeCamera": [
+          -10.519531,
+          24.80664,
+          -8.727817
+        ],
+        "wall": [
+          -10.519531,
+          24.80664,
+          -6.7278166
+        ],
+        "invariance": "frozen redraw at 60/120/144/240/360 Hz; scene/net frames, every entity pose, beam flight data, player HP and both RNG streams",
+        "cases": [
+          {
+            "name": "confirmed-cue-clear",
+            "arm": "cue-only",
+            "status": "PASS",
+            "occluded": false,
+            "changedPixels": 974,
+            "unstablePixels": 0,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/confirmed-cue-clear-off-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/confirmed-cue-clear-cue-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "4c7e60a9aca8635cbbe43deb179700ddd3f9c30cc7f17256323e17530673b3da",
+                "pngSha256": "7ce8afdebc2d5f8ff21316cab2dd4b3ad8ccee316428e2a2765da5d3f018befa"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/confirmed-cue-clear-off-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              }
+            ]
+          },
+          {
+            "name": "confirmed-cue-wall",
+            "arm": "cue-only",
+            "status": "PASS",
+            "occluded": true,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "geometryVerified": true,
+            "worldDepth": 0.9955118,
+            "endpointDepth": 0.9962822,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/confirmed-cue-wall-off-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "aca32eeea97fc68b872286032746e9c0a1bc3ac2c18810bc15714f12c0c680c2",
+                "pngSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/confirmed-cue-wall-cue-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "aca32eeea97fc68b872286032746e9c0a1bc3ac2c18810bc15714f12c0c680c2",
+                "pngSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/confirmed-cue-wall-off-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "aca32eeea97fc68b872286032746e9c0a1bc3ac2c18810bc15714f12c0c680c2",
+                "pngSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+              }
+            ]
+          },
+          {
+            "name": "exact-component-clear",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": true,
+            "anchored": true,
+            "status": "PASS",
+            "occluded": false,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 1,
+            "anchor": [
+              -10.519531,
+              24.80664,
+              8.055176
+            ],
+            "changedPixels": 2913,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/exact-component-clear-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/exact-component-clear-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "67a676934e29bd2ebce5bff9ea6d381a971cb3dfb25632f748f69fce339d3945",
+                "pngSha256": "97734e73829dc22db37986f17a3dc97d2d5f8dc53f175681a1acb05553f6acc1"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/exact-component-clear-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              }
+            ]
+          },
+          {
+            "name": "exact-component-wall",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": true,
+            "anchored": true,
+            "status": "PASS",
+            "occluded": true,
+            "geometryVerified": true,
+            "worldDepth": 0.9955118,
+            "endpointDepth": 0.9962822,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 1,
+            "anchor": [
+              -10.519531,
+              24.80664,
+              8.055176
+            ],
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/exact-component-wall-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "aca32eeea97fc68b872286032746e9c0a1bc3ac2c18810bc15714f12c0c680c2",
+                "pngSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/exact-component-wall-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "aca32eeea97fc68b872286032746e9c0a1bc3ac2c18810bc15714f12c0c680c2",
+                "pngSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/exact-component-wall-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "aca32eeea97fc68b872286032746e9c0a1bc3ac2c18810bc15714f12c0c680c2",
+                "pngSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+              }
+            ]
+          },
+          {
+            "name": "wrong-component",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": false,
+            "anchored": false,
+            "status": "PASS",
+            "occluded": false,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 2,
+            "anchor": null,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-component-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-component-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-component-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              }
+            ]
+          },
+          {
+            "name": "wrong-component-cue-fallback",
+            "arm": "cue-only",
+            "status": "PASS",
+            "occluded": false,
+            "changedPixels": 974,
+            "unstablePixels": 0,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-component-cue-fallback-off-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-component-cue-fallback-cue-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "645099b6ea8c4712bc7c0c708995d56700c2a5552dabd999a1c79c401e0b0f97",
+                "pngSha256": "46c194d61f054ff98e1fe3eb6664ab3d3b5d12ddeb2f96154bd9139c8a00f5aa"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-component-cue-fallback-off-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              }
+            ]
+          },
+          {
+            "name": "wrong-weapon",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": false,
+            "anchored": false,
+            "status": "PASS",
+            "occluded": false,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 1,
+            "anchor": null,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-weapon-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-weapon-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-weapon-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              }
+            ]
+          },
+          {
+            "name": "ray-direction-outside-sixty-degree-cone",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": false,
+            "anchored": false,
+            "status": "PASS",
+            "occluded": false,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 1,
+            "anchor": null,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "9192136e5543c5ab2849fa362e8e4c8a9b6b1b58e9c862b684e4540c50d9654a",
+                "pngSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ray-direction-outside-sixty-degree-cone-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "9192136e5543c5ab2849fa362e8e4c8a9b6b1b58e9c862b684e4540c50d9654a",
+                "pngSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "9192136e5543c5ab2849fa362e8e4c8a9b6b1b58e9c862b684e4540c50d9654a",
+                "pngSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+              }
+            ]
+          },
+          {
+            "name": "wrong-ray-direction-cue-fallback",
+            "arm": "cue-only",
+            "status": "PASS",
+            "occluded": false,
+            "changedPixels": 974,
+            "unstablePixels": 0,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-ray-direction-cue-fallback-off-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "9192136e5543c5ab2849fa362e8e4c8a9b6b1b58e9c862b684e4540c50d9654a",
+                "pngSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-ray-direction-cue-fallback-cue-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "373d180626d3d67a91f7ea03c1c03c2daa4b34643fef35f10cd7b395e0f3cb2f",
+                "pngSha256": "0cae18062dbe306f632e387bde42660bd370f1c9c4ed61832b3c2f0b7dc5cfe4"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-ray-direction-cue-fallback-off-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "9192136e5543c5ab2849fa362e8e4c8a9b6b1b58e9c862b684e4540c50d9654a",
+                "pngSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+              }
+            ]
+          },
+          {
+            "name": "ambiguous-two-exact-components",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": false,
+            "anchored": false,
+            "status": "PASS",
+            "occluded": false,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 1,
+            "anchor": null,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ambiguous-two-exact-components-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "578c59906fd9806a7683517a1cc8b79d244cc967e5cfe6b27270645dff82df9e",
+                "pngSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ambiguous-two-exact-components-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "578c59906fd9806a7683517a1cc8b79d244cc967e5cfe6b27270645dff82df9e",
+                "pngSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ambiguous-two-exact-components-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "578c59906fd9806a7683517a1cc8b79d244cc967e5cfe6b27270645dff82df9e",
+                "pngSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+              }
+            ]
+          },
+          {
+            "name": "ambiguous-cue-fallback",
+            "arm": "cue-only",
+            "status": "PASS",
+            "occluded": false,
+            "changedPixels": 974,
+            "unstablePixels": 0,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ambiguous-cue-fallback-off-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "578c59906fd9806a7683517a1cc8b79d244cc967e5cfe6b27270645dff82df9e",
+                "pngSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ambiguous-cue-fallback-cue-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "ce120bce1dfcc3747291d683a50f559610e38fb8aa5fbdc6fd85378aee2edaef",
+                "pngSha256": "df8d65a845595eb1666b34ba47fde9a15bd2f576b27a8a0f9b151c823ec92259"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ambiguous-cue-fallback-off-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "578c59906fd9806a7683517a1cc8b79d244cc967e5cfe6b27270645dff82df9e",
+                "pngSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+              }
+            ]
+          },
+          {
+            "name": "blocked-flight-ray",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": false,
+            "anchored": false,
+            "status": "PASS",
+            "occluded": false,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 1,
+            "anchor": null,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/blocked-flight-ray-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/blocked-flight-ray-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/blocked-flight-ray-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              }
+            ]
+          },
+          {
+            "name": "blocked-flight-cue-fallback",
+            "arm": "cue-only",
+            "status": "PASS",
+            "occluded": false,
+            "changedPixels": 974,
+            "unstablePixels": 0,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/blocked-flight-cue-fallback-off-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/blocked-flight-cue-fallback-cue-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "4c7e60a9aca8635cbbe43deb179700ddd3f9c30cc7f17256323e17530673b3da",
+                "pngSha256": "7ce8afdebc2d5f8ff21316cab2dd4b3ad8ccee316428e2a2765da5d3f018befa"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/blocked-flight-cue-fallback-off-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              }
+            ]
+          }
+        ],
+        "failures": []
+      }
+    },
+    {
+      "path": "artifacts/opengl-modernization/procedural-visual-impact-optimized.json",
+      "sha256": "c147ed7ff516c8f79cfa532c3be3e2f207182b91e8b7a5f1f41a955f9694560e",
+      "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+      "room": "MP9 CRYOCHASM",
+      "complete": true,
+      "cleanup": {
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 839040,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1962072,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 23,
+        "glyphBytesBefore": 5888,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "outlineOcclusion": null,
+      "bombVisibility": null,
+      "impactPresentation": {
+        "schema": 1,
+        "status": "PASS",
+        "scope": "isolated authority-backed native asset/framebuffer fixture; explicit fixture source identity; native TakePlayerDamageAt endpoint; no UDP delivery or physical collision replay claim",
+        "assemblySha256": "56b7de1721d56eeb4aa778f0e41d7174a571eaf4cdd7327ccb997c8dca0c3982",
+        "source": "unknown",
+        "authorityFrame": 400,
+        "receivingLocalFrame": 1400,
+        "authoritySnapshotFrame": 400,
+        "sourceIdentity": {
+          "AuthorityEpoch": 77,
+          "MatchId": 77,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 77001
+        },
+        "component": 1,
+        "healthBefore": 99,
+        "healthAfter": 98,
+        "publishedFact": {
+          "Key": {
+            "AuthorityEpoch": 77,
+            "MatchId": 77,
+            "ShooterSlot": 0,
+            "Generation": 1,
+            "LifeId": 1,
+            "ShotId": 77001
+          },
+          "Component": 1,
+          "Phase": 0,
+          "Victim": 1,
+          "VictimGeneration": 1,
+          "VictimLife": 1,
+          "DamageEvent": 1,
+          "Frame": 400,
+          "Weapon": 0,
+          "Flags": "Direct",
+          "Provenance": "NativePoint",
+          "Point": [
+            -10.519531,
+            24.80664,
+            8.055176
+          ]
+        },
+        "positiveCamera": [
+          -10.519531,
+          24.80664,
+          13.055176
+        ],
+        "negativeCamera": [
+          -10.519531,
+          24.80664,
+          -8.727817
+        ],
+        "wall": [
+          -10.519531,
+          24.80664,
+          -6.7278166
+        ],
+        "invariance": "frozen redraw at 60/120/144/240/360 Hz; scene/net frames, every entity pose, beam flight data, player HP and both RNG streams",
+        "cases": [
+          {
+            "name": "confirmed-cue-clear",
+            "arm": "cue-only",
+            "status": "PASS",
+            "occluded": false,
+            "changedPixels": 974,
+            "unstablePixels": 0,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/confirmed-cue-clear-off-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/confirmed-cue-clear-cue-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "4c7e60a9aca8635cbbe43deb179700ddd3f9c30cc7f17256323e17530673b3da",
+                "pngSha256": "7ce8afdebc2d5f8ff21316cab2dd4b3ad8ccee316428e2a2765da5d3f018befa"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/confirmed-cue-clear-off-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              }
+            ]
+          },
+          {
+            "name": "confirmed-cue-wall",
+            "arm": "cue-only",
+            "status": "PASS",
+            "occluded": true,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "geometryVerified": true,
+            "worldDepth": 0.9955118,
+            "endpointDepth": 0.9962822,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/confirmed-cue-wall-off-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "aca32eeea97fc68b872286032746e9c0a1bc3ac2c18810bc15714f12c0c680c2",
+                "pngSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/confirmed-cue-wall-cue-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "aca32eeea97fc68b872286032746e9c0a1bc3ac2c18810bc15714f12c0c680c2",
+                "pngSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/confirmed-cue-wall-off-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "aca32eeea97fc68b872286032746e9c0a1bc3ac2c18810bc15714f12c0c680c2",
+                "pngSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+              }
+            ]
+          },
+          {
+            "name": "exact-component-clear",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": true,
+            "anchored": true,
+            "status": "PASS",
+            "occluded": false,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 1,
+            "anchor": [
+              -10.519531,
+              24.80664,
+              8.055176
+            ],
+            "changedPixels": 2913,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/exact-component-clear-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/exact-component-clear-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "67a676934e29bd2ebce5bff9ea6d381a971cb3dfb25632f748f69fce339d3945",
+                "pngSha256": "97734e73829dc22db37986f17a3dc97d2d5f8dc53f175681a1acb05553f6acc1"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/exact-component-clear-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              }
+            ]
+          },
+          {
+            "name": "exact-component-wall",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": true,
+            "anchored": true,
+            "status": "PASS",
+            "occluded": true,
+            "geometryVerified": true,
+            "worldDepth": 0.9955118,
+            "endpointDepth": 0.9962822,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 1,
+            "anchor": [
+              -10.519531,
+              24.80664,
+              8.055176
+            ],
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/exact-component-wall-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "aca32eeea97fc68b872286032746e9c0a1bc3ac2c18810bc15714f12c0c680c2",
+                "pngSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/exact-component-wall-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "aca32eeea97fc68b872286032746e9c0a1bc3ac2c18810bc15714f12c0c680c2",
+                "pngSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/exact-component-wall-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "aca32eeea97fc68b872286032746e9c0a1bc3ac2c18810bc15714f12c0c680c2",
+                "pngSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+              }
+            ]
+          },
+          {
+            "name": "wrong-component",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": false,
+            "anchored": false,
+            "status": "PASS",
+            "occluded": false,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 2,
+            "anchor": null,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-component-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-component-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-component-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              }
+            ]
+          },
+          {
+            "name": "wrong-component-cue-fallback",
+            "arm": "cue-only",
+            "status": "PASS",
+            "occluded": false,
+            "changedPixels": 974,
+            "unstablePixels": 0,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-component-cue-fallback-off-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-component-cue-fallback-cue-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "645099b6ea8c4712bc7c0c708995d56700c2a5552dabd999a1c79c401e0b0f97",
+                "pngSha256": "46c194d61f054ff98e1fe3eb6664ab3d3b5d12ddeb2f96154bd9139c8a00f5aa"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-component-cue-fallback-off-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              }
+            ]
+          },
+          {
+            "name": "wrong-weapon",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": false,
+            "anchored": false,
+            "status": "PASS",
+            "occluded": false,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 1,
+            "anchor": null,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-weapon-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-weapon-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-weapon-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7581cb593acb57855d30fab3601b950d44011c9d1e1d1c3feb0b27862d12f039",
+                "pngSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+              }
+            ]
+          },
+          {
+            "name": "ray-direction-outside-sixty-degree-cone",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": false,
+            "anchored": false,
+            "status": "PASS",
+            "occluded": false,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 1,
+            "anchor": null,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "9192136e5543c5ab2849fa362e8e4c8a9b6b1b58e9c862b684e4540c50d9654a",
+                "pngSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ray-direction-outside-sixty-degree-cone-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "9192136e5543c5ab2849fa362e8e4c8a9b6b1b58e9c862b684e4540c50d9654a",
+                "pngSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "9192136e5543c5ab2849fa362e8e4c8a9b6b1b58e9c862b684e4540c50d9654a",
+                "pngSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+              }
+            ]
+          },
+          {
+            "name": "wrong-ray-direction-cue-fallback",
+            "arm": "cue-only",
+            "status": "PASS",
+            "occluded": false,
+            "changedPixels": 974,
+            "unstablePixels": 0,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-ray-direction-cue-fallback-off-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "9192136e5543c5ab2849fa362e8e4c8a9b6b1b58e9c862b684e4540c50d9654a",
+                "pngSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-ray-direction-cue-fallback-cue-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "373d180626d3d67a91f7ea03c1c03c2daa4b34643fef35f10cd7b395e0f3cb2f",
+                "pngSha256": "0cae18062dbe306f632e387bde42660bd370f1c9c4ed61832b3c2f0b7dc5cfe4"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-ray-direction-cue-fallback-off-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "9192136e5543c5ab2849fa362e8e4c8a9b6b1b58e9c862b684e4540c50d9654a",
+                "pngSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+              }
+            ]
+          },
+          {
+            "name": "ambiguous-two-exact-components",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": false,
+            "anchored": false,
+            "status": "PASS",
+            "occluded": false,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 1,
+            "anchor": null,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ambiguous-two-exact-components-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "578c59906fd9806a7683517a1cc8b79d244cc967e5cfe6b27270645dff82df9e",
+                "pngSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ambiguous-two-exact-components-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "578c59906fd9806a7683517a1cc8b79d244cc967e5cfe6b27270645dff82df9e",
+                "pngSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ambiguous-two-exact-components-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "578c59906fd9806a7683517a1cc8b79d244cc967e5cfe6b27270645dff82df9e",
+                "pngSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+              }
+            ]
+          },
+          {
+            "name": "ambiguous-cue-fallback",
+            "arm": "cue-only",
+            "status": "PASS",
+            "occluded": false,
+            "changedPixels": 974,
+            "unstablePixels": 0,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ambiguous-cue-fallback-off-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "578c59906fd9806a7683517a1cc8b79d244cc967e5cfe6b27270645dff82df9e",
+                "pngSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ambiguous-cue-fallback-cue-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "ce120bce1dfcc3747291d683a50f559610e38fb8aa5fbdc6fd85378aee2edaef",
+                "pngSha256": "df8d65a845595eb1666b34ba47fde9a15bd2f576b27a8a0f9b151c823ec92259"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ambiguous-cue-fallback-off-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "578c59906fd9806a7683517a1cc8b79d244cc967e5cfe6b27270645dff82df9e",
+                "pngSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+              }
+            ]
+          },
+          {
+            "name": "blocked-flight-ray",
+            "arm": "exact-projectile-only; fallback cues disabled",
+            "expectedAnchor": false,
+            "anchored": false,
+            "status": "PASS",
+            "occluded": false,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "sourceKey": {
+              "AuthorityEpoch": 77,
+              "MatchId": 77,
+              "ShooterSlot": 0,
+              "Generation": 1,
+              "LifeId": 1,
+              "ShotId": 77001
+            },
+            "ModComponentId": 1,
+            "anchor": null,
+            "changedPixels": 0,
+            "unstablePixels": 0,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/blocked-flight-ray-unanchored-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/blocked-flight-ray-projectile-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/blocked-flight-ray-unanchored-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              }
+            ]
+          },
+          {
+            "name": "blocked-flight-cue-fallback",
+            "arm": "cue-only",
+            "status": "PASS",
+            "occluded": false,
+            "changedPixels": 974,
+            "unstablePixels": 0,
+            "geometryVerified": true,
+            "worldDepth": 0.9968523,
+            "endpointDepth": 0.9875061,
+            "captures": [
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/blocked-flight-cue-fallback-off-before.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/blocked-flight-cue-fallback-cue-only.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "4c7e60a9aca8635cbbe43deb179700ddd3f9c30cc7f17256323e17530673b3da",
+                "pngSha256": "7ce8afdebc2d5f8ff21316cab2dd4b3ad8ccee316428e2a2765da5d3f018befa"
+              },
+              {
+                "path": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/blocked-flight-cue-fallback-off-after.png",
+                "width": 1280,
+                "height": 720,
+                "rgbSha256": "7e83fb03bab528b8b44bb07d75b42d1bf58e4000eaf0c7fdcb1b9536d7aa96ca",
+                "pngSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+              }
+            ]
+          }
+        ],
+        "failures": []
+      }
+    },
+    {
+      "path": "artifacts/opengl-modernization/procedural-visual-shadow-baseline.json",
+      "sha256": "94a02e28cab3fc5b045764dcf989c80153fc5a7c4e7649baedbbeae8019b060a",
+      "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+      "room": "MP9 CRYOCHASM",
+      "complete": true,
+      "cleanup": {
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 185064,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1308096,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 28,
+        "glyphBytesBefore": 7168,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "outlineOcclusion": null,
+      "bombVisibility": null,
+      "impactPresentation": null
+    },
+    {
+      "path": "artifacts/opengl-modernization/procedural-visual-shadow-optimized.json",
+      "sha256": "e22a0dc63b7704e2c465a7ff8d85915f8695deb08bc7b858f1d506e2e27d0e4d",
+      "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+      "room": "MP9 CRYOCHASM",
+      "complete": true,
+      "cleanup": {
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 185064,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1308096,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 28,
+        "glyphBytesBefore": 7168,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "outlineOcclusion": null,
+      "bombVisibility": null,
+      "impactPresentation": null
+    },
+    {
+      "path": "artifacts/opengl-modernization/procedural-visual-solo-baseline.json",
+      "sha256": "6c89317a4673ddf9c89d25ca75fb37dfb6f9685d3bb1bf9cce40b39e8cd312ac",
+      "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+      "room": "MP9 CRYOCHASM",
+      "complete": true,
+      "cleanup": {
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 185064,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1308096,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 28,
+        "glyphBytesBefore": 7168,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "outlineOcclusion": null,
+      "bombVisibility": null,
+      "impactPresentation": null
+    },
+    {
+      "path": "artifacts/opengl-modernization/procedural-visual-solo-optimized.json",
+      "sha256": "9008c4fa23838329fb5df42bb69f1ba97128f934c4460cfc611dfc4ec6b24d49",
+      "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+      "room": "MP9 CRYOCHASM",
+      "complete": true,
+      "cleanup": {
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 185064,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1308096,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 28,
+        "glyphBytesBefore": 7168,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "outlineOcclusion": null,
+      "bombVisibility": null,
+      "impactPresentation": null
+    },
+    {
+      "path": "artifacts/opengl-modernization/procedural-visual-two-baseline.json",
+      "sha256": "2e2bc596e1c8c328a6f8c90ae94c0460bbbcbee7ffa9c0db41f1f4c5ef7e57d0",
+      "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+      "room": "MP9 CRYOCHASM",
+      "complete": true,
+      "cleanup": {
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 839040,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1962072,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 27,
+        "glyphBytesBefore": 6912,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 10,
+        "spriteBytesBefore": 2560,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "outlineOcclusion": {
+        "occludedPixels": 0,
+        "visiblePixels": 2619
+      },
+      "bombVisibility": null,
+      "impactPresentation": null
+    },
+    {
+      "path": "artifacts/opengl-modernization/procedural-visual-two-optimized.json",
+      "sha256": "f8f3a44672ad90a42d228afb38c560fd704a90af9be1fde35ae93043ca65ce22",
+      "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+      "room": "MP9 CRYOCHASM",
+      "complete": true,
+      "cleanup": {
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 839040,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1962072,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 27,
+        "glyphBytesBefore": 6912,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 10,
+        "spriteBytesBefore": 2560,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "outlineOcclusion": {
+        "occludedPixels": 0,
+        "visiblePixels": 2619
+      },
+      "bombVisibility": null,
+      "impactPresentation": null
+    }
+  ],
+  "evidence": {
+    "visual": {
+      "path": "docs/performance/opengl-procedural-visual.json",
+      "sha256": "cac387faaf7b43df3c5d8c18b4ca30298cc37c048d3cdd9db08da1d3ec0323f1"
+    },
+    "upgrade-visual": {
+      "path": "docs/performance/opengl-procedural-upgrade-visual.json",
+      "sha256": "fdffaedfece8b4b8a7b6abd202907afc8a5bf89b7e1c6c8568def40421ebd505"
+    },
+    "same-results": {
+      "path": "docs/performance/opengl-procedural-same-results.json",
+      "sha256": "217e33b73777a826d2d2cab049040ae2cf78994407eca58f2b9bf3856e3a06cc"
+    },
+    "profile-results": {
+      "path": "docs/performance/opengl-procedural-profile-results.json",
+      "sha256": "fb3199a989df1b3d4a8db44cea31c42c4e940af016390116f351d5a137d61c83"
+    },
+    "cross-results": {
+      "path": "docs/performance/opengl-procedural-cross-results.json",
+      "sha256": "a9818e2e4e4c8a2c82d7289c38d1c740f94a341f7bf8f73a265ad8b5a6016808"
+    }
+  },
+  "originalPlanComplete": false
+}

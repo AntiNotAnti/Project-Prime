@@ -331,7 +331,6 @@ namespace MphRead.Mods.Network
         /// row of the damage table. <c>-affinityweapons</c>.
         /// </summary>
         public bool AffinityWeapons { get; set; }
-        public bool EnhancedHunters { get; set; }
         /// <summary>Enable native power-up pickups for server rotation defaults. Off unless -powerups is supplied.</summary>
         public bool EnablePowerups { get; init; } = false;
 

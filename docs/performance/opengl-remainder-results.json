@@ -1,0 +1,1732 @@
+{
+  "schema": 1,
+  "assemblyMvids": [
+    "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+    "94b6074e-d0cb-457b-94af-0d14545b45b3"
+  ],
+  "groups": {
+    "same": {
+      "complete": true,
+      "runs": [
+        "remainder-same-baseline-a",
+        "remainder-same-candidate-a",
+        "remainder-same-candidate-b",
+        "remainder-same-baseline-b"
+      ]
+    },
+    "profile": {
+      "complete": true,
+      "runs": [
+        "remainder-profile-baseline-a",
+        "remainder-profile-candidate-a"
+      ]
+    },
+    "cross": {
+      "complete": true,
+      "runs": [
+        "remainder-cross-baseline-a",
+        "remainder-cross-candidate-a"
+      ]
+    }
+  },
+  "method": "Short 12-simulated-second workloads (240 warm-up steps, approximately eight measured seconds), same-build ABBA aggregates; profile AB uses records after harness measurement marker with two completed windows discarded and CPU IDs aligned. Baseline disables ROOM_CACHE/DEPTH_KEEP/SHADER_VARIANTS; candidate enables them. Uniform cache changes are unconditional in both current arms. Cross group intentionally mixes previous/current builds.",
+  "gpuStatus": "UNVERIFIED",
+  "runs": [
+    {
+      "name": "remainder-same-baseline-a",
+      "group": "same",
+      "case": "combat",
+      "arm": "baseline",
+      "build": "current",
+      "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "effectiveCap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "softwareFrequency": 0,
+        "vsync": "Off",
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "renderSize": [
+          1920,
+          1080
+        ]
+      },
+      "harness": {
+        "meanCompletedFrameFps": 425.2959266438787,
+        "frameIntervalP50Ms": 1.9134,
+        "frameIntervalP95Ms": 4.7357,
+        "frameIntervalP99Ms": 7.6891,
+        "onePercentLowEstimateFps": 130.05423261500044,
+        "samples": 3402,
+        "simulationHz": 59.91903739666962,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 8.0317546
+      },
+      "cleanup": {
+        "depthSnapshotBytesBefore": 0,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 730848,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1148664,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 91,
+        "glyphBytesBefore": 23296,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 32,
+        "spriteBytesBefore": 8192,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "invocation": {
+        "schema": 1,
+        "group": "same",
+        "build": "current",
+        "profiled": false,
+        "separateCapture": false,
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP3 PROVING GROUND",
+          "-seconds",
+          "12",
+          "-hz",
+          "-1",
+          "-size",
+          "1920x1080",
+          "-output",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/remainder-same-baseline-a.json",
+          "-players",
+          "8"
+        ],
+        "requestedFlags": {
+          "VAO": 1,
+          "DYNAMIC_STREAM": 1,
+          "UNIFORM_REVISIONS": 1,
+          "STATIC_CACHE": 1,
+          "SHADOW_FAST": 1,
+          "HUD_SAMPLERS": 1,
+          "DEPTH_BATCH": 1,
+          "ATLAS_EVICTION": 1,
+          "HUD_DISCARD": 1,
+          "DEPTH_SHADER": 1,
+          "GLES_UNIFORMS": 1,
+          "HUD_GLYPHS": 1,
+          "HUD_SPRITES": 1,
+          "DEPTH_PREP": 1,
+          "PROCEDURAL_BATCH": 1,
+          "ROOM_CACHE": 0,
+          "DEPTH_VERTEX": 0,
+          "PROCEDURAL_STREAM": 0,
+          "DEPTH_KEEP": 0,
+          "SHADER_VARIANTS": 0
+        },
+        "forceLegacy": 0,
+        "binarySha256": {
+          "harness": "cde764c51e04ddd8e6b2ed73706f6641947fac389ec324f6a76ddc01e7bacb4f",
+          "client": "67f15fb6bad6b68566aaee601b64861511f03fd30ce0e71cb20a77c4310b19b0"
+        },
+        "expectedAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "executable": "tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "client": "tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll",
+        "unconditionalUniformCacheChanges": "Present in current build in both same-build arms; cross build controls are intentionally mixed-MVID.",
+        "actualAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "rawResultSha256": "4113bcef71004266cbb59221c8c209a46ef41f3999c8822f38136c0165236b71",
+        "rawLogSha256": "3e0b594ccf6db519a331584e417b65a5ad4bc21571986e31e4a3c03b8e245011"
+      },
+      "rawResult": "artifacts/opengl-modernization/remainder-same-baseline-a.json",
+      "rawResultSha256": "4113bcef71004266cbb59221c8c209a46ef41f3999c8822f38136c0165236b71",
+      "rawLog": "artifacts/opengl-modernization/remainder-same-baseline-a.log",
+      "rawLogSha256": "3e0b594ccf6db519a331584e417b65a5ad4bc21571986e31e4a3c03b8e245011",
+      "rawInvocation": "artifacts/opengl-modernization/remainder-same-baseline-a.invocation.json",
+      "rawInvocationSha256": "e81a79956fc72c37ae50e907b190b5e1d4e99a5e7406a323464506f01b9d5936",
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "windowEvents": [
+          {
+            "wallSeconds": 0.136219,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1451928,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "captureKillFeedLifetimeStabilized": false,
+      "snapshotCount": 0,
+      "profiled": false
+    },
+    {
+      "name": "remainder-same-candidate-a",
+      "group": "same",
+      "case": "combat",
+      "arm": "candidate",
+      "build": "current",
+      "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "effectiveCap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "softwareFrequency": 0,
+        "vsync": "Off",
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "renderSize": [
+          1920,
+          1080
+        ]
+      },
+      "harness": {
+        "meanCompletedFrameFps": 544.3904742992319,
+        "frameIntervalP50Ms": 1.5819,
+        "frameIntervalP95Ms": 3.6715,
+        "frameIntervalP99Ms": 4.6283,
+        "onePercentLowEstimateFps": 216.0620530216278,
+        "samples": 4355,
+        "simulationHz": 59.94322178032969,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 8.0340637
+      },
+      "cleanup": {
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 730848,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1148664,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 91,
+        "glyphBytesBefore": 23296,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 32,
+        "spriteBytesBefore": 8192,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "invocation": {
+        "schema": 1,
+        "group": "same",
+        "build": "current",
+        "profiled": false,
+        "separateCapture": false,
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP3 PROVING GROUND",
+          "-seconds",
+          "12",
+          "-hz",
+          "-1",
+          "-size",
+          "1920x1080",
+          "-output",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/remainder-same-candidate-a.json",
+          "-players",
+          "8"
+        ],
+        "requestedFlags": {
+          "VAO": 1,
+          "DYNAMIC_STREAM": 1,
+          "UNIFORM_REVISIONS": 1,
+          "STATIC_CACHE": 1,
+          "SHADOW_FAST": 1,
+          "HUD_SAMPLERS": 1,
+          "DEPTH_BATCH": 1,
+          "ATLAS_EVICTION": 1,
+          "HUD_DISCARD": 1,
+          "DEPTH_SHADER": 1,
+          "GLES_UNIFORMS": 1,
+          "HUD_GLYPHS": 1,
+          "HUD_SPRITES": 1,
+          "DEPTH_PREP": 1,
+          "PROCEDURAL_BATCH": 1,
+          "ROOM_CACHE": 1,
+          "DEPTH_VERTEX": 0,
+          "PROCEDURAL_STREAM": 0,
+          "DEPTH_KEEP": 1,
+          "SHADER_VARIANTS": 1
+        },
+        "forceLegacy": 0,
+        "binarySha256": {
+          "harness": "cde764c51e04ddd8e6b2ed73706f6641947fac389ec324f6a76ddc01e7bacb4f",
+          "client": "67f15fb6bad6b68566aaee601b64861511f03fd30ce0e71cb20a77c4310b19b0"
+        },
+        "expectedAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "executable": "tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "client": "tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll",
+        "unconditionalUniformCacheChanges": "Present in current build in both same-build arms; cross build controls are intentionally mixed-MVID.",
+        "actualAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "rawResultSha256": "d75545bb3fab4ad9d68f7325b7442c4d245f59e12970ea9f14ce6ed4c597ee19",
+        "rawLogSha256": "9c432eac38bd4ff05f590fd7674a8a6dd7dfea6c56e82e2f77dddaa847007e74"
+      },
+      "rawResult": "artifacts/opengl-modernization/remainder-same-candidate-a.json",
+      "rawResultSha256": "d75545bb3fab4ad9d68f7325b7442c4d245f59e12970ea9f14ce6ed4c597ee19",
+      "rawLog": "artifacts/opengl-modernization/remainder-same-candidate-a.log",
+      "rawLogSha256": "9c432eac38bd4ff05f590fd7674a8a6dd7dfea6c56e82e2f77dddaa847007e74",
+      "rawInvocation": "artifacts/opengl-modernization/remainder-same-candidate-a.invocation.json",
+      "rawInvocationSha256": "44ff43ef7a76e08476f15536160de074a395ac6daab8fbb7049575e44fb3d4c2",
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1410869,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1525718,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "captureKillFeedLifetimeStabilized": false,
+      "snapshotCount": 0,
+      "profiled": false
+    },
+    {
+      "name": "remainder-same-candidate-b",
+      "group": "same",
+      "case": "combat",
+      "arm": "candidate",
+      "build": "current",
+      "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "effectiveCap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "softwareFrequency": 0,
+        "vsync": "Off",
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "renderSize": [
+          1920,
+          1080
+        ]
+      },
+      "harness": {
+        "meanCompletedFrameFps": 534.8819601515066,
+        "frameIntervalP50Ms": 1.6285,
+        "frameIntervalP95Ms": 3.5635,
+        "frameIntervalP99Ms": 4.4354,
+        "onePercentLowEstimateFps": 225.45880867565498,
+        "samples": 4279,
+        "simulationHz": 59.97611751000754,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 8.0297745
+      },
+      "cleanup": {
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 730848,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1148664,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 91,
+        "glyphBytesBefore": 23296,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 32,
+        "spriteBytesBefore": 8192,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "invocation": {
+        "schema": 1,
+        "group": "same",
+        "build": "current",
+        "profiled": false,
+        "separateCapture": false,
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP3 PROVING GROUND",
+          "-seconds",
+          "12",
+          "-hz",
+          "-1",
+          "-size",
+          "1920x1080",
+          "-output",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/remainder-same-candidate-b.json",
+          "-players",
+          "8"
+        ],
+        "requestedFlags": {
+          "VAO": 1,
+          "DYNAMIC_STREAM": 1,
+          "UNIFORM_REVISIONS": 1,
+          "STATIC_CACHE": 1,
+          "SHADOW_FAST": 1,
+          "HUD_SAMPLERS": 1,
+          "DEPTH_BATCH": 1,
+          "ATLAS_EVICTION": 1,
+          "HUD_DISCARD": 1,
+          "DEPTH_SHADER": 1,
+          "GLES_UNIFORMS": 1,
+          "HUD_GLYPHS": 1,
+          "HUD_SPRITES": 1,
+          "DEPTH_PREP": 1,
+          "PROCEDURAL_BATCH": 1,
+          "ROOM_CACHE": 1,
+          "DEPTH_VERTEX": 0,
+          "PROCEDURAL_STREAM": 0,
+          "DEPTH_KEEP": 1,
+          "SHADER_VARIANTS": 1
+        },
+        "forceLegacy": 0,
+        "binarySha256": {
+          "harness": "cde764c51e04ddd8e6b2ed73706f6641947fac389ec324f6a76ddc01e7bacb4f",
+          "client": "67f15fb6bad6b68566aaee601b64861511f03fd30ce0e71cb20a77c4310b19b0"
+        },
+        "expectedAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "executable": "tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "client": "tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll",
+        "unconditionalUniformCacheChanges": "Present in current build in both same-build arms; cross build controls are intentionally mixed-MVID.",
+        "actualAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "rawResultSha256": "d735dd55fe88a90e599735f7c5495f52541967da5b93b9e397a34e6d278db187",
+        "rawLogSha256": "9e0808f1139af874270e121148a81110913a495cd41d40c2faa2448550857a33"
+      },
+      "rawResult": "artifacts/opengl-modernization/remainder-same-candidate-b.json",
+      "rawResultSha256": "d735dd55fe88a90e599735f7c5495f52541967da5b93b9e397a34e6d278db187",
+      "rawLog": "artifacts/opengl-modernization/remainder-same-candidate-b.log",
+      "rawLogSha256": "9e0808f1139af874270e121148a81110913a495cd41d40c2faa2448550857a33",
+      "rawInvocation": "artifacts/opengl-modernization/remainder-same-candidate-b.invocation.json",
+      "rawInvocationSha256": "d4988244cb643574c31fb1cf78c60e2de80e3275e34f832aa91bee2dbf59f643",
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1440457,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1522185,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "captureKillFeedLifetimeStabilized": false,
+      "snapshotCount": 0,
+      "profiled": false
+    },
+    {
+      "name": "remainder-same-baseline-b",
+      "group": "same",
+      "case": "combat",
+      "arm": "baseline",
+      "build": "current",
+      "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "effectiveCap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "softwareFrequency": 0,
+        "vsync": "Off",
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "renderSize": [
+          1920,
+          1080
+        ]
+      },
+      "harness": {
+        "meanCompletedFrameFps": 419.5475609603795,
+        "frameIntervalP50Ms": 1.8886,
+        "frameIntervalP95Ms": 4.8297,
+        "frameIntervalP99Ms": 7.5055,
+        "onePercentLowEstimateFps": 133.2356272067151,
+        "samples": 3356,
+        "simulationHz": 59.898226922635686,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 8.0258055
+      },
+      "cleanup": {
+        "depthSnapshotBytesBefore": 0,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 730848,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1148664,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 91,
+        "glyphBytesBefore": 23296,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 32,
+        "spriteBytesBefore": 8192,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "invocation": {
+        "schema": 1,
+        "group": "same",
+        "build": "current",
+        "profiled": false,
+        "separateCapture": false,
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP3 PROVING GROUND",
+          "-seconds",
+          "12",
+          "-hz",
+          "-1",
+          "-size",
+          "1920x1080",
+          "-output",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/remainder-same-baseline-b.json",
+          "-players",
+          "8"
+        ],
+        "requestedFlags": {
+          "VAO": 1,
+          "DYNAMIC_STREAM": 1,
+          "UNIFORM_REVISIONS": 1,
+          "STATIC_CACHE": 1,
+          "SHADOW_FAST": 1,
+          "HUD_SAMPLERS": 1,
+          "DEPTH_BATCH": 1,
+          "ATLAS_EVICTION": 1,
+          "HUD_DISCARD": 1,
+          "DEPTH_SHADER": 1,
+          "GLES_UNIFORMS": 1,
+          "HUD_GLYPHS": 1,
+          "HUD_SPRITES": 1,
+          "DEPTH_PREP": 1,
+          "PROCEDURAL_BATCH": 1,
+          "ROOM_CACHE": 0,
+          "DEPTH_VERTEX": 0,
+          "PROCEDURAL_STREAM": 0,
+          "DEPTH_KEEP": 0,
+          "SHADER_VARIANTS": 0
+        },
+        "forceLegacy": 0,
+        "binarySha256": {
+          "harness": "cde764c51e04ddd8e6b2ed73706f6641947fac389ec324f6a76ddc01e7bacb4f",
+          "client": "67f15fb6bad6b68566aaee601b64861511f03fd30ce0e71cb20a77c4310b19b0"
+        },
+        "expectedAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "executable": "tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "client": "tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll",
+        "unconditionalUniformCacheChanges": "Present in current build in both same-build arms; cross build controls are intentionally mixed-MVID.",
+        "actualAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "rawResultSha256": "a40a4cb113a8d3a3588fbc71f539df548e017d2ba65af6cf8ad4f78ea7cdfa38",
+        "rawLogSha256": "321933f4bafa1bcef11f39991350c7896abf816586b016cad6959f79302c78a1"
+      },
+      "rawResult": "artifacts/opengl-modernization/remainder-same-baseline-b.json",
+      "rawResultSha256": "a40a4cb113a8d3a3588fbc71f539df548e017d2ba65af6cf8ad4f78ea7cdfa38",
+      "rawLog": "artifacts/opengl-modernization/remainder-same-baseline-b.log",
+      "rawLogSha256": "321933f4bafa1bcef11f39991350c7896abf816586b016cad6959f79302c78a1",
+      "rawInvocation": "artifacts/opengl-modernization/remainder-same-baseline-b.invocation.json",
+      "rawInvocationSha256": "1a8c0322ab0006cccbec7290f3a14e51c43cf5dd2fac6788d9224392bbd1cf1d",
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1422213,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1534082,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "captureKillFeedLifetimeStabilized": false,
+      "snapshotCount": 0,
+      "profiled": false
+    },
+    {
+      "name": "remainder-profile-baseline-a",
+      "group": "profile",
+      "case": "combat",
+      "arm": "baseline",
+      "build": "current",
+      "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "effectiveCap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "softwareFrequency": 0,
+        "vsync": "Off",
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "renderSize": [
+          1920,
+          1080
+        ]
+      },
+      "harness": {
+        "meanCompletedFrameFps": 412.0021012107149,
+        "frameIntervalP50Ms": 1.9959,
+        "frameIntervalP95Ms": 4.8142,
+        "frameIntervalP99Ms": 7.8817,
+        "onePercentLowEstimateFps": 126.87618153444053,
+        "samples": 3296,
+        "simulationHz": 59.90458397863878,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 8.0298304
+      },
+      "cleanup": {
+        "depthSnapshotBytesBefore": 0,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 730848,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1148664,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 91,
+        "glyphBytesBefore": 23296,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 32,
+        "spriteBytesBefore": 8192,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "invocation": {
+        "schema": 1,
+        "group": "profile",
+        "build": "current",
+        "profiled": true,
+        "separateCapture": false,
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP3 PROVING GROUND",
+          "-seconds",
+          "12",
+          "-hz",
+          "-1",
+          "-size",
+          "1920x1080",
+          "-output",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/remainder-profile-baseline-a.json",
+          "-players",
+          "8",
+          "-glprofile"
+        ],
+        "requestedFlags": {
+          "VAO": 1,
+          "DYNAMIC_STREAM": 1,
+          "UNIFORM_REVISIONS": 1,
+          "STATIC_CACHE": 1,
+          "SHADOW_FAST": 1,
+          "HUD_SAMPLERS": 1,
+          "DEPTH_BATCH": 1,
+          "ATLAS_EVICTION": 1,
+          "HUD_DISCARD": 1,
+          "DEPTH_SHADER": 1,
+          "GLES_UNIFORMS": 1,
+          "HUD_GLYPHS": 1,
+          "HUD_SPRITES": 1,
+          "DEPTH_PREP": 1,
+          "PROCEDURAL_BATCH": 1,
+          "ROOM_CACHE": 0,
+          "DEPTH_VERTEX": 0,
+          "PROCEDURAL_STREAM": 0,
+          "DEPTH_KEEP": 0,
+          "SHADER_VARIANTS": 0
+        },
+        "forceLegacy": 0,
+        "binarySha256": {
+          "harness": "cde764c51e04ddd8e6b2ed73706f6641947fac389ec324f6a76ddc01e7bacb4f",
+          "client": "67f15fb6bad6b68566aaee601b64861511f03fd30ce0e71cb20a77c4310b19b0"
+        },
+        "expectedAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "executable": "tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "client": "tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll",
+        "unconditionalUniformCacheChanges": "Present in current build in both same-build arms; cross build controls are intentionally mixed-MVID.",
+        "actualAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "rawResultSha256": "d75317f34421b59199ded990baac24d66e0d913dd691214741801f48e08e7367",
+        "rawLogSha256": "b7b32fd0dd94ad0888452aba5afc766286308af46d5feee0aa45219b840b48ac"
+      },
+      "rawResult": "artifacts/opengl-modernization/remainder-profile-baseline-a.json",
+      "rawResultSha256": "d75317f34421b59199ded990baac24d66e0d913dd691214741801f48e08e7367",
+      "rawLog": "artifacts/opengl-modernization/remainder-profile-baseline-a.log",
+      "rawLogSha256": "b7b32fd0dd94ad0888452aba5afc766286308af46d5feee0aa45219b840b48ac",
+      "rawInvocation": "artifacts/opengl-modernization/remainder-profile-baseline-a.invocation.json",
+      "rawInvocationSha256": "cd9f6586c1d2cf2de5988377c8538319641a8ee3b6998583e33895e2a98a1c7b",
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1360066,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1472781,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "captureKillFeedLifetimeStabilized": false,
+      "snapshotCount": 0,
+      "profiled": true,
+      "context": {
+        "machine": "Jarretts-MBP",
+        "os": "macOS 27.0.0",
+        "vendor": "Apple",
+        "playerCount": 8,
+        "vsync": "Off",
+        "vertexArrayApi": "Apple",
+        "flags": {
+          "shaderVariants": false,
+          "depthKeep": false,
+          "proceduralBatch": true,
+          "proceduralStream": false,
+          "roomCache": false,
+          "depthVertex": false,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        },
+        "room": "MP3 PROVING GROUND",
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Off",
+        "renderScale": 100,
+        "cap": -1,
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c"
+      },
+      "retainedWindows": 12,
+      "sufficientFourWindowSampling": true,
+      "postMeasurementWarmupWindows": 2,
+      "preMeasurementWindows": 2,
+      "zeroSimulationTelemetryWindows": 2,
+      "metrics": {
+        "frameIntervalP95Ms": 3.8541875,
+        "frameIntervalP99Ms": 4.375166999999999,
+        "renderCpuP99Ms": 1.8659379999999999,
+        "simulationHz": 59.934772986558734
+      },
+      "cpuP99Ms": {
+        "Preparation": 0.2370625,
+        "DrawItems": 0.15337499999999998,
+        "CaptureWorld": 0.07581299999999999,
+        "ShadowCollection": null,
+        "ShadowSubmission": null,
+        "Shadow": 0.00035400000000000004,
+        "WorldSetup": 0.0053124999999999995,
+        "World": 1.3953540000000002,
+        "Outlines": 0.001,
+        "SceneOverlays": 0.009958,
+        "PostProcess": 0.000167,
+        "Composite": 0.0324375,
+        "Opaque": 0.4562705,
+        "Decal": 0.0159165,
+        "MarkTranslucent": 0.2017085,
+        "RebuildDepth": 0.407979,
+        "TranslucentBehind": 0.21195799999999998,
+        "TranslucentFront": 0.207917,
+        "Ui": null,
+        "Hud": 0.19374999999999998,
+        "HudImagePrepare": 0.028352500000000003,
+        "TextureUpload": 0.080958,
+        "ProceduralPrepare": null,
+        "ProceduralSubmit": null
+      },
+      "counters": {
+        "BatchPreflightFailureReuses": 0.0,
+        "IndexedDraws": 53.172916666666666,
+        "DisplayListCalls": 163.26458333333335,
+        "ImmediateDraws": 523.46875,
+        "MergedDraws": 24.09583333333333,
+        "BufferUploads": 0.0,
+        "UploadBytes": 0.0,
+        "BufferOrphans": 0.0,
+        "ProgramBinds": 9.0,
+        "StateSkips": 728.1583333333333,
+        "UniformArrayUploads": 46.56666666666666,
+        "UniformArrayBytes": 24685.066666666666,
+        "UniformArraySkips": 120.53333333333333,
+        "VaoDraws": 53.172916666666666,
+        "AvoidedPointerCalls": 159.51875,
+        "SamplerWrites": 193.57291666666669,
+        "SamplerSkips": 179.2,
+        "DynamicBatches": 0.0,
+        "DynamicMergedPrimitives": 0.0,
+        "TextureUploads": 0.0,
+        "TextureUploadBytes": 0.0,
+        "HudGlyphCacheHits": 57.48125,
+        "HudGlyphCacheMisses": 0.0,
+        "HudGlyphCacheFallbacks": 0.0,
+        "HudSpriteCacheHits": 6.0,
+        "HudSpriteCacheMisses": 0.0,
+        "HudSpriteCacheFallbacks": 0.0,
+        "DepthPreparedItems": 251.36666666666667,
+        "RoomDescriptorHits": 0.0,
+        "RoomDescriptorLookups": 269.55625,
+        "RoomBatchProofs": 0.0,
+        "RoomBatchProofReuses": 0.0,
+        "ProceduralDraws": 0.0,
+        "ProceduralVertices": 0.0,
+        "ProceduralItems": 369.21875,
+        "ProceduralMaterialReuses": 25.754166666666666,
+        "ProceduralObjectReuses": 0.0,
+        "ProceduralUnlitPreparations": 221.53125,
+        "DepthSnapshotCopies": 0.0,
+        "DepthReplayDrawsSaved": 0.0,
+        "WorldShaderVariantSwitches": 0.0
+      },
+      "meanDepthReplayDrawsSaved": 0,
+      "meanDepthSnapshotCopies": 0,
+      "maxDroppedSteps": 0,
+      "maxStalls": 0,
+      "gpuStatus": "UNVERIFIED"
+    },
+    {
+      "name": "remainder-profile-candidate-a",
+      "group": "profile",
+      "case": "combat",
+      "arm": "candidate",
+      "build": "current",
+      "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "effectiveCap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "softwareFrequency": 0,
+        "vsync": "Off",
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "renderSize": [
+          1920,
+          1080
+        ]
+      },
+      "harness": {
+        "meanCompletedFrameFps": 518.4775289313455,
+        "frameIntervalP50Ms": 1.6754,
+        "frameIntervalP95Ms": 3.6493,
+        "frameIntervalP99Ms": 4.4797,
+        "onePercentLowEstimateFps": 223.2292341004978,
+        "samples": 4147,
+        "simulationHz": 59.99752810184216,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 8.0360002
+      },
+      "cleanup": {
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 730848,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1148664,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 91,
+        "glyphBytesBefore": 23296,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 32,
+        "spriteBytesBefore": 8192,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "invocation": {
+        "schema": 1,
+        "group": "profile",
+        "build": "current",
+        "profiled": true,
+        "separateCapture": false,
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP3 PROVING GROUND",
+          "-seconds",
+          "12",
+          "-hz",
+          "-1",
+          "-size",
+          "1920x1080",
+          "-output",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/remainder-profile-candidate-a.json",
+          "-players",
+          "8",
+          "-glprofile"
+        ],
+        "requestedFlags": {
+          "VAO": 1,
+          "DYNAMIC_STREAM": 1,
+          "UNIFORM_REVISIONS": 1,
+          "STATIC_CACHE": 1,
+          "SHADOW_FAST": 1,
+          "HUD_SAMPLERS": 1,
+          "DEPTH_BATCH": 1,
+          "ATLAS_EVICTION": 1,
+          "HUD_DISCARD": 1,
+          "DEPTH_SHADER": 1,
+          "GLES_UNIFORMS": 1,
+          "HUD_GLYPHS": 1,
+          "HUD_SPRITES": 1,
+          "DEPTH_PREP": 1,
+          "PROCEDURAL_BATCH": 1,
+          "ROOM_CACHE": 1,
+          "DEPTH_VERTEX": 0,
+          "PROCEDURAL_STREAM": 0,
+          "DEPTH_KEEP": 1,
+          "SHADER_VARIANTS": 1
+        },
+        "forceLegacy": 0,
+        "binarySha256": {
+          "harness": "cde764c51e04ddd8e6b2ed73706f6641947fac389ec324f6a76ddc01e7bacb4f",
+          "client": "67f15fb6bad6b68566aaee601b64861511f03fd30ce0e71cb20a77c4310b19b0"
+        },
+        "expectedAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "executable": "tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "client": "tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll",
+        "unconditionalUniformCacheChanges": "Present in current build in both same-build arms; cross build controls are intentionally mixed-MVID.",
+        "actualAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "rawResultSha256": "21a18d5685080cdc08abdf460736de25e3f40c2afaae2d606c48702fef7760d6",
+        "rawLogSha256": "1d7b7c732527d4b92f8eac9b4990072a92a826173e15925705c19d1b93fb05a5"
+      },
+      "rawResult": "artifacts/opengl-modernization/remainder-profile-candidate-a.json",
+      "rawResultSha256": "21a18d5685080cdc08abdf460736de25e3f40c2afaae2d606c48702fef7760d6",
+      "rawLog": "artifacts/opengl-modernization/remainder-profile-candidate-a.log",
+      "rawLogSha256": "1d7b7c732527d4b92f8eac9b4990072a92a826173e15925705c19d1b93fb05a5",
+      "rawInvocation": "artifacts/opengl-modernization/remainder-profile-candidate-a.invocation.json",
+      "rawInvocationSha256": "9ed13be82ccb40e33bda701830e4dd891e3e1d1d43f2c365e9c6ce77d78b13d1",
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": true,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 1,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1460311,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1546504,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "captureKillFeedLifetimeStabilized": false,
+      "snapshotCount": 0,
+      "profiled": true,
+      "context": {
+        "machine": "Jarretts-MBP",
+        "os": "macOS 27.0.0",
+        "vendor": "Apple",
+        "playerCount": 8,
+        "vsync": "Off",
+        "vertexArrayApi": "Apple",
+        "flags": {
+          "shaderVariants": true,
+          "depthKeep": true,
+          "proceduralBatch": true,
+          "proceduralStream": false,
+          "roomCache": true,
+          "depthVertex": false,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        },
+        "room": "MP3 PROVING GROUND",
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Off",
+        "renderScale": 100,
+        "cap": -1,
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c"
+      },
+      "retainedWindows": 15,
+      "sufficientFourWindowSampling": true,
+      "postMeasurementWarmupWindows": 2,
+      "preMeasurementWindows": 3,
+      "zeroSimulationTelemetryWindows": 3,
+      "metrics": {
+        "frameIntervalP95Ms": 3.481333,
+        "frameIntervalP99Ms": 3.943375,
+        "renderCpuP99Ms": 1.610208,
+        "simulationHz": 59.95278118953512
+      },
+      "cpuP99Ms": {
+        "Preparation": 0.260416,
+        "DrawItems": 0.157125,
+        "CaptureWorld": 0.078916,
+        "ShadowCollection": null,
+        "ShadowSubmission": null,
+        "Shadow": 0.000291,
+        "WorldSetup": 0.005584,
+        "World": 1.22,
+        "Outlines": 0.000834,
+        "SceneOverlays": 0.00625,
+        "PostProcess": 0.000208,
+        "Composite": 0.024459,
+        "Opaque": 0.577417,
+        "Decal": 0.026458,
+        "MarkTranslucent": 0.195667,
+        "RebuildDepth": 0.267208,
+        "TranslucentBehind": 0.209542,
+        "TranslucentFront": 0.217459,
+        "Ui": null,
+        "Hud": 0.192208,
+        "HudImagePrepare": 0.027497,
+        "TextureUpload": 0.0814375,
+        "ProceduralPrepare": null,
+        "ProceduralSubmit": null
+      },
+      "counters": {
+        "BatchPreflightFailureReuses": 0,
+        "IndexedDraws": 35.0625,
+        "DisplayListCalls": 109.275,
+        "ImmediateDraws": 462.34583333333336,
+        "MergedDraws": 14.25,
+        "BufferUploads": 0,
+        "UploadBytes": 0,
+        "BufferOrphans": 0,
+        "ProgramBinds": 9,
+        "StateSkips": 640.8708333333333,
+        "UniformArrayUploads": 36.170833333333334,
+        "UniformArrayBytes": 19769.066666666666,
+        "UniformArraySkips": 74.3,
+        "VaoDraws": 35.0625,
+        "AvoidedPointerCalls": 105.1875,
+        "SamplerWrites": 189.76666666666668,
+        "SamplerSkips": 182.23333333333332,
+        "DynamicBatches": 0,
+        "DynamicMergedPrimitives": 0,
+        "TextureUploads": 0,
+        "TextureUploadBytes": 0,
+        "HudGlyphCacheHits": 57.579166666666666,
+        "HudGlyphCacheMisses": 0,
+        "HudGlyphCacheFallbacks": 0,
+        "HudSpriteCacheHits": 6,
+        "HudSpriteCacheMisses": 0,
+        "HudSpriteCacheFallbacks": 0,
+        "DepthPreparedItems": 100.42083333333333,
+        "RoomDescriptorHits": 43.791666666666664,
+        "RoomDescriptorLookups": 231.17916666666667,
+        "RoomBatchProofs": 15.329166666666667,
+        "RoomBatchProofReuses": 0.8666666666666667,
+        "ProceduralDraws": 0,
+        "ProceduralVertices": 0,
+        "ProceduralItems": 305.6,
+        "ProceduralMaterialReuses": 27.5375,
+        "ProceduralObjectReuses": 0,
+        "ProceduralUnlitPreparations": 229.2,
+        "DepthSnapshotCopies": 1.7833333333333334,
+        "DepthReplayDrawsSaved": 159.75833333333333,
+        "WorldShaderVariantSwitches": 0
+      },
+      "meanDepthReplayDrawsSaved": 164.25333333333333,
+      "meanDepthSnapshotCopies": 1.78,
+      "maxDroppedSteps": 0,
+      "maxStalls": 0,
+      "gpuStatus": "UNVERIFIED"
+    },
+    {
+      "name": "remainder-cross-baseline-a",
+      "group": "cross",
+      "case": "combat",
+      "arm": "baseline",
+      "build": "previous",
+      "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "effectiveCap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "softwareFrequency": 0,
+        "vsync": "Off",
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "renderSize": [
+          1920,
+          1080
+        ]
+      },
+      "harness": {
+        "meanCompletedFrameFps": 502.66996382826443,
+        "frameIntervalP50Ms": 1.6915,
+        "frameIntervalP95Ms": 4.0122,
+        "frameIntervalP99Ms": 5.4623,
+        "onePercentLowEstimateFps": 183.073064460026,
+        "samples": 4021,
+        "simulationHz": 59.99811605915579,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 8.0108653
+      },
+      "cleanup": {
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 730848,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1148664,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 91,
+        "glyphBytesBefore": 23296,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 32,
+        "spriteBytesBefore": 8192,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "invocation": {
+        "schema": 1,
+        "group": "cross",
+        "build": "previous",
+        "profiled": false,
+        "separateCapture": false,
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/pre-remainder-runtime/native-render-check.dll",
+          "-room",
+          "MP3 PROVING GROUND",
+          "-seconds",
+          "12",
+          "-hz",
+          "-1",
+          "-size",
+          "1920x1080",
+          "-output",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/remainder-cross-baseline-a.json",
+          "-players",
+          "8"
+        ],
+        "requestedFlags": {
+          "VAO": 1,
+          "DYNAMIC_STREAM": 1,
+          "UNIFORM_REVISIONS": 1,
+          "STATIC_CACHE": 1,
+          "SHADOW_FAST": 1,
+          "HUD_SAMPLERS": 1,
+          "DEPTH_BATCH": 1,
+          "ATLAS_EVICTION": 1,
+          "HUD_DISCARD": 1,
+          "DEPTH_SHADER": 1,
+          "GLES_UNIFORMS": 1,
+          "HUD_GLYPHS": 1,
+          "HUD_SPRITES": 1,
+          "DEPTH_PREP": 1,
+          "PROCEDURAL_BATCH": 1,
+          "ROOM_CACHE": 0,
+          "DEPTH_VERTEX": 0,
+          "PROCEDURAL_STREAM": 0,
+          "DEPTH_KEEP": 0,
+          "SHADER_VARIANTS": 0
+        },
+        "forceLegacy": 0,
+        "binarySha256": {
+          "harness": "31ae98c35bee43234c528d0e693d32d084ed6f65f136d696b3ab40d8c2d3569d",
+          "client": "56b7de1721d56eeb4aa778f0e41d7174a571eaf4cdd7327ccb997c8dca0c3982"
+        },
+        "expectedAssemblyMvid": null,
+        "executable": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/pre-remainder-runtime/native-render-check.dll",
+        "client": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/pre-remainder-runtime/ProjectPrime.dll",
+        "unconditionalUniformCacheChanges": "Present in current build in both same-build arms; cross build controls are intentionally mixed-MVID.",
+        "actualAssemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+        "rawResultSha256": "c31f9e06abe353cc41a7f64e9acc929f110976b582d6a1196a8032a7d275d7fc",
+        "rawLogSha256": "ec01c8f6333265b5a6b4172ced9cec9672e01627b76f702b73a4bf629b54dd02"
+      },
+      "rawResult": "artifacts/opengl-modernization/remainder-cross-baseline-a.json",
+      "rawResultSha256": "c31f9e06abe353cc41a7f64e9acc929f110976b582d6a1196a8032a7d275d7fc",
+      "rawLog": "artifacts/opengl-modernization/remainder-cross-baseline-a.log",
+      "rawLogSha256": "ec01c8f6333265b5a6b4172ced9cec9672e01627b76f702b73a4bf629b54dd02",
+      "rawInvocation": "artifacts/opengl-modernization/remainder-cross-baseline-a.invocation.json",
+      "rawInvocationSha256": "6f51f75282944722f998b45abb594cb5e5c4bf1cde74fdc749c8fc39f8403d0a",
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 2,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1377557,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 0.1462982,
+            "state": "Normal",
+            "visible": true,
+            "focused": true,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          },
+          {
+            "wallSeconds": 1.4402616,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "captureKillFeedLifetimeStabilized": false,
+      "snapshotCount": 0,
+      "profiled": false
+    },
+    {
+      "name": "remainder-cross-candidate-a",
+      "group": "cross",
+      "case": "combat",
+      "arm": "candidate",
+      "build": "current",
+      "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+      "configuration": {
+        "room": "MP3 PROVING GROUND",
+        "cap": -1,
+        "effectiveCap": -1,
+        "shadows": "Off",
+        "vendor": "Apple",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "softwareFrequency": 0,
+        "vsync": "Off",
+        "framebuffer": [
+          1920,
+          1080
+        ],
+        "renderSize": [
+          1920,
+          1080
+        ]
+      },
+      "harness": {
+        "meanCompletedFrameFps": 617.7515212131212,
+        "frameIntervalP50Ms": 1.4816,
+        "frameIntervalP95Ms": 2.571,
+        "frameIntervalP99Ms": 4.2285,
+        "onePercentLowEstimateFps": 236.49048125812934,
+        "samples": 4942,
+        "simulationHz": 59.95980894006752,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "measurementSeconds": 8.0388654
+      },
+      "cleanup": {
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 730848,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1148664,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 91,
+        "glyphBytesBefore": 23296,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 32,
+        "spriteBytesBefore": 8192,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "invocation": {
+        "schema": 1,
+        "group": "cross",
+        "build": "current",
+        "profiled": false,
+        "separateCapture": false,
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP3 PROVING GROUND",
+          "-seconds",
+          "12",
+          "-hz",
+          "-1",
+          "-size",
+          "1920x1080",
+          "-output",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/remainder-cross-candidate-a.json",
+          "-players",
+          "8"
+        ],
+        "requestedFlags": {
+          "VAO": 1,
+          "DYNAMIC_STREAM": 1,
+          "UNIFORM_REVISIONS": 1,
+          "STATIC_CACHE": 1,
+          "SHADOW_FAST": 1,
+          "HUD_SAMPLERS": 1,
+          "DEPTH_BATCH": 1,
+          "ATLAS_EVICTION": 1,
+          "HUD_DISCARD": 1,
+          "DEPTH_SHADER": 1,
+          "GLES_UNIFORMS": 1,
+          "HUD_GLYPHS": 1,
+          "HUD_SPRITES": 1,
+          "DEPTH_PREP": 1,
+          "PROCEDURAL_BATCH": 1,
+          "ROOM_CACHE": 1,
+          "DEPTH_VERTEX": 0,
+          "PROCEDURAL_STREAM": 0,
+          "DEPTH_KEEP": 1,
+          "SHADER_VARIANTS": 1
+        },
+        "forceLegacy": 0,
+        "binarySha256": {
+          "harness": "cde764c51e04ddd8e6b2ed73706f6641947fac389ec324f6a76ddc01e7bacb4f",
+          "client": "67f15fb6bad6b68566aaee601b64861511f03fd30ce0e71cb20a77c4310b19b0"
+        },
+        "expectedAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "executable": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "client": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll",
+        "unconditionalUniformCacheChanges": "Present in current build in both same-build arms; cross build controls are intentionally mixed-MVID.",
+        "actualAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "rawResultSha256": "a9cb9e44f23885d4a21c47b0a6396f77c6495257ef2d066422e1239e906f2230",
+        "rawLogSha256": "df14f033a976a0e1c87a44ddc4d9ea27ff7b3754c3200dc74cbef091981e538d"
+      },
+      "rawResult": "artifacts/opengl-modernization/remainder-cross-candidate-a.json",
+      "rawResultSha256": "a9cb9e44f23885d4a21c47b0a6396f77c6495257ef2d066422e1239e906f2230",
+      "rawLog": "artifacts/opengl-modernization/remainder-cross-candidate-a.log",
+      "rawLogSha256": "df14f033a976a0e1c87a44ddc4d9ea27ff7b3754c3200dc74cbef091981e538d",
+      "rawInvocation": "artifacts/opengl-modernization/remainder-cross-candidate-a.invocation.json",
+      "rawInvocationSha256": "cf73d54dbdd8fb356553259473732d6f0efa9a185323776c47c7863544f99389",
+      "window": {
+        "initialWindow": {
+          "state": "Normal",
+          "visible": false,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "finalWindow": {
+          "state": "Normal",
+          "visible": true,
+          "focused": false,
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "renderSize": [
+            1920,
+            1080
+          ]
+        },
+        "focusTransitions": 0,
+        "visibilityTransitions": 1,
+        "windowStateTransitions": 0,
+        "windowEvents": [
+          {
+            "wallSeconds": 0.1305602,
+            "state": "Normal",
+            "visible": true,
+            "focused": false,
+            "framebuffer": [
+              1920,
+              1080
+            ]
+          }
+        ]
+      },
+      "captureKillFeedLifetimeStabilized": false,
+      "snapshotCount": 0,
+      "profiled": false
+    }
+  ],
+  "pending": [],
+  "errors": []
+}

@@ -1,0 +1,1278 @@
+{
+  "schema": 1,
+  "referenceAssemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+  "candidateAssemblyMvid": "1deefa3c-7d26-4218-b302-674e1032e83c",
+  "complete": true,
+  "passed": true,
+  "pending": [],
+  "errors": [],
+  "completedCases": [
+    "solo",
+    "two",
+    "shadow",
+    "bomb",
+    "impact",
+    "combat"
+  ],
+  "comparisonCount": 108,
+  "identicalComparisons": 108,
+  "fixtures": [
+    {
+      "case": "solo",
+      "reference": {
+        "result": "artifacts/opengl-modernization/remainder-visual-solo-candidate-a.json",
+        "resultSha256": "a6b7245a8e7b7fe7740138aa284f06d8ba211e9760cbadb6da25e9ee3b60ac93",
+        "log": "artifacts/opengl-modernization/remainder-visual-solo-candidate-a.log",
+        "logSha256": "5d5dae3db39e988b5e250b0374b3127328319b7fbc3306e530542e038f7d1c24",
+        "invocation": "artifacts/opengl-modernization/remainder-visual-solo-candidate-a.invocation.json",
+        "invocationSha256": "76fd1740de988281e57f9842f783c4f63be9bb0bf4807f0b7f40710e38ed3192",
+        "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "binarySha256": {
+          "harness": "cde764c51e04ddd8e6b2ed73706f6641947fac389ec324f6a76ddc01e7bacb4f",
+          "client": "67f15fb6bad6b68566aaee601b64861511f03fd30ce0e71cb20a77c4310b19b0"
+        }
+      },
+      "candidate": {
+        "result": "artifacts/opengl-modernization/room-final-visual-solo-candidate-a.json",
+        "resultSha256": "35292e4a5887e29e0be35fdd3a99f15a73e1fa629351084d402d37e00c1e0386",
+        "log": "artifacts/opengl-modernization/room-final-visual-solo-candidate-a.log",
+        "logSha256": "b2744d33dac302a99300685be2b3f42b22d2edd74efa2480005d5b423d47dcf0",
+        "invocation": "artifacts/opengl-modernization/room-final-visual-solo-candidate-a.invocation.json",
+        "invocationSha256": "acc8d7d47dac50df1a2ce66aa5046f0d7bdf7aa86aef19167897f642fd2094d4",
+        "assemblyMvid": "1deefa3c-7d26-4218-b302-674e1032e83c",
+        "binarySha256": {
+          "harness": "56e03215c76341cb1ae4355508741260361981aec4f12ba3098860ba72373628",
+          "client": "70637f3e4af5959d08de68542c8c2bd74a3e7d372da55eb46d36ede410403124"
+        }
+      }
+    },
+    {
+      "case": "two",
+      "reference": {
+        "result": "artifacts/opengl-modernization/remainder-visual-two-candidate-a.json",
+        "resultSha256": "3232df1b0aaa6a1af30ae3820a91224bc2d36646b7ec4674468460c56ab18bdb",
+        "log": "artifacts/opengl-modernization/remainder-visual-two-candidate-a.log",
+        "logSha256": "872eb059ce93930fdd1b8f7306a2c8e4a233a761a0d976f8c32e123b4300c44a",
+        "invocation": "artifacts/opengl-modernization/remainder-visual-two-candidate-a.invocation.json",
+        "invocationSha256": "e78334b22d7fa5efaf404e4e43bbf428a7cb4800b68a9aa158606d4d00288c5e",
+        "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "binarySha256": {
+          "harness": "cde764c51e04ddd8e6b2ed73706f6641947fac389ec324f6a76ddc01e7bacb4f",
+          "client": "67f15fb6bad6b68566aaee601b64861511f03fd30ce0e71cb20a77c4310b19b0"
+        }
+      },
+      "candidate": {
+        "result": "artifacts/opengl-modernization/room-final-visual-two-candidate-a.json",
+        "resultSha256": "ff9a2822991ec45b115797aa297733f7831419ecfcf2a1a1a0937eee14a68dc7",
+        "log": "artifacts/opengl-modernization/room-final-visual-two-candidate-a.log",
+        "logSha256": "4ea3a4f367d58ff2eaa4f32adf0a520551bc51c7415e613dc197dd9e66c839d2",
+        "invocation": "artifacts/opengl-modernization/room-final-visual-two-candidate-a.invocation.json",
+        "invocationSha256": "4890cb840a62d10496f0f079d767b5ad27d481dcaf296cd0ce4406b1bfd21109",
+        "assemblyMvid": "1deefa3c-7d26-4218-b302-674e1032e83c",
+        "binarySha256": {
+          "harness": "56e03215c76341cb1ae4355508741260361981aec4f12ba3098860ba72373628",
+          "client": "70637f3e4af5959d08de68542c8c2bd74a3e7d372da55eb46d36ede410403124"
+        }
+      }
+    },
+    {
+      "case": "shadow",
+      "reference": {
+        "result": "artifacts/opengl-modernization/remainder-visual-shadow-candidate-a.json",
+        "resultSha256": "8f88d447b284b72ce7e8359dca68294e2678726be22e04bd76406440e66c47fc",
+        "log": "artifacts/opengl-modernization/remainder-visual-shadow-candidate-a.log",
+        "logSha256": "5b0d0f61bf393931198932948dc95cf6840127def9aa961b247ed44780c4612a",
+        "invocation": "artifacts/opengl-modernization/remainder-visual-shadow-candidate-a.invocation.json",
+        "invocationSha256": "ec9569cd1f5835c1f45ed090ad3cff0bb815b9777b106d17146c232eae57d3ff",
+        "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "binarySha256": {
+          "harness": "cde764c51e04ddd8e6b2ed73706f6641947fac389ec324f6a76ddc01e7bacb4f",
+          "client": "67f15fb6bad6b68566aaee601b64861511f03fd30ce0e71cb20a77c4310b19b0"
+        }
+      },
+      "candidate": {
+        "result": "artifacts/opengl-modernization/room-final-visual-shadow-candidate-a.json",
+        "resultSha256": "96ec21e1e2be19e6d1e503d0ebbf5e0afe138d86be0ceb0431b560b5e7b8feb7",
+        "log": "artifacts/opengl-modernization/room-final-visual-shadow-candidate-a.log",
+        "logSha256": "3ff2a30aea4bd3ff0d978d0d52468dffcc1b8ba7ecb5cc72d4460d1b50a159fb",
+        "invocation": "artifacts/opengl-modernization/room-final-visual-shadow-candidate-a.invocation.json",
+        "invocationSha256": "47b0707bf5d8b7ae8d7170a1c9ae2cb26fb51ab91f746a92383544712cb0e393",
+        "assemblyMvid": "1deefa3c-7d26-4218-b302-674e1032e83c",
+        "binarySha256": {
+          "harness": "56e03215c76341cb1ae4355508741260361981aec4f12ba3098860ba72373628",
+          "client": "70637f3e4af5959d08de68542c8c2bd74a3e7d372da55eb46d36ede410403124"
+        }
+      }
+    },
+    {
+      "case": "bomb",
+      "reference": {
+        "result": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a.json",
+        "resultSha256": "548dbd348cf16454855db2f6f484f56c46c056a63d542aa634e66b522e4af4d4",
+        "log": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a.log",
+        "logSha256": "b360b5ba0c24e25fa4c229d9f00fb4a1d5fecf5b9fe1ff5ce57ae7ffc626d9cf",
+        "invocation": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a.invocation.json",
+        "invocationSha256": "cd2bb3db817cdbf505882f8dbced1cbc56d5528ce66850105005bf4eeb00545a",
+        "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "binarySha256": {
+          "harness": "cde764c51e04ddd8e6b2ed73706f6641947fac389ec324f6a76ddc01e7bacb4f",
+          "client": "67f15fb6bad6b68566aaee601b64861511f03fd30ce0e71cb20a77c4310b19b0"
+        }
+      },
+      "candidate": {
+        "result": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a.json",
+        "resultSha256": "221c43083fe40caa024e115ee2d6b0c3cf9ea701d8cc2c6c321a8e8c1dbc4063",
+        "log": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a.log",
+        "logSha256": "76f728779dce50728d61d4454eb6441d4ae1d99834f3aa48c60c184bb405bfd1",
+        "invocation": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a.invocation.json",
+        "invocationSha256": "352219853f6f7fc56da3359379a3bbd9fd31959ebe26d7c20302ffb974ee0235",
+        "assemblyMvid": "1deefa3c-7d26-4218-b302-674e1032e83c",
+        "binarySha256": {
+          "harness": "56e03215c76341cb1ae4355508741260361981aec4f12ba3098860ba72373628",
+          "client": "70637f3e4af5959d08de68542c8c2bd74a3e7d372da55eb46d36ede410403124"
+        }
+      }
+    },
+    {
+      "case": "impact",
+      "reference": {
+        "result": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a.json",
+        "resultSha256": "25a107a777e9b733ece731d5c3268032ba21ea38aae2697e3b47c25f668897fc",
+        "log": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a.log",
+        "logSha256": "1b7e4d9567f463d549c05dc19a47ef52ca5bfcb4f4e3d8479a56c6396d73d469",
+        "invocation": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a.invocation.json",
+        "invocationSha256": "4384f7bc734c7c247b8a0b81de594721330383ad05e12b1a60268be1809867b2",
+        "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "binarySha256": {
+          "harness": "cde764c51e04ddd8e6b2ed73706f6641947fac389ec324f6a76ddc01e7bacb4f",
+          "client": "67f15fb6bad6b68566aaee601b64861511f03fd30ce0e71cb20a77c4310b19b0"
+        }
+      },
+      "candidate": {
+        "result": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a.json",
+        "resultSha256": "971ab970733fe90ee999cd412a4e28426ae4f6bd63e40f4a0d7cb105dca304f8",
+        "log": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a.log",
+        "logSha256": "8083d1a8e07deb0b406e334e73523ba943225d91dc206876c80f946baf1487f7",
+        "invocation": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a.invocation.json",
+        "invocationSha256": "bedd8b332c08c8f66cc81f6da315c7d9cf0a3a77ad96144863cd2f75a4ef159a",
+        "assemblyMvid": "1deefa3c-7d26-4218-b302-674e1032e83c",
+        "binarySha256": {
+          "harness": "56e03215c76341cb1ae4355508741260361981aec4f12ba3098860ba72373628",
+          "client": "70637f3e4af5959d08de68542c8c2bd74a3e7d372da55eb46d36ede410403124"
+        }
+      }
+    },
+    {
+      "case": "combat",
+      "reference": {
+        "result": "artifacts/opengl-modernization/remainder-visual-combat-candidate-a.json",
+        "resultSha256": "325ab09fcd528717e4b0874c637f8aa07f0263c3d9c21afe6b73a6aa147e69ea",
+        "log": "artifacts/opengl-modernization/remainder-visual-combat-candidate-a.log",
+        "logSha256": "17fb9eec823d4b411f74ac4f9545ee3bdbdbd1bf21e55477d2e79410504cf4e7",
+        "invocation": "artifacts/opengl-modernization/remainder-visual-combat-candidate-a.invocation.json",
+        "invocationSha256": "9b2f17e1365b3ac7b49044ee2b0a263e7369d8dbe3ae6970adb9561c31ef598b",
+        "assemblyMvid": "7c2aef09-f76c-40f9-9df9-bfaf31fbe28c",
+        "binarySha256": {
+          "harness": "cde764c51e04ddd8e6b2ed73706f6641947fac389ec324f6a76ddc01e7bacb4f",
+          "client": "67f15fb6bad6b68566aaee601b64861511f03fd30ce0e71cb20a77c4310b19b0"
+        }
+      },
+      "candidate": {
+        "result": "artifacts/opengl-modernization/room-final-visual-combat-candidate-a.json",
+        "resultSha256": "1c9fdc55e94832e69f12632f10bd9abb429dc20a5e60ea917c3acc602446f681",
+        "log": "artifacts/opengl-modernization/room-final-visual-combat-candidate-a.log",
+        "logSha256": "23d18c4afcb212cb6a379ded10b9dd2a39db98fa5622e8fcc7d88073565963fd",
+        "invocation": "artifacts/opengl-modernization/room-final-visual-combat-candidate-a.invocation.json",
+        "invocationSha256": "9f30017a030d05d62dec05ffa4c36a7afaa8b5ee0c14683c897ffb1e5aa7bd66",
+        "assemblyMvid": "1deefa3c-7d26-4218-b302-674e1032e83c",
+        "binarySha256": {
+          "harness": "56e03215c76341cb1ae4355508741260361981aec4f12ba3098860ba72373628",
+          "client": "70637f3e4af5959d08de68542c8c2bd74a3e7d372da55eb46d36ede410403124"
+        }
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "case": "solo",
+      "file": "frame-0-hud.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-solo-candidate-a/frame-0-hud.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-solo-candidate-a/frame-0-hud.png",
+      "referenceSha256": "b8b1ce3d598bd456963d46230a8420a625f2d68a9722b320ae619ba79568af14",
+      "candidateSha256": "b8b1ce3d598bd456963d46230a8420a625f2d68a9722b320ae619ba79568af14"
+    },
+    {
+      "case": "solo",
+      "file": "frame-0-world-repeat.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-solo-candidate-a/frame-0-world-repeat.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-solo-candidate-a/frame-0-world-repeat.png",
+      "referenceSha256": "a02b064173e0a7d4264fbf80f1bf3ba8a58573a6ede5870f3448505cedb0724c",
+      "candidateSha256": "a02b064173e0a7d4264fbf80f1bf3ba8a58573a6ede5870f3448505cedb0724c"
+    },
+    {
+      "case": "solo",
+      "file": "frame-0-world.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-solo-candidate-a/frame-0-world.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-solo-candidate-a/frame-0-world.png",
+      "referenceSha256": "a02b064173e0a7d4264fbf80f1bf3ba8a58573a6ede5870f3448505cedb0724c",
+      "candidateSha256": "a02b064173e0a7d4264fbf80f1bf3ba8a58573a6ede5870f3448505cedb0724c"
+    },
+    {
+      "case": "two",
+      "file": "frame-0-hud.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-two-candidate-a/frame-0-hud.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-two-candidate-a/frame-0-hud.png",
+      "referenceSha256": "14724a167e4c06544bbb45967daf03701e6c774d7a1543ab4bcef62b9769090b",
+      "candidateSha256": "14724a167e4c06544bbb45967daf03701e6c774d7a1543ab4bcef62b9769090b"
+    },
+    {
+      "case": "two",
+      "file": "frame-0-world-repeat.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-two-candidate-a/frame-0-world-repeat.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-two-candidate-a/frame-0-world-repeat.png",
+      "referenceSha256": "44dc53849f69f86f2f552daf5e2336cf6c306eb4a24749ab4ab7bb498c604ef1",
+      "candidateSha256": "44dc53849f69f86f2f552daf5e2336cf6c306eb4a24749ab4ab7bb498c604ef1"
+    },
+    {
+      "case": "two",
+      "file": "frame-0-world.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-two-candidate-a/frame-0-world.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-two-candidate-a/frame-0-world.png",
+      "referenceSha256": "44dc53849f69f86f2f552daf5e2336cf6c306eb4a24749ab4ab7bb498c604ef1",
+      "candidateSha256": "44dc53849f69f86f2f552daf5e2336cf6c306eb4a24749ab4ab7bb498c604ef1"
+    },
+    {
+      "case": "shadow",
+      "file": "frame-0-hud.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-shadow-candidate-a/frame-0-hud.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-shadow-candidate-a/frame-0-hud.png",
+      "referenceSha256": "04354e04435a1158dfb860359417ff52cc98bb2b06991ff897c4832b5ce10385",
+      "candidateSha256": "04354e04435a1158dfb860359417ff52cc98bb2b06991ff897c4832b5ce10385"
+    },
+    {
+      "case": "shadow",
+      "file": "frame-0-world-repeat.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-shadow-candidate-a/frame-0-world-repeat.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-shadow-candidate-a/frame-0-world-repeat.png",
+      "referenceSha256": "0b596fd9f1823486a749712efa7e332bc32b8aa8c2bda6f5343874ecb41d6df2",
+      "candidateSha256": "0b596fd9f1823486a749712efa7e332bc32b8aa8c2bda6f5343874ecb41d6df2"
+    },
+    {
+      "case": "shadow",
+      "file": "frame-0-world.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-shadow-candidate-a/frame-0-world.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-shadow-candidate-a/frame-0-world.png",
+      "referenceSha256": "0b596fd9f1823486a749712efa7e332bc32b8aa8c2bda6f5343874ecb41d6df2",
+      "candidateSha256": "0b596fd9f1823486a749712efa7e332bc32b8aa8c2bda6f5343874ecb41d6df2"
+    },
+    {
+      "case": "shadow",
+      "file": "shadow-depth-float32.bin",
+      "format": "float32-depth-bytes",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-shadow-candidate-a/shadow-depth-float32.bin",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-shadow-candidate-a/shadow-depth-float32.bin",
+      "referenceSha256": "befaa7fcf5008d98cf1fb24935b3291e5baa149484df8e1749ce4658eb2393e3",
+      "candidateSha256": "befaa7fcf5008d98cf1fb24935b3291e5baa149484df8e1749ce4658eb2393e3"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-0-visible-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-0-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-0-visible-enabled.png",
+      "referenceSha256": "488d7ab499deeb252f849cc0577d706656335e669957fd95e9447a1be4353f84",
+      "candidateSha256": "488d7ab499deeb252f849cc0577d706656335e669957fd95e9447a1be4353f84"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-0-visible-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-0-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-0-visible-suppressed-after.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-0-visible-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-0-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-0-visible-suppressed-before.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-0-wall-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-0-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-0-wall-enabled.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-0-wall-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-0-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-0-wall-suppressed-after.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-0-wall-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-0-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-0-wall-suppressed-before.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-1-visible-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-1-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-1-visible-enabled.png",
+      "referenceSha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5",
+      "candidateSha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-1-visible-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-1-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-1-visible-suppressed-after.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-1-visible-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-1-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-1-visible-suppressed-before.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-1-wall-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-1-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-1-wall-enabled.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-1-wall-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-1-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-1-wall-suppressed-after.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-1-wall-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-1-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-1-wall-suppressed-before.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-2-visible-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-2-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-2-visible-enabled.png",
+      "referenceSha256": "e256d3013675fb40ac5522fc1ccee12120dec109c92d3348c955a89f0c9f25ae",
+      "candidateSha256": "e256d3013675fb40ac5522fc1ccee12120dec109c92d3348c955a89f0c9f25ae"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-2-visible-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-2-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-2-visible-suppressed-after.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-2-visible-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-2-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-2-visible-suppressed-before.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-2-wall-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-2-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-2-wall-enabled.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-2-wall-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-2-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-2-wall-suppressed-after.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-2-wall-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-2-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-2-wall-suppressed-before.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-3-visible-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-3-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-3-visible-enabled.png",
+      "referenceSha256": "fffa6b95e43d83f6b96064dbddb6a752090e22c4abd74f4e1d52b022a734f916",
+      "candidateSha256": "fffa6b95e43d83f6b96064dbddb6a752090e22c4abd74f4e1d52b022a734f916"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-3-visible-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-3-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-3-visible-suppressed-after.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-3-visible-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-3-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-3-visible-suppressed-before.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-3-wall-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-3-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-3-wall-enabled.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-3-wall-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-3-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-3-wall-suppressed-after.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-3-wall-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-3-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-3-wall-suppressed-before.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-4-visible-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-4-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-4-visible-enabled.png",
+      "referenceSha256": "b3bfa9fb688c18cef6551653d2a68e2ca4112418472bfe9701c20b6e330256f0",
+      "candidateSha256": "b3bfa9fb688c18cef6551653d2a68e2ca4112418472bfe9701c20b6e330256f0"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-4-visible-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-4-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-4-visible-suppressed-after.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-4-visible-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-4-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-4-visible-suppressed-before.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-4-wall-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-4-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-4-wall-enabled.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-4-wall-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-4-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-4-wall-suppressed-after.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-4-wall-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/body-4-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/body-4-wall-suppressed-before.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-2-1-visible-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-2-1-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-2-1-visible-enabled.png",
+      "referenceSha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8",
+      "candidateSha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-2-1-visible-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-2-1-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-2-1-visible-suppressed-after.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-2-1-visible-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-2-1-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-2-1-visible-suppressed-before.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-2-1-wall-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-2-1-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-2-1-wall-enabled.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-2-1-wall-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-2-1-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-2-1-wall-suppressed-after.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-2-1-wall-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-2-1-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-2-1-wall-suppressed-before.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-1-visible-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-3-1-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-3-1-visible-enabled.png",
+      "referenceSha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e",
+      "candidateSha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-1-visible-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-3-1-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-3-1-visible-suppressed-after.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-1-visible-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-3-1-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-3-1-visible-suppressed-before.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-1-wall-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-3-1-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-3-1-wall-enabled.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-1-wall-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-3-1-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-3-1-wall-suppressed-after.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-1-wall-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-3-1-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-3-1-wall-suppressed-before.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-2-visible-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-3-2-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-3-2-visible-enabled.png",
+      "referenceSha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3",
+      "candidateSha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-2-visible-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-3-2-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-3-2-visible-suppressed-after.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-2-visible-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-3-2-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-3-2-visible-suppressed-before.png",
+      "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+      "candidateSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-2-wall-enabled.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-3-2-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-3-2-wall-enabled.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-2-wall-suppressed-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-3-2-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-3-2-wall-suppressed-after.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-2-wall-suppressed-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/bomb-visibility/edge-3-2-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/bomb-visibility/edge-3-2-wall-suppressed-before.png",
+      "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+      "candidateSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+    },
+    {
+      "case": "bomb",
+      "file": "frame-0-hud.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/frame-0-hud.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/frame-0-hud.png",
+      "referenceSha256": "8c8bae50a88503708a4ba9dd516838cdae9e0de35260095135bd70c8569c90e4",
+      "candidateSha256": "8c8bae50a88503708a4ba9dd516838cdae9e0de35260095135bd70c8569c90e4"
+    },
+    {
+      "case": "bomb",
+      "file": "frame-0-world-repeat.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/frame-0-world-repeat.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/frame-0-world-repeat.png",
+      "referenceSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742",
+      "candidateSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742"
+    },
+    {
+      "case": "bomb",
+      "file": "frame-0-world.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-bomb-candidate-a/frame-0-world.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-bomb-candidate-a/frame-0-world.png",
+      "referenceSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742",
+      "candidateSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742"
+    },
+    {
+      "case": "impact",
+      "file": "frame-0-hud.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/frame-0-hud.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/frame-0-hud.png",
+      "referenceSha256": "ebd593108c0a2df9d094cbf8b833fe92dc4f287cf1a306009153dde90fdfb363",
+      "candidateSha256": "ebd593108c0a2df9d094cbf8b833fe92dc4f287cf1a306009153dde90fdfb363"
+    },
+    {
+      "case": "impact",
+      "file": "frame-0-world-repeat.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/frame-0-world-repeat.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/frame-0-world-repeat.png",
+      "referenceSha256": "7cdb4ce015ac0ba5a476d0900a92fcf106d5d6b4312222ff28b1cfdc2b4f3fa9",
+      "candidateSha256": "7cdb4ce015ac0ba5a476d0900a92fcf106d5d6b4312222ff28b1cfdc2b4f3fa9"
+    },
+    {
+      "case": "impact",
+      "file": "frame-0-world.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/frame-0-world.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/frame-0-world.png",
+      "referenceSha256": "7cdb4ce015ac0ba5a476d0900a92fcf106d5d6b4312222ff28b1cfdc2b4f3fa9",
+      "candidateSha256": "7cdb4ce015ac0ba5a476d0900a92fcf106d5d6b4312222ff28b1cfdc2b4f3fa9"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ambiguous-cue-fallback-cue-only.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/ambiguous-cue-fallback-cue-only.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/ambiguous-cue-fallback-cue-only.png",
+      "referenceSha256": "df8d65a845595eb1666b34ba47fde9a15bd2f576b27a8a0f9b151c823ec92259",
+      "candidateSha256": "df8d65a845595eb1666b34ba47fde9a15bd2f576b27a8a0f9b151c823ec92259"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ambiguous-cue-fallback-off-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/ambiguous-cue-fallback-off-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/ambiguous-cue-fallback-off-after.png",
+      "referenceSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c",
+      "candidateSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ambiguous-cue-fallback-off-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/ambiguous-cue-fallback-off-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/ambiguous-cue-fallback-off-before.png",
+      "referenceSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c",
+      "candidateSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ambiguous-two-exact-components-projectile-only.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/ambiguous-two-exact-components-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/ambiguous-two-exact-components-projectile-only.png",
+      "referenceSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c",
+      "candidateSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ambiguous-two-exact-components-unanchored-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/ambiguous-two-exact-components-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/ambiguous-two-exact-components-unanchored-after.png",
+      "referenceSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c",
+      "candidateSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ambiguous-two-exact-components-unanchored-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/ambiguous-two-exact-components-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/ambiguous-two-exact-components-unanchored-before.png",
+      "referenceSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c",
+      "candidateSha256": "6750744101b420ee8b0601ef88e5ec568c20e62ae68f04abfc133312f827176c"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/blocked-flight-cue-fallback-cue-only.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/blocked-flight-cue-fallback-cue-only.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/blocked-flight-cue-fallback-cue-only.png",
+      "referenceSha256": "7ce8afdebc2d5f8ff21316cab2dd4b3ad8ccee316428e2a2765da5d3f018befa",
+      "candidateSha256": "7ce8afdebc2d5f8ff21316cab2dd4b3ad8ccee316428e2a2765da5d3f018befa"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/blocked-flight-cue-fallback-off-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/blocked-flight-cue-fallback-off-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/blocked-flight-cue-fallback-off-after.png",
+      "referenceSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61",
+      "candidateSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/blocked-flight-cue-fallback-off-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/blocked-flight-cue-fallback-off-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/blocked-flight-cue-fallback-off-before.png",
+      "referenceSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61",
+      "candidateSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/blocked-flight-ray-projectile-only.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/blocked-flight-ray-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/blocked-flight-ray-projectile-only.png",
+      "referenceSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61",
+      "candidateSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/blocked-flight-ray-unanchored-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/blocked-flight-ray-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/blocked-flight-ray-unanchored-after.png",
+      "referenceSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61",
+      "candidateSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/blocked-flight-ray-unanchored-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/blocked-flight-ray-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/blocked-flight-ray-unanchored-before.png",
+      "referenceSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61",
+      "candidateSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/confirmed-cue-clear-cue-only.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/confirmed-cue-clear-cue-only.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/confirmed-cue-clear-cue-only.png",
+      "referenceSha256": "7ce8afdebc2d5f8ff21316cab2dd4b3ad8ccee316428e2a2765da5d3f018befa",
+      "candidateSha256": "7ce8afdebc2d5f8ff21316cab2dd4b3ad8ccee316428e2a2765da5d3f018befa"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/confirmed-cue-clear-off-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/confirmed-cue-clear-off-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/confirmed-cue-clear-off-after.png",
+      "referenceSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61",
+      "candidateSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/confirmed-cue-clear-off-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/confirmed-cue-clear-off-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/confirmed-cue-clear-off-before.png",
+      "referenceSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61",
+      "candidateSha256": "5bdf56b29173d6187c092b3c20648fa086d08c7c89a73b21ac8d0b588a55ca61"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/confirmed-cue-wall-cue-only.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/confirmed-cue-wall-cue-only.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/confirmed-cue-wall-cue-only.png",
+      "referenceSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2",
+      "candidateSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/confirmed-cue-wall-off-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/confirmed-cue-wall-off-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/confirmed-cue-wall-off-after.png",
+      "referenceSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2",
+      "candidateSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/confirmed-cue-wall-off-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/confirmed-cue-wall-off-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/confirmed-cue-wall-off-before.png",
+      "referenceSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2",
+      "candidateSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/exact-component-clear-projectile-only.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/exact-component-clear-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/exact-component-clear-projectile-only.png",
+      "referenceSha256": "97734e73829dc22db37986f17a3dc97d2d5f8dc53f175681a1acb05553f6acc1",
+      "candidateSha256": "97734e73829dc22db37986f17a3dc97d2d5f8dc53f175681a1acb05553f6acc1"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/exact-component-clear-unanchored-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/exact-component-clear-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/exact-component-clear-unanchored-after.png",
+      "referenceSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e",
+      "candidateSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/exact-component-clear-unanchored-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/exact-component-clear-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/exact-component-clear-unanchored-before.png",
+      "referenceSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e",
+      "candidateSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/exact-component-wall-projectile-only.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/exact-component-wall-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/exact-component-wall-projectile-only.png",
+      "referenceSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2",
+      "candidateSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/exact-component-wall-unanchored-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/exact-component-wall-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/exact-component-wall-unanchored-after.png",
+      "referenceSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2",
+      "candidateSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/exact-component-wall-unanchored-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/exact-component-wall-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/exact-component-wall-unanchored-before.png",
+      "referenceSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2",
+      "candidateSha256": "ae7a5c6e875d71df1685e4a9a9c2688c05643b8fc50730bee60c23bf92b361a2"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ray-direction-outside-sixty-degree-cone-projectile-only.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/ray-direction-outside-sixty-degree-cone-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/ray-direction-outside-sixty-degree-cone-projectile-only.png",
+      "referenceSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34",
+      "candidateSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-after.png",
+      "referenceSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34",
+      "candidateSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-before.png",
+      "referenceSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34",
+      "candidateSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-component-cue-fallback-cue-only.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/wrong-component-cue-fallback-cue-only.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/wrong-component-cue-fallback-cue-only.png",
+      "referenceSha256": "46c194d61f054ff98e1fe3eb6664ab3d3b5d12ddeb2f96154bd9139c8a00f5aa",
+      "candidateSha256": "46c194d61f054ff98e1fe3eb6664ab3d3b5d12ddeb2f96154bd9139c8a00f5aa"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-component-cue-fallback-off-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/wrong-component-cue-fallback-off-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/wrong-component-cue-fallback-off-after.png",
+      "referenceSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e",
+      "candidateSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-component-cue-fallback-off-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/wrong-component-cue-fallback-off-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/wrong-component-cue-fallback-off-before.png",
+      "referenceSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e",
+      "candidateSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-component-projectile-only.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/wrong-component-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/wrong-component-projectile-only.png",
+      "referenceSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e",
+      "candidateSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-component-unanchored-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/wrong-component-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/wrong-component-unanchored-after.png",
+      "referenceSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e",
+      "candidateSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-component-unanchored-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/wrong-component-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/wrong-component-unanchored-before.png",
+      "referenceSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e",
+      "candidateSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-ray-direction-cue-fallback-cue-only.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/wrong-ray-direction-cue-fallback-cue-only.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/wrong-ray-direction-cue-fallback-cue-only.png",
+      "referenceSha256": "0cae18062dbe306f632e387bde42660bd370f1c9c4ed61832b3c2f0b7dc5cfe4",
+      "candidateSha256": "0cae18062dbe306f632e387bde42660bd370f1c9c4ed61832b3c2f0b7dc5cfe4"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-ray-direction-cue-fallback-off-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/wrong-ray-direction-cue-fallback-off-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/wrong-ray-direction-cue-fallback-off-after.png",
+      "referenceSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34",
+      "candidateSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-ray-direction-cue-fallback-off-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/wrong-ray-direction-cue-fallback-off-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/wrong-ray-direction-cue-fallback-off-before.png",
+      "referenceSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34",
+      "candidateSha256": "6a590f253f4e9a3207d23f5d1a6e92d7c2134bff22556084f85d94e3dd011c34"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-weapon-projectile-only.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/wrong-weapon-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/wrong-weapon-projectile-only.png",
+      "referenceSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e",
+      "candidateSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-weapon-unanchored-after.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/wrong-weapon-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/wrong-weapon-unanchored-after.png",
+      "referenceSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e",
+      "candidateSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-weapon-unanchored-before.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-impact-candidate-a/impact-presentation/wrong-weapon-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-impact-candidate-a/impact-presentation/wrong-weapon-unanchored-before.png",
+      "referenceSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e",
+      "candidateSha256": "1bac015bd4a7266e9b6e4f4eec35beb3b98a3709e11fe60a3edae55d9096ff1e"
+    },
+    {
+      "case": "combat",
+      "file": "frame-0-hud.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-combat-candidate-a/frame-0-hud.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-combat-candidate-a/frame-0-hud.png",
+      "referenceSha256": "55f2f5868a2aefd619ba2ebe2620e972012167028c615701ff10e3da359561f2",
+      "candidateSha256": "55f2f5868a2aefd619ba2ebe2620e972012167028c615701ff10e3da359561f2"
+    },
+    {
+      "case": "combat",
+      "file": "frame-0-world-repeat.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-combat-candidate-a/frame-0-world-repeat.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-combat-candidate-a/frame-0-world-repeat.png",
+      "referenceSha256": "9b917e66dcd6efb5d5bd971a289f8423b61dcb89b78922ab3f74cd9db4879419",
+      "candidateSha256": "9b917e66dcd6efb5d5bd971a289f8423b61dcb89b78922ab3f74cd9db4879419"
+    },
+    {
+      "case": "combat",
+      "file": "frame-0-world.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-combat-candidate-a/frame-0-world.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-combat-candidate-a/frame-0-world.png",
+      "referenceSha256": "9b917e66dcd6efb5d5bd971a289f8423b61dcb89b78922ab3f74cd9db4879419",
+      "candidateSha256": "9b917e66dcd6efb5d5bd971a289f8423b61dcb89b78922ab3f74cd9db4879419"
+    },
+    {
+      "case": "combat",
+      "file": "frame-1-hud.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-combat-candidate-a/frame-1-hud.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-combat-candidate-a/frame-1-hud.png",
+      "referenceSha256": "e31be51b6648887943167230dfd89c11bfede200a352fb40327d450f486c22c0",
+      "candidateSha256": "e31be51b6648887943167230dfd89c11bfede200a352fb40327d450f486c22c0"
+    },
+    {
+      "case": "combat",
+      "file": "frame-1-world.png",
+      "format": "decoded-RGBA8",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/remainder-visual-combat-candidate-a/frame-1-world.png",
+      "candidate": "artifacts/opengl-modernization/room-final-visual-combat-candidate-a/frame-1-world.png",
+      "referenceSha256": "f6cfa5f529396b19c5aba3fbc5ac48749e1d549472659a9bc6b4abbfddc66d7a",
+      "candidateSha256": "f6cfa5f529396b19c5aba3fbc5ac48749e1d549472659a9bc6b4abbfddc66d7a"
+    }
+  ],
+  "limitations": "Mac native visuals only; capture-only stable HUD does not test killfeed lifetime. Missing/incomplete cases cannot pass."
+}

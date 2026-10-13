@@ -1,0 +1,1884 @@
+{
+  "schema": 1,
+  "updatedAtUtc": "2026-10-13T05:35:06.776769+00:00",
+  "mainSha": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "lifeBundleSha": "749aa12dc89d41dc83823eafe0929c13b1ebfb99",
+  "initialFeatureBundleSha": "164990e60244ecdb21fdcc4e98e91f3ea097090b",
+  "finalFeatureBundleSha": "87617f47dd67d4cae77931c43f9dce6af87b3fd4",
+  "environment": {
+    "sdk": "10.0.401",
+    "runtime": "10.0.12",
+    "os": "macOS 27 ARM64",
+    "gpu": "Apple M4 Pro",
+    "gl": "2.1 Metal - 91.7"
+  },
+  "native60Arms": [
+    {
+      "build": "baseline",
+      "arm": "combined",
+      "complete": true,
+      "cycles": 60,
+      "sourceIdentity": {
+        "clientSha256": "22C7EB0FB0E59C7E40FA656C4BDA1C20A58C42B5628E3FDD5F47FB79FB6FF0B2",
+        "harnessSha256": "4D91D9976BC1374EF6700FA1E174F48A4171B8710201167DFB2CDE011F9C9A61",
+        "assemblyMvid": "bb5922d1-051d-4a89-940b-d14096c550fe"
+      },
+      "quiescentSamples": 30,
+      "quiescentMeanMiB": {
+        "workingSetBytes": 809.9385416666667,
+        "gcCommittedBytes": 131.6875,
+        "managedLiveBytes": 149.232053120931,
+        "lohSizeBytes": 46.666465759277344
+      },
+      "quiescentLastMiB": {
+        "workingSetBytes": 809.8125,
+        "gcCommittedBytes": 131.6875,
+        "managedLiveBytes": 149.4372787475586,
+        "lohSizeBytes": 46.666465759277344
+      },
+      "postWarmupRssMiBPerCycle": {
+        "postReferenceUnload": 2.9648369859307357,
+        "postCandidateUnload": 2.833630952380952,
+        "postStudioUnload": 2.8391323953823955
+      },
+      "ownedResourcesAfterEveryUnloadZero": true,
+      "audioShutdown": {
+        "observations": 120,
+        "distinctTasks": 120,
+        "completed": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0,
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      },
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/00-combined.analysis.json",
+          "sha256": "3a69dbe29337041530b1f6f770b971c24dd31ab6b69ce34d33027249aaa35e88"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/00-combined.json",
+          "sha256": "4323a12de5f32ec969ccf643e72401eee34c6193bedaa4150490d1e837415378"
+        }
+      ]
+    },
+    {
+      "build": "baseline",
+      "arm": "map-gl",
+      "complete": true,
+      "cycles": 60,
+      "sourceIdentity": {
+        "clientSha256": "22C7EB0FB0E59C7E40FA656C4BDA1C20A58C42B5628E3FDD5F47FB79FB6FF0B2",
+        "harnessSha256": "4D91D9976BC1374EF6700FA1E174F48A4171B8710201167DFB2CDE011F9C9A61",
+        "assemblyMvid": "bb5922d1-051d-4a89-940b-d14096c550fe"
+      },
+      "quiescentSamples": 30,
+      "quiescentMeanMiB": {
+        "workingSetBytes": 570.0223958333333,
+        "gcCommittedBytes": 98.5625,
+        "managedLiveBytes": 131.8298090616862,
+        "lohSizeBytes": 29.822364807128906
+      },
+      "quiescentLastMiB": {
+        "workingSetBytes": 569.984375,
+        "gcCommittedBytes": 98.5625,
+        "managedLiveBytes": 131.92418670654297,
+        "lohSizeBytes": 29.822364807128906
+      },
+      "postWarmupRssMiBPerCycle": {
+        "postReferenceUnload": 2.2480936598124095,
+        "postCandidateUnload": 1.1890004960317468
+      },
+      "ownedResourcesAfterEveryUnloadZero": true,
+      "audioShutdown": {
+        "observations": 120,
+        "distinctTasks": 1,
+        "completed": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0,
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      },
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/01-map-gl.analysis.json",
+          "sha256": "f16feeeec9ff5adea400016c7909c0584ca9da4e7f62d8e9de8ea060da382de0"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/01-map-gl.json",
+          "sha256": "ed559165bc2a3de58b60ff1f2b469a3cc1d648188a1b27487d525c3a48c39b39"
+        }
+      ]
+    },
+    {
+      "build": "baseline",
+      "arm": "studio",
+      "complete": true,
+      "cycles": 60,
+      "sourceIdentity": {
+        "clientSha256": "22C7EB0FB0E59C7E40FA656C4BDA1C20A58C42B5628E3FDD5F47FB79FB6FF0B2",
+        "harnessSha256": "4D91D9976BC1374EF6700FA1E174F48A4171B8710201167DFB2CDE011F9C9A61",
+        "assemblyMvid": "bb5922d1-051d-4a89-940b-d14096c550fe"
+      },
+      "quiescentSamples": 30,
+      "quiescentMeanMiB": {
+        "workingSetBytes": 338.17552083333334,
+        "gcCommittedBytes": 103.359375,
+        "managedLiveBytes": 113.84201304117839,
+        "lohSizeBytes": 66.251220703125
+      },
+      "quiescentLastMiB": {
+        "workingSetBytes": 338.1875,
+        "gcCommittedBytes": 103.359375,
+        "managedLiveBytes": 113.9269790649414,
+        "lohSizeBytes": 66.251220703125
+      },
+      "postWarmupRssMiBPerCycle": {
+        "postStudioUnload": 0.7754193722943723
+      },
+      "ownedResourcesAfterEveryUnloadZero": true,
+      "audioShutdown": {
+        "observations": 0,
+        "distinctTasks": 0,
+        "completed": 0,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0,
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      },
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/02-studio.analysis.json",
+          "sha256": "7307921f686fd6ab5d4f6cc2ecb7fcbc3b310f66d6b8ab0d5df5ff0c8b78d3c3"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/02-studio.json",
+          "sha256": "68d13b0a8e743645e4fd8944d97e8023acd9cbd1e9981339bf2cec86f6f70dc6"
+        }
+      ]
+    },
+    {
+      "build": "baseline",
+      "arm": "audio",
+      "complete": true,
+      "cycles": 60,
+      "sourceIdentity": {
+        "clientSha256": "22C7EB0FB0E59C7E40FA656C4BDA1C20A58C42B5628E3FDD5F47FB79FB6FF0B2",
+        "harnessSha256": "4D91D9976BC1374EF6700FA1E174F48A4171B8710201167DFB2CDE011F9C9A61",
+        "assemblyMvid": "bb5922d1-051d-4a89-940b-d14096c550fe"
+      },
+      "quiescentSamples": 30,
+      "quiescentMeanMiB": {
+        "workingSetBytes": 581.2270833333333,
+        "gcCommittedBytes": 140.984375,
+        "managedLiveBytes": 112.3980707804362,
+        "lohSizeBytes": 66.251220703125
+      },
+      "quiescentLastMiB": {
+        "workingSetBytes": 581.1875,
+        "gcCommittedBytes": 140.984375,
+        "managedLiveBytes": 112.4697036743164,
+        "lohSizeBytes": 66.251220703125
+      },
+      "postWarmupRssMiBPerCycle": {
+        "postReferenceUnload": 4.773559253246753,
+        "postCandidateUnload": 4.77531452922078
+      },
+      "ownedResourcesAfterEveryUnloadZero": null,
+      "audioShutdown": {
+        "observations": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      },
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/03-audio.analysis.json",
+          "sha256": "beaaf74f8022f5df74be65c71ff6e95e9e146e1b0903ad504395d2ff530576ca"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/03-audio.json",
+          "sha256": "796cdd5c0bd581a899c2e25aa70cfb58f0a9abe6ebe4a7fe81280d1bad3c7f40"
+        }
+      ]
+    },
+    {
+      "build": "candidate",
+      "arm": "audio",
+      "complete": true,
+      "cycles": 60,
+      "sourceIdentity": {
+        "clientSha256": "86F075E7C8DD7A06277B4050FEEDC796680B97A2F259615E2AA81E1FAAB37328",
+        "harnessSha256": "9567C96848B3ADF02146043DA840560FC4FDED71A365B16EE6266B3850B461F7",
+        "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c"
+      },
+      "quiescentSamples": 30,
+      "quiescentMeanMiB": {
+        "workingSetBytes": 535.321875,
+        "gcCommittedBytes": 432.859375,
+        "managedLiveBytes": 428.7637781778971,
+        "lohSizeBytes": 381.8767547607422
+      },
+      "quiescentLastMiB": {
+        "workingSetBytes": 535.28125,
+        "gcCommittedBytes": 432.859375,
+        "managedLiveBytes": 428.83541107177734,
+        "lohSizeBytes": 381.8767547607422
+      },
+      "postWarmupRssMiBPerCycle": {
+        "postReferenceUnload": -0.4822262806637805,
+        "postCandidateUnload": -0.4803853264790763
+      },
+      "ownedResourcesAfterEveryUnloadZero": null,
+      "audioShutdown": {
+        "observations": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      },
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/00-audio.analysis.json",
+          "sha256": "dbbac49c6272650517b815b2cd03386b612b84a80db9a948120091d6eaf87add"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/00-audio.json",
+          "sha256": "7b5f0ba98d6a89a59381bb61faf316af2a1c8ce37ac4505f6b0c7905b57ba600"
+        }
+      ]
+    },
+    {
+      "build": "candidate",
+      "arm": "studio",
+      "complete": true,
+      "cycles": 60,
+      "sourceIdentity": {
+        "clientSha256": "86F075E7C8DD7A06277B4050FEEDC796680B97A2F259615E2AA81E1FAAB37328",
+        "harnessSha256": "9567C96848B3ADF02146043DA840560FC4FDED71A365B16EE6266B3850B461F7",
+        "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c"
+      },
+      "quiescentSamples": 30,
+      "quiescentMeanMiB": {
+        "workingSetBytes": 337.00677083333335,
+        "gcCommittedBytes": 103.40625,
+        "managedLiveBytes": 113.92481333414713,
+        "lohSizeBytes": 66.251220703125
+      },
+      "quiescentLastMiB": {
+        "workingSetBytes": 337.015625,
+        "gcCommittedBytes": 103.40625,
+        "managedLiveBytes": 114.00899505615234,
+        "lohSizeBytes": 66.251220703125
+      },
+      "postWarmupRssMiBPerCycle": {
+        "postStudioUnload": 0.7760157377344877
+      },
+      "ownedResourcesAfterEveryUnloadZero": true,
+      "audioShutdown": {
+        "observations": 0,
+        "distinctTasks": 0,
+        "completed": 0,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0,
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      },
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/01-studio.analysis.json",
+          "sha256": "af2862a35e628b2cd3e7273da132ee4b3cf2674735a30497ff54e5aed22fde68"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/01-studio.json",
+          "sha256": "b683b9334df5207613c6b5de28a4c4322e71b5e624184fee3f48cbc62219959e"
+        }
+      ]
+    },
+    {
+      "build": "candidate",
+      "arm": "map-gl",
+      "complete": true,
+      "cycles": 60,
+      "sourceIdentity": {
+        "clientSha256": "86F075E7C8DD7A06277B4050FEEDC796680B97A2F259615E2AA81E1FAAB37328",
+        "harnessSha256": "9567C96848B3ADF02146043DA840560FC4FDED71A365B16EE6266B3850B461F7",
+        "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c"
+      },
+      "quiescentSamples": 30,
+      "quiescentMeanMiB": {
+        "workingSetBytes": 572.9104166666667,
+        "gcCommittedBytes": 98.875,
+        "managedLiveBytes": 131.796630859375,
+        "lohSizeBytes": 29.822364807128906
+      },
+      "quiescentLastMiB": {
+        "workingSetBytes": 572.875,
+        "gcCommittedBytes": 98.875,
+        "managedLiveBytes": 131.8907470703125,
+        "lohSizeBytes": 29.822364807128906
+      },
+      "postWarmupRssMiBPerCycle": {
+        "postReferenceUnload": 2.261674783549784,
+        "postCandidateUnload": 1.0834607233044729
+      },
+      "ownedResourcesAfterEveryUnloadZero": true,
+      "audioShutdown": {
+        "observations": 120,
+        "distinctTasks": 1,
+        "completed": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0,
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      },
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/02-map-gl.analysis.json",
+          "sha256": "2c7799923bb797e76a451c10debcac913779fd639870ade47c336ba2578bf320"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/02-map-gl.json",
+          "sha256": "773cae9fca2403b812711def0096a75227f90e132285360e62cd952cbef0c50e"
+        }
+      ]
+    },
+    {
+      "build": "candidate",
+      "arm": "combined",
+      "complete": true,
+      "cycles": 60,
+      "sourceIdentity": {
+        "clientSha256": "86F075E7C8DD7A06277B4050FEEDC796680B97A2F259615E2AA81E1FAAB37328",
+        "harnessSha256": "9567C96848B3ADF02146043DA840560FC4FDED71A365B16EE6266B3850B461F7",
+        "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c"
+      },
+      "quiescentSamples": 30,
+      "quiescentMeanMiB": {
+        "workingSetBytes": 954.0270833333333,
+        "gcCommittedBytes": 111.390625,
+        "managedLiveBytes": 141.2365529378255,
+        "lohSizeBytes": 38.666412353515625
+      },
+      "quiescentLastMiB": {
+        "workingSetBytes": 886.625,
+        "gcCommittedBytes": 111.390625,
+        "managedLiveBytes": 141.4331512451172,
+        "lohSizeBytes": 38.666412353515625
+      },
+      "postWarmupRssMiBPerCycle": {
+        "postReferenceUnload": 6.255448457792208,
+        "postCandidateUnload": 5.868159271284273,
+        "postStudioUnload": 5.877014565295813
+      },
+      "ownedResourcesAfterEveryUnloadZero": true,
+      "audioShutdown": {
+        "observations": 120,
+        "distinctTasks": 120,
+        "completed": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0,
+        "durationMeaning": "Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
+      },
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/03-combined.analysis.json",
+          "sha256": "449547aa7221936feec83f6db8b0916f685bb66373a69d9a99c65be24af00330"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/03-combined.json",
+          "sha256": "afd306f2bea7f3b24a2d9a10cb3c023ad4003152572ffe401d487a391ec5a997"
+        }
+      ]
+    }
+  ],
+  "performanceABBA": {
+    "order": [
+      "base",
+      "candidate",
+      "candidate",
+      "base"
+    ],
+    "runsPerArm": 2,
+    "warmupSimulationSteps": 240,
+    "totalSecondsPerRun": 24,
+    "measurementSecondsPerRun": 20,
+    "meaning": "Median of two per-run means/percentiles; regression smoke, not a major FPS improvement claim",
+    "room": "MP3 PROVING GROUND",
+    "players": 8,
+    "shadows": "High",
+    "size": [
+      1920,
+      1080
+    ],
+    "vsync": "Off",
+    "cap": -1,
+    "metrics": {
+      "meanCompletedFrameFps": {
+        "baseline": 406.6790144069388,
+        "candidate": 404.7114114942726,
+        "relativePercent": -0.48382209136990095
+      },
+      "frameIntervalP50Ms": {
+        "baseline": 2.0502000000000002,
+        "candidate": 2.05305,
+        "relativePercent": 0.13901082821186073
+      },
+      "frameIntervalP95Ms": {
+        "baseline": 4.710100000000001,
+        "candidate": 4.7797,
+        "relativePercent": 1.4776756332137264
+      },
+      "frameIntervalP99Ms": {
+        "baseline": 7.362,
+        "candidate": 7.3892500000000005,
+        "relativePercent": 0.3701439826134356
+      },
+      "onePercentLowEstimateFps": {
+        "baseline": 135.96340432943947,
+        "candidate": 135.47988092425058,
+        "relativePercent": -0.3556276099245914
+      },
+      "pointOnePercentLowEstimateFps": {
+        "baseline": 106.83517085791036,
+        "candidate": 110.45623609324767,
+        "relativePercent": 3.3893943410763905
+      },
+      "allocatedBytesPerDraw": {
+        "baseline": 30214.891995348742,
+        "candidate": 30215.863839797894,
+        "relativePercent": 0.0032164419098368313
+      }
+    },
+    "allZeroDroppedStepsAndStalls": true,
+    "simulationHzRange": [
+      59.939859342129104,
+      59.98127084817773
+    ]
+  },
+  "pacingSmoke": [
+    {
+      "cap": 60,
+      "players": 1,
+      "shadows": "Off",
+      "arm": "base",
+      "meanCompletedFrameFps": 57.63869104179461,
+      "simulationHz": 59.96205601095624,
+      "droppedSimulationSteps": 0,
+      "stalls": 0
+    },
+    {
+      "cap": 60,
+      "players": 1,
+      "shadows": "Off",
+      "arm": "candidate",
+      "meanCompletedFrameFps": 57.531665428651955,
+      "simulationHz": 60.051573879788776,
+      "droppedSimulationSteps": 0,
+      "stalls": 0
+    },
+    {
+      "cap": 120,
+      "players": 2,
+      "shadows": "Low",
+      "arm": "base",
+      "meanCompletedFrameFps": 110.07680058376731,
+      "simulationHz": 59.88459340581797,
+      "droppedSimulationSteps": 0,
+      "stalls": 0
+    },
+    {
+      "cap": 120,
+      "players": 2,
+      "shadows": "Low",
+      "arm": "candidate",
+      "meanCompletedFrameFps": 102.03329091199235,
+      "simulationHz": 60.241761640376204,
+      "droppedSimulationSteps": 0,
+      "stalls": 0
+    },
+    {
+      "cap": 144,
+      "players": 8,
+      "shadows": "High",
+      "arm": "base",
+      "meanCompletedFrameFps": 141.03343902839381,
+      "simulationHz": 59.87205342183748,
+      "droppedSimulationSteps": 0,
+      "stalls": 0
+    },
+    {
+      "cap": 144,
+      "players": 8,
+      "shadows": "High",
+      "arm": "candidate",
+      "meanCompletedFrameFps": 141.28159409647986,
+      "simulationHz": 59.842061838293255,
+      "droppedSimulationSteps": 0,
+      "stalls": 0
+    },
+    {
+      "cap": 240,
+      "players": 8,
+      "shadows": "Ultra",
+      "arm": "base",
+      "meanCompletedFrameFps": 234.6156707976847,
+      "simulationHz": 59.66730406264222,
+      "droppedSimulationSteps": 0,
+      "stalls": 0
+    },
+    {
+      "cap": 240,
+      "players": 8,
+      "shadows": "Ultra",
+      "arm": "candidate",
+      "meanCompletedFrameFps": 234.96268792515787,
+      "simulationHz": 59.969094926929316,
+      "droppedSimulationSteps": 0,
+      "stalls": 0
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/manifest.json",
+      "sha256": "6178cc1bf9a43b12eaad1a679907f706d30e8434ca26f79cbb83599713dbf23d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/manifest.json",
+      "sha256": "30e63f5a0986ab5bafe638c8a9dc3637a10f25c55b35835cde10d17915a62c96"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/lifecycle-performance-abba/manifest.json",
+      "sha256": "24bedf20c21bc34c31c959d83756aa502dcceb501736c5c504143b2e22c1dbea"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/lifecycle-performance-abba/00-base.json",
+      "sha256": "297482fb0310010aa97a9c01d6ede7a430cf6289b1454afcf77f40782785a505"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/lifecycle-performance-abba/01-candidate.json",
+      "sha256": "3410b1fc7a66922910b25ed55493688a2eb05a8a176d7b19c85adfd3b80ebf25"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/lifecycle-performance-abba/02-candidate.json",
+      "sha256": "7e38877fe792060bacd19ac3bca1b7faa62dc3dd3ef6dbb2d5b44cfcb1fb167d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/lifecycle-performance-abba/03-base.json",
+      "sha256": "822645d8fc18f057a41b225b7844f5c33713a06006be4a42e2ea11761b906b8a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/pacing-regression/manifest.json",
+      "sha256": "0e74bd54d3d44a9272745c2741e488e71a30fe5d8a10ecffdfcc8e2eea07daee"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/pacing-regression/60-base.json",
+      "sha256": "6f8d4cf95159b9af5609d7114f8261aff9c9b8580e85611f7a52b1e2853a810d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/pacing-regression/60-candidate.json",
+      "sha256": "40d7550478c74f7a55f5a78665a96fc9d1d6f698843e9426104c6992908f4920"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/pacing-regression/120-base.json",
+      "sha256": "890c5e0d8e135c788adf52e2d9810703291e0f015be7df0d330d864ebadf5c32"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/pacing-regression/120-candidate.json",
+      "sha256": "1089921fb0d34738bce8cb768820a013e42255396b98839b40e4d0bed54bb901"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/pacing-regression/144-base.json",
+      "sha256": "57f83384d273dade98f4a35ccaa10711d6509f2657f4feb3c36709ce5643b1a2"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/pacing-regression/144-candidate.json",
+      "sha256": "dc00583f7d4ce1f2e245422debd1f310220324de2285ba2fa965feac70b85b0a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/pacing-regression/240-base.json",
+      "sha256": "1aecdd3560779fa6a69b6699f778990d5ed6811c9f477015dae91a02db1c4100"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/pacing-regression/240-candidate.json",
+      "sha256": "5c4a1b857e4865ef9702ad03f96e10d1d58b3e657b00f684d546646e1ca6383d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-crossbuild-parity.json",
+      "sha256": "560463d7d985d091a2748c5a1f4ff27e9fa84f6c9ff12ab6f3a75af9633034d9"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/manifest.json",
+      "sha256": "d37c1b8a566782c14d8f5b0b1cfe0c25684bec1094613993fc8ecc8f23ea59d1"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks/manifest.json",
+      "sha256": "c92f7a4d233cbfa847c7ff461be33a19745c204946f71b15ed75a133451306ba"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-final-20261013/manifest.json",
+      "sha256": "20bb7594d672139c14c9190ae59290c5c8e600f0cca77980f1f131203d83c8b7"
+    },
+    {
+      "path": "/tmp/prime-integrated-fixture-build.log",
+      "sha256": "cf81c7e439705769e4ebf3863a6d08b17e88c8509266c668e0a206191a8f5e45"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-60/profiling-manifest.json",
+      "sha256": "f9c8fae6f65acb66b3c35d9df1b27d775fa779ff2ed3a41bc79a497c90572fda"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-120/profiling-manifest.json",
+      "sha256": "33a070db97e1646ff848f0070a9ec966483f51d9a90c196ca5e1fd1d2687f6f4"
+    }
+  ],
+  "crossBuildParity": {
+    "schema": 1,
+    "meaning": "Across-build exact fixture color/depth parity; frozen input, two rotating rooms, 120 steps/arm; lifecycle/diagnostic run, not a timing claim",
+    "arms": [
+      {
+        "arm": "map-gl",
+        "baseline": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/01-map-gl.json",
+        "baselineSha256": "ed559165bc2a3de58b60ff1f2b469a3cc1d648188a1b27487d525c3a48c39b39",
+        "candidate": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/02-map-gl.json",
+        "candidateSha256": "773cae9fca2403b812711def0096a75227f90e132285360e62cd952cbef0c50e",
+        "pairs": 120,
+        "mismatches": [],
+        "pass": true
+      },
+      {
+        "arm": "combined",
+        "baseline": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/00-combined.json",
+        "baselineSha256": "4323a12de5f32ec969ccf643e72401eee34c6193bedaa4150490d1e837415378",
+        "candidate": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/03-combined.json",
+        "candidateSha256": "afd306f2bea7f3b24a2d9a10cb3c023ad4003152572ffe401d487a391ec5a997",
+        "pairs": 120,
+        "mismatches": [],
+        "pass": true
+      }
+    ]
+  },
+  "correctedIntegration": {
+    "schemaVersion": 2,
+    "sourceSha": "164990e60244ecdb21fdcc4e98e91f3ea097090b",
+    "binarySha256": "8bc3701ba6d37db067da1b86be6168153a58b0edc3610fca15da86f3c7b133c3",
+    "supersedes": "artifacts/integration-checks/manifest.json",
+    "environment": {
+      "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data",
+      "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+    },
+    "frozenFixtureSha256": {
+      "enhanced-synthetic.ppdemo": "3c3b539b8922ec9374cbb672754fae10507070ae1b8b3518799aa07dd74afdef",
+      "enhanced-world-v9.bin": "a842a51563ee32307b209423e888a89ed167d5b37bf333c015f789a4434149c0",
+      "enhanced-world-v9-hashes.json": "a29bb0647836e589aaf5934a4965b0c068b821d3a87bf33ec9a200b8e9d99b93"
+    },
+    "results": [
+      {
+        "name": "retirement",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--enhanced-retirement"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:03:42.666038+00:00",
+        "log": "artifacts/integration-checks-corrected-20261013/retirement.log",
+        "logSha256": "e6de6949116f8a4b706ff4d29b5619a4fc105548d9d0c8955c19880cf9f255e0",
+        "lastLine": "ENHANCED RETIREMENT PASS 80 checks (live eligibility, settings, wire and archive compatibility)"
+      },
+      {
+        "name": "archival-world",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--enhanced-retirement-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data",
+          "/tmp/consolidation-enhanced-fixture"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:03:42.812686+00:00",
+        "log": "artifacts/integration-checks-corrected-20261013/archival-world.log",
+        "logSha256": "65ec95ce64c56d9088f91f0e65de4c63d249afbf47cf5b7a6f1c0f4cf6d6000d",
+        "lastLine": "ENHANCED ARCHIVE PASS 46 checks (baseline fixture replayed; headless synthetic archive)"
+      },
+      {
+        "name": "retired-live-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--enhanced-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:03:43.372101+00:00",
+        "log": "artifacts/integration-checks-corrected-20261013/retired-live-scene.log",
+        "logSha256": "8bb915597e3d057d6d6f0fbff8ef748aa3a80b159eafd40476f2dc60d7405151",
+        "lastLine": "ENHANCED RETIREMENT SCENE PASS 20 checks (headless, eight-player Balanced and forced retired rules)"
+      },
+      {
+        "name": "advanced",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--advanced-rules"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:03:44.323245+00:00",
+        "log": "artifacts/integration-checks-corrected-20261013/advanced.log",
+        "logSha256": "0adb6f34e3b68706ce22ba3bde698e7baf5b3c22d2a2d5c1ca452ffa1c829998",
+        "lastLine": "[advanced-rules] PASS 130 checks"
+      },
+      {
+        "name": "combat-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--combat-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data"
+        ],
+        "exitCode": 1,
+        "startedAtUtc": "2026-10-13T05:03:46.613257+00:00",
+        "log": "artifacts/integration-checks-corrected-20261013/combat-scene.log",
+        "logSha256": "c4a57ff0484025262925729c31215f2f9a5ecf331390d46cf37cf73e8f3a4c26",
+        "lastLine": "   at MphRead.Mods.Network.NetCombatCheck.Run(String room) in /Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/src/MphRead/Mods/Network/NetCombatCheck.cs:line 58"
+      },
+      {
+        "name": "advanced-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--advanced-rules-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data"
+        ],
+        "exitCode": 1,
+        "startedAtUtc": "2026-10-13T05:03:47.286290+00:00",
+        "log": "artifacts/integration-checks-corrected-20261013/advanced-scene.log",
+        "logSha256": "585ba0fb70433de440e074d3eaefbb98f4f1db57832d0c783b0d318466d610c4",
+        "lastLine": "   at MphRead.Mods.Network.NetLobbyTest.RunAdvancedRulesScene() in /Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/src/MphRead/Mods/Network/AdvancedMatchRulesCheck.cs:line 75"
+      }
+    ]
+  },
+  "finalIntegration": {
+    "schemaVersion": 3,
+    "sourceSha": "87617f47dd67d4cae77931c43f9dce6af87b3fd4",
+    "testFixtureCommit": "81ef736f6f8c2c2b77bba72faaabbd6faefe0913",
+    "nettestSha256": "273294e1185e234560f0f1021900a73f41dafe294884f8c7c9b9873afbcffd7d",
+    "clientSha256": "2edee59479183f3599ae4fded663be2c357176388743167c10ab1acf18cf2a40",
+    "environment": {
+      "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-final-20261013/user-data",
+      "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+    },
+    "supersedes": [
+      "artifacts/integration-checks/manifest.json",
+      "artifacts/integration-checks-corrected-20261013/manifest.json"
+    ],
+    "results": [
+      {
+        "name": "combat-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--combat-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-final-20261013/user-data"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:25:47.618746+00:00",
+        "log": "artifacts/integration-checks-final-20261013/combat-scene.log",
+        "logSha256": "4b1b6746d1092d869aaa1cd3604809176be4eadfff598ded0b9f09028bcfafad",
+        "lastLine": "COMBAT PASS 204 assertions",
+        "passLines": [
+          "COMBAT PASS old launch still damages target/Judicator",
+          "COMBAT PASS forged launch life rejected",
+          "COMBAT PASS ricochet child keeps original fire event/Judicator",
+          "COMBAT PASS no simulation failures",
+          "COMBAT PASS 204 assertions"
+        ]
+      },
+      {
+        "name": "advanced-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--advanced-rules-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-final-20261013/user-data"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:25:48.452102+00:00",
+        "log": "artifacts/integration-checks-final-20261013/advanced-scene.log",
+        "logSha256": "dba6a39a09a5210c44a19af3bf10e529e8c6d57f1558c0e085b1d222a9678d97",
+        "lastLine": "[advanced-rules-scene] PASS 347 checks",
+        "passLines": [
+          "[advanced-rules-scene] PASS 347 checks"
+        ]
+      },
+      {
+        "name": "retirement",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--enhanced-retirement"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:25:52.485649+00:00",
+        "log": "artifacts/integration-checks-final-20261013/retirement.log",
+        "logSha256": "e6de6949116f8a4b706ff4d29b5619a4fc105548d9d0c8955c19880cf9f255e0",
+        "lastLine": "ENHANCED RETIREMENT PASS 80 checks (live eligibility, settings, wire and archive compatibility)",
+        "passLines": [
+          "ENHANCED RETIREMENT PASS 80 checks (live eligibility, settings, wire and archive compatibility)"
+        ]
+      },
+      {
+        "name": "archival-world",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--enhanced-retirement-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-final-20261013/user-data",
+          "/tmp/consolidation-enhanced-fixture"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:25:52.666817+00:00",
+        "log": "artifacts/integration-checks-final-20261013/archival-world.log",
+        "logSha256": "65ec95ce64c56d9088f91f0e65de4c63d249afbf47cf5b7a6f1c0f4cf6d6000d",
+        "lastLine": "ENHANCED ARCHIVE PASS 46 checks (baseline fixture replayed; headless synthetic archive)",
+        "passLines": [
+          "ENHANCED ARCHIVE PASS 46 checks (baseline fixture replayed; headless synthetic archive)"
+        ]
+      },
+      {
+        "name": "retired-live-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--enhanced-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-final-20261013/user-data"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:25:53.235714+00:00",
+        "log": "artifacts/integration-checks-final-20261013/retired-live-scene.log",
+        "logSha256": "8bb915597e3d057d6d6f0fbff8ef748aa3a80b159eafd40476f2dc60d7405151",
+        "lastLine": "ENHANCED RETIREMENT SCENE PASS 20 checks (headless, eight-player Balanced and forced retired rules)",
+        "passLines": [
+          "ENHANCED RETIREMENT SCENE PASS 20 checks (headless, eight-player Balanced and forced retired rules)"
+        ]
+      },
+      {
+        "name": "advanced",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--advanced-rules"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:25:53.960577+00:00",
+        "log": "artifacts/integration-checks-final-20261013/advanced.log",
+        "logSha256": "e8ab806fe686fcb5e325a5d29159d37a62d94fc88c05d049878454f5567d9b9e",
+        "lastLine": "[advanced-rules] PASS 130 checks",
+        "passLines": [
+          "[advanced-rules] PASS 130 checks"
+        ]
+      },
+      {
+        "name": "game-mode",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-gamemodecheck"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:25:56.229326+00:00",
+        "log": "artifacts/integration-checks-final-20261013/game-mode.log",
+        "logSha256": "f961b1fa0a104f477d8ad0ba07e8ff0dc724cd12964142c621bd99715d23fdc3",
+        "lastLine": "[gamemodecheck] PASS 2198 lifecycle checks (asset-free; not objective simulation)",
+        "passLines": [
+          "[gamemodecheck] PASS 2198 lifecycle checks (asset-free; not objective simulation)"
+        ]
+      },
+      {
+        "name": "replay-format",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-replayformatcheck"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:25:56.360756+00:00",
+        "log": "artifacts/integration-checks-final-20261013/replay-format.log",
+        "logSha256": "bdacefa19fd468ae4d997891416c741d50f08e7e3fe606119a813417686b454a",
+        "lastLine": "[replayformat] PASS 3034 checks (v2/v3/v4, order, metadata, CRC, recovery, extraction, malformed files)",
+        "passLines": [
+          "[replayformat] PASS 3034 checks (v2/v3/v4, order, metadata, CRC, recovery, extraction, malformed files)"
+        ]
+      },
+      {
+        "name": "protocol18",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--protocol18"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:25:56.876996+00:00",
+        "log": "artifacts/integration-checks-final-20261013/protocol18.log",
+        "logSha256": "768650085c1f77361be185ae9708f2e702b18e96945e8549c8a31a0e78fbf3a8",
+        "lastLine": "PASS: protocol 18 lane round-trip, revision fencing, 0 decode allocations, 1172B worst-case fast datagram",
+        "passLines": [
+          "PASS: protocol 18 lane round-trip, revision fencing, 0 decode allocations, 1172B worst-case fast datagram"
+        ]
+      },
+      {
+        "name": "lobby",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--lobby"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:25:56.955534+00:00",
+        "log": "artifacts/integration-checks-final-20261013/lobby.log",
+        "logSha256": "3a10cba73b632461bce406ebdf5e38bd82769417cf2757899decdcb9265930fc",
+        "lastLine": "[netlobbytest] PASS: 7747 assertions; protocol, UDP lifecycle/farewell, join-in-progress identity, owner lobby return, direct post-match lobby return, abandoned-session cleanup, hosted ownership, teams, rebind and continuous rotation.",
+        "passLines": [
+          "[netlobbytest] PASS: 7747 assertions; protocol, UDP lifecycle/farewell, join-in-progress identity, owner lobby return, direct post-match lobby return, abandoned-session cleanup, hosted ownership, teams, rebind and continuous rotation."
+        ]
+      },
+      {
+        "name": "waitlist",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--waitlist"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:27:36.304189+00:00",
+        "log": "artifacts/integration-checks-final-20261013/waitlist.log",
+        "logSha256": "b644c6051833ad8456f0c9a41de404def13b4d0048eeae621392d2804016f423",
+        "lastLine": "[waitlist] PASS 309 assertions; real server transport bootstrap, FIFO, refusal/reservation, wrong-owner/offer, decline and same-connection admission.",
+        "passLines": [
+          "[waitlist] PASS 309 assertions; real server transport bootstrap, FIFO, refusal/reservation, wrong-owner/offer, decline and same-connection admission."
+        ]
+      },
+      {
+        "name": "transport",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--transport-stress"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:28:31.612660+00:00",
+        "log": "artifacts/integration-checks-final-20261013/transport.log",
+        "logSha256": "5877f9097ef8bfe51eab76a18cb8ca17f04aac4100e0909165cdb12d2b02870e",
+        "lastLine": "PASS: eight mixed-quality UDP peers, 1784 intents, 128 exact-once controls, 400ms client pump stall",
+        "passLines": [
+          "PASS: eight mixed-quality UDP peers, 1784 intents, 128 exact-once controls, 400ms client pump stall"
+        ]
+      }
+    ]
+  },
+  "collisionIntegration": {
+    "goldenRows": 618,
+    "goldenSha256": "68461616B61605635F0AA9532FA7716F2E399CF9A9D0B2190B917A5E0F7D8435",
+    "concurrentQueries": 32000,
+    "independentSceneChecks": 2000,
+    "warmedQueries": 40000,
+    "warmedAllocatedBytes": 0,
+    "largeCandidateCountsWith100WarmQueriesAndZeroBytes": [
+      4225,
+      8192
+    ],
+    "oversized8193": "Completes, discards workspace and clears scene references",
+    "artifact": {
+      "path": "/tmp/prime-final-integrated-collision.log",
+      "sha256": "7d212832b615d2fba38d0b6d6124d494d9a574e97554bc2de4c80b2e7e67e23e"
+    }
+  },
+  "audioRetentionFollowup": [
+    {
+      "trial": "v2-forward-baseline-60",
+      "complete": true,
+      "cycles": 60,
+      "shutdown": {
+        "observations": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      },
+      "afterSecondGcMiB": {
+        "workingSetBytes": 735.34375,
+        "managedLiveBytes": 464.5796432495117,
+        "gcCommittedBytes": 464.375,
+        "lohSizeBytes": 383.8768081665039
+      },
+      "lastQuiescentMiB": {
+        "workingSetBytes": 737.46875,
+        "managedLiveBytes": 468.0840835571289,
+        "gcCommittedBytes": 464.375,
+        "lohSizeBytes": 383.8768081665039
+      },
+      "weakObservations": 195240,
+      "weakKinds": [
+        {
+          "kind": "sfx-instance",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_samples",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_rangeData",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_dgnFiles",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_sfxScripts",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_soundData",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sound-sample",
+          "observed": 63360,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sample-encoded-data",
+          "observed": 63360,
+          "alive": 2160,
+          "observedPayloadBytes": 501203040,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sample-payload",
+          "observed": 63360,
+          "alive": 2160,
+          "observedPayloadBytes": 2003832960,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sound-stream",
+          "observed": 1440,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "stream-channel",
+          "observed": 1560,
+          "alive": 0,
+          "observedPayloadBytes": 334182000,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "stream-payload",
+          "observed": 1440,
+          "alive": 0,
+          "observedPayloadBytes": 334182000,
+          "alivePayloadBytes": 0
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-forward-baseline-60/00-audio.json",
+          "sha256": "376b9e46d5ef2d7a607f34aa90985795281de36681de4d1705ca906ec331acfc"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-forward-baseline-60/manifest.json",
+          "sha256": "eafd6d432fb0a77d0194d3ba21e38d42f83b9efc10d8b155ad81762cec9b677a"
+        }
+      ]
+    },
+    {
+      "trial": "v2-forward-candidate-60",
+      "complete": true,
+      "cycles": 60,
+      "shutdown": {
+        "observations": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      },
+      "afterSecondGcMiB": {
+        "workingSetBytes": 440.78125,
+        "managedLiveBytes": 464.51092529296875,
+        "gcCommittedBytes": 442.125,
+        "lohSizeBytes": 383.8768081665039
+      },
+      "lastQuiescentMiB": {
+        "workingSetBytes": 442.8125,
+        "managedLiveBytes": 468.02320861816406,
+        "gcCommittedBytes": 442.125,
+        "lohSizeBytes": 383.8768081665039
+      },
+      "weakObservations": 195360,
+      "weakKinds": [
+        {
+          "kind": "sfx-instance",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "resource-owner",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_samples",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_rangeData",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_dgnFiles",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_sfxScripts",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_soundData",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sound-sample",
+          "observed": 63360,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sample-encoded-data",
+          "observed": 63360,
+          "alive": 2160,
+          "observedPayloadBytes": 501203040,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sample-payload",
+          "observed": 63360,
+          "alive": 2160,
+          "observedPayloadBytes": 2003832960,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sound-stream",
+          "observed": 1440,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "stream-channel",
+          "observed": 1560,
+          "alive": 0,
+          "observedPayloadBytes": 334182000,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "stream-payload",
+          "observed": 1440,
+          "alive": 0,
+          "observedPayloadBytes": 334182000,
+          "alivePayloadBytes": 0
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-forward-candidate-60/00-audio.json",
+          "sha256": "f1f628e59ab8d6f3017a0108eb7b07d9779e0017ad4fb7779a71b47f647fb575"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-forward-candidate-60/manifest.json",
+          "sha256": "262fe22d41d88cebe90792cc36fc84630124f466912532a2a61e616baf8f3ae2"
+        }
+      ]
+    },
+    {
+      "trial": "v2-reverse-candidate-60",
+      "complete": true,
+      "cycles": 60,
+      "shutdown": {
+        "observations": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      },
+      "afterSecondGcMiB": {
+        "workingSetBytes": 294.59375,
+        "managedLiveBytes": 148.10948181152344,
+        "gcCommittedBytes": 128.640625,
+        "lohSizeBytes": 68.25127410888672
+      },
+      "lastQuiescentMiB": {
+        "workingSetBytes": 296.640625,
+        "managedLiveBytes": 151.62176513671875,
+        "gcCommittedBytes": 128.640625,
+        "lohSizeBytes": 68.25127410888672
+      },
+      "weakObservations": 195360,
+      "weakKinds": [
+        {
+          "kind": "sfx-instance",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "resource-owner",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_samples",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_rangeData",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_dgnFiles",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_sfxScripts",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_soundData",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sound-sample",
+          "observed": 63360,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sample-encoded-data",
+          "observed": 63360,
+          "alive": 2160,
+          "observedPayloadBytes": 501203040,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sample-payload",
+          "observed": 63360,
+          "alive": 2160,
+          "observedPayloadBytes": 2003832960,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sound-stream",
+          "observed": 1440,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "stream-channel",
+          "observed": 1560,
+          "alive": 0,
+          "observedPayloadBytes": 334182000,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "stream-payload",
+          "observed": 1440,
+          "alive": 0,
+          "observedPayloadBytes": 334182000,
+          "alivePayloadBytes": 0
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-reverse-candidate-60/00-audio.json",
+          "sha256": "43c6f81908ce4ee86430f9c48f3b825bdd9da491758dcb99cf21c27fc8976fff"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-reverse-candidate-60/manifest.json",
+          "sha256": "f9415e2e97c303f63afc6cf931f94c00d492492d3077e71896746e8e4d91978b"
+        }
+      ]
+    },
+    {
+      "trial": "v2-reverse-baseline-60",
+      "complete": true,
+      "cycles": 60,
+      "shutdown": {
+        "observations": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      },
+      "afterSecondGcMiB": {
+        "workingSetBytes": 589.75,
+        "managedLiveBytes": 148.23711395263672,
+        "gcCommittedBytes": 147.328125,
+        "lohSizeBytes": 68.25127410888672
+      },
+      "lastQuiescentMiB": {
+        "workingSetBytes": 591.765625,
+        "managedLiveBytes": 151.7415542602539,
+        "gcCommittedBytes": 147.328125,
+        "lohSizeBytes": 68.25127410888672
+      },
+      "weakObservations": 195240,
+      "weakKinds": [
+        {
+          "kind": "sfx-instance",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_samples",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_rangeData",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_dgnFiles",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_sfxScripts",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_soundData",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sound-sample",
+          "observed": 63360,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sample-encoded-data",
+          "observed": 63360,
+          "alive": 2160,
+          "observedPayloadBytes": 501203040,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sample-payload",
+          "observed": 63360,
+          "alive": 2160,
+          "observedPayloadBytes": 2003832960,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sound-stream",
+          "observed": 1440,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "stream-channel",
+          "observed": 1560,
+          "alive": 0,
+          "observedPayloadBytes": 334182000,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "stream-payload",
+          "observed": 1440,
+          "alive": 0,
+          "observedPayloadBytes": 334182000,
+          "alivePayloadBytes": 0
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-reverse-baseline-60/00-audio.json",
+          "sha256": "4fe396197dfc3c502f0a108ff214aa0ffb205685c9fc51936d00d993c4284a1e"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-reverse-baseline-60/manifest.json",
+          "sha256": "739f6ec0b70e2bfe8ba58394e8be71de39fecb8f21fe1e436bedb6a161a22db4"
+        }
+      ]
+    },
+    {
+      "trial": "v2-profiled-candidate-60",
+      "complete": true,
+      "cycles": 60,
+      "shutdown": {
+        "observations": 120,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      },
+      "afterSecondGcMiB": {
+        "workingSetBytes": 289.515625,
+        "managedLiveBytes": 148.08087158203125,
+        "gcCommittedBytes": 127.6875,
+        "lohSizeBytes": 68.25127410888672
+      },
+      "lastQuiescentMiB": {
+        "workingSetBytes": 281.390625,
+        "managedLiveBytes": 149.90906524658203,
+        "gcCommittedBytes": 118.84375,
+        "lohSizeBytes": 68.25127410888672
+      },
+      "weakObservations": 195360,
+      "weakKinds": [
+        {
+          "kind": "sfx-instance",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "resource-owner",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_samples",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_rangeData",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_dgnFiles",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_sfxScripts",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_soundData",
+          "observed": 120,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sound-sample",
+          "observed": 63360,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sample-encoded-data",
+          "observed": 63360,
+          "alive": 2160,
+          "observedPayloadBytes": 501203040,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sample-payload",
+          "observed": 63360,
+          "alive": 2160,
+          "observedPayloadBytes": 2003832960,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sound-stream",
+          "observed": 1440,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "stream-channel",
+          "observed": 1560,
+          "alive": 0,
+          "observedPayloadBytes": 334182000,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "stream-payload",
+          "observed": 1440,
+          "alive": 0,
+          "observedPayloadBytes": 334182000,
+          "alivePayloadBytes": 0
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-60/00-audio.json",
+          "sha256": "f375f3aa4aef4d9d4c10e629e64c0e3da3740faadd48d1601eb364c0ed667ebe"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-60/manifest.json",
+          "sha256": "450934ed65dd5f3ea74fcd497ce4160e3a3550004c8cac130c0373ed21800139"
+        }
+      ]
+    },
+    {
+      "trial": "v2-profiled-candidate-120",
+      "complete": true,
+      "cycles": 120,
+      "shutdown": {
+        "observations": 240,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      },
+      "afterSecondGcMiB": {
+        "workingSetBytes": 256.90625,
+        "managedLiveBytes": 120.10709381103516,
+        "gcCommittedBytes": 74.5,
+        "lohSizeBytes": 6.500846862792969
+      },
+      "lastQuiescentMiB": {
+        "workingSetBytes": 257.96875,
+        "managedLiveBytes": 122.80072784423828,
+        "gcCommittedBytes": 74.5,
+        "lohSizeBytes": 6.500846862792969
+      },
+      "weakObservations": 390720,
+      "weakKinds": [
+        {
+          "kind": "sfx-instance",
+          "observed": 240,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "resource-owner",
+          "observed": 240,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_samples",
+          "observed": 240,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_rangeData",
+          "observed": 240,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_dgnFiles",
+          "observed": 240,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_sfxScripts",
+          "observed": 240,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "_soundData",
+          "observed": 240,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sound-sample",
+          "observed": 126720,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sample-encoded-data",
+          "observed": 126720,
+          "alive": 4320,
+          "observedPayloadBytes": 1002406080,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sample-payload",
+          "observed": 126720,
+          "alive": 4320,
+          "observedPayloadBytes": 4007665920,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "sound-stream",
+          "observed": 2880,
+          "alive": 0,
+          "observedPayloadBytes": 0,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "stream-channel",
+          "observed": 3120,
+          "alive": 0,
+          "observedPayloadBytes": 668364000,
+          "alivePayloadBytes": 0
+        },
+        {
+          "kind": "stream-payload",
+          "observed": 2880,
+          "alive": 0,
+          "observedPayloadBytes": 668364000,
+          "alivePayloadBytes": 0
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-120/00-audio.json",
+          "sha256": "3896881363f1d5fe55932b5030654ed2b670c84794e122b857a29ce7caf00523"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-120/manifest.json",
+          "sha256": "205122180a63c35165fcb8a0b2799221405ab209436434c4fe925cfa6356ae98"
+        }
+      ]
+    }
+  ],
+  "pairedNativeAudioStacks": {
+    "baseline": {
+      "currentLiveOpenAlMallocMiB": 347.2850799560547,
+      "currentLiveSourceVectorMiB": 337.43701171875,
+      "profile": {
+        "pid": 30622,
+        "trigger": "at least3seconds afterlastcyclelog whileactive",
+        "environment": {
+          "MallocStackLogging": "1"
+        },
+        "profilerPerturbation": "native malloc stack logging changes allocation CPU/allocator behavior; profiling-only, no FPS or direct unprofiled RSS comparison",
+        "steps": [
+          {
+            "kind": "vmmap",
+            "command": [
+              "vmmap",
+              "-summary",
+              "30622"
+            ],
+            "exitCode": 0,
+            "elapsedSeconds": 0.6743195419999992
+          },
+          {
+            "kind": "malloc-history",
+            "command": [
+              "malloc_history",
+              "30622",
+              "-allBySize",
+              "-fullStacks"
+            ],
+            "exitCode": 0,
+            "elapsedSeconds": 1.001805375
+          }
+        ]
+      },
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/malloc-stack-summary.json",
+          "sha256": "74e120dcfcc08895ede14afc8ae326a172302cdb17b70f6b01e60aa12e71c028"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/profiling-manifest.json",
+          "sha256": "9e2f1cf665fd3e8d5529e7efb716f99874cdd66810b7c488f23131af75e2ba9b"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/malloc-history.txt",
+          "sha256": "55c9ad4a35f685ba6dea9a6a351c5c2ece6d14922d503b6ab359d8beefc95a9d"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/vmmap.txt",
+          "sha256": "563d69674b90790881e675ad7b2b04823729513521a632cf8a56b941f6caef1b"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/manifest.json",
+          "sha256": "0755e35596a5e2e223f4a2c113cf3dc1348c7e3a27f9ca4778a2e6c5a06dbdb7"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/00-audio.json",
+          "sha256": "2331727e63aa23bba41c5eda38cec9dc59e7439c3edbfe1576e87717db21242e"
+        }
+      ]
+    },
+    "candidate": {
+      "currentLiveOpenAlMallocMiB": 1.181060791015625,
+      "currentLiveSourceVectorMiB": 0.0,
+      "profile": {
+        "pid": 31174,
+        "trigger": "at least3seconds afterlastcyclelog whileactive",
+        "environment": {
+          "MallocStackLogging": "1"
+        },
+        "profilerPerturbation": "native malloc stack logging changes allocation CPU/allocator behavior; profiling-only, no FPS or direct unprofiled RSS comparison",
+        "steps": [
+          {
+            "kind": "vmmap",
+            "command": [
+              "vmmap",
+              "-summary",
+              "31174"
+            ],
+            "exitCode": 0,
+            "elapsedSeconds": 0.6164548339999989
+          },
+          {
+            "kind": "malloc-history",
+            "command": [
+              "malloc_history",
+              "31174",
+              "-allBySize",
+              "-fullStacks"
+            ],
+            "exitCode": 0,
+            "elapsedSeconds": 0.40178612499999744
+          }
+        ]
+      },
+      "artifacts": [
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-audio-60/malloc-stack-summary.json",
+          "sha256": "a14a4893b4928427f8fed9c1a6f785c6b2b7a330f66fbfed0107cf904a762c4b"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-audio-60/profiling-manifest.json",
+          "sha256": "81809a8d716c6c23f03d18b19e1a0475e0974b2f26218be50bae777090e59e67"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-audio-60/malloc-history.txt",
+          "sha256": "07049d78d080784ffa50614b3ad4be9f6dfee3097619229682f15780e5618242"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-audio-60/vmmap.txt",
+          "sha256": "0b70fd4c2cfaa92cfd18ba4923c171c49df4dc893dbad9f77d896dbd156034d8"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-audio-60/manifest.json",
+          "sha256": "c96db0742d72746541147cf99ba58006942dd6149f179b87b9ea561e01e98535"
+        },
+        {
+          "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-audio-60/00-audio.json",
+          "sha256": "37e54866aec4f7b52b27a3596730484cfffc6f6f6e8fa56e736ddeec8f4fe514"
+        }
+      ]
+    },
+    "semantics": {
+      "meaning": "Current live allocation groups, not all historical events; no highWaterMark/allEvents flags; excludes mmap groups from OpenAL malloc totals",
+      "toolMan": {
+        "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/malloc-history-installed-man.txt",
+        "sha256": "4adc3b8a04cb87a93dc1ef4185822f1d7332469d7581b7d13d6d6dd78e52e0d2"
+      }
+    }
+  },
+  "managedPoolRootProof": {
+    "artifact": {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-60/heap-large-array-rootpaths.json",
+      "sha256": "51542456c25d1fcb95e7e9f5875e729b3746da9c4a5e3a569adef726b2d08f67"
+    },
+    "meaning": "Six arrays 1/2/4/8/16/32MiB, rooted in .NET SharedArrayPool TLS; does not explain uncaptured 383.88MiB state"
+  }
+}
