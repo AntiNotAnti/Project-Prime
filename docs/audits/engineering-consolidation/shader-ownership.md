@@ -95,6 +95,7 @@ Measured October 13, 2026 UTC, on Darwin 27.0.0, Apple M4 Pro,
 | Independent binding / bound-program release / repeated unload | PASS | 120 owner/other scene pairs |
 | Existing cel / Off-Low-High-Ultra shadow resource lifecycle | PASS | Existing three-cycle fixture retained |
 | Dedicated server Release compilation | PASS | 22 existing warnings, zero errors |
+| Linux Mesa CI shader ownership regression | PENDING | Existing `opengl-renderer-linux` job now runs all 120 repetitions under Xvfb; remote execution pending |
 | OpenGL-only source/package guard and diff whitespace | PASS | Existing guard and `git diff --check` |
 | Cross-build real-map image/depth parity and transition responsiveness | NOT_RUN | Synthetic recovery does not establish complete game visuals or timing |
 | Android physical-device pause/resume and context recreation | NOT_RUN | Desktop GL fixture only |
@@ -130,3 +131,8 @@ lines are performance evidence.
 
 Rollback is the single shader-ownership commit. No protocol, replay schema,
 settings, simulation cadence, GC policy, or graphics optimization defaults change.
+
+The Linux CI step explicitly enables the three shader policies, isolates user data
+under the runner temporary directory, and executes this same resource harness in
+a 640x480 Xvfb display after installing software OpenGL. Remote CI results have
+not yet been observed.
