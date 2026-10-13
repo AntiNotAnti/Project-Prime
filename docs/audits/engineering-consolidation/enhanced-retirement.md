@@ -151,3 +151,56 @@ Revert the retirement commit to restore live exposure/eligibility. Reserved pack
 and replay layouts are unchanged in either direction. Settings already migrated to
 `off` remain off after rollback; the user may explicitly select the old option in
 the restored build. No automatic switch to Balanced was made.
+
+
+## Seven-Hunter immutable headless followup
+
+The original two-actor capsule remains unchanged. The followup matrix uses two
+synthetic timelines containing all seven native Hunters, with explicit native
+biped/alt `PlayerFormState`, Weavel body/turret split, recorded slot generations
+100–106 and life IDs 200–206 changing to 208–214 at frame 36. It verifies native
+Hunter/slot/model/form/life identities, 224 exact room/Hunter model/animation/
+collision/palette SHA256s and the actual room hash. Both source and restored
+scenes remain privately owned replay scenes; Balanced stays independent.
+
+A pinned pristine main client (MVID `bb5922d1-051d-4a89-940b-d14096c550fe`, product
+SHA256 `22C7EB0FB0E59C7E40FA656C4BDA1C20A58C42B5628E3FDD5F47FB79FB6FF0B2`)
+produced the private v9 capsules before candidate reading. The final fixture
+contains 21 files, 5,919,374 bytes. They are durably retained outside Git at:
+`/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/consolidation-historical-seven-hunters-91b1c0c6`.
+All file hashes are pinned in the check. Producer identity forbids candidate
+recording, and recording never overwrites a populated directory. Copying altered
+continuation bytes is rejected before constructing a scene.
+
+Two native form timelines, four frozen seek points each (frames 0/24/48/72),
+24-frame continuation at each point and complete 96-frame forward gameplay/
+presentation hashes pass **1,103 checks** on both baseline and candidate libraries.
+Bound/reflection checkpoint bytes agree. Original retirement archive 46 and
+live/Balanced 20 still pass; asset-free retirement now has 81 checks, including the
+candidate-recording policy. Deliberate candidate recording and tampered-copy
+attempts exit 1 as expected, without modifying the immutable original.
+
+```sh
+dotnet tools/nettest/bin/Release/net10.0/nettest.dll --enhanced-historical-matrix /absolute/isolated-paths-directory /absolute/frozen-seven-hunter-directory
+```
+
+Set `PROJECT_PRIME_USER_DATA` to that fresh paths-only directory and the Community
+service to the fixture's configured test URI, as in prior commands. The pinned
+baseline library may produce a new empty fixture directory through a temporary
+friend harness and `--record-baseline`; the candidate is not allowed to produce
+its own golden evidence. The private capsule bytes/game assets are not committed.
+[Exact provenance, commands, asset/file/log hashes](enhanced-seven-hunter-evidence.json)
+retain all final evidence. Earlier attempts are preserved under
+`/tmp/consolidation-seven-hunter-baseline-harness/`: one misread AnimationShare as
+a model name, one relied on dictionary enumeration order, and the packet-only
+form attempt did not establish native forms at frame 24. Its v1/v2 directories
+are disqualified and never reused. Explicit native form state in a new v3 fixture
+resolved that setup gap without production changes.
+
+These are synthetic packet/state fixtures, not recorded human gameplay. They
+verify seven-Hunter reading, native model/form construction, seek restoration
+and deterministic headless continuation. They do not certify authoritative
+Enhanced ability physics, GL visibility/HUD overlays, native audio, Studio export,
+a rendered seven-Hunter match or physical platforms. Those gates remain NOT_RUN.
+The original protocol 53, world-v9/replica-v10 field identities and named archived
+validation policy are unchanged; no protocol bump or broad compatibility deletion.
