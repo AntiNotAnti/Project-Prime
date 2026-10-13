@@ -1170,12 +1170,21 @@ namespace MphRead.Mods.Launcher.Gui
 
             try
             {
+                if (!ReplayExportQueue.CheckCapacity())
+                {
+                    _message = ReplayExportQueue.Status;
+                    return;
+                }
                 ReplayVideoExportManifest job = ReplayVideoExport.CreatePresetManifest(
                     DemoPlayback.CurrentPath, start, end, SelectedPreset(),
                     director: ReplayCamera.Director,
                     cameraTrack: ReplayCamera.PlayTrack);
                 job = ReplayEncoderCapabilities.Apply(job, _exportEncoder.Value);
-                ReplayExportQueue.Enqueue(job);
+                if (!ReplayExportQueue.Enqueue(job))
+                {
+                    _message = ReplayExportQueue.Status;
+                    return;
+                }
                 bool active = ReplayExportQueue.Pump();
                 _message = active
                     ? "Export rendering started."
@@ -1199,12 +1208,21 @@ namespace MphRead.Mods.Launcher.Gui
             }
             try
             {
+                if (!ReplayExportQueue.CheckCapacity())
+                {
+                    _message = ReplayExportQueue.Status;
+                    return;
+                }
                 ReplayReelSegment[] segments = ReplayReels
                     .Segments(DemoPlayback.CurrentPath).ToArray();
                 ReplayVideoExportManifest job = ReplayVideoExport.CreateReelManifest(
                     DemoPlayback.CurrentPath, segments, SelectedPreset());
                 job = ReplayEncoderCapabilities.Apply(job, _exportEncoder.Value);
-                ReplayExportQueue.Enqueue(job);
+                if (!ReplayExportQueue.Enqueue(job))
+                {
+                    _message = ReplayExportQueue.Status;
+                    return;
+                }
                 bool active = ReplayExportQueue.Pump();
                 _message = active
                     ? $"Rendering {segments.Length}-segment highlight reel."
