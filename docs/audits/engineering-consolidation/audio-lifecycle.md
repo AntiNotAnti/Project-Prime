@@ -95,7 +95,7 @@ migration. Reverting restores the Android ownership defect.
 |---|---|---|
 | Baseline audio-check | PASS | Original ownership-pool/routing checks, before edits |
 | Final desktop Release and audio-check | PASS | 750 lifecycle assertions; 30 pre-existing desktop warnings; zero errors |
-| Android Release AOT/APK | PASS (earlier candidate) | 117 AOT assemblies; 71 existing/toolchain warnings; zero errors; final-source compilation rerun separately |
+| Final Android Release AOT/APK | PASS | 117 AOT assemblies; final incremental packaging 21 existing/toolchain warnings; zero errors; earlier full build 71 warnings |
 | Final Android shared-source compile | PASS | Release Compile target; 51 existing/toolchain warnings; zero errors |
 | Concurrent final-build retries | BLOCKED then retried | Two MSB4166 child-node exits; logs retained outside Git; non-shared single-node build succeeded |
 | Real native audio/reload comparison | NOT_RUN here | Attribution slice owns real-device and scene comparisons |
@@ -106,3 +106,8 @@ Local task artifacts (not committed): `/tmp/consolidation-audio-check-final5.log
 `/tmp/consolidation-audio-android-build.log`, and final Android logs with the
 `/tmp/consolidation-audio-android-final` prefix. Intermediate failed trials use
 `/tmp/consolidation-audio-check-final2.log` and `final3.log`.
+
+The existing Linux renderer-policy and Windows/macOS controller-policy CI jobs
+also run `tools/audio-check`. The linked Android mixer and fake native backend
+require no cartridge data, native playback device or Android hardware. CI status
+for the PR remains pending until GitHub executes those jobs.
