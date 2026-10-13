@@ -1,0 +1,184 @@
+{
+  "recorded_at_utc": "2026-10-13T16:09:24.483800+00:00",
+  "baseline_head": "b0d44a1e9578d350714221be9a73e17059501ec2",
+  "branch": "codex/consolidation-encoder-capability-probe",
+  "sdk": "10.0.401",
+  "host": "macOS arm64",
+  "baseline_sources": [
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/BaselineCapabilities.cs",
+      "sha256": "b40731a38b7c7de15f864f17351f5763bff64c7d5cc5832911e85a908f3395c1",
+      "bytes": 2568
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/BaselineDrain.cs",
+      "sha256": "35d61feb8edcf5c0fb9bf39231ec31059f8493ca674bbd65ccdb02fcbc338b03",
+      "bytes": 492
+    }
+  ],
+  "baseline_initial": "2 PASS / 2 FAIL",
+  "baseline_final_actual_process": "10 PASS / 3 FAIL (allocation; immediate/delayed post-exit inherited pipe deadline)",
+  "candidate_final": "62 PASS / 0 FAIL",
+  "actual_16MiB_stdout_managed_allocation_bytes": {
+    "initial_baseline": 101586264,
+    "expanded_baseline": 101340400,
+    "final_linked_candidate": 411912
+  },
+  "generated_first_second_16MiB_token_allocation_bytes": [
+    4600,
+    4624
+  ],
+  "validation": {
+    "client_release": "0 warnings / 0 errors",
+    "existing_stderr_regression": "4 PASS",
+    "source_guards": "asset/OpenGL/maps PASS",
+    "yaml": "Ruby/Psych PASS",
+    "diff": "PASS"
+  },
+  "scope": "actual source-linked private Probe with owned copied synthetic ffmpeg apphost, not installed FFmpeg/GL/native audio; direct parser/retirement fault injection; manifest argument stub not full serializer",
+  "intentional_deadline_cutoff": "Same5s budget armed before reads and linked to both; bytes/tokens beyond budget may be excluded, unterminated token not published if cutoff precedes normal EOF/delimiter; earlier completed capabilities/fallback preserved",
+  "ownership": "wait both tasks before close both readers even IO fault; fixture explicitly kills/waits own surviving descendant after module identity verification",
+  "preserved_failures": [
+    "baseline-process2/2",
+    "baseline-expanded8/2",
+    "baseline-reviewed9/3",
+    "baseline-final10/3",
+    "candidate-reviewed fixture NullReference from internal-method reflection lookup; corrected fixture passes; not product/native fault"
+  ],
+  "limits": [
+    "unknown/unkillable live owned-process wait unchanged",
+    "OS pipe cancellation may delay retirement on unsupported path",
+    "does not supervise or kill descendant after parent exit",
+    "Windows/Linux actual matrix pending",
+    "exact rendered media FAIL unchanged; no global audiovisual/native/FPS/RSS/ingress-safe claim"
+  ],
+  "logs": [
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/asset-guard.log",
+      "sha256": "573bc96dc332ec6c5b65efbffe3848cdcd55413dc324d2773e361c0941d75ced",
+      "bytes": 84
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/baseline-final-process.log",
+      "sha256": "adf4a09d0216e98e7f8a0bb5d68aca5f6c806b44d9f10b723861e192b8681dba",
+      "bytes": 856
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/baseline-linked-process.log",
+      "sha256": "aadfbed26c1c0683e7c098e3e77cd7f9fc785d6480bfdac29a4db2cb895f71e4",
+      "bytes": 1094
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/baseline-process.log",
+      "sha256": "9cc7c524581a80fc57ab9a535f7e6c15db7b652b276786697e3450b435969b29",
+      "bytes": 473
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/baseline-reviewed-process.log",
+      "sha256": "d9693b6577ba8a0aefdf605734885e087dc784e1db99946df8b97eb158f21fb7",
+      "bytes": 998
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/candidate-final.log",
+      "sha256": "6c72cad517df788c05d5f679792897cc98dbf993220fdf50cd2343d5dfec0cef",
+      "bytes": 3905
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/candidate-linked-deadline.log",
+      "sha256": "db91f62adf42dd226e936eb3e62255eb7f116f9e296a59f73d240f24e4402f3c",
+      "bytes": 4443
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/candidate-linked-final.log",
+      "sha256": "e718dd24f9f095823088a2931d8720ec541399a8c7d826f2917f1ff9f4e98f7b",
+      "bytes": 4610
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/candidate-process-initial.log",
+      "sha256": "3a7f42155645bee50aff60ee512eb1105f4e0c9d572f0294e30e4ec0206481a7",
+      "bytes": 531
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/candidate-reviewed-final.log",
+      "sha256": "0a7fbb659749bf280827c730d77b966383229d93aa9d4369378989b0dfc5dc3e",
+      "bytes": 4181
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/candidate-reviewed.log",
+      "sha256": "45d5f8580443b1aadd0efd59b073c52d073d0cadb87d74008248529c3a3591bf",
+      "bytes": 4115
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/candidate-tool-build.log",
+      "sha256": "9303037e59dc8b9f5ca997771533fb5a48aad429d30b10306af147e60812124f",
+      "bytes": 358
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/client-build.log",
+      "sha256": "46bd4863ec4c74949494114550fcc0ad6ec70a530be89b1d7b1e0ac48a96f0b2",
+      "bytes": 1101
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/client-linked-build.log",
+      "sha256": "08bfa66614182ee7a928ca5b86e62596a8021ae5defef95e418b752fd3625470",
+      "bytes": 675
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/error-drain-compat.log",
+      "sha256": "900d165d32bf03c97336cf820da93da7e42d6c045582128e93d60ad9ee982690",
+      "bytes": 326
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/error-drain-linked-compat.log",
+      "sha256": "900d165d32bf03c97336cf820da93da7e42d6c045582128e93d60ad9ee982690",
+      "bytes": 326
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/maps-guard.log",
+      "sha256": "c2f64fd0144933d3794f2e534614a438ee68699d4069bc792f9f771efefd91f5",
+      "bytes": 706
+    },
+    {
+      "path": "artifacts/final-completion-pass-20261013/encoder-capability/opengl-guard.log",
+      "sha256": "752fda073eb601e1fa740346e3d00dfc0c37188129dde833e17fe57dd9482c28",
+      "bytes": 55
+    }
+  ],
+  "source_hashes": [
+    {
+      "path": "src/MphRead/Mods/Replay/ReplayEncoderCapabilities.cs",
+      "sha256": "2772a92cf155646d8f140c4ce88f5cbb74eaf778354a25fcbef4f040af35adf1",
+      "bytes": 5567
+    },
+    {
+      "path": "src/MphRead/Mods/Replay/ReplayEncoderErrorDrain.cs",
+      "sha256": "e595c8a841102ecd9da958a4e31c4263627b1e76bafece6980c986995639db66",
+      "bytes": 694
+    },
+    {
+      "path": "tools/encoder-capability-check/Program.cs",
+      "sha256": "ff66543ba5fc28568957ab3ebe1bf3e6d9e984f90df1bc9bc1760e711eb92093",
+      "bytes": 9714
+    },
+    {
+      "path": "tools/encoder-capability-check/GrammarChecks.cs",
+      "sha256": "66934a523befc62f4c08f557a50d3ccbf7203fe806c3df3cfa3bc95092a922ec",
+      "bytes": 12331
+    },
+    {
+      "path": "tools/encoder-capability-check/ManifestStub.cs",
+      "sha256": "d56882044462b4cef07135974c306b6a8c75e6de0cc0e39cd29fd8c5de41dfb9",
+      "bytes": 105
+    },
+    {
+      "path": "tools/encoder-capability-check/encoder-capability-check.csproj",
+      "sha256": "f9ff4dfc4ca4776a2db48aee01d5e1f775a2fd6042bbd6777d5ee4fb28b2937c",
+      "bytes": 763
+    },
+    {
+      "path": ".github/workflows/build.yml",
+      "sha256": "66c1985d9f8caf652ece186b6a9fdfd957e61819fda8760f3c6a5c4ade259e8c",
+      "bytes": 50727
+    }
+  ]
+}
