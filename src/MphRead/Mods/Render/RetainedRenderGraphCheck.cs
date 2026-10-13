@@ -14,6 +14,8 @@ namespace MphRead.Mods.Render
                 + DisplayListAttributeEffects.Check() + WorldShaderVariantCheck.Run();
             failures += TransitionGcDiagnostics.Check();
             failures += OpenGlDrawAttribution.Check();
+            failures += OpenGlUniformAttribution.Check() + OpenGlPassProfiler.CheckPaletteCounters();
+            failures += PalettePreparationCacheCheck.Run();
             failures += RetainedRoomBatchPlan.CheckMembershipPolicy() + ShadowCasterPreparationCacheCheck.Run()
                 + ShadowCasterSpatialGroups.Check()
                 + OpenGlFailureInjectionCheck.Run() + RetainedMaterialIdentity.Check() + MeshObjectStateReuse.Check();

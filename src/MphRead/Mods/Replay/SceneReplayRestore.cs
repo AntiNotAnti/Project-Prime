@@ -11,6 +11,8 @@ public partial class Scene
     internal void FinishReplayWorldRestore()
     {
         if (!Services.IsReplica) throw new InvalidOperationException("World restoration requires a private replica.");
+        _palettePreparationCollecting = false;
+        _palettePreparation?.Clear();
         var membership = _entities.ToArray();
         _entities.Clear(); _entityMap.Clear();
         foreach (EntityType type in _entityNodesByType.Keys.ToArray()) _entityNodesByType[type] = null;

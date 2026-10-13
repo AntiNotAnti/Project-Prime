@@ -1,0 +1,5280 @@
+{
+  "schema": 1,
+  "purpose": "attribution-only; no optimization or FPS conclusion",
+  "source": "/Users/jarrett/Documents/Codex/2026-10-13/implement-the-attached-project-prime-next/work/gl-evidence/gl01-eight-high-corrected.log",
+  "sourceSha256": "cbfa659b964f7608b291aab05deed5d9320159fb78e4897325883740ce0ecaf2",
+  "context": {
+    "assemblyMvid": "1834d49d-afb6-4f38-8ab8-68ae8de302c5",
+    "machine": "Jarretts-MacBook-Pro",
+    "renderer": "Apple M4 Pro",
+    "glVersion": "2.1 Metal - 91.7",
+    "room": "MP3 PROVING GROUND",
+    "playerCount": 8,
+    "width": 1920,
+    "height": 1080,
+    "shadows": "High",
+    "renderScale": 100,
+    "cap": -1,
+    "vsync": "Off",
+    "flags": {
+      "shadowGroups": true,
+      "unlitShader": true,
+      "shadowPrep": true,
+      "roomIdentity": true,
+      "meshObject": true,
+      "roomGroups": true,
+      "plainShader": true,
+      "shaderVariants": true,
+      "depthKeep": true,
+      "proceduralBatch": true,
+      "proceduralStream": false,
+      "roomCache": true,
+      "depthVertex": false,
+      "depthPrep": true,
+      "hudSprites": true,
+      "hudGlyphs": true,
+      "glesUniforms": true,
+      "depthBatch": true,
+      "depthShader": true,
+      "atlasEviction": true,
+      "hudDiscard": true,
+      "dynamicStream": true,
+      "hudSamplers": true,
+      "vbo": true,
+      "bindingCache": true,
+      "batching": true,
+      "vao": true,
+      "uniformRevisions": true,
+      "staticCache": true,
+      "shadowFast": true
+    }
+  },
+  "retainedWindows": 34,
+  "warmupWindows": 4,
+  "medianWindowImmediateDraws": 411.9625,
+  "medianWindowImmediateByPassAndOwner": {
+    "Composite": {
+      "Unclassified": 1.0
+    },
+    "Hud": {
+      "Hud": 111.67916666666667
+    },
+    "MarkTranslucent": {
+      "FirstPerson": 0.0,
+      "Particle": 66.55416666666667,
+      "TrailMulti": 2.05625,
+      "TrailSingle": 1.1770833333333333,
+      "TrailStack": 0.0
+    },
+    "Opaque": {
+      "FirstPerson": 0.0,
+      "Particle": 66.55416666666667,
+      "TrailMulti": 2.05625,
+      "TrailSingle": 1.1770833333333333,
+      "TrailStack": 0.0
+    },
+    "PostProcess": {
+      "Unclassified": 1.0
+    },
+    "RebuildDepth": {
+      "FirstPerson": 0.0,
+      "Particle": 10.914583333333333,
+      "TrailMulti": 0.475,
+      "TrailSingle": 0.13541666666666669,
+      "TrailStack": 0.0
+    },
+    "TranslucentBehind": {
+      "FirstPerson": 0.0,
+      "Particle": 66.55416666666667,
+      "TrailMulti": 2.05625,
+      "TrailSingle": 1.1770833333333333,
+      "TrailStack": 0.0
+    },
+    "TranslucentFront": {
+      "FirstPerson": 0.0,
+      "Particle": 66.55416666666667,
+      "TrailMulti": 2.05625,
+      "TrailSingle": 1.1770833333333333,
+      "TrailStack": 0.0
+    }
+  },
+  "cpuByOwner": {
+    "Unclassified": {
+      "setupWall": {
+        "windowsWithOwner": 0,
+        "medianWindowP95Ms": null,
+        "medianWindowP99Ms": null
+      },
+      "geometryWall": {
+        "windowsWithOwner": 0,
+        "medianWindowP95Ms": null,
+        "medianWindowP99Ms": null
+      }
+    },
+    "RoomMesh": {
+      "setupWall": {
+        "windowsWithOwner": 34,
+        "medianWindowP95Ms": 0.023060499999999998,
+        "medianWindowP99Ms": 0.027336
+      },
+      "geometryWall": {
+        "windowsWithOwner": 34,
+        "medianWindowP95Ms": 0.21404099999999998,
+        "medianWindowP99Ms": 0.2241065
+      }
+    },
+    "PaletteMesh": {
+      "setupWall": {
+        "windowsWithOwner": 34,
+        "medianWindowP95Ms": 0.039393,
+        "medianWindowP99Ms": 0.04508
+      },
+      "geometryWall": {
+        "windowsWithOwner": 34,
+        "medianWindowP95Ms": 0.6302895,
+        "medianWindowP99Ms": 0.6589595
+      }
+    },
+    "SingleTransformMesh": {
+      "setupWall": {
+        "windowsWithOwner": 10,
+        "medianWindowP95Ms": 0.0023955,
+        "medianWindowP99Ms": 0.002604
+      },
+      "geometryWall": {
+        "windowsWithOwner": 10,
+        "medianWindowP95Ms": 0.0160635,
+        "medianWindowP99Ms": 0.020792
+      }
+    },
+    "FirstPerson": {
+      "setupWall": {
+        "windowsWithOwner": 17,
+        "medianWindowP95Ms": 0.01212,
+        "medianWindowP99Ms": 0.016706
+      },
+      "geometryWall": {
+        "windowsWithOwner": 17,
+        "medianWindowP95Ms": 0.09571,
+        "medianWindowP99Ms": 0.106456
+      }
+    },
+    "Particle": {
+      "setupWall": {
+        "windowsWithOwner": 34,
+        "medianWindowP95Ms": 0.0656605,
+        "medianWindowP99Ms": 0.0693095
+      },
+      "geometryWall": {
+        "windowsWithOwner": 34,
+        "medianWindowP95Ms": 0.4902015,
+        "medianWindowP99Ms": 0.504239
+      }
+    },
+    "TrailSingle": {
+      "setupWall": {
+        "windowsWithOwner": 28,
+        "medianWindowP95Ms": 0.002208,
+        "medianWindowP99Ms": 0.0035205
+      },
+      "geometryWall": {
+        "windowsWithOwner": 28,
+        "medianWindowP95Ms": 0.0154785,
+        "medianWindowP99Ms": 0.018124
+      }
+    },
+    "TrailMulti": {
+      "setupWall": {
+        "windowsWithOwner": 34,
+        "medianWindowP95Ms": 0.002978,
+        "medianWindowP99Ms": 0.004855
+      },
+      "geometryWall": {
+        "windowsWithOwner": 34,
+        "medianWindowP95Ms": 0.020352000000000002,
+        "medianWindowP99Ms": 0.024249
+      }
+    },
+    "TrailStack": {
+      "setupWall": {
+        "windowsWithOwner": 16,
+        "medianWindowP95Ms": 0.0016034999999999999,
+        "medianWindowP99Ms": 0.0017915000000000001
+      },
+      "geometryWall": {
+        "windowsWithOwner": 16,
+        "medianWindowP95Ms": 0.009396,
+        "medianWindowP99Ms": 0.015438
+      }
+    },
+    "ProceduralShape": {
+      "setupWall": {
+        "windowsWithOwner": 0,
+        "medianWindowP95Ms": null,
+        "medianWindowP99Ms": null
+      },
+      "geometryWall": {
+        "windowsWithOwner": 0,
+        "medianWindowP95Ms": null,
+        "medianWindowP99Ms": null
+      }
+    },
+    "Hud": {
+      "setupWall": {
+        "windowsWithOwner": 0,
+        "medianWindowP95Ms": null,
+        "medianWindowP99Ms": null
+      },
+      "geometryWall": {
+        "windowsWithOwner": 0,
+        "medianWindowP95Ms": null,
+        "medianWindowP99Ms": null
+      }
+    }
+  },
+  "frame": {
+    "renderCpuP95Ms": 2.0297505,
+    "renderCpuP99Ms": 2.1730210000000003,
+    "presentWallP99Ms": 1.7781045,
+    "frameIntervalP95Ms": 2.9581665,
+    "frameIntervalP99Ms": 3.7560625,
+    "onePercentLowEstimateFps": 266.2530722696638,
+    "simulationHz": 59.961516698582855
+  },
+  "uniformAttributionWindows": [
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 79.56666666666666,
+            "uploads": 38.3,
+            "bytes": 28854.4,
+            "skips": 41.266666666666666
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 20.195833333333333,
+            "uploads": 7.195833333333334,
+            "bytes": 6092.533333333334,
+            "skips": 13
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 9.195833333333333,
+            "uploads": 8.195833333333333,
+            "bytes": 6220.533333333334,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 16,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 15
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.195833333333334,
+            "uploads": 4.195833333333334,
+            "bytes": 2188.5333333333333,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.320833333333334,
+            "uploads": 4.741666666666666,
+            "bytes": 3602.4,
+            "skips": 0.5791666666666667
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 9.266666666666667,
+            "uploads": 0.5791666666666667,
+            "bytes": 741.3333333333334,
+            "skips": 8.6875
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.195833333333334,
+            "uploads": 4.195833333333334,
+            "bytes": 2188.5333333333333,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.195833333333334,
+            "uploads": 4.195833333333334,
+            "bytes": 2188.5333333333333,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 72.40833333333333,
+            "uploads": 35.1125,
+            "bytes": 26886.4,
+            "skips": 37.295833333333334
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 19.925,
+            "uploads": 7,
+            "bytes": 6044,
+            "skips": 12.925
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 9.0375,
+            "uploads": 8,
+            "bytes": 6172,
+            "skips": 1.0375
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 16,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 15
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.0375,
+            "uploads": 4.0375,
+            "bytes": 2180.8,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 3,
+            "uploads": 2.6666666666666665,
+            "bytes": 2069.3333333333335,
+            "skips": 0.3333333333333333
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.333333333333333,
+            "uploads": 0.3333333333333333,
+            "bytes": 426.6666666666667,
+            "skips": 5
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.0375,
+            "uploads": 4.0375,
+            "bytes": 2180.8,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.0375,
+            "uploads": 4.0375,
+            "bytes": 2180.8,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 68.875,
+            "uploads": 33.875,
+            "bytes": 25864,
+            "skips": 35
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 20.0375,
+            "uploads": 7.0375,
+            "bytes": 6082.4,
+            "skips": 13
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 9.0375,
+            "uploads": 8.0375,
+            "bytes": 6210.4,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 16,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 15
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.0375,
+            "uploads": 4.0375,
+            "bytes": 2178.4,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 1.6875,
+            "uploads": 1.5,
+            "bytes": 1164,
+            "skips": 0.1875
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 3,
+            "uploads": 0.1875,
+            "bytes": 240,
+            "skips": 2.8125
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.0375,
+            "uploads": 4.0375,
+            "bytes": 2178.4,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.0375,
+            "uploads": 4.0375,
+            "bytes": 2178.4,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 78.39166666666667,
+            "uploads": 37.15416666666667,
+            "bytes": 28702.133333333335,
+            "skips": 41.2375
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 19.783333333333335,
+            "uploads": 6.945833333333334,
+            "bytes": 6021.066666666667,
+            "skips": 12.8375
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8.945833333333333,
+            "uploads": 7.945833333333334,
+            "bytes": 6149.066666666667,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 16,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 15
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5,
+            "uploads": 4,
+            "bytes": 2176,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.2625,
+            "uploads": 4.675,
+            "bytes": 3620,
+            "skips": 0.5875
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 9.4,
+            "uploads": 0.5875,
+            "bytes": 752,
+            "skips": 8.8125
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5,
+            "uploads": 4,
+            "bytes": 2176,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5,
+            "uploads": 4,
+            "bytes": 2176,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 72.72083333333333,
+            "uploads": 35.0625,
+            "bytes": 26608.8,
+            "skips": 37.65833333333333
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 16.7,
+            "uploads": 6.175,
+            "bytes": 5182.4,
+            "skips": 10.525
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8.175,
+            "uploads": 7.175,
+            "bytes": 5310.4,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 16,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 15
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.175,
+            "uploads": 4.175,
+            "bytes": 2366.4,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 4.1875,
+            "uploads": 3.6791666666666667,
+            "bytes": 2734.133333333333,
+            "skips": 0.5083333333333333
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 8.133333333333333,
+            "uploads": 0.5083333333333333,
+            "bytes": 650.6666666666666,
+            "skips": 7.625
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.175,
+            "uploads": 4.175,
+            "bytes": 2366.4,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.175,
+            "uploads": 4.175,
+            "bytes": 2366.4,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 80.82083333333334,
+            "uploads": 40.0875,
+            "bytes": 31810.4,
+            "skips": 40.733333333333334
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 20.029166666666665,
+            "uploads": 7.029166666666667,
+            "bytes": 6081.866666666667,
+            "skips": 13
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 9.029166666666667,
+            "uploads": 8.029166666666667,
+            "bytes": 6209.866666666667,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 16,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 15
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6.029166666666667,
+            "uploads": 5.029166666666667,
+            "bytes": 3265.866666666667,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 4.941666666666666,
+            "uploads": 4.395833333333333,
+            "bytes": 3390.4,
+            "skips": 0.5458333333333333
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 8.733333333333333,
+            "uploads": 0.5458333333333333,
+            "bytes": 698.6666666666666,
+            "skips": 8.1875
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6.029166666666667,
+            "uploads": 5.029166666666667,
+            "bytes": 3265.866666666667,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6.029166666666667,
+            "uploads": 5.029166666666667,
+            "bytes": 3265.866666666667,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 77.39583333333333,
+            "uploads": 39.09583333333333,
+            "bytes": 30828.533333333333,
+            "skips": 38.3
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 20.733333333333334,
+            "uploads": 7.366666666666666,
+            "bytes": 6244.266666666666,
+            "skips": 13.366666666666667
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 9.366666666666667,
+            "uploads": 8.366666666666667,
+            "bytes": 6372.266666666666,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 16,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 15
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6,
+            "uploads": 5,
+            "bytes": 3264,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 3.3625,
+            "uploads": 2.9916666666666667,
+            "bytes": 2313.3333333333335,
+            "skips": 0.37083333333333335
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.933333333333334,
+            "uploads": 0.37083333333333335,
+            "bytes": 474.6666666666667,
+            "skips": 5.5625
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6,
+            "uploads": 5,
+            "bytes": 3264,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6,
+            "uploads": 5,
+            "bytes": 3264,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 78.55416666666666,
+            "uploads": 40.225,
+            "bytes": 31161.6,
+            "skips": 38.329166666666666
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 21.816666666666666,
+            "uploads": 7.908333333333333,
+            "bytes": 6470.133333333333,
+            "skips": 13.908333333333333
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 9.908333333333333,
+            "uploads": 8.908333333333333,
+            "bytes": 6598.133333333333,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.879166666666666,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 14.879166666666666
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6,
+            "uploads": 5,
+            "bytes": 3247.2,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 3.408333333333333,
+            "uploads": 3.058333333333333,
+            "bytes": 2271.733333333333,
+            "skips": 0.35
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.541666666666667,
+            "uploads": 0.35,
+            "bytes": 448,
+            "skips": 5.191666666666666
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6,
+            "uploads": 5,
+            "bytes": 3247.2,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6,
+            "uploads": 5,
+            "bytes": 3247.2,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 77.95,
+            "uploads": 36.5,
+            "bytes": 28077.066666666666,
+            "skips": 41.45
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 26.783333333333335,
+            "uploads": 7,
+            "bytes": 5645.866666666667,
+            "skips": 19.783333333333335
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 9,
+            "uploads": 8,
+            "bytes": 5773.866666666667,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 16,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 15
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6,
+            "uploads": 5,
+            "bytes": 3264,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 1.5,
+            "uploads": 1.3333333333333333,
+            "bytes": 1020,
+            "skips": 0.16666666666666666
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 2.6666666666666665,
+            "uploads": 0.16666666666666666,
+            "bytes": 213.33333333333334,
+            "skips": 2.5
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6,
+            "uploads": 5,
+            "bytes": 3264,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6,
+            "uploads": 5,
+            "bytes": 3264,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 86.6125,
+            "uploads": 39,
+            "bytes": 29337.333333333332,
+            "skips": 47.6125
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 33.27916666666667,
+            "uploads": 7.65,
+            "bytes": 6044.8,
+            "skips": 25.629166666666666
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 9.65,
+            "uploads": 8.65,
+            "bytes": 6172.8,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.85,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 14.85
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6.283333333333333,
+            "uploads": 5.283333333333333,
+            "bytes": 3354.6666666666665,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 1.85,
+            "uploads": 1.6541666666666666,
+            "bytes": 1173.0666666666666,
+            "skips": 0.19583333333333333
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 3.1333333333333333,
+            "uploads": 0.19583333333333333,
+            "bytes": 250.66666666666666,
+            "skips": 2.9375
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6.283333333333333,
+            "uploads": 5.283333333333333,
+            "bytes": 3354.6666666666665,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6.283333333333333,
+            "uploads": 5.283333333333333,
+            "bytes": 3354.6666666666665,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 86.03333333333333,
+            "uploads": 40.65,
+            "bytes": 29731.2,
+            "skips": 45.38333333333333
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 34.708333333333336,
+            "uploads": 8.325,
+            "bytes": 6609.6,
+            "skips": 26.383333333333333
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 10.325,
+            "uploads": 9.325,
+            "bytes": 6737.6,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 16,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 15
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 7,
+            "uploads": 6,
+            "bytes": 3584,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 7,
+            "uploads": 6,
+            "bytes": 3584,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 7,
+            "uploads": 6,
+            "bytes": 3584,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 85.6125,
+            "uploads": 42.979166666666664,
+            "bytes": 33463.2,
+            "skips": 42.63333333333333
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 27.5,
+            "uploads": 9,
+            "bytes": 7484,
+            "skips": 18.5
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 11,
+            "uploads": 10,
+            "bytes": 7612,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 16,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 15
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6.15,
+            "uploads": 5.15,
+            "bytes": 3285.6,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 3.529166666666667,
+            "uploads": 3.2083333333333335,
+            "bytes": 2467.733333333333,
+            "skips": 0.32083333333333336
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 5.133333333333334,
+            "uploads": 0.32083333333333336,
+            "bytes": 410.6666666666667,
+            "skips": 4.8125
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6.15,
+            "uploads": 5.15,
+            "bytes": 3285.6,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6.15,
+            "uploads": 5.15,
+            "bytes": 3285.6,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 90.14583333333333,
+            "uploads": 47.5,
+            "bytes": 27738.133333333335,
+            "skips": 42.645833333333336
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 25.95,
+            "uploads": 9.6625,
+            "bytes": 6541.6,
+            "skips": 16.2875
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 13.016666666666667,
+            "uploads": 11.204166666666667,
+            "bytes": 6773.6,
+            "skips": 1.8125
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 16,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 15
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 7.966666666666667,
+            "uploads": 6.154166666666667,
+            "bytes": 2290.4,
+            "skips": 1.8125
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 3.4125,
+            "uploads": 2.9291666666666667,
+            "bytes": 1610.4,
+            "skips": 0.48333333333333334
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 3.8666666666666667,
+            "uploads": 0.24166666666666667,
+            "bytes": 309.3333333333333,
+            "skips": 3.625
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 7.966666666666667,
+            "uploads": 6.154166666666667,
+            "bytes": 2290.4,
+            "skips": 1.8125
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 7.966666666666667,
+            "uploads": 6.154166666666667,
+            "bytes": 2290.4,
+            "skips": 1.8125
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 94.76666666666667,
+            "uploads": 52.079166666666666,
+            "bytes": 26634.4,
+            "skips": 42.6875
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 27.833333333333332,
+            "uploads": 11.833333333333334,
+            "bytes": 6453.333333333333,
+            "skips": 16
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.125,
+            "uploads": 13.125,
+            "bytes": 6637.333333333333,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.8625,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 14.8625
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8.291666666666666,
+            "uploads": 6.291666666666667,
+            "bytes": 2040,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 3.470833333333333,
+            "uploads": 3.0208333333333335,
+            "bytes": 1503.7333333333333,
+            "skips": 0.45
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 3.6,
+            "uploads": 0.225,
+            "bytes": 288,
+            "skips": 3.375
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8.291666666666666,
+            "uploads": 6.291666666666667,
+            "bytes": 2040,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8.291666666666666,
+            "uploads": 6.291666666666667,
+            "bytes": 2040,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 101.7625,
+            "uploads": 51.575,
+            "bytes": 27603.466666666667,
+            "skips": 50.1875
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 31.466666666666665,
+            "uploads": 11.575,
+            "bytes": 6208,
+            "skips": 19.891666666666666
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 14.575,
+            "uploads": 12.575,
+            "bytes": 6336,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 16,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 15
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 7.545833333333333,
+            "uploads": 5.545833333333333,
+            "bytes": 2021.0666666666666,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6.216666666666667,
+            "uploads": 5.358333333333333,
+            "bytes": 2814.9333333333334,
+            "skips": 0.8583333333333333
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 6.866666666666666,
+            "uploads": 0.42916666666666664,
+            "bytes": 549.3333333333334,
+            "skips": 6.4375
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 7.545833333333333,
+            "uploads": 5.545833333333333,
+            "bytes": 2021.0666666666666,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 7.545833333333333,
+            "uploads": 5.545833333333333,
+            "bytes": 2021.0666666666666,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 98.85833333333333,
+            "uploads": 48.25,
+            "bytes": 24016,
+            "skips": 50.608333333333334
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 40.05,
+            "uploads": 12.05,
+            "bytes": 5763.2,
+            "skips": 28
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.05,
+            "uploads": 13.05,
+            "bytes": 5891.2,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.608333333333333,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 14.608333333333333
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8.05,
+            "uploads": 6.05,
+            "bytes": 2243.2,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8.05,
+            "uploads": 6.05,
+            "bytes": 2243.2,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8.05,
+            "uploads": 6.05,
+            "bytes": 2243.2,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1280,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 100.52083333333333,
+            "uploads": 50.829166666666666,
+            "bytes": 24844.8,
+            "skips": 49.69166666666667
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 41.2125,
+            "uploads": 12.329166666666667,
+            "bytes": 6049.066666666667,
+            "skips": 28.883333333333333
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.383333333333333,
+            "uploads": 13.329166666666667,
+            "bytes": 6177.066666666667,
+            "skips": 2.0541666666666667
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 11.866666666666667,
+            "uploads": 0.7416666666666667,
+            "bytes": 949.3333333333334,
+            "skips": 11.125
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8.033333333333333,
+            "uploads": 5.979166666666667,
+            "bytes": 2222.9333333333334,
+            "skips": 2.0541666666666667
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.7416666666666667,
+            "uploads": 0.7416666666666667,
+            "bytes": 949.3333333333334,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 3.6666666666666665,
+            "uploads": 3.2,
+            "bytes": 1555.2,
+            "skips": 0.4666666666666667
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 1.0666666666666667,
+            "uploads": 0.06666666666666667,
+            "bytes": 85.33333333333333,
+            "skips": 1
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8.033333333333333,
+            "uploads": 5.979166666666667,
+            "bytes": 2222.9333333333334,
+            "skips": 2.0541666666666667
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.7416666666666667,
+            "uploads": 0.7416666666666667,
+            "bytes": 949.3333333333334,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8.033333333333333,
+            "uploads": 5.979166666666667,
+            "bytes": 2222.9333333333334,
+            "skips": 2.0541666666666667
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "FirstPerson",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.7416666666666667,
+            "uploads": 0.7416666666666667,
+            "bytes": 949.3333333333334,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 90.7125,
+            "uploads": 51.12916666666667,
+            "bytes": 23765.6,
+            "skips": 39.583333333333336
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 43.666666666666664,
+            "uploads": 12.866666666666667,
+            "bytes": 6839.466666666666,
+            "skips": 30.8
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.866666666666667,
+            "uploads": 13.866666666666667,
+            "bytes": 6967.466666666666,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8,
+            "uploads": 6,
+            "bytes": 2240,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6.179166666666666,
+            "uploads": 5.395833333333333,
+            "bytes": 2726.6666666666665,
+            "skips": 0.7833333333333333
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8,
+            "uploads": 6,
+            "bytes": 2240,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 8,
+            "uploads": 6,
+            "bytes": 2240,
+            "skips": 2
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 109.71666666666667,
+            "uploads": 68.67916666666666,
+            "bytes": 27320.266666666666,
+            "skips": 41.0375
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 44.025,
+            "uploads": 15.420833333333333,
+            "bytes": 7018.933333333333,
+            "skips": 28.604166666666668
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 19.7125,
+            "uploads": 16.420833333333334,
+            "bytes": 7146.933333333333,
+            "skips": 3.2916666666666665
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.13333333333333333,
+            "uploads": 0.13333333333333333,
+            "bytes": 153.6,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 12.520833333333334,
+            "uploads": 9.829166666666667,
+            "bytes": 3088.8,
+            "skips": 2.691666666666667
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.13333333333333333,
+            "uploads": 0.13333333333333333,
+            "bytes": 153.6,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 6.75,
+            "uploads": 5.683333333333334,
+            "bytes": 2608,
+            "skips": 1.0666666666666667
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.13333333333333333,
+            "uploads": 0.13333333333333333,
+            "bytes": 153.6,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 12.520833333333334,
+            "uploads": 9.829166666666667,
+            "bytes": 3088.8,
+            "skips": 2.691666666666667
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.13333333333333333,
+            "uploads": 0.13333333333333333,
+            "bytes": 153.6,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 12.520833333333334,
+            "uploads": 9.829166666666667,
+            "bytes": 3088.8,
+            "skips": 2.691666666666667
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.13333333333333333,
+            "uploads": 0.13333333333333333,
+            "bytes": 153.6,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 116.4125,
+            "uploads": 79.975,
+            "bytes": 31769.6,
+            "skips": 36.4375
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 38.9875,
+            "uploads": 16.575,
+            "bytes": 6870.4,
+            "skips": 22.4125
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 22.05,
+            "uploads": 18.025,
+            "bytes": 7142.4,
+            "skips": 4.025
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.05,
+            "uploads": 12.025,
+            "bytes": 3587.2,
+            "skips": 3.025
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 5,
+            "uploads": 4.075,
+            "bytes": 1616,
+            "skips": 0.925
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.225,
+            "uploads": 0.225,
+            "bytes": 259.2,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.05,
+            "uploads": 12.025,
+            "bytes": 3587.2,
+            "skips": 3.025
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.05,
+            "uploads": 12.025,
+            "bytes": 3587.2,
+            "skips": 3.025
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 99.24583333333334,
+            "uploads": 75.12916666666666,
+            "bytes": 27558.933333333334,
+            "skips": 24.116666666666667
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 27.004166666666666,
+            "uploads": 16.004166666666666,
+            "bytes": 5954.133333333333,
+            "skips": 11
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 21.366666666666667,
+            "uploads": 17.3375,
+            "bytes": 6188.8,
+            "skips": 4.029166666666667
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.291666666666666,
+            "uploads": 12.2625,
+            "bytes": 3432,
+            "skips": 3.029166666666667
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.291666666666666,
+            "uploads": 12.2625,
+            "bytes": 3432,
+            "skips": 3.029166666666667
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.291666666666666,
+            "uploads": 12.2625,
+            "bytes": 3432,
+            "skips": 3.029166666666667
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 98.05416666666666,
+            "uploads": 73.7875,
+            "bytes": 27198.933333333334,
+            "skips": 24.266666666666666
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 24.991666666666667,
+            "uploads": 14.654166666666667,
+            "bytes": 5050.133333333333,
+            "skips": 10.3375
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 20.458333333333332,
+            "uploads": 16.316666666666666,
+            "bytes": 5517.333333333333,
+            "skips": 4.141666666666667
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.283333333333333,
+            "uploads": 12.141666666666667,
+            "bytes": 3662.9333333333334,
+            "skips": 3.1416666666666666
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 1.675,
+            "uploads": 1.3125,
+            "bytes": 431.46666666666664,
+            "skips": 0.3625
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.07916666666666666,
+            "uploads": 0.07916666666666666,
+            "bytes": 91.2,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.283333333333333,
+            "uploads": 12.141666666666667,
+            "bytes": 3662.9333333333334,
+            "skips": 3.1416666666666666
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.283333333333333,
+            "uploads": 12.141666666666667,
+            "bytes": 3662.9333333333334,
+            "skips": 3.1416666666666666
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 98.38333333333334,
+            "uploads": 73.96666666666667,
+            "bytes": 25720.533333333333,
+            "skips": 24.416666666666668
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 25.0375,
+            "uploads": 15.0375,
+            "bytes": 4866.4,
+            "skips": 10
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 20.745833333333334,
+            "uploads": 16.391666666666666,
+            "bytes": 5175.733333333334,
+            "skips": 4.354166666666667
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.866666666666667,
+            "uploads": 12.5125,
+            "bytes": 3519.4666666666667,
+            "skips": 3.3541666666666665
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.866666666666667,
+            "uploads": 12.5125,
+            "bytes": 3519.4666666666667,
+            "skips": 3.3541666666666665
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.866666666666667,
+            "uploads": 12.5125,
+            "bytes": 3519.4666666666667,
+            "skips": 3.3541666666666665
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 88.075,
+            "uploads": 64.90833333333333,
+            "bytes": 23050.666666666668,
+            "skips": 23.166666666666668
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 23.166666666666668,
+            "uploads": 13.166666666666666,
+            "bytes": 4749.333333333333,
+            "skips": 10
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 18.208333333333332,
+            "uploads": 14.166666666666666,
+            "bytes": 4877.333333333333,
+            "skips": 4.041666666666667
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.6625,
+            "uploads": 0.6625,
+            "bytes": 763.2,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 14.35,
+            "uploads": 11.308333333333334,
+            "bytes": 3286.4,
+            "skips": 3.0416666666666665
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.6625,
+            "uploads": 0.6625,
+            "bytes": 763.2,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 14.35,
+            "uploads": 11.308333333333334,
+            "bytes": 3286.4,
+            "skips": 3.0416666666666665
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.6625,
+            "uploads": 0.6625,
+            "bytes": 763.2,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 14.35,
+            "uploads": 11.308333333333334,
+            "bytes": 3286.4,
+            "skips": 3.0416666666666665
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.6625,
+            "uploads": 0.6625,
+            "bytes": 763.2,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 66.04166666666667,
+            "uploads": 45.75833333333333,
+            "bytes": 21122.933333333334,
+            "skips": 20.283333333333335
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 18.908333333333335,
+            "uploads": 8.908333333333333,
+            "bytes": 4430.666666666667,
+            "skips": 10
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 13.229166666666666,
+            "uploads": 9.908333333333333,
+            "bytes": 4558.666666666667,
+            "skips": 3.3208333333333333
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.5541666666666667,
+            "uploads": 0.5541666666666667,
+            "bytes": 638.4,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 10.229166666666666,
+            "uploads": 7.908333333333333,
+            "bytes": 3022.6666666666665,
+            "skips": 2.3208333333333333
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.5541666666666667,
+            "uploads": 0.5541666666666667,
+            "bytes": 638.4,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 10.229166666666666,
+            "uploads": 7.908333333333333,
+            "bytes": 3022.6666666666665,
+            "skips": 2.3208333333333333
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.5541666666666667,
+            "uploads": 0.5541666666666667,
+            "bytes": 638.4,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 10.229166666666666,
+            "uploads": 7.908333333333333,
+            "bytes": 3022.6666666666665,
+            "skips": 2.3208333333333333
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.5541666666666667,
+            "uploads": 0.5541666666666667,
+            "bytes": 638.4,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 64.54166666666667,
+            "uploads": 45.166666666666664,
+            "bytes": 23282.666666666668,
+            "skips": 19.375
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 18.958333333333332,
+            "uploads": 8.583333333333334,
+            "bytes": 4569.333333333333,
+            "skips": 10.375
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 12.583333333333334,
+            "uploads": 9.583333333333334,
+            "bytes": 4697.333333333333,
+            "skips": 3
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 9.333333333333334,
+            "uploads": 7.333333333333333,
+            "bytes": 2965.3333333333335,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 9.333333333333334,
+            "uploads": 7.333333333333333,
+            "bytes": 2965.3333333333335,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 9.333333333333334,
+            "uploads": 7.333333333333333,
+            "bytes": 2965.3333333333335,
+            "skips": 2
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 86.12916666666666,
+            "uploads": 62.24583333333333,
+            "bytes": 26950.133333333335,
+            "skips": 23.883333333333333
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 24.604166666666668,
+            "uploads": 12.604166666666666,
+            "bytes": 5644.533333333334,
+            "skips": 12
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 17.195833333333333,
+            "uploads": 13.604166666666666,
+            "bytes": 5772.533333333334,
+            "skips": 3.591666666666667
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 12.2375,
+            "uploads": 9.645833333333334,
+            "bytes": 3151.2,
+            "skips": 2.591666666666667
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 2.4791666666666665,
+            "uploads": 1.9625,
+            "bytes": 801.0666666666667,
+            "skips": 0.5166666666666667
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.1375,
+            "uploads": 0.1375,
+            "bytes": 158.4,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 12.2375,
+            "uploads": 9.645833333333334,
+            "bytes": 3151.2,
+            "skips": 2.591666666666667
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 12.2375,
+            "uploads": 9.645833333333334,
+            "bytes": 3151.2,
+            "skips": 2.591666666666667
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 102.375,
+            "uploads": 74.65,
+            "bytes": 28227.733333333334,
+            "skips": 27.725
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 29.608333333333334,
+            "uploads": 15.55,
+            "bytes": 6213.866666666667,
+            "skips": 14.058333333333334
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 20.641666666666666,
+            "uploads": 16.55,
+            "bytes": 6341.866666666667,
+            "skips": 4.091666666666667
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.183333333333334,
+            "uploads": 12.091666666666667,
+            "bytes": 3339.733333333333,
+            "skips": 3.091666666666667
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 1.5,
+            "uploads": 1.2,
+            "bytes": 446.4,
+            "skips": 0.3
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.075,
+            "uploads": 0.075,
+            "bytes": 86.4,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.183333333333334,
+            "uploads": 12.091666666666667,
+            "bytes": 3339.733333333333,
+            "skips": 3.091666666666667
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15.183333333333334,
+            "uploads": 12.091666666666667,
+            "bytes": 3339.733333333333,
+            "skips": 3.091666666666667
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 100.0625,
+            "uploads": 73.4125,
+            "bytes": 26340.8,
+            "skips": 26.65
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 29,
+            "uploads": 16,
+            "bytes": 6912,
+            "skips": 13
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 21,
+            "uploads": 17,
+            "bytes": 7040,
+            "skips": 4
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.1625,
+            "uploads": 0.1625,
+            "bytes": 187.2,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15,
+            "uploads": 12,
+            "bytes": 3328,
+            "skips": 3
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.1625,
+            "uploads": 0.1625,
+            "bytes": 187.2,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 3.4125,
+            "uploads": 2.7625,
+            "bytes": 1144,
+            "skips": 0.65
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15,
+            "uploads": 12,
+            "bytes": 3328,
+            "skips": 3
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.1625,
+            "uploads": 0.1625,
+            "bytes": 187.2,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15,
+            "uploads": 12,
+            "bytes": 3328,
+            "skips": 3
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.1625,
+            "uploads": 0.1625,
+            "bytes": 187.2,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 99.35,
+            "uploads": 71.48333333333333,
+            "bytes": 29072.533333333333,
+            "skips": 27.866666666666667
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 30.633333333333333,
+            "uploads": 15.766666666666667,
+            "bytes": 7445.866666666667,
+            "skips": 14.866666666666667
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 20.766666666666666,
+            "uploads": 16.766666666666666,
+            "bytes": 7573.866666666667,
+            "skips": 4
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.4875,
+            "uploads": 0.4875,
+            "bytes": 561.6,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15,
+            "uploads": 12,
+            "bytes": 3764.8,
+            "skips": 3
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.4875,
+            "uploads": 0.4875,
+            "bytes": 561.6,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15,
+            "uploads": 12,
+            "bytes": 3764.8,
+            "skips": 3
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.4875,
+            "uploads": 0.4875,
+            "bytes": 561.6,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15,
+            "uploads": 12,
+            "bytes": 3764.8,
+            "skips": 3
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.4875,
+            "uploads": 0.4875,
+            "bytes": 561.6,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 103.63333333333334,
+            "uploads": 73.36666666666666,
+            "bytes": 31202.133333333335,
+            "skips": 30.266666666666666
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 33,
+            "uploads": 16,
+            "bytes": 7872,
+            "skips": 17
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 21,
+            "uploads": 17,
+            "bytes": 8000,
+            "skips": 4
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.5416666666666666,
+            "uploads": 0.5416666666666666,
+            "bytes": 624,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15,
+            "uploads": 12,
+            "bytes": 3904,
+            "skips": 3
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.5416666666666666,
+            "uploads": 0.5416666666666666,
+            "bytes": 624,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 1.4,
+            "uploads": 1.1333333333333333,
+            "bytes": 533.3333333333334,
+            "skips": 0.26666666666666666
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.06666666666666667,
+            "uploads": 0.06666666666666667,
+            "bytes": 76.8,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15,
+            "uploads": 12,
+            "bytes": 3904,
+            "skips": 3
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.5416666666666666,
+            "uploads": 0.5416666666666666,
+            "bytes": 624,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 15,
+            "uploads": 12,
+            "bytes": 3904,
+            "skips": 3
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.5416666666666666,
+            "uploads": 0.5416666666666666,
+            "bytes": 624,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 103.42916666666666,
+            "uploads": 72.34166666666667,
+            "bytes": 32545.066666666666,
+            "skips": 31.0875
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 32.608333333333334,
+            "uploads": 15.616666666666667,
+            "bytes": 7855.466666666666,
+            "skips": 16.991666666666667
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 20.858333333333334,
+            "uploads": 16.616666666666667,
+            "bytes": 7983.466666666666,
+            "skips": 4.241666666666666
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.9083333333333333,
+            "uploads": 0.9083333333333333,
+            "bytes": 1046.4,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 14.833333333333334,
+            "uploads": 11.608333333333333,
+            "bytes": 3894.4,
+            "skips": 3.225
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.9083333333333333,
+            "uploads": 0.9083333333333333,
+            "bytes": 1046.4,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.8083333333333333,
+            "uploads": 0.6291666666666667,
+            "bytes": 301.3333333333333,
+            "skips": 0.17916666666666667
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.020833333333333332,
+            "uploads": 0.020833333333333332,
+            "bytes": 24,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 14.833333333333334,
+            "uploads": 11.608333333333333,
+            "bytes": 3894.4,
+            "skips": 3.225
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.9083333333333333,
+            "uploads": 0.9083333333333333,
+            "bytes": 1046.4,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 14.833333333333334,
+            "uploads": 11.608333333333333,
+            "bytes": 3894.4,
+            "skips": 3.225
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.9083333333333333,
+            "uploads": 0.9083333333333333,
+            "bytes": 1046.4,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 107.9875,
+            "uploads": 76.02083333333333,
+            "bytes": 34950.933333333334,
+            "skips": 31.966666666666665
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 33.175,
+            "uploads": 16.041666666666668,
+            "bytes": 7952.533333333334,
+            "skips": 17.133333333333333
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 21.2625,
+            "uploads": 17.041666666666668,
+            "bytes": 8080.533333333334,
+            "skips": 4.220833333333333
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 14.441666666666666,
+            "uploads": 11.220833333333333,
+            "bytes": 3851.4666666666667,
+            "skips": 3.220833333333333
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 4.9875,
+            "uploads": 4.0375,
+            "bytes": 1969.8666666666666,
+            "skips": 0.95
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.2375,
+            "uploads": 0.2375,
+            "bytes": 273.6,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 14.441666666666666,
+            "uploads": 11.220833333333333,
+            "bytes": 3851.4666666666667,
+            "skips": 3.220833333333333
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 14.441666666666666,
+            "uploads": 11.220833333333333,
+            "bytes": 3851.4666666666667,
+            "skips": 3.220833333333333
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 1152,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    },
+    {
+      "schema": 1,
+      "frames": 240,
+      "programCapacity": 32,
+      "legacyScalarBackend": "MEASURED_DESKTOP_FACADE",
+      "matrixArraysByProgram": [
+        {
+          "program": 7,
+          "status": "TRACKED",
+          "average": {
+            "requests": 93.25833333333334,
+            "uploads": 65.84583333333333,
+            "bytes": 29342.933333333334,
+            "skips": 27.4125
+          }
+        }
+      ],
+      "matrixArraysBySource": [
+        {
+          "pass": "ShadowSubmission",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 29.4375,
+            "uploads": 14.7375,
+            "bytes": 7226.4,
+            "skips": 14.7
+          }
+        },
+        {
+          "pass": "SceneOverlays",
+          "owner": "Unclassified",
+          "origin": "Unscoped",
+          "average": {
+            "requests": 1,
+            "uploads": 1,
+            "bytes": 512,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 19.270833333333332,
+            "uploads": 16.029166666666665,
+            "bytes": 7671.733333333334,
+            "skips": 3.2416666666666667
+          }
+        },
+        {
+          "pass": "Opaque",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.2125,
+            "uploads": 0.2125,
+            "bytes": 244.8,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 13.5625,
+            "uploads": 10.533333333333333,
+            "bytes": 4060.266666666667,
+            "skips": 3.029166666666667
+          }
+        },
+        {
+          "pass": "MarkTranslucent",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.2125,
+            "uploads": 0.2125,
+            "bytes": 244.8,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 1.9166666666666667,
+            "uploads": 1.5333333333333334,
+            "bytes": 662.4,
+            "skips": 0.38333333333333336
+          }
+        },
+        {
+          "pass": "RebuildDepth",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.09583333333333334,
+            "uploads": 0.09583333333333334,
+            "bytes": 110.4,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 13.5625,
+            "uploads": 10.533333333333333,
+            "bytes": 4060.266666666667,
+            "skips": 3.029166666666667
+          }
+        },
+        {
+          "pass": "TranslucentBehind",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.2125,
+            "uploads": 0.2125,
+            "bytes": 244.8,
+            "skips": 0
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "PaletteMesh",
+          "origin": "Setup",
+          "average": {
+            "requests": 13.5625,
+            "uploads": 10.533333333333333,
+            "bytes": 4060.266666666667,
+            "skips": 3.029166666666667
+          }
+        },
+        {
+          "pass": "TranslucentFront",
+          "owner": "TrailStack",
+          "origin": "Setup",
+          "average": {
+            "requests": 0.2125,
+            "uploads": 0.2125,
+            "bytes": 244.8,
+            "skips": 0
+          }
+        }
+      ],
+      "limits": "Two independent partitions of facade matrix4-array requests, submissions, skips and count*64 payload bytes; not driver residency or GPU execution. Direct native bypasses and implicit GLES emulation uniforms are excluded. Program integers are scoped to the current context/window; overflow and unscoped owners stay explicit. Scalar counters exclude uncached array overloads; unsupported scalar backends remain UNVERIFIED. No per-location/value/redundancy witness is inferred."
+    }
+  ],
+  "medianWindowWorkCounters": {
+    "PaletteCollectionRequests": 49.047916666666666,
+    "PaletteCollectionVersionedRequests": 49.047916666666666,
+    "PaletteCollectionCopiedFloats": 9280.4,
+    "PaletteCollectionReuses": 0.0,
+    "PaletteRepeatedPreparations": 37.9,
+    "PaletteRepeatedCopiedFloats": 7453.799999999999,
+    "UniformArrayUploads": 50.97916666666667,
+    "UniformArrayBytes": 27670.800000000003,
+    "UniformArraySkips": 37.47708333333333,
+    "LegacyScalarUniformRequests": 7353.010416666667,
+    "LegacyScalarUniformSubmissions": 1425.1416666666667,
+    "LegacyScalarUniformSkips": 5898.466666666667
+  },
+  "gpuStatus": "UNVERIFIED",
+  "limits": "CPU scopes include driver/backpressure wall time and are inclusive, not additive. Owner metadata does not prove immutable geometry. Medians of window percentiles are not pooled percentiles. Present wall is not GPU time. Missing GPU evidence remains unverified.",
+  "paletteCollectionMedianWindowP95Ms": 0.018333000000000002,
+  "sourceCommit": "a51d947504ed9102b7750d50c52b2f40221989a6",
+  "clientSha256": "290e6a6f2719a39017e5e7443c0a00a16b15061bc50ff0effb6abb01fc1417b2",
+  "unprofiled": {
+    "runs": 5,
+    "samples": [
+      {
+        "p50": 1.9244,
+        "p95": 3.0002,
+        "p99": 4.1923,
+        "p99_9ReciprocalFps": 172.99541562148602,
+        "simHz": 59.91983923906596,
+        "drops": 0,
+        "stalls": 0
+      },
+      {
+        "p50": 1.9248,
+        "p95": 2.8932,
+        "p99": 3.574,
+        "p99_9ReciprocalFps": 226.31602770108182,
+        "simHz": 59.9507294929662,
+        "drops": 0,
+        "stalls": 0
+      },
+      {
+        "p50": 1.942,
+        "p95": 2.962,
+        "p99": 3.7642,
+        "p99_9ReciprocalFps": 165.03284153546556,
+        "simHz": 59.96923877896834,
+        "drops": 0,
+        "stalls": 0
+      },
+      {
+        "p50": 1.9566,
+        "p95": 2.963,
+        "p99": 3.7208,
+        "p99_9ReciprocalFps": 199.68051118210863,
+        "simHz": 59.99927100885728,
+        "drops": 0,
+        "stalls": 0
+      },
+      {
+        "p50": 1.906,
+        "p95": 2.92,
+        "p99": 3.7631,
+        "p99_9ReciprocalFps": 151.60703456640388,
+        "simHz": 59.97040160828624,
+        "drops": 0,
+        "stalls": 0
+      }
+    ]
+  },
+  "negativeEvidence": [
+    "Initial symlinked harness resolved the baseline client, excluded from new attribution.",
+    "Initial five unprofiled trials may overlap a build, preserved and excluded.",
+    "Initial41window aggregation excluded profiler warmup only; corrected to simulationmarker+4windows."
+  ]
+}
