@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace MphRead.Mods.Replay;
@@ -7,12 +8,12 @@ namespace MphRead.Mods.Replay;
 /// <summary>Consumes progress without retaining lines; the caller owns the reader and process.</summary>
 internal static class ReplayEncoderProgress
 {
-    internal static async Task Read(StreamReader reader, Action<int> publish)
+    internal static async Task Read(StreamReader reader, Action<int> publish, CancellationToken cancellation = default)
     {
         char[] buffer = new char[2048];
         var line = new FrameLine();
         int count;
-        while ((count = await reader.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+        while ((count = await reader.ReadAsync(buffer.AsMemory(), cancellation).ConfigureAwait(false)) > 0)
             for (int i = 0; i < count; i++)
             {
                 char value = buffer[i];
