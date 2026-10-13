@@ -282,6 +282,8 @@ namespace MphRead.Mods.Render
         }
     }
 
+    internal enum RetainedOpaqueOrder { StateSorted, Submission }
+
     /// <summary>
     /// Reusable retained view of the frame's visible submissions. Mesh
     /// descriptors are interned for the scene lifetime; frame packets and
@@ -348,13 +350,15 @@ namespace MphRead.Mods.Render
         internal ulong FrameRevision { get; private set; }
 
         internal void Capture(IReadOnlyList<RenderItem> nonDecal,
-            IReadOnlyList<RenderItem> decals, IReadOnlyList<RenderItem> translucent)
+            IReadOnlyList<RenderItem> decals, IReadOnlyList<RenderItem> translucent,
+            RetainedOpaqueOrder opaqueOrder = RetainedOpaqueOrder.StateSorted)
         {
             RoomDescriptorCacheHits = MeshDescriptorLookups = 0;
             OpaqueSortOrderReused = false;
             OpaqueSortRunCount = 0;
             OpaqueReorderedPacketCount = 0;
-            CaptureList(_opaque, _opaqueBatches, nonDecal, sortOpaque: true);
+            CaptureList(_opaque, _opaqueBatches, nonDecal,
+                sortOpaque: opaqueOrder == RetainedOpaqueOrder.StateSorted, opaqueRoomGroups: true);
             CaptureList(_decals, _decalBatches, decals, sortOpaque: false);
             CaptureList(_translucent, _translucentBatches, translucent,
                 sortOpaque: false);
@@ -385,7 +389,7 @@ namespace MphRead.Mods.Render
 
         private void CaptureList(List<RetainedDrawPacket> destination,
             List<RetainedDrawBatch> batches, IReadOnlyList<RenderItem> source,
-            bool sortOpaque)
+            bool sortOpaque, bool opaqueRoomGroups = false)
         {
             destination.Clear();
             batches.Clear();
@@ -400,7 +404,9 @@ namespace MphRead.Mods.Render
             }
             if (sortOpaque)
                 SortOpaqueWithReuse(destination);
-            BuildAdjacentBatches(destination, batches, sortOpaque && RoomGroupsEnabled);
+            // Original ordering still allows exact-state adjacent opaque groups.
+            // Sorting policy never weakens the combined-draw equality proof.
+            BuildAdjacentBatches(destination, batches, opaqueRoomGroups && RoomGroupsEnabled);
         }
 
         private RetainedMeshDescriptor MeshFor(RenderItem item)
@@ -711,7 +717,13 @@ namespace MphRead
 
         private void CaptureRetainedRenderWorld()
         {
-            _retainedRenderWorld.Capture(_nonDecalItems, _decalItems, _translucentItems);
+            // Native state hashes include allocation-local GL texture handles.
+            // Private replay reconstruction can relocate those handles while
+            // retaining exact native state; sorting by their hash changes depth
+            // ties on coplanar geometry. Keep the original packet sequence there.
+            _retainedRenderWorld.Capture(_nonDecalItems, _decalItems, _translucentItems,
+                Services.IsReplica ? Mods.Render.RetainedOpaqueOrder.Submission
+                    : Mods.Render.RetainedOpaqueOrder.StateSorted);
             Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.RoomDescriptorHits, _retainedRenderWorld.RoomDescriptorCacheHits);
             Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.RoomDescriptorLookups, _retainedRenderWorld.MeshDescriptorLookups);
         }

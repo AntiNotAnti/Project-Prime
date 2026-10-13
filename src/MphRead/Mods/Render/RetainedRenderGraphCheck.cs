@@ -315,6 +315,47 @@ namespace MphRead.Mods.Render
                 && world.OpaqueSortRunCount == 1
                 && world.OpaqueReorderedPacketCount == 2,
                 "room-owned opaque safe run sorts by retained state");
+            var replicaOrder = new RetainedRenderWorld();
+            RenderItem[] originalOrder = { secondByKey, firstByKey };
+            replicaOrder.Capture(originalOrder, Array.Empty<RenderItem>(), Array.Empty<RenderItem>(),
+                RetainedOpaqueOrder.Submission);
+            Check(ReferenceEquals(replicaOrder.Opaque[0].Item, secondByKey)
+                && ReferenceEquals(replicaOrder.Opaque[1].Item, firstByKey)
+                && replicaOrder.OpaqueSortRunCount == 0 && replicaOrder.OpaqueReorderedPacketCount == 0,
+                "private replica preserves original opaque order where ordinary sorting reorders it");
+            var relocated = new RenderItem[originalOrder.Length];
+            for (int i = 0; i < originalOrder.Length; i++) relocated[i] = new RenderItem {
+                Type = RenderItemType.Mesh, ListId = originalOrder[i].ListId + 434,
+                TextureBindingId = originalOrder[i].TextureBindingId + 229,
+                HasTexture = true, RetainedRoomOwned = true, Alpha = 1, Diffuse = Vector3.One
+            };
+            replicaOrder.Capture(relocated, Array.Empty<RenderItem>(), Array.Empty<RenderItem>(),
+                RetainedOpaqueOrder.Submission);
+            Check(ReferenceEquals(replicaOrder.Opaque[0].Item, relocated[0])
+                && ReferenceEquals(replicaOrder.Opaque[1].Item, relocated[1])
+                && replicaOrder.Opaque[0].Sequence == 0 && replicaOrder.Opaque[1].Sequence == 1,
+                "relocated GL texture and display-list handles cannot reorder private replica packets");
+            var liveOrder = new RetainedRenderWorld();
+            liveOrder.Capture(relocated, Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+            Check(liveOrder.Opaque[0].StateKey <= liveOrder.Opaque[1].StateKey
+                && liveOrder.OpaqueSortRunCount == 1,
+                "ordinary live mode retains existing opaque state sorting with relocated handles");
+            var adjacent = new[] {
+                new RenderItem { Type = RenderItemType.Mesh, ListId = 700, TextureBindingId = 800,
+                    HasTexture = true, RetainedRoomOwned = true, Alpha = 1, Diffuse = Vector3.One },
+                new RenderItem { Type = RenderItemType.Mesh, ListId = 701, TextureBindingId = 800,
+                    HasTexture = true, RetainedRoomOwned = true, Alpha = 1, Diffuse = Vector3.One },
+                new RenderItem { Type = RenderItemType.Mesh, ListId = 702, TextureBindingId = 800,
+                    HasTexture = true, RetainedRoomOwned = true, Alpha = 1, Diffuse = Vector3.One,
+                    Transform = Matrix4.CreateTranslation(3, 0, 0) }
+            };
+            replicaOrder.Capture(adjacent, Array.Empty<RenderItem>(), Array.Empty<RenderItem>(),
+                RetainedOpaqueOrder.Submission);
+            Check(replicaOrder.OpaqueBatches.Count > 0 && replicaOrder.OpaqueBatches[0].Count >= 2
+                && RetainedOpaqueBatchPolicy.CanMerge(replicaOrder.Opaque[0], replicaOrder.Opaque[1])
+                && !RetainedOpaqueBatchPolicy.CanMerge(replicaOrder.Opaque[1], replicaOrder.Opaque[2]),
+                "private original order retains adjacent exact-state batches and rejects different transforms");
+
             sortableB.TextureBindingId = sortableA.TextureBindingId;
             world.Capture(new List<RenderItem> { sortableA, sortableB },
                 Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
