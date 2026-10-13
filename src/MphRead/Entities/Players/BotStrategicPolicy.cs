@@ -68,6 +68,16 @@ internal static class BotStrategicPolicy
         return score - distance * 2.6f;
     }
 
+    internal static bool PickupAllowedForMode(ItemType type, bool weaponLocked)
+    {
+        if (!weaponLocked) return true;
+        // In locked-weapon modes, native rules own the loadout. A bot may
+        // still recover health but must not abandon the match to fetch a
+        // weapon/ammo/powerup that its active ruleset cannot use.
+        return type is ItemType.HealthSmall or ItemType.HealthMedium
+            or ItemType.HealthBig or ItemType.EnergyTank;
+    }
+
     internal static float PickupScore(ItemType type, float healthFraction,
         bool alreadyOwned, float uaFraction, float missileFraction)
     {

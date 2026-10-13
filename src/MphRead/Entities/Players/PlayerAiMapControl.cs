@@ -152,9 +152,16 @@ public partial class PlayerEntity
                 ? Math.Clamp(_player.Health / (float)_player.HealthMax, 0f, 1f) : 1f;
             // Evaluate active items only. Empty respawn sites cannot grant
             // information about the precise future spawn timing.
+            bool lockedWeapons = _scene.GameState.InstaGib
+                || _scene.GameState.OneInTheChamber
+                || _scene.GameState.Fiesta || _scene.GameState.Mode == GameMode.GunGame;
             foreach (ItemInstanceEntity item in _scene.GetItemInstanceEntities())
             {
-                if (item.DespawnTimer == 0) continue;
+                if (item.DespawnTimer == 0
+                    || !BotStrategicPolicy.PickupAllowedForMode(item.ItemType, lockedWeapons))
+                {
+                    continue;
+                }
                 float distance = (item.Position - _player.Position).WithY(0).Length;
                 if (!BotCanReachStrategicGoal(item.Position, distance)) continue;
 
@@ -187,8 +194,8 @@ public partial class PlayerEntity
             // A single escort, rather than every bot clustering on the carrier.
             // The carrier's live position is friendly information, not wall
             // tracking. Never steal control while the bot is itself carrying.
-            if (_scene.GameState.Teams && _scene.GameState.Mode is GameMode.Capture
-                or GameMode.BountyTeams)
+            if (_scene.GameState.Teams
+                && (_scene.GameState.Mode is GameMode.Capture or GameMode.BountyTeams))
             {
                 foreach (PlayerEntity ally in _scene.GetPlayerEntities())
                 {

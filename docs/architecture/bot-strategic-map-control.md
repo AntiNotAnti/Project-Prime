@@ -9,7 +9,9 @@ decisions, and this change introduces no new network messages.
 
 Hard and Insane bots now opportunistically pursue *spawned, reachable*
 health, ammunition, weapons, cloak, Double Damage and Omega Cannon pickups.
-A missing item is not treated as a visible pickup. Pickups are evaluated by
+In locked-weapon modes (Insta-Gib, Gun Game, Fiesta and One in the Chamber),
+the new opportunistic pickup planner considers only health. A missing item is
+not treated as a visible pickup. Pickups are evaluated by
 health deficit, ammo reserve, weapon ownership, and nearby distance.
 
 For Nodes Teams, Defender Teams and Hardpoint Teams, bots evaluate locally

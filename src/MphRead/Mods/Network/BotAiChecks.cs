@@ -310,6 +310,11 @@ public static class BotAiChecks
         Check(!BotStrategicPolicy.ShouldDisengage(false, 5, 0, .4f),
             "free-for-all duels do not become permanent retreats");
 
+        Check(!BotStrategicPolicy.PickupAllowedForMode(ItemType.Imperialist, weaponLocked: true)
+                && BotStrategicPolicy.PickupAllowedForMode(ItemType.HealthBig, weaponLocked: true)
+                && BotStrategicPolicy.PickupAllowedForMode(ItemType.Imperialist, weaponLocked: false),
+            "locked-weapon modes do not divert bots toward unusable weapon pickups");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }
