@@ -22,13 +22,20 @@ def sha256(path):
 
 
 def command(args):
-    return [args.dotnet, str(args.binary.resolve()), "-room", "MP3 PROVING GROUND", "-players", "8",
+    cmd = [args.dotnet, str(args.binary.resolve()), "-room", "MP3 PROVING GROUND", "-players", "8",
             "-size", "1920x1080", "-hz", "-1", "-seconds", "8", "-shadows", "High",
             "-resourcestress", "-resource-arm", "map-gl", "-resourceframes", str(args.frames),
             "-resource-drain", "-resource-quiescent-samples", str(args.samples), "-resource-quiescent-ms", "1000",
             "-resource-context-cycles", ",".join(map(str, args.cycles)),
             "-resource-context-post-samples", str(args.samples), "-resource-context-post-ms", "1000",
             "-output", str(args.output.resolve() / "context.json")]
+    if args.driver_drain:
+        cmd.append("-resource-context-driver-drain")
+        if args.capture_native_stacks:
+            cmd += ["-resource-context-phase-acks", str(args.output.resolve() / "phase-acks")]
+    if args.shader_source_ledger:
+        cmd.append("-resource-shader-source-ledger")
+    return cmd
 
 
 def capture(pid, stem, output):
@@ -50,6 +57,11 @@ def capture(pid, stem, output):
     return {"phase": stem, "pid": pid, "trigger": "at least 3 seconds after phase marker while process alive", "steps": steps}
 
 
+def captures_complete(expected, captures):
+    return len(captures) == expected and all(
+        step["exitCode"] == 0 for record in captures for step in record["steps"])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dotnet", default="dotnet")
@@ -60,6 +72,8 @@ def main():
     parser.add_argument("--samples", type=int, default=60)
     parser.add_argument("--timeout", type=float, default=3600)
     parser.add_argument("--capture-native-stacks", action="store_true")
+    parser.add_argument("--driver-drain", action="store_true", help="Final owner-thread GLFW poll/terminate phases; no recreation afterward")
+    parser.add_argument("--shader-source-ledger", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     if not 1 <= len(args.cycles) <= 8 or any(c < 1 or c > 200 for c in args.cycles) or not 2 <= args.samples <= 120:
@@ -111,6 +125,9 @@ def main():
                         context = int(match[1])
                         pending[f"context-{context:02d}-after-disposal"] = time.monotonic()
                         context += 1
+                    match = re.search(r"NATIVERENDER driver-drain phase=(after-glfw-poll|after-glfw-terminate)", line)
+                    if match:
+                        pending[match[1]] = time.monotonic()
                 if args.capture_native_stacks and pid:
                     for stem, marker in list(pending.items()):
                         if time.monotonic() - marker >= 3:
@@ -119,6 +136,10 @@ def main():
                             observed.add(stem)
                             del pending[stem]
                             save()
+                            if args.driver_drain:
+                                acknowledgements = args.output / "phase-acks"
+                                acknowledgements.mkdir(exist_ok=True)
+                                (acknowledgements / (stem + ".ack")).write_text("capture complete\n")
                             print(stem + " capture complete", flush=True)
                 if time.monotonic() - started > args.timeout:
                     manifest["error"] = "Campaign timeout; partial artifacts preserved"
@@ -136,12 +157,13 @@ def main():
             if result.is_file():
                 manifest["resultSha256"] = sha256(result)
                 manifest["complete"] = json.loads(result.read_text()).get("complete") is True
-            manifest["expectedNativeCaptures"] = len(args.cycles) * 2 if args.capture_native_stacks else 0
+            manifest["expectedNativeCaptures"] = (len(args.cycles) * 2 + (2 if args.driver_drain else 0)) if args.capture_native_stacks else 0
             manifest["nativeCaptureCount"] = len(manifest["captures"])
+            manifest["nativeCapturesComplete"] = captures_complete(manifest["expectedNativeCaptures"], manifest["captures"])
             save()
     for path in (args.output / "context.json.contexts").glob("*.json"):
         path.with_suffix(".analysis.json").write_text(json.dumps(analyze(json.loads(path.read_text())), indent=2) + "\n")
-    return 0 if manifest.get("complete") and manifest["exitCode"] == 0 and manifest["identityMatches"] else 1
+    return 0 if manifest.get("complete") and manifest["exitCode"] == 0 and manifest["identityMatches"] and manifest["nativeCapturesComplete"] else 1
 
 
 if __name__ == "__main__":
