@@ -25,7 +25,6 @@ public partial class Scene
             GL.ShaderSource(shader, source);
             Mods.Render.OpenGlFailureInjection.ShaderObject(stage, shader);
             GL.CompileShader(shader);
-            Mods.Render.OpenGlFailureInjection.ShaderObject(stage + "-compiled", shader);
             GL.GetShader(shader, ShaderParameter.CompileStatus, out int compiled);
             string log = compiled == 0 || Debugger.IsAttached ? GL.GetShaderInfoLog(shader) : "";
             if (Debugger.IsAttached && log != "") Debugger.Break();
@@ -44,7 +43,6 @@ public partial class Scene
             GL.AttachShader(program, fragment);
             Mods.Render.OpenGlFailureInjection.ShaderObject(stage, program);
             GL.LinkProgram(program);
-            Mods.Render.OpenGlFailureInjection.ShaderObject(stage + "-linked", program);
             GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int linked);
             if (linked == 0) throw new ProgramException($"Failed to link {stage}. {GL.GetProgramInfoLog(program)}");
             GL.DetachShader(program, vertex);

@@ -106,13 +106,11 @@ namespace MphRead.Mods.Render
                 GL.ShaderSource(vertex, Shaders.BackdropVertexShader);
                 MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("launcher-photo-vertex", vertex);
                 GL.CompileShader(vertex);
-                MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("launcher-photo-vertex-compiled", vertex);
                 GL.GetShader(vertex, ShaderParameter.CompileStatus, out int vertexOk);
                 fragment = GL.CreateShader(ShaderType.FragmentShader);
                 GL.ShaderSource(fragment, Shaders.BackdropFragmentShader);
                 MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("launcher-photo-fragment", fragment);
                 GL.CompileShader(fragment);
-                MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("launcher-photo-fragment-compiled", fragment);
                 GL.GetShader(fragment, ShaderParameter.CompileStatus, out int fragmentOk);
                 if (vertexOk == 0 || fragmentOk == 0)
                 {
@@ -125,7 +123,6 @@ namespace MphRead.Mods.Render
                 GL.AttachShader(program, fragment);
                 MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("launcher-photo-program", program);
                 GL.LinkProgram(program);
-                MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("launcher-photo-linked", program);
                 GL.DetachShader(program, vertex);
                 GL.DetachShader(program, fragment);
                 GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int linked);

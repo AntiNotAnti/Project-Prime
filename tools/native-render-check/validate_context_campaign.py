@@ -423,6 +423,8 @@ def _check_sources(ledger, requested, report, index):
     if not isinstance(ledger, dict):
         report("shaderSources", "INVALID" if requested else "UNVERIFIED", label + "shader source ledger unavailable")
         return
+    if ledger.get("unexpectedStatusCallbacks", 0) != 0:
+        report("shaderSources", "INVALID", label + "unexpected/duplicate status callbacks")
     for prefix, attempts in (("compile", "compileAttemptCallbacks"), ("link", "linkAttemptCallbacks")):
         status_key = prefix + "StatusCallbacks"
         if status_key not in ledger:

@@ -463,7 +463,12 @@ namespace MphRead.Mods.Render
             DesktopGL.GetTexLevelParameter(target, level, name, out value);
         }
 
-        public static int CreateShader(ShaderType type) => DesktopGL.CreateShader(type);
+        public static int CreateShader(ShaderType type)
+        {
+            int shader = DesktopGL.CreateShader(type);
+            OpenGlFailureInjection.ShaderObject("graphics-api-shader-create", shader);
+            return shader;
+        }
         public static void ShaderSource(int shader, string source)
         {
             _capturingListAttributes?.Unknown(); DesktopGL.ShaderSource(shader, source);
@@ -475,18 +480,27 @@ namespace MphRead.Mods.Render
         }
         public static void CompileShader(int shader)
         {
-            _capturingListAttributes?.Unknown(); DesktopGL.CompileShader(shader);
+            _capturingListAttributes?.Unknown();
+            OpenGlFailureInjection.ShaderObject("graphics-api-compile-attempt", shader);
+            DesktopGL.CompileShader(shader);
             OpenGlFailureInjection.ShaderObject("graphics-api-compiled", shader);
         }
         public static void GetShader(int shader, ShaderParameter name, out int value)
         { DesktopGL.GetShader(shader, name, out value); }
         public static string GetShaderInfoLog(int shader) => DesktopGL.GetShaderInfoLog(shader);
-        public static void DeleteShader(int shader) { _capturingListAttributes?.Unknown(); DesktopGL.DeleteShader(shader); }
-        public static int CreateProgram() => DesktopGL.CreateProgram();
+        public static void DeleteShader(int shader)
+        { _capturingListAttributes?.Unknown(); OpenGlFailureInjection.ShaderObject("graphics-api-shader-delete", shader); DesktopGL.DeleteShader(shader); }
+        public static int CreateProgram()
+        {
+            int program = DesktopGL.CreateProgram();
+            OpenGlFailureInjection.ShaderObject("graphics-api-program-create", program);
+            return program;
+        }
         public static void DeleteProgram(int program)
         { _capturingListAttributes?.Unknown();
             _paletteUploads?.ForgetLayout(program);
             {
+                OpenGlFailureInjection.ShaderObject("graphics-api-program-delete", program);
                 DesktopGL.DeleteProgram(program);
 #if !ANDROID
                 _legacyUniforms.InvalidateProgram(program);
@@ -499,7 +513,7 @@ namespace MphRead.Mods.Render
         { _capturingListAttributes?.Unknown();
             _paletteUploads?.ForgetLayout(program);
             {
-                OpenGlFailureInjection.ShaderObject("graphics-api-program", program);
+                OpenGlFailureInjection.ShaderObject("graphics-api-link-attempt", program);
                 DesktopGL.LinkProgram(program);
                 OpenGlFailureInjection.ShaderObject("graphics-api-linked", program);
 #if !ANDROID

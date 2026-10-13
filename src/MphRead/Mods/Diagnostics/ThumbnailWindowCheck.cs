@@ -96,7 +96,6 @@ namespace MphRead.Mods.Diagnostics
                 GL.ShaderSource(vertex, vertexSource);
                 MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("thumbnail-check-vertex", vertex);
                 GL.CompileShader(vertex);
-                MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("thumbnail-check-vertex-compiled", vertex);
                 GL.GetShader(vertex, ShaderParameter.CompileStatus, out int vertexOk);
                 if (vertexOk == 0)
                     throw new InvalidOperationException($"{label} vertex shader: {GL.GetShaderInfoLog(vertex)}");
@@ -105,7 +104,6 @@ namespace MphRead.Mods.Diagnostics
                 GL.ShaderSource(fragment, fragmentSource);
                 MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("thumbnail-check-fragment", fragment);
                 GL.CompileShader(fragment);
-                MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("thumbnail-check-fragment-compiled", fragment);
                 GL.GetShader(fragment, ShaderParameter.CompileStatus, out int fragmentOk);
                 if (fragmentOk == 0)
                     throw new InvalidOperationException($"{label} fragment shader: {GL.GetShaderInfoLog(fragment)}");
@@ -115,7 +113,6 @@ namespace MphRead.Mods.Diagnostics
                 GL.AttachShader(program, fragment);
                 MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("thumbnail-check-program", program);
                 GL.LinkProgram(program);
-                MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("thumbnail-check-linked", program);
                 GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int linked);
                 if (linked == 0)
                     throw new InvalidOperationException($"{label} program: {GL.GetProgramInfoLog(program)}");

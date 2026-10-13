@@ -1,0 +1,11 @@
+# AGX-02 counter correction
+
+The first real-scene status fixture at source `cdbaa4bc` passed image/depth parity and recognized-name retirement, but its ledger incorrectly reported 64 compile and 36 link attempts across two map loads. These are duplicate diagnostic events, not 64/36 native operations. The retained `agx02-scene-status.json` receipt is negative attribution evidence and must not be used to quantify per-load compilation.
+
+`MphRead.csproj` supplies the global `GL = GraphicsApi` alias. Owner callbacks and facade callbacks therefore observed the same source/compile/link paths twice. The correction counts actual facade `CompileShader`/`LinkProgram` attempts and immediate statuses once. Owner source markers provide the preferred route label; the source body is hashed at every actual compile. Source reassignment resets the pending route, creation/deletion clears reused native names, and repeated compilation/relinking increments the real attempt count. Generic-only routes retain `graphics-api-*` labels. The result declares `counterSemantics=facade-operation-v2`.
+
+The device-free `--shader-source-ledger-selftest` invokes the real diagnostic callback dispatcher with fake source/status readers. It verifies nested facade/owner events, two source assignments before one compilation, real repeated compilation/relinking, reused native names, generic-only paths, failure statuses, unexpected status events, and no queries after diagnostics are disabled. The independent expected counts are four shader compilations and two links, rather than source/owner-event counts.
+
+Acceptance still requires the separate real-scene rerun to report 32 actual shader compilations and 18 program links across the two loads, successful statuses and complete coverage, exact image/depth parity, zero recognized owned resources after unload, and no GL errors. Device-free tests and a build alone do not establish that native acceptance.
+
+The six minimal GL-only controls did not enable this ledger, so their immutable raw compiler/draw/retirement receipts and allocator-origin measurements remain applicable to their original source/binary identity. They are not retroactively relabeled as runs of the corrected binary. Program lease/cache eligibility remains NOT_ELIGIBLE; no production cache, GC policy or renderer default changes accompany this diagnostic fix.
