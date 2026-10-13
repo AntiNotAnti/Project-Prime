@@ -274,6 +274,7 @@
     <InternalsVisibleTo Include="hud-ui-check" />
     <InternalsVisibleTo Include="material-pack" />
     <InternalsVisibleTo Include="map-editor-check" />
+    <InternalsVisibleTo Include="replay-sidecar-check" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(MphReadServer)' != 'true'">

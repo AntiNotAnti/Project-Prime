@@ -567,6 +567,10 @@ jobs:
         if: matrix.id == 'linux-x64'
         run: dotnet run --project tools/replay-timeline-check -c Release
 
+      - name: replay sidecar malformed-entry and identity regressions
+        if: matrix.id == 'linux-x64'
+        run: dotnet run --project tools/replay-sidecar-check -c Release
+
       - name: replay format and server-retention regressions
         if: matrix.id == 'linux-x64'
         run: publish/linux-x64/ProjectPrime -replayformatcheck
