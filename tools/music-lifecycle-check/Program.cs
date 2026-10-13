@@ -401,6 +401,21 @@ static class Program
             "Shutdown hid the active decoder or exposed stale readiness");
         release.Set(); Await(owner.Completion, "Timed out decoder did not finish safely");
         Require(owner.Current == null, "Timed out decode was published later");
+
+        using var attaching = new ManualResetEventSlim(); using var attachRelease = new ManualResetEventSlim();
+        Graph? stale = null;
+        var attachingOwner = new MusicLoadOwner((request, _) => stale = new Graph(request)
+            { OnAttach = () => { attaching.Set(); attachRelease.Wait(); } }, ex => throw ex);
+        attachingOwner.Load(SeqId.WIN, 1, 1); Require(attaching.Wait(5000), "Deadline attachment barrier did not enter");
+        Require(!attachingOwner.WaitForLoad(TimeSpan.Zero, 1), "Deadline admitted a graph still attaching");
+        attachRelease.Set(); Await(attachingOwner.Completion, "Deadline attachment did not retire");
+        Require(attachingOwner.Current == null && stale!.Retired == 1, "Deadline-fenced attachment published later");
+
+        var ready = new MusicLoadOwner((request, _) => new Graph(request), ex => throw ex);
+        ready.Load(SeqId.WIN, 1, 1); Await(ready.Completion, "Ready deadline graph did not publish");
+        Require(ready.WaitForLoad(TimeSpan.Zero, 1) && ready.Current != null && !ready.StopLoading,
+            "Deadline cancelled a graph whose readiness had already published");
+        ready.Remove(); Await(ready.Completion, "Ready deadline graph did not retire");
     }
 
     static void CallbackAllocations()
