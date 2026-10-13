@@ -161,14 +161,18 @@ namespace MphRead.Mods.Diagnostics
                     try
                     {
                         GL.ShaderSource(shader, source);
+                        MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("launcher-check-" + (type == ShaderType.VertexShader ? "vertex" : "fragment"), shader);
                         GL.CompileShader(shader);
+                        MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("launcher-check-compiled", shader);
                         GL.GetShader(shader, ShaderParameter.CompileStatus, out int compiled);
                         if (compiled == 0) throw new InvalidOperationException(GL.GetShaderInfoLog(shader));
                         GL.AttachShader(program, shader);
                     }
                     finally { GL.DeleteShader(shader); }
                 }
+                MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("launcher-check-program", program);
                 GL.LinkProgram(program);
+                MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("launcher-check-linked", program);
                 GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int linked);
                 if (linked == 0) throw new InvalidOperationException(GL.GetProgramInfoLog(program));
             }

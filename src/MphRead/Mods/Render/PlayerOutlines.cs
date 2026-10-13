@@ -157,7 +157,9 @@ namespace MphRead
                     _playerOutlineProgram = GL.CreateProgram();
                     GL.AttachShader(_playerOutlineProgram, vertex);
                     GL.AttachShader(_playerOutlineProgram, fragment);
+                    Mods.Render.OpenGlFailureInjection.ShaderObject("player-outlines-program", _playerOutlineProgram);
                     GL.LinkProgram(_playerOutlineProgram);
+                    Mods.Render.OpenGlFailureInjection.ShaderObject("player-outlines-linked", _playerOutlineProgram);
 #if !ANDROID
                     GL.GetProgram(_playerOutlineProgram, GetProgramParameterName.LinkStatus, out int status);
                     if (status == 0)
@@ -230,7 +232,9 @@ namespace MphRead
         {
             int shader = GL.CreateShader(type);
             GL.ShaderSource(shader, source);
+            Mods.Render.OpenGlFailureInjection.ShaderObject("player-outlines-" + (type == ShaderType.VertexShader ? "vertex" : "fragment"), shader);
             GL.CompileShader(shader);
+            Mods.Render.OpenGlFailureInjection.ShaderObject("player-outlines-compiled", shader);
             GL.GetShader(shader, ShaderParameter.CompileStatus, out int status);
             if (status == 0)
             {

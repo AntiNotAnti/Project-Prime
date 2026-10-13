@@ -464,8 +464,20 @@ namespace MphRead.Mods.Render
         }
 
         public static int CreateShader(ShaderType type) => DesktopGL.CreateShader(type);
-        public static void ShaderSource(int shader, string source) { _capturingListAttributes?.Unknown(); DesktopGL.ShaderSource(shader, source); }
-        public static void CompileShader(int shader) { _capturingListAttributes?.Unknown(); DesktopGL.CompileShader(shader); }
+        public static void ShaderSource(int shader, string source)
+        {
+            _capturingListAttributes?.Unknown(); DesktopGL.ShaderSource(shader, source);
+            if (OpenGlFailureInjection.ShaderObjectCallback != null)
+            {
+                DesktopGL.GetShader(shader, ShaderParameter.ShaderType, out int type);
+                OpenGlFailureInjection.ShaderObject("graphics-api-" + (type == (int)ShaderType.VertexShader ? "vertex" : "fragment"), shader);
+            }
+        }
+        public static void CompileShader(int shader)
+        {
+            _capturingListAttributes?.Unknown(); DesktopGL.CompileShader(shader);
+            OpenGlFailureInjection.ShaderObject("graphics-api-compiled", shader);
+        }
         public static void GetShader(int shader, ShaderParameter name, out int value)
         { DesktopGL.GetShader(shader, name, out value); }
         public static string GetShaderInfoLog(int shader) => DesktopGL.GetShaderInfoLog(shader);
@@ -487,7 +499,9 @@ namespace MphRead.Mods.Render
         { _capturingListAttributes?.Unknown();
             _paletteUploads?.ForgetLayout(program);
             {
+                OpenGlFailureInjection.ShaderObject("graphics-api-program", program);
                 DesktopGL.LinkProgram(program);
+                OpenGlFailureInjection.ShaderObject("graphics-api-linked", program);
 #if !ANDROID
                 // Relinking can replace every uniform value/location contract.
                 _legacyUniforms.InvalidateProgram(program);

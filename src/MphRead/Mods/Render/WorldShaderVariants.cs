@@ -56,6 +56,8 @@ public partial class Scene
             Mods.Render.OpenGlFailureInjection.ShaderObject("variant-vertex", vertex);
             Mods.Render.OpenGlFailureInjection.ShaderObject("variant-fragment", fragment);
             GL.CompileShader(vertex); GL.CompileShader(fragment);
+            Mods.Render.OpenGlFailureInjection.ShaderObject("variant-vertex-compiled", vertex);
+            Mods.Render.OpenGlFailureInjection.ShaderObject("variant-fragment-compiled", fragment);
             GL.GetShader(vertex, ShaderParameter.CompileStatus, out int vs);
             GL.GetShader(fragment, ShaderParameter.CompileStatus, out int fs);
             if (vs == 0 || fs == 0) return null; // Canonical program remains available.
@@ -63,6 +65,7 @@ public partial class Scene
             GL.AttachShader(program, vertex); GL.AttachShader(program, fragment);
             Mods.Render.OpenGlFailureInjection.ShaderObject("variant-program", program);
             GL.LinkProgram(program);
+            Mods.Render.OpenGlFailureInjection.ShaderObject("variant-linked", program);
             GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int linked);
             if (linked == 0) return null;
             GL.DetachShader(program, vertex); GL.DetachShader(program, fragment);
