@@ -175,6 +175,15 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y xvfb xauth libgl1-mesa-dri libgl1 libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1
+      - name: Scene shader ownership under repeated initialization failures
+        env:
+          PROJECT_PRIME_GL_SHADER_VARIANTS: "1"
+          PROJECT_PRIME_GL_PLAIN_SHADER: "1"
+          PROJECT_PRIME_GL_UNLIT_SHADER: "1"
+          PROJECT_PRIME_USER_DATA: ${{ runner.temp }}/shader-ownership-user-data
+        run: |
+          xvfb-run -a --server-args="-screen 0 640x480x24" \
+            dotnet run --project tools/render-resource-check -c Release -- -shadercycles 120
       - name: publish focused OpenGL build
         run: >
           dotnet publish src/MphRead/MphRead.csproj
