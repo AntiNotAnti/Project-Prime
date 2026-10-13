@@ -43,8 +43,8 @@ logging runs during timing. Agent builds are idle; a user-owned game remains
 running. Safe process CPU/RSS/state and VM snapshots accompany every run; this
 is an ambient-control window, not global quiet-host optimization proof.
 
-Publication branch is pinned directly to main91b1c0c6c44e8c90effd250729709f791a84765e.
-Native runtime evidence uses lifecycle bundle749aa12dc89d41dc83823eafe0929c13b1ebfb99
+Publication branch is pinned directly to main 91b1c0c6c44e8c90effd250729709f791a84765e.
+Native runtime evidence uses lifecycle bundle 749aa12dc89d41dc83823eafe0929c13b1ebfb99
 with #492/#494/#495, recorded separately in the receipt. Original smoke evidence
 with a strong scene local is preserved and excluded from residency conclusions.
 
@@ -52,15 +52,15 @@ with a strong scene local is preserved and excluded from residency conclusions.
 
 All twenty ordinary GC controls passed (five per arm) with fixed 60 Hz simulation,
 1440 total simulation frames, no dropped steps or stalls and retired recognized
-GL programs/textures/FBOs. Median per-run FPS/p99 were keep301.94/6.438 ms,
-skip-load300.22/6.677 ms, skip-end302.04/6.503 ms and skip-both300.29/6.511 ms.
+GL programs/textures/FBOs. Median per-run FPS/p99 were keep 301.94/6.438 ms,
+skip-load 300.22/6.677 ms, skip-end 302.04/6.503 ms and skip-both 300.29/6.511 ms.
 These do not show a credible rendering benefit from skipping collections.
 
-Existing keep load/end collections took median15.19/18.88 ms; inclusive
-OnLoad/EndScene stages took123.31/34.55 ms. Skipping end reduced its stage to
-14.99 ms, but kept the managed estimate at213.2 MiB; keep reduced212.7 to96.0
-MiB and RSS493.4 to452.1 MiB. Skip-end RSS remained494.2 MiB. Skip-both stages
-were105.35/14.50 ms with end managed179.2 MiB and RSS507.4 MiB. This is a
+Existing keep load/end collections took median 15.19/18.88 ms; inclusive
+OnLoad/EndScene stages took 123.31/34.55 ms. Skipping end reduced its stage to
+14.99 ms, but kept the managed estimate at 213.2 MiB; keep reduced 212.7 to 96.0
+MiB and RSS 493.4 to 452.1 MiB. Skip-end RSS remained 494.2 MiB. Skip-both stages
+were 105.35/14.50 ms with end managed 179.2 MiB and RSS 507.4 MiB. This is a
 responsiveness/residency tradeoff, not evidence to remove either call. The default
 is preserved; longer transitions and physical-platform evidence remain separate
 gates. Latest GC heap fields after skipped calls can describe an earlier collection.
@@ -79,3 +79,20 @@ include #497's cleared query workspace and an actual next simulation/query; it
 will not replace any original timing or reachability receipt. Facades have a
 source-backed one-foreground-world bound, but this witness does not establish a
 bound for other static caches or asynchronous audio owners.
+
+## Collision-scoped confirmation
+
+The separate private runtime 299e3c25 includes #497 `c605f755` (8192-candidate
+workspace cap), a normal next foreground load, one actual fixed 60 Hz simulation
+step, and an explicit collision query borrowed and disposed before weak sampling.
+All four arms passed recognized resource retirement with two loads and ends. The
+previous weak scene target still remained available after next load and next end
+in every arm, including keep. The confirmation receipt preserves its exact
+binaries and observations without replacing earlier evidence.
+
+GC liveness/root is UNKNOWN in this fixture. This does not classify a leak, prove
+a retention chain, or establish complete-world boundedness. The foreground
+facades' one-owner source bound and post-EndScene save ordering remain valid;
+other roots, asynchronous owners or probe/runtime liveness need separate
+attribution. No further repeated load loops or production policy changes were
+performed. Dedicated-server Release build also passed with 22 existing warnings.
