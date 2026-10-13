@@ -1,0 +1,785 @@
+{
+  "schema": 1,
+  "slice": "AGX-01",
+  "baselineMain": "16b1d89bfb6ed7776b801b3e39d513e740ee5e58",
+  "source": "a08ade80c49c3897e90e5a53a6a7b36e0a5f89fb",
+  "identity": {
+    "harnessSha256": "8c97ace1e914dcd9e85325a378c40fafc0dd3c7b61f01d62ce3a698e0f1aac15",
+    "clientSha256": "71e1d03cf920128c8c7a69300a82c9765936ba9917fea2400440eee6cd026dc3"
+  },
+  "assemblyMvid": "3bfa7736-08ad-4ddf-89e6-91d3bfacdd01",
+  "harnessAssemblyMvid": "2acc95d2-98de-48d8-bb40-bcdf6ba0a252",
+  "fixtureSha256": "99f5e0128f301d7e5188a0bdde0d07f95d6d532fcff448084be126063ceb2ec8",
+  "dataQuality": "VALID",
+  "wallSeconds": 397.89230699999996,
+  "nativeAttribution": [
+    {
+      "phase": "context-00-before-workload",
+      "supported": true,
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 970752000,
+          "calls": 376,
+          "groups": 35,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "ioSurface": {
+          "bytes": 16618048,
+          "calls": 30,
+          "groups": 14,
+          "mallocPrefixBytes": 4672,
+          "mallocPrefixCalls": 28
+        },
+        "coreclr": {
+          "bytes": 30842256,
+          "calls": 24100,
+          "groups": 1660,
+          "mallocPrefixBytes": 17194384,
+          "mallocPrefixCalls": 24078
+        },
+        "otherGraphics": {
+          "bytes": 3901568,
+          "calls": 9543,
+          "groups": 96,
+          "mallocPrefixBytes": 1771648,
+          "mallocPrefixCalls": 9525
+        },
+        "other": {
+          "bytes": 215216,
+          "calls": 2762,
+          "groups": 493,
+          "mallocPrefixBytes": 215216,
+          "mallocPrefixCalls": 2762
+        },
+        "agxFragmentVariant": {
+          "bytes": 18672,
+          "calls": 47,
+          "groups": 17,
+          "mallocPrefixBytes": 18672,
+          "mallocPrefixCalls": 47
+        },
+        "agxVertexVariant": {
+          "bytes": 1408,
+          "calls": 10,
+          "groups": 2,
+          "mallocPrefixBytes": 1408,
+          "mallocPrefixCalls": 10
+        }
+      }
+    },
+    {
+      "phase": "context-00-before-disposal",
+      "supported": true,
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 925368320,
+          "calls": 1329,
+          "groups": 53,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "ioSurface": {
+          "bytes": 24926576,
+          "calls": 52,
+          "groups": 20,
+          "mallocPrefixBytes": 6512,
+          "mallocPrefixCalls": 49
+        },
+        "agxFragmentVariant": {
+          "bytes": 66572464,
+          "calls": 28446,
+          "groups": 1049,
+          "mallocPrefixBytes": 47009968,
+          "mallocPrefixCalls": 28354
+        },
+        "coreclr": {
+          "bytes": 26846160,
+          "calls": 82522,
+          "groups": 2632,
+          "mallocPrefixBytes": 10019792,
+          "mallocPrefixCalls": 82493
+        },
+        "otherGraphics": {
+          "bytes": 37407120,
+          "calls": 27357,
+          "groups": 702,
+          "mallocPrefixBytes": 15960464,
+          "mallocPrefixCalls": 26953
+        },
+        "other": {
+          "bytes": 234112,
+          "calls": 3013,
+          "groups": 581,
+          "mallocPrefixBytes": 234112,
+          "mallocPrefixCalls": 3013
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    },
+    {
+      "phase": "context-00-after-disposal",
+      "supported": true,
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 915980288,
+          "calls": 782,
+          "groups": 46,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "agxFragmentVariant": {
+          "bytes": 49957552,
+          "calls": 28442,
+          "groups": 1047,
+          "mallocPrefixBytes": 47008432,
+          "mallocPrefixCalls": 28352
+        },
+        "coreclr": {
+          "bytes": 28328368,
+          "calls": 82300,
+          "groups": 2534,
+          "mallocPrefixBytes": 12550576,
+          "mallocPrefixCalls": 82271
+        },
+        "otherGraphics": {
+          "bytes": 32605072,
+          "calls": 21322,
+          "groups": 482,
+          "mallocPrefixBytes": 11158416,
+          "mallocPrefixCalls": 20918
+        },
+        "other": {
+          "bytes": 228912,
+          "calls": 2950,
+          "groups": 575,
+          "mallocPrefixBytes": 228912,
+          "mallocPrefixCalls": 2950
+        },
+        "ioSurface": {
+          "bytes": 2816,
+          "calls": 8,
+          "groups": 4,
+          "mallocPrefixBytes": 2816,
+          "mallocPrefixCalls": 8
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    },
+    {
+      "phase": "context-01-before-workload",
+      "supported": true,
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 915980288,
+          "calls": 787,
+          "groups": 46,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "agxFragmentVariant": {
+          "bytes": 66573744,
+          "calls": 28448,
+          "groups": 1050,
+          "mallocPrefixBytes": 47011248,
+          "mallocPrefixCalls": 28356
+        },
+        "coreclr": {
+          "bytes": 28874576,
+          "calls": 82603,
+          "groups": 2658,
+          "mallocPrefixBytes": 12490576,
+          "mallocPrefixCalls": 82570
+        },
+        "otherGraphics": {
+          "bytes": 32750832,
+          "calls": 21427,
+          "groups": 499,
+          "mallocPrefixBytes": 11304176,
+          "mallocPrefixCalls": 21023
+        },
+        "other": {
+          "bytes": 229232,
+          "calls": 2952,
+          "groups": 576,
+          "mallocPrefixBytes": 229232,
+          "mallocPrefixCalls": 2952
+        },
+        "ioSurface": {
+          "bytes": 4544,
+          "calls": 26,
+          "groups": 12,
+          "mallocPrefixBytes": 4544,
+          "mallocPrefixCalls": 26
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    },
+    {
+      "phase": "context-01-before-disposal",
+      "supported": true,
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 945881088,
+          "calls": 1353,
+          "groups": 60,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "ioSurface": {
+          "bytes": 41539952,
+          "calls": 54,
+          "groups": 21,
+          "mallocPrefixBytes": 6512,
+          "mallocPrefixCalls": 49
+        },
+        "agxFragmentVariant": {
+          "bytes": 242735056,
+          "calls": 144736,
+          "groups": 1523,
+          "mallocPrefixBytes": 235558864,
+          "mallocPrefixCalls": 144643
+        },
+        "otherGraphics": {
+          "bytes": 82492400,
+          "calls": 68869,
+          "groups": 762,
+          "mallocPrefixBytes": 59833328,
+          "mallocPrefixCalls": 68444
+        },
+        "coreclr": {
+          "bytes": 27237712,
+          "calls": 87481,
+          "groups": 2776,
+          "mallocPrefixBytes": 9739600,
+          "mallocPrefixCalls": 87446
+        },
+        "other": {
+          "bytes": 237072,
+          "calls": 2994,
+          "groups": 585,
+          "mallocPrefixBytes": 237072,
+          "mallocPrefixCalls": 2994
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    },
+    {
+      "phase": "context-01-after-disposal",
+      "supported": true,
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 936493056,
+          "calls": 807,
+          "groups": 53,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "agxFragmentVariant": {
+          "bytes": 238539216,
+          "calls": 144732,
+          "groups": 1521,
+          "mallocPrefixBytes": 235557328,
+          "mallocPrefixCalls": 144641
+        },
+        "otherGraphics": {
+          "bytes": 75389216,
+          "calls": 60781,
+          "groups": 641,
+          "mallocPrefixBytes": 52730144,
+          "mallocPrefixCalls": 60356
+        },
+        "coreclr": {
+          "bytes": 27210416,
+          "calls": 87192,
+          "groups": 2678,
+          "mallocPrefixBytes": 9712304,
+          "mallocPrefixCalls": 87157
+        },
+        "other": {
+          "bytes": 234912,
+          "calls": 2977,
+          "groups": 584,
+          "mallocPrefixBytes": 234912,
+          "mallocPrefixCalls": 2977
+        },
+        "ioSurface": {
+          "bytes": 2816,
+          "calls": 8,
+          "groups": 4,
+          "mallocPrefixBytes": 2816,
+          "mallocPrefixCalls": 8
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    },
+    {
+      "phase": "after-glfw-poll",
+      "supported": true,
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 936460288,
+          "calls": 806,
+          "groups": 53,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "agxFragmentVariant": {
+          "bytes": 238539216,
+          "calls": 144732,
+          "groups": 1521,
+          "mallocPrefixBytes": 235557328,
+          "mallocPrefixCalls": 144641
+        },
+        "otherGraphics": {
+          "bytes": 75308096,
+          "calls": 59767,
+          "groups": 641,
+          "mallocPrefixBytes": 52649024,
+          "mallocPrefixCalls": 59342
+        },
+        "coreclr": {
+          "bytes": 25011648,
+          "calls": 87147,
+          "groups": 2663,
+          "mallocPrefixBytes": 9708992,
+          "mallocPrefixCalls": 87116
+        },
+        "other": {
+          "bytes": 233936,
+          "calls": 2976,
+          "groups": 583,
+          "mallocPrefixBytes": 233936,
+          "mallocPrefixCalls": 2976
+        },
+        "ioSurface": {
+          "bytes": 2816,
+          "calls": 8,
+          "groups": 4,
+          "mallocPrefixBytes": 2816,
+          "mallocPrefixCalls": 8
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    },
+    {
+      "phase": "after-glfw-terminate",
+      "supported": true,
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 936460288,
+          "calls": 806,
+          "groups": 53,
+          "mallocPrefixBytes": 0,
+          "mallocPrefixCalls": 0
+        },
+        "agxFragmentVariant": {
+          "bytes": 238539216,
+          "calls": 144732,
+          "groups": 1521,
+          "mallocPrefixBytes": 235557328,
+          "mallocPrefixCalls": 144641
+        },
+        "otherGraphics": {
+          "bytes": 75308096,
+          "calls": 59767,
+          "groups": 641,
+          "mallocPrefixBytes": 52649024,
+          "mallocPrefixCalls": 59342
+        },
+        "coreclr": {
+          "bytes": 24992496,
+          "calls": 86980,
+          "groups": 2652,
+          "mallocPrefixBytes": 9689840,
+          "mallocPrefixCalls": 86949
+        },
+        "other": {
+          "bytes": 233936,
+          "calls": 2976,
+          "groups": 583,
+          "mallocPrefixBytes": 233936,
+          "mallocPrefixCalls": 2976
+        },
+        "ioSurface": {
+          "bytes": 2816,
+          "calls": 8,
+          "groups": 4,
+          "mallocPrefixBytes": 2816,
+          "mallocPrefixCalls": 8
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 2,
+          "groups": 1,
+          "mallocPrefixBytes": 1024,
+          "mallocPrefixCalls": 2
+        }
+      }
+    }
+  ],
+  "contexts": [
+    {
+      "context": 0,
+      "cycles": 30,
+      "mapLoads": 60,
+      "framesPerLoad": 120,
+      "compileCallbacks": 720,
+      "linkCallbacks": 420,
+      "sourceStageKeys": 10,
+      "exactParityAndRetirement": true,
+      "receiptSha256": "06f3316536333022c3bd05fff672f4882906f731daa66a4df8e709b41553fb46"
+    },
+    {
+      "context": 1,
+      "cycles": 120,
+      "mapLoads": 240,
+      "framesPerLoad": 120,
+      "compileCallbacks": 2880,
+      "linkCallbacks": 1680,
+      "sourceStageKeys": 10,
+      "exactParityAndRetirement": true,
+      "receiptSha256": "0566c4234dcca61021fd14e81686c7c4a458ef5fc1c4977922d91280ac8be617"
+    }
+  ],
+  "boundedness": "UNVERIFIED",
+  "fixStatus": "NOT_A_FIX",
+  "negativeEvidence": [
+    {
+      "trial": "agx01-pilot",
+      "frames": 30,
+      "status": "FAIL",
+      "changedWorldPixels": 925450,
+      "changedDepthValues": 40012,
+      "reproducedOnUnmodifiedBaseline": true
+    },
+    {
+      "trial": "agx01-pilot120",
+      "status": "PASS_FUNCTIONAL_ONLY",
+      "confounder": "Brief overlap with baseline30 control; excluded from memory conclusions"
+    }
+  ],
+  "repeat": {
+    "source": "a08ade80c49c3897e90e5a53a6a7b36e0a5f89fb",
+    "identity": {
+      "harnessSha256": "8c97ace1e914dcd9e85325a378c40fafc0dd3c7b61f01d62ce3a698e0f1aac15",
+      "clientSha256": "71e1d03cf920128c8c7a69300a82c9765936ba9917fea2400440eee6cd026dc3"
+    },
+    "dataQuality": "VALID",
+    "nativeAttribution": [
+      {
+        "phase": "context-00-before-workload",
+        "supported": true,
+        "categories": {
+          "explicitMmapVm": {
+            "bytes": 1641824256,
+            "calls": 376,
+            "groups": 35,
+            "mallocPrefixBytes": 0,
+            "mallocPrefixCalls": 0
+          },
+          "ioSurface": {
+            "bytes": 16618176,
+            "calls": 32,
+            "groups": 15,
+            "mallocPrefixBytes": 4800,
+            "mallocPrefixCalls": 30
+          },
+          "coreclr": {
+            "bytes": 30270560,
+            "calls": 24093,
+            "groups": 1657,
+            "mallocPrefixBytes": 17196128,
+            "mallocPrefixCalls": 24073
+          },
+          "otherGraphics": {
+            "bytes": 3889776,
+            "calls": 9541,
+            "groups": 95,
+            "mallocPrefixBytes": 1759856,
+            "mallocPrefixCalls": 9523
+          },
+          "other": {
+            "bytes": 211280,
+            "calls": 2759,
+            "groups": 492,
+            "mallocPrefixBytes": 211280,
+            "mallocPrefixCalls": 2759
+          },
+          "agxFragmentVariant": {
+            "bytes": 18672,
+            "calls": 47,
+            "groups": 17,
+            "mallocPrefixBytes": 18672,
+            "mallocPrefixCalls": 47
+          },
+          "agxVertexVariant": {
+            "bytes": 1408,
+            "calls": 10,
+            "groups": 2,
+            "mallocPrefixBytes": 1408,
+            "mallocPrefixCalls": 10
+          }
+        }
+      },
+      {
+        "phase": "context-00-before-disposal",
+        "supported": true,
+        "categories": {
+          "explicitMmapVm": {
+            "bytes": 5880463360,
+            "calls": 1359,
+            "groups": 53,
+            "mallocPrefixBytes": 0,
+            "mallocPrefixCalls": 0
+          },
+          "ioSurface": {
+            "bytes": 16618528,
+            "calls": 42,
+            "groups": 20,
+            "mallocPrefixBytes": 5152,
+            "mallocPrefixCalls": 40
+          },
+          "agxFragmentVariant": {
+            "bytes": 66489040,
+            "calls": 28491,
+            "groups": 661,
+            "mallocPrefixBytes": 46893776,
+            "mallocPrefixCalls": 28398
+          },
+          "coreclr": {
+            "bytes": 27504928,
+            "calls": 82043,
+            "groups": 2625,
+            "mallocPrefixBytes": 10105120,
+            "mallocPrefixCalls": 82012
+          },
+          "otherGraphics": {
+            "bytes": 37068800,
+            "calls": 27495,
+            "groups": 540,
+            "mallocPrefixBytes": 15769600,
+            "mallocPrefixCalls": 27080
+          },
+          "other": {
+            "bytes": 231504,
+            "calls": 2973,
+            "groups": 580,
+            "mallocPrefixBytes": 231504,
+            "mallocPrefixCalls": 2973
+          },
+          "agxVertexVariant": {
+            "bytes": 1024,
+            "calls": 4,
+            "groups": 1,
+            "mallocPrefixBytes": 1024,
+            "mallocPrefixCalls": 4
+          }
+        }
+      },
+      {
+        "phase": "context-00-after-disposal",
+        "supported": true,
+        "categories": {
+          "explicitMmapVm": {
+            "bytes": 5871058944,
+            "calls": 812,
+            "groups": 46,
+            "mallocPrefixBytes": 0,
+            "mallocPrefixCalls": 0
+          },
+          "agxFragmentVariant": {
+            "bytes": 49872080,
+            "calls": 28481,
+            "groups": 659,
+            "mallocPrefixBytes": 46890192,
+            "mallocPrefixCalls": 28390
+          },
+          "coreclr": {
+            "bytes": 28411888,
+            "calls": 81828,
+            "groups": 2529,
+            "mallocPrefixBytes": 12634096,
+            "mallocPrefixCalls": 81799
+          },
+          "otherGraphics": {
+            "bytes": 32282608,
+            "calls": 21428,
+            "groups": 358,
+            "mallocPrefixBytes": 10983408,
+            "mallocPrefixCalls": 21013
+          },
+          "other": {
+            "bytes": 232448,
+            "calls": 2998,
+            "groups": 581,
+            "mallocPrefixBytes": 232448,
+            "mallocPrefixCalls": 2998
+          },
+          "ioSurface": {
+            "bytes": 2624,
+            "calls": 6,
+            "groups": 3,
+            "mallocPrefixBytes": 2624,
+            "mallocPrefixCalls": 6
+          },
+          "agxVertexVariant": {
+            "bytes": 1024,
+            "calls": 8,
+            "groups": 1,
+            "mallocPrefixBytes": 1024,
+            "mallocPrefixCalls": 8
+          }
+        }
+      },
+      {
+        "phase": "after-glfw-poll",
+        "supported": true,
+        "categories": {
+          "explicitMmapVm": {
+            "bytes": 5871026176,
+            "calls": 810,
+            "groups": 46,
+            "mallocPrefixBytes": 0,
+            "mallocPrefixCalls": 0
+          },
+          "agxFragmentVariant": {
+            "bytes": 49872080,
+            "calls": 28481,
+            "groups": 659,
+            "mallocPrefixBytes": 46890192,
+            "mallocPrefixCalls": 28390
+          },
+          "coreclr": {
+            "bytes": 26787248,
+            "calls": 81794,
+            "groups": 2517,
+            "mallocPrefixBytes": 12631472,
+            "mallocPrefixCalls": 81767
+          },
+          "otherGraphics": {
+            "bytes": 32208928,
+            "calls": 20507,
+            "groups": 345,
+            "mallocPrefixBytes": 10909728,
+            "mallocPrefixCalls": 20092
+          },
+          "other": {
+            "bytes": 230128,
+            "calls": 2963,
+            "groups": 577,
+            "mallocPrefixBytes": 230128,
+            "mallocPrefixCalls": 2963
+          },
+          "ioSurface": {
+            "bytes": 2624,
+            "calls": 6,
+            "groups": 3,
+            "mallocPrefixBytes": 2624,
+            "mallocPrefixCalls": 6
+          },
+          "agxVertexVariant": {
+            "bytes": 1024,
+            "calls": 8,
+            "groups": 1,
+            "mallocPrefixBytes": 1024,
+            "mallocPrefixCalls": 8
+          }
+        }
+      },
+      {
+        "phase": "after-glfw-terminate",
+        "supported": true,
+        "categories": {
+          "explicitMmapVm": {
+            "bytes": 5871026176,
+            "calls": 810,
+            "groups": 46,
+            "mallocPrefixBytes": 0,
+            "mallocPrefixCalls": 0
+          },
+          "agxFragmentVariant": {
+            "bytes": 49872080,
+            "calls": 28481,
+            "groups": 659,
+            "mallocPrefixBytes": 46890192,
+            "mallocPrefixCalls": 28390
+          },
+          "coreclr": {
+            "bytes": 26768096,
+            "calls": 81627,
+            "groups": 2506,
+            "mallocPrefixBytes": 12612320,
+            "mallocPrefixCalls": 81600
+          },
+          "otherGraphics": {
+            "bytes": 32208928,
+            "calls": 20507,
+            "groups": 345,
+            "mallocPrefixBytes": 10909728,
+            "mallocPrefixCalls": 20092
+          },
+          "other": {
+            "bytes": 230128,
+            "calls": 2963,
+            "groups": 577,
+            "mallocPrefixBytes": 230128,
+            "mallocPrefixCalls": 2963
+          },
+          "ioSurface": {
+            "bytes": 2624,
+            "calls": 6,
+            "groups": 3,
+            "mallocPrefixBytes": 2624,
+            "mallocPrefixCalls": 6
+          },
+          "agxVertexVariant": {
+            "bytes": 1024,
+            "calls": 8,
+            "groups": 1,
+            "mallocPrefixBytes": 1024,
+            "mallocPrefixCalls": 8
+          }
+        }
+      }
+    ],
+    "wallSeconds": 118.880420292,
+    "mapLoads": 60
+  }
+}
