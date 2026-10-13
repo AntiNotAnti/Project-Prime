@@ -109,6 +109,10 @@ internal static class Acceptance
             if (Reflection.Bool(Reflection.Type("Mods.Headless"), "Active"))
                 throw new InvalidOperationException("Headless process cannot establish client visual/audio acceptance.");
             GraphicsBackendPolicy.LoadPreference();
+            // Surface the complete initialization error before ScreenCapture's
+            // user-facing error boundary abbreviates a native encoder failure.
+            var imageEncoder = Assembly.Load("ReFuel.StbImage").GetType("ReFuel.Stb.Native.Stbi", throwOnError: true)!;
+            RuntimeHelpers.RunClassConstructor(imageEncoder.TypeHandle);
             using var window = new AcceptanceWindow(Value("--room", "MP1 SANCTORUS"), report,
                 Value("--replay", ""), Value("--clip", ""));
             window.Run();
