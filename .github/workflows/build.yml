@@ -428,6 +428,24 @@ jobs:
             ${{ runner.temp }}/mapviewportcheck
           if-no-files-found: warn
 
+  png-callback-checks:
+    name: PNG callback ownership (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-15-intel]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: GC-pressure native PNG, byte and pixel parity, stream ownership
+        env:
+          DOTNET_TieredCompilation: '0'
+        run: dotnet run --project tools/png-callback-check -c Release -- candidate "${{ runner.temp }}/png-callback-check"
+
   controller-checks:
     name: input regressions (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
