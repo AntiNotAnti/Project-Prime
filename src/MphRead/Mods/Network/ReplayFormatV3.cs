@@ -213,7 +213,7 @@ namespace MphRead.Mods.Network
             return (PacketType)packet[0] switch
             {
                 PacketType.SessionState => payload.Length == SessionStatePacket.Size
-                    && SessionStatePacket.TryRead(payload, out _),
+                    && SessionStatePacket.TryReadArchived(payload, out _),
                 PacketType.MatchState => payload.Length == MatchStatePacket.Size,
                 PacketType.BombState => BombStatePage.TryRead(payload, out _),
                 PacketType.TurretFireOutcome => TurretFireOutcome.TryRead(payload, out _),
