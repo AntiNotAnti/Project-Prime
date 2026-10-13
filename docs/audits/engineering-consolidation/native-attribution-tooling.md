@@ -7,6 +7,9 @@ This slice implements Phase 1A's controlled diagnostic workloads. It does not
 resolve the historical RSS growth or change runtime ownership/GC policy.
 The historical [completion report](../../performance/opengl-completion-memory.md)
 remains evidence for its captured binary and fixture.
+The October 13 [results report](native-attribution-results.md) supersedes the
+pilot-era hardware status below with full 60-cycle arms, exact across-build
+parity, opt-in weak retention probes, heap roots and native allocation stacks.
 
 ## Existing implementation reused
 
@@ -62,7 +65,7 @@ and cache fixture, excludes full editor UI and map simulation.
 | Real four-arm dry run | PASS | Manifest, runtime info and all commands generated without executing native workloads |
 | Whitespace check | PASS | `git diff --check` |
 | Physical map/GL/Studio/audio two-cycle pilots | PASS | macOS 27 arm64, same immutable DLLs, FORCE_LEGACY=0; exact paired map color/depth and 3 quiescent samples per arm |
-| Long-run native boundedness | NOT_RUN / UNVERIFIED | Requires actual 60+/120-cycle arms and native allocation/VM-category attribution |
+| Long-run native fixtures / boundedness | PASS / UNVERIFIED | Full 60-cycle arms and 120-cycle profiling confirmations completed; repeated-load graphics boundedness remains open; see results report |
 | Replay-only, full Studio UI, Windows, Android | NOT_RUN | Outside this diagnostic fixture |
 
 The first full client compilation was canceled while the shared compiler was
@@ -79,8 +82,9 @@ audio telemetry recognizes both the original SFX fields and the candidate
 resource-owner shape. Ownership counters describe existing objects, not a
 global GL/OpenAL driver census. Unsupported process counters are null. RSS,
 virtual/private bytes and GC committed/live bytes are distinct observations;
-no subtraction is labeled native subsystem memory. Native allocation stacks,
-VM categories and GPU driver residency remain unavailable. OLS/R-squared and
+no subtraction is labeled native subsystem memory. Native allocation stacks
+and VM categories were subsequently captured in the results report; a global
+GPU object census remains unavailable. OLS/R-squared and
 quiescent slopes are descriptive; the analyzer always marks boundedness
 UNVERIFIED and never labels RSS growth a proven leak. Readbacks, forced GC and
 lifecycle waits provide no FPS evidence.
@@ -137,4 +141,5 @@ Raw results/logs, analyses and runner manifest are preserved locally under
 `artifacts/native-attribution/pilot-2cycle-retry/`; the original failed trial is
 under `artifacts/native-attribution/pilot-2cycle/`. Bulky logs and game captures
 are intentionally not committed. Root-task coordination prevented simultaneous
-native workloads. The 60+/120-cycle hardware gate remains open.
+native workloads. This pilot established execution only; the subsequent
+60+/120-cycle results and remaining acceptance gates are in the results report.

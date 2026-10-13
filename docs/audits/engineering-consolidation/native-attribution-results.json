@@ -1,0 +1,668 @@
+{
+  "schema": 1,
+  "date": "2026-10-13",
+  "scope": "macOS27 arm64 AppleM4Pro diagnostic lifecycle; no FPS, global boundedness, platform parity or merge acceptance claim",
+  "full60Arms": [
+    {
+      "build": "baseline",
+      "arm": "combined",
+      "complete": true,
+      "cycles": 60,
+      "quiescentSamples": 30,
+      "quiescentRssMeanMiB": 809.9385416666667,
+      "quiescentRssFinalMiB": 809.8125
+    },
+    {
+      "build": "baseline",
+      "arm": "map-gl",
+      "complete": true,
+      "cycles": 60,
+      "quiescentSamples": 30,
+      "quiescentRssMeanMiB": 570.0223958333333,
+      "quiescentRssFinalMiB": 569.984375
+    },
+    {
+      "build": "baseline",
+      "arm": "studio",
+      "complete": true,
+      "cycles": 60,
+      "quiescentSamples": 30,
+      "quiescentRssMeanMiB": 338.17552083333334,
+      "quiescentRssFinalMiB": 338.1875
+    },
+    {
+      "build": "baseline",
+      "arm": "audio",
+      "complete": true,
+      "cycles": 60,
+      "quiescentSamples": 30,
+      "quiescentRssMeanMiB": 581.2270833333333,
+      "quiescentRssFinalMiB": 581.1875
+    },
+    {
+      "build": "lifecycleCandidate",
+      "arm": "audio",
+      "complete": true,
+      "cycles": 60,
+      "quiescentSamples": 30,
+      "quiescentRssMeanMiB": 535.321875,
+      "quiescentRssFinalMiB": 535.28125
+    },
+    {
+      "build": "lifecycleCandidate",
+      "arm": "studio",
+      "complete": true,
+      "cycles": 60,
+      "quiescentSamples": 30,
+      "quiescentRssMeanMiB": 337.00677083333335,
+      "quiescentRssFinalMiB": 337.015625
+    },
+    {
+      "build": "lifecycleCandidate",
+      "arm": "map-gl",
+      "complete": true,
+      "cycles": 60,
+      "quiescentSamples": 30,
+      "quiescentRssMeanMiB": 572.9104166666667,
+      "quiescentRssFinalMiB": 572.875
+    },
+    {
+      "build": "lifecycleCandidate",
+      "arm": "combined",
+      "complete": true,
+      "cycles": 60,
+      "quiescentSamples": 30,
+      "quiescentRssMeanMiB": 954.0270833333333,
+      "quiescentRssFinalMiB": 886.625
+    }
+  ],
+  "acrossBuildParity": {
+    "schema": 1,
+    "meaning": "Across-build exact fixture color/depth parity; frozen input, two rotating rooms, 120 steps/arm; lifecycle/diagnostic run, not a timing claim",
+    "arms": [
+      {
+        "arm": "map-gl",
+        "baseline": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/01-map-gl.json",
+        "baselineSha256": "ed559165bc2a3de58b60ff1f2b469a3cc1d648188a1b27487d525c3a48c39b39",
+        "candidate": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/02-map-gl.json",
+        "candidateSha256": "773cae9fca2403b812711def0096a75227f90e132285360e62cd952cbef0c50e",
+        "pairs": 120,
+        "mismatches": [],
+        "pass": true
+      },
+      {
+        "arm": "combined",
+        "baseline": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/00-combined.json",
+        "baselineSha256": "4323a12de5f32ec969ccf643e72401eee34c6193bedaa4150490d1e837415378",
+        "candidate": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/03-combined.json",
+        "candidateSha256": "afd306f2bea7f3b24a2d9a10cb3c023ad4003152572ffe401d487a391ec5a997",
+        "pairs": 120,
+        "mismatches": [],
+        "pass": true
+      }
+    ]
+  },
+  "map120Profile": {
+    "complete": true,
+    "cyclesCompleted": 120,
+    "mapLoads": 240,
+    "contextCount": 1,
+    "ownedResourcesAfterEveryUnloadZero": true,
+    "failureStages": [
+      "retained-promotion-after-vbo",
+      "retained-vao-after-create",
+      "retained-combined-after-vbo",
+      "depth-snapshot-after-framebuffer",
+      "shadow-after-framebuffer"
+    ],
+    "quiescent": {
+      "sampleCount": 120,
+      "slopeUnit": "metric units per elapsed second",
+      "metrics": {
+        "workingSetBytes": {
+          "samples": 120,
+          "available": true,
+          "first": 819101696,
+          "last": 819757056,
+          "delta": 655360,
+          "mean": 819754188.8,
+          "min": 819101696,
+          "max": 820232192,
+          "slope": 218.82153174617233,
+          "rSquared": 0.0047889550466881925
+        },
+        "privateBytes": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "virtualBytes": {
+          "samples": 120,
+          "available": true,
+          "first": 506667728896,
+          "last": 506659143680,
+          "delta": -8585216,
+          "mean": 506659878502.4,
+          "min": 506659127296,
+          "max": 506667728896,
+          "slope": -25392.160474131888,
+          "rSquared": 0.29970138706009364
+        },
+        "managedLiveBytes": {
+          "samples": 120,
+          "available": true,
+          "first": 164841920,
+          "last": 165631424,
+          "delta": 789504,
+          "mean": 165244073.6,
+          "min": 164841920,
+          "max": 165631424,
+          "slope": 6538.199285738566,
+          "rSquared": 0.999858635154115
+        },
+        "gcCommittedBytes": {
+          "samples": 120,
+          "available": true,
+          "first": 118292480,
+          "last": 118292480,
+          "delta": 0,
+          "mean": 118292480.0,
+          "min": 118292480,
+          "max": 118292480,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "gcHeapSizeBytes": {
+          "samples": 120,
+          "available": true,
+          "first": 99120000,
+          "last": 99120000,
+          "delta": 0,
+          "mean": 99120000.0,
+          "min": 99120000,
+          "max": 99120000,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "gcFragmentedBytes": {
+          "samples": 120,
+          "available": true,
+          "first": 5568,
+          "last": 5568,
+          "delta": 0,
+          "mean": 5568.0,
+          "min": 5568,
+          "max": 5568,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "lohSizeBytes": {
+          "samples": 120,
+          "available": true,
+          "first": 33368168,
+          "last": 33368168,
+          "delta": 0,
+          "mean": 33368168.0,
+          "min": 33368168,
+          "max": 33368168,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "lohFragmentedBytes": {
+          "samples": 120,
+          "available": true,
+          "first": 2432,
+          "last": 2432,
+          "delta": 0,
+          "mean": 2432.0,
+          "min": 2432,
+          "max": 2432,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "processThreadCount": {
+          "samples": 120,
+          "available": true,
+          "first": 26,
+          "last": 15,
+          "delta": -11,
+          "mean": 15.65,
+          "min": 15,
+          "max": 26,
+          "slope": -0.02523489988953189,
+          "rSquared": 0.21418316702370477
+        },
+        "processHandleCount": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "threadPoolThreads": {
+          "samples": 120,
+          "available": true,
+          "first": 0,
+          "last": 0,
+          "delta": 0,
+          "mean": 0.0,
+          "min": 0,
+          "max": 0,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "threadPoolPendingWorkItems": {
+          "samples": 120,
+          "available": true,
+          "first": 0,
+          "last": 0,
+          "delta": 0,
+          "mean": 0.0,
+          "min": 0,
+          "max": 0,
+          "slope": 0.0,
+          "rSquared": null
+        }
+      }
+    },
+    "rssLoadSlopes": {
+      "postReferenceUnload": {
+        "postWarmup": {
+          "samples": 115,
+          "available": true,
+          "first": 587579392,
+          "last": 911867904,
+          "delta": 324288512,
+          "mean": 776733669.2869565,
+          "min": 587579392,
+          "max": 911867904,
+          "slope": 2493060.442073698,
+          "rSquared": 0.968999947744786
+        },
+        "latterHalf": {
+          "samples": 58,
+          "available": true,
+          "first": 779878400,
+          "last": 911867904,
+          "delta": 131989504,
+          "mean": 846601392.5517242,
+          "min": 779878400,
+          "max": 911867904,
+          "slope": 2356626.9033190813,
+          "rSquared": 0.9948375208429658
+        }
+      },
+      "postCandidateUnload": {
+        "postWarmup": {
+          "samples": 115,
+          "available": true,
+          "first": 596967424,
+          "last": 913014784,
+          "delta": 316047360,
+          "mean": 784045349.8434782,
+          "min": 596967424,
+          "max": 913014784,
+          "slope": 2212454.6100844312,
+          "rSquared": 0.9217322101654961
+        },
+        "latterHalf": {
+          "samples": 58,
+          "available": true,
+          "first": 781287424,
+          "last": 913014784,
+          "delta": 131727360,
+          "mean": 847674262.0689656,
+          "min": 781287424,
+          "max": 913014784,
+          "slope": 2370949.1067704335,
+          "rSquared": 0.9887242033389518
+        }
+      }
+    },
+    "allocationOrigin": {
+      "partitionRule": "Disjoint first-match categories: explicit mmap/VM first2frames; FragmentProgramVariant; VertexProgramVariant; IOSurface module; other graphics modules; CLR; other. Stack allocation-site groups, not distinct application owners, residency, or leak classification. Non-mmap groups may include platform resource records; do not equate total with malloc-zone live bytes.",
+      "categories": {
+        "explicitMmapVm": {
+          "bytes": 5279809536,
+          "calls": 1584,
+          "groups": 63
+        },
+        "ioSurface": {
+          "bytes": 41540080,
+          "calls": 56,
+          "groups": 22
+        },
+        "agxFragmentVariant": {
+          "bytes": 194221808,
+          "calls": 109869,
+          "groups": 1215
+        },
+        "otherGraphics": {
+          "bytes": 74610368,
+          "calls": 68429,
+          "groups": 812
+        },
+        "coreclr": {
+          "bytes": 22262816,
+          "calls": 76201,
+          "groups": 2344
+        },
+        "other": {
+          "bytes": 235760,
+          "calls": 2951,
+          "groups": 584
+        },
+        "agxVertexVariant": {
+          "bytes": 1024,
+          "calls": 8,
+          "groups": 1
+        }
+      }
+    }
+  },
+  "artifacts": [
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/00-combined.json",
+      "bytes": 602935,
+      "sha256": "4323a12de5f32ec969ccf643e72401eee34c6193bedaa4150490d1e837415378"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/01-map-gl.json",
+      "bytes": 495599,
+      "sha256": "ed559165bc2a3de58b60ff1f2b469a3cc1d648188a1b27487d525c3a48c39b39"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/02-studio.json",
+      "bytes": 147468,
+      "sha256": "68d13b0a8e743645e4fd8944d97e8023acd9cbd1e9981339bf2cec86f6f70dc6"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/03-audio.json",
+      "bytes": 245026,
+      "sha256": "796cdd5c0bd581a899c2e25aa70cfb58f0a9abe6ebe4a7fe81280d1bad3c7f40"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-native-attribution/Prime Hunters Online/artifacts/native-attribution/current-main-60/manifest.json",
+      "bytes": 8084,
+      "sha256": "6178cc1bf9a43b12eaad1a679907f706d30e8434ca26f79cbb83599713dbf23d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/00-audio.json",
+      "bytes": 245431,
+      "sha256": "7b5f0ba98d6a89a59381bb61faf316af2a1c8ce37ac4505f6b0c7905b57ba600"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/01-studio.json",
+      "bytes": 147481,
+      "sha256": "b683b9334df5207613c6b5de28a4c4322e71b5e624184fee3f48cbc62219959e"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/02-map-gl.json",
+      "bytes": 495725,
+      "sha256": "773cae9fca2403b812711def0096a75227f90e132285360e62cd952cbef0c50e"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/03-combined.json",
+      "bytes": 603497,
+      "sha256": "afd306f2bea7f3b24a2d9a10cb3c023ad4003152572ffe401d487a391ec5a997"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-candidate-60/manifest.json",
+      "bytes": 8170,
+      "sha256": "30e63f5a0986ab5bafe638c8a9dc3637a10f25c55b35835cde10d17915a62c96"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-lifecycle-validation/Prime Hunters Online/artifacts/native-attribution/lifecycle-crossbuild-parity.json",
+      "bytes": 1453,
+      "sha256": "560463d7d985d091a2748c5a1f4ff27e9fa84f6c9ff12ab6f3a75af9633034d9"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-forward-baseline-60/00-audio.json",
+      "bytes": 2888139,
+      "sha256": "376b9e46d5ef2d7a607f34aa90985795281de36681de4d1705ca906ec331acfc"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-forward-baseline-60/00-audio.analysis.json",
+      "bytes": 74142,
+      "sha256": "7d539a08cbc98cf85f88434eb0e6d9458b2695b325db073523f3f7027ad81961"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-forward-baseline-60/manifest.json",
+      "bytes": 3799,
+      "sha256": "eafd6d432fb0a77d0194d3ba21e38d42f83b9efc10d8b155ad81762cec9b677a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-forward-candidate-60/00-audio.json",
+      "bytes": 2653572,
+      "sha256": "f1f628e59ab8d6f3017a0108eb7b07d9779e0017ad4fb7779a71b47f647fb575"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-forward-candidate-60/00-audio.analysis.json",
+      "bytes": 74448,
+      "sha256": "1f2af4dde6d16c484e14ce98bec66b3554b4c4d986a9077ee32eaa1cc9c06ef2"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-forward-candidate-60/manifest.json",
+      "bytes": 3803,
+      "sha256": "262fe22d41d88cebe90792cc36fc84630124f466912532a2a61e616baf8f3ae2"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-reverse-baseline-60/00-audio.json",
+      "bytes": 2888072,
+      "sha256": "4fe396197dfc3c502f0a108ff214aa0ffb205685c9fc51936d00d993c4284a1e"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-reverse-baseline-60/00-audio.analysis.json",
+      "bytes": 74073,
+      "sha256": "661adc07c0c5d50c65cf33ef65382dbe13974ad52737d43ee812df25e7d68997"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-reverse-baseline-60/manifest.json",
+      "bytes": 3799,
+      "sha256": "739f6ec0b70e2bfe8ba58394e8be71de39fecb8f21fe1e436bedb6a161a22db4"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-reverse-candidate-60/00-audio.json",
+      "bytes": 2653498,
+      "sha256": "43c6f81908ce4ee86430f9c48f3b825bdd9da491758dcb99cf21c27fc8976fff"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-reverse-candidate-60/00-audio.analysis.json",
+      "bytes": 74053,
+      "sha256": "ab8c3cea58a0577cf08035b690d5256f7e4cff3664f48ef400d1a93bc92c778a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-reverse-candidate-60/manifest.json",
+      "bytes": 3809,
+      "sha256": "f9415e2e97c303f63afc6cf931f94c00d492492d3077e71896746e8e4d91978b"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-120/00-audio.json",
+      "bytes": 5356045,
+      "sha256": "3896881363f1d5fe55932b5030654ed2b670c84794e122b857a29ce7caf00523"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-120/00-audio.analysis.json",
+      "bytes": 128672,
+      "sha256": "6d802b5a11ef41db01f7e769a9bd6aa12d506fe130ec7b82e6ebb69e89e60b94"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-120/manifest.json",
+      "bytes": 3868,
+      "sha256": "205122180a63c35165fcb8a0b2799221405ab209436434c4fe925cfa6356ae98"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-120/profiling-manifest.json",
+      "bytes": 1078,
+      "sha256": "33a070db97e1646ff848f0070a9ec966483f51d9a90c196ca5e1fd1d2687f6f4"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-120/post-drain.gcdump",
+      "bytes": 24513890,
+      "sha256": "12fd912f0d978e917631d330577d717b80538c0521375da7892f6c7f57b02c93"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-60/00-audio.json",
+      "bytes": 2684147,
+      "sha256": "f375f3aa4aef4d9d4c10e629e64c0e3da3740faadd48d1601eb364c0ed667ebe"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-60/00-audio.analysis.json",
+      "bytes": 74102,
+      "sha256": "bfe2f0dfebcf7b9b1319ce00b541fee6df6ad115f69f11143198dac1fe124fce"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-60/manifest.json",
+      "bytes": 3862,
+      "sha256": "450934ed65dd5f3ea74fcd497ce4160e3a3550004c8cac130c0373ed21800139"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-60/profiling-manifest.json",
+      "bytes": 1078,
+      "sha256": "f9c8fae6f65acb66b3c35d9df1b27d775fa779ff2ed3a41bc79a497c90572fda"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-60/heap-large-array-rootpaths.json",
+      "bytes": 4626,
+      "sha256": "51542456c25d1fcb95e7e9f5875e729b3746da9c4a5e3a569adef726b2d08f67"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-60/heap-root-reader.cs",
+      "bytes": 1887,
+      "sha256": "6cf1158fa8a2ae3fd76b18e76e457bad0d5277b9468931ad5720346b6ce49162"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-60/heap-root-reader.csproj",
+      "bytes": 636,
+      "sha256": "ccaea0fedf2cb65de0c443c850006f49fb90402e4892707e2b95957940dbe5da"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-profiled-candidate-60/post-drain.gcdump",
+      "bytes": 16807418,
+      "sha256": "40b9f9be6843fb06e0f0d9558dfaf81d66c45c03c9bb6edc9652e00c4950c1b8"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/00-audio.json",
+      "bytes": 2979711,
+      "sha256": "2331727e63aa23bba41c5eda38cec9dc59e7439c3edbfe1576e87717db21242e"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/00-audio.analysis.json",
+      "bytes": 73849,
+      "sha256": "be9cf941b9d37c5cf2690ed6d9145f1f7cc76531774b7e094a889e91d8e06a57"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/manifest.json",
+      "bytes": 3808,
+      "sha256": "0755e35596a5e2e223f4a2c113cf3dc1348c7e3a27f9ca4778a2e6c5a06dbdb7"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/profiling-manifest.json",
+      "bytes": 710,
+      "sha256": "9e2f1cf665fd3e8d5529e7efb716f99874cdd66810b7c488f23131af75e2ba9b"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/vmmap.txt",
+      "bytes": 7182,
+      "sha256": "563d69674b90790881e675ad7b2b04823729513521a632cf8a56b941f6caef1b"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/malloc-history.txt",
+      "bytes": 38975059,
+      "sha256": "55c9ad4a35f685ba6dea9a6a351c5c2ece6d14922d503b6ab359d8beefc95a9d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/malloc-stack-summary.json",
+      "bytes": 223466,
+      "sha256": "74e120dcfcc08895ede14afc8ae326a172302cdb17b70f6b01e60aa12e71c028"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/malloc-history-installed-man.txt",
+      "bytes": 8767,
+      "sha256": "4adc3b8a04cb87a93dc1ef4185822f1d7332469d7581b7d13d6d6dd78e52e0d2"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-baseline-audio-60/malloc-history-toolhelp.txt",
+      "bytes": 1875,
+      "sha256": "45dadaa9a6c9cfde025747796b8c001120f16b30ccad87349584442de8a158c9"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-audio-60/00-audio.json",
+      "bytes": 2745143,
+      "sha256": "37e54866aec4f7b52b27a3596730484cfffc6f6f6e8fa56e736ddeec8f4fe514"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-audio-60/00-audio.analysis.json",
+      "bytes": 74048,
+      "sha256": "d89135179f647abdf3b6f6552849dba6fc613a1874651595354df323759a1ee0"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-audio-60/manifest.json",
+      "bytes": 3807,
+      "sha256": "c96db0742d72746541147cf99ba58006942dd6149f179b87b9ea561e01e98535"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-audio-60/profiling-manifest.json",
+      "bytes": 718,
+      "sha256": "81809a8d716c6c23f03d18b19e1a0475e0974b2f26218be50bae777090e59e67"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-audio-60/vmmap.txt",
+      "bytes": 7031,
+      "sha256": "0b70fd4c2cfaa92cfd18ba4923c171c49df4dc893dbad9f77d896dbd156034d8"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-audio-60/malloc-history.txt",
+      "bytes": 38671198,
+      "sha256": "07049d78d080784ffa50614b3ad4be9f6dfee3097619229682f15780e5618242"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-audio-60/malloc-stack-summary.json",
+      "bytes": 437509,
+      "sha256": "a14a4893b4928427f8fed9c1a6f785c6b2b7a330f66fbfed0107cf904a762c4b"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-map-gl-120/00-map-gl.json",
+      "bytes": 1059808,
+      "sha256": "e531d702cfc3d6a9571bce8dd80a9818e7a64be340a69f934dde1fe13913dfe2"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-map-gl-120/00-map-gl.analysis.json",
+      "bytes": 129993,
+      "sha256": "b13daba32652fe0fee097eac3cbabf00c6f2132c38f8847c688df97937fa25b0"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-map-gl-120/manifest.json",
+      "bytes": 3909,
+      "sha256": "a344bdda505ab54f99e6effe6e2da378517bbc65e4033d341b7b8f9288fb1a16"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-map-gl-120/profiling-manifest.json",
+      "bytes": 717,
+      "sha256": "e7edd5cde3548850f8019f62fe1ab7acbe23972792ffcded8c8a82bb8ec7c63d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-map-gl-120/vmmap.txt",
+      "bytes": 8588,
+      "sha256": "626452087ce6b118d11ee6f39d6b0b8ef98452e11737623204c171712e1cf4d4"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-map-gl-120/malloc-history.txt",
+      "bytes": 186068354,
+      "sha256": "a3da7b5accc8d36833c04e92a7c4955524831444f1fc1b5baa410c1e174ba102"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-map-gl-120/malloc-stack-summary.json",
+      "bytes": 393621,
+      "sha256": "0b6c81fca21145d408042c3bfb10aaf4556d5df893da888d40f616546d37b3e7"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/stack-candidate-map-gl-120/allocation-origin-partition.json",
+      "bytes": 1070,
+      "sha256": "6046f98353352babd9985108e136e862fadca5ae021d7dbabb98e889a3895e4f"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-audio-retention-probe/Prime Hunters Online/artifacts/audio-retention/v2-reverse-vmmap-comparison.json",
+      "bytes": 21873,
+      "sha256": "e25e0ad9f1a19d59aaf792038ed50485dd3f93c2e4988583945229d0a9761c8d"
+    }
+  ]
+}
