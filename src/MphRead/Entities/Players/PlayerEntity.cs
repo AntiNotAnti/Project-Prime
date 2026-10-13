@@ -726,7 +726,8 @@ namespace MphRead.Entities
 
         public void Spawn(Vector3 pos, Vector3 facing, Vector3 up, NodeRef nodeRef, bool respawn)
         {
-            Mods.EnhancedHunters.EnhancedHunters.OnPlayerSpawn(this);
+            if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(_scene))
+                Mods.EnhancedHunters.EnhancedHunters.OnPlayerSpawn(this);
             if (!_scene.Services.PlayerReplication.CanSpawn) return;
             _scene.Services.PlayerReplication.OnSpawn(this);
             _modFormStartedFrame = 0;

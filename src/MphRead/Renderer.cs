@@ -5138,7 +5138,7 @@ namespace MphRead
 
         private void UpdateScene()
         {
-            EnhancedWorld.Tick(this);
+            if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(this)) EnhancedWorld.Tick(this);
             if (_playingLandingMovie)
             {
                 return;
@@ -5232,8 +5232,11 @@ namespace MphRead
             if (_room != null)
             {
                 _room.GetDrawInfo();
-                EnhancedWorld.Draw(this);
-                EnhancedWorld.DrawIndicators(this);
+                if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(this))
+                {
+                    EnhancedWorld.Draw(this);
+                    EnhancedWorld.DrawIndicators(this);
+                }
                 _room.GetDisplayVolumes();
             }
             foreach (PlayerEntity player in GetPlayerEntities())

@@ -164,7 +164,7 @@ internal static class ReplayLiveCaptureCheck
             case PacketType.ReplayWorld: recorder.AcceptWorldPacket(packet[1..], frame); break;
             case PacketType.MatchState: recorder.AcceptMatch(MatchStatePacket.Read(packet[1..]), frame); break;
             case PacketType.SessionState:
-                if (SessionStatePacket.TryRead(packet[1..], out var config)) recorder.AcceptConfiguration(config, frame);
+                if (SessionStatePacket.TryReadArchived(packet[1..], out var config)) recorder.AcceptConfiguration(config, frame);
                 break;
             case PacketType.Roster:
                 if (RosterPacket.TryRead(packet[1..], out var roster)) recorder.AcceptRoster(roster, frame);

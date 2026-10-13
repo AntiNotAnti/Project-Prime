@@ -6,13 +6,14 @@ public static class MatchModifierRules
 {
     public static bool UsesOctolith(GameMode mode) => mode is GameMode.Capture or GameMode.Bounty or GameMode.BountyTeams or GameMode.Relic;
 
-    public static bool Validate(MatchDefinition match, out string reason)
+    public static bool Validate(MatchDefinition match, out string reason, bool allowRetiredEnhanced = false)
     {
         match = match.NormalizeLegacy();
         reason = "";
-        if (match.BalancedMode && (match.Fiesta || match.InstaGib || match.OneInTheChamber
-            || match.Mode == GameMode.OneInTheChamber || match.Mode == GameMode.GunGame
-            || match.EnhancedHunters))
+        if (match.EnhancedHunters && !allowRetiredEnhanced)
+            reason = "Enhanced Hunters has been retired. Disable that modifier; Vanilla and Balanced Mode remain available.";
+        else if (match.BalancedMode && (match.Fiesta || match.InstaGib || match.OneInTheChamber
+            || match.Mode == GameMode.OneInTheChamber || match.Mode == GameMode.GunGame || match.EnhancedHunters))
             reason = "Balanced Mode cannot be combined with Enhanced Hunters, Fiesta, Insta-Gib, One in the Chamber or Gun Game.";
         else if ((match.OneInTheChamber || match.Mode == GameMode.OneInTheChamber) && (match.InstaGib || match.NoImperialist || match.Fiesta))
             reason = "One in the Chamber cannot be combined with Insta-Gib, No Imp or Fiesta.";

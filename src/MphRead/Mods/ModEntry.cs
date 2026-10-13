@@ -56,6 +56,13 @@ namespace MphRead.Mods
                 return true;
             }
 
+            if (HasFlag(args, "enhancedhunters"))
+            {
+                Console.Error.WriteLine("[rules] Enhanced Hunters has been retired; remove -enhancedhunters. Vanilla and Balanced Mode remain available.");
+                Environment.ExitCode = 1;
+                return true;
+            }
+
             bool serverInvocation = HasFlag(args, "server")
                 || HasFlag(args, "dedicated") || HasFlag(args, "masterserver");
             bool hostedChild = HasFlag(args, "hostedchild");
@@ -1114,7 +1121,6 @@ namespace MphRead.Mods
                 // file. The damage level is not an option: it is pinned to
                 // medium everywhere. See GameState.DamageLevel.
                 AffinityWeapons = HasFlag(args, "affinityweapons"),
-                EnhancedHunters = HasFlag(args, "enhancedhunters"),
                 // Spawn protection is the default match rule; the negative
                 // flag is useful for fixed competitive servers that opt out.
                 Fiesta = HasFlag(args, "fiesta"),
