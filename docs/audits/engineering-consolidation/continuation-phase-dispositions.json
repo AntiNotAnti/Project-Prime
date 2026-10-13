@@ -1,0 +1,2319 @@
+{
+  "schemaVersion": 1,
+  "documentStatus": "PUBLICATION_READY_LOCAL_REVIEW_COMPLETE",
+  "preparedAtUTC": "2026-10-13T08:54:09.375750+00:00",
+  "plan": {
+    "path": "/Users/jarrett/Downloads/Project_Prime_Engineering_Consolidation_Plan.md",
+    "sha256": "11cfbf05c5793a34dded59dcc1c08116b71986c6538e01ea8002ec3afad04f0d"
+  },
+  "baselineSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "fullAcceptance": false,
+  "acceptanceReasons": [
+    "driver-origin repeated-load allocation groups grow and old-scene root/liveness is UNKNOWN: unresolved P0",
+    "remaining physical/full media/gameplay/platform acceptance",
+    "final aggregate and focused-PR current-head hosted CI pending at publication snapshot"
+  ],
+  "noMerges": true,
+  "repositorySettingsMutated": false,
+  "productionGCPolicyChanged": false,
+  "simulationHz": 60,
+  "liveProtocol": 53,
+  "replayWorldContract": "A4512223EC0CC49516DB00DD3733168DA6969DEA059E9DDE84B31062ADEA675A",
+  "retirementSettingsSchema": 11,
+  "finalIntegration": {
+    "status": "LOCAL_CORE_REVIEW_COMPLETE_HOSTED_CI_PENDING_PHYSICAL_NOT_RUN",
+    "sourceSHA": "edcf0f1bc6be7cfb0734c42ebaa41ce8b8724ef2",
+    "clientMvid": "88959546-d757-49cd-9826-dd496a2fec7c",
+    "clientSha256": "6c222a9084af3ac2006db87406702a4e64fd31a3dce5d8e1892f06f88337a959",
+    "nettestSha256": "03c5a35ff683bd0491c47b04d3e9a26269fdc7a54cf6c9e39f3cefe8d8696d1e",
+    "checks": {
+      "gameplayNetwork": 17,
+      "deviceFreeTools": 9,
+      "renderUiDiagnostics": 8,
+      "guardsAndPython": 6,
+      "harnessSelftests": 2,
+      "allPassed": true
+    },
+    "clientWarnings": 3,
+    "serverWarnings": 3,
+    "expectedClientWarningsFromIndependentSlices": 3,
+    "expectedClientWarningsVerified": true,
+    "rendererFinalExperiment": "RECEIVED_NEGATIVE_RESULTS_POLICY_UNCHANGED",
+    "hostedCI": {
+      "status": "AWAITING_ROOT_FINAL_RECEIPT",
+      "aggregateBuildRun": 38372420976,
+      "aggregateBuildSourceSHA": "edcf0f1bc6be7cfb0734c42ebaa41ce8b8724ef2",
+      "pushRun": 38372423024,
+      "pushRunStatus": "SUCCESS_ROOT_SUPPLIED",
+      "note": "Push success is not aggregate build completion; independent PR heads and all-slice branch CI are distinct."
+    },
+    "warnings": "Existing CS8602 in NetHitClaims, NetUnlagged and PlayerEntity; no blind suppression. Separate test tool warnings remain in receipts.",
+    "buildProjectsPassed": 13,
+    "serverBuildPassed": true,
+    "gameplayCounts": [
+      {
+        "name": "combat-scene",
+        "actualAssertionCount": 204
+      },
+      {
+        "name": "balanced-scene",
+        "actualAssertionCount": 347
+      },
+      {
+        "name": "retirement",
+        "actualAssertionCount": 81
+      },
+      {
+        "name": "archival-world",
+        "actualAssertionCount": 46
+      },
+      {
+        "name": "retired-live-scene",
+        "actualAssertionCount": 20
+      },
+      {
+        "name": "advanced",
+        "actualAssertionCount": 130
+      },
+      {
+        "name": "game-mode",
+        "actualAssertionCount": 2198
+      },
+      {
+        "name": "replay-format",
+        "actualAssertionCount": 3034
+      },
+      {
+        "name": "protocol18-actual53"
+      },
+      {
+        "name": "lobby",
+        "actualAssertionCount": 7744
+      },
+      {
+        "name": "waitlist",
+        "actualAssertionCount": 309
+      },
+      {
+        "name": "transport"
+      },
+      {
+        "name": "scene-ownership",
+        "actualAssertionCount": 6
+      },
+      {
+        "name": "historical-seven-hunters",
+        "actualAssertionCount": 1103
+      },
+      {
+        "name": "biped-edge-collision",
+        "actualAssertionCount": 51
+      },
+      {
+        "name": "movement-tour",
+        "hunters": [
+          [
+            "Samus",
+            "575",
+            "575",
+            "0"
+          ],
+          [
+            "Kanden",
+            "607",
+            "607",
+            "0"
+          ],
+          [
+            "Spire",
+            "607",
+            "607",
+            "0"
+          ],
+          [
+            "Noxus",
+            "627",
+            "627",
+            "0"
+          ],
+          [
+            "Trace",
+            "617",
+            "617",
+            "0"
+          ],
+          [
+            "Sylux",
+            "613",
+            "613",
+            "0"
+          ],
+          [
+            "Weavel",
+            "603",
+            "603",
+            "0"
+          ]
+        ]
+      },
+      {
+        "name": "replay-world-all-modes",
+        "modeCount": 20,
+        "gameplayPresentationHashesPerMode": 1801,
+        "projectileFramesPerMode": 793
+      }
+    ],
+    "immutableFixturesUnchanged": true,
+    "receipts": {
+      "build-receipt.json": {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/build-receipt.json",
+        "sha256": "19a8cbed12cea5b50255094d4834203ed973e4a0e08c0d4d04f292725a945ef4"
+      },
+      "server-build-receipt.json": {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/server-build-receipt.json",
+        "sha256": "77a3f8d3656791384cd7fb75ed9dabefb1fcb6d4b82a4e1249c9a4aa39d3f420"
+      },
+      "gameplay-network/gameplay-network-receipt.json": {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/gameplay-network/gameplay-network-receipt.json",
+        "sha256": "e4944ffb90ddb1f7f7e43659d00fb0642790fb02c9dbd5cfd3f10ce263f3a49e"
+      },
+      "render-ui/final-render-ui-receipt.json": {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/render-ui/final-render-ui-receipt.json",
+        "sha256": "ac3592770e5f3d90d2673346df8d2f54c1a2cfeb89f75d27c57eaae50bcf9614"
+      },
+      "tools/tools-receipt.json": {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/tools/tools-receipt.json",
+        "sha256": "39cd5889f95a39dc75d2bd2945320cf19cdaf1a29fe71b71f02b4a5af19f5c61"
+      },
+      "guards-receipt.json": {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/guards-receipt.json",
+        "sha256": "bf63eb75b4ed6fb8e4fb979cb9d291f04b95e1a01c11d5a2fac0f370a8090692"
+      },
+      "harness-selftests-receipt.json": {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/harness-selftests-receipt.json",
+        "sha256": "be269d4fccae7af4af45af607e81e7925d76f02a88cc746d04fb53e22aed049e"
+      },
+      "builds/android-build-receipt.json": {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/builds/android-build-receipt.json",
+        "sha256": "3d6fba29dbf3e6924a42e1be565244833d1a9f682f57cdd99e979a2dae07a4f1"
+      },
+      "builds/android-prior500-inventory.json": {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/builds/android-prior500-inventory.json",
+        "sha256": "da46cb1f7d11779664357a196d39d16d964c5d57d91b5c38d63c50a7eec5294f"
+      },
+      "builds/android-ktx-build-receipt.json": {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/builds/android-ktx-build-receipt.json",
+        "sha256": "70d6561f796a6a2cc8827c518740afcc5d9789bb8d3ac9230c02208978a6b203"
+      },
+      "builds/android-staged-build-receipt.json": {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/builds/android-staged-build-receipt.json",
+        "sha256": "2ef65f1c779c8892a75d3420ddaf7305e0a08bc7c5e2d450859432acfa5e4efa"
+      },
+      "binary-metadata-receipt.json": {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/binary-metadata-receipt.json",
+        "sha256": "bb427ed4f5844d9084d83156665276dce9c9935508bf1e0fbcd10c9762941559"
+      },
+      "integration-manifest.json": {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/integration-manifest.json",
+        "sha256": "7fcc2f834938f3069a7ad6aeec782768756247b2db0111374b30b62d2d55182f"
+      }
+    },
+    "androidDefault": {
+      "sourceSHA": "edcf0f1bc6be7cfb0734c42ebaa41ce8b8724ef2",
+      "publishExit": 0,
+      "wallSeconds": 124.66495013237,
+      "warnings": 29,
+      "errors": 0,
+      "aotAssembliesPerAbi": 117,
+      "signedApkBytes": 108906161,
+      "signedApkSHA256": "6e4c3b60cd7729408f7e1e09f0c8d61c5301439a279576d1d0a8e0ec93bc145a",
+      "signatureExit": 0,
+      "releaseNativeInventory": "FAIL: libktx.so missing in both arm64-v8a/x86_64, also absent in prior500 defaultAPK",
+      "releaseNativeStagedRebuild": "PASS: separate fresh stagedAPK, original default outputs preserved",
+      "fullReleaseAcceptance": false
+    },
+    "nativeMusicOnCombinedSource": "NOT_RUN; actual two120cycle native trials belong to focused0762e18b source, not rerun on edcf integration.",
+    "nettestMvid": "625e5be7-a1cb-4856-9c4c-707283b817a9",
+    "serverMvid": "c7021259-5ec6-48f5-a73a-ad95615875a4",
+    "serverSha256": "6d5db8b29503925750ab8d66827584ae64d98814d4a02d5309b4da133415f5bb",
+    "binaryMetadata": [
+      {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/build-output/client/bin/MphRead/release/ProjectPrime.dll",
+        "bytes": 32743424,
+        "mvid": "88959546-d757-49cd-9826-dd496a2fec7c",
+        "sha256": "6c222a9084af3ac2006db87406702a4e64fd31a3dce5d8e1892f06f88337a959"
+      },
+      {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/build-output/client/bin/nettest/release/nettest.dll",
+        "bytes": 835072,
+        "mvid": "625e5be7-a1cb-4856-9c4c-707283b817a9",
+        "sha256": "03c5a35ff683bd0491c47b04d3e9a26269fdc7a54cf6c9e39f3cefe8d8696d1e"
+      },
+      {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/build-output/server/bin/MphRead/release/ProjectPrime.dll",
+        "bytes": 9943552,
+        "mvid": "c7021259-5ec6-48f5-a73a-ad95615875a4",
+        "sha256": "6d5db8b29503925750ab8d66827584ae64d98814d4a02d5309b4da133415f5bb"
+      },
+      {
+        "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/continuation-integration-20261013/build-output/client/bin/native-render-check/release/native-render-check.dll",
+        "bytes": 294400,
+        "mvid": "983e7b91-72b8-4e66-8792-d2bac0ca950c",
+        "sha256": "ec64ec77b03d06606fd014ef9f1e672fdca0285b45b9e5b28c84c3046fdd19cd"
+      }
+    ],
+    "totalBuildsPassed": 14,
+    "totalLocalCommandsPassed": 42,
+    "integrationManifestReceiptCountVerified": 8,
+    "foldedConflicts": [
+      "Keep all independent CI steps at common insertion points; no job removed.",
+      "Merge friend-assembly declarations for isolated regression tools; no runtime access/capability change.",
+      "Compose495 startup cleanup with504 load/callback owner; no additional production fix introduced by conflict resolution."
+    ],
+    "androidStaged": {
+      "sourceSHA": "edcf0f1bc6be7cfb0734c42ebaa41ce8b8724ef2",
+      "publishExit": 0,
+      "wallSeconds": 151.3228931427002,
+      "warnings": 29,
+      "errors": 0,
+      "aotAssembliesPerAbi": 117,
+      "abis": [
+        "arm64-v8a",
+        "x86_64"
+      ],
+      "signedApkBytes": 119314232,
+      "signedApkSHA256": "bcb8bd5ab297b98846b565045a6f66fcfb41e716183d60cfef5ed375d6a0f0d5",
+      "nativeEntryCount": 262,
+      "requiredKtx": [
+        {
+          "entry": "lib/arm64-v8a/libktx.so",
+          "bytes": 18343864,
+          "sha256": "674436e3a92d1102e1be042a068c23d5eefc691a080d0e08790fdbf3627ec39b",
+          "zipCompression": 8
+        },
+        {
+          "entry": "lib/x86_64/libktx.so",
+          "bytes": 18425768,
+          "sha256": "3d0ee9eefbff777d6d25a24ca4a7f433984517c2f42fd83d920c5506aa06db13",
+          "zipCompression": 8
+        }
+      ],
+      "ktxPinnedRevision": "6b3d8bf15788f604c6b91dd95fafabb6c59cd723",
+      "ktxHashesMatchPinnedInputs": true,
+      "signatureV2V3": "PASS",
+      "zipalign16K": "PASS",
+      "ktxElfLoadAlignmentBothAbi": "0x4000",
+      "declaredAvaresGuard": "PASS",
+      "signingScope": "Existing AndroidDebug signer; no distribution keystore/physical install/device launch acceptance.",
+      "sourceDirtyAfter": false,
+      "releaseInventoryStatus": "PASS_SCOPED",
+      "fullReleaseAcceptance": false
+    },
+    "localCoreManifestFrozen": true
+  },
+  "earlierIntegratedSnapshot": {
+    "sourceSHA": "87617f47dd67d4cae77931c43f9dce6af87b3fd4",
+    "checksPassed": 12,
+    "notFinalAllSliceAcceptance": true
+  },
+  "oldReportsPreservedSHA256": {
+    "docs/audits/engineering-consolidation/architecture-inventory.md": "f62ff79db1df87b57875aeeffea0c2270745317c8d568e51756053b7f409abb0",
+    "docs/audits/engineering-consolidation/integration-results.md": "36a6e1eb8bac7e8f32157b5c58ad76d5733f146415d42c27f0f13424b53ffeb6",
+    "docs/audits/engineering-consolidation/baseline.md": "f1c3530183c09a7d570fedefab61736b8d7ff2c81d04977f213825af2c248aa6",
+    "docs/audits/engineering-consolidation/integration-evidence.json": "acfac19c2fdee982c8a9da7da09f13a1bbc46c10c5d98559a704cd1db95d32b4",
+    "docs/audits/engineering-consolidation/baseline-evidence.json": "fa5a3c46b524727ac8dd22288edd1eb32817a73e5ebde5b6ea7c136db3a220ce"
+  },
+  "pullRequests": [
+    {
+      "pr": 488,
+      "title": "Align architecture invariants with protocol 53 and historical replay readers",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/488",
+      "headSHA": "ba29091105a7a043644e11355ba1f15b5631b89e",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-protocol-docs",
+      "commitSHAs": [
+        "ba29091105a7a043644e11355ba1f15b5631b89e"
+      ],
+      "phase": "0",
+      "concern": "Protocol/replay documentation",
+      "sourceFiles": [],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "ba29091105a7a043644e11355ba1f15b5631b89e"
+      ],
+      "measuredScope": "Source contract 53 and historical replay v1\u2013v5; replay 3034/OpenGL guard pass.",
+      "reports": [],
+      "prBodySHA256": "3935c795850a38b6abda277e717c23ad9d6c013e29573e599ce5b384b020d75b",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 25
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/488/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Documentation-only revert.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 489,
+      "title": "Record consolidation baseline, native attribution and integration gates",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/489",
+      "headSHA": "f85c6c15480f89e27f4ee636ed23d4dbb2736bdb",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/engineering-baseline",
+      "commitSHAs": [
+        "68e72a6d5ee23a5e7389c04536f6a19102537ee5",
+        "f85c6c15480f89e27f4ee636ed23d4dbb2736bdb"
+      ],
+      "phase": "0,10",
+      "concern": "Baseline and earlier integration",
+      "sourceFiles": [],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "749aa12dc89d41dc83823eafe0929c13b1ebfb99",
+        "164990e60244ecdb21fdcc4e98e91f3ea097090b",
+        "87617f47dd67d4cae77931c43f9dce6af87b3fd4"
+      ],
+      "measuredScope": "Source inventory; original lifecycle ABBA FPS406.68\u2192404.71 (-0.48%), p99 7.3620\u21927.3893 ms (+0.37%); earlier bundle87617f47 passes12 checks.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/architecture-inventory.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/f85c6c15480f89e27f4ee636ed23d4dbb2736bdb/docs/audits/engineering-consolidation/architecture-inventory.md",
+          "sha256": "f62ff79db1df87b57875aeeffea0c2270745317c8d568e51756053b7f409abb0"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/baseline-evidence.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/f85c6c15480f89e27f4ee636ed23d4dbb2736bdb/docs/audits/engineering-consolidation/baseline-evidence.json",
+          "sha256": "fa5a3c46b524727ac8dd22288edd1eb32817a73e5ebde5b6ea7c136db3a220ce"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/baseline.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/f85c6c15480f89e27f4ee636ed23d4dbb2736bdb/docs/audits/engineering-consolidation/baseline.md",
+          "sha256": "f1c3530183c09a7d570fedefab61736b8d7ff2c81d04977f213825af2c248aa6"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/integration-evidence.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/f85c6c15480f89e27f4ee636ed23d4dbb2736bdb/docs/audits/engineering-consolidation/integration-evidence.json",
+          "sha256": "acfac19c2fdee982c8a9da7da09f13a1bbc46c10c5d98559a704cd1db95d32b4"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/integration-results.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/f85c6c15480f89e27f4ee636ed23d4dbb2736bdb/docs/audits/engineering-consolidation/integration-results.md",
+          "sha256": "36a6e1eb8bac7e8f32157b5c58ad76d5733f146415d42c27f0f13424b53ffeb6"
+        }
+      ],
+      "prBodySHA256": "1c7458115b131e0439f5fca4b7a4ab95f89b964bf3721814953be7c0ba00ef22",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 25
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/489/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert only documentation; preserve immutable old reports and raw evidence.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 490,
+      "title": "Discard rejected updater staging and honor archive cancellation",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/490",
+      "headSHA": "ac914984b14df231f2c7b59351d6265d1566c621",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-ingress-bounds",
+      "commitSHAs": [
+        "ac914984b14df231f2c7b59351d6265d1566c621"
+      ],
+      "phase": "9",
+      "concern": "Updater staging ownership",
+      "sourceFiles": [
+        "src/MphRead/Mods/Update/DesktopUpdate.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "ac914984b14df231f2c7b59351d6265d1566c621"
+      ],
+      "measuredScope": "Original 67 PASS/8 FAIL\u219276 PASS/0 FAIL; cancelled/rejected ZIP/TAR staging removed; large-entry timed cancellation and physical install not covered.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/ingress-staging.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/ac914984b14df231f2c7b59351d6265d1566c621/docs/audits/engineering-consolidation/ingress-staging.md",
+          "sha256": "f4616e5459aecd68dd2d31ec3b72a691d540537bc740cbe2b2c42b2719bdf5cf"
+        }
+      ],
+      "prBodySHA256": "5d089d56fe6f3e8ca58880bd4796e61c947216f8c7ba3a5440d38ac623366b55",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 27
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/490/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert focused staging/tests; no migration. Restores rejected-stage/cancellation defects; do not delete user-owned installs.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 491,
+      "title": "Remove tracked Finder metadata and ignore recurrence",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/491",
+      "headSHA": "4aa587a5eb1d40df78c9a6e32d671253df8c27d8",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-repo-hygiene",
+      "commitSHAs": [
+        "4aa587a5eb1d40df78c9a6e32d671253df8c27d8"
+      ],
+      "phase": "2C,8",
+      "concern": "Finder metadata",
+      "sourceFiles": [
+        "src/.DS_Store",
+        "src/MphRead/.DS_Store",
+        "src/MphRead/Assets/.DS_Store",
+        "src/MphRead/Assets/Backgrounds/.DS_Store",
+        "src/MphRead/Assets/Fonts/.DS_Store"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "4aa587a5eb1d40df78c9a6e32d671253df8c27d8"
+      ],
+      "measuredScope": "Seven tracked .DS_Store files/63516 repository bytes removed; nested ignore verified. No runtime/package-size claim.",
+      "reports": [],
+      "prBodySHA256": "5286bda05d49ea718563c1f5cebfd3e425d7340c9b1d93cd6e4499e28929b698",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 27
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/491/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert metadata/ignore commit only; no runtime or content migration.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 492,
+      "title": "Fix scene shader ownership on failed initialization",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/492",
+      "headSHA": "0273aa86c44772e728e069ebcd95e04f9c0b2590",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-shader-ownership",
+      "commitSHAs": [
+        "e0430a2f1f886253ce8ad28db3c1912113b48555",
+        "0273aa86c44772e728e069ebcd95e04f9c0b2590"
+      ],
+      "phase": "1B",
+      "concern": "Shader ownership",
+      "sourceFiles": [
+        "src/MphRead/Mods/Render/OpenGlFailureInjection.cs",
+        "src/MphRead/Mods/Render/SceneShaderOwnership.cs",
+        "src/MphRead/Mods/Render/WorldShaderVariants.cs",
+        "src/MphRead/Renderer.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        493
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "0273aa86c44772e728e069ebcd95e04f9c0b2590"
+      ],
+      "measuredScope": "Original 14 scenarios/10 failures; candidate 1680 assertions across 14 scenarios/120 iterations,0 failures,120 exact recovery frames; bundle240 exact RGBA/depth pairs.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/shader-ownership.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/0273aa86c44772e728e069ebcd95e04f9c0b2590/docs/audits/engineering-consolidation/shader-ownership.md",
+          "sha256": "b025905db3f282144eb6ab5b0ce971fcd5511e86a5f8ffa7c17d633608fe0d51"
+        }
+      ],
+      "prBodySHA256": "a6aa149c26ea09cf96c53f853f1ceb79baab31c8ba3cc8a046cfb11a88b7c34e",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 27
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/492/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert both shader+CI commits together; restores reproduced partial-acquisition/link defects.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 493,
+      "title": "Add controlled native-memory attribution arms and evidence tooling",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/493",
+      "headSHA": "328343fffdc47cad03e3fe70389ba462a9f4b6f3",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-native-attribution",
+      "commitSHAs": [
+        "e842dd18c2e1a4862616bcc577b0c9169211493b",
+        "7a410ca6f84a1738fcbc83940f2a413b2c34e25a",
+        "d89def52b9c378c2f67000d0119e706b3f4969df",
+        "ca9bb3c05f4a502dac1911ab887878c3a0b9db62",
+        "8041ea0d2ba163aa42bad7eded2eb6814619c2df",
+        "6e7118780f3eebb854957ecb599c4c499a2b8876",
+        "d23058b4600455530e555fa7a9ca183d59110b55",
+        "3eb0f650a1e8f3493cb582b38057f548714d44a3",
+        "5190124a434fd40ef32fdb8260d0389f1efc6057",
+        "328343fffdc47cad03e3fe70389ba462a9f4b6f3"
+      ],
+      "phase": "1A",
+      "concern": "Native attribution",
+      "sourceFiles": [],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "749aa12dc89d41dc83823eafe0929c13b1ebfb99"
+      ],
+      "measuredScope": "Four arms60 cycles; paired OpenAL337.437 MiB\u21920 source vectors and347.285\u21921.181 MiB all OpenAL groups; graphics growth unresolved.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/native-attribution-results.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/328343fffdc47cad03e3fe70389ba462a9f4b6f3/docs/audits/engineering-consolidation/native-attribution-results.json",
+          "sha256": "5acfb6dd04d5f5281beaeb7c93853b915163dd890a53d2250ec5b58f02db7ae9"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/native-attribution-results.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/328343fffdc47cad03e3fe70389ba462a9f4b6f3/docs/audits/engineering-consolidation/native-attribution-results.md",
+          "sha256": "2308773aad3e1c2266ef62a865625449a57883668532fe57608e1168afb4b18a"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/native-attribution-tooling.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/328343fffdc47cad03e3fe70389ba462a9f4b6f3/docs/audits/engineering-consolidation/native-attribution-tooling.md",
+          "sha256": "24930eeeddf1e1818133a4571183cbc6c5735605163c8d6d2102cb118474e043"
+        }
+      ],
+      "prBodySHA256": "edd639231b543c0ba9cee16dc258c97c81a523f02f859315863c46d7e50f4d89",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 25
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/493/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Retire dependent #505 first if removing shared tooling, then revert this diagnostic family. No production policy changed.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 494,
+      "title": "Fix SFX resource ownership and bound audio reload readiness",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/494",
+      "headSHA": "c8fa6a1f9689b9dd78acc24e36779309eaace378",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-audio-lifetime",
+      "commitSHAs": [
+        "587918a17dc41842fea163e6f75245af844bac57",
+        "c8fa6a1f9689b9dd78acc24e36779309eaace378"
+      ],
+      "phase": "1B",
+      "concern": "SFX ownership",
+      "sourceFiles": [
+        "src/MphRead/MphRead.csproj",
+        "src/MphRead/Sound/Sfx.cs",
+        "src/MphRead/Sound/SfxResourceOwner.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        493
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "749aa12dc89d41dc83823eafe0929c13b1ebfb99"
+      ],
+      "measuredScope": "Used buffers129\u219265;750 lifecycle assertions plus10000 existing checks; linked Android/fake/headless120-cycle tests. Paired audio improvement is bundled, not factorial.",
+      "reports": [
+        {
+          "path": "docs/audio/mixer.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/c8fa6a1f9689b9dd78acc24e36779309eaace378/docs/audio/mixer.md",
+          "sha256": "18b3cf569b25bce6f9ddb7450089da662d034c5c61d0e41830a98ac085bfa857"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/audio-lifecycle.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/c8fa6a1f9689b9dd78acc24e36779309eaace378/docs/audits/engineering-consolidation/audio-lifecycle.md",
+          "sha256": "538ab09794ae314a929f4bd2d1572e56ad9a0cc513a320f3b400017fd8e53610"
+        }
+      ],
+      "prBodySHA256": "642512a22b27b02ac07447a2b3c859ad0dcc8631122acf757e72633f0480b0f4",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 27
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/494/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert full SFX owner/adapters/CI family; no migration. Restores Android mixer retention and partial-acquisition defects.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 495,
+      "title": "Dispose Music engine after failed playback-device startup",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/495",
+      "headSHA": "30ac0fc7efed0f5a1d78a9aa8a19e6c2f5205381",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-music-failure-cleanup",
+      "commitSHAs": [
+        "48b0056472a6c2f76962d4660e687c00dfdc1cfa",
+        "30ac0fc7efed0f5a1d78a9aa8a19e6c2f5205381"
+      ],
+      "phase": "1B",
+      "concern": "Failed Music startup",
+      "sourceFiles": [
+        "src/MphRead/Sound/Music.cs",
+        "src/MphRead/Sound/MusicStartup.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        493
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "30ac0fc7efed0f5a1d78a9aa8a19e6c2f5205381"
+      ],
+      "measuredScope": "Original 2 PASS/2 FAIL\u21924 PASS/0 FAIL;120 fake engines disposed exactly once. Native loader now separately covered by #504.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/music-startup-cleanup.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/30ac0fc7efed0f5a1d78a9aa8a19e6c2f5205381/docs/audits/engineering-consolidation/music-startup-cleanup.md",
+          "sha256": "832950a823b25d7d6c2fdf71073d6cd149dd8392c9580159de33d54c258df576"
+        }
+      ],
+      "prBodySHA256": "873cf0240798f435266091610dc6cd369f0d536efd01504e4d1170c1bc43bfef",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 27
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/495/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert helper/startup/CI family together; no migration. Preserve #504 compatibility when integrating or reverting shared Music.cs.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 496,
+      "title": "Record AI/HUD allocation evidence and defer unsupported runtime rewrites",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/496",
+      "headSHA": "f17b27a95089ff26fc4b8f77fab4bce900608bc5",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-ai-scratch",
+      "commitSHAs": [
+        "db71a0a03506012baa53c7513645fc258185557a",
+        "f17b27a95089ff26fc4b8f77fab4bce900608bc5"
+      ],
+      "phase": "7",
+      "concern": "AI/HUD negative evidence",
+      "sourceFiles": [],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e"
+      ],
+      "measuredScope": "Actual navigation stack-promoted on measured ARM64 runtime:0B in five100k rounds. Two maps\u00d71/4/8 bots1800 steps,0 failures; event-only HUD and rare respawn rewrite unsupported.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/ai-hud-allocation-triage.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/f17b27a95089ff26fc4b8f77fab4bce900608bc5/docs/audits/engineering-consolidation/ai-hud-allocation-triage.md",
+          "sha256": "718c952ad54ff2d155c51d311c46553ec318e2cd3eeba00e0313a7b485c915aa"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/phase7-additional-evidence.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/f17b27a95089ff26fc4b8f77fab4bce900608bc5/docs/audits/engineering-consolidation/phase7-additional-evidence.json",
+          "sha256": "6af066fffd032b4d6809fd71c6afdc8ebb26c0073aece9a5078d614679c137d9"
+        }
+      ],
+      "prBodySHA256": "003e5f6f0364fa038e0f7242539fbc25345e01b1f61e183c584aa210c3a8fc06",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 25
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/496/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Remove diagnostics/docs only; no AI/HUD/pacing behavior changed.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 497,
+      "title": "Scope collision query scratch and preserve deterministic traversal",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/497",
+      "headSHA": "66376f8755a2c1cb302cbfd4d7a4dd6081a16c02",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-collision-workspace",
+      "commitSHAs": [
+        "b83491e334a40ec548a44800e8518e8591cdc4a6",
+        "4d9bc9b20f387a210518e2d5c4744f879e94418d",
+        "41f708fb7f592e77e5aeb79ea85f23d3c8ecfcb8",
+        "c605f755c30ade462d331d3ba13d87d38db0c8db",
+        "66376f8755a2c1cb302cbfd4d7a4dd6081a16c02"
+      ],
+      "phase": "4A",
+      "concern": "Collision query ownership",
+      "sourceFiles": [
+        "src/MphRead/Entities/Enemies/30_Trocra.cs",
+        "src/MphRead/Entities/Enemies/33_GoreaMeteor.cs",
+        "src/MphRead/Entities/Players/PlayerCamera.cs",
+        "src/MphRead/Entities/Players/PlayerCollision.cs",
+        "src/MphRead/Formats/CollisionDetection.cs",
+        "src/MphRead/Formats/CollisionQueryWorkspace.cs",
+        "src/MphRead/Mods/EnhancedHunters/EnhancedHunterProjectiles.cs",
+        "src/MphRead/Mods/EnhancedHunters/EnhancedHunters.cs",
+        "src/MphRead/Mods/Input/AimAssist/AimAssistWorld.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "66376f8755a2c1cb302cbfd4d7a4dd6081a16c02"
+      ],
+      "measuredScope": "1000/2000 simultaneous-scene failures\u21920;32000 parallel passes;618 exact golden rows; warmed4225/8192-candidate queries0B;8193 completes/discards. Initial2048 cap rejected for43387200B/100 queries.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/collision-query-abba.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/66376f8755a2c1cb302cbfd4d7a4dd6081a16c02/docs/audits/engineering-consolidation/collision-query-abba.json",
+          "sha256": "eaddb65888f88331852b592985d3803d4042204e3ce7c2939ec84fb6fff05e4c"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/collision-query-validation.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/66376f8755a2c1cb302cbfd4d7a4dd6081a16c02/docs/audits/engineering-consolidation/collision-query-validation.json",
+          "sha256": "f075829a157f456382a273c18479d2bb837055f6b0e5e92d37df251bf0195522"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/collision-query-workspace.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/66376f8755a2c1cb302cbfd4d7a4dd6081a16c02/docs/audits/engineering-consolidation/collision-query-workspace.md",
+          "sha256": "ebc052a7008d88cbf7ed03c9064ec6460a47885e200e56e9f88f7f07768f8007"
+        }
+      ],
+      "prBodySHA256": "4370891d40da029386390dd6ffbc80c99068789e261913fb42a091de0949d4bf",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 27
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/497/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert workspace and every borrower together; retain #498 archive gating. Never combine old getter API with new leases.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 498,
+      "title": "Retire live Enhanced Hunters while preserving historical replay contracts",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/498",
+      "headSHA": "29987bc32d97c5b29a3a3585a6de2de756824bfc",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-enhanced-retirement",
+      "commitSHAs": [
+        "3a6da7364423f73a95f3686d16ab29908154bda5",
+        "29987bc32d97c5b29a3a3585a6de2de756824bfc"
+      ],
+      "phase": "2A",
+      "concern": "Live Enhanced retirement",
+      "sourceFiles": [
+        "src/MphRead/Entities/Players/PlayerEntity.cs",
+        "src/MphRead/Entities/Players/PlayerHud.cs",
+        "src/MphRead/Entities/Players/PlayerInput.cs",
+        "src/MphRead/Entities/Players/PlayerProcess.cs",
+        "src/MphRead/Menu.cs",
+        "src/MphRead/Mods/EnhancedHunters/EnhancedHunterChecks.cs",
+        "src/MphRead/Mods/EnhancedHunters/EnhancedHunterSceneChecks.cs",
+        "src/MphRead/Mods/EnhancedHunters/EnhancedHunterTelemetry.cs",
+        "src/MphRead/Mods/EnhancedHunters/EnhancedHunterWorld.cs",
+        "src/MphRead/Mods/EnhancedHunters/EnhancedHunters.cs",
+        "src/MphRead/Mods/GameSettings.cs",
+        "src/MphRead/Mods/Launcher/Gui/LobbyScreen.cs",
+        "src/MphRead/Mods/Launcher/Gui/Workspaces/OfflineWorkspace.cs",
+        "src/MphRead/Mods/ModEntry.cs",
+        "src/MphRead/Mods/Multiplayer/MatchModifierRules.cs",
+        "src/MphRead/Mods/Network/DedicatedServer.cs",
+        "src/MphRead/Mods/Network/GameModeCheck.cs",
+        "src/MphRead/Mods/Network/LobbyCommands.cs",
+        "src/MphRead/Mods/Network/LobbyRules.cs",
+        "src/MphRead/Mods/Network/LocalServer.cs",
+        "src/MphRead/Mods/Network/NetCombatCheck.cs",
+        "src/MphRead/Mods/Network/NetFireEvents.cs",
+        "src/MphRead/Mods/Network/NetHostSession.cs",
+        "src/MphRead/Mods/Network/NetSession.cs",
+        "src/MphRead/Mods/Network/NetSessionLobby.cs",
+        "src/MphRead/Mods/Network/PlayerReplicationBridge.cs",
+        "src/MphRead/Mods/Network/ReplayFormatV3.cs",
+        "src/MphRead/Mods/Network/ReplayLiveCaptureCheck.cs",
+        "src/MphRead/Mods/Network/ReplayMetadata.cs",
+        "src/MphRead/Mods/Network/ReplayReplicaCheckpoint.cs",
+        "src/MphRead/Mods/Network/ReplayReplicaState.cs",
+        "src/MphRead/Mods/Network/ServerSim.cs",
+        "src/MphRead/Mods/Network/SessionProtocol.cs",
+        "src/MphRead/Mods/SettingsMigration.cs",
+        "src/MphRead/Renderer.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        497,
+        499
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e"
+      ],
+      "measuredScope": "Retirement 81/archive46/live-Balanced20; pinned seven-Hunter baseline+candidate 1103;224 asset hashes/21 private files. Fixed layouts preserved; schema11 explicitly normalizes off.",
+      "reports": [
+        {
+          "path": "docs/architecture/bot-motor.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/29987bc32d97c5b29a3a3585a6de2de756824bfc/docs/architecture/bot-motor.md",
+          "sha256": "b6d61aae288ebcdf60babb5dbb74338aa6cb7f932850aa1898102668efe56118"
+        },
+        {
+          "path": "docs/architecture/game-mode-implementation-status.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/29987bc32d97c5b29a3a3585a6de2de756824bfc/docs/architecture/game-mode-implementation-status.md",
+          "sha256": "f9d4ae18ae132992d161ed7b44401625a0210ca5fada87c39a54703ac318da30"
+        },
+        {
+          "path": "docs/architecture/online-bots.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/29987bc32d97c5b29a3a3585a6de2de756824bfc/docs/architecture/online-bots.md",
+          "sha256": "f3ea055f7f22949893b884bc420a16d21c44b1a571add3279272feed74647a32"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/enhanced-retirement.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/29987bc32d97c5b29a3a3585a6de2de756824bfc/docs/audits/engineering-consolidation/enhanced-retirement.md",
+          "sha256": "297769f12d16d2b773b09d44d93237dd824574085d6d59cdcca265789fdb9527"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/enhanced-seven-hunter-evidence.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/29987bc32d97c5b29a3a3585a6de2de756824bfc/docs/audits/engineering-consolidation/enhanced-seven-hunter-evidence.json",
+          "sha256": "992bae3f30cbd79bc77e4f64dad8b9aac981401672868f6dd2fe6fc4225c9ff8"
+        },
+        {
+          "path": "docs/gameplay/enhanced-hunters.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/29987bc32d97c5b29a3a3585a6de2de756824bfc/docs/gameplay/enhanced-hunters.md",
+          "sha256": "e1264f83145498ad5d3fca830805cf94a6b6ccb5b8611208931e47f1b50d265e"
+        }
+      ],
+      "prBodySHA256": "d1ebcc37420a167e6b0aee628544f0524306a4eefc57e86d33940110ee636915",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 26
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/498/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert retirement family without altering archived layout/types; migrated settings stay off until explicitly changed in a restored build. Keep #497 leases on surviving archive callers.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 499,
+      "title": "Repair combat pose and Balanced synthetic-hit fixtures",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/499",
+      "headSHA": "81ef736f6f8c2c2b77bba72faaabbd6faefe0913",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-gameplay-fixtures",
+      "commitSHAs": [
+        "81ef736f6f8c2c2b77bba72faaabbd6faefe0913"
+      ],
+      "phase": "4,10",
+      "concern": "Fixture repair",
+      "sourceFiles": [
+        "src/MphRead/Mods/Network/AdvancedMatchRulesCheck.cs",
+        "src/MphRead/Mods/Network/NetCombatCheck.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        498,
+        497
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "164990e60244ecdb21fdcc4e98e91f3ea097090b",
+        "87617f47dd67d4cae77931c43f9dce6af87b3fd4"
+      ],
+      "measuredScope": "Baseline-reproduced fall pose and unstamped synthetic hit failures fixed only in tests; combat 204/Balanced347 pass on baseline/integrated libraries and earlier rebuilt bundle.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/gameplay-fixture-evidence.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/81ef736f6f8c2c2b77bba72faaabbd6faefe0913/docs/audits/engineering-consolidation/gameplay-fixture-evidence.json",
+          "sha256": "bc7aa84cf00b23a7073cbd4f27e128e14bcb15115aad90ca2bb9f6115862a094"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/gameplay-fixture-repair.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/81ef736f6f8c2c2b77bba72faaabbd6faefe0913/docs/audits/engineering-consolidation/gameplay-fixture-repair.md",
+          "sha256": "04f9369ae3a3d79cff1f95ac2a5f730362dfdaa827bba5cae87f33984564774a"
+        }
+      ],
+      "prBodySHA256": "9387fd287c938a032aea276d19b97855711ddb08ec847ac365f020d8ff9f1d69",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 27
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/499/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert only fixture changes if needed; preserves production combat. Original failed receipts remain immutable.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 500,
+      "title": "Remove unreachable legacy browser views and record UI routes",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/500",
+      "headSHA": "54dd962d5f9f547730f9317166640d3f59b709c1",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-ui-reality",
+      "commitSHAs": [
+        "8bb239e5226e730474f73230424f22f4bff9c8f7",
+        "54dd962d5f9f547730f9317166640d3f59b709c1"
+      ],
+      "phase": "2B,2C,8",
+      "concern": "UI reality/unreachable views",
+      "sourceFiles": [
+        "src/MphRead/Mods/Launcher/Gui/HubQuickPlayView.cs",
+        "src/MphRead/Mods/Launcher/Gui/HubServerBrowserView.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        498,
+        499
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "54dd962d5f9f547730f9317166640d3f59b709c1"
+      ],
+      "measuredScope": "Two unreachable views removed;15-surface matrix; UI165/gamepad1006/pointer1788/HUD100/settings26 and touch tapes pass. SignedAPK108816049B verifies; old linker failure preserved. Later native inventory finds both requiredKTXlibraries absent in this defaultAPK; compile/signaturePASS is not full release readiness.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/ui-reality-and-safe-cleanup.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/54dd962d5f9f547730f9317166640d3f59b709c1/docs/audits/engineering-consolidation/ui-reality-and-safe-cleanup.md",
+          "sha256": "6267581f1e92c2e816cbdbeff78fab83e500d2fa7ea8a11c0d78337beeb94ce1"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/ui-route-dependency-matrix.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/54dd962d5f9f547730f9317166640d3f59b709c1/docs/audits/engineering-consolidation/ui-route-dependency-matrix.json",
+          "sha256": "a010dccebca94c0ac825784065043e86555ed6188bedc874bfad634db0af7b9c"
+        }
+      ],
+      "prBodySHA256": "19ec5fb0567fd7f33bf267264e82154ec9584a3a3d162501a60f16fd2d8a7aa8",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 26
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/500/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Restore the two source files; no preferences or schemas change. Retain Avalonia/shared services until ready migration parity.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 501,
+      "title": "Use requested scene for encounter setup and navigation",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/501",
+      "headSHA": "ed6f2419dbb274762cfba80b538c18fe1a41f02f",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-scene-ownership",
+      "commitSHAs": [
+        "55c10aba7c90c6fd49e434a45f3deefc83ddd0a8",
+        "ed6f2419dbb274762cfba80b538c18fe1a41f02f"
+      ],
+      "phase": "4B",
+      "concern": "Requested-scene setup",
+      "sourceFiles": [
+        "src/MphRead/Entities/RoomEntity.cs",
+        "src/MphRead/SceneSetup.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        497,
+        499
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "ed6f2419dbb274762cfba80b538c18fe1a41f02f"
+      ],
+      "measuredScope": "Generated two-scene baseline 4 FAIL\u2192candidate 6 PASS; native biped51/replay-form43/replay 3034 and all-mode detached world hashes pass.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/scene-setup-ownership-validation.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/ed6f2419dbb274762cfba80b538c18fe1a41f02f/docs/audits/engineering-consolidation/scene-setup-ownership-validation.json",
+          "sha256": "c1aaba155f48b11eb0afe971788d319fe5983c08bde569583a9e4838fcae22bb"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/scene-setup-ownership.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/ed6f2419dbb274762cfba80b538c18fe1a41f02f/docs/audits/engineering-consolidation/scene-setup-ownership.md",
+          "sha256": "ce06efde7d648c198b5ced2e68a5b374bb0cd897a9ec33468f6d7f75d5315cd0"
+        }
+      ],
+      "prBodySHA256": "abbf2c4ab4d811e372d8e4a12987eaf81ceaf1b17d3f344191f052ea8cefa6c0",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 26
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/501/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert owner arguments and both callers together; preserve upstream #472 power-up hook during integration.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 502,
+      "title": "Characterize transport and server hot paths with delivery gates",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/502",
+      "headSHA": "c75daffd142767259ec5f31206aa43b6881c9b19",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-network-profile",
+      "commitSHAs": [
+        "c75daffd142767259ec5f31206aa43b6881c9b19"
+      ],
+      "phase": "5",
+      "concern": "Network/server profiling",
+      "sourceFiles": [],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        497,
+        499,
+        501
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "c75daffd142767259ec5f31206aa43b6881c9b19"
+      ],
+      "measuredScope": "Six2/4/8-peer actual-loopback cases pass delivery/queue drain;16 codec/queue cases; nine server-step trials preserve overruns. Existing direct decode0B; empty Drain240B is an unproven optimization hypothesis.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/network-hot-path-profile.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/c75daffd142767259ec5f31206aa43b6881c9b19/docs/audits/engineering-consolidation/network-hot-path-profile.md",
+          "sha256": "7139a08091cf84b04e6d6b09b4825116f5611e8644150c54844e427e7a79c779"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/network-profile/codec-queue-matrix.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/c75daffd142767259ec5f31206aa43b6881c9b19/docs/audits/engineering-consolidation/network-profile/codec-queue-matrix.json",
+          "sha256": "8941e94437e6b3afe924774f613a096f7fa4fc950e87b8264bd75ca677fac726"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/network-profile/direct-decode.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/c75daffd142767259ec5f31206aa43b6881c9b19/docs/audits/engineering-consolidation/network-profile/direct-decode.json",
+          "sha256": "23b9402fe72fc99f183ade40deb0d9dddc7cf91c72ed722bc49717a28042dd8e"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/network-profile/manifest.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/c75daffd142767259ec5f31206aa43b6881c9b19/docs/audits/engineering-consolidation/network-profile/manifest.json",
+          "sha256": "b3b6127db95c5647657f6e4932c32dd97d24b003909c28a1f6c4d00da7637fca"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/network-profile/server-nine-runs.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/c75daffd142767259ec5f31206aa43b6881c9b19/docs/audits/engineering-consolidation/network-profile/server-nine-runs.json",
+          "sha256": "025287c22dd29c41c6126d6480a70665e4d0723ce98bd58c2dadf2bc1effdf44"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/network-profile/transport-2-4-8-final.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/c75daffd142767259ec5f31206aa43b6881c9b19/docs/audits/engineering-consolidation/network-profile/transport-2-4-8-final.json",
+          "sha256": "2d0e8405d5e053410d7d33fdd36a017b21c132ed662453a7b53b9eec0588a7b7"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/network-profile/transport-final.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/c75daffd142767259ec5f31206aa43b6881c9b19/docs/audits/engineering-consolidation/network-profile/transport-final.json",
+          "sha256": "0ea2b897995c244a1f577cda74231e7ec4497b3bfe3045c2a0fe412f711de9bb"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/network-profile/upstream-pr-status.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/c75daffd142767259ec5f31206aa43b6881c9b19/docs/audits/engineering-consolidation/network-profile/upstream-pr-status.json",
+          "sha256": "54d5559e1afbbc2782f8319edb89f91c4f7df314518e67e1146550bc540016a3"
+        }
+      ],
+      "prBodySHA256": "58765a4b8aa3de84784841ba8b9e083e21cc0c3e9c89b993986df83003ed495f",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 25
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/502/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Remove helper/CI/docs only; production transport/authority policy unchanged.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 503,
+      "title": "Bound Replay Studio pending exports and serialize admission",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/503",
+      "headSHA": "46c4c0cb8bdc116ece6e7db7cfd3ca8f92c45af5",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-replay-export-queue",
+      "commitSHAs": [
+        "46c4c0cb8bdc116ece6e7db7cfd3ca8f92c45af5"
+      ],
+      "phase": "6",
+      "concern": "Export queue admission",
+      "sourceFiles": [
+        "src/MphRead/Mods/Launcher/Gui/ReplayControlsView.cs",
+        "src/MphRead/Mods/Replay/ReplayVideoExporter.cs",
+        "src/MphRead/Mods/Replay/ReplayWorkspace.cs",
+        "src/MphRead/MphRead.csproj"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        492,
+        494,
+        495,
+        501
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "46c4c0cb8bdc116ece6e7db7cfd3ca8f92c45af5"
+      ],
+      "measuredScope": "Original 6 PASS/8 FAIL\u219226 PASS/0 FAIL; stale Pump24 PASS/1 FAIL corrected;8 waiting exports plus separate active/start,256 concurrent admission tests.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/replay-export-queue.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/46c4c0cb8bdc116ece6e7db7cfd3ca8f92c45af5/docs/audits/engineering-consolidation/replay-export-queue.md",
+          "sha256": "4da420ab28d2e365599171b2a535b98434b51f3864db2dda3d71da5b3deec71e"
+        }
+      ],
+      "prBodySHA256": "5d2b4fdbc4df7a8dad4480ca6d24c50e4fe3c86c682628905b4e3e4fe0a5840c",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 27
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/503/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert queue and both producers together; pending state is memory-only. Never blindly delete caller-owned prepared destinations.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 504,
+      "title": "Fence Music loading and retire callback readers safely",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/504",
+      "headSHA": "0abff3ca30a463b9cce26f1f3f13f226bbc510d8",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-music-loader",
+      "commitSHAs": [
+        "6b8234de1d7fa88cb0c1643eb63e713b6def42cd",
+        "539fa839bbd07c1308fcd31c154cd9a531bf7507",
+        "88156dc12769eee91629798777094364da537edc",
+        "dbe029b558e42bfb45570ff11768e21a9cf9f0ee",
+        "6224c17a7ede5b6fdd719add3bee67f7d05324c4",
+        "1a124fbd4331219d99cd0d6c378dd644107a9ae8",
+        "5748bee75f934ccedf392582ed9d43a89f3629e6",
+        "0762e18b36d4c6bcdf8b11eb9d3a2966c9ebf2fc",
+        "0abff3ca30a463b9cce26f1f3f13f226bbc510d8"
+      ],
+      "phase": "1B",
+      "concern": "Music load/callback ownership",
+      "sourceFiles": [
+        "src/MphRead/MphRead.csproj",
+        "src/MphRead/Sound/Music.cs",
+        "src/MphRead/Sound/MusicLoadOwner.cs",
+        "src/MphRead/Sound/MusicPlaybackGraph.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        493,
+        495
+      ],
+      "measuredCodebases": [
+        "6224c17a7ede5b6fdd719add3bee67f7d05324c4",
+        "0762e18b36d4c6bcdf8b11eb9d3a2966c9ebf2fc"
+      ],
+      "measuredScope": "707 device-free assertions/10000 coalesced requests/120 cycles; two actual macOS120-cycle trials, final3539 assertions, per-cycle callback+NCSF consumption; owner/component/engine/output/worker drain.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/music-loader-lifecycle.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/0abff3ca30a463b9cce26f1f3f13f226bbc510d8/docs/audits/engineering-consolidation/music-loader-lifecycle.md",
+          "sha256": "1b7016a6d69f4597e1900525245bf384a79bf35ca0f80e244faf05dcfe37e7eb"
+        }
+      ],
+      "prBodySHA256": "9dcf23b5bd69e928ffc8829ce67425799f873e5bfd71dd543fd8c067840f494f",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 26
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/504/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert focused loader/graph/CI family; preserve #495 startup cleanup and shared output semantics. Restores publication/callback races, no saved-data migration.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 505,
+      "title": "Add context teardown, GL retirement and replay memory controls",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/505",
+      "headSHA": "80c3758cf1a422dbdadac85b66923b3a0126759c",
+      "codeBaseSHA": "328343fffdc47cad03e3fe70389ba462a9f4b6f3",
+      "baseBranch": "codex/consolidation-native-attribution",
+      "branch": "codex/native-context-controls",
+      "commitSHAs": [
+        "8d9f4c67edcef9c2ae0ca328e0e890eddebfd8af",
+        "871e14d181d6368b5a0b0314fb5e9afb24db133d",
+        "12de2149f67df76d4a0e868be484598445b26155",
+        "e69ab409db6d883a0ce6b052bac327e1d5d1dd13",
+        "8661ecfb75758ed6a054fda3ff95000dab0df5c2",
+        "f1d708db2f629bbcde0e5ccffde96de5d234e6d6",
+        "725ded775b81bf6f8e671d1c9aef75156b8c968a",
+        "776815373ec072fef2cae7993e9532c617f056f3",
+        "2cae62deab60ca225a3427b204e255a2ee55e750",
+        "98127c7f20753ee43f4f4a7789f1be82068b4773",
+        "10a5b2ba63fdf4b97be17b8976b95c97e1c91b0d",
+        "22764624b5e90d388d90d444155bce3ce65ec542",
+        "07572707662f84d47fb4b71a98c1725e899a874e",
+        "80c3758cf1a422dbdadac85b66923b3a0126759c"
+      ],
+      "phase": "1A,6",
+      "concern": "Context/LOH/replay controls",
+      "sourceFiles": [],
+      "directCodeDependencies": [
+        493
+      ],
+      "conceptualOrValidationDependencies": [
+        489
+      ],
+      "measuredCodebases": [
+        "749aa12dc89d41dc83823eafe0929c13b1ebfb99"
+      ],
+      "measuredScope": "Stacks on #493.600 loads:AGX direct-prefix167.783630\u2192423.113419\u2192422.972794 MiB after final context disposal. HighLOH 403048464B vs rooted 403047288B;397935048B pools. Replay 120 cycles/480 seeks weak-dead owners.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/native-context-controls-evidence.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/80c3758cf1a422dbdadac85b66923b3a0126759c/docs/audits/engineering-consolidation/native-context-controls-evidence.json",
+          "sha256": "e988dfe34b1312acc63ae18fd9125b3627401904827f49c450a132b7ee5318fa"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/native-context-controls.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/80c3758cf1a422dbdadac85b66923b3a0126759c/docs/audits/engineering-consolidation/native-context-controls.md",
+          "sha256": "098066ece1e283b9fdd59c028503b4a5b3e53407271b0af34c260460ce82ebe8"
+        }
+      ],
+      "prBodySHA256": "00296e9b05d02b31c3d383e47fe92c352360dcef3485a117f266d16dad25eacc",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_PENDING",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 21,
+          "IN_PROGRESS": 2,
+          "QUEUED": 2
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/505/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert only #505 additional commits before #493 if retiring tooling; production cache/GC and native resource policy unchanged.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 506,
+      "title": "Fix Android trimmer roots for nested Hunter License DTOs",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/506",
+      "headSHA": "8cf4c6eff2ea05eb72f732f941ddce62e10b2cfd",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/android-dto-trimmer-roots",
+      "commitSHAs": [
+        "8cf4c6eff2ea05eb72f732f941ddce62e10b2cfd"
+      ],
+      "phase": "8",
+      "concern": "Android DTO trimmer roots",
+      "sourceFiles": [
+        "src/MphRead.Android/Properties/TrimmerRoots.xml"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        512
+      ],
+      "measuredCodebases": [
+        "6224c17a7ede5b6fdd719add3bee67f7d05324c4"
+      ],
+      "measuredScope": "Seven IL2008 warnings\u21920 via nested-type / separators; seven DTO/16-property metadata+JSON checks. Old normal fullAPK already retained DTOs; no proven auth failure.",
+      "reports": [],
+      "prBodySHA256": "0fec833dcc6a4fafa2a6c057ce618254f871acd374e8ad3ba790990498266700",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 25
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/506/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Restore seven XML fullnames; no DTO JSON/schema or AOT startup migration.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 507,
+      "title": "Reject null Replay Studio sidecar records while preserving valid siblings",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/507",
+      "headSHA": "2fbce7961223f131c24112fc001f058ef247e5a0",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-replay-sidecar-validation",
+      "commitSHAs": [
+        "2fbce7961223f131c24112fc001f058ef247e5a0"
+      ],
+      "phase": "6,9",
+      "concern": "Null sidecar records",
+      "sourceFiles": [
+        "src/MphRead/Mods/Replay/ReplayAnnotations.cs",
+        "src/MphRead/Mods/Replay/ReplayWorkspace.cs",
+        "src/MphRead/MphRead.csproj"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "2fbce7961223f131c24112fc001f058ef247e5a0"
+      ],
+      "measuredScope": "Original 7 PASS/5 uncaught NRE\u219212 PASS/0 FAIL; valid siblings/IDs/order/recording bytes and sidecarv1 retained; replay 3034 pass.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/replay-sidecar-validation.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/2fbce7961223f131c24112fc001f058ef247e5a0/docs/audits/engineering-consolidation/replay-sidecar-validation.md",
+          "sha256": "8cab73a6cac247278c3f224ad4107b537ee6936da73d3cb562bee09be8f307b7"
+        }
+      ],
+      "prBodySHA256": "b9334180c28775d87244a17430f07c9562ffd096ae1afa40397b82dddf5990c2",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 27
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/507/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert three filters/tool/CI; no load-time rewrites or migration. Restores malformed-null crash.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 508,
+      "title": "Redact local server owner tokens from diagnostic argument headers",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/508",
+      "headSHA": "62ba4c76916b47aea5c88efa2039e39c093b1d90",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-diagnostic-token-redaction",
+      "commitSHAs": [
+        "62ba4c76916b47aea5c88efa2039e39c093b1d90"
+      ],
+      "phase": "9",
+      "concern": "Diagnostic token disclosure",
+      "sourceFiles": [
+        "src/MphRead/Mods/DebugLog.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "62ba4c76916b47aea5c88efa2039e39c093b1d90"
+      ],
+      "measuredScope": "Original 2 PASS/22 FAIL\u219224 PASS/0 FAIL; actual header disk/crash-ring sinks redact parser-equivalent synthetic owner tokens; argv/nonsensitive values unchanged.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/diagnostic-owner-token-redaction.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/62ba4c76916b47aea5c88efa2039e39c093b1d90/docs/audits/engineering-consolidation/diagnostic-owner-token-redaction.md",
+          "sha256": "8b11ef4b13d3806a926dc202c566e0d2111bad3aeaf479465cb356b88ef749fc"
+        }
+      ],
+      "prBodySHA256": "76dd062332178608071ca699111aa8242c29b3b97a19d4902cff26ffde64cf40",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 27
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/508/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert header formatting only if required; restores demonstrated disclosure. Keep #512 diagnostic identity edits intact.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 509,
+      "title": "Use supported Avalonia placeholders and PNG encoder options",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/509",
+      "headSHA": "3c5968a36650407dbd6e36dcaf4a8d0a3341020a",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-ui-apis",
+      "commitSHAs": [
+        "3c5968a36650407dbd6e36dcaf4a8d0a3341020a"
+      ],
+      "phase": "2C,8",
+      "concern": "Supported UI APIs",
+      "sourceFiles": [
+        "src/MphRead/Mods/Launcher/Gui/GamepadUiChecks.cs",
+        "src/MphRead/Mods/Launcher/Gui/HudStudio/HudStudioPreview.cs",
+        "src/MphRead/Mods/Launcher/Gui/MapStudioScreen.cs",
+        "src/MphRead/Mods/Launcher/Gui/PlayScreen.cs",
+        "src/MphRead/Mods/Launcher/Gui/PrimeUiChecks.cs",
+        "src/MphRead/Mods/Launcher/Gui/SettingsView.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        500
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "3c5968a36650407dbd6e36dcaf4a8d0a3341020a"
+      ],
+      "measuredScope": "Desktop 30\u219222 warnings (8CS0618 removed); exact92-byte old/newPNG and placeholder parity; gamepad1006/UI165/HUD100 pass.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/ui-api-evidence.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/3c5968a36650407dbd6e36dcaf4a8d0a3341020a/docs/audits/engineering-consolidation/ui-api-evidence.json",
+          "sha256": "6486e3e67c560ec3a3bb71ae83cdccc7505bfbf482c2bcbb8f73d8c47cb627ef"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/ui-api-modernization.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/3c5968a36650407dbd6e36dcaf4a8d0a3341020a/docs/audits/engineering-consolidation/ui-api-modernization.md",
+          "sha256": "eb33dd8b0bbbaa85d8412bb764993150bcc900069f3d4e3af0ffac283f4b9598"
+        }
+      ],
+      "prBodySHA256": "a76b5fc7540802ef5223466ba53ac8ff5f0fd1e9b18715858eb537a84630406e",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 27
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/509/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Restore ten calls; package/toolkit/preferences unchanged.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 510,
+      "title": "diagnostics(render): attribute executed submissions and owner wall scopes",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/510",
+      "headSHA": "28e2d24e9d000bba8da0d7e207f3d34ce909e4c5",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/render-draw-attribution",
+      "commitSHAs": [
+        "9faf609cd59be94f1cc0c863b7eb5a40ecbad8e2",
+        "2e416433dfafee8f060556810e0e548b29525857",
+        "aa5f6e8f388a9a0fe8007a48a92d88ab48c904aa",
+        "28e2d24e9d000bba8da0d7e207f3d34ce909e4c5"
+      ],
+      "phase": "3A",
+      "concern": "Executed submission attribution",
+      "sourceFiles": [
+        "src/MphRead/Mods/Render/OpenGlDrawAttribution.cs",
+        "src/MphRead/Mods/Render/OpenGlPassProfiler.cs",
+        "src/MphRead/Mods/Render/RetainedRenderGraphCheck.cs",
+        "src/MphRead/Renderer.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        492,
+        494,
+        495
+      ],
+      "measuredCodebases": [
+        "749aa12dc89d41dc83823eafe0929c13b1ebfb99"
+      ],
+      "measuredScope": "Five descriptive pilots; counts57/70.57/390.01/413.75/416.81. Six exact visual/depth pairs. Five-per-arm ambient controlsFPS301.43\u2192300.76, p99 6.550\u21926.623 ms; no speedup/bottleneck claim. Rejected default-off model VBO prototype:7380 world pixels/7369 HUD pixels/16366 depth values changed;904 names retired; fully reverted, no FPS trial.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/model-submit-negative-receipt.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/28e2d24e9d000bba8da0d7e207f3d34ce909e4c5/docs/audits/engineering-consolidation/model-submit-negative-receipt.json",
+          "sha256": "21e93471d09e266689551e2a5722076dda77f9f89c0f560fcfb55be5d53a7124"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/render-draw-attribution-overhead-receipt.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/28e2d24e9d000bba8da0d7e207f3d34ce909e4c5/docs/audits/engineering-consolidation/render-draw-attribution-overhead-receipt.json",
+          "sha256": "9fa98522641eaadb36f3b2e853b7ea895468b3ad3f6734dda6be85e6c3893783"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/render-draw-attribution-receipt.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/28e2d24e9d000bba8da0d7e207f3d34ce909e4c5/docs/audits/engineering-consolidation/render-draw-attribution-receipt.json",
+          "sha256": "f6ae204877f1beea7c68e092ec915ea54810acecbea5dc9314192c5863370b36"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/render-draw-attribution.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/28e2d24e9d000bba8da0d7e207f3d34ce909e4c5/docs/audits/engineering-consolidation/render-draw-attribution.md",
+          "sha256": "ad4ea0c2f3fc94b5b325a38e3bae21b9bfeabbfdc9eb3059fbde21d9a3164a72"
+        }
+      ],
+      "prBodySHA256": "87771c12edeb143b2f98b233b21c3010ebd7927b84e8f88739cd7218c6b73eac",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_PENDING",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 21,
+          "IN_PROGRESS": 1,
+          "QUEUED": 4
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/510/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert diagnostic counters/observers/analyzer; defaults and disabled-path semantics unchanged.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 511,
+      "title": "Drain discarded encoder capability stderr without output-sized allocation",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/511",
+      "headSHA": "5c0c84bbb2274e5db3adcda8b9fe7466b635dbc4",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-encoder-error-drain",
+      "commitSHAs": [
+        "5c0c84bbb2274e5db3adcda8b9fe7466b635dbc4"
+      ],
+      "phase": "6,9",
+      "concern": "Discarded encoder stderr",
+      "sourceFiles": [
+        "src/MphRead/Mods/Replay/ReplayEncoderCapabilities.cs",
+        "src/MphRead/Mods/Replay/ReplayEncoderErrorDrain.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        492,
+        494,
+        495,
+        501
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "5c0c84bbb2274e5db3adcda8b9fe7466b635dbc4"
+      ],
+      "measuredScope": "Generated16 MiB input allocated67283248B\u21924120B; original 3 PASS/1 FAIL\u21924 PASS/0 FAIL; EOF/Unicode/IOException/reader ownership retained.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/encoder-capability-stderr-drain.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/5c0c84bbb2274e5db3adcda8b9fe7466b635dbc4/docs/audits/engineering-consolidation/encoder-capability-stderr-drain.md",
+          "sha256": "6fa3f80b4e48e9e0c6362601c168331b2ab57fbd2b6fc0d2d470b1f383a8ab02"
+        }
+      ],
+      "prBodySHA256": "e10615af706b681e544f251c139eb024d4dc1fdc936757ecdc2bb39ac9d08037",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 27
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/511/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert one call/helper/CI; no persisted changes. Restores output-proportional discarded stderr allocation.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 512,
+      "title": "Bound network stack scratch and fix bundled image identity",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/512",
+      "headSHA": "aa966556e0eed73a434e5dd4faf40a57c7d69e0b",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-build-safeguards",
+      "commitSHAs": [
+        "aa966556e0eed73a434e5dd4faf40a57c7d69e0b"
+      ],
+      "phase": "5,8",
+      "concern": "Bounded stack scratch/image identity",
+      "sourceFiles": [
+        "src/MphRead.Android/MphRead.Android.csproj",
+        "src/MphRead/Entities/ArtifactEntity.cs",
+        "src/MphRead/Mods/Diagnostics/RuntimeApplicationImage.cs",
+        "src/MphRead/Mods/Network/NetBombVisibilityProbe.cs",
+        "src/MphRead/Mods/Network/NetCampaignEvidence.cs",
+        "src/MphRead/Mods/Network/NetMaster.cs",
+        "src/MphRead/Mods/Network/NetTransport.cs",
+        "src/MphRead/Mods/Render/RetainedRenderGraph.cs",
+        "src/MphRead/Mods/Settings/SettingsArchivePlatform.cs",
+        "src/MphRead/MphRead.csproj"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        501,
+        506,
+        509,
+        514
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "aa966556e0eed73a434e5dd4faf40a57c7d69e0b"
+      ],
+      "measuredScope": "Mainclient/server 30/22\u219222/11 warnings;12 actual image/restart checks; seven network modes pass. Final combined warning count not yet observed.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/build-safeguards-evidence.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/aa966556e0eed73a434e5dd4faf40a57c7d69e0b/docs/audits/engineering-consolidation/build-safeguards-evidence.json",
+          "sha256": "6f27c8c491f3929c408701aad95ef98f78e2dd05695f9fc5154923482a8ca09a"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/build-safeguards.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/aa966556e0eed73a434e5dd4faf40a57c7d69e0b/docs/audits/engineering-consolidation/build-safeguards.md",
+          "sha256": "1076b424a59781ffa4b82d01eaf530d37a09994be462b9f1bf870c283508db46"
+        }
+      ],
+      "prBodySHA256": "c5c2d8fe98f62241c87006fc669e700a5361a2e07728eb3a6cc6686ec38977bb",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_GREEN",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 27
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/512/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert spans/image/restart/diagnostic/warning guard slice; no migration. Preserve token redaction and upstream claim-history semantics.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 513,
+      "title": "diagnostics(render): characterize existing transition GC tradeoffs",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/513",
+      "headSHA": "fec7e8dc0771cf3ce28d1213dec31f204365f914",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/transition-gc-diagnostics-review",
+      "commitSHAs": [
+        "470c522b4d34539ef31a9e3e0ee6816c2014fe71",
+        "fec7e8dc0771cf3ce28d1213dec31f204365f914"
+      ],
+      "phase": "1B,3",
+      "concern": "GC tradeoff characterization",
+      "sourceFiles": [
+        "src/MphRead/Mods/Render/RetainedRenderGraphCheck.cs",
+        "src/MphRead/Mods/Render/TransitionGcDiagnostics.cs",
+        "src/MphRead/Renderer.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        492,
+        494,
+        495,
+        497
+      ],
+      "measuredCodebases": [
+        "749aa12dc89d41dc83823eafe0929c13b1ebfb99",
+        "299e3c250f508606ccf23d81ee1c5e81e29a7531"
+      ],
+      "measuredScope": "Twenty five-per-arm controls; keep301.94 FPS/6.438msp99; skip variants no credible frame benefit. Keep reduced managed212.7\u219296.0 MiB; skip-end retained213.2 MiB. Original rebind negative witness is confounded by pre-#497 pools. Separate299e3c25 runtime with497c605f755+actualnextfixedstep/query still retains old weak target in allfour arms; root/liveness UNKNOWN, no leak/chain/boundedness claim.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/transition-gc-collision-rebind-receipt.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/fec7e8dc0771cf3ce28d1213dec31f204365f914/docs/audits/engineering-consolidation/transition-gc-collision-rebind-receipt.json",
+          "sha256": "01b2de7654d44e02bb5f05508d86e4a5a81df1d7880b65209acd23a42bb15369"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/transition-gc-controls-rebind-receipt.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/fec7e8dc0771cf3ce28d1213dec31f204365f914/docs/audits/engineering-consolidation/transition-gc-controls-rebind-receipt.json",
+          "sha256": "38f13d5a7d7df4a63e9ce682dcf0302e4a0b8813d90afbb90cac52ddcf0c4211"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/transition-gc-controls-receipt.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/fec7e8dc0771cf3ce28d1213dec31f204365f914/docs/audits/engineering-consolidation/transition-gc-controls-receipt.json",
+          "sha256": "5fd231b2b55fc8c62839fb61bc718ee71b2ef11ae48b51a0edbbeadf21966fd5"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/transition-gc-controls.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/fec7e8dc0771cf3ce28d1213dec31f204365f914/docs/audits/engineering-consolidation/transition-gc-controls.md",
+          "sha256": "3a0aabefbf8d27c3aa6ae63ea4e4103e0000d64349e2c841e3f28ce303f4219e"
+        }
+      ],
+      "prBodySHA256": "de698a2430dbc7295577bd28b2c8e357d162dab040fd9619861d1c17228107d8",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_PENDING",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 23,
+          "QUEUED": 3
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/513/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert observer/harness controls only; normal production still executes both original collections. Do not unbind foreground facades before post-EndScene saves.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 514,
+      "title": "Remove the disabled post-match Hunter picker",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/514",
+      "headSHA": "7b6b7b0d3d2e13294f16e41e1b65bb3c644aff2a",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-results-picker",
+      "commitSHAs": [
+        "7b6b7b0d3d2e13294f16e41e1b65bb3c644aff2a"
+      ],
+      "phase": "2C,8",
+      "concern": "Disabled results picker",
+      "sourceFiles": [
+        "src/MphRead/Mods/EndScreen.cs",
+        "src/MphRead/Mods/Launcher/Gui/EndPanelView.cs",
+        "src/MphRead/Mods/Launcher/Gui/UiCapture.cs"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        498,
+        500,
+        509
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "7b6b7b0d3d2e13294f16e41e1b65bb3c644aff2a"
+      ],
+      "measuredScope": "ElevenCS0162 removed:desktop 30\u219219; baseline/candidate 11 assertions each; gamepad1006/UI165. Two exact PNGs; offline8145 pixels/max3 differ only in unchanged randomized gradient interiors; outside0; negative probe rejected.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/results-picker-cleanup.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/7b6b7b0d3d2e13294f16e41e1b65bb3c644aff2a/docs/audits/engineering-consolidation/results-picker-cleanup.md",
+          "sha256": "9787df1b9f9ad1c180187486a5e6a61d8d34fefa6d63cd2794a8ed6a085d0ffb"
+        },
+        {
+          "path": "docs/audits/engineering-consolidation/results-picker-evidence.json",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/7b6b7b0d3d2e13294f16e41e1b65bb3c644aff2a/docs/audits/engineering-consolidation/results-picker-evidence.json",
+          "sha256": "8142512130606656c96c6b1e4faa7b3490fd3566efe2a18171a0c92aa9261039"
+        }
+      ],
+      "prBodySHA256": "908606c0227e1a14c053e75117493233965cbdec7194f6f73d69d03945397522",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_PENDING",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 25,
+          "QUEUED": 1,
+          "IN_PROGRESS": 1
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/514/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Restore three results files; preferences/RespawnChoice/archive contracts remain. Diagnostic alias was already a no-op.",
+      "proposedUnmerged": true
+    },
+    {
+      "pr": 515,
+      "title": "Coalesce Replay Studio library scans and bound workspace file exports",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/515",
+      "headSHA": "18692b938e5e869b20afddff4878a366027d8db6",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "baseBranch": "main",
+      "branch": "codex/consolidation-theatre-storage-producers",
+      "commitSHAs": [
+        "18692b938e5e869b20afddff4878a366027d8db6"
+      ],
+      "phase": "6,9",
+      "concern": "Theatre library/file-export producers",
+      "sourceFiles": [
+        "src/MphRead/Mods/Launcher/Gui/Workspaces/TheatreWorkspace.cs",
+        "src/MphRead/MphRead.csproj"
+      ],
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        503,
+        507,
+        500,
+        509
+      ],
+      "measuredCodebases": [
+        "91b1c0c6c44e8c90effd250729709f791a84765e",
+        "18692b938e5e869b20afddff4878a366027d8db6",
+        "edcf0f1bc6be7cfb0734c42ebaa41ce8b8724ef2"
+      ],
+      "measuredScope": "Baseline 1 PASS/6 FAIL\u2192candidate 7 PASS/0 FAIL;128 queuedscan/copy\u21921, disposedscan\u21920; latestselection/exactcopy/failure/retry/acceptedcompletionpreserved; wholeworkspaceGC INCONCLUSIVE.",
+      "reports": [
+        {
+          "path": "docs/audits/engineering-consolidation/theatre-storage-producers.md",
+          "url": "https://github.com/AntiNotAnti/Project-Prime/blob/18692b938e5e869b20afddff4878a366027d8db6/docs/audits/engineering-consolidation/theatre-storage-producers.md",
+          "sha256": "6ad83ac5d667de75a3c7675da8a88fdc152f10883a5b256061e8ec8976627942"
+        }
+      ],
+      "prBodySHA256": "2dff721d20e99cec0db60d97f7165e4d8c42aacaf84c6ce899f0007055a71b12",
+      "hostedCI": {
+        "status": "PUBLICATION_SNAPSHOT_PENDING",
+        "asOfUTC": "2026-10-13T09:06:37Z",
+        "counts": {
+          "SUCCESS": 23,
+          "QUEUED": 3,
+          "IN_PROGRESS": 1
+        },
+        "checksURL": "https://github.com/AntiNotAnti/Project-Prime/pull/515/checks",
+        "note": "Publication snapshot, not final live status; use stable checks link. Later reporting documentation changes only its PR publication head."
+      },
+      "rollback": "Revert producer/tool/CI family; no files/schema migration; accepted destinations stay caller-owned.",
+      "proposedUnmerged": true
+    }
+  ],
+  "localCandidates": [
+    {
+      "name": "Theatre library/file-export producer ownership",
+      "headSHA": "18692b938e5e869b20afddff4878a366027d8db6",
+      "codeBaseSHA": "91b1c0c6c44e8c90effd250729709f791a84765e",
+      "branch": "codex/consolidation-theatre-storage-producers",
+      "pr": 515,
+      "prStatus": "PUBLISHED_DRAFT_UNMERGED_ROOT_SUPPLIED",
+      "phase": "6,9",
+      "directCodeDependencies": [],
+      "conceptualOrValidationDependencies": [
+        489,
+        503,
+        507,
+        500,
+        509
+      ],
+      "baseline": "1 PASS / 6 FAIL;128 scans,128 copies;dispose leaves128queued",
+      "candidate": "7 PASS / 0 FAIL;128\u21921 queuedscan/copy,disposedscan\u21920;latestselection/exactcopy/failure-retry/sentinel/acceptedcompletionpreserved",
+      "limitations": [
+        "full workspace WeakReference death INCONCLUSIVE: unused immediately disposed never-attached control also retained",
+        "no actualnative/media/Androidstoragepicker",
+        "globalReplayStorageJobs callers andconstructorstoragepolicy notcertified"
+      ],
+      "rollback": "Revert producer/tool/CI family; no files/schema migration; accepted destination remains caller-owned.",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/515"
+    }
+  ],
+  "phases": [
+    {
+      "phase": "0",
+      "name": "Baseline, inventory and quality gates",
+      "disposition": "IMPLEMENTED_SCOPED",
+      "prNumbers": [
+        488,
+        489,
+        512
+      ],
+      "completedScopedEvidence": [
+        "Source protocol 53/replayv1\u2013v5/.NET10.0.401 and runtime10.0.12 pinned; architecture/owners/platforms ranked; mergedAI481\u2013485, GL486, AOT/CI487 accounted.",
+        "SDK/platform/workload manifests and separate dependency/warning/artifact inventory present."
+      ],
+      "remainingGates": [
+        "Full representative workload/physical matrix remains incomplete.",
+        "Final aggregate/individual publication-head CI receipts pending at publication snapshot; branch-protection settings require separate authorization."
+      ],
+      "fullPhaseAcceptance": false
+    },
+    {
+      "phase": "1",
+      "name": "Native memory and lifecycle",
+      "disposition": "OPEN_P0",
+      "prNumbers": [
+        492,
+        493,
+        494,
+        495,
+        504,
+        505,
+        513
+      ],
+      "completedScopedEvidence": [
+        "Proven shader/SFX/startup/Music publication and callback lifetime fixes implemented; native macOS Music120 gate now passes.",
+        "HighLOH actual roots nearly account captured heap; graphics driver allocations survive owner and actual context release.",
+        "Measured GC skip controls do not justify production policy change."
+      ],
+      "remainingGates": [
+        "Driver repeated-load boundedness remains unestablished; post-collision actual next-step weak-scene root/liveness remains UNKNOWN.",
+        "Physical audible/device-loss/Android EGL and wider shared-output paths remain NOT_RUN.",
+        "Permanently blocked decoder/read can retain one bounded worker; no unsafe forced disposal."
+      ],
+      "fullPhaseAcceptance": false
+    },
+    {
+      "phase": "2",
+      "name": "Obsolete systems and UI reality",
+      "disposition": "IMPLEMENTED_SCOPED_WITH_UPSTREAM_GATE",
+      "prNumbers": [
+        491,
+        498,
+        499,
+        500,
+        509,
+        514
+      ],
+      "completedScopedEvidence": [
+        "Live Enhanced eligibility/UI/CLI retired; narrow archival validation plus fixed canonical fields/types/layouts retained; settings11 explicitly off; Balanced/EnhancedDirectHit preserved.",
+        "Seven-Hunter synthetic reader/native-form/seek identity matrix1103 passes on immutable baseline and candidate.",
+        "Avalonia remains active; two unreferenced views and disabled post-match picker removed safely."
+      ],
+      "remainingGates": [
+        "Actual recorded human Enhanced ability/GL/HUD/audio replay coverage NOT_RUN; complete compatibility type deletion requires a separate versioned migration.",
+        "RmlUi424 open/conflicting/failing readiness snapshot; no selected complete tested replacement.",
+        "Physical route/focus/input/dialog/IME/accessibility/localization and UI lifecycle acceptance incomplete."
+      ],
+      "fullPhaseAcceptance": false
+    },
+    {
+      "phase": "3",
+      "name": "OpenGL/GLES efficiency",
+      "disposition": "MEASURED_NO_NEW_OPTIMIZATION",
+      "prNumbers": [
+        510,
+        513
+      ],
+      "completedScopedEvidence": [
+        "Executed draw ownership/CPU inclusive wall bins and six exact color/depth/shadow/outline visual pairs.",
+        "Existing25 policies retained; DEPTH_VERTEX/PROCEDURAL_STREAM stay opt-in; no graphics/GC default change.",
+        "Five-per-arm ambient disabled-seam and GC controls recorded with untouched user game/host limitations.",
+        "Read-only shader reuse eligibility: existing owner reuse retained; cross-scene cache deferred for missing context/share-group/uniform/concurrency proof, no per-frame compile equivalent to redo."
+      ],
+      "remainingGates": [
+        "Descriptive owner scopes include driver waits and do not justify batching or classifyGPU bottleneck; GPU timersUNVERIFIED.",
+        "Original and post-collision next-step negative rebind witnesses preserved; root/liveness UNKNOWN. Model VBO prototype failed exact parity and was fully reverted; no FPS trial.",
+        "Quiet hardware/platform timing and full visual matrix remain incomplete; no FPS improvement claim."
+      ],
+      "fullPhaseAcceptance": false
+    },
+    {
+      "phase": "4",
+      "name": "Collision and scene ownership",
+      "disposition": "IMPLEMENTED_SCOPED",
+      "prNumbers": [
+        497,
+        499,
+        501
+      ],
+      "completedScopedEvidence": [
+        "Nested/reentrant query leases clear scene references and bound reuse while preserving618 exact golden rows.",
+        "8192 corrected reuse budget;8193 completes and discards rather than truncating valid maps.",
+        "Requested-scene setup fixes proven foreground/private ownership error; test-only combat/Balanced fixtures repaired without product semantics.",
+        "Final edcf0f1 combined17gameplay/networkchecksPASS, immutablefixturesunchanged; physical scope remains open."
+      ],
+      "remainingGates": [
+        "Reviewed integration and final CI receipts; preserve retirement leases.",
+        "Above-budget queries may allocate; one-scene concurrent mutation unsupported.",
+        "Broad scene/player API decomposition and physical movement/render/gameplay parity remain separately gated."
+      ],
+      "fullPhaseAcceptance": false
+    },
+    {
+      "phase": "5",
+      "name": "Network/server ownership and performance",
+      "disposition": "PROFILED_NO_BROAD_REWRITE",
+      "prNumbers": [
+        502,
+        512
+      ],
+      "completedScopedEvidence": [
+        "Existing direct zero-allocation live decode, buffer ownership, queue coalescing, authoritative combat and child-process isolation preserved.",
+        "Six2/4/8-peer real-loopback delivery/drain/400 ms-stall cases and16 codec/queue scenarios pass; seven warning-fix regressions pass.",
+        "Stack scratch reuse fixedCA2014 without altering packet bytes."
+      ],
+      "remainingGates": [
+        "Nine server trials retain16.67 ms overruns; busy-host profiling is not complete deadline/FPS acceptance.",
+        "Full application-level impairment/JIP/reconnect/rotation and physicalWAN matrix NOT_RUN; pickup claim workload was0.",
+        "472\u2013474 remain dependent upstream branches; retain authority hooks and claim/history before any broader seams.",
+        "Empty Drain240B allocation is a future hypothesis; no enumerator rewrite justified."
+      ],
+      "fullPhaseAcceptance": false
+    },
+    {
+      "phase": "6",
+      "name": "Replay, Studio, editor and storage",
+      "disposition": "IMPLEMENTED_SCOPED",
+      "prNumbers": [
+        498,
+        501,
+        503,
+        505,
+        507,
+        511,
+        515
+      ],
+      "completedScopedEvidence": [
+        "Pending video exports bounded to8+separateactive; ownership concurrency/FIFO/retry/cancel26 checks.",
+        "Null sidecars preserve valid siblings/IDs/order,12 checks; discarded stderr constant4120B vs67283248B on16 MiB generated stream.",
+        "Headless replay 120 cycles/480 seeks has repeated hashes and weak-dead120 players/360 scenes/readers/sessions.",
+        "Theatre18692 coalesces128 callbacks to1waiter, cancelsqueuedscan to0;7 candidate checks pass."
+      ],
+      "remainingGates": [
+        "Rendered/actualencoder audio-video export, HD/arm-cannon/custom-model, camera/kill timing and long-session UI/editor memory remain NOT_RUN.",
+        "Theatre whole-workspace WeakReference control remains inconclusive; globalstorage/thumbnailproducers notcertified.",
+        "Encoder stdout/progress/inheritedpipes/kill-wait ownership and map playtest/CSG/import profiling remain separate.",
+        "No measured basis to split Studio runtime; preserve existing checkpoint generators/caches."
+      ],
+      "fullPhaseAcceptance": false
+    },
+    {
+      "phase": "7",
+      "name": "AI, HUD and input hot paths",
+      "disposition": "EVIDENCE_DEFERRED_UNSUPPORTED_REWRITES",
+      "prNumbers": [
+        496,
+        500,
+        509,
+        514
+      ],
+      "completedScopedEvidence": [
+        "Navigation array stack promotion/0B measured on actualARM64FullOpts;1/4/8-bot two-map fixture0stepfailures.",
+        "Respawn list rare/event-driven; HUD LINQ award-event-only; no gameplay/difficulty rewrite supported.",
+        "BotAi85/clientAI102, device-freepointer1788/gamepad1006/UI165, pacing and touch tapes pass in scoped sources."
+      ],
+      "remainingGates": [
+        "Other-runtime/AndroidAOT/other-map fullAIcost and allocation evidence remains absent.",
+        "Physical controller/haptics/touch/latency/battery/thermal/rendered behavior NOT_RUN.",
+        "Androidsleep/spin and60Hz gameplay unchanged; do not add busy-loop policy without device evidence."
+      ],
+      "fullPhaseAcceptance": false
+    },
+    {
+      "phase": "8",
+      "name": "Build, warnings, package and CI",
+      "disposition": "IMPLEMENTED_SCOPED_FINAL_CI_PENDING",
+      "prNumbers": [
+        491,
+        500,
+        506,
+        509,
+        512,
+        514
+      ],
+      "completedScopedEvidence": [
+        "Final edcf0f1 desktop/server each3 existingCS8602warnings/0errors vsmain30/22;13projects+serverbuildPASS.",
+        "Seven descriptorIL2008 roots fixed withmetadata/JSONproof; normalAPKalready retained DTOs.",
+        "500 actual signedAPK108816049B with117AOTassemblies/apksigner verification; SDK17verified.",
+        "Android1127compileitems/1097shared, no duplicateidentities; serverartifactAvaloniaabsent but1580488Bloose natives remain reachable by compiled tools."
+      ],
+      "remainingGates": [
+        "Final aggregate and individual current-head hosted CI; staged APK/native inventory passed, physical/signing/device launch acceptance remains NOT_RUN.",
+        "Physical package/page-size/startup/updater/signedreplacement matrix NOT_RUN locally.",
+        "No package-size gain, native pruning or broadshared-assembly/workflowrewrite justified; preserveallplatform/signing/licenses/retail-data guards."
+      ],
+      "fullPhaseAcceptance": false
+    },
+    {
+      "phase": "9",
+      "name": "Robustness/security ingress",
+      "disposition": "IMPLEMENTED_SCOPED",
+      "prNumbers": [
+        490,
+        503,
+        507,
+        508,
+        511,
+        515
+      ],
+      "completedScopedEvidence": [
+        "Cancelled/rejected updater cleanup76 checks; nullsidecar12; owner-token header/redaction24; encoderdrain4; queue26; Theatre7.",
+        "Reused existing wire/map/archive parsing limits and trusted hash/atomic publication semantics; no arbitrary new valid-content caps."
+      ],
+      "remainingGates": [
+        "No broad securitycertification; UDP/map/replay/archive malformed-size/decompression/privacy matrix remains incomplete.",
+        "Large-entrytimed cancellation and genuinepublished archivephysicalupgrade/relaunch NOT_RUN.",
+        "WholeJSON/download/expansion budgets require compatibility data; otherlog/native-stderr/crashdump secrets notcertified."
+      ],
+      "fullPhaseAcceptance": false
+    },
+    {
+      "phase": "10",
+      "name": "Final integration, documentation and release readiness",
+      "disposition": "PENDING_FINAL_REVIEW_NOT_ACCEPTED",
+      "prNumbers": [
+        488,
+        489,
+        490,
+        491,
+        492,
+        493,
+        494,
+        495,
+        496,
+        497,
+        498,
+        499,
+        500,
+        501,
+        502,
+        503,
+        504,
+        505,
+        506,
+        507,
+        508,
+        509,
+        510,
+        511,
+        512,
+        513,
+        514,
+        515
+      ],
+      "completedScopedEvidence": [
+        "Earlier sourcebundle87617f47passes12 checks and scopedABBA/visual evidence ispreserved.",
+        "Current focused proposals and rollback/dependency graph documented; no merges/settingsmutations.",
+        "Final edcf0f1:17gameplay/network+9tools+8render/UI+6guards/Python+2harnessselftestsPASS; no physical/nativeMusic rerun inferred."
+      ],
+      "remainingGates": [
+        "Final aggregate and individual current-head hosted CI; frozen local-core review complete. Future CI receipts remain separate from immutable local manifest.",
+        "OpenP0driver repeated-load boundedness and physical/fullmedia/gameplay/platform gates prevent fullacceptance."
+      ],
+      "fullPhaseAcceptance": false
+    }
+  ],
+  "physicalAndExtendedGates": [
+    "driverallocationorigin/plateauwithlongerloadsandcontextrecreation",
+    "physicalWindows/Linux/Androidaudio/deviceloss/EGL",
+    "recordedhumansevenHunterEnhancedGL/HUD/audioabilityreplay",
+    "physicalmouse/controller/haptics/touch/dialog/IME/accessibility/localization",
+    "actualencoder/exportvideoaudioframes/HDarms/custommodels/camera/cancel/inheritedpipes",
+    "fullapplication-levelnetworkJIP/reconnect/rotation/claimimpairment",
+    "physicalupdaterinstall/relaunch/publishedarchives/largeentrytimedcancel",
+    "fullplatformpackages/signing/launch/page-size/retaildata-licenseguards"
+  ],
+  "rendererNegativeEvidence": {
+    "submissionPrototype": {
+      "publicationHead": "28e2d24e9d000bba8da0d7e207f3d34ce909e4c5",
+      "privateValidationSource": "15baee219a995dda9d88600f26bb482f4961afb8",
+      "prototypeCommit": "d90c5488a325b353ae365071907d84325d23ab19",
+      "revertCommit": "d050f9b1e9f4ace63e48e09514f85a7de07ac154",
+      "worldChangedPixels": 7380,
+      "worldMaxChannelDelta": 185,
+      "hudChangedPixels": 7369,
+      "depthChangedValues": 16366,
+      "depthMaxAbsoluteDelta": 0.083406,
+      "retiredBufferNames": 904,
+      "fpsBenchmark": "NOT_RUN",
+      "productionPrototypeRetained": false
+    },
+    "collisionRebindConfirmation": {
+      "publicationHead": "fec7e8dc0771cf3ce28d1213dec31f204365f914",
+      "measuredPrivateSource": "299e3c250f508606ccf23d81ee1c5e81e29a7531",
+      "collisionCommit": "c605f755c30ade462d331d3ba13d87d38db0c8db",
+      "arms": 4,
+      "nextFixedStepAndDisposedQuery": true,
+      "oldWeakSceneAliveAllArms": true,
+      "rootOrLiveness": "UNKNOWN",
+      "leakOrChainOrBoundednessClaim": false
+    }
+  },
+  "publicationCiSnapshot": {
+    "asOfUTC": "2026-10-13T09:06:37Z",
+    "prRange": [
+      488,
+      515
+    ],
+    "greenPRs": 23,
+    "pendingPRs": 5,
+    "failedPRs": 0,
+    "pendingNumbers": [
+      505,
+      510,
+      513,
+      514,
+      515
+    ],
+    "rawPath": "/Users/jarrett/.codex/worktrees/engineering-baseline/Prime Hunters Online/artifacts/continuation-ci-20261013/ci-20261013T090637Z.json",
+    "rawSHA256": "2f79f501c00dac0bec284e4dd2ed15868b3d5c1ccc353a5f0d319360801298e0",
+    "aggregateBuild": {
+      "run": 38372420976,
+      "sourceSHA": "edcf0f1bc6be7cfb0734c42ebaa41ce8b8724ef2",
+      "status": "PENDING_AT_SNAPSHOT",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38372420976",
+      "successfulJobs": 19,
+      "totalJobs": 25,
+      "inProgressJobs": 1,
+      "queuedJobs": 5,
+      "note": "Android in progress; five Mac jobs queued; no failed jobs at snapshot."
+    },
+    "aggregatePush": {
+      "run": 38372423024,
+      "sourceSHA": "edcf0f1bc6be7cfb0734c42ebaa41ce8b8724ef2",
+      "status": "SUCCESS",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38372423024"
+    },
+    "notFinalAllGreenAcceptance": true
+  },
+  "publicationSnapshotPreparedAtUTC": "2026-10-13T09:10:40.029727+00:00",
+  "eligibleWorkDisposition": "Scoped fixes implemented; unsupported optimization/migration candidates explicitly deferred by evidence. Full acceptance false.",
+  "shaderReuseNegativeDisposition": {
+    "status": "DEFERRED_UNSUPPORTED_OWNER_PROOF",
+    "existingReuse": [
+      "Scene optional variants",
+      "shared RTT vertex shader",
+      "persistent pipeline/outline/editor/sideview owners"
+    ],
+    "perFrameCompileEquivalentToRedoObserved": false,
+    "crossSceneCacheNotImplemented": true,
+    "missingProof": [
+      "context/share-group lease and final lease disposal",
+      "complete sampler/fog/cosmetic/camera/palette uniform isolation and invalidation",
+      "concurrent foreground/editor/side/failure ownership",
+      "full shader source and driver pipeline-key identity"
+    ],
+    "observedSourceLedgerLimit": "Nine distinct canonical/world hashes excludes pipeline/outline/UI and driver keys; equality is not pooling safety.",
+    "nextGates": [
+      "cross-role exact color/depth parity",
+      "compile/link/later-failure rollback and final lease/context recreation",
+      "increasing-load native allocation-group plateau with mechanism-aware accounting",
+      "transition residency/responsiveness and frame tails"
+    ]
+  }
+}
