@@ -25,6 +25,7 @@ settings.ClientSize = new Vector2i(32, 32); settings.StartVisible = false; setti
 using var window = new NativeWindow(settings);
 window.Context.MakeCurrent();
 GL.LoadBindings(new GLFWBindingsContext());
+Console.WriteLine($"RENDERRESOURCES mvid={typeof(Scene).Module.ModuleVersionId} vendor={GL.GetString(StringName.Vendor)} renderer={GL.GetString(StringName.Renderer)} gl={GL.GetString(StringName.Version)}");
 for (int cycle = 0; cycle < 3; cycle++)
 {
     var scene = new Scene(new Vector2i(32, 32), SyntheticInput.CreateKeyboard(),
@@ -72,6 +73,10 @@ for (int cycle = 0; cycle < 3; cycle++)
         Check(GL.GetError() == ErrorCode.NoError, $"{quality} shadow lifecycle has no GL errors");
     }
 }
+int shaderCycles = Array.IndexOf(args, "-shadercycles") is int cyclesArg && cyclesArg >= 0
+    ? int.Parse(args[cyclesArg + 1]) : 120;
+if (shaderCycles < 1 || shaderCycles > 200) throw new ArgumentOutOfRangeException(nameof(shaderCycles));
+failures += ShaderOwnershipCheck.Run(shaderCycles);
 Console.WriteLine($"RENDERRESOURCES failures={failures}");
 return failures == 0 ? 0 : 1;
 
