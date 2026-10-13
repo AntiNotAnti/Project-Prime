@@ -55,6 +55,10 @@ internal static class ReplayProbe
                             object effect = Reflection.Enum("TimedPowerUp", new[] { "DoubleDamage", "Cloak", "DeathAlt" }[type]);
                             object view = Reflection.Call(presentation, "View", life, effect, recordingFrame)!;
                             bool activeActor = actor.Health > 0 && Reflection.Bool(actor, "ModIsInPlay");
+                            // Historical/partially covered replicas deliberately
+                            // preserve native timers until this exact life/type
+                            // has A3 coverage. Absence of a fact is not a grant.
+                            if (activeActor && !Reflection.Bool(view, "Covered")) continue;
                             int expected = activeActor ? Reflection.Int(view, "Remaining") : 0;
                             int actual = Convert.ToInt32(Reflection.Call(actor, "ModTimedVisualRemaining", effect));
                             if (actual != expected)
