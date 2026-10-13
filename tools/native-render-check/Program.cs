@@ -17,6 +17,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 
 if (args.Contains("-resource-retention-selftest")) return AudioRetentionProbe.SelfTest();
+if (args.Contains("-resource-context-selftest")) return ContextControl.SelfTest();
 if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsWindows())
     throw new PlatformNotSupportedException("This QA campaign permits only macOS and Windows.");
 // The client may start a preview worker when an end panel opens. This entry
@@ -70,6 +71,18 @@ if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") == "a
 MphRead.Mods.MapGen.CustomRooms.GenerateMissing(room);
 if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") is "map-gl" or "studio")
     ResourceAttribution.DisableMusic();
+CheckWindow CreateWindow(string[] options)
+{
+    var value = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"));
+    try
+    {
+        value.ConfigureResourceStress(options);
+        value.ConfigureDiagnosticOptions(options);
+        return value;
+    }
+    catch { value.Dispose(); throw; }
+}
+if (args.Contains("-resource-context-cycles")) return ContextControl.Run(args, output, CreateWindow);
 using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"));
 window.ConfigureResourceStress(args);
 window.ConfigureDiagnosticOptions(args);
@@ -506,6 +519,7 @@ sealed partial class CheckWindow : RenderWindow
     internal object CleanupAndInspect()
     {
         var scene = Scene;
+        var ledger = GlRetirementLedger.Capture(scene);
         int Field(string name) => (int)(typeof(Scene).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(scene) ?? 0);
         int shadowFbo = Field("_shadowFramebuffer"), shadowTexture = Field("_shadowDepthTexture");
         Type retained = typeof(Scene).Assembly.GetType("MphRead.Mods.Render.DesktopRetainedGeometry")!;
@@ -533,6 +547,7 @@ sealed partial class CheckWindow : RenderWindow
         int[] programsBefore=programFields.Select(Field).Where(id=>id!=0).ToArray();
         int ownedTexturesBefore=OwnedTextureCount(),framebufferBefore=Field("_frameBuffer");
         EndScene();
+        object detailedRetirement = ledger.Verify(scene);
         int ownedTexturesAfter=OwnedTextureCount(),framebufferAfter=Field("_frameBuffer");
         int ownedProgramsAfter=programFields.Select(Field).Count(id=>id!=0);
         int pendingDeletedProgramCountAfter=0;
@@ -561,7 +576,7 @@ sealed partial class CheckWindow : RenderWindow
         long depthSnapshotBytesAfter = DepthSnapshotBytes();
         if (depthSnapshotBytesAfter != 0 || proceduralBytesAfter != 0 || spriteCountAfter != 0 || spriteBytesAfter != 0 || glyphCountAfter != 0 || glyphBytesAfter != 0 || !shadowReleased || retainedAfter is int count && count != 0 || combinedAfter != 0 || GL.GetError() != ErrorCode.NoError)
             throw new InvalidOperationException("Scene unload retained live GL resources or an error.");
-        return new { ownedTexturesBefore,ownedTexturesAfter,framebufferBefore,framebufferAfter,programCountBefore=programsBefore.Length,programOwnerFieldsReleased,ownedProgramsAfter,recognizedProgramNamesAfter,pendingDeletedProgramCountAfter,currentProgramAfter,depthSnapshotBytesBefore, depthSnapshotBytesAfter, proceduralBytesBefore, proceduralBytesAfter, shadowReleased, retainedListsBefore = retainedBefore, retainedListsAfter = retainedAfter,
+        return new { detailedRetirement, ownedTexturesBefore,ownedTexturesAfter,framebufferBefore,framebufferAfter,programCountBefore=programsBefore.Length,programOwnerFieldsReleased,ownedProgramsAfter,recognizedProgramNamesAfter,pendingDeletedProgramCountAfter,currentProgramAfter,depthSnapshotBytesBefore, depthSnapshotBytesAfter, proceduralBytesBefore, proceduralBytesAfter, shadowReleased, retainedListsBefore = retainedBefore, retainedListsAfter = retainedAfter,
             combinedBytesBefore = combinedBefore, combinedBytesAfter = combinedAfter,
             retainedBytesBefore, retainedBytesAfter, shadowColorBytesBefore,
             glyphCountBefore, glyphBytesBefore, glyphCountAfter, glyphBytesAfter,

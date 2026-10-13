@@ -22,6 +22,7 @@ sealed partial class CheckWindow
 {
     internal bool ResourceStressEnabled { get; private set; }
     private string _resourceArm="combined";
+    private ShaderSourceLedger? _resourceShaderSources;
     private int _quiescentSamples=6, _quiescentIntervalMs=1000;
     private int _resourceCycles = 4, _resourceFrames = 120, _resourceCycle;
     private bool _resourceCandidate, _resourceHit, _resourceDrain;
@@ -72,11 +73,12 @@ sealed partial class CheckWindow
             throw new ArgumentException("Resource stress is separate from capture, window-cycle and performance modes.");
         if (_resourceArm != "studio" && _failureStages.Contains("shadow-after-framebuffer") && _shadows==ShadowQuality.Off)
             throw new ArgumentException("Shadow allocation injection requires enabled -shadows.");
-
+        if (args.Contains("-resource-shader-source-ledger")) _resourceShaderSources = new ShaderSourceLedger();
     }
     internal void ClearResourceFailureCallback()
     {
         if (ResourceStressEnabled) FailureCallback.SetValue(null,null);
+        _resourceShaderSources?.Dispose();
     }
     private void StartResourceScene()
     {
@@ -265,6 +267,7 @@ sealed partial class CheckWindow
         Scene editor=(Scene)create.Invoke(null,new object[]{new Vector2i(320,180)})!;
         var draw=typeof(Scene).GetMethod("DrawEditorFrame")!;
         byte[]? first=null;
+        GlRetirementLedger? retirement=null;
         try
         {
             for(int reload=0;reload<3;reload++)
@@ -290,8 +293,10 @@ sealed partial class CheckWindow
                 ScreenCapture.Save(editor,Path.Combine(_resourceEvidence,$"studio-{_resourceCycle}-blank.png"));
                 throw new InvalidOperationException($"Studio reload did not rebuild visible geometry: rebuilds={cache.GeometryRebuildCount}, meshes={cache.Meshes.Count}, uploads={uploads}, spatialVariation={spatialVariation}, covered={depth.Count(d=>d<1)}.");
             }
+            retirement=GlRetirementLedger.Capture(editor);
         }
         finally { editor.UnloadGl(); }
+        object detailedRetirement=retirement!.Verify(editor);
         int meshes=(int)typeof(Scene).GetProperty("EditorMeshCount")!.GetValue(editor)!;
         int textures=((HashSet<int>)typeof(Scene).GetField("_ownedTextures",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(editor)!).Count;
         int framebuffer=(int)typeof(Scene).GetField("_frameBuffer",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(editor)!;
@@ -299,7 +304,7 @@ sealed partial class CheckWindow
         long retained=Convert.ToInt64(typeof(Scene).Assembly.GetType("MphRead.Mods.Render.DesktopRetainedGeometry")!
             .GetProperty("ResidentBytes",BindingFlags.NonPublic|BindingFlags.Static)!.GetValue(null));
         if(meshes!=0 || textures!=0 || framebuffer!=0 || program!=0 || retained!=0 || GL.GetError()!=ErrorCode.NoError) throw new InvalidOperationException("Studio unload retained meshes or GL errors.");
-        _studioRecords.Add(new { cycle=_resourceCycle,geometryRebuilds=cache.GeometryRebuildCount,meshCountAfter=meshes,textureCountAfter=textures,framebufferAfter=framebuffer,programAfter=program,retainedBytesAfter=retained,pixelsSha256=Convert.ToHexString(SHA256.HashData(first!)),memory=ResourceAttribution.MemorySample(),audio=ResourceAttribution.AudioOwnedSample() });
+        _studioRecords.Add(new { cycle=_resourceCycle,geometryRebuilds=cache.GeometryRebuildCount,meshCountAfter=meshes,textureCountAfter=textures,framebufferAfter=framebuffer,programAfter=program,retainedBytesAfter=retained,detailedRetirement,pixelsSha256=Convert.ToHexString(SHA256.HashData(first!)),memory=ResourceAttribution.MemorySample(),audio=ResourceAttribution.AudioOwnedSample() });
     }
     internal object ResourceStressResult() => new { schema=2,kind="same-context-resource-stress",arm=_resourceArm,manifest=ResourceAttribution.Manifest(),
         workload=new { fixedRng=new[]{12345,98765},players=_resourceArm=="studio"?0:_resourcePlayers,bots=false,simulationHz=60,studioRebuildsPerCycle=_resourceArm=="map-gl"?0:3,readback=true,audioEnabled=_resourceArm=="combined",
@@ -308,5 +313,6 @@ sealed partial class CheckWindow
         cyclesRequested=_resourceCycles,cyclesCompleted=_resourceCycle,simulationFramesPerArm=_resourceArm=="studio"?0:_resourceFrames,rooms=_resourceArm=="studio"?Array.Empty<string>():_resourceRooms,failureStages=_resourceArm=="studio"?Array.Empty<string>():_failureStages,resourceDrainRequested=_resourceDrain,audioShutdown=AudioShutdownSummary(true),drainSamples=_resourceDrainSamples,drainError=_resourceDrainError,
         contextCount=1,windowEvents=_windowEvents,ownedResourcesAfterEveryUnloadZero=Complete,records=_resourceRecords,studioReloads=_studioRecords,privateMemoryAvailable=_resourcePrivateBytes.Any(v=>v>0),privateBytesFirst=_resourcePrivateBytes.FirstOrDefault()>0?(long?)_resourcePrivateBytes.FirstOrDefault():null,
         privateBytesLast=_resourcePrivateBytes.LastOrDefault()>0?(long?)_resourcePrivateBytes.LastOrDefault():null,complete=Complete,
+        shaderSourceLedger=_resourceShaderSources?.Result(),
         limitations="Readback/GC/reloads are lifecycle evidence, never FPS evidence. Live managed bytes differ from GC committed/fragmented bytes and RSS. Memory is informational, not driver residency. Optional audio wait/full GC/finalizers/GL.Finish is diagnostic-only, never FPS evidence. Studio tests renderer/cache reload, not full editor UI." };
 }
