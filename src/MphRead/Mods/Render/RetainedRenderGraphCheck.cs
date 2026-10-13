@@ -9,7 +9,12 @@ namespace MphRead.Mods.Render
     {
         internal static int Run()
         {
-            int failures = 0;
+            int failures = DynamicGeometryStreamCheck.Run() + OpenGlModernizationCheck.Run()
+                + HudGlyphTextureCacheCheck.Run() + ProceduralFrameGeometryCheck.Run() + DepthReplayPolicyCheck.Run()
+                + DisplayListAttributeEffects.Check() + WorldShaderVariantCheck.Run();
+            failures += RetainedRoomBatchPlan.CheckMembershipPolicy() + ShadowCasterPreparationCacheCheck.Run()
+                + ShadowCasterSpatialGroups.Check()
+                + OpenGlFailureInjectionCheck.Run() + RetainedMaterialIdentity.Check() + MeshObjectStateReuse.Check();
             void Check(bool condition, string name)
             {
                 if (condition) Console.WriteLine("[rendergraphcheck] PASS: " + name);
@@ -21,6 +26,9 @@ namespace MphRead.Mods.Render
             }
 
 #if !ANDROID
+            failures += DesktopRetainedGeometry.CheckNegativeBatchPolicy() + DesktopRetainedGeometry.CheckDrawTokenPolicy() + DesktopRetainedGeometry.CheckTrailingAttributePolicy();
+            Check(DesktopRetainedGeometry.CheckAtlasEvictionPolicy() == 0,
+                "atlas eviction preserves current-scope groups and the resident budget");
             Check(DesktopRetainedGeometry.CanUseClientArrays(12, 0, 0, 0)
                 && DesktopRetainedGeometry.CanUseClientArrays(12, 12, 12, 12)
                 && !DesktopRetainedGeometry.CanUseClientArrays(12, 6, 12, 12)
@@ -140,6 +148,20 @@ namespace MphRead.Mods.Render
                 && OpenGlSubmissionProfiler.PercentileIndex(100, 99) == 98
                 && OpenGlSubmissionProfiler.PercentileIndex(1, 99) == 0,
                 "bounded GL CPU percentile sampling uses nearest rank");
+            Check(RetainedOpaqueBatchPolicy.CanBatchPass(WorldRenderPassKind.Opaque, false)
+                && RetainedOpaqueBatchPolicy.CanBatchPass(WorldRenderPassKind.RebuildDepth, true)
+                && !RetainedOpaqueBatchPolicy.CanBatchPass(WorldRenderPassKind.RebuildDepth, false),
+                "depth batching has an independent ordered-draw fallback");
+            Check(!RetainedOpaqueBatchPolicy.CanBatchPass(WorldRenderPassKind.Decal, true)
+                && !RetainedOpaqueBatchPolicy.CanBatchPass(WorldRenderPassKind.MarkTranslucent, true)
+                && !RetainedOpaqueBatchPolicy.CanBatchPass(WorldRenderPassKind.TranslucentBehind, true)
+                && !RetainedOpaqueBatchPolicy.CanBatchPass(WorldRenderPassKind.TranslucentFront, true),
+                "depth batching cannot merge decal or translucent stencil passes");
+            Check(OpenGlOptimizationPolicy.DefaultEnabled("DEPTH_BATCH")
+                && !OpenGlOptimizationPolicy.Select(true, false, "0", validatedDefault: true)
+                && !OpenGlOptimizationPolicy.Select(true, true, "1", validatedDefault: true),
+                "depth batching defaults on with explicit disable and forced legacy precedence");
+
             Check(WorldRenderGraph.CanReuseOpaqueDepth(0, 0)
                 && !WorldRenderGraph.CanReuseOpaqueDepth(1, 0)
                 && !WorldRenderGraph.CanReuseOpaqueDepth(0, 1)
@@ -344,6 +366,255 @@ namespace MphRead.Mods.Render
                 && advanced.At(2).Id == 12
                 && advanced.At(3).Id == 13,
                 "retained texture set preserves companion map units");
+
+            if (OpenGlOptimizationPolicy.Enabled("STATIC_CACHE"))
+            {
+                var cachedWorld = new RetainedRenderWorld();
+                var current = new List<RenderItem>();
+                for (int i = 0; i < 8; i++) current.Add(new RenderItem
+                {
+                    Type = RenderItemType.Mesh, ListId = 100 + i, HasTexture = true,
+                    TextureBindingId = 20 + (i % 3), RetainedRoomOwned = true,
+                    Alpha = 1, Diffuse = Vector3.One
+                });
+                cachedWorld.Capture(current, Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+                int sortRuns = cachedWorld.OpaqueSortRunCount;
+                int reordered = cachedWorld.OpaqueReorderedPacketCount;
+                // Replace all item identities and transforms while retaining exactly
+                // the keys/flags on which ordering depends.
+                for (int i = 0; i < 8; i++) current[i] = new RenderItem
+                {
+                    Type = RenderItemType.Mesh, ListId = 200 + i, HasTexture = true,
+                    TextureBindingId = 20 + (i % 3), RetainedRoomOwned = true,
+                    Alpha = 1, Diffuse = Vector3.One, Transform = Matrix4.CreateTranslation(i, 2, 3)
+                };
+                cachedWorld.Capture(current, Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+                bool fresh = cachedWorld.OpaqueSortOrderReused;
+                foreach (RetainedDrawPacket packet in cachedWorld.Opaque)
+                    fresh &= ReferenceEquals(packet.Item, current[packet.Sequence])
+                        && packet.Item.Transform == current[packet.Sequence].Transform;
+                Check(fresh && cachedWorld.OpaqueSortRunCount == sortRuns
+                    && cachedWorld.OpaqueReorderedPacketCount == reordered,
+                    "cached opaque permutation uses current-frame items/poses and preserves diagnostics");
+                current[0].TextureBindingId++;
+                cachedWorld.Capture(current, Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+                Check(!cachedWorld.OpaqueSortOrderReused, "changed state key invalidates opaque permutation");
+                current[4].RetainedRoomOwned = false;
+                cachedWorld.Capture(current, Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+                Check(!cachedWorld.OpaqueSortOrderReused && ReferenceEquals(cachedWorld.Opaque[4].Item, current[4]),
+                    "new sorting barrier invalidates opaque permutation without crossing barrier");
+                current.Add(new RenderItem { Type = RenderItemType.Mesh, Alpha = 1 });
+                cachedWorld.Capture(current, Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+                Check(!cachedWorld.OpaqueSortOrderReused, "packet count change invalidates opaque permutation");
+                cachedWorld.Clear();
+                cachedWorld.Capture(current, Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+                Check(!cachedWorld.OpaqueSortOrderReused, "scene clear drops sort proof and permutation");
+            }
+
+            var descriptorWorld = new RetainedRenderWorld(roomCacheEnabled: true);
+            var roomItem = new RenderItem { Type = RenderItemType.Mesh, ListId = 501,
+                RetainedRoomOwned = true, Alpha = 1, Diffuse = Vector3.One };
+            RenderItem[] currentRoom = { roomItem };
+            void CaptureDescriptorWorld() => descriptorWorld.Capture(currentRoom,
+                Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+            CaptureDescriptorWorld();
+            RetainedMeshDescriptor firstDescriptor = descriptorWorld.Opaque[0].Mesh;
+            Check(descriptorWorld.MeshDescriptorLookups == 1 && descriptorWorld.RoomDescriptorCacheHits == 0,
+                "room descriptor first capture interns exact geometry key");
+            CaptureDescriptorWorld();
+            Check(ReferenceEquals(firstDescriptor, descriptorWorld.Opaque[0].Mesh)
+                && descriptorWorld.RoomDescriptorCacheHits == 1 && descriptorWorld.MeshDescriptorLookups == 0,
+                "unchanged room descriptor avoids the interning dictionary");
+            Action[] keyChanges = {
+                () => roomItem.ListId++,
+                () => roomItem.CullingMode = CullingMode.Front,
+                () => roomItem.BillboardMode = BillboardMode.Cylinder,
+                () => roomItem.Type = RenderItemType.Quad,
+                () => roomItem.ViewModel = true,
+                () => roomItem.Wireframe = true
+            };
+            string[] keyNames = { "list ID", "culling", "billboard", "type", "viewmodel", "wireframe" };
+            for (int i = 0; i < keyChanges.Length; i++)
+            {
+                RetainedMeshDescriptor before = descriptorWorld.Opaque[0].Mesh;
+                keyChanges[i](); CaptureDescriptorWorld();
+                Check(!ReferenceEquals(before, descriptorWorld.Opaque[0].Mesh)
+                    && descriptorWorld.Opaque[0].Mesh.Key == RetainedMeshDescriptor.KeyOf(roomItem)
+                    && descriptorWorld.MeshDescriptorLookups == 1 && descriptorWorld.RoomDescriptorCacheHits == 0,
+                    "room descriptor key change invalidates " + keyNames[i]);
+            }
+            RetainedMeshDescriptor stableMesh = descriptorWorld.Opaque[0].Mesh;
+            descriptorWorld.Capture(Array.Empty<RenderItem>(), Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+            Check(descriptorWorld.PacketCount == 0, "descriptor cache never resurrects invisible room packets");
+            roomItem.Transform = Matrix4.CreateTranslation(3, 4, 5);
+            roomItem.TexcoordMatrix = Matrix4.CreateScale(2, 3, 1);
+            roomItem.Alpha = .35f; roomItem.Diffuse = new Vector3(.2f, .3f, .4f);
+            roomItem.MatrixStackCount = 1; roomItem.MatrixStack[0] = .75f;
+            CaptureDescriptorWorld();
+            Check(ReferenceEquals(stableMesh, descriptorWorld.Opaque[0].Mesh)
+                && ReferenceEquals(roomItem, descriptorWorld.Opaque[0].Item)
+                && descriptorWorld.Opaque[0].Material.Alpha == .35f
+                && descriptorWorld.Opaque[0].Material.Diffuse == roomItem.Diffuse
+                && descriptorWorld.Opaque[0].Material.TexcoordMatrix == roomItem.TexcoordMatrix
+                && descriptorWorld.Opaque[0].Item.Transform == roomItem.Transform
+                && descriptorWorld.Opaque[0].Item.MatrixStack[0] == .75f,
+                "descriptor reuse retains fresh visibility, material, UV and pose data");
+            object? firstOwner = roomItem.CachedMeshOwner;
+            var otherWorld = new RetainedRenderWorld(roomCacheEnabled: true);
+            otherWorld.Capture(currentRoom, Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+            Check(!ReferenceEquals(stableMesh, otherWorld.Opaque[0].Mesh)
+                && !ReferenceEquals(firstOwner, roomItem.CachedMeshOwner)
+                && roomItem.CachedMeshOwner?.GetType() == typeof(object),
+                "owner-isolated descriptor token cannot retain another scene/world");
+            CaptureDescriptorWorld();
+            Check(ReferenceEquals(stableMesh, descriptorWorld.Opaque[0].Mesh)
+                && descriptorWorld.MeshDescriptorLookups == 1,
+                "returning to original owner revalidates through its own interning table");
+            descriptorWorld.Clear();
+            Check(descriptorWorld.PacketCount == 0 && descriptorWorld.MeshDescriptorCount == 0,
+                "world clear releases descriptor dictionary and packet references");
+            CaptureDescriptorWorld();
+            Check(!ReferenceEquals(stableMesh, descriptorWorld.Opaque[0].Mesh)
+                && descriptorWorld.MeshDescriptorLookups == 1 && descriptorWorld.RoomDescriptorCacheHits == 0,
+                "clear invalidates invisible item cache tokens before reuse");
+            var fallbackWorld = new RetainedRenderWorld(roomCacheEnabled: false);
+            fallbackWorld.Capture(currentRoom, Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+            fallbackWorld.Capture(currentRoom, Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+            Check(fallbackWorld.RoomDescriptorCacheHits == 0 && fallbackWorld.MeshDescriptorLookups == 1
+                && roomItem.CachedMeshOwner == null && roomItem.CachedMeshDescriptor == null,
+                "disabled room cache uses ordinary interning without retaining owner stamps");
+            roomItem.RetainedRoomOwned = false;
+            CaptureDescriptorWorld(); CaptureDescriptorWorld();
+            Check(descriptorWorld.RoomDescriptorCacheHits == 0 && descriptorWorld.MeshDescriptorLookups == 1,
+                "dynamic/procedural ownership never uses retained room descriptor cache");
+
+            var planItemA = new RenderItem { Type = RenderItemType.Mesh, ListId = 701,
+                RetainedRoomOwned = true, Alpha = 1, Diffuse = Vector3.One, Transform = Matrix4.Identity,
+                MatrixStackCount = 1 };
+            var planItemB = new RenderItem { Type = RenderItemType.Mesh, ListId = 702,
+                RetainedRoomOwned = true, Alpha = 1, Diffuse = Vector3.One, Transform = Matrix4.Identity,
+                MatrixStackCount = 1 };
+            planItemA.MatrixStack[0] = planItemB.MatrixStack[0] = 1;
+            var planPackets = new RetainedDrawPacket[2];
+            void RefreshPlanPackets()
+            {
+                planPackets[0] = new RetainedDrawPacket(planItemA, 0,
+                    new RetainedMeshDescriptor(RetainedMeshDescriptor.KeyOf(planItemA)));
+                planPackets[1] = new RetainedDrawPacket(planItemB, 1,
+                    new RetainedMeshDescriptor(RetainedMeshDescriptor.KeyOf(planItemB)));
+            }
+            RetainedDrawBatch PlanBatch(int count = 2) => new(0, count, planPackets[0].BatchState);
+            RefreshPlanPackets();
+            var roomPlan = new RetainedRoomBatchPlan();
+            ulong planRevision = 1;
+            Check(roomPlan.Prepare(planRevision, planPackets, PlanBatch())
+                && roomPlan.Count == 2 && roomPlan.Ids[0] == 701 && roomPlan.Ids[1] == 702,
+                "room batch plan captures exact current opaque membership");
+            int[] firstIds = roomPlan.Ids; ulong firstHash = roomPlan.Hash;
+            Check(roomPlan.Prepare(planRevision, planPackets, PlanBatch())
+                && ReferenceEquals(firstIds, roomPlan.Ids) && roomPlan.Hash == firstHash,
+                "opaque and depth replay share one execution proof and ID array");
+            planItemB.Transform = Matrix4.CreateTranslation(1, 0, 0);
+            RefreshPlanPackets();
+            Check(!roomPlan.Prepare(++planRevision, planPackets, PlanBatch())
+                && roomPlan.Count == 0 && !roomPlan.Mergeable,
+                "new execution rejects changed current transform");
+            Check(!roomPlan.Prepare(planRevision, planPackets, PlanBatch()),
+                "failed merge proof is reused safely for depth replay");
+            planItemB.Transform = Matrix4.Identity;
+            RefreshPlanPackets();
+            Check(roomPlan.Prepare(++planRevision, planPackets, PlanBatch())
+                && ReferenceEquals(firstIds, roomPlan.Ids), "restored transform renews proof without reallocating IDs");
+            planItemB.LightInfo = new LightInfo(Vector3.UnitX, Vector3.One, Vector3.UnitY, Vector3.One);
+            RefreshPlanPackets();
+            Check(!roomPlan.Prepare(++planRevision, planPackets, PlanBatch()),
+                "current light vectors and colors participate in renewed proof");
+            planItemB.LightInfo = planItemA.LightInfo;
+            planItemB.MatrixStack[0] = 2;
+            RefreshPlanPackets();
+            Check(!roomPlan.Prepare(++planRevision, planPackets, PlanBatch()),
+                "unknown-version palette contents are compared exactly");
+            planItemB.MatrixStack[0] = planItemA.MatrixStack[0];
+            planItemB.MatrixStackCount = 2;
+            RefreshPlanPackets();
+            Check(!roomPlan.Prepare(++planRevision, planPackets, PlanBatch()),
+                "current palette length invalidates plan even with matching first matrix");
+            planItemB.MatrixStackCount = 1;
+            planItemB.ListId = 703;
+            RefreshPlanPackets();
+            Check(roomPlan.Prepare(++planRevision, planPackets, PlanBatch())
+                && roomPlan.Ids[1] == 703 && roomPlan.Hash != firstHash,
+                "changed membership updates ID sequence and hash on next execution");
+            ulong changedHash = roomPlan.Hash;
+            (planPackets[0], planPackets[1]) = (planPackets[1], planPackets[0]);
+            Check(roomPlan.Prepare(++planRevision, planPackets, PlanBatch())
+                && roomPlan.Ids[0] == 703 && roomPlan.Ids[1] == 701 && roomPlan.Hash != changedHash,
+                "ordered ID hash never treats reversed draw membership as same sequence");
+            RefreshPlanPackets();
+            planItemB.OverrideColor = Vector4.One;
+            RefreshPlanPackets();
+            Check(!roomPlan.Prepare(++planRevision, planPackets, PlanBatch()),
+                "presentation override is a hard indexed batch proof barrier");
+            planItemB.OverrideColor = null; planItemB.RenderMode = RenderMode.Translucent;
+            RefreshPlanPackets();
+            Check(!roomPlan.Prepare(++planRevision, planPackets, PlanBatch()),
+                "translucent material cannot enter opaque cached batch plan");
+            planItemB.RenderMode = RenderMode.Normal;
+            RefreshPlanPackets();
+            Check(!roomPlan.Prepare(++planRevision, planPackets, PlanBatch(1)),
+                "one-item run uses ordinary draw path");
+            Check(!roomPlan.Prepare(++planRevision, planPackets, PlanBatch(RetainedRoomBatchPlan.MaxIds + 1)),
+                "oversize plan falls back before copying or retaining unbounded IDs");
+            var maxPackets = new RetainedDrawPacket[RetainedRoomBatchPlan.MaxIds];
+            for (int i = 0; i < maxPackets.Length; i++) maxPackets[i] = planPackets[i % 2];
+            var boundedPlan = new RetainedRoomBatchPlan();
+            Check(boundedPlan.Prepare(1, maxPackets, PlanBatch(maxPackets.Length))
+                && boundedPlan.Ids.Length == RetainedRoomBatchPlan.MaxIds,
+                "maximum bounded plan preserves every packet ID");
+            Check(roomPlan.Prepare(++planRevision, planPackets, PlanBatch()),
+                "plan remains reusable after failure and size fallback");
+            long planAllocated = GC.GetAllocatedBytesForCurrentThread();
+            bool allPlanProofs = true;
+            RetainedDrawBatch warmedPlanBatch = PlanBatch();
+            for (int i = 0; i < 100; i++)
+            {
+                allPlanProofs &= roomPlan.Prepare(++planRevision, planPackets, warmedPlanBatch);
+                allPlanProofs &= roomPlan.Prepare(planRevision, planPackets, warmedPlanBatch);
+            }
+            Check(allPlanProofs && GC.GetAllocatedBytesForCurrentThread() == planAllocated,
+                "warmed proof renewal and replay reuse allocate no managed storage");
+
+            RetainedDrawPacket GroupPacket(int id, bool room = true, float x = 0)
+            {
+                var item = new RenderItem { Type = RenderItemType.Mesh, ListId = id, RetainedRoomOwned = room,
+                    Alpha = 1f, PolygonMode = PolygonMode.Modulate, RenderMode = RenderMode.Normal,
+                    Transform = Matrix4.CreateTranslation(x, 0, 0) };
+                return new(item, id, new RetainedMeshDescriptor(RetainedMeshDescriptor.KeyOf(item)));
+            }
+            var subsetPackets = new[] { GroupPacket(1), GroupPacket(2), GroupPacket(3, x: 1),
+                GroupPacket(4, room: false), GroupPacket(5), GroupPacket(6) };
+            var subsetBatches = new List<RetainedDrawBatch>();
+            RetainedRenderWorld.BuildAdjacentBatches(subsetPackets, subsetBatches, roomGroups: true);
+            Check(subsetBatches.Count == 4 && subsetBatches[0].Count == 2 && subsetBatches[1].Count == 1
+                && subsetBatches[2].Count == 1 && subsetBatches[3].Count == 2,
+                "room groups retain compatible subsets across pose and dynamic barriers");
+            int cursor = 0; bool ordered = true;
+            foreach (var group in subsetBatches) { ordered &= group.Start == cursor; cursor += group.Count; }
+            Check(ordered && cursor == subsetPackets.Length, "room partition emits each original packet once in order including singletons");
+            subsetBatches.Clear();
+            RetainedRenderWorld.BuildAdjacentBatches(subsetPackets, subsetBatches, roomGroups: false);
+            Check(subsetBatches.Count == 1 && subsetBatches[0].Count == subsetPackets.Length,
+                "disabled or nonopaque partition retains ordinary adjacent material grouping");
+            var groupBoundPackets = new RetainedDrawPacket[RetainedRoomBatchPlan.MaxIds + 2];
+            for (int i = 0; i < groupBoundPackets.Length; i++) groupBoundPackets[i] = GroupPacket(i + 1);
+            subsetBatches.Clear(); RetainedRenderWorld.BuildAdjacentBatches(groupBoundPackets, subsetBatches, roomGroups: true);
+            Check(subsetBatches.Count == 2 && subsetBatches[0].Count == RetainedRoomBatchPlan.MaxIds
+                && subsetBatches[1].Count == 2 && subsetBatches[1].Start == RetainedRoomBatchPlan.MaxIds,
+                "room group size cap preserves the ordered remainder");
+            var translucentBarrier = GroupPacket(2); translucentBarrier.Item.Alpha = .5f;
+            translucentBarrier = new(translucentBarrier.Item, 2, translucentBarrier.Mesh);
+            subsetBatches.Clear(); RetainedRenderWorld.BuildAdjacentBatches(new[] { GroupPacket(1), translucentBarrier, GroupPacket(3) }, subsetBatches, roomGroups: true);
+            Check(subsetBatches.Count == 3, "translucent material cannot join opaque room groups");
 
             Console.WriteLine(failures == 0
                 ? "[rendergraphcheck] PASS"

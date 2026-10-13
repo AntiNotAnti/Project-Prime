@@ -231,6 +231,8 @@ namespace MphRead.Entities
             return true;
         }
 
+        private static readonly bool ShadowGroupsEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("SHADOW_GROUPS");
+
         private void CollectModelShadowCasters(ModelInstance instance,
             Vector3 offset, Matrix4 connectorTransform,
             Matrix4 lightViewProjection, bool cull, List<RenderItem> output)
@@ -239,8 +241,21 @@ namespace MphRead.Entities
             LightInfo lightInfo = GetLightInfo();
             int matrixStackCount = model.NodeMatrixIds.Count;
             IReadOnlyList<float> matrixStack = model.MatrixStackValues;
+            Mods.Render.ShadowCasterSpatialGroups? groups = cull && ShadowGroupsEnabled
+                ? Mods.Render.ShadowCasterSpatialGroups.For(model) : null;
             for (int i = 0; i < model.Nodes.Count; i++)
             {
+                if (groups != null && i % Mods.Render.ShadowCasterSpatialGroups.NodesPerGroup == 0)
+                {
+                    Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.ShadowClusterTests);
+                    if (!Mods.Render.ShadowCasterSpatialGroups.Visible(
+                        groups.Groups[i / Mods.Render.ShadowCasterSpatialGroups.NodesPerGroup], lightViewProjection))
+                    {
+                        Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.ShadowClusterRejects);
+                        i += Math.Min(Mods.Render.ShadowCasterSpatialGroups.NodesPerGroup, model.Nodes.Count - i) - 1;
+                        continue;
+                    }
+                }
                 Node node = model.Nodes[i];
                 if (!node.Enabled || node.MeshCount <= 0)
                     continue;

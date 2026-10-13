@@ -41,6 +41,16 @@ namespace MphRead
 
     public class RenderItem
     {
+        // The owner token has no reference to a scene/world; cached items cannot retain a prior scene.
+        internal object? CachedMeshOwner;
+        internal Mods.Render.RetainedMeshDescriptor? CachedMeshDescriptor;
+        internal bool HasCachedBatchState;
+        internal Mods.Render.RetainedBatchState CachedBatchState;
+        internal ulong CachedStateKey;
+        internal Mods.Render.RetainedMaterialIdentity? CachedMaterialIdentity;
+        internal object? MatrixPaletteSource;
+        internal long MatrixPaletteVersion;
+        internal float MatrixPaletteScale;
         public Mods.Cosmetics.Skins.RenderMaterialOverride CosmeticMaterial { get; set; }
         public Mods.Cosmetics.CosmeticSurface Cosmetics { get; set; }
         public RenderItemType Type { get; set; }

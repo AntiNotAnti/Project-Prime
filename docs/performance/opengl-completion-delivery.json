@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "createdUtc": "2026-10-13T02:19:05.653844+00:00",
+  "version": "0.1.50",
+  "informationalVersion": "0.1.50.opengl-completion.20261012",
+  "runtime": "osx-arm64",
+  "selfContained": true,
+  "singleFile": true,
+  "signing": "local ad-hoc",
+  "archive": "/Users/jarrett/Documents/Development/Prime Hunters Online/dist/opengl-completion-20261012/ProjectPrime-v0.1.50-osx-arm64.tar.gz",
+  "archiveBytes": 72581732,
+  "archiveSha256": "1560ec547c1d825f7a55eee9b574d5902f90997907601cf3ea9b94edaa77fe12",
+  "extractedApp": "/Users/jarrett/Documents/Development/Prime Hunters Online/dist/opengl-completion-20261012/extracted/Project Prime.app",
+  "appExecutableSha256": "e4dc7876cf196d69aaa5e81832c6b9789e9e6e36ba46f0f2ba0ed942366c1a75",
+  "measuredIdentity": {
+    "schema": 1,
+    "assemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+    "binarySha256": {
+      "harness": "4d66c6881160ab6e37938ac726a5a74e63004b080712be59b97b350f749e16b4",
+      "client": "09db2bbb853aa82ee2b428e6a0204ab48d7b436a7044ceac31e9ac4cfcf33fba"
+    },
+    "firstSuccessfulCapture": "completion-postfix-profile-baseline-a"
+  },
+  "productionSourceHashes": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-production-source-sha256.json",
+  "productionSourceUnchangedAtPackaging": true,
+  "packageIdentityNote": "RID/version metadata differs from measured framework-dependent assembly. Production source hashes are unchanged; packaged app independently passes startup/window/thumbnail/pure/synthetic checks.",
+  "validation": {
+    "purePassRecordsDefault": 535,
+    "purePassRecordsLegacy": 530,
+    "syntheticPixelChecksDefault": 366,
+    "syntheticPixelChecksLegacy": 256,
+    "nativeImageDepthComparisons": 115,
+    "previousDeliveryExactComparisons": 108,
+    "explicitBombRepeatReport": "opengl-completion-bomb-repeat.json",
+    "finalLifecycleCycles": 5,
+    "longerPreFixLifecycleCycles": 60,
+    "longerPreFixClientMvid": "680c26eb-c1eb-411a-aaaa-1d5434de33bd",
+    "desktopBuildErrors": 0,
+    "serverBuildErrors": 0,
+    "androidArm64BuildErrors": 0,
+    "macPublishErrors": 0,
+    "packageSmokePassed": true
+  },
+  "reports": [
+    "opengl-completion-postfix-results.json",
+    "opengl-completion-postfix-aggregate.json",
+    "opengl-completion-postfix-upgrade-visual.json",
+    "opengl-completion-memory.json",
+    "opengl-completion-postfix-memory.json"
+  ],
+  "remaining": [
+    "Native/process RSS growth remains unexplained; zero tracked GL objects does not prove native-memory boundedness.",
+    "Short combat FPS gains are modest and tails mixed; Ultra shadow profiled FPS was 2.50% lower across four runs per arm.",
+    "Direct GPU bandwidth/overdraw timers unavailable on this Mac; Windows/Linux/Android hardware and full Studio UI acceptance remain unverified."
+  ]
+}

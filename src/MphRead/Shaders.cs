@@ -4,6 +4,13 @@ namespace MphRead
     {
         public static string VertexShader { get; } = @"
 #version 120
+uniform bool depth_vertex_fast;
+uniform bool depth_only;
+uniform bool use_override;
+uniform bool player_outline_mask;
+uniform int cosmetic_skin;
+uniform int cosmetic_effect;
+uniform float cosmetic_dissolve;
 uniform bool use_light;
 uniform bool use_texture;
 uniform bool show_colors;
@@ -65,6 +72,14 @@ void main()
     // view_inv_mtx is set for billboard transforms
     mat4 model_mtx = stack_mtx * view_inv_mtx;
     gl_Position = proj_mtx * view_mtx * model_mtx * gl_Vertex;
+    if (depth_vertex_fast && depth_only && !use_override && !player_outline_mask
+        && cosmetic_skin == 0 && cosmetic_effect == 0 && cosmetic_dissolve <= 0.0) {
+        // Alpha-only coverage does not consume lighting or surface RGB varyings.
+        color = vec4(1.0);
+        surface_normal = vec3(0.0);
+        surface_position = vec3(0.0);
+    }
+    else {
     vec4 vtx_color = weighted_skinning ? vec4(1.0) : (show_colors ? gl_Color : vec4(1.0));
     vec3 normal = normalize(mat3(model_mtx) * gl_Normal);
     surface_normal = normal;
@@ -84,6 +99,7 @@ void main()
     else {
         // alpha will only be less than 1.0 here if DIF_AMB is used but lighting is disabled
         color = vec4(vtx_color.rgb, 1.0);
+    }
     }
     if (use_texture) {
         // texgen mode: 0 - none, 1 - texcoord, 2 - normal, 3 - vertex
@@ -114,9 +130,46 @@ void main()
 }
 ";
 
+        // Stable sources let GLES translation retain reference-based dispatch.
+        public static string LegacyVertexShader { get; } = WithoutDepthVertexSpecialization(VertexShader);
+        public static string SelectedVertexShader => SelectVertexShader(Mods.Render.OpenGlOptimizationPolicy.Enabled("DEPTH_VERTEX"));
+        internal static string SelectVertexShader(bool enabled) => enabled ? VertexShader : LegacyVertexShader;
+        public static string UnlitVertexShader { get; } = WithoutVertexLighting(VertexShader);
+        public static string UnlitLegacyVertexShader { get; } = WithoutVertexLighting(LegacyVertexShader);
+        public static string SelectedUnlitVertexShader => Mods.Render.OpenGlOptimizationPolicy.Enabled("DEPTH_VERTEX")
+            ? UnlitVertexShader : UnlitLegacyVertexShader;
+        internal static string WithoutVertexLighting(string source)
+        {
+            const string declaration = "uniform bool use_light;";
+            if (!source.Contains(declaration, System.StringComparison.Ordinal))
+                throw new System.InvalidOperationException("Missing vertex lighting uniform");
+            // Texgen normal mode also reads this value, so specialize the value
+            // itself instead of deleting only the lighting branch.
+            return source.Replace(declaration, "const bool use_light = false;");
+        }
+
+        internal static string WithoutDepthVertexSpecialization(string source)
+        {
+            foreach (string declaration in new[] { "uniform bool depth_vertex_fast;", "uniform bool depth_only;",
+                "uniform bool use_override;", "uniform bool player_outline_mask;", "uniform int cosmetic_skin;",
+                "uniform int cosmetic_effect;", "uniform float cosmetic_dissolve;" })
+                source = source.Replace(declaration + "\n", "");
+            int start = source.IndexOf("    if (depth_vertex_fast && depth_only", System.StringComparison.Ordinal);
+            int body = source.IndexOf("    vec4 vtx_color =", start, System.StringComparison.Ordinal);
+            if (start < 0 || body < 0)
+                throw new System.InvalidOperationException("Depth vertex source shape changed.");
+            source = source.Remove(start, body - start);
+            const string boundary = "    }\n    }\n";
+            int end = source.IndexOf(boundary, start, System.StringComparison.Ordinal);
+            if (end < 0)
+                throw new System.InvalidOperationException("Depth vertex body boundary changed.");
+            return source.Remove(end + "    }\n".Length, "    }\n".Length);
+        }
+
         public static string FragmentShader { get; } = @"
 #version 120
 uniform bool use_texture;
+uniform bool depth_only;
 uniform bool fog_enable;
 uniform vec4 fog_color;
 uniform float fog_min;
@@ -235,6 +288,20 @@ vec3 cel_shade(vec3 c)
 
 void main()
 {
+    // Color-masked passes need exact coverage/alpha, with complex effects on the full path.
+    if (depth_only && !use_override && !player_outline_mask
+        && cosmetic_skin == 0 && cosmetic_effect == 0 && cosmetic_dissolve <= 0.0) {
+        float a;
+        if (use_texture) {
+            float texa = texture2D(tex, texcoord).a;
+            if (mat_mode == 1) a = mat_alpha * color.a;
+            else if (mat_mode == 2) a = mat_alpha * texa * color.a;
+            else a = color.a * (mat_alpha * texa);
+        }
+        else a = color.a * mat_alpha;
+        gl_FragColor = vec4(0.0, 0.0, 0.0, a);
+        return;
+    }
     // mat_mode: 0 - modulate, 1 - decal, 2 - toon
     vec4 col;
     if (use_texture) {
@@ -376,6 +443,30 @@ void main()
 }
 ";
 
+        public static string NativeFragmentShader { get; } = NativeMaterialSource(FragmentShader);
+        public static string NativeNoCosmeticsFragmentShader { get; } = WithoutCosmetics(NativeFragmentShader);
+        internal static string WithoutCosmetics(string source) => EmptyShaderFunction(source, "void apply_cosmetics(inout vec4 col)");
+
+        // Keep native lighting, alpha, cosmetics and fog exactly as authored.
+        // Only the advanced companion-map stage is absent in this program.
+        internal static string NativeMaterialSource(string source)
+            => EmptyShaderFunction(source, "void apply_material_lighting(inout vec4 col)");
+
+        private static string EmptyShaderFunction(string source, string signature)
+        {
+            int start = source.IndexOf(signature, System.StringComparison.Ordinal);
+            int open = start < 0 ? -1 : source.IndexOf('{', start);
+            if (open < 0) throw new System.InvalidOperationException("Missing shader stage: " + signature);
+            int depth = 1, end = open + 1;
+            for (; end < source.Length && depth != 0; end++)
+            {
+                if (source[end] == '{') depth++;
+                else if (source[end] == '}') depth--;
+            }
+            if (depth != 0) throw new System.InvalidOperationException("Unbalanced shader stage: " + signature);
+            return source.Substring(0, open + 1) + "\n" + source.Substring(end - 1);
+        }
+
         public static string RttVertexShader { get; } = @"
 #version 120
 
@@ -393,6 +484,7 @@ void main()
 
 uniform float alpha;
 uniform bool use_mask;
+uniform bool hud_zero_alpha_discard;
 uniform float view_width;
 uniform float view_height;
 uniform vec4 fade_color;
@@ -418,6 +510,8 @@ void main()
         }
         gl_FragColor.a *= alpha;
     }
+    // Only enabled for source-alpha HUD blending with depth/stencil disabled.
+    if (hud_zero_alpha_discard && gl_FragColor.a == 0.0) discard;
 }
 ";
 
@@ -643,9 +737,12 @@ void main()
 
     public class ShaderLocations
     {
+        internal ShaderLocations Copy() => (ShaderLocations)MemberwiseClone();
         public int UseLight { get; set; }
         public int ShowColors { get; set; }
         public int UseTexture { get; set; }
+        public int DepthOnly { get; set; }
+        public int DepthVertexFast { get; set; }
         public int AdvancedMaterials { get; set; }
         public int UseNormalMap { get; set; }
         public int UseSpecularMap { get; set; }
@@ -689,6 +786,7 @@ void main()
         public int ToonTable { get; set; }
         public int FadeColor { get; set; }
         public int LayerAlpha { get; set; }
+        public int HudZeroAlphaDiscard { get; set; }
         public int UseMask { get; set; }
         public int ViewWidth { get; set; }
         public int ViewHeight { get; set; }

@@ -68,6 +68,7 @@ namespace MphRead.Mods.Render
         Vector3 Ambient,
         Vector3 Specular,
         Vector3 Emission,
+        float EmissiveIntensity,
         float Alpha,
         TexgenMode TexgenMode,
         RepeatMode XRepeat,
@@ -83,7 +84,7 @@ namespace MphRead.Mods.Render
     {
         internal static RetainedMaterialDescriptor From(RenderItem item) =>
             new(item.PolygonMode, item.Lighting, item.Diffuse, item.Ambient,
-                item.Specular, item.Emission, item.Alpha, item.TexgenMode,
+                item.Specular, item.Emission, item.EmissiveIntensity, item.Alpha, item.TexgenMode,
                 item.XRepeat, item.YRepeat, item.HasTexture, item.TextureBindingId,
                 item.TexcoordMatrix, item.Cosmetics, item.CosmeticMaterial,
                 item.TexturedPlayerSkin, item.OverrideColor, item.PaletteOverride);
@@ -92,6 +93,7 @@ namespace MphRead.Mods.Render
     internal readonly record struct RetainedBatchState(
         CullingMode CullingMode,
         bool Wireframe,
+        RenderMode RenderMode,
         RetainedMaterialDescriptor Material);
 
     /// <summary>
@@ -106,19 +108,22 @@ namespace MphRead.Mods.Render
         internal int Sequence { get; }
         internal ulong StateKey { get; }
         internal RetainedMeshDescriptor Mesh { get; }
-        internal RetainedMaterialDescriptor Material { get; }
+        internal RetainedMaterialDescriptor Material => BatchState.Material;
         internal bool Batchable { get; }
         internal bool ReorderableOpaque { get; }
         internal RetainedBatchState BatchState { get; }
+        internal RetainedMaterialIdentity? MaterialIdentity { get; }
 
         internal RetainedDrawPacket(RenderItem item, int sequence,
-            RetainedMeshDescriptor mesh)
+            RetainedMeshDescriptor mesh, RetainedMaterialIdentity.Cache? materialCache = null)
         {
             Item = item;
             Sequence = sequence;
             Mesh = mesh;
-            Material = RetainedMaterialDescriptor.From(item);
-            Batchable = item.Type == RenderItemType.Mesh
+            RetainedMaterialDescriptor material = RetainedMaterialDescriptor.From(item);
+            Batchable = (item.Type == RenderItemType.Mesh
+                || ProceduralBatchEnabled && item.Type is RenderItemType.Particle or RenderItemType.TrailSingle
+                    or RenderItemType.TrailMulti or RenderItemType.TrailStack)
                 && !item.ViewModel
                 && item.BillboardMode == BillboardMode.None
                 && item.Cosmetics == default
@@ -127,7 +132,7 @@ namespace MphRead.Mods.Render
                 && item.PaletteOverride == null
                 && !item.TexturedPlayerSkin
                 && item.PlayerOutlineColor == null;
-            ReorderableOpaque = item.RetainedRoomOwned
+            ReorderableOpaque = item.Type == RenderItemType.Mesh && item.RetainedRoomOwned
                 && Batchable
                 && item.PolygonId == 0
                 && item.PolygonMode == PolygonMode.Modulate
@@ -135,9 +140,30 @@ namespace MphRead.Mods.Render
                 && item.Alpha >= 0.999f
                 && !item.Wireframe;
             BatchState = new RetainedBatchState(item.CullingMode, item.Wireframe,
-                Material);
-            StateKey = BuildStateKey(item);
+                item.RenderMode, material);
+            MaterialIdentity = null;
+            if (materialCache != null && item.RetainedRoomOwned)
+            {
+                var previous = item.CachedMaterialIdentity;
+                MaterialIdentity = materialCache.Get(item, BatchState);
+                if (!ReferenceEquals(previous, MaterialIdentity)) item.CachedStateKey = BuildStateKey(item);
+                StateKey = item.CachedStateKey;
+            }
+            else if (StaticCacheEnabled && item.RetainedRoomOwned)
+            {
+                if (!item.HasCachedBatchState || item.CachedBatchState != BatchState)
+                {
+                    item.CachedStateKey = BuildStateKey(item);
+                    item.CachedBatchState = BatchState;
+                    item.HasCachedBatchState = true;
+                }
+                StateKey = item.CachedStateKey;
+            }
+            else StateKey = BuildStateKey(item);
         }
+
+        private static readonly bool ProceduralBatchEnabled = OpenGlOptimizationPolicy.Enabled("PROCEDURAL_BATCH");
+        private static readonly bool StaticCacheEnabled = OpenGlOptimizationPolicy.Enabled("STATIC_CACHE");
 
         private static ulong BuildStateKey(RenderItem item)
         {
@@ -214,10 +240,20 @@ namespace MphRead.Mods.Render
     /// </summary>
     internal static class RetainedOpaqueBatchPolicy
     {
-        internal static bool CanMerge(RetainedDrawPacket first, RetainedDrawPacket next)
+        // Replay uses the exact same packet/geometry proof. Its pass remains
+        // color-masked and stencil-preserving; this changes submission only.
+        internal static bool CanBatchPass(WorldRenderPassKind kind, bool depthBatchEnabled)
+            => kind == WorldRenderPassKind.Opaque
+                || kind == WorldRenderPassKind.RebuildDepth && depthBatchEnabled;
+
+        internal static bool SameMaterial(in RetainedDrawPacket a, in RetainedDrawPacket b)
+            => a.MaterialIdentity != null && b.MaterialIdentity != null
+                ? ReferenceEquals(a.MaterialIdentity, b.MaterialIdentity) : a.BatchState == b.BatchState;
+
+        internal static bool CanMerge(in RetainedDrawPacket first, in RetainedDrawPacket next)
         {
             if (!first.ReorderableOpaque || !next.ReorderableOpaque
-                || first.BatchState != next.BatchState)
+                || !SameMaterial(first, next))
                 return false;
             RenderItem a = first.Item, b = next.Item;
             if (a.WeightedSkinning || b.WeightedSkinning
@@ -234,6 +270,11 @@ namespace MphRead.Mods.Render
             int values = a.MatrixStackCount * 16;
             if (values > a.MatrixStack.Length || values > b.MatrixStack.Length)
                 return false;
+            if (MatrixPaletteRevision.Enabled && a.MatrixPaletteVersion > 0
+                && a.MatrixPaletteVersion == b.MatrixPaletteVersion
+                && ReferenceEquals(a.MatrixPaletteSource, b.MatrixPaletteSource)
+                && a.MatrixPaletteScale == b.MatrixPaletteScale)
+                return true;
             for (int i = 0; i < values; i++)
                 if (a.MatrixStack[i] != b.MatrixStack[i])
                     return false;
@@ -251,14 +292,38 @@ namespace MphRead.Mods.Render
     {
         private readonly Dictionary<RetainedMeshDescriptorKey, RetainedMeshDescriptor>
             _meshDescriptors = new();
-        private readonly Dictionary<RenderItem, RetainedDrawPacket>
-            _packetByItem = new();
+        // Subdividing state runs only pays when this backend can submit a
+        // retained atlas. GLES keeps its larger shared-state runs intact.
+#if !ANDROID && !MPHREAD_SERVER
+        private static readonly bool RoomGroupsEnabled = OpenGlOptimizationPolicy.Enabled("ROOM_GROUPS")
+            && GraphicsApi.RetainedGeometryBatchingEnabled;
+#else
+        private const bool RoomGroupsEnabled = false;
+#endif
+        private static readonly bool RoomCacheEnabled = OpenGlOptimizationPolicy.Enabled("ROOM_CACHE");
+        private readonly bool _roomCacheEnabled;
+        private static readonly bool RoomIdentityEnabled = OpenGlOptimizationPolicy.Enabled("ROOM_IDENTITY");
+        private readonly RetainedMaterialIdentity.Cache _materialIdentities = new();
+        private object _meshOwner = new();
+        internal RetainedRenderWorld() : this(RoomCacheEnabled) { }
+        internal RetainedRenderWorld(bool roomCacheEnabled)
+            => _roomCacheEnabled = roomCacheEnabled;
+        internal int RoomDescriptorCacheHits { get; private set; }
+        internal int MeshDescriptorLookups { get; private set; }
         private readonly List<RetainedDrawPacket> _opaque = new(256);
         private readonly List<RetainedDrawPacket> _decals = new(64);
         private readonly List<RetainedDrawPacket> _translucent = new(128);
         private readonly List<RetainedDrawBatch> _opaqueBatches = new(128);
         private readonly List<RetainedDrawBatch> _decalBatches = new(32);
         private readonly List<RetainedDrawBatch> _translucentBatches = new(64);
+
+        private static readonly bool SortCacheEnabled = OpenGlOptimizationPolicy.Enabled("STATIC_CACHE");
+        private ulong[] _sortKeys = Array.Empty<ulong>();
+        private bool[] _sortBarriers = Array.Empty<bool>();
+        private int[] _sortPermutation = Array.Empty<int>();
+        private RetainedDrawPacket[] _sortScratch = Array.Empty<RetainedDrawPacket>();
+        private int _sortCount = -1, _cachedSortRuns, _cachedReordered;
+        internal bool OpaqueSortOrderReused { get; private set; }
 
         internal IReadOnlyList<RetainedDrawPacket> Opaque => _opaque;
         internal IReadOnlyList<RetainedDrawPacket> Decals => _decals;
@@ -278,8 +343,6 @@ namespace MphRead.Mods.Render
         internal int GraphStateReuseCount => Reuses(_opaqueBatches) * 2
             + Reuses(_decalBatches) + Reuses(_translucentBatches) * 3;
         internal int MeshDescriptorCount => _meshDescriptors.Count;
-        internal bool TryGetPacket(RenderItem item, out RetainedDrawPacket packet) =>
-            _packetByItem.TryGetValue(item, out packet);
         internal int OpaqueSortRunCount { get; private set; }
         internal int OpaqueReorderedPacketCount { get; private set; }
         internal ulong FrameRevision { get; private set; }
@@ -287,7 +350,8 @@ namespace MphRead.Mods.Render
         internal void Capture(IReadOnlyList<RenderItem> nonDecal,
             IReadOnlyList<RenderItem> decals, IReadOnlyList<RenderItem> translucent)
         {
-            _packetByItem.Clear();
+            RoomDescriptorCacheHits = MeshDescriptorLookups = 0;
+            OpaqueSortOrderReused = false;
             OpaqueSortRunCount = 0;
             OpaqueReorderedPacketCount = 0;
             CaptureList(_opaque, _opaqueBatches, nonDecal, sortOpaque: true);
@@ -305,7 +369,18 @@ namespace MphRead.Mods.Render
             _opaqueBatches.Clear();
             _decalBatches.Clear();
             _translucentBatches.Clear();
-            _packetByItem.Clear();
+            // Invalidate tokens without visiting possibly invisible room items.
+            // Tokens/descriptors never point back to this owner or its scene.
+            _meshOwner = new();
+            _meshDescriptors.Clear();
+            _materialIdentities.Clear();
+            RoomDescriptorCacheHits = MeshDescriptorLookups = 0;
+            _sortKeys = Array.Empty<ulong>();
+            _sortBarriers = Array.Empty<bool>();
+            _sortPermutation = Array.Empty<int>();
+            _sortScratch = Array.Empty<RetainedDrawPacket>();
+            _sortCount = -1;
+            OpaqueSortOrderReused = false;
         }
 
         private void CaptureList(List<RetainedDrawPacket> destination,
@@ -319,19 +394,42 @@ namespace MphRead.Mods.Render
             for (int i = 0; i < source.Count; i++)
             {
                 RenderItem item = source[i];
-                RetainedMeshDescriptorKey key = RetainedMeshDescriptor.KeyOf(item);
-                if (!_meshDescriptors.TryGetValue(key, out RetainedMeshDescriptor mesh))
-                {
-                    mesh = new RetainedMeshDescriptor(key);
-                    _meshDescriptors.Add(key, mesh);
-                }
-                var packet = new RetainedDrawPacket(item, i, mesh);
+                RetainedMeshDescriptor mesh = MeshFor(item);
+                var packet = new RetainedDrawPacket(item, i, mesh, RoomIdentityEnabled ? _materialIdentities : null);
                 destination.Add(packet);
-                _packetByItem.TryAdd(item, packet);
             }
             if (sortOpaque)
-                SortSafeOpaqueRuns(destination);
-            BuildAdjacentBatches(destination, batches);
+                SortOpaqueWithReuse(destination);
+            BuildAdjacentBatches(destination, batches, sortOpaque && RoomGroupsEnabled);
+        }
+
+        private RetainedMeshDescriptor MeshFor(RenderItem item)
+        {
+            RetainedMeshDescriptorKey key = RetainedMeshDescriptor.KeyOf(item);
+            bool cacheable = _roomCacheEnabled && item.RetainedRoomOwned;
+            if (cacheable && ReferenceEquals(item.CachedMeshOwner, _meshOwner)
+                && item.CachedMeshDescriptor is { } cached && cached.Key == key)
+            {
+                RoomDescriptorCacheHits++;
+                return cached;
+            }
+            MeshDescriptorLookups++;
+            if (!_meshDescriptors.TryGetValue(key, out RetainedMeshDescriptor? mesh))
+            {
+                mesh = new RetainedMeshDescriptor(key);
+                _meshDescriptors.Add(key, mesh);
+            }
+            if (cacheable)
+            {
+                item.CachedMeshOwner = _meshOwner;
+                item.CachedMeshDescriptor = mesh;
+            }
+            else
+            {
+                item.CachedMeshOwner = null;
+                item.CachedMeshDescriptor = null;
+            }
+            return mesh;
         }
 
         private sealed class OpaquePacketComparer : IComparer<RetainedDrawPacket>
@@ -343,6 +441,50 @@ namespace MphRead.Mods.Render
                 int state = x.StateKey.CompareTo(y.StateKey);
                 return state != 0 ? state : x.Sequence.CompareTo(y.Sequence);
             }
+        }
+
+        private void SortOpaqueWithReuse(List<RetainedDrawPacket> packets)
+        {
+            // Tiny runs need less work with the ordinary sort than proof + copy.
+            if (!SortCacheEnabled || packets.Count < 8)
+            {
+                _sortCount = -1;
+                SortSafeOpaqueRuns(packets);
+                return;
+            }
+            int count = packets.Count;
+            bool matches = count == _sortCount;
+            for (int i = 0; matches && i < count; i++)
+                matches = packets[i].StateKey == _sortKeys[i]
+                    && packets[i].ReorderableOpaque == _sortBarriers[i];
+            if (matches)
+            {
+                for (int i = 0; i < count; i++) _sortScratch[i] = packets[i];
+                for (int i = 0; i < count; i++) packets[i] = _sortScratch[_sortPermutation[i]];
+                OpaqueSortRunCount = _cachedSortRuns;
+                OpaqueReorderedPacketCount = _cachedReordered;
+                OpaqueSortOrderReused = true;
+                // Retain only proof/permutation; references belong to this frame.
+                Array.Clear(_sortScratch, 0, count);
+                return;
+            }
+            if (_sortKeys.Length < count)
+            {
+                _sortKeys = new ulong[count];
+                _sortBarriers = new bool[count];
+                _sortPermutation = new int[count];
+                _sortScratch = new RetainedDrawPacket[count];
+            }
+            for (int i = 0; i < count; i++)
+            {
+                _sortKeys[i] = packets[i].StateKey;
+                _sortBarriers[i] = packets[i].ReorderableOpaque;
+            }
+            SortSafeOpaqueRuns(packets);
+            for (int i = 0; i < count; i++) _sortPermutation[i] = packets[i].Sequence;
+            _sortCount = count;
+            _cachedSortRuns = OpaqueSortRunCount;
+            _cachedReordered = OpaqueReorderedPacketCount;
         }
 
         private void SortSafeOpaqueRuns(List<RetainedDrawPacket> packets)
@@ -377,9 +519,9 @@ namespace MphRead.Mods.Render
             }
         }
 
-        private static void BuildAdjacentBatches(
+        internal static void BuildAdjacentBatches(
             IReadOnlyList<RetainedDrawPacket> packets,
-            List<RetainedDrawBatch> batches)
+            List<RetainedDrawBatch> batches, bool roomGroups = false)
         {
             int start = 0;
             while (start < packets.Count)
@@ -391,8 +533,11 @@ namespace MphRead.Mods.Render
                     while (start + count < packets.Count)
                     {
                         RetainedDrawPacket next = packets[start + count];
-                        if (!next.Batchable || next.BatchState != first.BatchState)
+                        if (!next.Batchable || !RetainedOpaqueBatchPolicy.SameMaterial(first, next))
                             break;
+                        if (roomGroups && (first.ReorderableOpaque != next.ReorderableOpaque
+                            || first.ReorderableOpaque && (count >= RetainedRoomBatchPlan.MaxIds
+                                || !RetainedOpaqueBatchPolicy.CanMerge(first, next)))) break;
                         count++;
                     }
                 }
@@ -567,6 +712,8 @@ namespace MphRead
         private void CaptureRetainedRenderWorld()
         {
             _retainedRenderWorld.Capture(_nonDecalItems, _decalItems, _translucentItems);
+            Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.RoomDescriptorHits, _retainedRenderWorld.RoomDescriptorCacheHits);
+            Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.RoomDescriptorLookups, _retainedRenderWorld.MeshDescriptorLookups);
         }
 
         private IReadOnlyList<Mods.Render.RetainedDrawPacket> PacketsFor(
@@ -591,31 +738,67 @@ namespace MphRead
         };
 
         private int[] _retainedGlOpaqueBatchIds = Array.Empty<int>();
+        private static readonly bool _roomGroupsEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("ROOM_GROUPS");
+        private static readonly bool _roomBatchCacheEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("ROOM_CACHE");
+        private readonly List<Mods.Render.RetainedRoomBatchPlan> _roomBatchPlans = new();
+        private ulong _roomBatchPlanRevision;
+        private static readonly bool _meshObjectEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("MESH_OBJECT");
+        private static readonly bool _proceduralBatchEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("PROCEDURAL_BATCH");
+        private static readonly bool _proceduralStreamEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("PROCEDURAL_STREAM");
+#if !MPHREAD_SERVER && !ANDROID
+        private Mods.Render.DesktopProceduralStream? _proceduralStream;
+#endif
+#if !MPHREAD_SERVER
+        private Mods.Render.DepthReplaySnapshot? _depthReplaySnapshot;
+#endif
+        private static readonly bool _depthKeepEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("DEPTH_KEEP");
+        private static readonly bool _depthBatchEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("DEPTH_BATCH");
 
         private bool TryDrawRetainedOpaqueBatch(
             Mods.Render.WorldRenderPassKind kind,
             IReadOnlyList<Mods.Render.RetainedDrawPacket> packets,
-            Mods.Render.RetainedDrawBatch batch)
+            Mods.Render.RetainedDrawBatch batch, int batchIndex, out bool firstPrepared)
         {
+            firstPrepared = false;
 #if !MPHREAD_SERVER
-            if (kind != Mods.Render.WorldRenderPassKind.Opaque
+            if (!Mods.Render.RetainedOpaqueBatchPolicy.CanBatchPass(kind,
+                    _depthBatchEnabled)
                 || batch.Count < 2 || !GL.RetainedGeometryBatchingEnabled)
                 return false;
             Mods.Render.RetainedDrawPacket first = packets[batch.Start];
-            for (int offset = 1; offset < batch.Count; offset++)
-                if (!Mods.Render.RetainedOpaqueBatchPolicy.CanMerge(
-                    first, packets[batch.Start + offset]))
-                    return false;
-
-            if (_retainedGlOpaqueBatchIds.Length < batch.Count)
-                Array.Resize(ref _retainedGlOpaqueBatchIds, Math.Max(16, batch.Count));
-            for (int offset = 0; offset < batch.Count; offset++)
-                _retainedGlOpaqueBatchIds[offset] = packets[batch.Start + offset].Mesh.ListId;
+            int[] ids;
+            ulong? preparedHash = null;
+            Mods.Render.RetainedRoomBatchPlan? drawPlan = null;
+            if ((_roomBatchCacheEnabled || _roomGroupsEnabled) && batchIndex < Mods.Render.RetainedRoomBatchPlan.MaxPlans
+                && batch.Count <= Mods.Render.RetainedRoomBatchPlan.MaxIds)
+            {
+                while (_roomBatchPlans.Count <= batchIndex)
+                    _roomBatchPlans.Add(new Mods.Render.RetainedRoomBatchPlan());
+                var plan = _roomBatchPlans[batchIndex];
+                if (!plan.Prepare(_roomBatchPlanRevision, packets, batch)) return false;
+                drawPlan = plan;
+                ids = plan.Ids;
+                preparedHash = plan.Hash;
+            }
+            else
+            {
+                for (int offset = 1; offset < batch.Count; offset++)
+                    if (!Mods.Render.RetainedOpaqueBatchPolicy.CanMerge(first, packets[batch.Start + offset]))
+                        return false;
+                if (_retainedGlOpaqueBatchIds.Length < batch.Count)
+                    Array.Resize(ref _retainedGlOpaqueBatchIds, Math.Max(16, batch.Count));
+                for (int offset = 0; offset < batch.Count; offset++)
+                    _retainedGlOpaqueBatchIds[offset] = packets[batch.Start + offset].Mesh.ListId;
+                ids = _retainedGlOpaqueBatchIds;
+            }
             // Prepare the shared uniforms once, but do not draw any geometry
             // until the indexed atlas confirms every list is promotable.
             RenderItem(first.Item, applySharedState: true,
                 retainedMesh: first.Mesh, drawGeometry: false);
-            return GL.TryDrawRetainedBatch(_retainedGlOpaqueBatchIds, batch.Count);
+            firstPrepared = true;
+            return _roomGroupsEnabled && drawPlan != null
+                ? GL.TryDrawRetainedBatch(drawPlan)
+                : GL.TryDrawRetainedBatch(ids, batch.Count, preparedHash);
 #else
             return false;
 #endif
@@ -625,12 +808,15 @@ namespace MphRead
         {
             IReadOnlyList<Mods.Render.RetainedDrawPacket> packets = PacketsFor(kind);
             IReadOnlyList<Mods.Render.RetainedDrawBatch> batches = BatchesFor(kind);
+            RenderItem? previousMesh = null;
             for (int batchIndex = 0; batchIndex < batches.Count; batchIndex++)
             {
                 Mods.Render.RetainedDrawBatch batch = batches[batchIndex];
-                if (TryDrawRetainedOpaqueBatch(kind, packets, batch))
-                    continue;
-                bool sharedStateValid = false;
+                if (TryDrawRetainedOpaqueBatch(kind, packets, batch, batchIndex, out bool firstPrepared))
+                { previousMesh = null; continue; }
+                // A failed atlas allocation/preflight has already prepared the first
+                // item. Retain that exact state for its ordinary draw fallback.
+                bool sharedStateValid = firstPrepared;
                 for (int offset = 0; offset < batch.Count; offset++)
                 {
                     Mods.Render.RetainedDrawPacket packet = packets[batch.Start + offset];
@@ -642,8 +828,21 @@ namespace MphRead
                     else if (kind == Mods.Render.WorldRenderPassKind.TranslucentFront)
                         GL.StencilFunc(StencilFunction.Equal, item.PolygonId, 0xFF);
                     _retainedCompatibilityWorldDraws++;
+                    bool reuseObject = _proceduralBatchEnabled && sharedStateValid && offset > 0
+                        && Mods.Render.ProceduralStateReuse.CanReuseObjectState(
+                            packets[batch.Start + offset - 1].Item, item);
+                    bool reuseMesh = _meshObjectEnabled && previousMesh != null
+                        && Mods.Render.MeshObjectStateReuse.CanReuse(previousMesh, item);
+                    if (reuseMesh) Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.MeshObjectReuses);
+                    if (Mods.Render.ProceduralStateReuse.IsProcedural(item.Type))
+                    {
+                        Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.ProceduralItems);
+                        if (sharedStateValid) Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.ProceduralMaterialReuses);
+                        if (reuseObject) Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.ProceduralObjectReuses);
+                    }
                     RenderItem(item, applySharedState: !sharedStateValid,
-                        retainedMesh: packet.Mesh);
+                        retainedMesh: packet.Mesh, applyObjectState: !(reuseObject || reuseMesh || offset == 0 && firstPrepared));
+                    previousMesh = item.Type == RenderItemType.Mesh ? item : null;
                     sharedStateValid = packet.Batchable;
                 }
             }
@@ -707,22 +906,59 @@ namespace MphRead
         /// graph. State transitions intentionally match the prior inline code.
         /// Adjacent compatible mesh packets may share state, but are never sorted.
         /// </summary>
+        private static readonly bool _depthVertexEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("DEPTH_VERTEX");
+        private static readonly bool _depthShaderEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("DEPTH_SHADER");
+        private void SetDepthShader(bool colorMasked)
+        {
+            _depthOnlyWorldPass = colorMasked && _depthShaderEnabled;
+            GL.Uniform1(_shaderLocations.DepthOnly, _depthOnlyWorldPass ? 1 : 0);
+            GL.Uniform1(_shaderLocations.DepthVertexFast, _depthOnlyWorldPass && _depthVertexEnabled ? 1 : 0);
+        }
+
         private void ExecuteWorldRenderGraph()
         {
+            // Scope merge proofs to this exact execution, never a prior frame's
+            // visibility, light or pose. Only the bounded ID storage is retained.
+            unchecked { _roomBatchPlanRevision++; }
             bool reuseOpaqueDepth = Mods.Render.WorldRenderGraph.CanReuseOpaqueDepth(
                 _retainedRenderWorld.Decals.Count, _retainedRenderWorld.Translucent.Count,
                 Mods.Render.OpenGlSubmissionProfiler.ForceLegacyDepthReplay);
+            bool depthCaptured = false;
+            bool snapshotDepth = false;
+            bool replayEffectsKnown = false;
+#if !MPHREAD_SERVER
+            Mods.Render.DisplayListAttributeEffect replayEffects = default;
+            if (_depthKeepEnabled && !reuseOpaqueDepth
+                && !Mods.Render.OpenGlSubmissionProfiler.ForceLegacyDepthReplay)
+            {
+                replayEffectsKnown = Mods.Render.DepthReplayAttributes.TryResolve(
+                    _retainedRenderWorld.Opaque, _showTextures, out replayEffects);
+                if (replayEffectsKnown)
+                {
+                    reuseOpaqueDepth = Mods.Render.DepthReplayPolicy.CanKeepOpaqueDepth(
+                        _retainedRenderWorld.Decals.Count, _retainedRenderWorld.Translucent,
+                        _showTextures, _drawingPlayerOutlineMask);
+                    snapshotDepth = !reuseOpaqueDepth && _retainedRenderWorld.Opaque.Count >= 8;
+                }
+            }
+#endif
             bool profile = Mods.Render.OpenGlSubmissionProfiler.BeginWorldGraph();
 #if !MPHREAD_SERVER
             GL.BeginScopedWorldStateElision();
-#if !ANDROID
-            Mods.Render.OpenGlGpuProfiler.BeginWorld();
-#endif
 #endif
             try
             {
+#if !MPHREAD_SERVER && !ANDROID
+            if (_proceduralStreamEnabled)
+                (_proceduralStream ??= new()).Prepare(_retainedRenderWorld.Opaque,
+                    _retainedRenderWorld.Decals, _retainedRenderWorld.Translucent);
+#endif
             foreach (Mods.Render.WorldRenderGraphPass pass in _worldRenderGraph.Passes)
             {
+                using var cpuTiming = Mods.Render.OpenGlPassProfiler.Measure(
+                    (Mods.Render.OpenGlCpuPass)((int)Mods.Render.OpenGlCpuPass.Opaque + (int)pass.Kind));
+                SetDepthShader(pass.Kind is Mods.Render.WorldRenderPassKind.MarkTranslucent
+                    or Mods.Render.WorldRenderPassKind.RebuildDepth);
                 switch (pass.Kind)
                 {
                 case Mods.Render.WorldRenderPassKind.Opaque:
@@ -737,6 +973,11 @@ namespace MphRead
                     GL.StencilFunc(StencilFunction.Always, 0, 0xFF);
                     DrawRenderGraphPackets(pass.Kind);
                     GL.Disable(EnableCap.AlphaTest);
+#if !MPHREAD_SERVER
+                    if (snapshotDepth)
+                        depthCaptured = (_depthReplaySnapshot ??= new()).Capture(
+                            _frameBuffer, _targetSize.X, _targetSize.Y);
+#endif
                     break;
 
                 case Mods.Render.WorldRenderPassKind.Decal:
@@ -761,6 +1002,10 @@ namespace MphRead
                     break;
 
                 case Mods.Render.WorldRenderPassKind.RebuildDepth:
+#if !MPHREAD_SERVER
+                    if (depthCaptured && _depthReplaySnapshot!.Restore(_frameBuffer, _targetSize.X, _targetSize.Y))
+                        reuseOpaqueDepth = true;
+#endif
                     if (!reuseOpaqueDepth)
                         GL.Clear(ClearBufferMask.DepthBufferBit);
                     GL.StencilOp(StencilOp.Keep, StencilOp.Keep,
@@ -769,6 +1014,15 @@ namespace MphRead
                     GL.AlphaFunc(AlphaFunction.Equal, 1.0f);
                     if (reuseOpaqueDepth)
                     {
+#if !MPHREAD_SERVER
+                        if (replayEffectsKnown && _retainedRenderWorld.Opaque.Count != 0)
+                        {
+                            RenderItem(_retainedRenderWorld.Opaque[^1].Item, applySharedState: true, drawGeometry: false);
+                            FinishViewModelRenderRun();
+                            Mods.Render.DepthReplayAttributes.Apply(replayEffects);
+                        }
+#endif
+                        Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.DepthReplayDrawsSaved, _retainedRenderWorld.Opaque.Count);
                         _retainedDepthReplaySkips++;
                         _retainedOpaqueReplaySubmissionsSaved += _retainedRenderWorld.Opaque.Count;
                     }
@@ -804,10 +1058,12 @@ namespace MphRead
             }
             finally
             {
-#if !MPHREAD_SERVER
-#if !ANDROID
-                Mods.Render.OpenGlGpuProfiler.EndWorld();
+#if !MPHREAD_SERVER && !ANDROID
+                _proceduralStream?.End();
 #endif
+                SetDepthShader(false);
+#if !MPHREAD_SERVER
+                _depthReplaySnapshot?.End();
                 GL.EndScopedWorldStateElision();
 #endif
                 if (profile)

@@ -50,6 +50,7 @@ namespace MphRead.Mods.Render
         }
 
         private static bool _loaded;
+        private static EsBindings? _binding;
 
         /// <summary>
         /// Point OpenTK's ES 3.0 bindings at this process's driver. Must run on
@@ -60,6 +61,7 @@ namespace MphRead.Mods.Render
         {
             if (_loaded)
             {
+                OpenGlContextPolicy.Reset(_binding!.GetProcAddress);
                 return;
             }
             IntPtr gles = TryLoad("libGLESv2.so");
@@ -68,7 +70,9 @@ namespace MphRead.Mods.Render
             {
                 throw new ProgramException("Neither libGLESv2.so nor libEGL.so could be loaded.");
             }
-            OpenTK.Graphics.ES30.GL.LoadBindings(new EsBindings(gles, egl));
+            _binding = new EsBindings(gles, egl);
+            OpenTK.Graphics.ES30.GL.LoadBindings(_binding);
+            OpenGlContextPolicy.Reset(_binding.GetProcAddress);
             _loaded = true;
         }
 

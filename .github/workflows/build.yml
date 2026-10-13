@@ -210,6 +210,8 @@ jobs:
         run: python tools/test-fruity-baseline.py
       - name: Validate OpenGL E/F benchmark evidence gate
         run: python -m unittest discover -s tools/opengl-phase4 -v
+      - name: Validate OpenGL modernization profiling evidence
+        run: python -m unittest discover -s tools/opengl-modernization -p 'test_*.py' -v
       - name: OpenGL depth, alpha, stencil and repeated-frame pixel fixtures
         run: |
           xvfb-run -a --server-args="-screen 0 640x480x24" \

@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "notes": "Exploratory single pairs, not acceptance evidence. State reuse alone and subsequent unlit-only setup omission did not establish a combat throughput gain. Final candidate adds direct native submission and guarded procedural depth preparation; measured separately.",
+  "runs": [
+    {
+      "experiment": "pilot-state",
+      "path": "artifacts/opengl-modernization/pilot-state-procedural-profile-batched-a.json",
+      "sha256": "47a236dd2c2ec23040de21e2134e0649f63fa0d4d4ce5988103e0d063509fa49",
+      "assemblyMvid": "f5b403b0-5579-4788-8eef-b3d21c7fb794",
+      "fps": 415.5875907973183,
+      "frameP99Ms": 6.7019
+    },
+    {
+      "experiment": "pilot-state",
+      "path": "artifacts/opengl-modernization/pilot-state-procedural-profile-immediate-a.json",
+      "sha256": "e8979ef22fcffe335575d617768632c422719cb56bdf31546d2a7cbbfaa4ddb3",
+      "assemblyMvid": "f5b403b0-5579-4788-8eef-b3d21c7fb794",
+      "fps": 426.54926045733555,
+      "frameP99Ms": 6.4181
+    },
+    {
+      "experiment": "pilot-state",
+      "path": "artifacts/opengl-modernization/pilot-state-procedural-same-batched-a.json",
+      "sha256": "bac87be3319a8735dae5989571475c2b10601c3592bf0ed7739460b7124c78fe",
+      "assemblyMvid": "f5b403b0-5579-4788-8eef-b3d21c7fb794",
+      "fps": 422.1968650398053,
+      "frameP99Ms": 6.3112
+    },
+    {
+      "experiment": "pilot-state",
+      "path": "artifacts/opengl-modernization/pilot-state-procedural-same-immediate-a.json",
+      "sha256": "3c407502ae6d219fcd7da1e316c8c94e24a435d32f23070f79b15d5c24ef769d",
+      "assemblyMvid": "f5b403b0-5579-4788-8eef-b3d21c7fb794",
+      "fps": 423.5480516111841,
+      "frameP99Ms": 6.321
+    },
+    {
+      "experiment": "pilot-unlit",
+      "path": "artifacts/opengl-modernization/pilot-unlit-procedural-same-batched-a.json",
+      "sha256": "bbc2a06855dd93abef628dc0101ea4e7d6e186c950a767fe6627abc73e84192f",
+      "assemblyMvid": "ec3fa953-d054-4366-b162-c3483f66a8c5",
+      "fps": 428.2994510986561,
+      "frameP99Ms": 6.3373
+    },
+    {
+      "experiment": "pilot-unlit",
+      "path": "artifacts/opengl-modernization/pilot-unlit-procedural-same-immediate-a.json",
+      "sha256": "93c8b2529db0f5f592aa76789e384a7e50ea9e321ea6bf4cf29e3ef039d21cf6",
+      "assemblyMvid": "ec3fa953-d054-4366-b162-c3483f66a8c5",
+      "fps": 431.3170333810557,
+      "frameP99Ms": 5.7237
+    }
+  ]
+}

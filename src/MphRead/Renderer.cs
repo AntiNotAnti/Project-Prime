@@ -224,7 +224,7 @@ namespace MphRead
         private int _rttShaderProgramId = 0;
         private int _shiftShaderProgramId = 0;
         private int _celShaderProgramId = 0;
-        private readonly ShaderLocations _shaderLocations = new ShaderLocations();
+        private ShaderLocations _shaderLocations = new ShaderLocations();
 
         private Vector3 _light1Vector = Vector3.Zero;
         private Vector3 _light1Color = Vector3.Zero;
@@ -823,7 +823,7 @@ namespace MphRead
             string fragmentLog;
             string vertexLog;
             int vertexShader = GL.CreateShader(ShaderType.VertexShader);
-            GL.ShaderSource(vertexShader, Shaders.VertexShader);
+            GL.ShaderSource(vertexShader, Shaders.SelectedVertexShader);
             GL.CompileShader(vertexShader);
             int fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
             GL.ShaderSource(fragmentShader, Shaders.FragmentShader);
@@ -978,54 +978,7 @@ namespace MphRead
 
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 
-            _shaderLocations.UseLight = GL.GetUniformLocation(_shaderProgramId, "use_light");
-            _shaderLocations.ShowColors = GL.GetUniformLocation(_shaderProgramId, "show_colors");
-            _shaderLocations.UseTexture = GL.GetUniformLocation(_shaderProgramId, "use_texture");
-            _shaderLocations.AdvancedMaterials = GL.GetUniformLocation(_shaderProgramId, "advanced_materials");
-            _shaderLocations.UseNormalMap = GL.GetUniformLocation(_shaderProgramId, "use_normal_map");
-            _shaderLocations.UseSpecularMap = GL.GetUniformLocation(_shaderProgramId, "use_specular_map");
-            _shaderLocations.UseEmissiveMap = GL.GetUniformLocation(_shaderProgramId, "use_emissive_map");
-            _shaderLocations.EmissiveIntensity = GL.GetUniformLocation(_shaderProgramId, "emissive_intensity");
-            _shaderLocations.Light1Color = GL.GetUniformLocation(_shaderProgramId, "light1col");
-            _shaderLocations.Light1Vector = GL.GetUniformLocation(_shaderProgramId, "light1vec");
-            _shaderLocations.Light2Color = GL.GetUniformLocation(_shaderProgramId, "light2col");
-            _shaderLocations.Light2Vector = GL.GetUniformLocation(_shaderProgramId, "light2vec");
-            _shaderLocations.Diffuse = GL.GetUniformLocation(_shaderProgramId, "diffuse");
-            _shaderLocations.Ambient = GL.GetUniformLocation(_shaderProgramId, "ambient");
-            _shaderLocations.Specular = GL.GetUniformLocation(_shaderProgramId, "specular");
-            InitCosmeticUniforms();
-            _shaderLocations.Emission = GL.GetUniformLocation(_shaderProgramId, "emission");
-            _shaderLocations.UseFog = GL.GetUniformLocation(_shaderProgramId, "fog_enable");
-            _shaderLocations.CelBands = GL.GetUniformLocation(_shaderProgramId, "cel_bands");
-            _shaderLocations.UseFlat = GL.GetUniformLocation(_shaderProgramId, "use_flat");
-            _shaderLocations.FlatColor = GL.GetUniformLocation(_shaderProgramId, "flat_color");
-            _shaderLocations.FogColor = GL.GetUniformLocation(_shaderProgramId, "fog_color");
-            _shaderLocations.FogMinDistance = GL.GetUniformLocation(_shaderProgramId, "fog_min");
-            _shaderLocations.FogMaxDistance = GL.GetUniformLocation(_shaderProgramId, "fog_max");
-            _shaderLocations.UseOverride = GL.GetUniformLocation(_shaderProgramId, "use_override");
-            _texturedPlayerSkinUniform = GL.GetUniformLocation(_shaderProgramId, "textured_player_skin");
-            _playerOutlineMaskUniform = GL.GetUniformLocation(_shaderProgramId, "player_outline_mask");
-            _playerOutlineColorUniform = GL.GetUniformLocation(_shaderProgramId, "player_outline_color");
-            _shaderLocations.OverrideColor = GL.GetUniformLocation(_shaderProgramId, "override_color");
-            _shaderLocations.UsePaletteOverride = GL.GetUniformLocation(_shaderProgramId, "use_pal_override");
-            _shaderLocations.PaletteOverrideColor = GL.GetUniformLocation(_shaderProgramId, "pal_override_color");
-            _shaderLocations.MaterialAlpha = GL.GetUniformLocation(_shaderProgramId, "mat_alpha");
-            _shaderLocations.MaterialMode = GL.GetUniformLocation(_shaderProgramId, "mat_mode");
-            _shaderLocations.ViewMatrix = GL.GetUniformLocation(_shaderProgramId, "view_mtx");
-            _shaderLocations.ViewInvMatrix = GL.GetUniformLocation(_shaderProgramId, "view_inv_mtx");
-            _shaderLocations.ProjectionMatrix = GL.GetUniformLocation(_shaderProgramId, "proj_mtx");
-            _shaderLocations.TextureMatrix = GL.GetUniformLocation(_shaderProgramId, "tex_mtx");
-            _shaderLocations.TexgenMode = GL.GetUniformLocation(_shaderProgramId, "texgen_mode");
-            _shaderLocations.WeightedSkinning = GL.GetUniformLocation(_shaderProgramId, "weighted_skinning");
-            _shaderLocations.MatrixStack = GL.GetUniformLocation(_shaderProgramId, "mtx_stack");
-            _shaderLocations.ToonTable = GL.GetUniformLocation(_shaderProgramId, "toon_table");
-
-            GL.UseProgram(_shaderProgramId);
-            ApplyCosmeticUniforms(default);
-            GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "tex"), 0);
-            GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "normal_tex"), 1);
-            GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "specular_tex"), 2);
-            GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "emissive_tex"), 3);
+            InitWorldUniformLocations();
 
             _shaderLocations.CelOutline = GL.GetUniformLocation(_celShaderProgramId, "outline");
             _shaderLocations.CelTexelWidth = GL.GetUniformLocation(_celShaderProgramId, "texel_w");
@@ -1037,6 +990,7 @@ namespace MphRead
 
             _shaderLocations.FadeColor = GL.GetUniformLocation(_rttShaderProgramId, "fade_color");
             _shaderLocations.LayerAlpha = GL.GetUniformLocation(_rttShaderProgramId, "alpha");
+            _shaderLocations.HudZeroAlphaDiscard = GL.GetUniformLocation(_rttShaderProgramId, "hud_zero_alpha_discard");
             _shaderLocations.UseMask = GL.GetUniformLocation(_rttShaderProgramId, "use_mask");
             _shaderLocations.ViewWidth = GL.GetUniformLocation(_rttShaderProgramId, "view_width");
             _shaderLocations.ViewHeight = GL.GetUniformLocation(_rttShaderProgramId, "view_height");
@@ -1088,6 +1042,67 @@ namespace MphRead
             }
             GL.Uniform3(_shaderLocations.ToonTable, Metadata.ToonTable.Count, floats.ToArray());
             SetShaderFog();
+            PrewarmWorldShaderVariants();
+        }
+
+        private void InitWorldUniformLocations()
+        {
+            _shaderLocations.UseLight = GL.GetUniformLocation(_shaderProgramId, "use_light");
+            _shaderLocations.ShowColors = GL.GetUniformLocation(_shaderProgramId, "show_colors");
+            _shaderLocations.UseTexture = GL.GetUniformLocation(_shaderProgramId, "use_texture");
+            _shaderLocations.DepthOnly = GL.GetUniformLocation(_shaderProgramId, "depth_only");
+            _shaderLocations.DepthVertexFast = GL.GetUniformLocation(_shaderProgramId, "depth_vertex_fast");
+            _shaderLocations.AdvancedMaterials = GL.GetUniformLocation(_shaderProgramId, "advanced_materials");
+            _shaderLocations.UseNormalMap = GL.GetUniformLocation(_shaderProgramId, "use_normal_map");
+            _shaderLocations.UseSpecularMap = GL.GetUniformLocation(_shaderProgramId, "use_specular_map");
+            _shaderLocations.UseEmissiveMap = GL.GetUniformLocation(_shaderProgramId, "use_emissive_map");
+            _shaderLocations.EmissiveIntensity = GL.GetUniformLocation(_shaderProgramId, "emissive_intensity");
+            _shaderLocations.Light1Color = GL.GetUniformLocation(_shaderProgramId, "light1col");
+            _shaderLocations.Light1Vector = GL.GetUniformLocation(_shaderProgramId, "light1vec");
+            _shaderLocations.Light2Color = GL.GetUniformLocation(_shaderProgramId, "light2col");
+            _shaderLocations.Light2Vector = GL.GetUniformLocation(_shaderProgramId, "light2vec");
+            _shaderLocations.Diffuse = GL.GetUniformLocation(_shaderProgramId, "diffuse");
+            _shaderLocations.Ambient = GL.GetUniformLocation(_shaderProgramId, "ambient");
+            _shaderLocations.Specular = GL.GetUniformLocation(_shaderProgramId, "specular");
+            InitCosmeticUniforms();
+            _shaderLocations.Emission = GL.GetUniformLocation(_shaderProgramId, "emission");
+            _shaderLocations.UseFog = GL.GetUniformLocation(_shaderProgramId, "fog_enable");
+            _shaderLocations.CelBands = GL.GetUniformLocation(_shaderProgramId, "cel_bands");
+            _shaderLocations.UseFlat = GL.GetUniformLocation(_shaderProgramId, "use_flat");
+            _shaderLocations.FlatColor = GL.GetUniformLocation(_shaderProgramId, "flat_color");
+            _shaderLocations.FogColor = GL.GetUniformLocation(_shaderProgramId, "fog_color");
+            _shaderLocations.FogMinDistance = GL.GetUniformLocation(_shaderProgramId, "fog_min");
+            _shaderLocations.FogMaxDistance = GL.GetUniformLocation(_shaderProgramId, "fog_max");
+            _shaderLocations.UseOverride = GL.GetUniformLocation(_shaderProgramId, "use_override");
+            _texturedPlayerSkinUniform = GL.GetUniformLocation(_shaderProgramId, "textured_player_skin");
+            _playerOutlineMaskUniform = GL.GetUniformLocation(_shaderProgramId, "player_outline_mask");
+            _playerOutlineColorUniform = GL.GetUniformLocation(_shaderProgramId, "player_outline_color");
+            _shaderLocations.OverrideColor = GL.GetUniformLocation(_shaderProgramId, "override_color");
+            _shaderLocations.UsePaletteOverride = GL.GetUniformLocation(_shaderProgramId, "use_pal_override");
+            _shaderLocations.PaletteOverrideColor = GL.GetUniformLocation(_shaderProgramId, "pal_override_color");
+            _shaderLocations.MaterialAlpha = GL.GetUniformLocation(_shaderProgramId, "mat_alpha");
+            _shaderLocations.MaterialMode = GL.GetUniformLocation(_shaderProgramId, "mat_mode");
+            _shaderLocations.ViewMatrix = GL.GetUniformLocation(_shaderProgramId, "view_mtx");
+            _shaderLocations.ViewInvMatrix = GL.GetUniformLocation(_shaderProgramId, "view_inv_mtx");
+            _shaderLocations.ProjectionMatrix = GL.GetUniformLocation(_shaderProgramId, "proj_mtx");
+            _shaderLocations.TextureMatrix = GL.GetUniformLocation(_shaderProgramId, "tex_mtx");
+            _shaderLocations.TexgenMode = GL.GetUniformLocation(_shaderProgramId, "texgen_mode");
+            _shaderLocations.WeightedSkinning = GL.GetUniformLocation(_shaderProgramId, "weighted_skinning");
+            _shaderLocations.MatrixStack = GL.GetUniformLocation(_shaderProgramId, "mtx_stack");
+            _shaderLocations.ToonTable = GL.GetUniformLocation(_shaderProgramId, "toon_table");
+#if !MPHREAD_SERVER
+            GL.RegisterMatrixPaletteLayout(_shaderProgramId, _shaderLocations.ViewMatrix,
+                _shaderLocations.ViewInvMatrix, _shaderLocations.ProjectionMatrix, _shaderLocations.TextureMatrix);
+#endif
+
+            GL.UseProgram(_shaderProgramId);
+            ApplyCosmeticUniforms(default);
+            GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "tex"), 0);
+            GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "normal_tex"), 1);
+            GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "specular_tex"), 2);
+            GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "emissive_tex"), 3);
+
+            _worldSampler = GL.GetUniformLocation(_shaderProgramId, "tex");
         }
 
         public void InitEntity(EntityBase entity)
@@ -2226,6 +2241,9 @@ namespace MphRead
 
         public int BindGetTexture(IReadOnlyList<ColorRgba> data, int width, int height)
         {
+            using var uploadTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.TextureUpload);
+            Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.TextureUploads);
+            Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.TextureUploadBytes, (long)width * height * 4);
             _lastTextureId = AllocateTexture();
             GL.BindTexture(TextureTarget.Texture2D, _lastTextureId);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
@@ -2238,6 +2256,9 @@ namespace MphRead
 
         public void BindTexture(IReadOnlyList<ColorRgba> data, int width, int height, int bindingId)
         {
+            using var uploadTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.TextureUpload);
+            Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.TextureUploads);
+            Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.TextureUploadBytes, (long)width * height * 4);
             GL.BindTexture(TextureTarget.Texture2D, bindingId);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
                 PixelFormat.Rgba, PixelType.UnsignedByte, data as ColorRgba[] ?? data.ToArray());
@@ -2759,6 +2780,7 @@ namespace MphRead
             {
                 return;
             }
+            using var preparationTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.Preparation);
             RefreshTextureQuality();
             BeginRenderDiagnostics();
             // A first-person pose belongs to exactly one picture. If this draw
@@ -2844,8 +2866,10 @@ namespace MphRead
             if (Services.IsReplica)
                 GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
             UpdateProjection();
-            GetDrawItems();
-            CaptureRetainedRenderWorld();
+            using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.DrawItems))
+                GetDrawItems();
+            using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.CaptureWorld))
+                CaptureRetainedRenderWorld();
         }
 
         public Matrix4 GetPerspectiveMatrix(float fov)
@@ -3496,6 +3520,9 @@ namespace MphRead
             {
                 return !_exiting;
             }
+            // Collection now includes preview and outline geometry, so one
+            // program choice can safely persist through every pass this frame.
+            SelectWorldShaderVariant(allowPlain: true);
             BeginWorldPass();
             try
             {
@@ -3515,10 +3542,19 @@ namespace MphRead
             if (!ExecuteCoreFrameRenderGraph(drawGameHud))
                 return false;
 
+            using var hudTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.Hud);
+#if !MPHREAD_SERVER
+            using var hudGpuTiming = Mods.Render.OpenGlGpuProfiler.Measure(Mods.Render.FrameRenderPassKind.Hud);
+#endif
+#if !MPHREAD_SERVER
+            using var hudSamplerScope = Mods.Render.GraphicsApi.BeginHudSamplerScope();
+#endif
             BeginHudPass();
             GL.Uniform4(_shaderLocations.FadeColor, _fadeColor, _fadeColor, _fadeColor, 0);
             if (Services.IsReplica && ReplayPresentationHud != null)
             {
+                // External replay callbacks own their draw state; do not assume their blend contract.
+                GL.Uniform1(_shaderLocations.HudZeroAlphaDiscard, 0);
                 ReplayPresentationHud(this);
                 return true;
             }
@@ -4720,6 +4756,8 @@ namespace MphRead
         private RenderItem GetRenderItem()
         {
             RenderItem item = _freeRenderItems.Count > 0 ? _freeRenderItems.Dequeue() : new RenderItem();
+            item.MatrixPaletteSource = null;
+            item.MatrixPaletteVersion = 0;
             item.Cosmetics = default;
             item.CosmeticMaterial = default;
             item.TexturedPlayerSkin = false;
@@ -4815,6 +4853,9 @@ namespace MphRead
                 || matrixStack.Count != 16 * matrixStackCount)
                 throw new ArgumentOutOfRangeException(nameof(matrixStackCount),
                     "Render item matrix palette exceeds the shader's 32-slot contract.");
+            item.MatrixPaletteSource = matrixStack;
+            item.MatrixPaletteVersion = Mods.Render.MatrixPaletteRevision.Read(matrixStack);
+            item.MatrixPaletteScale = scaleFactor;
             item.MatrixStackCount = matrixStackCount;
             for (int i = 0; i < matrixStack.Count; i++)
             {
@@ -4893,9 +4934,16 @@ namespace MphRead
                 || matrixStack.Count != 16 * matrixStackCount)
                 throw new ArgumentOutOfRangeException(nameof(matrixStackCount),
                     "Retained matrix palette exceeds the shader's 32-slot contract.");
+            long paletteVersion = Mods.Render.MatrixPaletteRevision.Read(matrixStack);
+            bool reusePalette = paletteVersion > 0 && item.MatrixPaletteVersion == paletteVersion
+                && ReferenceEquals(item.MatrixPaletteSource, matrixStack) && item.MatrixStackCount == matrixStackCount;
+            item.MatrixPaletteSource = matrixStack;
+            item.MatrixPaletteVersion = paletteVersion;
+            item.MatrixPaletteScale = 1f;
             item.MatrixStackCount = matrixStackCount;
-            for (int i = 0; i < matrixStack.Count; i++)
-                item.MatrixStack[i] = matrixStack[i];
+            if (!reusePalette)
+                for (int i = 0; i < matrixStack.Count; i++)
+                    item.MatrixStack[i] = matrixStack[i];
             item.OverrideColor = null;
             item.PaletteOverride = null;
             item.TexturedPlayerSkin = false;
@@ -5288,16 +5336,21 @@ namespace MphRead
 
         private void UpdateUniforms()
         {
+            UploadWorldFrameUniforms();
+            if (ProcessFrame)
+            {
+                UpdateFade();
+            }
+        }
+
+        private void UploadWorldFrameUniforms()
+        {
             UseRoomLights();
             SetShaderFog();
             GL.Uniform1(_shaderLocations.UseFog, _hasFog && FogOn ? 1 : 0);
             GL.Uniform1(_shaderLocations.CelBands, Mods.RenderOptions.CelShading
                 ? Mods.RenderOptions.CelBands : 0);
             GL.Uniform1(_shaderLocations.ShowColors, _showColors ? 1 : 0);
-            if (ProcessFrame)
-            {
-                UpdateFade();
-            }
         }
 
         private void UseRoomLights()
@@ -5489,6 +5542,14 @@ namespace MphRead
             {
                 return;
             }
+#if !MPHREAD_SERVER
+            _depthReplaySnapshot?.Dispose();
+            _depthReplaySnapshot = null;
+#endif
+#if !MPHREAD_SERVER && !ANDROID
+            _proceduralStream?.Dispose();
+            _proceduralStream = null;
+#endif
 #if MPHREAD_SHELL
             DisposeEditorMeshes();
 #endif
@@ -5497,6 +5558,8 @@ namespace MphRead
                 foreach (int texture in _ownedTextures) GL.DeleteTexture(texture);
                 _ownedTextures.Clear();
             }
+            _hudGlyphTextures.Clear();
+            _hudSpriteTextures.Clear();
             _texPalMap.Clear();
             _textureSources.Clear();
             _streamingTextureVersions.Clear();
@@ -5546,6 +5609,7 @@ namespace MphRead
             DeleteTexture(ref _screenTexture);
             DeleteTexture(ref _celTexture);
             DeleteTexture(ref _depthTexture);
+            ReleaseWorldShaderVariants();
             DeleteProgram(ref _shaderProgramId);
             DeleteProgram(ref _rttShaderProgramId);
             DeleteProgram(ref _shiftShaderProgramId);
@@ -5646,54 +5710,75 @@ namespace MphRead
 
         private void RenderItem(RenderItem item, bool applySharedState,
             Mods.Render.RetainedMeshDescriptor? retainedMesh = null,
-            bool drawGeometry = true)
+            bool drawGeometry = true, bool applyObjectState = true)
         {
-            SetViewModelRenderState(item.ViewModel);
-            UseLight1(item.LightInfo.Light1Vector, item.LightInfo.Light1Color);
-            UseLight2(item.LightInfo.Light2Vector, item.LightInfo.Light2Color);
-
-            if (item.MatrixStackCount > 0)
+            bool depthCoverage = _depthPreparationEnabled
+                && Mods.Render.DepthCoveragePreparation.CanUse(item, _depthOnlyWorldPass, _drawingPlayerOutlineMask, _proceduralBatchEnabled);
+            if (applyObjectState)
             {
-                int matrixCount = Math.Clamp(item.MatrixStackCount, 0,
-                    Math.Min(32, item.MatrixStack.Length / 16));
-                if (matrixCount > 0)
-                    GL.UniformMatrix4(_shaderLocations.MatrixStack, matrixCount,
-                        transpose: false, item.MatrixStack);
+                SetViewModelRenderState(item.ViewModel);
+                if (!depthCoverage && !SkipProceduralLightingPreparation(item))
+                {
+                    UseLight1(item.LightInfo.Light1Vector, item.LightInfo.Light1Color);
+                    UseLight2(item.LightInfo.Light2Vector, item.LightInfo.Light2Color);
+                }
+                else if (depthCoverage) Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.DepthPreparedItems);
+                else Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.ProceduralUnlitPreparations);
+
+                if (item.MatrixStackCount > 0)
+                {
+                    int matrixCount = Math.Clamp(item.MatrixStackCount, 0,
+                        Math.Min(32, item.MatrixStack.Length / 16));
+                    if (matrixCount > 0)
+                    {
+#if !MPHREAD_SERVER
+                        GL.UniformMatrixPalette(_shaderLocations.MatrixStack, matrixCount, item.MatrixStack,
+                            item.MatrixPaletteSource, item.MatrixPaletteVersion, item.MatrixPaletteScale);
+#else
+                        GL.UniformMatrix4(_shaderLocations.MatrixStack, matrixCount, false, item.MatrixStack);
+#endif
+                    }
+                    else
+                    {
+                        Matrix4 transform = item.Transform;
+                        GL.UniformMatrix4(_shaderLocations.MatrixStack,
+                            transpose: false, ref transform);
+                    }
+                }
                 else
                 {
                     Matrix4 transform = item.Transform;
                     GL.UniformMatrix4(_shaderLocations.MatrixStack,
                         transpose: false, ref transform);
                 }
-            }
-            else
-            {
-                Matrix4 transform = item.Transform;
-                GL.UniformMatrix4(_shaderLocations.MatrixStack,
-                    transpose: false, ref transform);
-            }
 
-            Matrix4 viewInv = Matrix4.Identity;
-            if (item.BillboardMode == BillboardMode.Sphere)
-                viewInv = _viewInvRotMatrix;
-            else if (item.BillboardMode == BillboardMode.Cylinder)
-                viewInv = _viewInvRotYMatrix;
-            GL.UniformMatrix4(_shaderLocations.ViewInvMatrix,
-                transpose: false, ref viewInv);
-            GL.Uniform1(_shaderLocations.WeightedSkinning, item.WeightedSkinning ? 1 : 0);
+                Matrix4 viewInv = Matrix4.Identity;
+                if (item.BillboardMode == BillboardMode.Sphere)
+                    viewInv = _viewInvRotMatrix;
+                else if (item.BillboardMode == BillboardMode.Cylinder)
+                    viewInv = _viewInvRotYMatrix;
+                GL.UniformMatrix4(_shaderLocations.ViewInvMatrix,
+                    transpose: false, ref viewInv);
+                GL.Uniform1(_shaderLocations.WeightedSkinning, item.WeightedSkinning ? 1 : 0);
+            }
 
             if (applySharedState)
-                ApplyRenderItemSharedState(item);
+                ApplyRenderItemSharedState(item, depthCoverage);
 
-            GL.Color3(item.Diffuse);
+            // Mesh lists can change the current color; uniform reuse must not inherit it.
+            if (applyObjectState || item.Type == RenderItemType.Mesh) GL.Color3(item.Diffuse);
             if (drawGeometry)
                 DrawRenderItemGeometry(item, retainedMesh);
         }
 
-        private void ApplyRenderItemSharedState(RenderItem item)
+        private void ApplyRenderItemSharedState(RenderItem item, bool depthCoverage)
         {
-            DoMaterial(item);
-            DoTexture(item);
+            if (depthCoverage) PrepareDepthCoverage(item);
+            else
+            {
+                DoMaterial(item);
+                DoTexture(item);
+            }
             if (_faceCulling)
             {
                 // Avoid an enable/disable pair on uncullable material batches.
@@ -5721,6 +5806,10 @@ namespace MphRead
         private void DrawRenderItemGeometry(RenderItem item,
             Mods.Render.RetainedMeshDescriptor? retainedMesh)
         {
+#if !MPHREAD_SERVER && !ANDROID
+            if (_proceduralStream?.TryDraw(item) == true) return;
+            if (_proceduralBatchEnabled && GL.TryDrawProceduralImmediate(item)) return;
+#endif
             if (item.Type == RenderItemType.Mesh)
                 GL.CallList(retainedMesh?.ListId ?? item.ListId);
             else if (item.Type == RenderItemType.Box)
@@ -5985,6 +6074,9 @@ namespace MphRead
 
         private void RenderTrailStack(RenderItem item)
         {
+            bool batch = _proceduralBatchEnabled && item.ItemCount > 0
+                && item.ItemCount <= Mods.Render.ProceduralFrameGeometry.MaxVertices / 4;
+            if (batch) GL.Begin(PrimitiveType.Quads);
             for (int i = 0; i < item.ItemCount; i++)
             {
                 Vector3 texcoord0 = item.Points[i * 8];
@@ -5995,7 +6087,7 @@ namespace MphRead
                 Vector3 vertex2 = item.Points[i * 8 + 5];
                 Vector3 texcoord3 = item.Points[i * 8 + 6];
                 Vector3 vertex3 = item.Points[i * 8 + 7];
-                GL.Begin(PrimitiveType.Quads);
+                if (!batch) GL.Begin(PrimitiveType.Quads);
                 GL.TexCoord3(texcoord0);
                 GL.Vertex3(vertex0);
                 GL.TexCoord3(texcoord1);
@@ -6004,8 +6096,9 @@ namespace MphRead
                 GL.Vertex3(vertex2);
                 GL.TexCoord3(texcoord3);
                 GL.Vertex3(vertex3);
-                GL.End();
+                if (!batch) GL.End();
             }
+            if (batch) GL.End();
         }
 
         private void SetPauseMenuUniforms()
@@ -6820,6 +6913,12 @@ localCenter *= _profileHudScale;
 
         // Scoped to the side-scene editor draw; never changes global graphics preferences.
         private bool _editorMaterialPreview;
+        // These uniforms are read only inside use_light branches in both shader dialects.
+        // Keep vertex color, use_light, alpha and emissive-map intensity current.
+        private bool SkipProceduralLightingPreparation(RenderItem item)
+            => _proceduralBatchEnabled && Mods.Render.ProceduralStateReuse.IsProcedural(item.Type)
+                && !((LightingOn || _editorMaterialPreview) && item.Lighting);
+
         private void DoMaterial(RenderItem item)
         {
             ApplyCosmeticUniforms(item.Cosmetics);
@@ -6828,10 +6927,13 @@ localCenter *= _profileHudScale;
             // so the diffuse color is always set as the vertex color to start
             // (the emission color is set to white if lighting is disabled or black if lighting is enabled; we can just ignore that)
             // --> ...except for hunter models with teams enabled or with double damage
-            GL.Uniform3(_shaderLocations.Diffuse, item.Diffuse);
-            GL.Uniform3(_shaderLocations.Ambient, item.Ambient);
-            GL.Uniform3(_shaderLocations.Specular, item.Specular);
-            GL.Uniform3(_shaderLocations.Emission, item.Emission);
+            if (!SkipProceduralLightingPreparation(item))
+            {
+                GL.Uniform3(_shaderLocations.Diffuse, item.Diffuse);
+                GL.Uniform3(_shaderLocations.Ambient, item.Ambient);
+                GL.Uniform3(_shaderLocations.Specular, item.Specular);
+                GL.Uniform3(_shaderLocations.Emission, item.Emission);
+            }
             GL.Uniform1(_shaderLocations.EmissiveIntensity, item.EmissiveIntensity);
             GL.Uniform1(_shaderLocations.MaterialAlpha, item.Alpha);
             GL.Uniform1(_shaderLocations.MaterialMode, (int)item.PolygonMode);
@@ -6934,6 +7036,22 @@ localCenter *= _profileHudScale;
                 TextureParameterName.TextureWrapT, (int)TextureWrap(yRepeat));
         }
 
+        private void BindRenderItemBaseTexture(RenderItem item)
+        {
+            GL.ActiveTexture(TextureUnit.Texture0);
+
+            if (item.HasTexture)
+            {
+                GL.BindTexture(TextureTarget.Texture2D, item.TextureBindingId);
+                ApplyBoundTextureSampling(item.TextureBindingId,
+                    item.XRepeat, item.YRepeat);
+                Matrix4 texcoordMatrix = item.TexcoordMatrix;
+                GL.Uniform1(_shaderLocations.TexgenMode, (int)item.TexgenMode);
+                GL.UniformMatrix4(_shaderLocations.TextureMatrix, transpose: false, ref texcoordMatrix);
+            }
+            GL.Uniform1(_shaderLocations.UseTexture, item.HasTexture && _showTextures ? 1 : 0);
+        }
+
         private void DoTexture(RenderItem item)
         {
             Mods.Render.MaterialMapBindings materialMaps = default;
@@ -6978,18 +7096,7 @@ localCenter *= _profileHudScale;
                         item.XRepeat, item.YRepeat);
                 }
             }
-            GL.ActiveTexture(TextureUnit.Texture0);
-
-            if (item.HasTexture)
-            {
-                GL.BindTexture(TextureTarget.Texture2D, item.TextureBindingId);
-                ApplyBoundTextureSampling(item.TextureBindingId,
-                    item.XRepeat, item.YRepeat);
-                Matrix4 texcoordMatrix = item.TexcoordMatrix;
-                GL.Uniform1(_shaderLocations.TexgenMode, (int)item.TexgenMode);
-                GL.UniformMatrix4(_shaderLocations.TextureMatrix, transpose: false, ref texcoordMatrix);
-            }
-            GL.Uniform1(_shaderLocations.UseTexture, item.HasTexture && _showTextures ? 1 : 0);
+            BindRenderItemBaseTexture(item);
             SetFlatColor(item.HasTexture && _showTextures ? item.TextureBindingId : -1);
             GL.Uniform1(_texturedPlayerSkinUniform, !_drawingPlayerOutlineMask && item.TexturedPlayerSkin
                 ? (Mods.RenderOptions.BrightSkinStyle == Mods.PlayerSkinStyle.HighContrastTextured ? 2 : 1) : 0);
@@ -8452,6 +8559,12 @@ localCenter *= _profileHudScale;
             // IgnoreUnavailableGlfwFeatures for why a throw here is fatal
             // rather than catchable.
             IgnoreUnavailableGlfwFeatures();
+#if !MPHREAD_SERVER && !ANDROID
+            // A recreated window owns a new context, even on the same thread.
+            // Discard cached object names and capabilities before loading a scene.
+            Context.MakeCurrent();
+            Mods.Render.GraphicsApi.LoadBindings(new GLFWBindingsContext());
+#endif
             // The mark, on this window: it is the only one the program has
             // now, so it is the only one that can carry it. Set here rather
             // than in the settings above because those are static and shared
@@ -8744,6 +8857,9 @@ localCenter *= _profileHudScale;
                 Mods.DebugLog.Line("shutdown", "game loop stopped; cleaning up scene");
                 _scene?.DoCleanup();
                 Mods.DebugLog.Line("shutdown", "scene cleanup complete");
+#if !MPHREAD_SERVER && !ANDROID
+                Mods.Render.OpenGlGpuProfiler.ReleaseCurrentContext();
+#endif
             }
             finally
             {
@@ -9106,7 +9222,7 @@ localCenter *= _profileHudScale;
             Mods.Render.LowLatencyController.Mark(
                 latencyFrame, Mods.Render.LowLatencyMarker.RenderSubmitStart);
 #if !MPHREAD_SERVER && !ANDROID
-            Mods.Render.OpenGlFrameProfiler.BeginRender(Scene);
+            Mods.Render.OpenGlFrameProfiler.BeginRender(Scene, VSync.ToString());
 #endif
             Scene.OnDrawFrame();
             if (!Scene.OnRenderFrame())
@@ -9142,7 +9258,8 @@ localCenter *= _profileHudScale;
 #if !MPHREAD_SERVER && !ANDROID
             Mods.Render.OpenGlFrameProfiler.BeginPresent();
             try { PresentFrame(); }
-            finally { Mods.Render.OpenGlFrameProfiler.EndPresent(); }
+            catch { Mods.Render.OpenGlFrameProfiler.CancelFrame(); throw; }
+            Mods.Render.OpenGlFrameProfiler.EndPresent();
 #else
             PresentFrame();
 #endif

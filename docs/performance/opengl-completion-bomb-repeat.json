@@ -1,0 +1,2261 @@
+{
+  "schema": 1,
+  "status": "nonreproducible-control-outlier",
+  "cause": "Undetermined; original disabled arm differs, both fresh disabled arms and both enabled arms agree exactly.",
+  "selectedControlPrefix": "completion-bomb-repeat",
+  "originalComparison": "opengl-completion-postfix-initial-validation.json",
+  "runs": {
+    "completion-postfix-visual-bomb-baseline-a": {
+      "name": "completion-postfix-visual-bomb-baseline-a",
+      "group": "visual",
+      "arm": "baseline",
+      "build": "current",
+      "assemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+      "configuration": {
+        "room": "MP9 CRYOCHASM",
+        "cap": 144,
+        "effectiveCap": 144,
+        "shadows": "Off",
+        "framebuffer": [
+          1280,
+          720
+        ],
+        "renderSize": [
+          1280,
+          720
+        ],
+        "textureQuality": "Automatic",
+        "resolutionScale": 100,
+        "lighting": true,
+        "renderer": "Apple M4 Pro",
+        "vendor": "Apple",
+        "glVersion": "2.1 Metal - 91.7",
+        "vsync": "Off"
+      },
+      "unavailableMetadata": [],
+      "harness": {
+        "meanCompletedFrameFps": 69.63916279583387,
+        "frameIntervalP50Ms": 7.8215,
+        "frameIntervalP95Ms": 9.5582,
+        "frameIntervalP99Ms": 11.202,
+        "simulationHz": 59.9889230453597,
+        "droppedSimulationSteps": 5,
+        "stalls": 1
+      },
+      "cleanup": {
+        "depthSnapshotBytesBefore": 3686400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 829920,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1952952,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 23,
+        "glyphBytesBefore": 5888,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "invocation": {
+        "schema": 1,
+        "group": "visual",
+        "build": "current",
+        "profiled": false,
+        "separateCapture": true,
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP9 CRYOCHASM",
+          "-seconds",
+          "8",
+          "-hz",
+          "144",
+          "-size",
+          "1280x720",
+          "-output",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-visual-bomb-baseline-a.json",
+          "-players",
+          "4",
+          "-bombcheck",
+          "-shots",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-visual-bomb-baseline-a",
+          "-idle"
+        ],
+        "requestedFlags": {
+          "VAO": 1,
+          "DYNAMIC_STREAM": 1,
+          "UNIFORM_REVISIONS": 1,
+          "STATIC_CACHE": 1,
+          "SHADOW_FAST": 1,
+          "HUD_SAMPLERS": 1,
+          "DEPTH_BATCH": 1,
+          "ATLAS_EVICTION": 1,
+          "HUD_DISCARD": 1,
+          "DEPTH_SHADER": 1,
+          "GLES_UNIFORMS": 1,
+          "HUD_GLYPHS": 1,
+          "HUD_SPRITES": 1,
+          "DEPTH_PREP": 1,
+          "PROCEDURAL_BATCH": 1,
+          "ROOM_CACHE": 1,
+          "DEPTH_VERTEX": 0,
+          "PROCEDURAL_STREAM": 0,
+          "DEPTH_KEEP": 1,
+          "SHADER_VARIANTS": 1,
+          "ROOM_GROUPS": 1,
+          "PLAIN_SHADER": 1,
+          "ROOM_IDENTITY": 0,
+          "MESH_OBJECT": 0,
+          "SHADOW_PREP": 0,
+          "UNLIT_SHADER": 0,
+          "SHADOW_GROUPS": 0
+        },
+        "forceLegacy": 0,
+        "binarySha256": {
+          "harness": "4d66c6881160ab6e37938ac726a5a74e63004b080712be59b97b350f749e16b4",
+          "client": "09db2bbb853aa82ee2b428e6a0204ab48d7b436a7044ceac31e9ac4cfcf33fba"
+        },
+        "expectedAssemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+        "executable": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "client": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll",
+        "unconditionalUniformCacheChanges": "Present in current build in both same-build arms; cross build controls are intentionally mixed-MVID.",
+        "bundle": "completion",
+        "feature": "both",
+        "actualAssemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+        "rawResultSha256": "c2d061502b0c2b5680965db6587a8cada15989d23b037e7c9f0919d29cdd53d8",
+        "rawLogSha256": "4cf262bc6e2db5f0cbab5e1031ad5d8181c61787365548c516cdfb99cc615aaf"
+      },
+      "rawResult": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-visual-bomb-baseline-a.json",
+      "rawResultSha256": "c2d061502b0c2b5680965db6587a8cada15989d23b037e7c9f0919d29cdd53d8",
+      "rawLog": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-visual-bomb-baseline-a.log",
+      "rawLogSha256": "4cf262bc6e2db5f0cbab5e1031ad5d8181c61787365548c516cdfb99cc615aaf",
+      "rawInvocation": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-visual-bomb-baseline-a.invocation.json",
+      "rawInvocationSha256": "7c96baaa9354e5dceb1355da61b683e9b2dd9bdd3bf3ac4a01e0254bb9330f5e"
+    },
+    "completion-postfix-visual-bomb-candidate-a": {
+      "name": "completion-postfix-visual-bomb-candidate-a",
+      "group": "visual",
+      "arm": "candidate",
+      "build": "current",
+      "assemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+      "configuration": {
+        "room": "MP9 CRYOCHASM",
+        "cap": 144,
+        "effectiveCap": 144,
+        "shadows": "Off",
+        "framebuffer": [
+          1280,
+          720
+        ],
+        "renderSize": [
+          1280,
+          720
+        ],
+        "textureQuality": "Automatic",
+        "resolutionScale": 100,
+        "lighting": true,
+        "renderer": "Apple M4 Pro",
+        "vendor": "Apple",
+        "glVersion": "2.1 Metal - 91.7",
+        "vsync": "Off"
+      },
+      "unavailableMetadata": [],
+      "harness": {
+        "meanCompletedFrameFps": 69.62142789724149,
+        "frameIntervalP50Ms": 7.781,
+        "frameIntervalP95Ms": 9.3834,
+        "frameIntervalP99Ms": 11.9903,
+        "simulationHz": 59.97657914584351,
+        "droppedSimulationSteps": 5,
+        "stalls": 1
+      },
+      "cleanup": {
+        "depthSnapshotBytesBefore": 3686400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 829920,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1952952,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 23,
+        "glyphBytesBefore": 5888,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "invocation": {
+        "schema": 1,
+        "group": "visual",
+        "build": "current",
+        "profiled": false,
+        "separateCapture": true,
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP9 CRYOCHASM",
+          "-seconds",
+          "8",
+          "-hz",
+          "144",
+          "-size",
+          "1280x720",
+          "-output",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-visual-bomb-candidate-a.json",
+          "-players",
+          "4",
+          "-bombcheck",
+          "-shots",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-visual-bomb-candidate-a",
+          "-idle"
+        ],
+        "requestedFlags": {
+          "VAO": 1,
+          "DYNAMIC_STREAM": 1,
+          "UNIFORM_REVISIONS": 1,
+          "STATIC_CACHE": 1,
+          "SHADOW_FAST": 1,
+          "HUD_SAMPLERS": 1,
+          "DEPTH_BATCH": 1,
+          "ATLAS_EVICTION": 1,
+          "HUD_DISCARD": 1,
+          "DEPTH_SHADER": 1,
+          "GLES_UNIFORMS": 1,
+          "HUD_GLYPHS": 1,
+          "HUD_SPRITES": 1,
+          "DEPTH_PREP": 1,
+          "PROCEDURAL_BATCH": 1,
+          "ROOM_CACHE": 1,
+          "DEPTH_VERTEX": 0,
+          "PROCEDURAL_STREAM": 0,
+          "DEPTH_KEEP": 1,
+          "SHADER_VARIANTS": 1,
+          "ROOM_GROUPS": 1,
+          "PLAIN_SHADER": 1,
+          "ROOM_IDENTITY": 1,
+          "MESH_OBJECT": 1,
+          "SHADOW_PREP": 1,
+          "UNLIT_SHADER": 1,
+          "SHADOW_GROUPS": 1
+        },
+        "forceLegacy": 0,
+        "binarySha256": {
+          "harness": "4d66c6881160ab6e37938ac726a5a74e63004b080712be59b97b350f749e16b4",
+          "client": "09db2bbb853aa82ee2b428e6a0204ab48d7b436a7044ceac31e9ac4cfcf33fba"
+        },
+        "expectedAssemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+        "executable": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "client": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll",
+        "unconditionalUniformCacheChanges": "Present in current build in both same-build arms; cross build controls are intentionally mixed-MVID.",
+        "bundle": "completion",
+        "feature": "both",
+        "actualAssemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+        "rawResultSha256": "b14266f073d2ad1fe26b19e54c3133672f7c1dc23889d4241f0763ddef682cdb",
+        "rawLogSha256": "4c22226ca977454557b0d367e92e993b1b6cf9fa5ac2eca29d15d9764850e96a"
+      },
+      "rawResult": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-visual-bomb-candidate-a.json",
+      "rawResultSha256": "b14266f073d2ad1fe26b19e54c3133672f7c1dc23889d4241f0763ddef682cdb",
+      "rawLog": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-visual-bomb-candidate-a.log",
+      "rawLogSha256": "4c22226ca977454557b0d367e92e993b1b6cf9fa5ac2eca29d15d9764850e96a",
+      "rawInvocation": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-postfix-visual-bomb-candidate-a.invocation.json",
+      "rawInvocationSha256": "6f9a320cae4d9b7fa15d072d42d1d94dbdc784615bf1d4c61330f120d225b3e3"
+    },
+    "completion-bomb-repeat-visual-bomb-baseline-a": {
+      "name": "completion-bomb-repeat-visual-bomb-baseline-a",
+      "group": "visual",
+      "arm": "baseline",
+      "build": "current",
+      "assemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+      "configuration": {
+        "room": "MP9 CRYOCHASM",
+        "cap": 144,
+        "effectiveCap": 144,
+        "shadows": "Off",
+        "framebuffer": [
+          1280,
+          720
+        ],
+        "renderSize": [
+          1280,
+          720
+        ],
+        "textureQuality": "Automatic",
+        "resolutionScale": 100,
+        "lighting": true,
+        "renderer": "Apple M4 Pro",
+        "vendor": "Apple",
+        "glVersion": "2.1 Metal - 91.7",
+        "vsync": "Off"
+      },
+      "unavailableMetadata": [],
+      "harness": {
+        "meanCompletedFrameFps": 75.98085523831224,
+        "frameIntervalP50Ms": 7.2027,
+        "frameIntervalP95Ms": 9.2513,
+        "frameIntervalP99Ms": 10.6283,
+        "simulationHz": 59.94245823721516,
+        "droppedSimulationSteps": 5,
+        "stalls": 1
+      },
+      "cleanup": {
+        "depthSnapshotBytesBefore": 3686400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 829920,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1952952,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 23,
+        "glyphBytesBefore": 5888,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "invocation": {
+        "schema": 1,
+        "group": "visual",
+        "build": "current",
+        "profiled": false,
+        "separateCapture": true,
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP9 CRYOCHASM",
+          "-seconds",
+          "8",
+          "-hz",
+          "144",
+          "-size",
+          "1280x720",
+          "-output",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-baseline-a.json",
+          "-players",
+          "4",
+          "-bombcheck",
+          "-shots",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-baseline-a",
+          "-idle"
+        ],
+        "requestedFlags": {
+          "VAO": 1,
+          "DYNAMIC_STREAM": 1,
+          "UNIFORM_REVISIONS": 1,
+          "STATIC_CACHE": 1,
+          "SHADOW_FAST": 1,
+          "HUD_SAMPLERS": 1,
+          "DEPTH_BATCH": 1,
+          "ATLAS_EVICTION": 1,
+          "HUD_DISCARD": 1,
+          "DEPTH_SHADER": 1,
+          "GLES_UNIFORMS": 1,
+          "HUD_GLYPHS": 1,
+          "HUD_SPRITES": 1,
+          "DEPTH_PREP": 1,
+          "PROCEDURAL_BATCH": 1,
+          "ROOM_CACHE": 1,
+          "DEPTH_VERTEX": 0,
+          "PROCEDURAL_STREAM": 0,
+          "DEPTH_KEEP": 1,
+          "SHADER_VARIANTS": 1,
+          "ROOM_GROUPS": 1,
+          "PLAIN_SHADER": 1,
+          "ROOM_IDENTITY": 0,
+          "MESH_OBJECT": 0,
+          "SHADOW_PREP": 0,
+          "UNLIT_SHADER": 0,
+          "SHADOW_GROUPS": 0
+        },
+        "forceLegacy": 0,
+        "binarySha256": {
+          "harness": "4d66c6881160ab6e37938ac726a5a74e63004b080712be59b97b350f749e16b4",
+          "client": "09db2bbb853aa82ee2b428e6a0204ab48d7b436a7044ceac31e9ac4cfcf33fba"
+        },
+        "expectedAssemblyMvid": null,
+        "executable": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "client": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll",
+        "unconditionalUniformCacheChanges": "Present in current build in both same-build arms; cross build controls are intentionally mixed-MVID.",
+        "bundle": "completion",
+        "feature": "both",
+        "actualAssemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+        "rawResultSha256": "74fe22355b72d4cc7e6d225cdf8f899c9bde9d1347526627a8e13d6c63d8439d",
+        "rawLogSha256": "72ce2971ac7ce18519db3ec3a5686d0ed68f7da4d8baad200baa057616e9e9f9"
+      },
+      "rawResult": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-baseline-a.json",
+      "rawResultSha256": "74fe22355b72d4cc7e6d225cdf8f899c9bde9d1347526627a8e13d6c63d8439d",
+      "rawLog": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-baseline-a.log",
+      "rawLogSha256": "72ce2971ac7ce18519db3ec3a5686d0ed68f7da4d8baad200baa057616e9e9f9",
+      "rawInvocation": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-baseline-a.invocation.json",
+      "rawInvocationSha256": "f1969c63bc4613479b492fd8c328c915c37be99e1d94063e123bd4c1fdf5fa3a"
+    },
+    "completion-bomb-repeat-visual-bomb-candidate-a": {
+      "name": "completion-bomb-repeat-visual-bomb-candidate-a",
+      "group": "visual",
+      "arm": "candidate",
+      "build": "current",
+      "assemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+      "configuration": {
+        "room": "MP9 CRYOCHASM",
+        "cap": 144,
+        "effectiveCap": 144,
+        "shadows": "Off",
+        "framebuffer": [
+          1280,
+          720
+        ],
+        "renderSize": [
+          1280,
+          720
+        ],
+        "textureQuality": "Automatic",
+        "resolutionScale": 100,
+        "lighting": true,
+        "renderer": "Apple M4 Pro",
+        "vendor": "Apple",
+        "glVersion": "2.1 Metal - 91.7",
+        "vsync": "Off"
+      },
+      "unavailableMetadata": [],
+      "harness": {
+        "meanCompletedFrameFps": 75.28602426731317,
+        "frameIntervalP50Ms": 7.1173,
+        "frameIntervalP95Ms": 8.8054,
+        "frameIntervalP99Ms": 11.659,
+        "simulationHz": 59.887295104977184,
+        "droppedSimulationSteps": 5,
+        "stalls": 1
+      },
+      "cleanup": {
+        "depthSnapshotBytesBefore": 3686400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 829920,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1952952,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 23,
+        "glyphBytesBefore": 5888,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "invocation": {
+        "schema": 1,
+        "group": "visual",
+        "build": "current",
+        "profiled": false,
+        "separateCapture": true,
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP9 CRYOCHASM",
+          "-seconds",
+          "8",
+          "-hz",
+          "144",
+          "-size",
+          "1280x720",
+          "-output",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-candidate-a.json",
+          "-players",
+          "4",
+          "-bombcheck",
+          "-shots",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-candidate-a",
+          "-idle"
+        ],
+        "requestedFlags": {
+          "VAO": 1,
+          "DYNAMIC_STREAM": 1,
+          "UNIFORM_REVISIONS": 1,
+          "STATIC_CACHE": 1,
+          "SHADOW_FAST": 1,
+          "HUD_SAMPLERS": 1,
+          "DEPTH_BATCH": 1,
+          "ATLAS_EVICTION": 1,
+          "HUD_DISCARD": 1,
+          "DEPTH_SHADER": 1,
+          "GLES_UNIFORMS": 1,
+          "HUD_GLYPHS": 1,
+          "HUD_SPRITES": 1,
+          "DEPTH_PREP": 1,
+          "PROCEDURAL_BATCH": 1,
+          "ROOM_CACHE": 1,
+          "DEPTH_VERTEX": 0,
+          "PROCEDURAL_STREAM": 0,
+          "DEPTH_KEEP": 1,
+          "SHADER_VARIANTS": 1,
+          "ROOM_GROUPS": 1,
+          "PLAIN_SHADER": 1,
+          "ROOM_IDENTITY": 1,
+          "MESH_OBJECT": 1,
+          "SHADOW_PREP": 1,
+          "UNLIT_SHADER": 1,
+          "SHADOW_GROUPS": 1
+        },
+        "forceLegacy": 0,
+        "binarySha256": {
+          "harness": "4d66c6881160ab6e37938ac726a5a74e63004b080712be59b97b350f749e16b4",
+          "client": "09db2bbb853aa82ee2b428e6a0204ab48d7b436a7044ceac31e9ac4cfcf33fba"
+        },
+        "expectedAssemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+        "executable": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "client": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll",
+        "unconditionalUniformCacheChanges": "Present in current build in both same-build arms; cross build controls are intentionally mixed-MVID.",
+        "bundle": "completion",
+        "feature": "both",
+        "actualAssemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+        "rawResultSha256": "98cf3f304a4b2409168ad30f6ee7b332bf4dfce60611bd4f7b3380582d11a633",
+        "rawLogSha256": "1701f0b2f8a0df9ca6a4b83668993c3957217fcf8463511de753f74947d7038e"
+      },
+      "rawResult": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-candidate-a.json",
+      "rawResultSha256": "98cf3f304a4b2409168ad30f6ee7b332bf4dfce60611bd4f7b3380582d11a633",
+      "rawLog": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-candidate-a.log",
+      "rawLogSha256": "1701f0b2f8a0df9ca6a4b83668993c3957217fcf8463511de753f74947d7038e",
+      "rawInvocation": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-candidate-a.invocation.json",
+      "rawInvocationSha256": "65107f365a1b236626cae3a63733cc894de295c30cbeeadd6cf2a89e79de7f97"
+    },
+    "completion-bomb-repeat-visual-bomb-baseline-b": {
+      "name": "completion-bomb-repeat-visual-bomb-baseline-b",
+      "group": "visual",
+      "arm": "baseline",
+      "build": "current",
+      "assemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+      "configuration": {
+        "room": "MP9 CRYOCHASM",
+        "cap": 144,
+        "effectiveCap": 144,
+        "shadows": "Off",
+        "framebuffer": [
+          1280,
+          720
+        ],
+        "renderSize": [
+          1280,
+          720
+        ],
+        "textureQuality": "Automatic",
+        "resolutionScale": 100,
+        "lighting": true,
+        "renderer": "Apple M4 Pro",
+        "vendor": "Apple",
+        "glVersion": "2.1 Metal - 91.7",
+        "vsync": "Off"
+      },
+      "unavailableMetadata": [],
+      "harness": {
+        "meanCompletedFrameFps": 75.78551200926152,
+        "frameIntervalP50Ms": 7.183,
+        "frameIntervalP95Ms": 8.962,
+        "frameIntervalP99Ms": 10.4347,
+        "simulationHz": 59.840384749737744,
+        "droppedSimulationSteps": 5,
+        "stalls": 1
+      },
+      "cleanup": {
+        "depthSnapshotBytesBefore": 3686400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 258,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 829920,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1952952,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 23,
+        "glyphBytesBefore": 5888,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "invocation": {
+        "schema": 1,
+        "group": "visual",
+        "build": "current",
+        "profiled": false,
+        "separateCapture": true,
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+          "-room",
+          "MP9 CRYOCHASM",
+          "-seconds",
+          "8",
+          "-hz",
+          "144",
+          "-size",
+          "1280x720",
+          "-output",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-baseline-b.json",
+          "-players",
+          "4",
+          "-bombcheck",
+          "-shots",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-baseline-b",
+          "-idle"
+        ],
+        "requestedFlags": {
+          "VAO": 1,
+          "DYNAMIC_STREAM": 1,
+          "UNIFORM_REVISIONS": 1,
+          "STATIC_CACHE": 1,
+          "SHADOW_FAST": 1,
+          "HUD_SAMPLERS": 1,
+          "DEPTH_BATCH": 1,
+          "ATLAS_EVICTION": 1,
+          "HUD_DISCARD": 1,
+          "DEPTH_SHADER": 1,
+          "GLES_UNIFORMS": 1,
+          "HUD_GLYPHS": 1,
+          "HUD_SPRITES": 1,
+          "DEPTH_PREP": 1,
+          "PROCEDURAL_BATCH": 1,
+          "ROOM_CACHE": 1,
+          "DEPTH_VERTEX": 0,
+          "PROCEDURAL_STREAM": 0,
+          "DEPTH_KEEP": 1,
+          "SHADER_VARIANTS": 1,
+          "ROOM_GROUPS": 1,
+          "PLAIN_SHADER": 1,
+          "ROOM_IDENTITY": 0,
+          "MESH_OBJECT": 0,
+          "SHADOW_PREP": 0,
+          "UNLIT_SHADER": 0,
+          "SHADOW_GROUPS": 0
+        },
+        "forceLegacy": 0,
+        "binarySha256": {
+          "harness": "4d66c6881160ab6e37938ac726a5a74e63004b080712be59b97b350f749e16b4",
+          "client": "09db2bbb853aa82ee2b428e6a0204ab48d7b436a7044ceac31e9ac4cfcf33fba"
+        },
+        "expectedAssemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+        "executable": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "client": "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/ProjectPrime.dll",
+        "unconditionalUniformCacheChanges": "Present in current build in both same-build arms; cross build controls are intentionally mixed-MVID.",
+        "bundle": "completion",
+        "feature": "both",
+        "actualAssemblyMvid": "580b3bd6-0bcf-4609-bc76-0a59862e6d69",
+        "rawResultSha256": "3def845fbc034d6dac06bdaddb9e296ab82f7ce3dda70ea075f8b29d982761f4",
+        "rawLogSha256": "a0078caa7a9daecb58c91fce148dc886e00a97e7f038da4beecf5275f43493c3"
+      },
+      "rawResult": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-baseline-b.json",
+      "rawResultSha256": "3def845fbc034d6dac06bdaddb9e296ab82f7ce3dda70ea075f8b29d982761f4",
+      "rawLog": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-baseline-b.log",
+      "rawLogSha256": "a0078caa7a9daecb58c91fce148dc886e00a97e7f038da4beecf5275f43493c3",
+      "rawInvocation": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/opengl-modernization/completion-bomb-repeat-visual-bomb-baseline-b.invocation.json",
+      "rawInvocationSha256": "409657ff519de8902de5adf2189945d1e17467ec811c89e7c43c451c52fbf36a"
+    }
+  },
+  "comparisons": [
+    {
+      "name": "completion-postfix-visual-bomb-baseline-a",
+      "reference": "completion-postfix-visual-bomb-candidate-a",
+      "count": 51,
+      "identical": 47,
+      "pairs": [
+        {
+          "file": "bomb-visibility/body-0-visible-enabled.png",
+          "identical": false,
+          "sha256": "7e884f8e95e758b6966f1579e300a069e406e97996cead4a996e9f9160f9c4ae",
+          "referenceSha256": "488d7ab499deeb252f849cc0577d706656335e669957fd95e9447a1be4353f84"
+        },
+        {
+          "file": "bomb-visibility/body-0-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-0-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5",
+          "referenceSha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-enabled.png",
+          "identical": false,
+          "sha256": "52f09d1a25e78e3050b2a08fd19b68d0fc1c068745b1c694c1b6452e191d7c31",
+          "referenceSha256": "e256d3013675fb40ac5522fc1ccee12120dec109c92d3348c955a89f0c9f25ae"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-enabled.png",
+          "identical": false,
+          "sha256": "b9e0abd2f7f39e99e6c55744f5d112304dae30e0b948254bc079e277e0e02958",
+          "referenceSha256": "fffa6b95e43d83f6b96064dbddb6a752090e22c4abd74f4e1d52b022a734f916"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-enabled.png",
+          "identical": false,
+          "sha256": "85c4952167a9db4352d66843087558ca3d6955aafcefdb5897963b73fac51c74",
+          "referenceSha256": "b3bfa9fb688c18cef6551653d2a68e2ca4112418472bfe9701c20b6e330256f0"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8",
+          "referenceSha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e",
+          "referenceSha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-enabled.png",
+          "identical": true,
+          "sha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3",
+          "referenceSha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "frame-0-hud.png",
+          "identical": true,
+          "sha256": "8c8bae50a88503708a4ba9dd516838cdae9e0de35260095135bd70c8569c90e4",
+          "referenceSha256": "8c8bae50a88503708a4ba9dd516838cdae9e0de35260095135bd70c8569c90e4"
+        },
+        {
+          "file": "frame-0-world-repeat.png",
+          "identical": true,
+          "sha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742",
+          "referenceSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742"
+        },
+        {
+          "file": "frame-0-world.png",
+          "identical": true,
+          "sha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742",
+          "referenceSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742"
+        }
+      ]
+    },
+    {
+      "name": "completion-postfix-visual-bomb-candidate-a",
+      "reference": "completion-postfix-visual-bomb-candidate-a",
+      "count": 51,
+      "identical": 51,
+      "pairs": [
+        {
+          "file": "bomb-visibility/body-0-visible-enabled.png",
+          "identical": true,
+          "sha256": "488d7ab499deeb252f849cc0577d706656335e669957fd95e9447a1be4353f84",
+          "referenceSha256": "488d7ab499deeb252f849cc0577d706656335e669957fd95e9447a1be4353f84"
+        },
+        {
+          "file": "bomb-visibility/body-0-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-0-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5",
+          "referenceSha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-enabled.png",
+          "identical": true,
+          "sha256": "e256d3013675fb40ac5522fc1ccee12120dec109c92d3348c955a89f0c9f25ae",
+          "referenceSha256": "e256d3013675fb40ac5522fc1ccee12120dec109c92d3348c955a89f0c9f25ae"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-enabled.png",
+          "identical": true,
+          "sha256": "fffa6b95e43d83f6b96064dbddb6a752090e22c4abd74f4e1d52b022a734f916",
+          "referenceSha256": "fffa6b95e43d83f6b96064dbddb6a752090e22c4abd74f4e1d52b022a734f916"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-enabled.png",
+          "identical": true,
+          "sha256": "b3bfa9fb688c18cef6551653d2a68e2ca4112418472bfe9701c20b6e330256f0",
+          "referenceSha256": "b3bfa9fb688c18cef6551653d2a68e2ca4112418472bfe9701c20b6e330256f0"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8",
+          "referenceSha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e",
+          "referenceSha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-enabled.png",
+          "identical": true,
+          "sha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3",
+          "referenceSha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "frame-0-hud.png",
+          "identical": true,
+          "sha256": "8c8bae50a88503708a4ba9dd516838cdae9e0de35260095135bd70c8569c90e4",
+          "referenceSha256": "8c8bae50a88503708a4ba9dd516838cdae9e0de35260095135bd70c8569c90e4"
+        },
+        {
+          "file": "frame-0-world-repeat.png",
+          "identical": true,
+          "sha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742",
+          "referenceSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742"
+        },
+        {
+          "file": "frame-0-world.png",
+          "identical": true,
+          "sha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742",
+          "referenceSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742"
+        }
+      ]
+    },
+    {
+      "name": "completion-bomb-repeat-visual-bomb-baseline-a",
+      "reference": "completion-postfix-visual-bomb-candidate-a",
+      "count": 51,
+      "identical": 51,
+      "pairs": [
+        {
+          "file": "bomb-visibility/body-0-visible-enabled.png",
+          "identical": true,
+          "sha256": "488d7ab499deeb252f849cc0577d706656335e669957fd95e9447a1be4353f84",
+          "referenceSha256": "488d7ab499deeb252f849cc0577d706656335e669957fd95e9447a1be4353f84"
+        },
+        {
+          "file": "bomb-visibility/body-0-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-0-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5",
+          "referenceSha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-enabled.png",
+          "identical": true,
+          "sha256": "e256d3013675fb40ac5522fc1ccee12120dec109c92d3348c955a89f0c9f25ae",
+          "referenceSha256": "e256d3013675fb40ac5522fc1ccee12120dec109c92d3348c955a89f0c9f25ae"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-enabled.png",
+          "identical": true,
+          "sha256": "fffa6b95e43d83f6b96064dbddb6a752090e22c4abd74f4e1d52b022a734f916",
+          "referenceSha256": "fffa6b95e43d83f6b96064dbddb6a752090e22c4abd74f4e1d52b022a734f916"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-enabled.png",
+          "identical": true,
+          "sha256": "b3bfa9fb688c18cef6551653d2a68e2ca4112418472bfe9701c20b6e330256f0",
+          "referenceSha256": "b3bfa9fb688c18cef6551653d2a68e2ca4112418472bfe9701c20b6e330256f0"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8",
+          "referenceSha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e",
+          "referenceSha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-enabled.png",
+          "identical": true,
+          "sha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3",
+          "referenceSha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "frame-0-hud.png",
+          "identical": true,
+          "sha256": "8c8bae50a88503708a4ba9dd516838cdae9e0de35260095135bd70c8569c90e4",
+          "referenceSha256": "8c8bae50a88503708a4ba9dd516838cdae9e0de35260095135bd70c8569c90e4"
+        },
+        {
+          "file": "frame-0-world-repeat.png",
+          "identical": true,
+          "sha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742",
+          "referenceSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742"
+        },
+        {
+          "file": "frame-0-world.png",
+          "identical": true,
+          "sha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742",
+          "referenceSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742"
+        }
+      ]
+    },
+    {
+      "name": "completion-bomb-repeat-visual-bomb-candidate-a",
+      "reference": "completion-postfix-visual-bomb-candidate-a",
+      "count": 51,
+      "identical": 51,
+      "pairs": [
+        {
+          "file": "bomb-visibility/body-0-visible-enabled.png",
+          "identical": true,
+          "sha256": "488d7ab499deeb252f849cc0577d706656335e669957fd95e9447a1be4353f84",
+          "referenceSha256": "488d7ab499deeb252f849cc0577d706656335e669957fd95e9447a1be4353f84"
+        },
+        {
+          "file": "bomb-visibility/body-0-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-0-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5",
+          "referenceSha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-enabled.png",
+          "identical": true,
+          "sha256": "e256d3013675fb40ac5522fc1ccee12120dec109c92d3348c955a89f0c9f25ae",
+          "referenceSha256": "e256d3013675fb40ac5522fc1ccee12120dec109c92d3348c955a89f0c9f25ae"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-enabled.png",
+          "identical": true,
+          "sha256": "fffa6b95e43d83f6b96064dbddb6a752090e22c4abd74f4e1d52b022a734f916",
+          "referenceSha256": "fffa6b95e43d83f6b96064dbddb6a752090e22c4abd74f4e1d52b022a734f916"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-enabled.png",
+          "identical": true,
+          "sha256": "b3bfa9fb688c18cef6551653d2a68e2ca4112418472bfe9701c20b6e330256f0",
+          "referenceSha256": "b3bfa9fb688c18cef6551653d2a68e2ca4112418472bfe9701c20b6e330256f0"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8",
+          "referenceSha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e",
+          "referenceSha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-enabled.png",
+          "identical": true,
+          "sha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3",
+          "referenceSha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "frame-0-hud.png",
+          "identical": true,
+          "sha256": "8c8bae50a88503708a4ba9dd516838cdae9e0de35260095135bd70c8569c90e4",
+          "referenceSha256": "8c8bae50a88503708a4ba9dd516838cdae9e0de35260095135bd70c8569c90e4"
+        },
+        {
+          "file": "frame-0-world-repeat.png",
+          "identical": true,
+          "sha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742",
+          "referenceSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742"
+        },
+        {
+          "file": "frame-0-world.png",
+          "identical": true,
+          "sha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742",
+          "referenceSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742"
+        }
+      ]
+    },
+    {
+      "name": "completion-bomb-repeat-visual-bomb-baseline-b",
+      "reference": "completion-postfix-visual-bomb-candidate-a",
+      "count": 51,
+      "identical": 51,
+      "pairs": [
+        {
+          "file": "bomb-visibility/body-0-visible-enabled.png",
+          "identical": true,
+          "sha256": "488d7ab499deeb252f849cc0577d706656335e669957fd95e9447a1be4353f84",
+          "referenceSha256": "488d7ab499deeb252f849cc0577d706656335e669957fd95e9447a1be4353f84"
+        },
+        {
+          "file": "bomb-visibility/body-0-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-0-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-0-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5",
+          "referenceSha256": "844c3211db9a4ee4f0337cc303b2772e4622548d0c52f2a350b7733cf2af1fd5"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-enabled.png",
+          "identical": true,
+          "sha256": "e256d3013675fb40ac5522fc1ccee12120dec109c92d3348c955a89f0c9f25ae",
+          "referenceSha256": "e256d3013675fb40ac5522fc1ccee12120dec109c92d3348c955a89f0c9f25ae"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-2-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-2-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-enabled.png",
+          "identical": true,
+          "sha256": "fffa6b95e43d83f6b96064dbddb6a752090e22c4abd74f4e1d52b022a734f916",
+          "referenceSha256": "fffa6b95e43d83f6b96064dbddb6a752090e22c4abd74f4e1d52b022a734f916"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-3-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-3-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-enabled.png",
+          "identical": true,
+          "sha256": "b3bfa9fb688c18cef6551653d2a68e2ca4112418472bfe9701c20b6e330256f0",
+          "referenceSha256": "b3bfa9fb688c18cef6551653d2a68e2ca4112418472bfe9701c20b6e330256f0"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-4-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/body-4-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8",
+          "referenceSha256": "e95ca650a2467f260da8333c1ede6b85f75f759532e66f73ca08247f44960af8"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-2-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-enabled.png",
+          "identical": true,
+          "sha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e",
+          "referenceSha256": "b150b7341d80f2696b3277794b9c24cac9d942376c36213bc623139a5002bb9e"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-1-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-enabled.png",
+          "identical": true,
+          "sha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3",
+          "referenceSha256": "47b2ff2dd4555723cf2c882205dea8193a70a952bd4cce3cc77b7963bff5c3a3"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-suppressed-after.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-visible-suppressed-before.png",
+          "identical": true,
+          "sha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285",
+          "referenceSha256": "4b64de6db74f78bf20d096c95e0bc23b0b9dbcd607652264ef2de88bdcd3a285"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-enabled.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-suppressed-after.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "bomb-visibility/edge-3-2-wall-suppressed-before.png",
+          "identical": true,
+          "sha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562",
+          "referenceSha256": "aed7e0d099498d1fcf244e5212c300b8bd889601ec7550338110c710b3e31562"
+        },
+        {
+          "file": "frame-0-hud.png",
+          "identical": true,
+          "sha256": "8c8bae50a88503708a4ba9dd516838cdae9e0de35260095135bd70c8569c90e4",
+          "referenceSha256": "8c8bae50a88503708a4ba9dd516838cdae9e0de35260095135bd70c8569c90e4"
+        },
+        {
+          "file": "frame-0-world-repeat.png",
+          "identical": true,
+          "sha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742",
+          "referenceSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742"
+        },
+        {
+          "file": "frame-0-world.png",
+          "identical": true,
+          "sha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742",
+          "referenceSha256": "aa3f87edd152a62edd1072f909d305140b22d432201cc2d53d77cc38c0c0a742"
+        }
+      ]
+    }
+  ]
+}

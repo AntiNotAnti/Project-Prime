@@ -317,6 +317,7 @@ namespace MphRead
             _targetSize = windowSize;
             try
             {
+                SelectWorldShaderVariant();
                 RefreshTextureQuality();
                 ModStepLauncherPreview();
                 ModCollectPreview();
