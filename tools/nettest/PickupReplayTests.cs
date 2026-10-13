@@ -88,15 +88,13 @@ internal static class PickupReplayTests
             Reject(() => state.Accept(Packet(taken with { AuthorityFrame = 103, Available = true }), 118), "taken identity cannot resurrect");
             var checkpoint = state.CaptureCheckpoint(); other.RestoreCheckpoint(checkpoint);
             Check(other.PickupClaims[claim.Key] == claim && other.PickupVerdicts[claim.Key] == verdict
-                && other.PickupItems[item.Spawn] == taken, "v10 checkpoint roundtrips all three private data types");
+                && other.PickupItems[item.Spawn] == taken, "v12 checkpoint roundtrips all three private data types");
             byte[] before = other.CaptureCheckpoint().Bytes.ToArray();
             byte[] truncated = checkpoint.Bytes[..^1].ToArray();
             Reject(() => other.RestoreCheckpoint(new ReplayReplicaCheckpoint(truncated)), "truncated appendix refused");
             Check(other.CaptureCheckpoint().Bytes.SequenceEqual(before), "failed restore leaves complete replica unchanged");
-            // A v9 layout is the unchanged prefix of an empty v10 appendix.
-            byte[] empty = State().CaptureCheckpoint().Bytes.ToArray();
-            byte[] old = empty.AsSpan(0, empty.Length - 16).ToArray();
-            BinaryPrimitives.WriteUInt16LittleEndian(old.AsSpan(4), 9);
+            byte[] old = ReplicaCheckpointCompatibilityTests.HistoricalFixture(State().CaptureCheckpoint(),
+                touch: false, pickups: false, version: 9, protocol: 52);
             other.RestoreCheckpoint(new ReplayReplicaCheckpoint(old));
             Check(other.PickupClaims.Count == 0 && other.PickupVerdicts.Count == 0 && other.PickupItems.Count == 0,
                 "historical v9 prefix restores empty A2 state and clears existing facts");
@@ -115,6 +113,7 @@ internal static class PickupReplayTests
             Check(bounded.PickupClaims.Count == ReplayReplicaState.PickupReplayCapacity && bounded.PickupClaims.ContainsKey(claim.Key with { Sequence = 1 }),
                 "bounded identity store retains earliest key at capacity");
             LongItemHistory();
+            ReplicaCheckpointCompatibilityTests.Run(Check);
             Console.WriteLine($"PICKUP REPLAY PASS: {_checks} checks"); return 0;
         }
         catch (Exception ex) { Console.WriteLine("PICKUP REPLAY FAIL: " + ex); return 1; }

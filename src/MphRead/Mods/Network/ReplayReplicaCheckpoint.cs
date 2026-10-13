@@ -21,7 +21,7 @@ internal sealed class ReplayReplicaCheckpoint
 internal sealed partial class ReplayReplicaState
 {
     private const uint CheckpointMagic = 0x43525050; // PPRC, independent of demo/wire formats
-    private const ushort CheckpointVersion = 10;
+    private const ushort CheckpointVersion = ReplayReplicaCheckpointLayout.CurrentVersion;
     internal ReplayReplicaCheckpoint CaptureCheckpoint()
     {
         using var stream = new MemoryStream();
@@ -32,6 +32,7 @@ internal sealed partial class ReplayReplicaState
     internal void WriteCheckpoint(BinaryWriter writer)
     {
         writer.Write(CheckpointMagic); writer.Write(CheckpointVersion); writer.Write((byte)NetConfig.ProtocolVersion);
+        writer.Write((byte)ReplayReplicaCheckpointLayout.CurrentFeatures);
         writer.Write(RecordingFrame); writer.Write(MatchRecordingFrame); writer.Write(ServerTick);
         writer.Write(Rng1); writer.Write(Rng2);
         writer.Write(AcceptedPackets); writer.Write(IgnoredPackets);
@@ -93,6 +94,20 @@ internal sealed partial class ReplayReplicaState
 
     internal void RestoreCheckpoint(ReplayReplicaCheckpoint checkpoint)
     {
+        // Every candidate is a private decoder. Commit only after a unique
+        // complete layout succeeds, including the collided historical v10s.
+        var restored = ReplayReplicaCheckpointLayout.DecodeUnique(checkpoint.Bytes,
+            layout => DecodeCheckpoint(checkpoint, layout));
+        CommitCheckpoint(restored);
+    }
+
+    internal static ReplayReplicaCheckpointLayout InspectCheckpointLayout(ReplayReplicaCheckpoint checkpoint)
+        => ReplayReplicaCheckpointLayout.DecodeUnique(checkpoint.Bytes,
+            layout => { DecodeCheckpoint(checkpoint, layout); return layout; });
+
+    private static ReplayReplicaState DecodeCheckpoint(ReplayReplicaCheckpoint checkpoint,
+        ReplayReplicaCheckpointLayout layout)
+    {
         // Parse into a temporary owner first: an invalid checkpoint must not
         // partially replace a running session's decoder/lifecycle state.
         var restored = new ReplayReplicaState();
@@ -108,6 +123,7 @@ internal sealed partial class ReplayReplicaState
             if (reader.ReadUInt32() != CheckpointMagic) throw new InvalidDataException("Incompatible replica checkpoint.");
             ushort version = reader.ReadUInt16();
             int protocol = reader.ReadByte();
+            if (layout.HeaderBytes == 8 && reader.ReadByte() != (byte)layout.Features) throw Malformed();
             PlayerState ReadPlayer()
             {
                 if (protocol >= 49) return PlayerState.Read(Read(PlayerState.Size));
@@ -115,6 +131,12 @@ internal sealed partial class ReplayReplicaState
                 Read(protocol >= 29 ? PlayerState.Protocol48Size : PlayerState.LegacySize).CopyTo(upgraded, 0);
                 if (protocol < 29) upgraded[PlayerState.LegacySize + 1] = byte.MaxValue;
                 return PlayerState.Read(upgraded);
+            }
+            bool Flag()
+            {
+                byte value = reader.ReadByte();
+                if (value > 1) throw Malformed();
+                return value != 0;
             }
             // Replay packet compatibility reaches back to protocol 4, but this
             // detached checkpoint schema was introduced much later. Do not confuse
@@ -125,15 +147,15 @@ internal sealed partial class ReplayReplicaState
             restored.RecordingFrame = reader.ReadUInt32(); restored.MatchRecordingFrame = reader.ReadUInt32();
             restored.ServerTick = reader.ReadUInt32(); restored.Rng1 = reader.ReadUInt32(); restored.Rng2 = reader.ReadUInt32();
             restored.AcceptedPackets = reader.ReadInt64(); restored.IgnoredPackets = reader.ReadInt64();
-            restored._hasSnapshot = reader.ReadBoolean();
-            restored._rosterRevision = reader.ReadBoolean() ? reader.ReadUInt32() : null;
-            if (reader.ReadBoolean())
+            restored._hasSnapshot = Flag();
+            restored._rosterRevision = Flag() ? reader.ReadUInt32() : null;
+            if (Flag())
             {
                 var packet = new byte[1 + MatchStatePacket.Size]; packet[0] = (byte)PacketType.MatchState;
                 Read(protocol < 29 ? 103 : MatchStatePacket.Size).CopyTo(packet, 1);
                 restored.Match = MatchStatePacket.Read(ReplayIdentityCompatibility.Convert(packet, protocol)[1..]);
             }
-            if (reader.ReadBoolean())
+            if (Flag())
             {
                 int size = protocol == 24 ? 41 + HostRequestPacket.MaxRoomBytes : protocol < 31 ? SessionStatePacket.Protocol28Size : SessionStatePacket.Size;
                 byte[] packet = new byte[size + 1]; packet[0] = (byte)PacketType.SessionState;
@@ -157,15 +179,12 @@ internal sealed partial class ReplayReplicaState
                 restored._roster[roster.Slots[i]] = new(roster.Generations[i], (Hunter)roster.Hunters[i],
                     roster.Colors[i], roster.Teams[i], roster.Names[i], roster.IsBot(i), roster.BotLevels[i],
                     roster.DamageReductions[i]);
-            for (int i = 0; i < _roster.Length; i++)
+            for (int i = 0; i < restored._roster.Length; i++)
             {
                 restored._lives[i].Restore(new(reader.ReadUInt16(), reader.ReadUInt16(),
-                    (NetworkPlayerState)reader.ReadByte(), reader.ReadBoolean()));
-                restored._hasPlayer[i] = reader.ReadBoolean(); restored._players[i] = ReadPlayer();
-                restored._hasIntent[i] = reader.ReadBoolean(); restored._intents[i] = IntentPacket.Read(Read(protocol >= 53 ? IntentPacket.TouchCanonicalSize
-                    : protocol >= 43 ? IntentPacket.FullSize
-                    : protocol >= 39 ? IntentPacket.Protocol42FullSize
-                    : protocol >= 30 ? IntentPacket.Protocol38FullSize : IntentPacket.LegacyFullSize));
+                    (NetworkPlayerState)reader.ReadByte(), Flag()));
+                restored._hasPlayer[i] = Flag(); restored._players[i] = ReadPlayer();
+                restored._hasIntent[i] = Flag(); restored._intents[i] = IntentPacket.Read(Read(layout.IntentBytes));
                 restored._intentReceivedFrame[i] = reader.ReadUInt32();
                 if (restored._lives[i].Generation != restored._roster[i].Generation
                     || restored._hasPlayer[i] && (!restored.MatchesLife(i, restored._players[i].SlotGeneration, restored._players[i].LifeId)
@@ -201,7 +220,7 @@ internal sealed partial class ReplayReplicaState
                     restored.AuthorityWorld = ReplayAuthorityWorld.Decode(authority);
                     if (!restored.Matches(restored.AuthorityWorld.MatchId, restored.AuthorityWorld.Epoch)) throw Malformed();
                 }
-                restored.AuthorityAppliedTick = reader.ReadBoolean() ? reader.ReadUInt32() : null;
+                restored.AuthorityAppliedTick = Flag() ? reader.ReadUInt32() : null;
                 if (restored.AuthorityAppliedTick.HasValue && (restored.AuthorityWorld == null || restored.AuthorityAppliedTick > restored.AuthorityWorld.Tick)) throw Malformed();
             }
             if (version >= 3)
@@ -234,12 +253,16 @@ internal sealed partial class ReplayReplicaState
             else restored.SemanticEvents.Begin(restored.Match?.MatchId ?? 0, restored.Match?.AuthorityEpoch ?? 0);
             if (version >= 8) restored.ReadBombPackets(reader);
             if (version >= 9) restored.ReadTurretOutcomes(reader);
-            if (version >= 10)
-            { if (protocol < 53) throw Malformed(); restored.ReadPickupFacts(reader); }
+            if (layout.Has(ReplayReplicaCheckpointFeatures.Pickups)) restored.ReadPickupFacts(reader);
             if (stream.Position != stream.Length || restored.MatchRecordingFrame > restored.RecordingFrame
                 || restored.AcceptedPackets < 0 || restored.IgnoredPackets < 0) throw Malformed();
         }
         catch (EndOfStreamException ex) { throw new InvalidDataException("Truncated replica checkpoint.", ex); }
+        return restored;
+    }
+
+    private void CommitCheckpoint(ReplayReplicaState restored)
+    {
         _bombPackets.Clear(); _bombPackets.AddRange(restored._bombPackets);
         RestoreTurretOutcomes(restored);
         RestorePickupFacts(restored);

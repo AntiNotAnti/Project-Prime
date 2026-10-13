@@ -268,22 +268,22 @@ internal static class TurretFireOutcomeTests
         state.Accept(ReplayPacket(outcome with { Key = outcome.Key with { AuthorityEpoch = 10 } }), 133);
         Check(state.PendingTurretOutcomeCount == 1, "foreign authority stream never queues an outcome");
         var checkpoint = state.CaptureCheckpoint();
-        Check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 10,
-            "replica checkpoint v10 retains the outcome appendix before pickup data");
+        Check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 12,
+            "replica checkpoint v12 retains the outcome appendix before pickup data");
         var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(checkpoint);
         Check(restored.PendingTurretOutcomeCount == 1
             && restored.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes),
-            "v10 roundtrip preserves pending outcomes and complete decoder state");
+            "v12 roundtrip preserves pending outcomes and complete decoder state");
         accepted = restored.AcceptedPackets; restored.Accept(packet, 134);
         Check(restored.PendingTurretOutcomeCount == 1 && restored.AcceptedPackets == accepted,
-            "v10 restoration preserves duplicate-terminal suppression");
+            "v12 restoration preserves duplicate-terminal suppression");
         // Preserve actual v9 compatibility: its last bytes are the pending
         // outcome; v10 adds an empty room watermark and three pickup counts.
         const int pickupTail = sizeof(uint) + 3 * sizeof(int);
         Check(checkpoint.Bytes[^pickupTail..].ToArray().All(value => value == 0),
             "historical v9 fixture strips only empty pickup data");
-        byte[] historical = checkpoint.Bytes[..^pickupTail].ToArray();
-        BinaryPrimitives.WriteUInt16LittleEndian(historical.AsSpan(4), 9); historical[6] = 52;
+        byte[] historical = ReplicaCheckpointCompatibilityTests.HistoricalFixture(checkpoint,
+            touch: false, pickups: false, version: 9, protocol: 52);
         var historicalState = new ReplayReplicaState(); historicalState.RestoreCheckpoint(new(historical));
         Check(historicalState.PendingTurretOutcomeCount == 1 && historicalState.PickupClaims.Count == 0,
             "historical v9 restores outcomes without invented pickup data");
