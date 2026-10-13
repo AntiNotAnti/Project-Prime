@@ -29,7 +29,7 @@ internal static class ReplayReadbackDiagnostics
                 object? sample = field.GetValue(value);
                 if (sample == null || sample is string || field.FieldType.IsValueType)
                     result[type.Name + "." + field.Name] = Leaf(sample);
-                else if (sample is Array array && array.Length <= 256 && array.GetType().GetElementType()!.IsValueType)
+                else if (sample is Array array && array.Length <= 2048 && array.GetType().GetElementType()!.IsValueType)
                     result[type.Name + "." + field.Name] = array.Cast<object>().Select(Leaf).ToArray();
             }
         return result;
@@ -65,10 +65,14 @@ internal static class ReplayReadbackDiagnostics
                 foreach (var entry in entries) if (entry is ModelInstance model) models.Add(Model(model));
             entities.Add(new { entity.Id, type = entity.GetType().FullName, native = Fields(entity), models });
         }
+        var renderItems = new SortedDictionary<string, object?>();
+        foreach (string field in new[] { "_usedRenderItems", "_nonDecalItems", "_decalItems", "_translucentItems" })
+            if (Reflection.Get(scene, field) is IEnumerable items)
+                renderItems[field] = items.Cast<object>().Select(Fields).ToArray();
         string path = Path.Combine(report.Output, label + "-native-state.json");
         var state = new { label, frame = Reflection.Get(session, "CurrentFrame"), recordingFrame = Reflection.Get(session, "RecordingFrame"),
             scene = Fields(scene), random = Fields(scene.Random), room = scene.Room == null ? null : Fields(scene.Room),
-            actors = scene.Players.Items.Select(Actor).ToArray(), entities, effects };
+            actors = scene.Players.Items.Select(Actor).ToArray(), entities, effects, renderItems };
         byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(state, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllBytes(path, bytes);
         report.Stages.Add(new { stage = "native-private-replay-state", label, path,

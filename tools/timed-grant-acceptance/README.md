@@ -157,3 +157,12 @@ The immediate repeat readback must be exact, independently of the separate
 linear-versus-seek comparison. This counterfactual can falsify same-state render
 stability while preserving the original exact seek failure. It does not introduce
 pixel tolerance, normalize camera/effects or change production checkpoints.
+
+
+Additional native diagnostics retain prepared draw-item matrices/material state
+and read actual uploaded RGBA texture/mipmap bytes by logical model/texture/
+palette/recolor source, with hashes and actual GL sampler parameters. The tool
+restores texture unit/binding state after those read-only queries. Allocation-
+local GL handles are recorded for inspection but are not treated as differing
+asset content. Dither and multisample enablement are observed, not changed.
+These receipts do not disable rendering features or soften exact image parity.

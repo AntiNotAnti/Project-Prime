@@ -173,6 +173,7 @@ internal static class ReplayProbe
         var hashes = new CaptureHashes(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(world))),
             Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(hud))), Convert.ToHexString(SHA256.HashData(bytes)));
         report.Stages.Add(new { stage = "native-private-replay-readback", label, hashes, width = size.X, height = size.Y });
+        ReplayGpuReadbackDiagnostics.Save(scene, label, report);
         return hashes;
     }
 }
