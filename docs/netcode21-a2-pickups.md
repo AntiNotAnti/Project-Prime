@@ -6,6 +6,8 @@ Historical bounded A2 acceptance passed on immutable source `37c5f6bc2f246c5074c
 
 ## Protocol and identities
 
+Reconciliation also fixes a wire-neutral terminal delivery gap exposed by the eight-client impaired run. A turret claim could consume all six fast retries while authority arbitration remained pending; losing the eventual terminal answer then left no request to recover the cached response. Four retries retain their existing cadence, and two remain available after the bounded arbitration window. The six-send limit, prediction expiry, receipt deadline and exact payment identity remain unchanged. A deterministic delayed-terminal/lost-answer fixture fails on the prior engine and verifies recovery without reviving prediction or repeating payment. The failed live campaign remains retained; it does not accept the corrected build.
+
 Protocol 55 retains PickupClaim (73), PickupVerdict (74), PickupItem (75) and PickupReady (76). Claim keys contain epoch, match, authenticated slot, slot generation, life and a nonzero process-monotonic sequence. Item keys retain A1's epoch, match, room, spawn ID and monotonic incarnation generation. Neither native spawn quota nor client-reported position invents an incarnation. Hosted and dedicated dispatch derive ownership from the authenticated endpoint, validate match/readiness and direction, and do not trust an arbitrary payload slot.
 
 | Packet | Exact payload | Contract |

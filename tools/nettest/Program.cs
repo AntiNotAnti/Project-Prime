@@ -83,6 +83,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--timed-grant-presentation") return TimedGrantPresentationTests.Run();
             if (args.Length > 0 && args[0] == "--grant-replay") return GrantReplayTests.Run();
             if (args.Length > 0 && args[0] == "--grant-network") return GrantNetworkTests.Run();
+            if (args.Length > 0 && args[0] == "--terminal-retries") return TerminalRetryTests.Run(Array.IndexOf(args, "--lost-terminal-only") >= 0);
             if (args.Length > 0 && args[0] == "--timed-grants") return TimedGrantTests.Run();
             if (args.Length > 0 && args[0] == "--timed-grant-codec") return TimedGrantFactTests.Run();
             if (args.Length > 1 && args[0] == "--powerup-ledger-scene")

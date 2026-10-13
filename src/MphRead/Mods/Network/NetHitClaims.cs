@@ -253,6 +253,12 @@ namespace MphRead.Mods.Network
         /// the terminal receipt is still travelling or needs a retry.</summary>
         private const int MaxAge = 60;
         private const int MaxResendInterval = 40;
+        // Pending turret arbitration can outlast every fast retry. Preserve two
+        // attempts for the immutable terminal receipt after its maximum wait,
+        // plus the existing bounded round-trip/jitter margin (also when RTT is
+        // not measured yet). Prediction still expires at MaxAge below.
+        private const int ReservedTerminalSends = 2;
+        private const int TerminalRetryAge = 2 * MaxGraceFrames + MaxResendInterval;
         // Retain identity for every bounded send opportunity, the authority's
         // maximum pending window, and a final round trip. This is receipt-only
         // after MaxAge; it cannot prolong or reinstate speculative health/death.
@@ -491,7 +497,8 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 if (entry.Sends > 0
-                    && (entry.Sends >= MaxSends || entry.Age - entry.LastSentAge < interval))
+                    && (entry.Sends >= MaxSends || entry.Age - entry.LastSentAge < interval
+                        || entry.Sends >= MaxSends - ReservedTerminalSends && entry.Age < TerminalRetryAge))
                 {
                     continue;
                 }
