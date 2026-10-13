@@ -1,0 +1,29 @@
+name: scene ownership
+on:
+  pull_request:
+    paths:
+      - 'src/MphRead/**'
+      - 'tools/nettest/**'
+      - 'global.json'
+      - '.github/workflows/scene-ownership.yml'
+  push:
+    paths:
+      - 'src/MphRead/**'
+      - 'tools/nettest/**'
+      - 'global.json'
+      - '.github/workflows/scene-ownership.yml'
+permissions:
+  contents: read
+jobs:
+  device-free-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Build scene owner checks
+        run: dotnet build tools/nettest/nettest.csproj -c Release
+      - name: Observe eligible owner release without devices or assets
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --scene-lifetime
