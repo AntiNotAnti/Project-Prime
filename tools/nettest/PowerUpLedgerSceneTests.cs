@@ -156,16 +156,37 @@ internal static class PowerUpLedgerSceneTests
         bool oldAuthority = NetSession.IsAuthority;
         try
         {
-            foreach (var role in new[] { NetRole.Offline, NetRole.Client })
+            Session(nameof(NetSession.Role), NetRole.Offline);
+            Session(nameof(NetSession.IsAuthority), false);
+            owner.ModForceForm(false);
+            var offlineItem = Spawn(owner, ItemType.DoubleDamage);
+            Contact.Invoke(owner, null);
+            Check(Timer(owner, 0) == 1800 && offlineItem.DespawnTimer == 0 && NetPowerUpLedger.Ledger == null,
+                "offline native pickup remains functional without authority ledger");
+
+            NetPowerUpLedger.Reset();
+            Session(nameof(NetSession.Role), NetRole.Client);
+            for (int type = 0; type < Types.Length; type++)
+                typeof(PlayerEntity).GetField(Timers[type], Private)!.SetValue(owner, (ushort)0);
+            Check(owner.ModUsesTimedGrantPresentation, "current client uses scoped grant presentation");
+            foreach (ItemType type in Types)
             {
-                NetPowerUpLedger.Reset();
-                Session(nameof(NetSession.Role), role);
-                Session(nameof(NetSession.IsAuthority), false);
-                owner.ModForceForm(false);
-                var item = Spawn(owner, ItemType.DoubleDamage);
-                Contact.Invoke(owner, null);
-                Check(Timer(owner, 0) == 1800 && item.DespawnTimer == 0 && NetPowerUpLedger.Ledger == null,
-                    $"{role} native pickup/prediction remains functional without authority ledger");
+                Check(ItemSpawnEntity.SpawnItem(type, owner.Position, owner.NodeRef, 6000, owner.OwningScene) == null
+                    && ItemSpawnEntity.SpawnItemDrop(type, owner.Position, owner.NodeRef, 100, owner.OwningScene) == null,
+                    "client native factories cannot invent a timed drop incarnation " + type);
+                // An incidental native creator can bypass the factory, but its
+                // unidentified item must still supply no client grant evidence.
+                var item = new ItemInstanceEntity(new(owner.Position, type, 6000), owner.NodeRef, owner.OwningScene);
+                owner.OwningScene.AddEntity(item);
+                try
+                {
+                    Contact.Invoke(owner, null);
+                    Check(Timers.Select((_, index) => Timer(owner, index)).All(timer => timer == 0)
+                        && item.DespawnTimer == 6000 && item.ModPickupSpawn == null && !item.ModPickupHidden
+                        && NetGrantNetwork.Presentation.PendingCount == 0 && NetPowerUpLedger.Ledger == null,
+                        "unidentified client contact cannot grant, predict or consume " + type);
+                }
+                finally { item.Destroy(); owner.OwningScene.RemoveEntity(item); }
             }
         }
         finally { Session(nameof(NetSession.Role), oldRole); Session(nameof(NetSession.IsAuthority), oldAuthority); }
