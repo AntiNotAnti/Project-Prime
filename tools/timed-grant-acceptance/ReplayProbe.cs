@@ -12,7 +12,7 @@ using OpenTK.Mathematics;
 // manually seeded decoder or made-up recording substitutes for missing files.
 internal static class ReplayProbe
 {
-    internal static void Run(string path, string kind, Scene live, Acceptance.Report report)
+    internal static int[] Run(string path, string kind, Scene live, Acceptance.Report report)
     {
         if (!File.Exists(path)) throw new FileNotFoundException("Required genuine replay evidence is missing.", path);
         string fileHash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
@@ -122,8 +122,6 @@ internal static class ReplayProbe
                 rejectedCheckpoints = Reflection.Get(seeker, "RejectedCheckpoints"),
                 rejectedDurableCheckpoints = Reflection.Get(seeker, "RejectedDurableCheckpoints"),
                 checkpointBytes = Reflection.Get(seeker, "CheckpointBytes") });
-            for (int type = 0; type < positive.Length; type++)
-                if (positive[type] == 0) report.Missing.Add($"NOT_RUN: genuine {kind} has no positive native confirmed type{type} frames.");
             report.Missing.Add($"NOT_RUN: {kind} player-perspective gain/loop/expiry audio; this probe keeps private camera/audio policy. Native timers, gameplay and exact captured color/HUD/depth seek parity are exercised only at recorded positive frames.");
         }
         finally
@@ -132,6 +130,7 @@ internal static class ReplayProbe
             if (Reflection.Get(typeof(GameState), "Current") != originalState || Reflection.Get(typeof(PlayerEntity), "LegacyRegistry") != originalPlayers || Reflection.Get(typeof(Rng), "Current") != originalRandom)
                 throw new InvalidOperationException("Native private replay cleanup changed live facade identities.");
         }
+        return positive;
     }
     private static string GameplayHash(Scene scene, uint frame)
         => (string)Reflection.Static("ReplayStateHash", "Compute", scene, frame)!;

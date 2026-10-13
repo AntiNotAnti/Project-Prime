@@ -80,7 +80,8 @@ Native calls must run serially with other native campaigns.
 When genuine `--replay` and `--clip` files are supplied, the optional probe opens
 them through the real asset-backed PassiveReplayScene/PassiveReplayPlayer path.
 It compares native timers with their actual private decoder views, requires
-positive confirmed coverage for all three types, keeps live facade/presentation
+aggregate positive confirmed coverage for all three types across the supplied
+files, keeps live facade/presentation
 identities unchanged, and compares genuine native seek gameplay hashes plus
 exact captured world/HUD PNG and depth bytes against independent linear playback.
 It does not seed invented replay facts. A file without a positive effect leaves
@@ -95,3 +96,53 @@ the full profile matrix. Those are NOT_RUN; sampled timers or injected facts
 cannot close them. In particular, ServerSim's headless/silent backend cannot
 substitute for this client audio test. Images/assets/binaries belong in external
 evidence directories and are not checked into Git.
+
+
+Optional controlled authored-contact recordings use a separate route:
+
+```sh
+dotnet timed-grant-acceptance.dll \
+  --binary-dir /absolute/frozen/candidate \
+  --expected-client-sha256 EXACT_PROJECTPRIME_DLL_SHA256 \
+  --assets /absolute/licensed/profile --room 'MP5 FUEL SLUICE' \
+  --record-authored-effect DoubleDamage --output /absolute/fresh/dd-evidence
+```
+
+Run separate Cloak and DeathAlt campaigns on maps that actually contain those
+authored items (for example MP2 HARVESTER and MP6 HEADSHOT). The route registers
+only loaded authored ItemInstanceEntity actors with real spawner owners. It
+places the native owner at the selected item's actual position, then steps full
+host-authority native simulation. The actual PickUpItems contact must consume
+that item and create a matching NetPowerUpLedger history entry. That production
+ledger publishes its real facts to ReplayCapture and DemoRecorder; this route
+never constructs TimedGrantFact or calls presentation.Accept. The receipt keeps
+loaded room/content identity, profile path, spawner, grant sequence/spawn/life,
+source/contact clocks and explicit fixture positioning/host authority labels.
+It is controlled native contact, not normal AI or live UDP acceptance.
+
+For snapshot capture only, the tool calls the existing dedicated-authority
+BroadcastSnapshot serializer under its required Server role and restores Host
+immediately. Its real bytes go through production RecordOwnSnapshot and a
+value-only diagnostic sink. Actual host simulation is unchanged. Recorder
+bootstrap world and nonzero serialized snapshot count must exist, or the route
+retains NOT_RUN. Production full recording and instant clip writers must finish
+without error; genuine files are copied into the fresh evidence directory and
+hashed. The generated recording and clip are then opened by the same native
+linear/seek probe. Missing native contact fails; missing authored item,
+bootstrap, or finalized files remains explicit incomplete coverage.
+
+`--replay` and `--clip` may each be repeated. Per-file positive counters remain
+in each receipt; final aggregate counters require all three positive native
+types across genuine supplied/generated files. A DD-only genuine file is never
+reported as having Cloak or DeathAlt. To close aggregate recording coverage,
+supply the prior genuine Cloak/DeathAlt files along with a DD run (and the prior
+clips through repeated --clip arguments), or run the normal client fixture with
+all three recordings and clips. Exact native seek image/depth requirements are
+unchanged. Player-perspective replay audio, old-format compatibility, live UDP
+and authority combat payment remain separate unclosed gates. The controlled
+recording route also explicitly leaves the injected client prediction/HUD
+fixture NOT_RUN; it cannot substitute for that separate run.
+
+Source review of this optional route is not native acceptance. Compile and run
+against the exact committed candidate serially, retaining all failures, before
+claiming contact, recording, clip or seek evidence.

@@ -115,8 +115,11 @@ internal static class Acceptance
             // user-facing error boundary abbreviates a native encoder failure.
             var imageEncoder = Assembly.Load("ReFuel.StbImage").GetType("ReFuel.Stb.Native.Stbi", throwOnError: true)!;
             RuntimeHelpers.RunClassConstructor(imageEncoder.TypeHandle);
+            string[] Files(string flag) => args.Select((value, index) => (value, index))
+                .Where(entry => entry.value == flag && entry.index + 1 < args.Length)
+                .Select(entry => args[entry.index + 1]).ToArray();
             using var window = new AcceptanceWindow(Value("--room", "MP1 SANCTORUS"), report,
-                Value("--replay", ""), Value("--clip", ""));
+                Files("--replay"), Files("--clip"), Value("--record-authored-effect", ""));
             window.Run();
             if (report.Error != null) throw new InvalidOperationException(report.Error);
             report.Status = report.Missing.Count == 0 ? "PASS" : "INCOMPLETE";
@@ -158,7 +161,8 @@ internal static class Acceptance
 internal sealed class AcceptanceWindow : RenderWindow
 {
     private readonly Acceptance.Report _report;
-    private readonly string _replayPath, _clipPath;
+    private readonly List<string> _replayPaths, _clipPaths;
+    private readonly string _recordEffect;
     private PlayerEntity _owner = null!, _victim = null!;
     private object _presentation = null!;
     private TracedAudio _audio = null!;
@@ -167,9 +171,9 @@ internal sealed class AcceptanceWindow : RenderWindow
     private static readonly string[] Timers = { "_doubleDmgTimer", "_cloakTimer", "_deathaltTimer" };
     private static readonly string[] Types = { "DoubleDamage", "Cloak", "DeathAlt" };
 
-    internal AcceptanceWindow(string room, Acceptance.Report report, string replayPath, string clipPath)
+    internal AcceptanceWindow(string room, Acceptance.Report report, string[] replayPaths, string[] clipPaths, string recordEffect)
     {
-        _report = report; _replayPath = replayPath; _clipPath = clipPath;
+        _report = report; _replayPaths = new(replayPaths); _clipPaths = new(clipPaths); _recordEffect = recordEffect;
         ClientSize = new Vector2i(640, 480); IsVisible = true;
         Title = "Project Prime A3 timed grant acceptance";
         Reflection.Set(Scene, "_keyboardState", SyntheticInput.CreateKeyboard());
@@ -307,11 +311,16 @@ internal sealed class AcceptanceWindow : RenderWindow
             Check(_owner.HudReady && _owner.IsMainPlayer, "real owner HUD and player camera initialized");
             Reflection.Call(_victim, "ModPlaceAt", _owner.Position + new Vector3(20, 0, 0));
             _audio = new(_originalAudio, _report.AudioCalls); Reflection.Set(typeof(Sfx), nameof(Sfx.Instance), _audio);
-            for (int type = 0; type < Types.Length; type++) Exercise(type);
-            if (_replayPath.Length == 0) _report.Missing.Add("NOT_RUN: no genuine recorded A3 replay supplied for native linear/seek checks.");
-            else ReplayProbe.Run(Path.GetFullPath(_replayPath), "recording", Scene, _report);
-            if (_clipPath.Length == 0) _report.Missing.Add("NOT_RUN: no genuine exported A3 clip supplied for native linear/seek checks.");
-            else ReplayProbe.Run(Path.GetFullPath(_clipPath), "clip", Scene, _report);
+            if (_recordEffect.Length == 0)
+                for (int type = 0; type < Types.Length; type++) Exercise(type);
+            else
+            {
+                _presentation = Reflection.Get(Reflection.Type("Mods.Network.NetGrantNetwork"), "Presentation")!;
+                if (ControlledRecording.Run(_recordEffect, Scene, _owner, Frame, Capture, _report) is { } files)
+                { _replayPaths.Add(files.Recording); _clipPaths.Add(files.Clip); }
+                _report.Missing.Add("NOT_RUN: controlled authored recording mode does not run the injected client prediction/refusal/HUD fixture.");
+            }
+            ProbeFiles(_replayPaths, "recording"); ProbeFiles(_clipPaths, "clip");
             _report.Missing.Add("NOT_RUN: historical capsule native audiovisual compatibility; current recording/clip paths cannot establish older format acceptance.");
             _report.Missing.Add("NOT_RUN: live owner/observer UDP settlement, authority damage payment and profile matrix; injected native fixture facts cannot establish those gates.");
         }
@@ -321,6 +330,19 @@ internal sealed class AcceptanceWindow : RenderWindow
             if (_originalAudio != null) Reflection.Set(typeof(Sfx), nameof(Sfx.Instance), _originalAudio);
             Close();
         }
+    }
+
+    private void ProbeFiles(List<string> paths, string kind)
+    {
+        var positive = new int[3];
+        for (int index = 0; index < paths.Count; index++)
+        {
+            var sampled = ReplayProbe.Run(Path.GetFullPath(paths[index]), kind + "-" + index, Scene, _report);
+            for (int type = 0; type < positive.Length; type++) positive[type] += sampled[type];
+        }
+        _report.Stages.Add(new { stage = "native-replay-aggregate-coverage", kind, files = paths.Count, positiveByType = positive });
+        for (int type = 0; type < positive.Length; type++)
+            if (positive[type] == 0) _report.Missing.Add($"NOT_RUN: aggregate genuine {kind} files have no positive confirmed {Types[type]} native frames.");
     }
 
     private void Exercise(int type)
