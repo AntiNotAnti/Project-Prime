@@ -44,6 +44,24 @@ internal static class ReplayReadbackDiagnostics
             foreach (var item in values) if (item is ModelInstance model) models.Add(Model(model));
         return new { player.SlotIndex, native = Fields(player), camera = Fields(player.CameraInfo), models };
     }
+    internal static void OriginalOpaqueSequence(Scene scene, string label, Acceptance.Report report)
+    {
+        if (!report.OriginalOpaqueOrderCounterfactual) return;
+        object world = Reflection.Get(scene, "_retainedRenderWorld")!;
+        var packets = (IList)Reflection.Get(world, "_opaque")!;
+        var batches = (IList)Reflection.Get(world, "_opaqueBatches")!;
+        object[] original = packets.Cast<object>().OrderBy(packet => Reflection.Int(packet, "Sequence")).ToArray();
+        int[] before = packets.Cast<object>().Select(packet => Reflection.Int(packet, "Sequence")).ToArray();
+        if (!original.Select(packet => Reflection.Int(packet, "Sequence")).SequenceEqual(Enumerable.Range(0, original.Length)))
+            throw new InvalidOperationException("Counterfactual native opaque packet sequence is incomplete.");
+        packets.Clear(); foreach (object packet in original) packets.Add(packet);
+        batches.Clear();
+        Reflection.Call(world.GetType(), "BuildAdjacentBatches", packets, batches,
+            Reflection.Bool(world.GetType(), "RoomGroupsEnabled"));
+        ((IList)Reflection.Get(scene, "_roomBatchPlans")!).Clear();
+        report.Stages.Add(new { stage = "counterfactual-only-native-opaque-sequence", label,
+            acceptance = false, before, after = Enumerable.Range(0, original.Length).ToArray(), batches = batches.Count });
+    }
     internal static void Save(object replay, string label, Acceptance.Report report)
     {
         Scene scene = (Scene)Reflection.Get(replay, "Scene")!;
@@ -69,10 +87,16 @@ internal static class ReplayReadbackDiagnostics
         foreach (string field in new[] { "_usedRenderItems", "_nonDecalItems", "_decalItems", "_translucentItems" })
             if (Reflection.Get(scene, field) is IEnumerable items)
                 renderItems[field] = items.Cast<object>().Select(Fields).ToArray();
+        var retained = new SortedDictionary<string, object?>();
+        object world = Reflection.Get(scene, "_retainedRenderWorld")!;
+        foreach (string field in new[] { "_opaque", "_decals", "_translucent" })
+            if (Reflection.Get(world, field) is IEnumerable items)
+                retained[field] = items.Cast<object>().Select(packet => new {
+                    packet = Fields(packet), item = Fields(Reflection.Get(packet, "Item")!) }).ToArray();
         string path = Path.Combine(report.Output, label + "-native-state.json");
         var state = new { label, frame = Reflection.Get(session, "CurrentFrame"), recordingFrame = Reflection.Get(session, "RecordingFrame"),
             scene = Fields(scene), random = Fields(scene.Random), room = scene.Room == null ? null : Fields(scene.Room),
-            actors = scene.Players.Items.Select(Actor).ToArray(), entities, effects, renderItems };
+            actors = scene.Players.Items.Select(Actor).ToArray(), entities, effects, renderItems, retained };
         byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(state, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllBytes(path, bytes);
         report.Stages.Add(new { stage = "native-private-replay-state", label, path,

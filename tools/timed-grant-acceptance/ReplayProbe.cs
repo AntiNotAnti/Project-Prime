@@ -152,7 +152,9 @@ internal static class ReplayProbe
     private readonly record struct CaptureHashes(string World, string Hud, string Depth);
     private static CaptureHashes Capture(Scene scene, string label, Acceptance.Report report)
     {
-        scene.OnDrawFrame(); scene.OnRenderFrame(); GL.Finish();
+        scene.OnDrawFrame();
+        ReplayReadbackDiagnostics.OriginalOpaqueSequence(scene, label, report);
+        scene.OnRenderFrame(); GL.Finish();
         string world = Path.Combine(report.Output, label + "-world.png"), hud = Path.Combine(report.Output, label + "-hud.png");
         if (!ScreenCapture.Save(scene, world)
             || !ScreenCapture.SaveWindow(scene, hud)

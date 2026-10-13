@@ -99,7 +99,10 @@ internal static class Acceptance
         string Hash() => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(client))).ToLowerInvariant();
         string before = Hash();
         var report = new Report { StartedUtc = DateTimeOffset.UtcNow, ClientPath = client, ClientSha256 = before,
-            ClientMvid = typeof(Scene).Module.ModuleVersionId.ToString(), Output = output };
+            ClientMvid = typeof(Scene).Module.ModuleVersionId.ToString(), Output = output,
+            OriginalOpaqueOrderCounterfactual = args.Contains("--replay-original-opaque-order") };
+        if (report.OriginalOpaqueOrderCounterfactual)
+            report.Missing.Add("COUNTERFACTUAL_ONLY: native replay opaque packets submitted in original sequence; this does not accept production rendering.");
         try
         {
             if (!StringComparer.OrdinalIgnoreCase.Equals(expected, before)
@@ -149,6 +152,7 @@ internal static class Acceptance
         public string ClientMvid { get; set; } = "";
         public string Output { get; set; } = "";
         public string? Error { get; set; }
+        public bool OriginalOpaqueOrderCounterfactual { get; set; }
         public List<string> Checks { get; } = new();
         public List<string> Missing { get; } = new();
         public List<object> Stages { get; } = new();

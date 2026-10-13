@@ -166,3 +166,16 @@ restores texture unit/binding state after those read-only queries. Allocation-
 local GL handles are recorded for inspection but are not treated as differing
 asset content. Dither and multisample enablement are observed, not changed.
 These receipts do not disable rendering features or soften exact image parity.
+
+
+`--replay-original-opaque-order` is an explicit COUNTERFACTUAL_ONLY diagnostic.
+After ordinary native draw preparation it restores the opaque retained packets'
+original Sequence order and calls the existing production adjacent-batch builder
+on that order. Prepared batch plans are discarded so they cannot describe the
+old permutation. No texture/camera/checkpoint/effect state is normalized. The
+receipt preserves before/after actual retained packet sequences and marks this
+route ineligible for production rendering acceptance even if exact readbacks
+match. Without the flag, submission remains untouched. This isolates allocation-
+local state-key sorting from exact native restore/texture content evidence.
+Actual retained opaque/decal/translucent packet sequences and full item state are
+also retained in ordinary diagnostics to compare the submitted permutation.
