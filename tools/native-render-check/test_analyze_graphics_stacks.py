@@ -20,7 +20,7 @@ class GraphicsStackTests(unittest.TestCase):
 """
         categories = graphics.parse(io.StringIO(data))["categories"]
         self.assertEqual(categories["explicitMmapVm"]["bytes"], 1024)
-        self.assertEqual(categories["agxFragmentVariant"], {"bytes": 4096, "calls": 3, "groups": 1})
+        self.assertEqual(categories["agxFragmentVariant"], {"bytes": 4096, "calls": 3, "groups": 1, "mallocPrefixBytes": 4096, "mallocPrefixCalls": 3})
         self.assertEqual(categories["ioSurface"]["bytes"], 2048)
         self.assertEqual(sum(c["bytes"] for c in categories.values()), 7168)
 
@@ -31,4 +31,10 @@ class GraphicsStackTests(unittest.TestCase):
 
     def test_other_runtime_origins_are_not_assigned_to_driver(self):
         data = "1 calls for 512 bytes:\n0 libsystem_malloc.dylib 0x100 malloc + 1\n1 libcoreclr.dylib 0x120 initialize + 2\n"
-        self.assertEqual(graphics.parse(io.StringIO(data))["categories"], {"coreclr": {"bytes": 512, "calls": 1, "groups": 1}})
+        self.assertEqual(graphics.parse(io.StringIO(data))["categories"], {"coreclr": {"bytes": 512, "calls": 1, "groups": 1, "mallocPrefixBytes": 512, "mallocPrefixCalls": 1}})
+
+    def test_resource_record_with_fragment_caller_is_not_malloc_prefix(self):
+        data = "2 calls for 8192 bytes:\n0 com.apple.IOGPU 0x100 resourceCreate + 1\n1 com.apple.AGXMetalG16X 0x120 FragmentProgramVariant + 2\n"
+        category = graphics.parse(io.StringIO(data))["categories"]["agxFragmentVariant"]
+        self.assertEqual(category["bytes"], 8192)
+        self.assertEqual(category["mallocPrefixBytes"], 0)
