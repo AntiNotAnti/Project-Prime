@@ -138,3 +138,16 @@ Post-match character-picker constant-false branches and eight obsolete Avalonia
 API sites are separately reviewable followups, not hidden in this deletion.
 RmlUi integration, physical route acceptance and UI lifecycle memory boundedness
 remain unproven gates; removing toolkit dependencies would be unsafe now.
+
+
+## Android packaging followup
+
+A required Release APK publish subsequently succeeds with the verified temporary
+Temurin 17.0.20.1+1 toolchain and single-node MSBuild, keeping trimming/AOT enabled.
+The signed APK is 108816049 bytes with SHA256 `d327571c347c18f3a8aad78d8a184a8cfe7677dbc4613fd98abe9bd8b15f9c8f`; Android build-tools
+`apksigner verify` succeeds. Exact commands, size/hash, libraries and log hashes
+are appended to the machine ledger. This supersedes the earlier packaging result
+for the changed slice; that original failure remains preserved and its cause is
+unattributed. It does not establish that Java version alone caused the earlier
+ILLink/MSBuild errors. No global JDK installation or device/emulator run occurred.
+Physical UI, IME, screen readers and actual GL/Studio acceptance remain NOT_RUN.
