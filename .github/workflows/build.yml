@@ -315,6 +315,8 @@ jobs:
         run: dotnet run --project tools/music-startup-check -c Release
       - name: device-free music loading, PCM parity and callback retirement
         run: dotnet run --project tools/music-lifecycle-check -c Release
+      - name: device-free replay export queue bounds and ownership
+        run: dotnet run --project tools/replay-export-queue-check -c Release
 
   enhanced-retirement-checks:
     name: retired hunter compatibility regressions
