@@ -319,6 +319,8 @@ jobs:
           key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
+      - name: device-free Theatre storage producer bounds
+        run: dotnet run --project tools/theatre-storage-check -c Release
       - name: device-free encoder capability stderr drain
         run: dotnet run --project tools/encoder-error-drain-check -c Release
       - name: device-free bounded encoder progress and parsing parity
