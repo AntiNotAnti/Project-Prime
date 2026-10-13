@@ -67,7 +67,10 @@ internal static class ReplayFormCompatibilityChecks
         for (int i = 0; i < RosterPacket.MaxSlots; i++)
         {
             stream.Write(current.AsSpan(at, 7 + PlayerState.Protocol48Size)); at += 7 + PlayerState.Size;
-            stream.Write(current.AsSpan(at, 1 + IntentPacket.FullSize + 4)); at += 1 + IntentPacket.FullSize + 4;
+            // A current (protocol 53) detached checkpoint has the 9-byte native
+            // touch appendix on each intent. A protocol-48 checkpoint cannot.
+            stream.Write(current.AsSpan(at, 1 + IntentPacket.FullSize + 4));
+            at += 1 + IntentPacket.TouchCanonicalSize + 4;
         }
         // The historical player-width fixture uses schema 9, which predates
         // the schema 10 pickup room and three data counts. Strip only empty data.

@@ -96,7 +96,7 @@ namespace MphRead.Mods
                             {
                                 using var stream = File.Create(path);
                                 StbImage.FlipVerticallyOnSave = true;
-                                StbImage.WritePng<byte>(pixels, width, height, StbiImageFormat.Rgb, stream);
+                                global::MphRead.Mods.PngEncoder.Write<byte>(pixels, width, height, StbiImageFormat.Rgb, stream);
                             }
                         }
                         return true;
@@ -130,7 +130,7 @@ namespace MphRead.Mods
                             {
                                 using var stream = File.Create(path);
                                 StbImage.FlipVerticallyOnSave = true;
-                                StbImage.WritePng<byte>(pixels, width, height, StbiImageFormat.Rgb, stream);
+                                global::MphRead.Mods.PngEncoder.Write<byte>(pixels, width, height, StbiImageFormat.Rgb, stream);
                             }
                         }
                     }
@@ -182,7 +182,7 @@ namespace MphRead.Mods
                 {
                     using FileStream stream = File.Create(path);
                     StbImage.FlipVerticallyOnSave = true;
-                    StbImage.WritePng<byte>(pixels, width, height, StbiImageFormat.Rgb, stream);
+                    global::MphRead.Mods.PngEncoder.Write<byte>(pixels, width, height, StbiImageFormat.Rgb, stream);
                 }
                 return true;
             }

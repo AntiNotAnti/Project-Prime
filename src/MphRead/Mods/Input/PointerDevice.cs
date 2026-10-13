@@ -20,6 +20,8 @@ namespace MphRead.Mods.Input
         public static PointerSample Current { get; private set; }
         public static bool Active { get; private set; }
         public static bool PrimaryDown { get; private set; }
+        public static int SurfaceWidth { get; private set; } = 1;
+        public static int SurfaceHeight { get; private set; } = 1;
         private static bool _acceptingInput;
         private static float _pendingX;
         private static float _pendingY;
@@ -42,6 +44,8 @@ namespace MphRead.Mods.Input
         public static void Update(PointerSample sample, int width, int height,
             bool independentPrimaryDown = false, bool acceptsInput = true)
         {
+            SurfaceWidth = Math.Max(1, width);
+            SurfaceHeight = Math.Max(1, height);
             bool wasActive = Active && _acceptingInput;
             Active = PointerInput.StylusMode && !OperatingSystem.IsAndroid();
             _acceptingInput = acceptsInput;

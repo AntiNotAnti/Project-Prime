@@ -855,7 +855,8 @@ namespace MphRead.Mods.Network
             switch (packet.Type)
             {
                 case PacketType.SessionState when Role == NetRole.Client:
-                    if (SessionStatePacket.TryRead(packet.Payload, out var session)) ApplySessionState(session);
+                    if (_playback ? SessionStatePacket.TryReadArchived(packet.Payload, out var session)
+                        : SessionStatePacket.TryRead(packet.Payload, out session, validateDefinition: false)) ApplySessionState(session);
                     break;
                 case PacketType.PickupClaim when Role == NetRole.Host:
                     HandlePickupClaim(packet); break;
@@ -1593,6 +1594,11 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void ApplyMatchState(MatchStatePacket state, bool rotated)
         {
+            if (!_playback && state.EnhancedHunters)
+            {
+                LastError = "Enhanced Hunters has been retired. Disable that modifier on the server.";
+                return;
+            }
             if (state.MatchId == 0 || state.AuthorityEpoch == 0) return;
             MatchStatePacket? previous = ServerMatch;
             if (previous.HasValue)
@@ -2011,7 +2017,7 @@ namespace MphRead.Mods.Network
                 }
                 var state = new PlayerState
                 {
-                    Enhanced = Mods.EnhancedHunters.EnhancedHunterNetState.Capture(player.EnhancedState),
+                    Enhanced = new Mods.EnhancedHunters.EnhancedHunterNetState { TargetSlot = byte.MaxValue },
                     Form = player.ModCaptureForm(),
                     SlotIndex = (byte)i,
                     SlotGeneration = NetPlayerLifecycle.Generation(i),
@@ -2050,7 +2056,6 @@ namespace MphRead.Mods.Network
             NetMatchTimeSync.Write(_scratch.AsSpan(offset));
             offset += NetMatchTimeSync.Size;
             offset += NetHealthSync.Write(_scratch.AsSpan(offset));
-            if (GameState.EnhancedHunters) offset += PlayerEntity.Main.OwningScene.EnhancedWorld.Write(_scratch.AsSpan(offset));
             var header = new SnapshotHeader
             {
                 MatchId = CurrentMatchId,

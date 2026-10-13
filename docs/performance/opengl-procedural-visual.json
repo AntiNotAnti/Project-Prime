@@ -1,0 +1,806 @@
+{
+  "schema": 1,
+  "assemblyMvid": "94b6074e-d0cb-457b-94af-0d14545b45b3",
+  "source": "native-game-on-device",
+  "separateCapture": true,
+  "flags": {
+    "reference": {
+      "proceduralBatch": false
+    },
+    "candidate": {
+      "proceduralBatch": true
+    },
+    "roomCache": false,
+    "depthVertex": false,
+    "priorOptimizations": "enabled"
+  },
+  "passed": true,
+  "comparisons": [
+    {
+      "case": "solo",
+      "file": "frame-0-hud.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-solo-baseline/frame-0-hud.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-solo-optimized/frame-0-hud.png"
+    },
+    {
+      "case": "solo",
+      "file": "frame-0-world-repeat.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-solo-baseline/frame-0-world-repeat.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-solo-optimized/frame-0-world-repeat.png"
+    },
+    {
+      "case": "solo",
+      "file": "frame-0-world.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-solo-baseline/frame-0-world.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-solo-optimized/frame-0-world.png"
+    },
+    {
+      "case": "two",
+      "file": "frame-0-hud.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-two-baseline/frame-0-hud.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-two-optimized/frame-0-hud.png"
+    },
+    {
+      "case": "two",
+      "file": "frame-0-world-repeat.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-two-baseline/frame-0-world-repeat.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-two-optimized/frame-0-world-repeat.png"
+    },
+    {
+      "case": "two",
+      "file": "frame-0-world.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-two-baseline/frame-0-world.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-two-optimized/frame-0-world.png"
+    },
+    {
+      "case": "shadow",
+      "file": "frame-0-hud.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-shadow-baseline/frame-0-hud.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-shadow-optimized/frame-0-hud.png"
+    },
+    {
+      "case": "shadow",
+      "file": "frame-0-world-repeat.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-shadow-baseline/frame-0-world-repeat.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-shadow-optimized/frame-0-world-repeat.png"
+    },
+    {
+      "case": "shadow",
+      "file": "frame-0-world.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-shadow-baseline/frame-0-world.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-shadow-optimized/frame-0-world.png"
+    },
+    {
+      "case": "shadow",
+      "file": "shadow-depth-float32.bin",
+      "identical": true
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-0-visible-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-0-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-0-visible-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-0-visible-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-0-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-0-visible-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-0-visible-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-0-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-0-visible-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-0-wall-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-0-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-0-wall-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-0-wall-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-0-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-0-wall-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-0-wall-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-0-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-0-wall-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-1-visible-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-1-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-1-visible-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-1-visible-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-1-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-1-visible-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-1-visible-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-1-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-1-visible-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-1-wall-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-1-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-1-wall-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-1-wall-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-1-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-1-wall-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-1-wall-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-1-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-1-wall-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-2-visible-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-2-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-2-visible-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-2-visible-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-2-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-2-visible-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-2-visible-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-2-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-2-visible-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-2-wall-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-2-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-2-wall-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-2-wall-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-2-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-2-wall-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-2-wall-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-2-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-2-wall-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-3-visible-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-3-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-3-visible-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-3-visible-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-3-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-3-visible-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-3-visible-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-3-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-3-visible-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-3-wall-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-3-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-3-wall-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-3-wall-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-3-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-3-wall-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-3-wall-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-3-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-3-wall-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-4-visible-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-4-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-4-visible-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-4-visible-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-4-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-4-visible-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-4-visible-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-4-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-4-visible-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-4-wall-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-4-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-4-wall-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-4-wall-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-4-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-4-wall-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/body-4-wall-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/body-4-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/body-4-wall-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-2-1-visible-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-2-1-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-2-1-visible-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-2-1-visible-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-2-1-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-2-1-visible-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-2-1-visible-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-2-1-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-2-1-visible-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-2-1-wall-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-2-1-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-2-1-wall-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-2-1-wall-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-2-1-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-2-1-wall-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-2-1-wall-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-2-1-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-2-1-wall-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-1-visible-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-1-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-1-visible-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-1-visible-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-1-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-1-visible-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-1-visible-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-1-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-1-visible-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-1-wall-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-1-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-1-wall-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-1-wall-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-1-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-1-wall-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-1-wall-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-1-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-1-wall-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-2-visible-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-2-visible-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-2-visible-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-2-visible-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-2-visible-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-2-visible-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-2-visible-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-2-visible-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-2-visible-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-2-wall-enabled.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-2-wall-enabled.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-2-wall-enabled.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-2-wall-suppressed-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-2-wall-suppressed-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-2-wall-suppressed-after.png"
+    },
+    {
+      "case": "bomb",
+      "file": "bomb-visibility/edge-3-2-wall-suppressed-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/bomb-visibility/edge-3-2-wall-suppressed-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/bomb-visibility/edge-3-2-wall-suppressed-before.png"
+    },
+    {
+      "case": "bomb",
+      "file": "frame-0-hud.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/frame-0-hud.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/frame-0-hud.png"
+    },
+    {
+      "case": "bomb",
+      "file": "frame-0-world-repeat.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/frame-0-world-repeat.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/frame-0-world-repeat.png"
+    },
+    {
+      "case": "bomb",
+      "file": "frame-0-world.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-bomb-baseline/frame-0-world.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-bomb-optimized/frame-0-world.png"
+    },
+    {
+      "case": "impact",
+      "file": "frame-0-hud.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/frame-0-hud.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/frame-0-hud.png"
+    },
+    {
+      "case": "impact",
+      "file": "frame-0-world-repeat.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/frame-0-world-repeat.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/frame-0-world-repeat.png"
+    },
+    {
+      "case": "impact",
+      "file": "frame-0-world.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/frame-0-world.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/frame-0-world.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ambiguous-cue-fallback-cue-only.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ambiguous-cue-fallback-cue-only.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ambiguous-cue-fallback-cue-only.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ambiguous-cue-fallback-off-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ambiguous-cue-fallback-off-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ambiguous-cue-fallback-off-after.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ambiguous-cue-fallback-off-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ambiguous-cue-fallback-off-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ambiguous-cue-fallback-off-before.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ambiguous-two-exact-components-projectile-only.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ambiguous-two-exact-components-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ambiguous-two-exact-components-projectile-only.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ambiguous-two-exact-components-unanchored-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ambiguous-two-exact-components-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ambiguous-two-exact-components-unanchored-after.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ambiguous-two-exact-components-unanchored-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ambiguous-two-exact-components-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ambiguous-two-exact-components-unanchored-before.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/blocked-flight-cue-fallback-cue-only.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/blocked-flight-cue-fallback-cue-only.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/blocked-flight-cue-fallback-cue-only.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/blocked-flight-cue-fallback-off-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/blocked-flight-cue-fallback-off-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/blocked-flight-cue-fallback-off-after.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/blocked-flight-cue-fallback-off-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/blocked-flight-cue-fallback-off-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/blocked-flight-cue-fallback-off-before.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/blocked-flight-ray-projectile-only.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/blocked-flight-ray-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/blocked-flight-ray-projectile-only.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/blocked-flight-ray-unanchored-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/blocked-flight-ray-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/blocked-flight-ray-unanchored-after.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/blocked-flight-ray-unanchored-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/blocked-flight-ray-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/blocked-flight-ray-unanchored-before.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/confirmed-cue-clear-cue-only.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/confirmed-cue-clear-cue-only.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/confirmed-cue-clear-cue-only.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/confirmed-cue-clear-off-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/confirmed-cue-clear-off-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/confirmed-cue-clear-off-after.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/confirmed-cue-clear-off-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/confirmed-cue-clear-off-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/confirmed-cue-clear-off-before.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/confirmed-cue-wall-cue-only.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/confirmed-cue-wall-cue-only.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/confirmed-cue-wall-cue-only.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/confirmed-cue-wall-off-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/confirmed-cue-wall-off-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/confirmed-cue-wall-off-after.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/confirmed-cue-wall-off-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/confirmed-cue-wall-off-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/confirmed-cue-wall-off-before.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/exact-component-clear-projectile-only.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/exact-component-clear-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/exact-component-clear-projectile-only.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/exact-component-clear-unanchored-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/exact-component-clear-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/exact-component-clear-unanchored-after.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/exact-component-clear-unanchored-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/exact-component-clear-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/exact-component-clear-unanchored-before.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/exact-component-wall-projectile-only.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/exact-component-wall-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/exact-component-wall-projectile-only.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/exact-component-wall-unanchored-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/exact-component-wall-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/exact-component-wall-unanchored-after.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/exact-component-wall-unanchored-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/exact-component-wall-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/exact-component-wall-unanchored-before.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ray-direction-outside-sixty-degree-cone-projectile-only.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ray-direction-outside-sixty-degree-cone-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ray-direction-outside-sixty-degree-cone-projectile-only.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-after.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/ray-direction-outside-sixty-degree-cone-unanchored-before.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-component-cue-fallback-cue-only.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-component-cue-fallback-cue-only.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-component-cue-fallback-cue-only.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-component-cue-fallback-off-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-component-cue-fallback-off-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-component-cue-fallback-off-after.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-component-cue-fallback-off-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-component-cue-fallback-off-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-component-cue-fallback-off-before.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-component-projectile-only.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-component-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-component-projectile-only.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-component-unanchored-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-component-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-component-unanchored-after.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-component-unanchored-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-component-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-component-unanchored-before.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-ray-direction-cue-fallback-cue-only.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-ray-direction-cue-fallback-cue-only.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-ray-direction-cue-fallback-cue-only.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-ray-direction-cue-fallback-off-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-ray-direction-cue-fallback-off-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-ray-direction-cue-fallback-off-after.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-ray-direction-cue-fallback-off-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-ray-direction-cue-fallback-off-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-ray-direction-cue-fallback-off-before.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-weapon-projectile-only.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-weapon-projectile-only.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-weapon-projectile-only.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-weapon-unanchored-after.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-weapon-unanchored-after.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-weapon-unanchored-after.png"
+    },
+    {
+      "case": "impact",
+      "file": "impact-presentation/wrong-weapon-unanchored-before.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-impact-baseline/impact-presentation/wrong-weapon-unanchored-before.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-impact-optimized/impact-presentation/wrong-weapon-unanchored-before.png"
+    },
+    {
+      "case": "combat",
+      "file": "frame-0-hud.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-combat-baseline/frame-0-hud.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-combat-optimized/frame-0-hud.png"
+    },
+    {
+      "case": "combat",
+      "file": "frame-0-world-repeat.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-combat-baseline/frame-0-world-repeat.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-combat-optimized/frame-0-world-repeat.png"
+    },
+    {
+      "case": "combat",
+      "file": "frame-0-world.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-combat-baseline/frame-0-world.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-combat-optimized/frame-0-world.png"
+    },
+    {
+      "case": "combat",
+      "file": "frame-1-hud.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-combat-baseline/frame-1-hud.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-combat-optimized/frame-1-hud.png"
+    },
+    {
+      "case": "combat",
+      "file": "frame-1-world.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-combat-baseline/frame-1-world.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-combat-optimized/frame-1-world.png"
+    },
+    {
+      "case": "combat",
+      "file": "frame-2-hud.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-combat-baseline/frame-2-hud.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-combat-optimized/frame-2-hud.png"
+    },
+    {
+      "case": "combat",
+      "file": "frame-2-world.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-combat-baseline/frame-2-world.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-combat-optimized/frame-2-world.png"
+    },
+    {
+      "case": "combat",
+      "file": "frame-3-hud.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-combat-baseline/frame-3-hud.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-combat-optimized/frame-3-hud.png"
+    },
+    {
+      "case": "combat",
+      "file": "frame-3-world.png",
+      "identical": true,
+      "reference": "artifacts/opengl-modernization/procedural-visual-combat-baseline/frame-3-world.png",
+      "candidate": "artifacts/opengl-modernization/procedural-visual-combat-optimized/frame-3-world.png"
+    }
+  ],
+  "captureOnlyKillFeedStabilized": [
+    "combat"
+  ],
+  "notes": "Combat uses explicit -stablehud to keep wall-clock kill-feed entries opaque during fixed-simulation captures. It is never used for performance and does not test kill-feed fade/lifetime."
+}

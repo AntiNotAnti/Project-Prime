@@ -60,10 +60,21 @@ public partial class PlayerEntity
         private bool _tacticalStrafeRight;
         private int _tacticalStrafeTimer;
         private bool _tacticalMovementActive;
+        // True only for a tactical movement probe that actually selected a step;
+        // _tacticalMovementActive also means "preserve native objective navigation."
+        private bool _tacticalSteeringActive;
+        private BeamType _tacticalChargeWeapon = BeamType.None;
+        private int _tacticalChargeTargetSlot = -1;
+        private int _tacticalChargeDecisionFrames;
+        private bool _tacticalChargePreferred;
         private Vector3 _tacticalProgressPosition;
         private int _tacticalProgressTimer;
         private int _tacticalStuckCount;
         private int _tacticalEscapeFrames;
+        private PlayerEntity? _botReactionTarget;
+        private int _botReactionFrames;
+        private bool _botReactionHadSight;
+        private bool _botSuppressFireThisTick;
 
         private BotTacticalTuning TacticalTuning =>
             _tacticalTuning[Math.Clamp(_player.BotLevel, 0, _tacticalTuning.Length - 1)];
@@ -81,10 +92,23 @@ public partial class PlayerEntity
             _tacticalStrafeRight = false;
             _tacticalStrafeTimer = 0;
             _tacticalMovementActive = false;
+            _tacticalSteeringActive = false;
+            _tacticalChargeWeapon = BeamType.None;
+            _tacticalChargeTargetSlot = -1;
+            _tacticalChargeDecisionFrames = 0;
+            _tacticalChargePreferred = false;
             _tacticalProgressPosition = _player.Position;
             _tacticalProgressTimer = 0;
             _tacticalStuckCount = 0;
             _tacticalEscapeFrames = 0;
+            _botReactionTarget = null;
+            _botReactionFrames = 0;
+            _botReactionHadSight = false;
+            _botSuppressFireThisTick = false;
+            ResetBotPerception();
+            ResetBotPositioning();
+            ResetBotStrategy();
+            ResetCompetitiveHunterCombat();
         }
 
         private void RecordTacticalThreat(PlayerEntity? attacker, int damage)
@@ -97,7 +121,18 @@ public partial class PlayerEntity
 
             BotTacticalTuning tuning = TacticalTuning;
             _tacticalThreatSlot = attacker.SlotIndex;
-            _tacticalThreatPosition = attacker.Position;
+            // Damage exposes the attacker, but not an exact through-wall transform.
+            // Preserve the precise observation only if sight is actually available.
+            if (TacticalCanSee(attacker))
+            {
+                BotObserveVisual(attacker, tuning.TargetMemoryFrames);
+            }
+            else
+            {
+                BotObserveSound(attacker, tuning.TargetMemoryFrames / 2, fromDamage: true);
+            }
+            _tacticalThreatPosition = BotTryKnownPosition(attacker, out Vector3 cue, out _)
+                ? cue : _player.Position;
             _tacticalThreatFrames = Math.Max(_tacticalThreatFrames, tuning.TargetMemoryFrames);
             _tacticalThreatWeight = Math.Clamp(14 + damage * 0.6f, 14, 42);
             _tacticalDecisionTimer = 0;
@@ -107,6 +142,8 @@ public partial class PlayerEntity
         {
             BotTacticalTuning tuning = TacticalTuning;
             _tacticalMovementActive = TacticalShouldPreserveLegacyMovement(tuning);
+            _tacticalSteeringActive = false;
+            _botSuppressFireThisTick = false;
 
             if (_tacticalThreatFrames > 0)
             {
@@ -119,7 +156,7 @@ public partial class PlayerEntity
                 _tacticalThreatWeight = 0;
             }
 
-            UpdateTacticalHearing(tuning);
+            BotObserveContacts(tuning);
 
             if (_tacticalDecisionTimer > 0)
             {
@@ -134,6 +171,16 @@ public partial class PlayerEntity
 
             if (_tacticalTarget == null)
             {
+                // Don't let legacy fire or alt-attack paths act on a stale
+                // target when the tactical perception layer has none.
+                _botSuppressFireThisTick = true;
+                Flags2 &= ~AiFlags2.TargetPlayer;
+                Flags2 &= ~AiFlags2.Bit8;
+                _buttons.R.IsDown = false;
+                ResetBotPositioning();
+                _botReactionTarget = null;
+                _botReactionFrames = 0;
+                _botReactionHadSight = false;
                 // A recent gunshot or attacker should at least turn the bot toward the remembered
                 // location. We intentionally do not set TargetPlayer here, so hearing never grants
                 // perfect through-wall tracking or firing.
@@ -143,21 +190,57 @@ public partial class PlayerEntity
                     Func21447E8();
                 }
                 _tacticalWeapon = BeamType.None;
+                _tacticalChargeWeapon = BeamType.None;
+                _tacticalChargeTargetSlot = -1;
+                _tacticalChargeDecisionFrames = 0;
                 return;
             }
 
             bool visible = TacticalCanSee(_tacticalTarget);
-            bool legacyKnown = AggroFunc214857C(6, 1, 2, null, _tacticalTarget);
-            if (!visible && !legacyKnown)
+            if (!visible)
             {
-                // Damage/hearing memory stores a position, not magical access to the
-                // attacker's live transform. Do not feed a hidden moving player back
-                // into the legacy target/path tree until normal perception knows them.
-                if (_tacticalThreatFrames > 0 && _tacticalThreatPosition != Vector3.Zero)
+                _botReactionHadSight = false;
+                _botSuppressFireThisTick = true;
+                // The original behavior tree ran earlier in this frame. Revoke
+                // precision targeting and firing before the input is applied:
+                // a remembered player is an investigation goal, not a live aim lock.
+                Flags2 &= ~AiFlags2.TargetPlayer;
+                Flags2 &= ~AiFlags2.Bit8;
+                _buttons.R.IsDown = false;
+                ResetBotPositioning();
+                if (BotTryKnownPosition(_tacticalTarget, out Vector3 remembered, out _))
                 {
-                    _field1038 = _tacticalThreatPosition - _player.CameraInfo.Position;
+                    _field1038 = remembered - _player.CameraInfo.Position;
                     Func21447E8();
+                    if (!_tacticalMovementActive)
+                    {
+                        BotInvestigatePosition(remembered);
+                    }
                 }
+                return;
+            }
+
+            if (_botReactionTarget != _tacticalTarget)
+            {
+                _botReactionTarget = _tacticalTarget;
+                _botReactionFrames = BotReactionPolicy.AcquisitionFrames(_player.BotLevel,
+                    reacquired: false);
+            }
+            else if (!_botReactionHadSight)
+            {
+                _botReactionFrames = Math.Max(_botReactionFrames,
+                    BotReactionPolicy.AcquisitionFrames(_player.BotLevel, reacquired: true));
+            }
+            _botReactionHadSight = true;
+            if (_botReactionFrames > 0)
+            {
+                _botReactionFrames--;
+                _botSuppressFireThisTick = true;
+                // Reaction time affects *what* a bot is allowed to commit to,
+                // not the 60-Hz native simulation or visible body physics.
+                Flags2 &= ~AiFlags2.TargetPlayer;
+                Flags2 &= ~AiFlags2.Bit8;
+                _buttons.R.IsDown = false;
                 return;
             }
 
@@ -190,12 +273,30 @@ public partial class PlayerEntity
 
                 if (CheckCharge(_tacticalWeapon))
                 {
-                    int chargeChance = Difficulty.ChargeChancePercent;
-                    if (_tacticalWeapon == Weapons.AffinityWeapons[(int)_player.Hunter])
+                    // Commit to charge or tap fire for an actual burst of combat,
+                    // not a fresh dice roll every simulation frame. Reroll only
+                    // between actions, or after changing weapon/target.
+                    bool weaponChanged = _tacticalChargeWeapon != _tacticalWeapon;
+                    bool targetChanged = _tacticalChargeTargetSlot != _tacticalTarget.SlotIndex;
+                    bool charging = _player.EquipInfo.ChargeLevel > 0;
+                    if (TacticalChargeDecisionNeedsRefreshForTest(weaponChanged,
+                        targetChanged, charging, _tacticalChargeDecisionFrames))
                     {
-                        chargeChance = Math.Min(100, chargeChance + 8);
+                        int chargeChance = Difficulty.ChargeChancePercent;
+                        if (_tacticalWeapon == Weapons.AffinityWeapons[(int)_player.Hunter])
+                        {
+                            chargeChance = Math.Min(100, chargeChance + 8);
+                        }
+                        _tacticalChargePreferred = _scene.Random.GetRandomInt2(100) < chargeChance;
+                        _tacticalChargeWeapon = _tacticalWeapon;
+                        _tacticalChargeTargetSlot = _tacticalTarget.SlotIndex;
+                        _tacticalChargeDecisionFrames = Math.Max(12, tuning.WeaponDecisionFrames);
                     }
-                    if (_scene.Random.GetRandomInt2(100) < chargeChance)
+                    else if (_tacticalChargeDecisionFrames > 0)
+                    {
+                        _tacticalChargeDecisionFrames--;
+                    }
+                    if (_tacticalChargePreferred)
                     {
                         Flags4 |= AiFlags4.Bit1;
                     }
@@ -206,6 +307,9 @@ public partial class PlayerEntity
                 }
                 else
                 {
+                    _tacticalChargeWeapon = BeamType.None;
+                    _tacticalChargeDecisionFrames = 0;
+                    _tacticalChargePreferred = false;
                     Flags4 &= ~AiFlags4.Bit1;
                 }
             }
@@ -220,11 +324,20 @@ public partial class PlayerEntity
             }
         }
 
+        public static bool TacticalChargeDecisionNeedsRefreshForTest(bool weaponChanged,
+            bool targetChanged, bool charging, int remainingFrames)
+            => weaponChanged || targetChanged || (!charging && remainingFrames <= 0);
+
         private bool TacticalShouldPreserveLegacyMovement(BotTacticalTuning tuning)
         {
             float healthFraction = _player.HealthMax <= 0 ? 1
                 : Math.Clamp(_player.Health / (float)_player.HealthMax, 0, 1);
-            if (healthFraction <= tuning.RetreatHealthFraction
+            // Skilled bots preserve the native health route before reaching
+            // critical HP instead of repeatedly choosing an unwinnable duel.
+            float healthRecoveryThreshold = _player.BotLevel >= 2
+                ? Math.Max(tuning.RetreatHealthFraction, 0.62f)
+                : tuning.RetreatHealthFraction;
+            if (healthFraction <= healthRecoveryThreshold
                 && Flags2.TestFlag(AiFlags2.TargetItem)
                 && ((_itemC8 != null && IsHealth(_itemC8))
                     || (_itemSpawnC4 != null && IsHealth(_itemSpawnC4))))
@@ -269,7 +382,17 @@ public partial class PlayerEntity
             _tacticalStrafeTimer = 0;
             _combatStrafeTimer = 0;
             _tacticalEscapeFrames = 0;
+            ResetBotPositioning();
+            ResetBotStrategy();
+            _botReactionTarget = null;
+            _botReactionFrames = 0;
+            _botReactionHadSight = false;
+            _botSuppressFireThisTick = false;
+            BotForgetContact(victim.SlotIndex);
             _tacticalMovementActive = false;
+            _tacticalSteeringActive = false;
+            _tacticalChargeDecisionFrames = 0;
+            _tacticalChargeTargetSlot = -1;
             if (_tacticalThreatSlot == victim.SlotIndex)
             {
                 _tacticalThreatSlot = -1;
@@ -284,7 +407,7 @@ public partial class PlayerEntity
 
         private void ApplyTacticalWeaponDecision()
         {
-            if (_tacticalWeapon == BeamType.None || _player.IsAltForm
+            if (_tacticalTarget == null || _tacticalWeapon == BeamType.None || _player.IsAltForm
                 || _player.IsMorphing || _player.IsUnmorphing)
             {
                 return;
@@ -375,38 +498,6 @@ public partial class PlayerEntity
             return !nearbyObstacle && targetDistance > splashRadius + 1.0f;
         }
 
-        private void UpdateTacticalHearing(BotTacticalTuning tuning)
-        {
-            float hearingSqr = tuning.HearingRange * tuning.HearingRange;
-            float nearest = Single.MaxValue;
-            PlayerEntity? heard = null;
-            foreach (PlayerEntity other in _scene.GetPlayerEntities())
-            {
-                if (other == _player || other.Health == 0 || !other.ModInPlay
-                    || other.TeamIndex == _player.TeamIndex || TacticalCanSee(other)
-                    || !other.Flags2.TestFlag(PlayerFlags2.Shooting))
-                {
-                    continue;
-                }
-
-                float dist = Vector3.DistanceSquared(other.Position, _player.Position);
-                if (dist <= hearingSqr && dist < nearest)
-                {
-                    nearest = dist;
-                    heard = other;
-                }
-            }
-
-            if (heard != null && (_tacticalThreatFrames == 0 || _tacticalThreatWeight < 12))
-            {
-                _tacticalThreatSlot = heard.SlotIndex;
-                _tacticalThreatPosition = heard.Position;
-                _tacticalThreatFrames = Math.Max(_tacticalThreatFrames, tuning.TargetMemoryFrames / 2);
-                // Sound creates an investigation cue, not enough confidence to select a hidden target.
-                _tacticalThreatWeight = Math.Max(_tacticalThreatWeight, 8);
-            }
-        }
-
         private bool TacticalTargetValid(PlayerEntity player)
         {
             return player != _player && player.Health > 0 && player.ModInPlay
@@ -442,14 +533,17 @@ public partial class PlayerEntity
                 }
 
                 bool visible = TacticalCanSee(candidate);
-                bool known = AggroFunc214857C(6, 1, 2, null, candidate);
+                bool remembered = BotTryKnownPosition(candidate,
+                    out Vector3 knownPosition, out float confidence);
                 bool recentThreat = _tacticalThreatSlot == candidate.SlotIndex && _tacticalThreatWeight >= 14;
-                if (!visible && !known && !recentThreat)
+                if (!visible && !remembered)
                 {
+                    // Legacy aggro is still available to native navigation, but
+                    // must not grant tactical AI access to a hidden live position.
                     continue;
                 }
 
-                float distance = (candidate.Position - _player.Position).Length;
+                float distance = (knownPosition - _player.Position).Length;
                 bool occupyingObjective = TacticalOccupiesObjective(candidate);
                 int carriedTokens = (uint)candidate.SlotIndex < (uint)_scene.GameState.TokenCarried.Length
                     ? _scene.GameState.TokenCarried[candidate.SlotIndex] : 0;
@@ -457,12 +551,22 @@ public partial class PlayerEntity
                     carriedTokens, occupyingObjective, candidate.OctolithFlag != null, candidate.IsPrimeHunter);
                 bool objective = objectivePriority > 0;
                 int aggro = AggroFunc2148394(7, 2, 1, candidate, null);
-                float healthFraction = candidate.HealthMax <= 0 ? 1
+                // Target health is not directly observable through solid cover.
+                float healthFraction = !visible || candidate.HealthMax <= 0 ? 1
                     : Math.Clamp(candidate.Health / (float)candidate.HealthMax, 0, 1);
                 float score = TacticalTargetUtilityForTest(distance, visible,
                     candidate == _tacticalTarget, false, healthFraction, aggro, recentThreat,
                     Math.Clamp(_player.BotLevel, 0, 3));
                 score += objectivePriority;
+                if (_scene.GameState.Teams && _player.BotLevel >= 2 && visible)
+                {
+                    score += BotStrategicPolicy.TargetBonus(
+                        BotAssignedRole(), objective, recentThreat);
+                }
+                if (!visible)
+                {
+                    score -= (1 - confidence) * 26f;
+                }
 
                 if (candidate == _tacticalTarget)
                 {
@@ -590,8 +694,25 @@ public partial class PlayerEntity
                 }
 
                 float score = TacticalWeaponUtilityForTest(beam, distance, beam == affinity,
-                    beam == _player.CurrentWeapon, target.IsAltForm, target.ModFrozen, selfHealth, visible);
+                    beam == _player.CurrentWeapon, target.IsAltForm, target.ModFrozen, selfHealth, visible,
+                    _scene.GameState.Multiplayer && _scene.GameState.BalancedMode);
+                if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                    && beam == BeamType.Battlehammer && _player.Hunter == Hunter.Weavel)
+                {
+                    score += 6; // Weavel's concussion and self-knockback opportunities.
+                }
                 score += TacticalHunterWeaponBiasForTest(_player.Hunter, beam, distance, target.ModFrozen);
+                if (visible && BotTryVisibleOpponentModel(target, out BotOpponentModel habits))
+                {
+                    score += BotOpponentTactics.WeaponCounterBonus(
+                        beam, habits, distance, _player.BotLevel);
+                }
+                WeaponInfo weaponInfo = _scene.WeaponRules[(int)beam +
+                    (Weapons.GetAffinityBeam(_player.Hunter) == beam ? 9 : 0)];
+                int cost = _player.ModAmmoCostForWeapon(beam, weaponInfo);
+                float remainingShots = cost <= 0 ? 1000f
+                    : _player.ModAmmoForWeapon(beam, weaponInfo) / (float)cost;
+                score += TacticalAmmoReserveBiasForTest(beam, remainingShots);
                 if (beam == _player.CurrentWeapon)
                 {
                     currentScore = score;
@@ -614,12 +735,28 @@ public partial class PlayerEntity
             return best;
         }
 
+        public static float TacticalAmmoReserveBiasForTest(BeamType beam, float remainingShots)
+        {
+            if (beam == BeamType.OmegaCannon || beam == BeamType.PowerBeam)
+                return 0; // Free beam and rare powerup have their own priority.
+            if (!float.IsFinite(remainingShots) || remainingShots <= 0)
+                return -100;
+            if (remainingShots < 2) return -16;
+            if (remainingShots < 4) return -7;
+            if (remainingShots >= 9) return 3;
+            return 0;
+        }
+
         public static float TacticalWeaponUtilityForTest(BeamType beam, float distance, bool affinity,
-            bool current, bool targetAltForm, bool targetFrozen, float selfHealthFraction, bool visible)
+            bool current, bool targetAltForm, bool targetFrozen, float selfHealthFraction,
+            bool visible, bool balancedMode = false)
         {
             distance = Math.Max(0, distance);
             selfHealthFraction = Math.Clamp(selfHealthFraction, 0, 1);
-            float ideal = TacticalPreferredRange(beam);
+            // Balanced Battlehammer is a fast, straight 3-round burst rifle,
+            // not the short-range ballistic shell represented by its ROM data.
+            float ideal = balancedMode && beam == BeamType.Battlehammer
+                ? 14 : TacticalPreferredRange(beam);
             float falloff = beam switch
             {
                 BeamType.ShockCoil => 3.2f,
@@ -703,6 +840,8 @@ public partial class PlayerEntity
         private float TacticalPreferredRangeForHunter(BeamType beam)
         {
             float range=TacticalPreferredRange(beam);
+            if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                && beam == BeamType.Battlehammer) range = 14;
             if(_player.Hunter==Hunter.Trace&&beam==BeamType.Imperialist)range+=5;
             else if(_player.Hunter==Hunter.Sylux&&beam==BeamType.ShockCoil)range-=1;
             else if(_player.Hunter==Hunter.Noxus&&beam==BeamType.Judicator)range+=2;
@@ -725,9 +864,30 @@ public partial class PlayerEntity
 
             BeamType weapon = _tacticalWeapon == BeamType.None ? _player.CurrentWeapon : _tacticalWeapon;
             float ideal = TacticalPreferredRangeForHunter(weapon);
+            if (BotTryVisibleOpponentModel(target, out BotOpponentModel habits))
+            {
+                ideal += BotOpponentTactics.RangeAdjustment(weapon, habits);
+            }
             float healthFraction = _player.HealthMax <= 0 ? 1
                 : Math.Clamp(_player.Health / (float)_player.HealthMax, 0, 1);
             bool lowHealth = healthFraction <= tuning.RetreatHealthFraction;
+            if (_scene.GameState.Teams && _player.BotLevel >= 2)
+            {
+                int nearbyEnemies = 0;
+                int nearbyAllies = 0;
+                foreach (PlayerEntity other in _scene.GetPlayerEntities())
+                {
+                    if (other == _player || other.Health <= 0 || !other.ModInPlay
+                        || (other.Position - _player.Position).WithY(0).LengthSquared >= 16 * 16)
+                    {
+                        continue;
+                    }
+                    if (other.TeamIndex == _player.TeamIndex) nearbyAllies++;
+                    else if (TacticalCanSee(other)) nearbyEnemies++;
+                }
+                lowHealth |= BotStrategicPolicy.ShouldDisengage(
+                    teamMode: true, nearbyEnemies, nearbyAllies, healthFraction);
+            }
             bool retreat = lowHealth || distance < ideal * 0.60f;
             bool advance = !retreat && distance > ideal * 1.35f;
 
@@ -752,28 +912,47 @@ public partial class PlayerEntity
             Vector3 forward = _player.FacingVector.WithY(0);
             forward = forward.LengthSquared > 0 ? forward.Normalized() : Vector3.UnitZ;
             Vector3 right = new Vector3(forward.Z, 0, -forward.X);
+            Vector3 lateral = _tacticalStrafeRight ? right : -right;
+            AiButton lateralButton = _tacticalStrafeRight ? _buttons.A : _buttons.Y;
 
-            bool moved = false;
-            if (_tacticalEscapeFrames > 0)
+            // Tactical steering owns this frame when it finds a safe step.
+            // Preserve legacy navigation only if *every* tactical candidate fails.
+            // Without this arbitration, multiple layers could hold opposite buttons.
+            bool legacyRight = _buttons.A.IsDown;
+            bool legacyBack = _buttons.B.IsDown;
+            bool legacyForward = _buttons.X.IsDown;
+            bool legacyLeft = _buttons.Y.IsDown;
+            _buttons.A.IsDown = false;
+            _buttons.B.IsDown = false;
+            _buttons.X.IsDown = false;
+            _buttons.Y.IsDown = false;
+
+            // Hard/Insane plans a short committed positional goal. A goal is
+            // picked from safe local endpoints, then followed for several
+            // frames instead of reversing direction on every tactical tick.
+            bool moved = _scene.GameState.Multiplayer
+                && _tacticalEscapeFrames == 0 && _player.BotLevel >= 2
+                && BotPlanCombatMove(target, ideal, lowHealth);
+            if (!moved && _tacticalEscapeFrames > 0)
             {
                 moved = TryTacticalMove(_tacticalStrafeRight ? -right : right,
                     _tacticalStrafeRight ? _buttons.Y : _buttons.A);
             }
-            else if (lowHealth)
+            else if (!moved && lowHealth)
             {
                 moved = TryTacticalCoverMove(target, forward, right);
                 if (!moved)
                 {
-                    moved = TryTacticalMove(-forward, _buttons.B);
+                    moved = TryTacticalDiagonalMove(-forward, _buttons.B, lateral, lateralButton);
                 }
             }
-            else if (retreat)
+            else if (!moved && retreat)
             {
-                moved = TryTacticalMove(-forward, _buttons.B);
+                moved = TryTacticalDiagonalMove(-forward, _buttons.B, lateral, lateralButton);
             }
-            else if (advance)
+            else if (!moved && advance)
             {
-                moved = TryTacticalMove(forward, _buttons.X);
+                moved = TryTacticalDiagonalMove(forward, _buttons.X, lateral, lateralButton);
             }
 
             if (!moved)
@@ -791,6 +970,14 @@ public partial class PlayerEntity
             if (moved)
             {
                 _tacticalMovementActive = true;
+                _tacticalSteeringActive = true;
+            }
+            else
+            {
+                _buttons.A.IsDown = legacyRight;
+                _buttons.B.IsDown = legacyBack;
+                _buttons.X.IsDown = legacyForward;
+                _buttons.Y.IsDown = legacyLeft;
             }
 
             UpdateTacticalProgress(moved);
@@ -808,6 +995,21 @@ public partial class PlayerEntity
                 _combatJumpCooldown = Math.Max(30, Difficulty.JumpCooldownMinFrames) * 2;
                 _tacticalMovementActive = true;
             }
+        }
+
+        private bool TryTacticalDiagonalMove(Vector3 radial, AiButton radialButton,
+            Vector3 lateral, AiButton lateralButton)
+        {
+            // Commit to the useful distance change while circling instead of
+            // charging straight toward a player's crosshair. Check the entire
+            // diagonal footprint, then fall back to the safe radial step.
+            if (TacticalCanMove(radial + lateral))
+            {
+                radialButton.IsDown = true;
+                lateralButton.IsDown = true;
+                return true;
+            }
+            return TryTacticalMove(radial, radialButton);
         }
 
         private bool TryTacticalCoverMove(PlayerEntity target, Vector3 forward, Vector3 right)

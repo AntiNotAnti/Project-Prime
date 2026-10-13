@@ -230,7 +230,12 @@ internal static class MatchSemanticWireChecks
                 historical.Write(source.AsSpan(at, 7 + playerSize));
                 at += 7 + PlayerState.Size;
                 historical.Write(source.AsSpan(at, 1)); at++;
-                historical.Write(source.AsSpan(at, intentSize)); at += IntentPacket.FullSize;
+                historical.Write(source.AsSpan(at, intentSize));
+                // Source checkpoint is protocol 53, with the native touch
+                // tail in every canonical intent. Historical schemas wrote
+                // fewer bytes, but the source cursor still skips the full
+                // current stride to keep later slots and semantic facts aligned.
+                at += IntentPacket.TouchCanonicalSize;
                 historical.Write(source.AsSpan(at, 4)); at += 4;
             }
             historical.Write(source.AsSpan(at, source.Length - at - omittedTail));

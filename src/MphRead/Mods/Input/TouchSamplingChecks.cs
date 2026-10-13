@@ -15,7 +15,7 @@ namespace MphRead.Mods.Input
                 PointerInput.StylusMode = true;
                 PointerInput.GuardJumps = false;
                 StylusZone.Enabled = false;
-                foreach (int refresh in new[] { 30, 60, 120, 144 })
+                foreach (int refresh in new[] { 30, 60, 120, 144, 240 })
                 {
                     PointerDevice.Reset();
                     Sample(0);
@@ -49,7 +49,7 @@ namespace MphRead.Mods.Input
                         throw new InvalidOperationException($"{refresh} Hz lost or repeated the 30 Hz Morph Ball tape");
                     }
                 }
-                Console.WriteLine("TOUCH SAMPLING PASS (30 Hz samples, 60 Hz simulation, 30/60/120/144 Hz presentation)");
+                Console.WriteLine("TOUCH SAMPLING PASS (30 Hz samples, 60 Hz simulation, 30/60/120/144/240 Hz presentation)");
             }
             finally
             {

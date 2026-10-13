@@ -675,7 +675,7 @@ namespace MphRead.Entities
                 center = Position.AddY(Fixed.ToFloat(Values.MinPickupHeight) + radius);
             }
             Vector3 end = center.AddY(-CollisionGroundSnap);
-            IReadOnlyList<CollisionCandidate> candidates = CollisionDetection.GetCandidatesForLimits(
+            using var candidates = CollisionDetection.GetCandidatesForLimits(
                 center, end, radius + 0.05f, null, Vector3.Zero,
                 includeEntities: _scene.GameState.TransitionState == TransitionState.None, _scene);
             Array.Clear(_movementCollisionScratch);
@@ -825,7 +825,7 @@ namespace MphRead.Entities
             }
             bool includeEntities = _scene.GameState.TransitionState == TransitionState.None; // handled differently in-game
             // point1/point2/margin aren't used, but point1 has to be passed in order to include entities
-            IReadOnlyList<CollisionCandidate> candidates
+            using var candidates
                 = CollisionDetection.GetCandidatesForLimits(point1, point2, margin, limitMin, limitMax, includeEntities, _scene);
             if (IsAltForm)
             {

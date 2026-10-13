@@ -65,8 +65,11 @@ namespace MphRead.Entities
             Mods.Network.NetGrantNetwork.BeforePlayer(this);
             UpdateChamberFallback();
             bool result = ProcessPlayer();
-            Mods.EnhancedHunters.EnhancedHunters.OnPlayerFrame(this);
-            ModEnhancedGhost();
+            if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(_scene))
+            {
+                Mods.EnhancedHunters.EnhancedHunters.OnPlayerFrame(this);
+                ModEnhancedGhost();
+            }
             SetTransform(_facingVector, _upVector, Position);
             return result;
         }

@@ -107,6 +107,7 @@ namespace MphRead.Entities
                 // just ask for.
                 ModClearAltFlick();
                 ModResetAltSwipeDrive();
+                ModStopNativeTouch();
                 ProcessBiped();
             }
         }
@@ -1271,7 +1272,7 @@ namespace MphRead.Entities
                 if (trainer.OwnsTarget(this) || trainer.Completed) return false;
                 if (CurrentWeapon != trainer.Definition.Weapon) ModArmWeapon(trainer.Definition.Weapon);
             }
-            ModEnhancedBeforeShot();
+            if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(_scene)) ModEnhancedBeforeShot();
             if (!Flags2.TestFlag(PlayerFlags2.Cloaking))
             {
                 _cloakTimer = 0;
@@ -1281,9 +1282,14 @@ namespace MphRead.Entities
                 return false;
             }
             bool pressed = Controls.Shoot.IsPressed;
+            bool balancedBurst = BalancedModeRules.IsBattlehammerBurst(
+                _scene.GameState.Multiplayer, _scene.GameState.BalancedMode, CurrentWeapon);
+            int shotCooldownFrames = balancedBurst
+                ? BalancedModeRules.BattlehammerBurstCooldownFrames : EquipWeapon.ShotCooldown * 2;
             if (pressed || CurrentWeapon != BeamType.PowerBeam)
             {
-                _autofireCooldown = (ushort)(EquipWeapon.AutofireCooldown * 2); // todo: FPS stuff
+                _autofireCooldown = (ushort)(balancedBurst
+                    ? shotCooldownFrames : EquipWeapon.AutofireCooldown * 2); // todo: FPS stuff
                 _powerBeamAutofire = 0;
             }
             else
@@ -1300,9 +1306,9 @@ namespace MphRead.Entities
             }
             if (!exactReplayFire
                 && _scene.AimTrainer?.SkipImperialistReload(this) != true
-                && (_timeSinceShot < EquipWeapon.ShotCooldown * 2 // todo: FPS stuff
+                && (_timeSinceShot < shotCooldownFrames
                 || !pressed && _timeSinceShot < _autofireCooldown)
-                && (!IsBot || !AiData.Flags2.TestFlag(AiFlags2.Bit20)))
+                && (balancedBurst || !IsBot || !AiData.Flags2.TestFlag(AiFlags2.Bit20)))
             {
                 return false;
             }
@@ -1668,6 +1674,7 @@ namespace MphRead.Entities
             int animId = -1;
             AnimFlags animFlags = AnimFlags.None;
             Flags1 |= PlayerFlags1.UsedJump;
+            ModStepNativeTouch();
             if (_frozenTimer == 0 && _health > 0)
             {
                 bool explicitRoll = Controls.RollUp.IsDown || Controls.RollDown.IsDown
@@ -1930,12 +1937,15 @@ namespace MphRead.Entities
                         traction = 0;
                     }
 
+                    if (Hunter == Hunter.Samus && ModUsesClassicTouch)
+                        ModApplyNativeTouchRoll(ref speedDelta);
+
                     bool swipeRequested = Input.AltSwipeEngaged || Input.AltSwipeStopRequested;
                     bool swipeCanDrive = !explicitRoll
                         && IsAltForm && !IsMorphing && !IsUnmorphing
                         && _boostAimLock == 0
                         && _jumpPadControlLockMin == 0 && AttachedEnemy == null;
-                    bool stockSamusSwipe = swipeCanDrive && Hunter == Hunter.Samus
+                    bool stockSamusSwipe = swipeCanDrive && Hunter == Hunter.Samus && !ModUsesClassicTouch
                         && Input.AltSwipeEngaged;
                     bool preciseSwipe = swipeCanDrive && swipeRequested
                         && Mods.Input.AltFormGesture.UsesPrecisionSwipe(Hunter);
@@ -2200,6 +2210,12 @@ namespace MphRead.Entities
                         // too, so existing keyboard/controller layouts remain additive.
                         bool dedicatedBoost = Controls.Boost.IsDown;
                         bool buttonBoost = dedicatedBoost || Controls.Zoom.IsDown;
+                        if (ModUsesClassicTouch)
+                        {
+                            ModProcessNativeTouchBoost(ref speedDelta, buttonBoost);
+                        }
+                        else
+                        {
                         // Samus does not need a network press edge for boost, so
                         // desktop mouse/pen flick detection stays here after the
                         // controller contribution has been applied. Zoom/right-click
@@ -2385,6 +2401,7 @@ namespace MphRead.Entities
                             }
                             _boostCharge = 0;
                         }
+                        } // Legacy ModernFlick route.
                     }
                 }
                 float magBefore = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);

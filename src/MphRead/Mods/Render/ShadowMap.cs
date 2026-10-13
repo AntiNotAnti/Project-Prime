@@ -16,6 +16,7 @@ namespace MphRead
         private int _shadowDepthTexture;
         private int _shadowColorTexture;
         private int _shadowTargetSize;
+        private bool _shadowDepthOnly;
         private bool _shadowRefused;
         private bool _shadowReady;
         private Matrix4 _shadowView = Matrix4.Identity;
@@ -23,6 +24,8 @@ namespace MphRead
         private long _retainedDirectShadowDraws;
         private long _retainedCompatibilityShadowDraws;
         private long _lightSpaceRoomShadowDraws;
+        private static readonly bool _shadowPreparationEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("SHADOW_PREP");
+        private readonly Mods.Render.ShadowCasterPreparationCache _shadowPreparation = new();
         private readonly List<RenderItem> _lightSpaceRoomShadowCasters = new(512);
         internal long LightSpaceRoomShadowDraws => _lightSpaceRoomShadowDraws;
 
@@ -105,9 +108,11 @@ namespace MphRead
                 GL.Disable(EnableCap.StencilTest);
                 GL.Enable(EnableCap.AlphaTest);
                 GL.AlphaFunc(AlphaFunction.Equal, 1f);
-                GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+                GL.Clear(_shadowDepthOnly ? ClearBufferMask.DepthBufferBit
+                    : ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
                 GL.UseProgram(_shaderProgramId);
+                SetDepthShader(true);
                 GL.UniformMatrix4(_shaderLocations.ViewMatrix, false, ref _shadowView);
                 GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, false, ref _shadowProjection);
                 GL.Uniform1(_shaderLocations.UseFog, 0);
@@ -116,9 +121,12 @@ namespace MphRead
                 // The camera-visible graph is NOT the set of geometry that
                 // casts shadows onto the view. Offscreen walls, arches and
                 // ceilings must be evaluated in the light's projection too.
-                bool separateRoomCasters = _room != null
-                    && _room.CollectLightSpaceShadowCasters(
-                        _shadowView, _shadowProjection, _lightSpaceRoomShadowCasters);
+                bool separateRoomCasters;
+                using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.ShadowCollection))
+                    separateRoomCasters = _room != null
+                        && _room.CollectLightSpaceShadowCasters(
+                            _shadowView, _shadowProjection, _lightSpaceRoomShadowCasters);
+                using var submissionTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.ShadowSubmission);
                 IReadOnlyList<Mods.Render.RetainedDrawPacket> shadowPackets =
                     _retainedRenderWorld.Opaque;
                 for (int i = 0; i < shadowPackets.Count; i++)
@@ -136,12 +144,20 @@ namespace MphRead
                     _retainedCompatibilityShadowDraws++;
                     RenderItem(item);
                 }
+                _shadowPreparation.Clear();
                 if (separateRoomCasters)
                 {
                     foreach (RenderItem roomCaster in _lightSpaceRoomShadowCasters)
                     {
                         _lightSpaceRoomShadowDraws++;
-                        RenderItem(roomCaster);
+                        if (_shadowPreparationEnabled)
+                        {
+                            var reuse = _shadowPreparation.Prepare(roomCaster);
+                            if (reuse.Shared) Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.ShadowMaterialReuses);
+                            if (reuse.Object) Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.ShadowObjectReuses);
+                            RenderItem(roomCaster, applySharedState: !reuse.Shared, applyObjectState: !reuse.Object);
+                        }
+                        else RenderItem(roomCaster);
                     }
                 }
 
@@ -156,12 +172,14 @@ namespace MphRead
             }
             finally
             {
+                _shadowPreparation.Clear();
                 GL.ColorMask(true, true, true, true);
                 GL.DepthMask(true);
                 GL.Disable(EnableCap.AlphaTest);
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
                 GL.Viewport(0, 0, _targetSize.X, _targetSize.Y);
                 GL.UseProgram(_shaderProgramId);
+                SetDepthShader(false);
                 GL.UniformMatrix4(_shaderLocations.ViewMatrix, false, ref _viewMatrix);
                 GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, false, ref _perspectiveMatrix);
                 UpdateUniforms();
@@ -175,22 +193,12 @@ namespace MphRead
             if (_shadowFramebuffer == 0)
             {
                 _shadowFramebuffer = GL.GenFramebuffer();
+                Mods.Render.OpenGlFailureInjection.Hit("shadow-after-framebuffer");
                 _shadowDepthTexture = GL.GenTexture();
-                _shadowColorTexture = GL.GenTexture();
             }
             if (_shadowTargetSize == desired) return;
 
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, _shadowFramebuffer);
-
-            GL.BindTexture(TextureTarget.Texture2D, _shadowColorTexture);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
-                desired, desired, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
-                (int)TextureMinFilter.Nearest);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
-                (int)TextureMagFilter.Nearest);
-            GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
-                TextureTarget.Texture2D, _shadowColorTexture, 0);
 
             GL.BindTexture(TextureTarget.Texture2D, _shadowDepthTexture);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent24,
@@ -206,6 +214,36 @@ namespace MphRead
             GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment,
                 TextureTarget.Texture2D, _shadowDepthTexture, 0);
 
+            _shadowDepthOnly = Mods.Render.OpenGlOptimizationPolicy.Enabled("SHADOW_FAST");
+            if (_shadowDepthOnly)
+            {
+                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
+                    TextureTarget.Texture2D, 0, 0);
+                GL.DrawBuffer(DrawBufferMode.None);
+                GL.ReadBuffer(ReadBufferMode.None);
+                _shadowDepthOnly = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer)
+                    == FramebufferErrorCode.FramebufferComplete;
+            }
+            if (!_shadowDepthOnly)
+            {
+                // Real driver fallback: the original color-backed target remains
+                // available if a depth-only target is incomplete at this size.
+                if (_shadowColorTexture == 0) _shadowColorTexture = GL.GenTexture();
+                GL.BindTexture(TextureTarget.Texture2D, _shadowColorTexture);
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+                    desired, desired, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
+                    (int)TextureMinFilter.Nearest);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
+                    (int)TextureMagFilter.Nearest);
+                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
+                    TextureTarget.Texture2D, _shadowColorTexture, 0);
+
+                GL.DrawBuffer(DrawBufferMode.ColorAttachment0);
+                GL.ReadBuffer(ReadBufferMode.ColorAttachment0);
+            }
+            else DeleteTexture(ref _shadowColorTexture);
+
             ValidateFramebuffer("Shadow map");
             _shadowTargetSize = desired;
             GL.BindTexture(TextureTarget.Texture2D, 0);
@@ -215,6 +253,7 @@ namespace MphRead
         {
             _shadowReady = false;
             _shadowTargetSize = 0;
+            _shadowDepthOnly = false;
             if (_shadowFramebuffer != 0)
             {
                 GL.DeleteFramebuffer(_shadowFramebuffer);

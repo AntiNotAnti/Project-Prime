@@ -30,12 +30,12 @@ internal enum BalancedModeMetric
     RangeCloseDamage,
     RangeMidDamage,
     RangeFarDamage,
-    BattlehammerParentDirectHit,
-    BattlehammerTerrainImpact,
-    BattlehammerChildrenSpawned,
-    BattlehammerChildHit,
-    BattlehammerChildDamage,
-    BattlehammerChildKill,
+    BattlehammerRoundDirectHit,
+    BattlehammerRoundSplashHit,
+    BattlehammerConcussionDirectHit,
+    BattlehammerConcussionSplashHit,
+    BattlehammerConcussionDamage,
+    BattlehammerConcussionKill,
     KandenDisruptApplied,
     KandenDisruptRejected,
     NoxusFreezeApplied,
@@ -88,7 +88,8 @@ internal static class BalancedModeTelemetry
     private static readonly long[] _rangeHits = new long[Weapons * RangeBuckets];
     private static readonly long[] _rangeDamage = new long[Weapons * RangeBuckets];
 
-    // parent-direct, terrain-impact, children-spawned, child-hit, child-damage, child-kill
+    // direct/splash hits from burst rounds, third-round concussion direct/splash,
+    // concussion damage and concussion kills
     private static readonly long[] _battlehammer = new long[BattlehammerMetrics];
     // Kanden applied/rejected, Noxus applied/rejected, Spire burn applied/damage/kill,
     // Sylux requested/actual/capped, reserved
@@ -215,15 +216,16 @@ internal static class BalancedModeTelemetry
 
             if (weapon == BeamType.Battlehammer)
             {
-                if (beam.BattlehammerClusterChild)
+                Add(_battlehammer, direct ? 0 : 1);
+                bool concussion = beam.ModOwnerHunter == Hunter.Weavel
+                    && beam.ModComponentId == BalancedModeRules.BattlehammerBurstRounds
+                    && MathF.Abs(beam.DamageDirMag
+                        - BalancedModeRules.BattlehammerThirdRoundConcussion) < .001f;
+                if (concussion)
                 {
-                    Add(_battlehammer, 3);
+                    Add(_battlehammer, direct ? 2 : 3);
                     Add(_battlehammer, 4, applied);
                     if (applied >= victim.Health) Add(_battlehammer, 5);
-                }
-                else if (direct)
-                {
-                    Add(_battlehammer, 0);
                 }
             }
         }
@@ -248,13 +250,6 @@ internal static class BalancedModeTelemetry
             bool headshot = (fact.Flags & MatchSemanticEventFlags.Headshot) != 0;
             Add(_imperialist, headshot ? 4 : 3);
         }
-    }
-
-    internal static void NoteBattlehammerTerrainImpact(PlayerEntity owner, int children)
-    {
-        if (!CanRecord(owner.OwningScene)) return;
-        Add(_battlehammer, 1);
-        Add(_battlehammer, 2, children);
     }
 
     internal static void NoteKandenDisrupt(PlayerEntity victim, bool applied)
@@ -351,10 +346,10 @@ internal static class BalancedModeTelemetry
             Emit(BalancedModeMetric.RangeMidDamage, _rangeDamage[w * 3 + 1], weapon: w);
             Emit(BalancedModeMetric.RangeFarDamage, _rangeDamage[w * 3 + 2], weapon: w);
         }
-        BalancedModeMetric[] bh = { BalancedModeMetric.BattlehammerParentDirectHit,
-            BalancedModeMetric.BattlehammerTerrainImpact, BalancedModeMetric.BattlehammerChildrenSpawned,
-            BalancedModeMetric.BattlehammerChildHit, BalancedModeMetric.BattlehammerChildDamage,
-            BalancedModeMetric.BattlehammerChildKill };
+        BalancedModeMetric[] bh = { BalancedModeMetric.BattlehammerRoundDirectHit,
+            BalancedModeMetric.BattlehammerRoundSplashHit, BalancedModeMetric.BattlehammerConcussionDirectHit,
+            BalancedModeMetric.BattlehammerConcussionSplashHit, BalancedModeMetric.BattlehammerConcussionDamage,
+            BalancedModeMetric.BattlehammerConcussionKill };
         for (int i = 0; i < bh.Length; i++) Emit(bh[i], _battlehammer[i]);
 
         BalancedModeMetric[] affinity = { BalancedModeMetric.KandenDisruptApplied,
@@ -380,7 +375,7 @@ internal static class BalancedModeTelemetry
             shots += _weaponShots[i]; hits += _weaponHits[i]; damage += _weaponDamage[i];
         }
         text.Append($" shots={shots} hits={hits} damage={damage}");
-        text.Append($" BH={_battlehammer[0]}direct/{_battlehammer[1]}terrain/{_battlehammer[3]}childHits");
+        text.Append($" BH={_battlehammer[0]}direct/{_battlehammer[1]}splash/{_battlehammer[2]}concussionDirect");
         text.Append($" affinity=K{_affinity[0]}/{_affinity[1]} N{_affinity[2]}/{_affinity[3]}");
         text.Append($" Imp={_imperialist[0]}acq/{_imperialist[1]}fired/{_imperialist[2]}wasted");
         return text.ToString();

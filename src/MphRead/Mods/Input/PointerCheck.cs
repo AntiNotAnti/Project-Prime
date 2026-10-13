@@ -20,6 +20,7 @@ namespace MphRead.Mods.Input
                 CheckBindings();
                 CheckMovement();
                 TouchSamplingChecks.Run();
+                NativeTouchChecks.Run();
                 CheckCameraBasis();
                 CheckZone();
                 CheckPlayerInput();

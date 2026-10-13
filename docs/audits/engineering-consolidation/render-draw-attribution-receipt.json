@@ -1,0 +1,1498 @@
+{
+  "schema": 1,
+  "purpose": "Descriptive source ownership and exact visual parity; no FPS, GPU-bottleneck or bounded-native-memory claim",
+  "implementationBase": "749aa12dc89d41dc83823eafe0929c13b1ebfb99",
+  "publicationBase": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "dependencies": [
+    492,
+    494,
+    495
+  ],
+  "profiledSourceCommit": "bbd871691cae466a36e85a51fca39bf48b7f9d7b",
+  "profiledManifest": {
+    "purpose": "Opt-in source classification; profiled descriptive CPU wall data, not optimization or FPS proof",
+    "sourceCommit": "bbd871691cae466a36e85a51fca39bf48b7f9d7b",
+    "base": "749aa12dc89d41dc83823eafe0929c13b1ebfb99",
+    "preset": "Original; shadows overridden explicitly; nearest/no-mips/anisotropy1; texture/model replacements disabled",
+    "rng": [
+      12345,
+      98765
+    ],
+    "botLevel": 1,
+    "input": "synthetic keyboard/mouse snapshots",
+    "userDataFixture": "fresh paths.txt-only directory",
+    "pathsSha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51",
+    "harnessSha256": "d8e1f3c7b5f788c77766a9d118871388ed4830a131e0f838f38a2328f277256b",
+    "clientSha256": "5e67fbf323a765bb9185be20b65d55ebd71530a8a4590fd797f5688acfb175e4",
+    "explicitEnvironment": {
+      "PROJECT_PRIME_GL_FORCE_LEGACY": "0"
+    },
+    "runs": [
+      {
+        "fixture": "solo-off",
+        "command": [
+          "dotnet",
+          "native-render-check.dll",
+          "-room",
+          "MP3 PROVING GROUND",
+          "-players",
+          "1",
+          "-seconds",
+          "25",
+          "-hz",
+          "-1",
+          "-size",
+          "1920x1080",
+          "-shadows",
+          "Off",
+          "-glprofile",
+          "-glgpu",
+          "-output",
+          "solo-off.json",
+          "-idle"
+        ],
+        "wallSeconds": 27.73731975,
+        "exitCode": 0,
+        "logSha256": "7af3c991ba13efb41b0bbc78713ad6ab08ee1da2ebf17274544c36995634badf",
+        "resultSha256": "8d5f86a5fb49795d04e09914188313d8d2b514ce32d90687e392835f57bc7511",
+        "reviewExitCode": 1,
+        "reviewOutput": "Traceback (most recent call last):\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/draw_attribution.py\", line 130, in <module>\n    main()\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/draw_attribution.py\", line 123, in main\n    report = summarize(args.log, args.warmup_windows)\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/draw_attribution.py\", line 85, in summarize\n    run = analyze.read_run(path, warmup_windows, measured_stdout(Path(path).read_text(encoding='utf-8')))\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/analyze.py\", line 90, in read_run\n    number(frame.get(key), key, positive=True)\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/analyze.py\", line 19, in number\n    raise ValueError('invalid metric: ' + label)\nValueError: invalid metric: simulationHz"
+      },
+      {
+        "fixture": "one-bot-off",
+        "command": [
+          "dotnet",
+          "native-render-check.dll",
+          "-room",
+          "MP3 PROVING GROUND",
+          "-players",
+          "2",
+          "-seconds",
+          "25",
+          "-hz",
+          "-1",
+          "-size",
+          "1920x1080",
+          "-shadows",
+          "Off",
+          "-glprofile",
+          "-glgpu",
+          "-output",
+          "one-bot-off.json",
+          "-idle"
+        ],
+        "wallSeconds": 26.642146040999997,
+        "exitCode": 0,
+        "logSha256": "7092c4dd4b055192af40309a5ad67651d2589f61a0038d911f9f055bdff035ee",
+        "resultSha256": "353da195e1cdc376d450b9eb37c288c4abd8c3eecb40f311afd50fa671908512",
+        "reviewExitCode": 1,
+        "reviewOutput": "Traceback (most recent call last):\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/draw_attribution.py\", line 130, in <module>\n    main()\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/draw_attribution.py\", line 123, in main\n    report = summarize(args.log, args.warmup_windows)\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/draw_attribution.py\", line 85, in summarize\n    run = analyze.read_run(path, warmup_windows, measured_stdout(Path(path).read_text(encoding='utf-8')))\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/analyze.py\", line 90, in read_run\n    number(frame.get(key), key, positive=True)\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/analyze.py\", line 19, in number\n    raise ValueError('invalid metric: ' + label)\nValueError: invalid metric: simulationHz"
+      },
+      {
+        "fixture": "eight-bot-off",
+        "command": [
+          "dotnet",
+          "native-render-check.dll",
+          "-room",
+          "MP3 PROVING GROUND",
+          "-players",
+          "8",
+          "-seconds",
+          "25",
+          "-hz",
+          "-1",
+          "-size",
+          "1920x1080",
+          "-shadows",
+          "Off",
+          "-glprofile",
+          "-glgpu",
+          "-output",
+          "eight-bot-off.json"
+        ],
+        "wallSeconds": 26.897795541000008,
+        "exitCode": 0,
+        "logSha256": "c3993ccaea1c5940822e2b37877dd9168ce0480985b31b84d50b718324c13270",
+        "resultSha256": "af1349494020fb719fd877fee7611a471ad6e08a6eb769f659894bce9c8da941",
+        "reviewExitCode": 1,
+        "reviewOutput": "Traceback (most recent call last):\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/draw_attribution.py\", line 130, in <module>\n    main()\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/draw_attribution.py\", line 123, in main\n    report = summarize(args.log, args.warmup_windows)\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/draw_attribution.py\", line 85, in summarize\n    run = analyze.read_run(path, warmup_windows, measured_stdout(Path(path).read_text(encoding='utf-8')))\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/analyze.py\", line 90, in read_run\n    number(frame.get(key), key, positive=True)\n  File \"/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/opengl-modernization/analyze.py\", line 19, in number\n    raise ValueError('invalid metric: ' + label)\nValueError: invalid metric: simulationHz"
+      },
+      {
+        "fixture": "eight-bot-high",
+        "command": [
+          "dotnet",
+          "native-render-check.dll",
+          "-room",
+          "MP3 PROVING GROUND",
+          "-players",
+          "8",
+          "-seconds",
+          "25",
+          "-hz",
+          "-1",
+          "-size",
+          "1920x1080",
+          "-shadows",
+          "High",
+          "-glprofile",
+          "-glgpu",
+          "-output",
+          "eight-bot-high.json"
+        ],
+        "wallSeconds": 27.479455584000007,
+        "exitCode": 0,
+        "logSha256": "3c347c0ff82a16d8c46292d1215bd27068cdece6a8585d56ad8b670745b4bc64",
+        "resultSha256": "baa91d628fddf90bfde907d20954d6fa351460af770bba5d86b336f3c07ca771",
+        "reviewExitCode": 0,
+        "reviewOutput": "validated draw attribution: /Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/pilot/eight-bot-high-attribution.json",
+        "reviewSha256": "cb7c0894dc269909af61a0fe048cac918c66e3d389c031046daa340030eb7358"
+      },
+      {
+        "fixture": "eight-bot-ultra",
+        "command": [
+          "dotnet",
+          "native-render-check.dll",
+          "-room",
+          "MP3 PROVING GROUND",
+          "-players",
+          "8",
+          "-seconds",
+          "25",
+          "-hz",
+          "-1",
+          "-size",
+          "1920x1080",
+          "-shadows",
+          "Ultra",
+          "-glprofile",
+          "-glgpu",
+          "-output",
+          "eight-bot-ultra.json"
+        ],
+        "wallSeconds": 26.86444474999999,
+        "exitCode": 0,
+        "logSha256": "c5eb165fa6b90d193e29a1cd582ed12495983ebbcb629756e51c11ad872641c5",
+        "resultSha256": "eb278654b1e73feb6eaaf5cdde08add0de6d23b60b28b35f334f1d5d0cbb7a8e",
+        "reviewExitCode": 0,
+        "reviewOutput": "validated draw attribution: /Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/pilot/eight-bot-ultra-attribution.json",
+        "reviewSha256": "931fa7035cf1ac200f490caaf9c475a0c103f10b90a7e2318c8c9d1a15e9d6ef"
+      }
+    ]
+  },
+  "reviewWarmupWindows": 4,
+  "pilotReviews": [
+    {
+      "schema": 1,
+      "purpose": "attribution-only; no optimization or FPS conclusion",
+      "source": "eight-bot-high.log",
+      "sourceSha256": "3c347c0ff82a16d8c46292d1215bd27068cdece6a8585d56ad8b670745b4bc64",
+      "context": {
+        "assemblyMvid": "788134c9-f6ae-4ba2-b44c-a5e1fcd46b15",
+        "machine": "Jarretts-MBP",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "room": "MP3 PROVING GROUND",
+        "playerCount": 8,
+        "width": 1920,
+        "height": 1080,
+        "shadows": "High",
+        "renderScale": 100,
+        "cap": -1,
+        "vsync": "Off",
+        "flags": {
+          "shadowGroups": true,
+          "unlitShader": true,
+          "shadowPrep": true,
+          "roomIdentity": true,
+          "meshObject": true,
+          "roomGroups": true,
+          "plainShader": true,
+          "shaderVariants": true,
+          "depthKeep": true,
+          "proceduralBatch": true,
+          "proceduralStream": false,
+          "roomCache": true,
+          "depthVertex": false,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        }
+      },
+      "retainedWindows": 19,
+      "warmupWindows": 4,
+      "medianWindowImmediateDraws": 413.75416666666666,
+      "medianWindowImmediateByPassAndOwner": {
+        "Composite": {
+          "Unclassified": 1
+        },
+        "Hud": {
+          "Hud": 120.8125
+        },
+        "MarkTranslucent": {
+          "FirstPerson": 0,
+          "Particle": 69.33333333333333,
+          "TrailMulti": 1.95,
+          "TrailSingle": 1.3166666666666667,
+          "TrailStack": 0.2875
+        },
+        "Opaque": {
+          "FirstPerson": 0,
+          "Particle": 69.33333333333333,
+          "TrailMulti": 1.95,
+          "TrailSingle": 1.3166666666666667,
+          "TrailStack": 0.2875
+        },
+        "PostProcess": {
+          "Unclassified": 1
+        },
+        "RebuildDepth": {
+          "FirstPerson": 0,
+          "Particle": 12.5,
+          "TrailMulti": 0.43333333333333335,
+          "TrailSingle": 0.2,
+          "TrailStack": 0
+        },
+        "TranslucentBehind": {
+          "FirstPerson": 0,
+          "Particle": 69.33333333333333,
+          "TrailMulti": 1.95,
+          "TrailSingle": 1.3166666666666667,
+          "TrailStack": 0.2875
+        },
+        "TranslucentFront": {
+          "FirstPerson": 0,
+          "Particle": 69.33333333333333,
+          "TrailMulti": 1.95,
+          "TrailSingle": 1.3166666666666667,
+          "TrailStack": 0.2875
+        }
+      },
+      "cpuByOwner": {
+        "Unclassified": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "RoomMesh": {
+          "setupWall": {
+            "windowsWithOwner": 19,
+            "medianWindowP95Ms": 0.03208,
+            "medianWindowP99Ms": 0.046415
+          },
+          "geometryWall": {
+            "windowsWithOwner": 19,
+            "medianWindowP95Ms": 0.369627,
+            "medianWindowP99Ms": 0.43071
+          }
+        },
+        "PaletteMesh": {
+          "setupWall": {
+            "windowsWithOwner": 19,
+            "medianWindowP95Ms": 0.061126,
+            "medianWindowP99Ms": 0.073167
+          },
+          "geometryWall": {
+            "windowsWithOwner": 19,
+            "medianWindowP95Ms": 0.91105,
+            "medianWindowP99Ms": 1.02942
+          }
+        },
+        "SingleTransformMesh": {
+          "setupWall": {
+            "windowsWithOwner": 5,
+            "medianWindowP95Ms": 0.003417,
+            "medianWindowP99Ms": 0.009333
+          },
+          "geometryWall": {
+            "windowsWithOwner": 5,
+            "medianWindowP95Ms": 0.025626,
+            "medianWindowP99Ms": 0.034208
+          }
+        },
+        "FirstPerson": {
+          "setupWall": {
+            "windowsWithOwner": 7,
+            "medianWindowP95Ms": 0.0165,
+            "medianWindowP99Ms": 0.020081
+          },
+          "geometryWall": {
+            "windowsWithOwner": 7,
+            "medianWindowP95Ms": 0.203792,
+            "medianWindowP99Ms": 0.299957
+          }
+        },
+        "Particle": {
+          "setupWall": {
+            "windowsWithOwner": 19,
+            "medianWindowP95Ms": 0.078081,
+            "medianWindowP99Ms": 0.091123
+          },
+          "geometryWall": {
+            "windowsWithOwner": 19,
+            "medianWindowP95Ms": 0.663704,
+            "medianWindowP99Ms": 0.758492
+          }
+        },
+        "TrailSingle": {
+          "setupWall": {
+            "windowsWithOwner": 19,
+            "medianWindowP95Ms": 0.002584,
+            "medianWindowP99Ms": 0.005
+          },
+          "geometryWall": {
+            "windowsWithOwner": 19,
+            "medianWindowP95Ms": 0.021125,
+            "medianWindowP99Ms": 0.028331
+          }
+        },
+        "TrailMulti": {
+          "setupWall": {
+            "windowsWithOwner": 19,
+            "medianWindowP95Ms": 0.003544,
+            "medianWindowP99Ms": 0.006289
+          },
+          "geometryWall": {
+            "windowsWithOwner": 19,
+            "medianWindowP95Ms": 0.027542,
+            "medianWindowP99Ms": 0.03525
+          }
+        },
+        "TrailStack": {
+          "setupWall": {
+            "windowsWithOwner": 11,
+            "medianWindowP95Ms": 0.003042,
+            "medianWindowP99Ms": 0.008458
+          },
+          "geometryWall": {
+            "windowsWithOwner": 11,
+            "medianWindowP95Ms": 0.017042,
+            "medianWindowP99Ms": 0.021208
+          }
+        },
+        "ProceduralShape": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "Hud": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        }
+      },
+      "frame": {
+        "renderCpuP95Ms": 3.103542,
+        "renderCpuP99Ms": 3.500958,
+        "presentWallP99Ms": 2.107834,
+        "frameIntervalP95Ms": 4.967,
+        "frameIntervalP99Ms": 5.753584,
+        "onePercentLowEstimateFps": 173.80471024669146,
+        "simulationHz": 59.95038805636383
+      },
+      "gpuStatus": "UNVERIFIED",
+      "limits": "CPU scopes include driver/backpressure wall time and are inclusive, not additive. Owner metadata does not prove immutable geometry. Medians of window percentiles are not pooled percentiles. Present wall is not GPU time. Missing GPU evidence remains unverified."
+    },
+    {
+      "schema": 1,
+      "purpose": "attribution-only; no optimization or FPS conclusion",
+      "source": "eight-bot-off.log",
+      "sourceSha256": "c3993ccaea1c5940822e2b37877dd9168ce0480985b31b84d50b718324c13270",
+      "context": {
+        "assemblyMvid": "788134c9-f6ae-4ba2-b44c-a5e1fcd46b15",
+        "machine": "Jarretts-MBP",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "room": "MP3 PROVING GROUND",
+        "playerCount": 8,
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Off",
+        "renderScale": 100,
+        "cap": -1,
+        "vsync": "Off",
+        "flags": {
+          "shadowGroups": true,
+          "unlitShader": true,
+          "shadowPrep": true,
+          "roomIdentity": true,
+          "meshObject": true,
+          "roomGroups": true,
+          "plainShader": true,
+          "shaderVariants": true,
+          "depthKeep": true,
+          "proceduralBatch": true,
+          "proceduralStream": false,
+          "roomCache": true,
+          "depthVertex": false,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        }
+      },
+      "retainedWindows": 22,
+      "warmupWindows": 4,
+      "medianWindowImmediateDraws": 390.0083333333333,
+      "medianWindowImmediateByPassAndOwner": {
+        "Composite": {
+          "Unclassified": 1.0
+        },
+        "Hud": {
+          "Hud": 114.3375
+        },
+        "MarkTranslucent": {
+          "FirstPerson": 0.0,
+          "Particle": 59.8375,
+          "TrailMulti": 1.9395833333333332,
+          "TrailSingle": 1.1916666666666667,
+          "TrailStack": 0.18125
+        },
+        "Opaque": {
+          "FirstPerson": 0.0,
+          "Particle": 59.8375,
+          "TrailMulti": 1.9395833333333332,
+          "TrailSingle": 1.1916666666666667,
+          "TrailStack": 0.18125
+        },
+        "RebuildDepth": {
+          "FirstPerson": 0.0,
+          "Particle": 11.658333333333333,
+          "TrailMulti": 0.38749999999999996,
+          "TrailSingle": 0.18541666666666667,
+          "TrailStack": 0.0
+        },
+        "TranslucentBehind": {
+          "FirstPerson": 0.0,
+          "Particle": 59.8375,
+          "TrailMulti": 1.9395833333333332,
+          "TrailSingle": 1.1916666666666667,
+          "TrailStack": 0.18125
+        },
+        "TranslucentFront": {
+          "FirstPerson": 0.0,
+          "Particle": 59.8375,
+          "TrailMulti": 1.9395833333333332,
+          "TrailSingle": 1.1916666666666667,
+          "TrailStack": 0.18125
+        }
+      },
+      "cpuByOwner": {
+        "Unclassified": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "RoomMesh": {
+          "setupWall": {
+            "windowsWithOwner": 22,
+            "medianWindowP95Ms": 0.0312295,
+            "medianWindowP99Ms": 0.0418135
+          },
+          "geometryWall": {
+            "windowsWithOwner": 22,
+            "medianWindowP95Ms": 0.1643145,
+            "medianWindowP99Ms": 1.181834
+          }
+        },
+        "PaletteMesh": {
+          "setupWall": {
+            "windowsWithOwner": 22,
+            "medianWindowP95Ms": 0.051791000000000004,
+            "medianWindowP99Ms": 0.065502
+          },
+          "geometryWall": {
+            "windowsWithOwner": 22,
+            "medianWindowP95Ms": 0.732939,
+            "medianWindowP99Ms": 3.5387255
+          }
+        },
+        "SingleTransformMesh": {
+          "setupWall": {
+            "windowsWithOwner": 8,
+            "medianWindowP95Ms": 0.0033955,
+            "medianWindowP99Ms": 0.0044375000000000005
+          },
+          "geometryWall": {
+            "windowsWithOwner": 8,
+            "medianWindowP95Ms": 0.0253955,
+            "medianWindowP99Ms": 0.03825
+          }
+        },
+        "FirstPerson": {
+          "setupWall": {
+            "windowsWithOwner": 10,
+            "medianWindowP95Ms": 0.0195435,
+            "medianWindowP99Ms": 0.025294
+          },
+          "geometryWall": {
+            "windowsWithOwner": 10,
+            "medianWindowP95Ms": 0.16529300000000002,
+            "medianWindowP99Ms": 0.6587115
+          }
+        },
+        "Particle": {
+          "setupWall": {
+            "windowsWithOwner": 22,
+            "medianWindowP95Ms": 0.08176549999999999,
+            "medianWindowP99Ms": 0.1253255
+          },
+          "geometryWall": {
+            "windowsWithOwner": 22,
+            "medianWindowP95Ms": 0.70956,
+            "medianWindowP99Ms": 3.0609675000000003
+          }
+        },
+        "TrailSingle": {
+          "setupWall": {
+            "windowsWithOwner": 19,
+            "medianWindowP95Ms": 0.002499,
+            "medianWindowP99Ms": 0.00346
+          },
+          "geometryWall": {
+            "windowsWithOwner": 19,
+            "medianWindowP95Ms": 0.01725,
+            "medianWindowP99Ms": 0.023293
+          }
+        },
+        "TrailMulti": {
+          "setupWall": {
+            "windowsWithOwner": 22,
+            "medianWindowP95Ms": 0.0036455000000000003,
+            "medianWindowP99Ms": 0.00498
+          },
+          "geometryWall": {
+            "windowsWithOwner": 22,
+            "medianWindowP95Ms": 0.0279375,
+            "medianWindowP99Ms": 0.0330615
+          }
+        },
+        "TrailStack": {
+          "setupWall": {
+            "windowsWithOwner": 11,
+            "medianWindowP95Ms": 0.003042,
+            "medianWindowP99Ms": 0.004
+          },
+          "geometryWall": {
+            "windowsWithOwner": 11,
+            "medianWindowP95Ms": 0.013833,
+            "medianWindowP99Ms": 0.017542
+          }
+        },
+        "ProceduralShape": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "Hud": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        }
+      },
+      "frame": {
+        "renderCpuP95Ms": 5.9255835,
+        "renderCpuP99Ms": 8.309895999999998,
+        "presentWallP99Ms": 2.9621250000000003,
+        "frameIntervalP95Ms": 7.244479,
+        "frameIntervalP99Ms": 9.7788755,
+        "onePercentLowEstimateFps": 102.26195349360528,
+        "simulationHz": 59.94791724949367
+      },
+      "gpuStatus": "UNVERIFIED",
+      "limits": "CPU scopes include driver/backpressure wall time and are inclusive, not additive. Owner metadata does not prove immutable geometry. Medians of window percentiles are not pooled percentiles. Present wall is not GPU time. Missing GPU evidence remains unverified."
+    },
+    {
+      "schema": 1,
+      "purpose": "attribution-only; no optimization or FPS conclusion",
+      "source": "eight-bot-ultra.log",
+      "sourceSha256": "c5eb165fa6b90d193e29a1cd582ed12495983ebbcb629756e51c11ad872641c5",
+      "context": {
+        "assemblyMvid": "788134c9-f6ae-4ba2-b44c-a5e1fcd46b15",
+        "machine": "Jarretts-MBP",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "room": "MP3 PROVING GROUND",
+        "playerCount": 8,
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Ultra",
+        "renderScale": 100,
+        "cap": -1,
+        "vsync": "Off",
+        "flags": {
+          "shadowGroups": true,
+          "unlitShader": true,
+          "shadowPrep": true,
+          "roomIdentity": true,
+          "meshObject": true,
+          "roomGroups": true,
+          "plainShader": true,
+          "shaderVariants": true,
+          "depthKeep": true,
+          "proceduralBatch": true,
+          "proceduralStream": false,
+          "roomCache": true,
+          "depthVertex": false,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        }
+      },
+      "retainedWindows": 21,
+      "warmupWindows": 4,
+      "medianWindowImmediateDraws": 416.80833333333334,
+      "medianWindowImmediateByPassAndOwner": {
+        "Composite": {
+          "Unclassified": 1
+        },
+        "Hud": {
+          "Hud": 117.52916666666667
+        },
+        "MarkTranslucent": {
+          "FirstPerson": 0,
+          "Particle": 64.59583333333333,
+          "TrailMulti": 2.05,
+          "TrailSingle": 1.2041666666666666,
+          "TrailStack": 0.17083333333333334
+        },
+        "Opaque": {
+          "FirstPerson": 0,
+          "Particle": 64.59583333333333,
+          "TrailMulti": 2.05,
+          "TrailSingle": 1.2041666666666666,
+          "TrailStack": 0.17083333333333334
+        },
+        "PostProcess": {
+          "Unclassified": 1
+        },
+        "RebuildDepth": {
+          "FirstPerson": 0,
+          "Particle": 9.391666666666667,
+          "TrailMulti": 0.49583333333333335,
+          "TrailSingle": 0.125,
+          "TrailStack": 0
+        },
+        "TranslucentBehind": {
+          "FirstPerson": 0,
+          "Particle": 64.59583333333333,
+          "TrailMulti": 2.05,
+          "TrailSingle": 1.2041666666666666,
+          "TrailStack": 0.17083333333333334
+        },
+        "TranslucentFront": {
+          "FirstPerson": 0,
+          "Particle": 64.59583333333333,
+          "TrailMulti": 2.05,
+          "TrailSingle": 1.2041666666666666,
+          "TrailStack": 0.17083333333333334
+        }
+      },
+      "cpuByOwner": {
+        "Unclassified": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "RoomMesh": {
+          "setupWall": {
+            "windowsWithOwner": 21,
+            "medianWindowP95Ms": 0.03517,
+            "medianWindowP99Ms": 0.04884
+          },
+          "geometryWall": {
+            "windowsWithOwner": 21,
+            "medianWindowP95Ms": 0.369996,
+            "medianWindowP99Ms": 0.426167
+          }
+        },
+        "PaletteMesh": {
+          "setupWall": {
+            "windowsWithOwner": 21,
+            "medianWindowP95Ms": 0.064333,
+            "medianWindowP99Ms": 0.077048
+          },
+          "geometryWall": {
+            "windowsWithOwner": 21,
+            "medianWindowP95Ms": 0.858379,
+            "medianWindowP99Ms": 1.060124
+          }
+        },
+        "SingleTransformMesh": {
+          "setupWall": {
+            "windowsWithOwner": 5,
+            "medianWindowP95Ms": 0.003708,
+            "medianWindowP99Ms": 0.008418
+          },
+          "geometryWall": {
+            "windowsWithOwner": 5,
+            "medianWindowP95Ms": 0.024667,
+            "medianWindowP99Ms": 0.033542
+          }
+        },
+        "FirstPerson": {
+          "setupWall": {
+            "windowsWithOwner": 10,
+            "medianWindowP95Ms": 0.0203955,
+            "medianWindowP99Ms": 0.027981
+          },
+          "geometryWall": {
+            "windowsWithOwner": 10,
+            "medianWindowP95Ms": 0.19525199999999998,
+            "medianWindowP99Ms": 0.293998
+          }
+        },
+        "Particle": {
+          "setupWall": {
+            "windowsWithOwner": 21,
+            "medianWindowP95Ms": 0.094918,
+            "medianWindowP99Ms": 0.111669
+          },
+          "geometryWall": {
+            "windowsWithOwner": 21,
+            "medianWindowP95Ms": 0.70647,
+            "medianWindowP99Ms": 0.784324
+          }
+        },
+        "TrailSingle": {
+          "setupWall": {
+            "windowsWithOwner": 20,
+            "medianWindowP95Ms": 0.003084,
+            "medianWindowP99Ms": 0.006772
+          },
+          "geometryWall": {
+            "windowsWithOwner": 20,
+            "medianWindowP95Ms": 0.0200435,
+            "medianWindowP99Ms": 0.026375
+          }
+        },
+        "TrailMulti": {
+          "setupWall": {
+            "windowsWithOwner": 21,
+            "medianWindowP95Ms": 0.004914,
+            "medianWindowP99Ms": 0.009627
+          },
+          "geometryWall": {
+            "windowsWithOwner": 21,
+            "medianWindowP95Ms": 0.028627,
+            "medianWindowP99Ms": 0.036334
+          }
+        },
+        "TrailStack": {
+          "setupWall": {
+            "windowsWithOwner": 11,
+            "medianWindowP95Ms": 0.003001,
+            "medianWindowP99Ms": 0.007501
+          },
+          "geometryWall": {
+            "windowsWithOwner": 11,
+            "medianWindowP95Ms": 0.016333,
+            "medianWindowP99Ms": 0.01975
+          }
+        },
+        "ProceduralShape": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "Hud": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        }
+      },
+      "frame": {
+        "renderCpuP95Ms": 3.176125,
+        "renderCpuP99Ms": 3.480125,
+        "presentWallP99Ms": 2.364834,
+        "frameIntervalP95Ms": 4.419709,
+        "frameIntervalP99Ms": 5.373916,
+        "onePercentLowEstimateFps": 186.0840400184893,
+        "simulationHz": 59.94559637401082
+      },
+      "gpuStatus": "UNVERIFIED",
+      "limits": "CPU scopes include driver/backpressure wall time and are inclusive, not additive. Owner metadata does not prove immutable geometry. Medians of window percentiles are not pooled percentiles. Present wall is not GPU time. Missing GPU evidence remains unverified."
+    },
+    {
+      "schema": 1,
+      "purpose": "attribution-only; no optimization or FPS conclusion",
+      "source": "one-bot-off.log",
+      "sourceSha256": "7092c4dd4b055192af40309a5ad67651d2589f61a0038d911f9f055bdff035ee",
+      "context": {
+        "assemblyMvid": "788134c9-f6ae-4ba2-b44c-a5e1fcd46b15",
+        "machine": "Jarretts-MBP",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "room": "MP3 PROVING GROUND",
+        "playerCount": 2,
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Off",
+        "renderScale": 100,
+        "cap": -1,
+        "vsync": "Off",
+        "flags": {
+          "shadowGroups": true,
+          "unlitShader": true,
+          "shadowPrep": true,
+          "roomIdentity": true,
+          "meshObject": true,
+          "roomGroups": true,
+          "plainShader": true,
+          "shaderVariants": true,
+          "depthKeep": true,
+          "proceduralBatch": true,
+          "proceduralStream": false,
+          "roomCache": true,
+          "depthVertex": false,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        }
+      },
+      "retainedWindows": 39,
+      "warmupWindows": 4,
+      "medianWindowImmediateDraws": 70.56666666666666,
+      "medianWindowImmediateByPassAndOwner": {
+        "Composite": {
+          "Unclassified": 1
+        },
+        "Hud": {
+          "Hud": 57
+        },
+        "MarkTranslucent": {
+          "Particle": 2.8958333333333335,
+          "TrailMulti": 0,
+          "TrailSingle": 0.19166666666666668
+        },
+        "Opaque": {
+          "Particle": 2.8958333333333335,
+          "TrailMulti": 0,
+          "TrailSingle": 0.19166666666666668
+        },
+        "RebuildDepth": {
+          "Particle": 0,
+          "TrailMulti": 0
+        },
+        "TranslucentBehind": {
+          "Particle": 2.8958333333333335,
+          "TrailMulti": 0,
+          "TrailSingle": 0.19166666666666668
+        },
+        "TranslucentFront": {
+          "Particle": 2.8958333333333335,
+          "TrailMulti": 0,
+          "TrailSingle": 0.19166666666666668
+        }
+      },
+      "cpuByOwner": {
+        "Unclassified": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "RoomMesh": {
+          "setupWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.023249,
+            "medianWindowP99Ms": 0.033956
+          },
+          "geometryWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.115293,
+            "medianWindowP99Ms": 0.192836
+          }
+        },
+        "PaletteMesh": {
+          "setupWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.027875,
+            "medianWindowP99Ms": 0.043168
+          },
+          "geometryWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.18846,
+            "medianWindowP99Ms": 0.238626
+          }
+        },
+        "SingleTransformMesh": {
+          "setupWall": {
+            "windowsWithOwner": 1,
+            "medianWindowP95Ms": 0.002917,
+            "medianWindowP99Ms": 0.005417
+          },
+          "geometryWall": {
+            "windowsWithOwner": 1,
+            "medianWindowP95Ms": 0.024124,
+            "medianWindowP99Ms": 0.031333
+          }
+        },
+        "FirstPerson": {
+          "setupWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.015459,
+            "medianWindowP99Ms": 0.023419
+          },
+          "geometryWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.091836,
+            "medianWindowP99Ms": 0.118712
+          }
+        },
+        "Particle": {
+          "setupWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.009042,
+            "medianWindowP99Ms": 0.012831
+          },
+          "geometryWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.041209,
+            "medianWindowP99Ms": 0.048831
+          }
+        },
+        "TrailSingle": {
+          "setupWall": {
+            "windowsWithOwner": 24,
+            "medianWindowP95Ms": 0.001646,
+            "medianWindowP99Ms": 0.006333999999999999
+          },
+          "geometryWall": {
+            "windowsWithOwner": 24,
+            "medianWindowP95Ms": 0.013417499999999999,
+            "medianWindowP99Ms": 0.016958
+          }
+        },
+        "TrailMulti": {
+          "setupWall": {
+            "windowsWithOwner": 1,
+            "medianWindowP95Ms": 0.002165,
+            "medianWindowP99Ms": 0.006749
+          },
+          "geometryWall": {
+            "windowsWithOwner": 1,
+            "medianWindowP95Ms": 0.016666,
+            "medianWindowP99Ms": 0.029042
+          }
+        },
+        "TrailStack": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "ProceduralShape": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "Hud": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        }
+      },
+      "frame": {
+        "renderCpuP95Ms": 1.221791,
+        "renderCpuP99Ms": 1.487625,
+        "presentWallP99Ms": 3.160541,
+        "frameIntervalP95Ms": 3.024917,
+        "frameIntervalP99Ms": 4.029916,
+        "onePercentLowEstimateFps": 248.14413005134597,
+        "simulationHz": 59.9776703133423
+      },
+      "gpuStatus": "UNVERIFIED",
+      "limits": "CPU scopes include driver/backpressure wall time and are inclusive, not additive. Owner metadata does not prove immutable geometry. Medians of window percentiles are not pooled percentiles. Present wall is not GPU time. Missing GPU evidence remains unverified."
+    },
+    {
+      "schema": 1,
+      "purpose": "attribution-only; no optimization or FPS conclusion",
+      "source": "solo-off.log",
+      "sourceSha256": "7af3c991ba13efb41b0bbc78713ad6ab08ee1da2ebf17274544c36995634badf",
+      "context": {
+        "assemblyMvid": "788134c9-f6ae-4ba2-b44c-a5e1fcd46b15",
+        "machine": "Jarretts-MBP",
+        "renderer": "Apple M4 Pro",
+        "glVersion": "2.1 Metal - 91.7",
+        "room": "MP3 PROVING GROUND",
+        "playerCount": 1,
+        "width": 1920,
+        "height": 1080,
+        "shadows": "Off",
+        "renderScale": 100,
+        "cap": -1,
+        "vsync": "Off",
+        "flags": {
+          "shadowGroups": true,
+          "unlitShader": true,
+          "shadowPrep": true,
+          "roomIdentity": true,
+          "meshObject": true,
+          "roomGroups": true,
+          "plainShader": true,
+          "shaderVariants": true,
+          "depthKeep": true,
+          "proceduralBatch": true,
+          "proceduralStream": false,
+          "roomCache": true,
+          "depthVertex": false,
+          "depthPrep": true,
+          "hudSprites": true,
+          "hudGlyphs": true,
+          "glesUniforms": true,
+          "depthBatch": true,
+          "depthShader": true,
+          "atlasEviction": true,
+          "hudDiscard": true,
+          "dynamicStream": true,
+          "hudSamplers": true,
+          "vbo": true,
+          "bindingCache": true,
+          "batching": true,
+          "vao": true,
+          "uniformRevisions": true,
+          "staticCache": true,
+          "shadowFast": true
+        }
+      },
+      "retainedWindows": 39,
+      "warmupWindows": 4,
+      "medianWindowImmediateDraws": 57,
+      "medianWindowImmediateByPassAndOwner": {
+        "Composite": {
+          "Unclassified": 1
+        },
+        "Hud": {
+          "Hud": 56
+        }
+      },
+      "cpuByOwner": {
+        "Unclassified": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "RoomMesh": {
+          "setupWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.022998,
+            "medianWindowP99Ms": 0.034207
+          },
+          "geometryWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.122127,
+            "medianWindowP99Ms": 0.199461
+          }
+        },
+        "PaletteMesh": {
+          "setupWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.028667,
+            "medianWindowP99Ms": 0.041455
+          },
+          "geometryWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.150086,
+            "medianWindowP99Ms": 0.186752
+          }
+        },
+        "SingleTransformMesh": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "FirstPerson": {
+          "setupWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.015791,
+            "medianWindowP99Ms": 0.023001
+          },
+          "geometryWall": {
+            "windowsWithOwner": 39,
+            "medianWindowP95Ms": 0.093334,
+            "medianWindowP99Ms": 0.116915
+          }
+        },
+        "Particle": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "TrailSingle": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "TrailMulti": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "TrailStack": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "ProceduralShape": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        },
+        "Hud": {
+          "setupWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          },
+          "geometryWall": {
+            "windowsWithOwner": 0,
+            "medianWindowP95Ms": null,
+            "medianWindowP99Ms": null
+          }
+        }
+      },
+      "frame": {
+        "renderCpuP95Ms": 1.115875,
+        "renderCpuP99Ms": 1.374417,
+        "presentWallP99Ms": 3.176625,
+        "frameIntervalP95Ms": 2.983625,
+        "frameIntervalP99Ms": 3.940875,
+        "onePercentLowEstimateFps": 253.75075332254892,
+        "simulationHz": 59.95551900045355
+      },
+      "gpuStatus": "UNVERIFIED",
+      "limits": "CPU scopes include driver/backpressure wall time and are inclusive, not additive. Owner metadata does not prove immutable geometry. Medians of window percentiles are not pooled percentiles. Present wall is not GPU time. Missing GPU evidence remains unverified."
+    }
+  ],
+  "visualBinaries": {
+    "base": {
+      "harness": "f9e51847fc3c3e2968011255210445116e863c18526fb7fa4a265ebb2cf1774b",
+      "client": "86f075e7c8dd7a06277b4050feedc796680b97a2f259615e2aa81e1faab37328"
+    },
+    "candidate": {
+      "harness": "757564df875471cfcd9d6db7dae40081b0992e843e6441b7231d664c17ce42de",
+      "client": "ca529662387533357d99a7dafb0a51fe11456d80fc4bca459204c6f80dbe9ec1"
+    }
+  },
+  "visualComparisons": [
+    {
+      "fixture": "solo",
+      "exactAllFiles": true,
+      "matchingContextAndCaptureMetadata": true,
+      "files": {
+        "frame-0-world-depth-repeat-float32.bin": "3616139f9708cf447d56d3d0be881aa2e908b08b535b27e48283c02bd41595af",
+        "frame-0-world.png": "7b674a2f049e9ee26dd583cc88a0c356f8a26eb8836f1178a14e91b604b564e4",
+        "frame-0-world-depth-float32.bin": "3616139f9708cf447d56d3d0be881aa2e908b08b535b27e48283c02bd41595af",
+        "frame-0-world-repeat.png": "7b674a2f049e9ee26dd583cc88a0c356f8a26eb8836f1178a14e91b604b564e4",
+        "frame-0-hud.png": "c546b73ea9be7756180cca6be782fb152c638302a6ec0dd12d171f6e5e5552e8"
+      },
+      "candidateFiles": {
+        "frame-0-world-depth-repeat-float32.bin": "3616139f9708cf447d56d3d0be881aa2e908b08b535b27e48283c02bd41595af",
+        "frame-0-world.png": "7b674a2f049e9ee26dd583cc88a0c356f8a26eb8836f1178a14e91b604b564e4",
+        "frame-0-world-depth-float32.bin": "3616139f9708cf447d56d3d0be881aa2e908b08b535b27e48283c02bd41595af",
+        "frame-0-world-repeat.png": "7b674a2f049e9ee26dd583cc88a0c356f8a26eb8836f1178a14e91b604b564e4",
+        "frame-0-hud.png": "c546b73ea9be7756180cca6be782fb152c638302a6ec0dd12d171f6e5e5552e8"
+      },
+      "status": "PASS"
+    },
+    {
+      "fixture": "one-bot-outline",
+      "exactAllFiles": true,
+      "matchingContextAndCaptureMetadata": true,
+      "files": {
+        "frame-0-world-depth-repeat-float32.bin": "7be220df1e3521cd59b1ca1d948379c8e49d3b172cd60184199159079f0bcca2",
+        "frame-0-world.png": "8f5493dea3b857499f1f042669fa6884de0f19ae2754e11869aa4130fc9ecd74",
+        "frame-0-world-depth-float32.bin": "7be220df1e3521cd59b1ca1d948379c8e49d3b172cd60184199159079f0bcca2",
+        "frame-0-world-repeat.png": "8f5493dea3b857499f1f042669fa6884de0f19ae2754e11869aa4130fc9ecd74",
+        "frame-0-hud.png": "9726474c15f78163b6115ccc843ac8c6a3b820b27907c6b215744022b76daee7"
+      },
+      "candidateFiles": {
+        "frame-0-world-depth-repeat-float32.bin": "7be220df1e3521cd59b1ca1d948379c8e49d3b172cd60184199159079f0bcca2",
+        "frame-0-world.png": "8f5493dea3b857499f1f042669fa6884de0f19ae2754e11869aa4130fc9ecd74",
+        "frame-0-world-depth-float32.bin": "7be220df1e3521cd59b1ca1d948379c8e49d3b172cd60184199159079f0bcca2",
+        "frame-0-world-repeat.png": "8f5493dea3b857499f1f042669fa6884de0f19ae2754e11869aa4130fc9ecd74",
+        "frame-0-hud.png": "9726474c15f78163b6115ccc843ac8c6a3b820b27907c6b215744022b76daee7"
+      },
+      "status": "PASS"
+    },
+    {
+      "fixture": "eight-bot-off",
+      "exactAllFiles": true,
+      "matchingContextAndCaptureMetadata": true,
+      "files": {
+        "frame-0-world-depth-repeat-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world.png": "e3fee76785191bb805081381b62a9d0d4dae0374266c9276dcb9bb93607b4d82",
+        "frame-0-world-depth-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world-repeat.png": "e3fee76785191bb805081381b62a9d0d4dae0374266c9276dcb9bb93607b4d82",
+        "frame-0-hud.png": "72562d2654483e6dd67272100d0c5fe5246e4d2c5c50ddab832f50fb4167a0d0"
+      },
+      "candidateFiles": {
+        "frame-0-world-depth-repeat-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world.png": "e3fee76785191bb805081381b62a9d0d4dae0374266c9276dcb9bb93607b4d82",
+        "frame-0-world-depth-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world-repeat.png": "e3fee76785191bb805081381b62a9d0d4dae0374266c9276dcb9bb93607b4d82",
+        "frame-0-hud.png": "72562d2654483e6dd67272100d0c5fe5246e4d2c5c50ddab832f50fb4167a0d0"
+      },
+      "status": "PASS"
+    },
+    {
+      "fixture": "eight-bot-low",
+      "exactAllFiles": true,
+      "matchingContextAndCaptureMetadata": true,
+      "files": {
+        "frame-0-world-depth-repeat-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world.png": "66c1696728f3e01c4e8eff325ebba7fce493eee22309c05fd8ded21142c783cf",
+        "frame-0-world-depth-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world-repeat.png": "66c1696728f3e01c4e8eff325ebba7fce493eee22309c05fd8ded21142c783cf",
+        "frame-0-hud.png": "23c9480f271dc5345073e44d1aa04144431517357b1576b9a62c2f4f61354150",
+        "shadow-depth-float32.bin": "34c5b752c722e95a29672c69c206e179198ea565b282a4a7989d9be57c189843"
+      },
+      "candidateFiles": {
+        "frame-0-world-depth-repeat-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world.png": "66c1696728f3e01c4e8eff325ebba7fce493eee22309c05fd8ded21142c783cf",
+        "frame-0-world-depth-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world-repeat.png": "66c1696728f3e01c4e8eff325ebba7fce493eee22309c05fd8ded21142c783cf",
+        "frame-0-hud.png": "23c9480f271dc5345073e44d1aa04144431517357b1576b9a62c2f4f61354150",
+        "shadow-depth-float32.bin": "34c5b752c722e95a29672c69c206e179198ea565b282a4a7989d9be57c189843"
+      },
+      "status": "PASS"
+    },
+    {
+      "fixture": "eight-bot-high",
+      "exactAllFiles": true,
+      "matchingContextAndCaptureMetadata": true,
+      "files": {
+        "frame-0-world-depth-repeat-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world.png": "25e8166f9391de925c27711faf46547669df8ab21260963ecaff0bdf86bd58b5",
+        "frame-0-world-depth-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world-repeat.png": "25e8166f9391de925c27711faf46547669df8ab21260963ecaff0bdf86bd58b5",
+        "frame-0-hud.png": "8f718af470a5345ae1eb20ba47b8714dddb84d544389711e59618f49652c9ad4",
+        "shadow-depth-float32.bin": "3236d2b03b3fcf960ab930f2995ead9d331516d13d5869befe53e9b68f68d3e5"
+      },
+      "candidateFiles": {
+        "frame-0-world-depth-repeat-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world.png": "25e8166f9391de925c27711faf46547669df8ab21260963ecaff0bdf86bd58b5",
+        "frame-0-world-depth-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world-repeat.png": "25e8166f9391de925c27711faf46547669df8ab21260963ecaff0bdf86bd58b5",
+        "frame-0-hud.png": "8f718af470a5345ae1eb20ba47b8714dddb84d544389711e59618f49652c9ad4",
+        "shadow-depth-float32.bin": "3236d2b03b3fcf960ab930f2995ead9d331516d13d5869befe53e9b68f68d3e5"
+      },
+      "status": "PASS"
+    },
+    {
+      "fixture": "eight-bot-ultra",
+      "exactAllFiles": true,
+      "matchingContextAndCaptureMetadata": true,
+      "files": {
+        "frame-0-world-depth-repeat-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world.png": "28d0c0faa118d4f44cc2102a9f7ca068271c0a92e7f8029bc121de8e4f67f954",
+        "frame-0-world-depth-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world-repeat.png": "28d0c0faa118d4f44cc2102a9f7ca068271c0a92e7f8029bc121de8e4f67f954",
+        "frame-0-hud.png": "b11cc6260587b570c15a97ead8d32b94310359bbbfdd3cd6661b003528af6413",
+        "shadow-depth-float32.bin": "037159820553cb6673f4320221bf0d694b4aa5f2226514c6601cd26f36fe0523"
+      },
+      "candidateFiles": {
+        "frame-0-world-depth-repeat-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world.png": "28d0c0faa118d4f44cc2102a9f7ca068271c0a92e7f8029bc121de8e4f67f954",
+        "frame-0-world-depth-float32.bin": "7db30661f1c2de68e021d50ce7b2c6250c8edbe071a0fc2f52c142b8923c974d",
+        "frame-0-world-repeat.png": "28d0c0faa118d4f44cc2102a9f7ca068271c0a92e7f8029bc121de8e4f67f954",
+        "frame-0-hud.png": "b11cc6260587b570c15a97ead8d32b94310359bbbfdd3cd6661b003528af6413",
+        "shadow-depth-float32.bin": "037159820553cb6673f4320221bf0d694b4aa5f2226514c6601cd26f36fe0523"
+      },
+      "status": "PASS"
+    }
+  ]
+}

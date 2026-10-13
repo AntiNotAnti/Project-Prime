@@ -60,6 +60,8 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return BipedEdgeCollisionTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
+            if (args.Length > 0 && args[0] == "--scene-setup-ownership")
+                return SceneSetupOwnershipTests.Run(Array.IndexOf(args, "--baseline") >= 0);
             if (args.Length > 0 && args[0] == "--ai-client-driver") return NetAiClientTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-protocol") return PickupProtocolTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-claims") return PickupClaimTests.Run();
@@ -221,13 +223,25 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return Mods.Multiplayer.ResourceAudit.Run();
             }
+            if (args.Length > 2 && args[0] == "--enhanced-historical-matrix")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return EnhancedHistoricalMatrixTests.Run(args[2], args.Length > 3 && args[3] == "--record-baseline");
+            }
+            if (args.Length > 2 && args[0] == "--enhanced-retirement-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return EnhancedRetirementTests.ArchiveScene(args[2], args.Length > 3 && args[3] == "--record-baseline");
+            }
             if (args.Length > 1 && args[0] == "--enhanced-scene")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
-                return MphRead.Mods.EnhancedHunters.EnhancedHunterSceneChecks.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+                return EnhancedRetirementTests.LiveScene();
             }
-            if (args.Length > 0 && args[0] == "--enhanced-hunters") return MphRead.Mods.EnhancedHunters.EnhancedHunterChecks.Run();
+            if (args.Length > 0 && args[0] is "--enhanced-retirement" or "--enhanced-hunters") return EnhancedRetirementTests.Run();
             if (args.Length > 1 && args[0] == "--advanced-rules-scene")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
@@ -264,6 +278,7 @@ namespace MphRead.NetTest
             }
             if (args.Length > 0 && args[0] == "--alt-hits") return AltFormHitTests.Run();
             if (args.Length > 0 && args[0] == "--continuous-targets") return ContinuousTargetTests.Run();
+            if (args.Length > 1 && args[0] == "--transport-profile-json") return TransportProfile.Run(args[1]);
             if (args.Length > 0 && args[0] == "--replication-decode-benchmark") return ReplicationDecodeBenchmark.Run(args);
             if (args.Length > 0 && args[0] == "--server-performance-evidence") return ServerPerformanceEvidenceTests.Run(args);
             if (args.Length > 0 && args[0] == "--server-performance") return ServerPerformanceBenchmark.Run(args);

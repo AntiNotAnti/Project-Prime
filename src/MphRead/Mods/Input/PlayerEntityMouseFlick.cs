@@ -113,6 +113,11 @@ namespace MphRead.Entities
 
             if (Hunter == Hunter.Samus)
             {
+                if (ModUsesClassicTouch)
+                {
+                    ModSetAltSwipeDrive(false, 0, 0);
+                    return;
+                }
                 // melonPrimeDS keeps Morph Ball steering tied to the movement
                 // produced in the current guest frame rather than the distance
                 // from a pointer-down anchor. Do the same here. UpdatePointer

@@ -82,21 +82,21 @@ namespace MphRead
                 scene.LoadMapSymbolEntities(scene.AreaId);
             }
             if (!scene.Services.IsReplica) AiPersonality.LoadAll(mode);
-            room.SetNodeData(LoadNodeData(metadata.NodePath, room.RoomId, mode, entities, metadata.FirstHunt));
+            room.SetNodeData(LoadNodeData(metadata.NodePath, room.RoomId, mode, entities, metadata.FirstHunt, scene));
             scene.GameState.StorySave.CheckpointRoomId = room.RoomId;
             return (room, metadata, collision, entities);
         }
 
         public static NodeData? LoadNodeData(string? nodePath, int roomId, GameMode mode,
-            IReadOnlyList<EntityBase> entities, bool firstHunt)
+            IReadOnlyList<EntityBase> entities, bool firstHunt, Scene scene)
         {
             NodeData? nodeData = null;
             if (mode == GameMode.SinglePlayer)
             {
-                for (int i = 0; i < PlayerEntity.Players.Count; i++)
+                for (int i = 0; i < scene.Players.Items.Count; i++)
                 {
-                    PlayerEntity player = PlayerEntity.Players[i];
-                    int encounterState = GameState.EncounterState[i];
+                    PlayerEntity player = scene.Players.Items[i];
+                    int encounterState = scene.GameState.EncounterState[i];
                     if (player.IsBot && encounterState >= 1 && encounterState <= 4)
                     {
                         if (Metadata.EncounterNodeDataOverrides.TryGetValue(roomId, out string? nodeOverride))
@@ -325,7 +325,7 @@ namespace MphRead
                     {
                         suitColor = scene.Players.Main.Recolor == 0 ? 1 : 0;
                     }
-                    PlayerEntity.Create(hunter, suitColor);
+                    scene.Players.Create(hunter, suitColor);
                     if (initialize)
                     {
                         player.LoadFlags |= LoadFlags.SlotActive;

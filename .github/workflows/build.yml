@@ -30,8 +30,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: diagnostic command-line credential redaction
+        run: dotnet run --project tools/diagnostic-args-check -c Release
+
       - name: telemetry collector and report checks
         run: python3 -m unittest discover -s tools/telemetry -p 'test_*.py'
+
+      - name: Android startup acceptance failure fixtures
+        run: python3 -m unittest discover -s tools -p 'test_android_startup_check.py' -v
 
 
       - name: nothing from the game is tracked
@@ -55,7 +64,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -100,7 +109,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -109,6 +118,12 @@ jobs:
           key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
+      - name: framework-dependent and single-file application image identity
+        run: |
+          dotnet run --project tools/application-image-check -c Release -- assembly
+          dotnet publish tools/application-image-check -c Release -r linux-x64 \
+            --self-contained true -p:PublishSingleFile=true -o "$RUNNER_TEMP/application image check"
+          "$RUNNER_TEMP/application image check/application-image-check" process
       - name: compile server-only surface
         run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadServer=true
 
@@ -119,7 +134,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -138,7 +153,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -159,7 +174,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -172,6 +187,15 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y xvfb xauth libgl1-mesa-dri libgl1 libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1
+      - name: Scene shader ownership under repeated initialization failures
+        env:
+          PROJECT_PRIME_GL_SHADER_VARIANTS: "1"
+          PROJECT_PRIME_GL_PLAIN_SHADER: "1"
+          PROJECT_PRIME_GL_UNLIT_SHADER: "1"
+          PROJECT_PRIME_USER_DATA: ${{ runner.temp }}/shader-ownership-user-data
+        run: |
+          xvfb-run -a --server-args="-screen 0 640x480x24" \
+            dotnet run --project tools/render-resource-check -c Release -- -shadercycles 120
       - name: publish focused OpenGL build
         run: >
           dotnet publish src/MphRead/MphRead.csproj
@@ -210,6 +234,16 @@ jobs:
         run: python tools/test-fruity-baseline.py
       - name: Validate OpenGL E/F benchmark evidence gate
         run: python -m unittest discover -s tools/opengl-phase4 -v
+      - name: Validate OpenGL modernization profiling evidence
+        run: python -m unittest discover -s tools/opengl-modernization -p 'test_*.py' -v
+      - name: Validate native memory attribution analysis and runner
+        run: python -m unittest discover -s tools/native-render-check -p 'test_*.py' -v
+      - name: Verify audio retention weak observations without native startup
+        run: dotnet run --project tools/native-render-check -c Release -- -resource-retention-selftest
+      - name: Verify native context control arguments without native startup
+        run: dotnet run --project tools/native-render-check -c Release -- -resource-context-selftest
+      - name: Compile headless replay memory isolation
+        run: dotnet build tools/replay-memory-check -c Release
       - name: OpenGL depth, alpha, stencil and repeated-frame pixel fixtures
         run: |
           xvfb-run -a --server-args="-screen 0 640x480x24" \
@@ -238,7 +272,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -256,7 +290,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -276,7 +310,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -285,18 +319,32 @@ jobs:
           key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
+      - name: device-free Theatre storage producer bounds
+        run: dotnet run --project tools/theatre-storage-check -c Release
+      - name: device-free encoder capability stderr drain
+        run: dotnet run --project tools/encoder-error-drain-check -c Release
+      - name: device-free bounded encoder progress and parsing parity
+        run: dotnet run --project tools/encoder-progress-check -c Release
       - name: content-free renderer state and lifecycle contracts
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -renderbackendcheck
+      - name: device-free replay export queue bounds and ownership
+        run: dotnet run --project tools/replay-export-queue-check -c Release
+      - name: native audio ownership, failure fallback and headless lifecycle
+        run: dotnet run --project tools/audio-check -c Release
+      - name: device-free Music startup failure ownership
+        run: dotnet run --project tools/music-startup-check -c Release
+      - name: device-free music loading, PCM parity and callback retirement
+        run: dotnet run --project tools/music-lifecycle-check -c Release
 
-  enhanced-hunter-checks:
-    name: enhanced hunter regressions
+  enhanced-retirement-checks:
+    name: retired hunter compatibility regressions
     needs: assets
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -311,14 +359,18 @@ jobs:
         run: python3 -m unittest discover -s tools/nettest -p 'test_*.py'
       - name: waitlist policy and synthetic UDP wire checks
         run: dotnet run --project tools/lobby-waitlist-check -c Release
-      - name: enhanced rules, state and maximum packet budgets
-        run: dotnet run --project tools/nettest -c Release -- --enhanced-hunters
+      - name: retired live rules, archived wire state and maximum packet budgets
+        run: dotnet run --project tools/nettest -c Release -- --enhanced-retirement
       - name: production waitlist admission and real UDP lifecycle
         run: dotnet run --project tools/nettest -c Release --no-build -- --waitlist
+      - name: scene-owned encounter creation and navigation
+        run: dotnet run --project tools/nettest -c Release --no-build -- --scene-setup-ownership
       - name: replication lane round trip
         run: dotnet run --project tools/nettest -c Release --no-build -- --protocol18
       - name: mixed-quality eight-player transport
         run: dotnet run --project tools/nettest -c Release --no-build -- --transport-stress
+      - name: transport profiling delivery and queue gates
+        run: dotnet run --project tools/nettest -c Release --no-build -- --transport-profile-json "$RUNNER_TEMP/transport-profile.json"
       - name: replay format compatibility
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -replayformatcheck
 
@@ -335,7 +387,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -348,10 +400,19 @@ jobs:
       - name: map editor history and PK3 import regressions
         run: dotnet run --project tools/map-editor-check -c Release
 
+      - name: scoped collision query lifetime and deterministic results
+        run: dotnet run --project tools/collision-query-check -c Release -- --compare docs/audits/engineering-consolidation/collision-query-baseline.txt
+
+      - name: bounded encoder capabilities and probe reader retirement
+        run: dotnet run --project tools/encoder-capability-check -c Release
+
       # The default map-editor check already runs model import and collision
       # fixtures. Community publishing is a distinct opt-in check.
       - name: community map publishing focused check
         run: dotnet run --no-build --project tools/map-editor-check -c Release -- --community-only
+
+      - name: encoder worker exit and inherited-pipe cancellation
+        run: dotnet run --project tools/encoder-pipe-check -c Release
 
       - name: isolated multiplayer and historical package acceptance
         timeout-minutes: 10
@@ -387,6 +448,24 @@ jobs:
             ${{ runner.temp }}/mapviewportcheck
           if-no-files-found: warn
 
+  png-callback-checks:
+    name: PNG callback ownership (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-15-intel]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: GC-pressure native PNG, byte and pixel parity, stream ownership
+        env:
+          DOTNET_TieredCompilation: '0'
+        run: dotnet run --project tools/png-callback-check -c Release -- candidate "${{ runner.temp }}/png-callback-check"
+
   controller-checks:
     name: input regressions (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -399,7 +478,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -417,6 +496,24 @@ jobs:
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -gamepadcheck
       - name: deterministic pointer and stylus checks
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -pointercheck
+      - name: native audio ownership, failure fallback and headless lifecycle
+        run: dotnet run --project tools/audio-check -c Release
+
+      - name: post-match ballot and retired picker UI checks
+        shell: pwsh
+        run: |
+          $env:PROJECT_PRIME_USER_DATA = Join-Path $env:RUNNER_TEMP 'results-ui-check-user-data'
+          $env:PROJECT_PRIME_MAP_COMMUNITY = 'https://maps.example.test/'
+          New-Item -ItemType Directory -Force $env:PROJECT_PRIME_USER_DATA | Out-Null
+          dotnet run --project tools/results-ui-check/results-ui-check.csproj -c Release -- artifacts/results-ui-check
+
+      - name: upload post-match UI witnesses
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: results-ui-${{ matrix.os }}
+          path: artifacts/results-ui-check
+          if-no-files-found: ignore
 
       - name: high-refresh frame timing and first-person pose checks
         if: matrix.os == 'windows-latest'
@@ -459,7 +556,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -547,6 +644,10 @@ jobs:
       - name: replay timeline bounds and identity regressions
         if: matrix.id == 'linux-x64'
         run: dotnet run --project tools/replay-timeline-check -c Release
+
+      - name: replay sidecar malformed-entry and identity regressions
+        if: matrix.id == 'linux-x64'
+        run: dotnet run --project tools/replay-sidecar-check -c Release
 
       - name: replay format and server-retention regressions
         if: matrix.id == 'linux-x64'
@@ -703,7 +804,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -784,7 +885,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4
@@ -802,8 +903,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Keep Android's workload set deterministic without requiring it in every
+      # desktop/server job. global.json pins only the SDK.
       - name: install the android workload
-        run: dotnet workload install android
+        run: dotnet workload install android --version 10.0.401
 
       # Cook every custom map into the one file it ships as. The recipe, the
       # level it converts and the textures baked from it go into a .ppmap,
@@ -954,7 +1057,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       # Cache restored NuGet assets independently per host architecture.
       - name: cache NuGet packages
         uses: actions/cache@v4

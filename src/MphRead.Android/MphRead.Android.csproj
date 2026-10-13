@@ -53,13 +53,9 @@
          around it. Fixing them properly means editing upstream files, which is
          what keeps a pull from NoneGiven/MphRead a fast-forward. -->
     <NoWarn>$(NoWarn);CA1416</NoWarn>
-    <!-- XA0141: Android 16 will want 16 KB page sizes and libSkiaSharp.so did
-         not have them while Avalonia 11.3 bound against SkiaSharp 2.88.
-         Avalonia 12 binds 3.119, whose natives are aligned, so this is
-         expected to be dead and should be dropped the next time this head is
-         built with the Android workload installed and the warning does not
-         come back. -->
-    <NoWarn>$(NoWarn);XA0141</NoWarn>
+    <WarningsAsErrors>$(WarningsAsErrors);CA2014;IL3000</WarningsAsErrors>
+    <!-- Native page-size compatibility warnings remain visible. The old
+         SkiaSharp 2.88 XA0141 exemption is no longer needed by Avalonia 12. -->
     <!-- The results panel is drawn into the game's own frame through an
          ITopLevelImpl of ours (Mods/Launcher/Gui/UiTopLevel.cs, shared with
          the desktop), because a second Avalonia surface z-ordered over the GL
@@ -71,14 +67,6 @@
     <AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
     <NoWarn>$(NoWarn);AVA3001</NoWarn>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
-    <!-- .NET 10.0.12 Mono cross-AOT aborts inside mono_class_value_size
-         (metadata/object.c:8004) while compiling ProjectPrime.dll for both
-         Android ARM64 and x64. Keep Release trimming, signing and real APK
-         acceptance enabled; temporarily use Mono's JIT instead of shipping no
-         Android build. Re-evaluate startup/FPS and restore AOT after isolating
-         the invalid value-type metadata/toolchain regression. A release job can
-         explicitly override this via -p:RunAOTCompilation=true for diagnosis. -->
-    <RunAOTCompilation Condition="'$(Configuration)' == 'Release'">false</RunAOTCompilation>
     <!-- There is no XAML in this project: every screen here is written in C#.
          The compiler still runs when AvaloniaResource items are present, and on
          Android it and the Android SDK disagree about where the compiled

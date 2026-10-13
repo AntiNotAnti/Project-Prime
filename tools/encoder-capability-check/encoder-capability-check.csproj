@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><UseAppHost>true</UseAppHost><EncoderCapabilitiesSource Condition="'$(EncoderCapabilitiesSource)'==''">../../src/MphRead/Mods/Replay/ReplayEncoderCapabilities.cs</EncoderCapabilitiesSource><EncoderErrorDrainSource Condition="'$(EncoderErrorDrainSource)'==''">../../src/MphRead/Mods/Replay/ReplayEncoderErrorDrain.cs</EncoderErrorDrainSource></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(EncoderCapabilitiesSource)" Link="ReplayEncoderCapabilities.cs" />
+    <Compile Include="$(EncoderErrorDrainSource)" Link="ReplayEncoderErrorDrain.cs" />
+  </ItemGroup>
+</Project>

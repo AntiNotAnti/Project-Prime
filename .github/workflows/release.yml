@@ -233,7 +233,7 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-nuget-game-
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       - name: nothing from the game is tracked
         run: tools/check-no-game-assets.sh
       - name: every custom map has the level it converts
@@ -299,7 +299,7 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-nuget-game-
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       - uses: actions/download-artifact@v8
         with:
           name: prepared-maps
@@ -340,13 +340,15 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-nuget-android-
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+      # Install the pinned workload set only on the Android release runner.
+      # The globally pinned SDK alone is sufficient for desktop/server jobs.
       - name: install the android workload
-        run: dotnet workload install android
+        run: dotnet workload install android --version 10.0.401
       - uses: actions/download-artifact@v8
         with:
           name: prepared-maps
@@ -703,7 +705,7 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-nuget-game-
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       - uses: actions/download-artifact@v8
         with:
           name: prepared-maps
@@ -753,7 +755,7 @@ jobs:
           ref: refs/tags/${{ needs.resolve.outputs.tag }}
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       - uses: actions/download-artifact@v8
         with:
           name: release-desktop
