@@ -13,6 +13,7 @@ internal sealed class TransitionGcObservation : IDisposable
     private readonly string _policy;
     private readonly FieldInfo _observer, _policyField;
     private readonly object? _previousObserver, _previousPolicy;
+    private readonly IDisposable _lifetimes;
     private TransitionGcObservation(string policy, int bits)
     {
         _policy = policy;
@@ -20,6 +21,11 @@ internal sealed class TransitionGcObservation : IDisposable
         _observer = type.GetField("Observer", BindingFlags.NonPublic | BindingFlags.Static)!;
         _policyField = type.GetField("Policy", BindingFlags.NonPublic | BindingFlags.Static)!;
         _previousObserver = _observer.GetValue(null); _previousPolicy = _policyField.GetValue(null);
+        // Reuse this existing opt-in control. This bounded log stores scalar
+        // snapshots only; it must not keep the weak transition target alive.
+        Type lifetimes = typeof(Scene).Assembly.GetType("MphRead.Mods.Diagnostics.SceneLifetimeDiagnostics")!;
+        _lifetimes = (IDisposable)lifetimes.GetMethod("Begin", BindingFlags.NonPublic | BindingFlags.Static)!
+            .Invoke(null, new object[] { 256 })!;
         _policyField.SetValue(null, Enum.ToObject(_policyField.FieldType, bits));
         _observer.SetValue(null, (Action<object>)(record =>
         {
@@ -51,12 +57,19 @@ internal sealed class TransitionGcObservation : IDisposable
         {
         schema = 1, policy = _policy, maxRecords = MaxRecords, observedLoadCalls = loads, observedEndCalls = ends,
         complete, records = _records,
+        lifetimes = new {
+            maximumRecords = LifetimeValue("MaximumRecords"), droppedRecords = LifetimeValue("DroppedRecords"),
+            snapshots = LifetimeValue("Snapshots")
+        },
         scope = "Only original Scene.OnLoad Gen2 forced blocking compacting collection and RenderWindow.EndScene default collection; no added GC.",
         limits = "Collection wall excludes memory probes/callback; stage wall includes observer overhead and GL/audio/driver work. Stage scopes cover Scene.OnLoad and EndScene, not scene construction/AddRoom. GCMemoryInfo describes the indexed latest collection, which may predate skipped calls. Managed live bytes are an estimate; RSS includes native/runtime/driver memory. Readback/resource-stress frames are lifecycle evidence, never FPS. Frame tails require separate ordinary completed-frame runs on the same binary/fixture. Observation retains bounded value-only records identically across arms."
         };
     }
     public void Dispose()
     {
+        _lifetimes.Dispose();
         _observer.SetValue(null, _previousObserver); _policyField.SetValue(null, _previousPolicy);
     }
+    private object? LifetimeValue(string property) => _lifetimes.GetType()
+        .GetProperty(property, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_lifetimes);
 }

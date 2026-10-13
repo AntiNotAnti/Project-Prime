@@ -244,6 +244,28 @@ namespace MphRead.Entities
                 }
             }
 
+            internal static bool HasSceneReferences(Scene scene)
+            {
+                foreach (AiGlobals globals in _globalObjs)
+                    if (globals.Player != null && ReferenceEquals(globals.Player.OwningScene, scene)) return true;
+                return false;
+            }
+
+            internal static int ReleaseScene(Scene scene)
+            {
+                int released = 0;
+                foreach (AiGlobals globals in _globalObjs)
+                {
+                    if (globals.Player == null || !ReferenceEquals(globals.Player.OwningScene, scene)) continue;
+                    globals.Player = null!;
+                    globals.Field4 = 0;
+                    globals.NodeDataIndex = 0;
+                    globals.NodeData = null!;
+                    released++;
+                }
+                return released;
+            }
+
             public static void UpdateVisibilityAndGlobals(Scene scene)
             {
                 UpdateVisibility(scene);
