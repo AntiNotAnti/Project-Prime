@@ -53,12 +53,16 @@ public partial class Scene
             fragment = GL.CreateShader(ShaderType.FragmentShader);
             GL.ShaderSource(vertex, vertexSource ?? Shaders.SelectedVertexShader);
             GL.ShaderSource(fragment, fragmentSource);
+            Mods.Render.OpenGlFailureInjection.ShaderObject("variant-vertex", vertex);
+            Mods.Render.OpenGlFailureInjection.ShaderObject("variant-fragment", fragment);
             GL.CompileShader(vertex); GL.CompileShader(fragment);
             GL.GetShader(vertex, ShaderParameter.CompileStatus, out int vs);
             GL.GetShader(fragment, ShaderParameter.CompileStatus, out int fs);
             if (vs == 0 || fs == 0) return null; // Canonical program remains available.
             program = GL.CreateProgram();
-            GL.AttachShader(program, vertex); GL.AttachShader(program, fragment); GL.LinkProgram(program);
+            GL.AttachShader(program, vertex); GL.AttachShader(program, fragment);
+            Mods.Render.OpenGlFailureInjection.ShaderObject("variant-program", program);
+            GL.LinkProgram(program);
             GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int linked);
             if (linked == 0) return null;
             GL.DetachShader(program, vertex); GL.DetachShader(program, fragment);
@@ -72,6 +76,7 @@ public partial class Scene
             { toon[i * 3] = Metadata.ToonTable[i].X; toon[i * 3 + 1] = Metadata.ToonTable[i].Y; toon[i * 3 + 2] = Metadata.ToonTable[i].Z; }
             GL.Uniform3(_shaderLocations.ToonTable, Metadata.ToonTable.Count, toon);
             SetShaderFog();
+            Mods.Render.OpenGlFailureInjection.ShaderObject("variant-initialized", program);
             WorldShaderProgram initialized = SaveWorldProgram();
             program = 0; // Scene now owns the successfully initialized variant.
             return initialized;

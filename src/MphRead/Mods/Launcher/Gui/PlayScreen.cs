@@ -1770,7 +1770,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             var search = new FieldRow("Search", _replaySearchText, boxWidth: 210);
-            search.Box.Watermark = "name, map, player...";
+            search.Box.PlaceholderText = "name, map, player...";
             _options.Children.Add(search);
             var filter = new ChoiceRow("Show",
                 new[] { "All", "Full replays", "Clips", "Favorites", "Needs recovery" },

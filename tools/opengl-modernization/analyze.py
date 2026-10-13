@@ -28,8 +28,10 @@ def validate_tree(value, label):
         number(value, label)
 
 
-def read_run(path, warmup_windows):
-    raw = Path(path).read_text(encoding='utf-8')
+def read_run(path, warmup_windows, stdout_override=None):
+    raw = Path(path).read_text(encoding='utf-8') if stdout_override is None else stdout_override
+    if not isinstance(raw, str):
+        raise ValueError('profiling stdout must be text')
     try:
         wrapper = json.loads(raw)
     except json.JSONDecodeError:

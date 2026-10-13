@@ -36,7 +36,8 @@ namespace MphRead.Mods.Replay
         private static ReplayVideoExportManifest? _encodingJob;
         private static ReplayExportState _state;
         public static ReplayExportState State { get { PollEncoder(); return _state; } }
-        public static bool Active { get { PollEncoder(); return _job != null || _encoder != null; } }
+        internal static bool HasOwnedJob => _job != null || _encoder != null;
+        public static bool Active { get { PollEncoder(); return HasOwnedJob; } }
         public static bool Rendering => _job != null;
         internal static bool IncludeGameHud => _job?.IncludeGameHud ?? true;
         internal static bool IncludeReplayOverlay => _job?.IncludeReplayOverlay ?? false;

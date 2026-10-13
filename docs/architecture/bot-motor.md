@@ -5,8 +5,8 @@ Implemented as a first, independently reviewable phase of the competitive bot ov
 ## Input ownership
 
 The native MPH personality tree is retained for navigation and objectives. Each frame
-the tactical layer evaluates movement choices, and the enhanced Hunter layer may add
-actions. The final `ApplyBotMotor` step resolves directional conflicts, rate-limits
+the tactical layer evaluates movement choices, and native Hunter combat decisions may
+add actions. The final `ApplyBotMotor` step resolves directional conflicts, rate-limits
 yaw/pitch, and emits one locomotion command. Tactical movement temporarily owns the
 four biped movement flags only if a safe move was found; otherwise the original
 navigation move is restored. Random combat strafing no longer overrides an existing

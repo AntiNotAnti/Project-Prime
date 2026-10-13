@@ -1,0 +1,51 @@
+{
+  "sourceBase": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "apiCheckLog": "/tmp/consolidation-ui-api-check/checks.log",
+  "apiCheckSha256": "c38f92eb39cfd474441c3c25c468ebe02bc30a974301286cfedadd162e8129f6",
+  "hudCommand": [
+    "/Users/jarrett/.dotnet/dotnet",
+    "/tmp/consolidation-ui-api-tool-wrapper/bin/Release/net10.0/wrapper.dll",
+    "/Users/jarrett/.codex/worktrees/consolidation-ui-apis/Prime Hunters Online/tools/hud-ui-check/bin/Release/net10.0/hud-ui-check.dll"
+  ],
+  "hudExitCode": 0,
+  "hudLog": "/tmp/consolidation-ui-api-tool-wrapper/checks.log",
+  "hudLogSha256": "f6e9560d609d86b6b4d202554449c72d336d7a74919f711502cd4ab8b5a58d85",
+  "builds": [
+    {
+      "log": "/tmp/consolidation-ui-apis-build-final.log",
+      "sha256": "41ee9f07d5808068c70d042f206920a83a23329296bd9781a46cdce993c32356",
+      "summary": [
+        "/Users/jarrett/.codex/worktrees/consolidation-ui-apis/Prime Hunters Online/src/MphRead/Mods/Network/NetCampaignEvidence.cs(142,37): warning CA2014: Potential stack overflow. Move the stackalloc out of the loop. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2014) [/Users/jarrett/.codex/worktrees/consolidation-ui-apis/Prime Hunters Online/src/MphRead/MphRead.csproj]",
+        "/Users/jarrett/.codex/worktrees/consolidation-ui-apis/Prime Hunters Online/src/MphRead/Mods/Network/NetBombVisibilityProbe.cs(156,82): warning IL3000: 'System.Reflection.Assembly.Location.get' always returns an empty string for assemblies embedded in a single-file app. If the path to the app directory is needed, consider calling 'System.AppContext.BaseDirectory'. [/Users/jarrett/.codex/worktrees/consolidation-ui-apis/Prime Hunters Online/src/MphRead/MphRead.csproj]",
+        "    22 Warning(s)",
+        "    0 Error(s)",
+        "",
+        "Time Elapsed 00:00:38.63"
+      ]
+    },
+    {
+      "log": "/tmp/consolidation-ui-apis-hud-build.log",
+      "sha256": "cb6d9525d2a78546508123fe74d3db1c243ec2fd8c4aaee04c19275bd138f7ae",
+      "summary": [
+        "",
+        "Build succeeded.",
+        "    0 Warning(s)",
+        "    0 Error(s)",
+        "",
+        "Time Elapsed 00:00:03.27"
+      ]
+    },
+    {
+      "log": "/tmp/consolidation-ui-apis-android-compile.log",
+      "sha256": "c121159e7ab9a190f64f16053d179930eb1ba729d36e84fa31fa04a2f5176e83",
+      "summary": [
+        "/Users/jarrett/.codex/worktrees/consolidation-ui-apis/Prime Hunters Online/src/MphRead/Mods/Network/NetTransport.cs(965,38): warning CA2014: Potential stack overflow. Move the stackalloc out of the loop. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2014) [/Users/jarrett/.codex/worktrees/consolidation-ui-apis/Prime Hunters Online/src/MphRead.Android/MphRead.Android.csproj]",
+        "/Users/jarrett/.codex/worktrees/consolidation-ui-apis/Prime Hunters Online/src/MphRead/Mods/Network/NetBombVisibilityProbe.cs(156,82): warning IL3000: 'System.Reflection.Assembly.Location.get' always returns an empty string for assemblies embedded in a single-file app. If the path to the app directory is needed, consider calling 'System.AppContext.BaseDirectory'. [/Users/jarrett/.codex/worktrees/consolidation-ui-apis/Prime Hunters Online/src/MphRead.Android/MphRead.Android.csproj]",
+        "    47 Warning(s)",
+        "    0 Error(s)",
+        "",
+        "Time Elapsed 00:04:30.32"
+      ]
+    }
+  ]
+}

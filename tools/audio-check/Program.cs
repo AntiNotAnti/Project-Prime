@@ -11,8 +11,13 @@ static class Program
     {
         if (!condition) throw new Exception(message);
     }
-    static void Main()
+    static void Main(string[] arguments)
     {
+        if (arguments.Length != 0)
+        {
+            FailedCloseChecks.RunChild(arguments[0]);
+            return;
+        }
         var backend = new SfxInstance();
         var instances = (SfxInstance.SoundInstance[])typeof(SfxInstance).GetField("_instances", Private)!.GetValue(backend)!;
         var channels = (SfxInstance.SoundChannel[])typeof(SfxInstance).GetField("_channels", Private)!.GetValue(backend)!;
@@ -57,6 +62,8 @@ static class Program
         var defaults = new MenuSettings();
         Require(defaults.PlayerVolume == "1" && defaults.WeaponVolume == "1"
             && defaults.NotificationVolume == "1" && defaults.EffectsVolume == "1", "Legacy defaults");
+        AudioLifetimeChecks.Run();
+        FailedCloseChecks.Run();
         Console.WriteLine("PASS: pool recycling, 10,000 failed allocations, routing, gains, legacy defaults");
     }
 }

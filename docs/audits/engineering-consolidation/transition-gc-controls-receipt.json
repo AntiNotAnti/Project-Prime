@@ -1,0 +1,4016 @@
+{
+  "schema": 1,
+  "purpose": "Matched unprofiled seam overhead with untouched user application ambient load and same-binary existing-transition-GC controls; no product-policy change",
+  "startedUtc": "2026-10-13T07:34:49.510801+00:00",
+  "binaries": {
+    "base": {
+      "harness": "f9e51847fc3c3e2968011255210445116e863c18526fb7fa4a265ebb2cf1774b",
+      "client": "86f075e7c8dd7a06277b4050feedc796680b97a2f259615e2aa81e1faab37328"
+    },
+    "candidate": {
+      "harness": "757564df875471cfcd9d6db7dae40081b0992e843e6441b7231d664c17ce42de",
+      "client": "ca529662387533357d99a7dafb0a51fe11456d80fc4bca459204c6f80dbe9ec1"
+    },
+    "gc": {
+      "harness": "5b3dc0d3661193eb70a8336e4af336ff9a5494858beee4772f7320207520f24d",
+      "client": "28ec0e5018ef59e43c616cbf209fa2b4be9c6c57f404422573668fc0d6666dba"
+    }
+  },
+  "fixture": {
+    "preset": "Original, explicit High shadows, resolution100%, nearest/no mip/anisotropy1/replacements disabled",
+    "players": 8,
+    "bots": "all occupied level1",
+    "rng": [
+      12345,
+      98765
+    ],
+    "input": "synthetic snapshots",
+    "environment": {
+      "PROJECT_PRIME_USER_DATA": "/tmp/prime-render-attribution-assets-only",
+      "PROJECT_PRIME_GL_FORCE_LEGACY": "0"
+    },
+    "pathsSha256": "c8a79d0000c41e43219c696b4706c782f11a952b7513f47699b499cf44119d51"
+  },
+  "ambientLimits": "User-owned Project Prime app is left running; results are conditional on observed ambient load, not strict quiet-host performance proof. No malloc stack logging.",
+  "summaries": {
+    "seam": {
+      "base": {
+        "runCount": 5,
+        "metrics": {
+          "meanCompletedFrameFps": {
+            "median": 301.43051574466364,
+            "minimum": 300.7471850063485,
+            "maximum": 302.6039648588255
+          },
+          "frameIntervalP50Ms": {
+            "median": 3.1116,
+            "minimum": 3.103,
+            "maximum": 3.1289
+          },
+          "frameIntervalP95Ms": {
+            "median": 5.3872,
+            "minimum": 5.3623,
+            "maximum": 5.4135
+          },
+          "frameIntervalP99Ms": {
+            "median": 6.5497,
+            "minimum": 6.4152,
+            "maximum": 6.7551
+          },
+          "onePercentLowEstimateFps": {
+            "median": 152.6787486449761,
+            "minimum": 148.0362985003923,
+            "maximum": 155.87978550941514
+          },
+          "pointOnePercentLowEstimateFps": {
+            "median": 120.20531067062542,
+            "minimum": 106.52576858342033,
+            "maximum": 124.78941785736569
+          },
+          "allocatedBytes": {
+            "median": 183015576,
+            "minimum": 182544120,
+            "maximum": 183856528
+          },
+          "managedBytes": {
+            "median": 223210624,
+            "minimum": 219804480,
+            "maximum": 225666208
+          },
+          "workingSetBytes": {
+            "median": 535838720,
+            "minimum": 534839296,
+            "maximum": 538968064
+          },
+          "simulationHz": {
+            "median": 59.955797588228094,
+            "minimum": 59.90397991060126,
+            "maximum": 60.43346577585411
+          }
+        },
+        "p99PointOneMsDerivedFromEstimate": {
+          "median": 8.3191
+        },
+        "gcCollections": [
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            21,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ]
+        ]
+      },
+      "candidate": {
+        "runCount": 5,
+        "metrics": {
+          "meanCompletedFrameFps": {
+            "median": 300.7614664409203,
+            "minimum": 297.2294525279461,
+            "maximum": 302.52658141733195
+          },
+          "frameIntervalP50Ms": {
+            "median": 3.1225,
+            "minimum": 3.093,
+            "maximum": 3.1467
+          },
+          "frameIntervalP95Ms": {
+            "median": 5.4125,
+            "minimum": 5.3322,
+            "maximum": 5.4352
+          },
+          "frameIntervalP99Ms": {
+            "median": 6.6232,
+            "minimum": 6.542,
+            "maximum": 6.9236
+          },
+          "onePercentLowEstimateFps": {
+            "median": 150.9844184080203,
+            "minimum": 144.43353168871684,
+            "maximum": 152.85845307245492
+          },
+          "pointOnePercentLowEstimateFps": {
+            "median": 122.7732010656714,
+            "minimum": 114.96234983043054,
+            "maximum": 128.5396609123745
+          },
+          "allocatedBytes": {
+            "median": 182689000,
+            "minimum": 180359632,
+            "maximum": 183724288
+          },
+          "managedBytes": {
+            "median": 224926560,
+            "minimum": 219833672,
+            "maximum": 227140784
+          },
+          "workingSetBytes": {
+            "median": 537837568,
+            "minimum": 534052864,
+            "maximum": 539312128
+          },
+          "simulationHz": {
+            "median": 59.98669794972965,
+            "minimum": 59.90333398994044,
+            "maximum": 60.467344610543094
+          }
+        },
+        "p99PointOneMsDerivedFromEstimate": {
+          "median": 8.1451
+        },
+        "gcCollections": [
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            21,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            21,
+            2,
+            0
+          ],
+          [
+            21,
+            2,
+            0
+          ]
+        ]
+      }
+    },
+    "gc": {
+      "keep": {
+        "runCount": 5,
+        "metrics": {
+          "meanCompletedFrameFps": {
+            "median": 301.93604239781973,
+            "minimum": 298.5812640256829,
+            "maximum": 303.9822383178142
+          },
+          "frameIntervalP50Ms": {
+            "median": 3.103,
+            "minimum": 3.0784,
+            "maximum": 3.1346
+          },
+          "frameIntervalP95Ms": {
+            "median": 5.3942,
+            "minimum": 5.2692,
+            "maximum": 5.4155
+          },
+          "frameIntervalP99Ms": {
+            "median": 6.4382,
+            "minimum": 6.3971,
+            "maximum": 6.8911
+          },
+          "onePercentLowEstimateFps": {
+            "median": 155.32291634307725,
+            "minimum": 145.1147131807694,
+            "maximum": 156.32083287739758
+          },
+          "pointOnePercentLowEstimateFps": {
+            "median": 120.69131988027421,
+            "minimum": 117.28004128257453,
+            "maximum": 130.24394691256722
+          },
+          "allocatedBytes": {
+            "median": 183666840,
+            "minimum": 181316600,
+            "maximum": 184679496
+          },
+          "managedBytes": {
+            "median": 225989688,
+            "minimum": 221593696,
+            "maximum": 227021728
+          },
+          "workingSetBytes": {
+            "median": 536543232,
+            "minimum": 535134208,
+            "maximum": 543752192
+          },
+          "simulationHz": {
+            "median": 59.95539917855109,
+            "minimum": 59.92447418895597,
+            "maximum": 60.44130846741271
+          }
+        },
+        "p99PointOneMsDerivedFromEstimate": {
+          "median": 8.2856
+        },
+        "gcCollections": [
+          [
+            21,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            21,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ]
+        ],
+        "transition": {
+          "SceneLoad": {
+            "medianWallMs": 15.1902,
+            "wallMs": [
+              15.1902,
+              16.1124,
+              13.5531,
+              15.1225,
+              17.8215
+            ],
+            "medianPauseDeltaMs": 14.932,
+            "managedLiveBeforeBytes": [
+              212757416,
+              213124032,
+              212697152,
+              212937312,
+              216696272
+            ],
+            "managedLiveAfterBytes": [
+              171188304,
+              170978008,
+              171128064,
+              170866136,
+              170786488
+            ],
+            "rssBeforeBytes": [
+              435585024,
+              435945472,
+              436109312,
+              435781632,
+              438632448
+            ],
+            "rssAfterBytes": [
+              435666944,
+              436027392,
+              436191232,
+              435863552,
+              437895168
+            ],
+            "latestCollectionIndexAfter": [
+              40,
+              40,
+              40,
+              40,
+              39
+            ]
+          },
+          "SceneEnd": {
+            "medianWallMs": 18.8808,
+            "wallMs": [
+              17.519,
+              20.347,
+              18.7764,
+              20.09,
+              18.8808
+            ],
+            "medianPauseDeltaMs": 18.689,
+            "managedLiveBeforeBytes": [
+              220652256,
+              225964240,
+              220790992,
+              227457048,
+              223061056
+            ],
+            "managedLiveAfterBytes": [
+              100744656,
+              100718800,
+              100682128,
+              100688912,
+              100699392
+            ],
+            "rssBeforeBytes": [
+              524599296,
+              517390336,
+              519880704,
+              515801088,
+              516440064
+            ],
+            "rssAfterBytes": [
+              504086528,
+              474021888,
+              497991680,
+              472580096,
+              472612864
+            ],
+            "latestCollectionIndexAfter": [
+              70,
+              69,
+              70,
+              69,
+              68
+            ]
+          },
+          "Scene.OnLoad": {
+            "medianWallMs": 123.3104,
+            "wallMs": [
+              126.4592,
+              127.2394,
+              114.8875,
+              123.1027,
+              123.3104
+            ],
+            "medianPauseDeltaMs": 17.546,
+            "managedLiveBeforeBytes": [
+              206382376,
+              206750472,
+              206322112,
+              206623816,
+              204250248
+            ],
+            "managedLiveAfterBytes": [
+              171188304,
+              170978008,
+              171128064,
+              170866136,
+              170786488
+            ],
+            "rssBeforeBytes": [
+              423133184,
+              424034304,
+              423690240,
+              423608320,
+              426459136
+            ],
+            "rssAfterBytes": [
+              435666944,
+              436027392,
+              436191232,
+              435863552,
+              437895168
+            ],
+            "latestCollectionIndexAfter": [
+              40,
+              40,
+              40,
+              40,
+              39
+            ]
+          },
+          "RenderWindow.EndScene": {
+            "medianWallMs": 34.5477,
+            "wallMs": [
+              33.4444,
+              34.9576,
+              34.9022,
+              34.5477,
+              33.8622
+            ],
+            "medianPauseDeltaMs": 19.834,
+            "managedLiveBeforeBytes": [
+              227283656,
+              224891632,
+              227424704,
+              226384440,
+              221988448
+            ],
+            "managedLiveAfterBytes": [
+              100744656,
+              100718800,
+              100682128,
+              100688912,
+              100699392
+            ],
+            "rssBeforeBytes": [
+              543866880,
+              536674304,
+              539312128,
+              535248896,
+              535838720
+            ],
+            "rssAfterBytes": [
+              504086528,
+              474021888,
+              497991680,
+              472580096,
+              472612864
+            ],
+            "latestCollectionIndexAfter": [
+              70,
+              69,
+              70,
+              69,
+              68
+            ]
+          }
+        },
+        "sceneWeakAvailableAfter": [
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "skip-load": {
+        "runCount": 5,
+        "metrics": {
+          "meanCompletedFrameFps": {
+            "median": 300.21955923779075,
+            "minimum": 298.6700224898424,
+            "maximum": 303.06781571331055
+          },
+          "frameIntervalP50Ms": {
+            "median": 3.1187,
+            "minimum": 3.0882,
+            "maximum": 3.1247
+          },
+          "frameIntervalP95Ms": {
+            "median": 5.425,
+            "minimum": 5.3932,
+            "maximum": 5.5137
+          },
+          "frameIntervalP99Ms": {
+            "median": 6.6774,
+            "minimum": 6.4809,
+            "maximum": 6.8111
+          },
+          "onePercentLowEstimateFps": {
+            "median": 149.7588881900141,
+            "minimum": 146.81916283713352,
+            "maximum": 154.29955716027095
+          },
+          "pointOnePercentLowEstimateFps": {
+            "median": 119.6601651310279,
+            "minimum": 117.95930404010618,
+            "maximum": 122.45447754797155
+          },
+          "allocatedBytes": {
+            "median": 182510024,
+            "minimum": 181514208,
+            "maximum": 183977664
+          },
+          "managedBytes": {
+            "median": 187825384,
+            "minimum": 186203376,
+            "maximum": 192967568
+          },
+          "workingSetBytes": {
+            "median": 553385984,
+            "minimum": 549781504,
+            "maximum": 557219840
+          },
+          "simulationHz": {
+            "median": 59.96372794096851,
+            "minimum": 59.902939267504856,
+            "maximum": 60.43611902219352
+          }
+        },
+        "p99PointOneMsDerivedFromEstimate": {
+          "median": 8.357
+        },
+        "gcCollections": [
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            21,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ]
+        ],
+        "transition": {
+          "SceneLoad": {
+            "medianWallMs": 0.0003,
+            "wallMs": [
+              0.0003,
+              0.0001,
+              0.0003,
+              0.0002,
+              0.0004
+            ],
+            "medianPauseDeltaMs": 0,
+            "managedLiveBeforeBytes": [
+              213093472,
+              212960472,
+              212827240,
+              213086488,
+              213025104
+            ],
+            "managedLiveAfterBytes": [
+              213093472,
+              212960472,
+              212827240,
+              213086488,
+              213025104
+            ],
+            "rssBeforeBytes": [
+              439222272,
+              436862976,
+              436797440,
+              438648832,
+              436436992
+            ],
+            "rssAfterBytes": [
+              439222272,
+              436862976,
+              436797440,
+              438648832,
+              436436992
+            ],
+            "latestCollectionIndexAfter": [
+              39,
+              39,
+              39,
+              39,
+              39
+            ]
+          },
+          "SceneEnd": {
+            "medianWallMs": 17.484,
+            "wallMs": [
+              15.3034,
+              17.484,
+              18.834,
+              17.5406,
+              17.0294
+            ],
+            "medianPauseDeltaMs": 17.24,
+            "managedLiveBeforeBytes": [
+              187678504,
+              189293008,
+              194436984,
+              191355736,
+              188343800
+            ],
+            "managedLiveAfterBytes": [
+              100824960,
+              100688032,
+              100719288,
+              100737544,
+              100763544
+            ],
+            "rssBeforeBytes": [
+              536903680,
+              532021248,
+              534052864,
+              537919488,
+              530448384
+            ],
+            "rssAfterBytes": [
+              533168128,
+              507510784,
+              509935616,
+              513490944,
+              519471104
+            ],
+            "latestCollectionIndexAfter": [
+              70,
+              70,
+              69,
+              70,
+              70
+            ]
+          },
+          "Scene.OnLoad": {
+            "medianWallMs": 108.6335,
+            "wallMs": [
+              111.7742,
+              112.9768,
+              101.5047,
+              106.6395,
+              108.6335
+            ],
+            "medianPauseDeltaMs": 2.616,
+            "managedLiveBeforeBytes": [
+              206718432,
+              206646504,
+              206480936,
+              206772520,
+              206651544
+            ],
+            "managedLiveAfterBytes": [
+              213093472,
+              212960472,
+              212827240,
+              213086488,
+              213025104
+            ],
+            "rssBeforeBytes": [
+              427261952,
+              424361984,
+              424591360,
+              426311680,
+              424787968
+            ],
+            "rssAfterBytes": [
+              439222272,
+              436862976,
+              436797440,
+              438648832,
+              436436992
+            ],
+            "latestCollectionIndexAfter": [
+              39,
+              39,
+              39,
+              39,
+              39
+            ]
+          },
+          "RenderWindow.EndScene": {
+            "medianWallMs": 31.9196,
+            "wallMs": [
+              30.5694,
+              31.0207,
+              32.2021,
+              31.9196,
+              32.3001
+            ],
+            "medianPauseDeltaMs": 17.24,
+            "managedLiveBeforeBytes": [
+              186598128,
+              188220136,
+              193370544,
+              190283128,
+              187271192
+            ],
+            "managedLiveAfterBytes": [
+              100824960,
+              100688032,
+              100719288,
+              100737544,
+              100763544
+            ],
+            "rssBeforeBytes": [
+              556318720,
+              551452672,
+              553517056,
+              557334528,
+              549896192
+            ],
+            "rssAfterBytes": [
+              533168128,
+              507510784,
+              509935616,
+              513490944,
+              519471104
+            ],
+            "latestCollectionIndexAfter": [
+              70,
+              70,
+              69,
+              70,
+              70
+            ]
+          }
+        },
+        "sceneWeakAvailableAfter": [
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "skip-end": {
+        "runCount": 5,
+        "metrics": {
+          "meanCompletedFrameFps": {
+            "median": 302.04224657553124,
+            "minimum": 298.3928385718755,
+            "maximum": 303.5082038267495
+          },
+          "frameIntervalP50Ms": {
+            "median": 3.1149,
+            "minimum": 3.0924,
+            "maximum": 3.1536
+          },
+          "frameIntervalP95Ms": {
+            "median": 5.3816,
+            "minimum": 5.3297,
+            "maximum": 5.5215
+          },
+          "frameIntervalP99Ms": {
+            "median": 6.5027,
+            "minimum": 6.4605,
+            "maximum": 6.8553
+          },
+          "onePercentLowEstimateFps": {
+            "median": 153.78227505497716,
+            "minimum": 145.87253657753854,
+            "maximum": 154.78678120888478
+          },
+          "pointOnePercentLowEstimateFps": {
+            "median": 121.4565064250492,
+            "minimum": 111.15804450768103,
+            "maximum": 134.01771714220618
+          },
+          "allocatedBytes": {
+            "median": 183326288,
+            "minimum": 181181344,
+            "maximum": 184252304
+          },
+          "managedBytes": {
+            "median": 225585088,
+            "minimum": 222105040,
+            "maximum": 227240744
+          },
+          "workingSetBytes": {
+            "median": 537542656,
+            "minimum": 535822336,
+            "maximum": 541327360
+          },
+          "simulationHz": {
+            "median": 59.92536296043276,
+            "minimum": 59.916760640280565,
+            "maximum": 59.97987375336208
+          }
+        },
+        "p99PointOneMsDerivedFromEstimate": {
+          "median": 8.2334
+        },
+        "gcCollections": [
+          [
+            21,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            21,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ]
+        ],
+        "transition": {
+          "SceneLoad": {
+            "medianWallMs": 16.1462,
+            "wallMs": [
+              15.5755,
+              15.9367,
+              16.9443,
+              16.1462,
+              16.647
+            ],
+            "medianPauseDeltaMs": 15.926,
+            "managedLiveBeforeBytes": [
+              212955032,
+              213177912,
+              216830496,
+              212888400,
+              216789496
+            ],
+            "managedLiveAfterBytes": [
+              170870480,
+              170928992,
+              170836448,
+              170895904,
+              170816432
+            ],
+            "rssBeforeBytes": [
+              437960704,
+              437731328,
+              438681600,
+              437895168,
+              438714368
+            ],
+            "rssAfterBytes": [
+              438042624,
+              437813248,
+              437895168,
+              437977088,
+              438091776
+            ],
+            "latestCollectionIndexAfter": [
+              40,
+              40,
+              39,
+              40,
+              39
+            ]
+          },
+          "SceneEnd": {
+            "medianWallMs": 0.0004,
+            "wallMs": [
+              0.0004,
+              0.0005,
+              0.0003,
+              0.0002,
+              0.0005
+            ],
+            "medianPauseDeltaMs": 0,
+            "managedLiveBeforeBytes": [
+              221006920,
+              225868584,
+              220469496,
+              227053408,
+              223572400
+            ],
+            "managedLiveAfterBytes": [
+              221015144,
+              225876808,
+              220477720,
+              227061632,
+              223580624
+            ],
+            "rssBeforeBytes": [
+              521388032,
+              518242304,
+              516538368,
+              517439488,
+              522043392
+            ],
+            "rssAfterBytes": [
+              521388032,
+              518242304,
+              516538368,
+              517439488,
+              522043392
+            ],
+            "latestCollectionIndexAfter": [
+              69,
+              68,
+              68,
+              68,
+              67
+            ]
+          },
+          "Scene.OnLoad": {
+            "medianWallMs": 125.5367,
+            "wallMs": [
+              125.5367,
+              129.3083,
+              127.7065,
+              113.2105,
+              120.5793
+            ],
+            "medianPauseDeltaMs": 18.035,
+            "managedLiveBeforeBytes": [
+              206641064,
+              206804352,
+              204385880,
+              206574432,
+              204288744
+            ],
+            "managedLiveAfterBytes": [
+              170870480,
+              170928992,
+              170836448,
+              170895904,
+              170816432
+            ],
+            "rssBeforeBytes": [
+              425574400,
+              425803776,
+              426344448,
+              426213376,
+              426475520
+            ],
+            "rssAfterBytes": [
+              438042624,
+              437813248,
+              437895168,
+              437977088,
+              438091776
+            ],
+            "latestCollectionIndexAfter": [
+              40,
+              40,
+              39,
+              40,
+              39
+            ]
+          },
+          "RenderWindow.EndScene": {
+            "medianWallMs": 14.9879,
+            "wallMs": [
+              15.5292,
+              16.001,
+              14.3203,
+              14.9861,
+              14.9879
+            ],
+            "medianPauseDeltaMs": 0,
+            "managedLiveBeforeBytes": [
+              227635496,
+              224795976,
+              219387928,
+              225979840,
+              222499792
+            ],
+            "managedLiveAfterBytes": [
+              221015144,
+              225876808,
+              220477720,
+              227061632,
+              223580624
+            ],
+            "rssBeforeBytes": [
+              540852224,
+              537673728,
+              535937024,
+              536887296,
+              541442048
+            ],
+            "rssAfterBytes": [
+              521388032,
+              518242304,
+              516538368,
+              517439488,
+              522043392
+            ],
+            "latestCollectionIndexAfter": [
+              69,
+              68,
+              68,
+              68,
+              67
+            ]
+          }
+        },
+        "sceneWeakAvailableAfter": [
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "skip-both": {
+        "runCount": 5,
+        "metrics": {
+          "meanCompletedFrameFps": {
+            "median": 300.2890154278162,
+            "minimum": 298.02619679262654,
+            "maximum": 300.5911325615897
+          },
+          "frameIntervalP50Ms": {
+            "median": 3.1167,
+            "minimum": 3.1025,
+            "maximum": 3.1362
+          },
+          "frameIntervalP95Ms": {
+            "median": 5.416,
+            "minimum": 5.3951,
+            "maximum": 5.4411
+          },
+          "frameIntervalP99Ms": {
+            "median": 6.5105,
+            "minimum": 6.3847,
+            "maximum": 6.9331
+          },
+          "onePercentLowEstimateFps": {
+            "median": 153.5980339451655,
+            "minimum": 144.23562331424617,
+            "maximum": 156.62443027863486
+          },
+          "pointOnePercentLowEstimateFps": {
+            "median": 118.11953697141509,
+            "minimum": 111.61960040183057,
+            "maximum": 131.68810988055887
+          },
+          "allocatedBytes": {
+            "median": 182277344,
+            "minimum": 180988176,
+            "maximum": 182739896
+          },
+          "managedBytes": {
+            "median": 186727528,
+            "minimum": 186114704,
+            "maximum": 201034480
+          },
+          "workingSetBytes": {
+            "median": 552648704,
+            "minimum": 543653888,
+            "maximum": 555974656
+          },
+          "simulationHz": {
+            "median": 59.99634022324639,
+            "minimum": 59.908911495516634,
+            "maximum": 60.418223933905445
+          }
+        },
+        "p99PointOneMsDerivedFromEstimate": {
+          "median": 8.466
+        },
+        "gcCollections": [
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            22,
+            2,
+            0
+          ],
+          [
+            21,
+            2,
+            0
+          ]
+        ],
+        "transition": {
+          "SceneLoad": {
+            "medianWallMs": 0.0002,
+            "wallMs": [
+              0.0003,
+              0.0001,
+              0.0004,
+              0.0001,
+              0.0002
+            ],
+            "medianPauseDeltaMs": 0,
+            "managedLiveBeforeBytes": [
+              213079688,
+              213079952,
+              216679640,
+              213029072,
+              212827088
+            ],
+            "managedLiveAfterBytes": [
+              213079688,
+              213079952,
+              216679640,
+              213029072,
+              212827088
+            ],
+            "rssBeforeBytes": [
+              439402496,
+              440877056,
+              439566336,
+              438878208,
+              438616064
+            ],
+            "rssAfterBytes": [
+              439402496,
+              440877056,
+              439566336,
+              438878208,
+              438616064
+            ],
+            "latestCollectionIndexAfter": [
+              39,
+              39,
+              38,
+              39,
+              39
+            ]
+          },
+          "SceneEnd": {
+            "medianWallMs": 0.0002,
+            "wallMs": [
+              0.0002,
+              0.0002,
+              0.0001,
+              0.0001,
+              0.0006
+            ],
+            "medianPauseDeltaMs": 0,
+            "managedLiveBeforeBytes": [
+              187850784,
+              187589488,
+              202502104,
+              188196440,
+              187029800
+            ],
+            "managedLiveAfterBytes": [
+              187859008,
+              187597712,
+              202510328,
+              188204664,
+              187038024
+            ],
+            "rssBeforeBytes": [
+              536641536,
+              535216128,
+              524353536,
+              531431424,
+              532054016
+            ],
+            "rssAfterBytes": [
+              536641536,
+              535216128,
+              524353536,
+              531431424,
+              532054016
+            ],
+            "latestCollectionIndexAfter": [
+              69,
+              69,
+              68,
+              69,
+              69
+            ]
+          },
+          "Scene.OnLoad": {
+            "medianWallMs": 105.3455,
+            "wallMs": [
+              100.4466,
+              106.2653,
+              105.3455,
+              110.1437,
+              102.5453
+            ],
+            "medianPauseDeltaMs": 2.656,
+            "managedLiveBeforeBytes": [
+              206704648,
+              206704912,
+              204235024,
+              206655512,
+              206480784
+            ],
+            "managedLiveAfterBytes": [
+              213079688,
+              213079952,
+              216679640,
+              213029072,
+              212827088
+            ],
+            "rssBeforeBytes": [
+              427622400,
+              428998656,
+              427343872,
+              426835968,
+              426688512
+            ],
+            "rssAfterBytes": [
+              439402496,
+              440877056,
+              439566336,
+              438878208,
+              438616064
+            ],
+            "latestCollectionIndexAfter": [
+              39,
+              39,
+              38,
+              39,
+              39
+            ]
+          },
+          "RenderWindow.EndScene": {
+            "medianWallMs": 14.5035,
+            "wallMs": [
+              14.365,
+              14.7664,
+              14.1403,
+              14.5035,
+              16.167
+            ],
+            "medianPauseDeltaMs": 0,
+            "managedLiveBeforeBytes": [
+              186778176,
+              186509456,
+              201429232,
+              187130504,
+              193548872
+            ],
+            "managedLiveAfterBytes": [
+              187859008,
+              187597712,
+              202510328,
+              188204664,
+              187038024
+            ],
+            "rssBeforeBytes": [
+              556089344,
+              554680320,
+              543768576,
+              550862848,
+              552763392
+            ],
+            "rssAfterBytes": [
+              536641536,
+              535216128,
+              524353536,
+              531431424,
+              532054016
+            ],
+            "latestCollectionIndexAfter": [
+              69,
+              69,
+              68,
+              69,
+              69
+            ]
+          }
+        },
+        "sceneWeakAvailableAfter": [
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      }
+    }
+  },
+  "runs": [
+    {
+      "index": 0,
+      "kind": "seam",
+      "arm": "base",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/prime-render-attribution-visual-base/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/00-seam-base.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.994034083,
+      "logSha256": "7cd9c1afd30ab84dc1e429fa422dc766be3c70476e47b2dd0ef60ba823bc0f33",
+      "resultSha256": "9111580fbcb61abe2f9c09bce373acd98e91c2990f723d91b72ba60eca8d5d5a",
+      "valid": true,
+      "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 301.43051574466364,
+        "frameIntervalP95Ms": 5.4135,
+        "frameIntervalP99Ms": 6.7551,
+        "pointOnePercentLowEstimateFps": 120.20531067062542,
+        "simulationHz": 59.97116886057029,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6030,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "ccb1e4d5cbaadacb063653fc588503327456714db9a152032dcf44d03581f168",
+          "aggregateCpuPercent": 181.1,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 86.8,
+            "rssKiB": 231360,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "08185675bafff0d49b7c25e6b2fb844e41401375ace7ef47d791f7d596472852",
+          "aggregateCpuPercent": 149.20000000000002,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.3,
+            "rssKiB": 231360,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "a2279621706711fb7931e52e6bf54d1848354794d641f74e06292fc3cee45a73",
+        "vmAfterSha256": "3ad7e2991536cdb492b06dddba21bbd987c582d4c1a3cf52ac4b16dc61d7c060"
+      }
+    },
+    {
+      "index": 1,
+      "kind": "seam",
+      "arm": "candidate",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/01-seam-candidate.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.955597084000004,
+      "logSha256": "19b84bed28dcc1f5eaffe61412c51855d41359ab04f1fa1dc0f1ce5110d5caac",
+      "resultSha256": "cb481619e85eb09963e9445476629697434c1675a42cf00c36ea3e351435aa7c",
+      "valid": true,
+      "assemblyMvid": "89a21a74-8c1f-467f-bd3e-5f74b7a08698",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 297.2294525279461,
+        "frameIntervalP95Ms": 5.4125,
+        "frameIntervalP99Ms": 6.542,
+        "pointOnePercentLowEstimateFps": 114.96234983043054,
+        "simulationHz": 60.467344610543094,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 5945,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "fa7a876c19447e7c76a0113d8bf2b275519d398c3b42e3ef1ec1a4e50b1510fa",
+          "aggregateCpuPercent": 184.50000000000006,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.3,
+            "rssKiB": 231360,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "7b0f331245fd58be59d563372d2eca21e3e99581dd32b64baa610e73f8b99d15",
+          "aggregateCpuPercent": 144.3,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.1,
+            "rssKiB": 231360,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "8abba375167e56d60864f4727f637bea6b2238402a7b28918724e95cb526c4b6",
+        "vmAfterSha256": "26a8a605255dd122b271d78a8a649d2f0cd6520c3a91d1ed136c9d642e3aecd1"
+      }
+    },
+    {
+      "index": 2,
+      "kind": "seam",
+      "arm": "candidate",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/02-seam-candidate.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.931771499999996,
+      "logSha256": "a2cea19d01f6b80e989f88a4141827ed57b3648042adc94690467211d9403e80",
+      "resultSha256": "f94538b140dcd68426e7c4479aecbde2bb5468d37a2e400850fc3f625b7e6208",
+      "valid": true,
+      "assemblyMvid": "89a21a74-8c1f-467f-bd3e-5f74b7a08698",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 299.75984566987256,
+        "frameIntervalP95Ms": 5.4101,
+        "frameIntervalP99Ms": 6.9236,
+        "pointOnePercentLowEstimateFps": 114.98217776244684,
+        "simulationHz": 59.92211323721423,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 5996,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "69d8162c6eeab42fd8b5b149cf1db323006957b8f990767c8ec519cee717e7e2",
+          "aggregateCpuPercent": 192.59999999999994,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 79.4,
+            "rssKiB": 231360,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "cbf8a16fc0b70e006adc5a3913fcac6f00c95bc9198ce458e4449fa34192aca0",
+          "aggregateCpuPercent": 144.50000000000003,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.2,
+            "rssKiB": 238000,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "87f27889161642b12c2f34a16976295202e1377957205dc1228385c6980c5285",
+        "vmAfterSha256": "6ebf95a3feebb2bcee4b7a035ef5e8aef8e1f8cd94db8ef6f6d45e22529565ec"
+      }
+    },
+    {
+      "index": 3,
+      "kind": "seam",
+      "arm": "base",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/prime-render-attribution-visual-base/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/03-seam-base.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.95423683300001,
+      "logSha256": "a5e2d01766f5e6687575433c568b4ddf930cad8b1f9ce859e1d0f9e6ad1a77b5",
+      "resultSha256": "0bc3e7bdd02690578b3bb974bdc92b2d39e00603eb069e6553f4cca25313d3cc",
+      "valid": true,
+      "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 301.25088869012126,
+        "frameIntervalP95Ms": 5.3921,
+        "frameIntervalP99Ms": 6.6322,
+        "pointOnePercentLowEstimateFps": 111.24336711423581,
+        "simulationHz": 60.43346577585411,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6025,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "d1e036bdbe50ea4f06b900c8d9c60953c5b6d4b257492575431dbb1332c0daef",
+          "aggregateCpuPercent": 194.79999999999993,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 80.2,
+            "rssKiB": 238000,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "7ca6ebae4209450ea03043a16d3564ae12f185f2cdac681c6331ae8d5760f044",
+          "aggregateCpuPercent": 159.69999999999993,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 73.5,
+            "rssKiB": 238000,
+            "state": "S"
+          }
+        },
+        "vmBeforeSha256": "04ced0ee442e5740fa2274cecf278253f16c59a3dab9cd3fe5af530364043f56",
+        "vmAfterSha256": "0c85e879f400c8438cba4914f6e6202ee0c76ab4cad9866c1dd4be0eef3de10c"
+      }
+    },
+    {
+      "index": 4,
+      "kind": "seam",
+      "arm": "candidate",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/04-seam-candidate.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.942104958000016,
+      "logSha256": "92321459f745c8dfcc029ce97141da1611ad666444ff904e75dcca8b43078d38",
+      "resultSha256": "0588f13ae13a4a53c87513d59c6cd2173838d128c25ffe220b647bd84e9c2bd1",
+      "valid": true,
+      "assemblyMvid": "89a21a74-8c1f-467f-bd3e-5f74b7a08698",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 300.7614664409203,
+        "frameIntervalP95Ms": 5.4178,
+        "frameIntervalP99Ms": 6.715,
+        "pointOnePercentLowEstimateFps": 126.37432073802603,
+        "simulationHz": 60.39856664717275,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6016,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "5916c8b0cb448b60a54aa3503197a9acc1f9e1d9d03e524d059589f4f4ad7209",
+          "aggregateCpuPercent": 174.39999999999992,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.6,
+            "rssKiB": 238000,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "8f98c2c9c0687996392fd66dd8f50a232058607cf937538e08e3b574ef04950e",
+          "aggregateCpuPercent": 164.99999999999991,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 78.7,
+            "rssKiB": 238000,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "0dc5b605f27f1d59b1d5ec07015de39e42a36315c52d647fd2f06a1d6e413513",
+        "vmAfterSha256": "9619b08283046c9dff5f5ac201a4ec46dea5c250b6197fcb96936022c9d4f89b"
+      }
+    },
+    {
+      "index": 5,
+      "kind": "seam",
+      "arm": "base",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/prime-render-attribution-visual-base/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/05-seam-base.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.83348162499999,
+      "logSha256": "be0ecfdb2afaf907649327ce8e30082db50550579214ba0bdbbda7f517fb902e",
+      "resultSha256": "ca9993db9bbb2673986fc559da3e77d9b09cdbf868e8e9cd3940345741e83c47",
+      "valid": true,
+      "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 302.6037250518553,
+        "frameIntervalP95Ms": 5.3623,
+        "frameIntervalP99Ms": 6.4719,
+        "pointOnePercentLowEstimateFps": 124.78941785736569,
+        "simulationHz": 59.955797588228094,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6052,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "982377f54fbee7a9e305806c6ed35ce138ffff2f88f7c658a706c1c55572525f",
+          "aggregateCpuPercent": 164.99999999999991,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 78.7,
+            "rssKiB": 238000,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "f0c68c53f9236d610609e1badad7b99883ae77172f2029d36b94bd33c3bfa3c3",
+          "aggregateCpuPercent": 163.79999999999998,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 76.2,
+            "rssKiB": 238000,
+            "state": "S"
+          }
+        },
+        "vmBeforeSha256": "8e2bbf7ebfb0d9cf63a47c8e8cb47d81055f904bb25d4841ce7b38b27286a956",
+        "vmAfterSha256": "ea7660dd7ec85b6a0affea38114dd9df2b848b85edd5f14aaa919e23a49f9eba"
+      }
+    },
+    {
+      "index": 6,
+      "kind": "seam",
+      "arm": "base",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/prime-render-attribution-visual-base/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/06-seam-base.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.885856458000006,
+      "logSha256": "981aa774708469fa37cd2680bdee24875a17f2db1cc50a2b762fe7f924447be8",
+      "resultSha256": "882b56fdc48c813e21641a6ed69f548db9321324f43cb90a2f3801e4c8a2b3f7",
+      "valid": true,
+      "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 300.7471850063485,
+        "frameIntervalP95Ms": 5.3872,
+        "frameIntervalP99Ms": 6.4152,
+        "pointOnePercentLowEstimateFps": 123.81907556678182,
+        "simulationHz": 59.90397991060126,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6015,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "3a1c311ba5501edc97b2071f4dd687ca20d59d8b4155bb1749b1f845fac9316e",
+          "aggregateCpuPercent": 211.40000000000003,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 80.6,
+            "rssKiB": 238000,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "91e6ed4404581ccfa8afd9a52ac189f9d71256182e5dd12c72ed6f1084f136c5",
+          "aggregateCpuPercent": 172.0999999999999,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 76.3,
+            "rssKiB": 238384,
+            "state": "S"
+          }
+        },
+        "vmBeforeSha256": "cbe216f7901f986aad3a089c2c7336bc4b025ed62de436c3b2049542859ae900",
+        "vmAfterSha256": "16102454e794cf8e6aba6cccb435133ee07149f48dffc2957d26e278af845087"
+      }
+    },
+    {
+      "index": 7,
+      "kind": "seam",
+      "arm": "candidate",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/07-seam-candidate.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.90515083400001,
+      "logSha256": "df72275f08b18d27464e198d8bf9b92b65e4bfb37a4c4b49729d74acd1a4cfcc",
+      "resultSha256": "25a3ab837b9097b929a36918b7f6b0f16f1e578d83e8c67e739f9d7a112a1a11",
+      "valid": true,
+      "assemblyMvid": "89a21a74-8c1f-467f-bd3e-5f74b7a08698",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 302.1701274611997,
+        "frameIntervalP95Ms": 5.3322,
+        "frameIntervalP99Ms": 6.6232,
+        "pointOnePercentLowEstimateFps": 128.5396609123745,
+        "simulationHz": 59.90333398994044,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6044,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "2d5eb43a6172a33bb3e15ad0fec5769b73216a250d4a8b740ede5e0a4807d77e",
+          "aggregateCpuPercent": 172.0999999999999,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 76.3,
+            "rssKiB": 238384,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "5bdacb285d10823161d19d2287d856af721ecdf49e647c6a5661482ebd640103",
+          "aggregateCpuPercent": 160.60000000000002,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.5,
+            "rssKiB": 238368,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "c23b222b4853fbbf420ed6a7a42baa7f374aecdcbe609bebae42b51d339daeac",
+        "vmAfterSha256": "72e98482b8dc0e2f1d928e6eae22f8913097fe035a855d002ba5af92bd099e2e"
+      }
+    },
+    {
+      "index": 8,
+      "kind": "seam",
+      "arm": "base",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/prime-render-attribution-visual-base/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/08-seam-base.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.874947915999996,
+      "logSha256": "013776c7b4be1c4e4b93799a5b4306d933b306e19ed8634876421a6a9266c173",
+      "resultSha256": "1b3a2c0dff09e33136ab5c27796f1089df00f7fe27ee4b15e75c120dc9a072e7",
+      "valid": true,
+      "assemblyMvid": "eac1ac7c-0f5a-4b9e-8424-535afb915a3c",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 302.6039648588255,
+        "frameIntervalP95Ms": 5.3792,
+        "frameIntervalP99Ms": 6.5497,
+        "pointOnePercentLowEstimateFps": 106.52576858342033,
+        "simulationHz": 59.94694994664467,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6053,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "0c7f4806fe598d942e2ea4f369c0bbdd0927be910e740585e3087b50ac21c1ed",
+          "aggregateCpuPercent": 159.70000000000002,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.5,
+            "rssKiB": 238368,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "e94d8fbad46826be918df40fab1f30e317ab4d6d8b3bf0256b71cfaca0453375",
+          "aggregateCpuPercent": 153.4,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 72.8,
+            "rssKiB": 238352,
+            "state": "S"
+          }
+        },
+        "vmBeforeSha256": "ac968c7c718a2c10dc073eb3af1da4ea0e75e7827dcc8eaf705942eb4d0c44b2",
+        "vmAfterSha256": "5fcd92734ed4aed77119cac219ea61527dfe3b786357f0c203fae52da7e85823"
+      }
+    },
+    {
+      "index": 9,
+      "kind": "seam",
+      "arm": "candidate",
+      "policy": null,
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/09-seam-candidate.json"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.88539204099999,
+      "logSha256": "848ee276718c2773e226e95f0a88fdf86f755fd99be838a285aed4efcb607d5a",
+      "resultSha256": "384520186b9b88ea540b4262dffd2994c1108f186698f1583e9e5569f1b8b32b",
+      "valid": true,
+      "assemblyMvid": "89a21a74-8c1f-467f-bd3e-5f74b7a08698",
+      "cleanup": {
+        "ownedTexturesBefore": 763,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 888912,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1306728,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 74,
+        "glyphBytesBefore": 18944,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 302.52658141733195,
+        "frameIntervalP95Ms": 5.4352,
+        "frameIntervalP99Ms": 6.6199,
+        "pointOnePercentLowEstimateFps": 122.7732010656714,
+        "simulationHz": 59.98669794972965,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6051,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "feb1253b15cf0dcb8f0a12c5181697c741dbca41e02e551989bd7786dcd48c1a",
+          "aggregateCpuPercent": 198.39999999999998,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.7,
+            "rssKiB": 238352,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "3753d50f4c9a2151b8b422e644e7fe1fdc516f8547254a98c372f37260fcdb42",
+          "aggregateCpuPercent": 147.00000000000003,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 76.4,
+            "rssKiB": 238352,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "9fa7db54b5fe86b832982b5d38f64b50c904a5e8a47b9c2098300550fad1264f",
+        "vmAfterSha256": "5233eada5d2d6e751671f12814903489896bfa1ff3af3d3239f69b274236809e"
+      }
+    },
+    {
+      "index": 10,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "keep",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/10-gc-keep.json",
+        "-transition-gc",
+        "keep"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.935738500000014,
+      "logSha256": "8615834c35dfd01690364fed4aeced101db0bbec1ecff41d6098cdd45044fe8e",
+      "resultSha256": "b18023544af3d9e6a244f716774c02fc736e1b97bb08b10cfc919596a6603c73",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 301.93604239781973,
+        "frameIntervalP95Ms": 5.3942,
+        "frameIntervalP99Ms": 6.8911,
+        "pointOnePercentLowEstimateFps": 119.59290574883097,
+        "simulationHz": 59.95083731585916,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6040,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "0286156f7d869b8ece5c10bba8867988c53e958a2e629d820179c236c11d52eb",
+          "aggregateCpuPercent": 206.3,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 81.0,
+            "rssKiB": 238352,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "ba5f14f3843903117bdda7fd1ad5856646a9bd39729ba6cfd1b8cd14bc8a31eb",
+          "aggregateCpuPercent": 144.5,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 76.2,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "2da33fc6b6ff17012d9381a7c48735caf38b571d246e29ccd8f67248328bc9a8",
+        "vmAfterSha256": "3c1135266176fd3065d4234cedd202dadf4c431668cc77f8da528b27d46c0661"
+      }
+    },
+    {
+      "index": 11,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-load",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/11-gc-skip-load.json",
+        "-transition-gc",
+        "skip-load"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.926077041999974,
+      "logSha256": "a40865c8a00e2505d27b4500b35637b5b6bb53285c2764da420bc21c3b0ada86",
+      "resultSha256": "3c7aa0c686afd0ef3a6a35af070a85f5d5f97e6033591dc4ad1f4ebeda6b05ea",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 300.21955923779075,
+        "frameIntervalP95Ms": 5.4775,
+        "frameIntervalP99Ms": 6.8111,
+        "pointOnePercentLowEstimateFps": 118.72113592382853,
+        "simulationHz": 59.952820128200145,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6005,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "1e41fbd7c873ae17e67ca1028412dcca95fb527c38691a000443f64d907cece9",
+          "aggregateCpuPercent": 226.39999999999995,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 80.8,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "6081bf198fb4cf25bd199d934538e88be279ef94b87eeaadb8f2adf709391d89",
+          "aggregateCpuPercent": 234.2999999999999,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.8,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "69658c4ab0c590447fa1eea5397b68c6680f19c94042167a94a7514104aa7cfc",
+        "vmAfterSha256": "7b76b415c9167d7a1b629ef52e591306e50712e8d9dfea80888e936176fa5a3e"
+      }
+    },
+    {
+      "index": 12,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-end",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/12-gc-skip-end.json",
+        "-transition-gc",
+        "skip-end"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.88472008399998,
+      "logSha256": "d9cd164ab426e9902d1d0dadd21c07f5ba65e6e752d1d3399e615cd4729129bf",
+      "resultSha256": "17ef4527d39cc398cdf30ff1f620b950c8bff28a53670f0e5fe8ddeb1fcbacf1",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 302.62933495586276,
+        "frameIntervalP95Ms": 5.4177,
+        "frameIntervalP99Ms": 6.6348,
+        "pointOnePercentLowEstimateFps": 114.35367303997805,
+        "simulationHz": 59.9604381029397,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6053,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "9087fb10f509ee105a45cd418f17ddef9b54689cd662364bfa6687490e8f84a8",
+          "aggregateCpuPercent": 314.2,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 80.0,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "ae2b264477fb40ff212f6cfd66d2e705372d78fbbc66d155bcb3a179a51e6083",
+          "aggregateCpuPercent": 248.19999999999996,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 74.4,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "19d232ce25ee4738314fca3a99c612256f8c3eccf96e9d32d91fe06918a14aab",
+        "vmAfterSha256": "a4fa23012de394e4ca2042f3238a61a7628ce02ad0d6e1cd35e975b354e5f758"
+      }
+    },
+    {
+      "index": 13,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-both",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/13-gc-skip-both.json",
+        "-transition-gc",
+        "skip-both"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.890489082999977,
+      "logSha256": "9ae6023a52b4c8c2e30453841ba3dd956bf598a059c20c9489689f8d06b92bf4",
+      "resultSha256": "9cfce6ce3a3c2630b386b55c8cbf079f7f1d704bb74c9d2fdc3e85d45b0d5173",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 298.02619679262654,
+        "frameIntervalP95Ms": 5.3951,
+        "frameIntervalP99Ms": 6.7054,
+        "pointOnePercentLowEstimateFps": 111.61960040183057,
+        "simulationHz": 59.94412907449617,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 5962,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "86cc5517dcb5c5866393d7b171444cfd958206bbdf648195f1f599a553aeb574",
+          "aggregateCpuPercent": 287.79999999999995,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 78.9,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "fcadad189b44fe9afc5c0d32895130aa9e64c04bb149c2ca03b33328ff8d5d50",
+          "aggregateCpuPercent": 288.40000000000003,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 76.3,
+            "rssKiB": 238576,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "5ac49b7f5dde59a00a7589daa37719d8a9a490bb8479266edea05afeeabcf2ee",
+        "vmAfterSha256": "725b9ae07c77f2f0d736d23bc235830bc73c828410ac83100b05adcc53610660"
+      }
+    },
+    {
+      "index": 14,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-both",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/14-gc-skip-both.json",
+        "-transition-gc",
+        "skip-both"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.925835291,
+      "logSha256": "b670bba0ac8dc815502e8bface92fe98bc4b7bbbd36d6c5dce368873ec375c4d",
+      "resultSha256": "d6da05cdd1a8141fae774182783b8e6a167586d9dd1b90883279313e8b544049",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 299.6702127558513,
+        "frameIntervalP95Ms": 5.4411,
+        "frameIntervalP99Ms": 6.9331,
+        "pointOnePercentLowEstimateFps": 113.70225926389158,
+        "simulationHz": 59.908911495516634,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 5993,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "ce85796117525a3970d0af58c20ec219d14bfa08a01df7885131d7fccc84f263",
+          "aggregateCpuPercent": 288.40000000000003,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 76.3,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "009f88145814964c2a472afbd0f0c741faad749bce3974ca337ff31ea357f92c",
+          "aggregateCpuPercent": 195.20000000000005,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.0,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "5d2bc960cf22a2d96767bb74391b10277852fe2252ee592c78b04bdaf0b60d14",
+        "vmAfterSha256": "fb67012240e1e7158969303931cd447db4ba74ce6d6eacfad60a099ff2c0137e"
+      }
+    },
+    {
+      "index": 15,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-end",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/15-gc-skip-end.json",
+        "-transition-gc",
+        "skip-end"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.95315762499996,
+      "logSha256": "6f6446c0c03702c846b71ab8be2d4a3601e46df6986a114f809b487197cd9c21",
+      "resultSha256": "8edb2fe1a0e0a3010d1096d9679be68a8f3d27ff80c8239c1b1cb78894c589ca",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 301.78067192623865,
+        "frameIntervalP95Ms": 5.3816,
+        "frameIntervalP99Ms": 6.4605,
+        "pointOnePercentLowEstimateFps": 134.01771714220618,
+        "simulationHz": 59.92536296043276,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6037,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "86395e73d83d1880bd4627694c609a521894160c017247f06ed459f6b9552913",
+          "aggregateCpuPercent": 195.20000000000005,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.0,
+            "rssKiB": 238560,
+            "state": "S"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "a416505e009a7f5e7e45c31e558238b2326f18926f5346fef3de939c5359551e",
+          "aggregateCpuPercent": 162.3,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.1,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "87f7f2a4d9ed72bb5153e7dc9d8c432bf44d71ad746ee7486e652de0079754d9",
+        "vmAfterSha256": "e1a7cf595766034ceb4b337c151a3b01cfecd2adeb49ca0dce0d884c6d1aba11"
+      }
+    },
+    {
+      "index": 16,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-load",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/16-gc-skip-load.json",
+        "-transition-gc",
+        "skip-load"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.933746333000045,
+      "logSha256": "284862e249e2e0fccc30a7e72074bf28440816f1d58993cdde9eb8a3ae9ecb29",
+      "resultSha256": "fdf7d160624700760fa6312bbc016127e6052b8790094678c6a674ecb1e556d4",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 300.2751852586895,
+        "frameIntervalP95Ms": 5.425,
+        "frameIntervalP99Ms": 6.6918,
+        "pointOnePercentLowEstimateFps": 121.49930137901708,
+        "simulationHz": 59.902939267504856,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6006,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "982b68561a920c7b150d8919694cad573a5dc03c56ea3d0d0f0fa1da8f9105a4",
+          "aggregateCpuPercent": 209.49999999999997,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 80.3,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "e965b9c0fdde446c38cb71a09ad65ee7f128a3d985b1436bb7e86d36e129ff88",
+          "aggregateCpuPercent": 151.0,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 78.1,
+            "rssKiB": 238576,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "15e8189f7c4a571bf0311afc31ca9f0be370d0290343cf5e73260f8e84c493cf",
+        "vmAfterSha256": "5b7d8f626df68532d43ec91e887439d162f5787cdd896f77403c38f5fb7a3cae"
+      }
+    },
+    {
+      "index": 17,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "keep",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/17-gc-keep.json",
+        "-transition-gc",
+        "keep"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.943526208000037,
+      "logSha256": "0dbc6c8a20bc6f51a2c9a6f4a4e813ca819a0d86e30230d62fd21225f3b9eac9",
+      "resultSha256": "37961fc7bf5b53a17dca04c5eb9c3440dfab7d1c71beec0fcfe59558d4feca9a",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 302.5273210393782,
+        "frameIntervalP95Ms": 5.2692,
+        "frameIntervalP99Ms": 6.4382,
+        "pointOnePercentLowEstimateFps": 117.28004128257453,
+        "simulationHz": 59.92447418895597,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6051,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "4226c94616e1de8b279777bf35c02c38bcaa77107db6c9691c7c8da2eccefb42",
+          "aggregateCpuPercent": 210.09999999999994,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 80.1,
+            "rssKiB": 238576,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "1e328fec7ff0d6af5f98f459efea527a651f831e4a8c5e85e85ec96a53446fe2",
+          "aggregateCpuPercent": 147.9,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.4,
+            "rssKiB": 238624,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "c689f327a2e011724ffb550fe1d8203c9261f6215d84eab3b07d6f96e70b1429",
+        "vmAfterSha256": "36bf0f6a675b0c37a9c3395e9da52675936152c692410541e26181a6bc920468"
+      }
+    },
+    {
+      "index": 18,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-load",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/18-gc-skip-load.json",
+        "-transition-gc",
+        "skip-load"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.894858166000006,
+      "logSha256": "5049ae4bf6ef22dc64fd23b85f120091ba8e8925b5759eceb9130e45526335ab",
+      "resultSha256": "5f194f4046631741c2c589832d90e18be1a22a3c36227eeeebf33d1100182326",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 298.6700224898424,
+        "frameIntervalP95Ms": 5.3932,
+        "frameIntervalP99Ms": 6.6774,
+        "pointOnePercentLowEstimateFps": 117.95930404010618,
+        "simulationHz": 60.43611902219352,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 5974,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "5d0630d9d067a3d4ee07b9cf9d69d0cae2c9cdb92475f39c6faed7e4230b5535",
+          "aggregateCpuPercent": 185.29999999999998,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 81.6,
+            "rssKiB": 238624,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "5d56b9d7a3cbee51363efcda1942c2b888ac165df87559eb57ce468a8f7c52af",
+          "aggregateCpuPercent": 148.9,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 72.9,
+            "rssKiB": 238640,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "d6baea640d8c618eab94f153c59dfed2356ab7c8b79a22b04d709e7cb7dff975",
+        "vmAfterSha256": "96e59b54cca534e2b54b84588b315c085469c974d04d2cdb6fb4da1b92e4c0ec"
+      }
+    },
+    {
+      "index": 19,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "keep",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/19-gc-keep.json",
+        "-transition-gc",
+        "keep"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.884210417000077,
+      "logSha256": "9d681329faf37187e1bfd6c5c08b139654a2989f8f74716ee0fbb6c2e6a9dd2b",
+      "resultSha256": "4100cf6261c720652266962155c48c283c431e28cd6f5cffefdb0786402f8c45",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 303.9822383178142,
+        "frameIntervalP95Ms": 5.3021,
+        "frameIntervalP99Ms": 6.4312,
+        "pointOnePercentLowEstimateFps": 129.737023054269,
+        "simulationHz": 60.405399104462475,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6080,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "90049762974d101a36d33cc0b474370382dc96206d63b8155d69393f9b4732ac",
+          "aggregateCpuPercent": 216.79999999999993,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 78.6,
+            "rssKiB": 238640,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "6274eadbfe6de5a196cd387dfd9677be8a34ced779bf8842588d8e7358ccf06f",
+          "aggregateCpuPercent": 157.4,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.8,
+            "rssKiB": 238640,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "02e3e597ee3e0b4da29e743959f15578af6af3186c56e018079ac81d3d0dd6b4",
+        "vmAfterSha256": "33c0b9e2d3c316acc43294c477b2ae9749ea1c057855eb7a6a94eb62082a8206"
+      }
+    },
+    {
+      "index": 20,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-both",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/20-gc-skip-both.json",
+        "-transition-gc",
+        "skip-both"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.894950833000053,
+      "logSha256": "350aba1c030ea8066b43c91b5c035dee6e49d574492e09b1b5a84cfeaf0ee349",
+      "resultSha256": "2e0e6aaf18e574b1e6383977d50f24ec27c039b288f2b59231fe35975ca60f78",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 300.2890154278162,
+        "frameIntervalP95Ms": 5.4386,
+        "frameIntervalP99Ms": 6.3847,
+        "pointOnePercentLowEstimateFps": 118.11953697141509,
+        "simulationHz": 60.418223933905445,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6006,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "72ecc10086321a5ad1ceecaf811ee53cbff58c7e5d7037795d1c15b88e960615",
+          "aggregateCpuPercent": 186.6,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.8,
+            "rssKiB": 238640,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "fd14f0c4759befe2143a3cde19504955974bfab1b7f33847625143726384afd8",
+          "aggregateCpuPercent": 156.8,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.5,
+            "rssKiB": 238640,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "3269d63a040e07e9bd04d63818bf66cb013b87d535b8fee1e8a0f804d5edb2d8",
+        "vmAfterSha256": "15fa5c4c2c1d8ffed53fbce0229c6da0aea7cf5d2035d2d5434cf2672d0918a4"
+      }
+    },
+    {
+      "index": 21,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-end",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/21-gc-skip-end.json",
+        "-transition-gc",
+        "skip-end"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.93500025000003,
+      "logSha256": "1f34263eba06a9631c3e0170bd210bc215e6e8369d3761704c4e6302224a3015",
+      "resultSha256": "77a2f4ff1e3c36ff2ebf39c74ffbd87b1b88b0ab532ed26b2c667ae12429e86c",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 303.5082038267495,
+        "frameIntervalP95Ms": 5.3526,
+        "frameIntervalP99Ms": 6.5027,
+        "pointOnePercentLowEstimateFps": 124.86421017143857,
+        "simulationHz": 59.916760640280565,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6070,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "fa9286bd9a46dfbc490c1c873d3359702e091747ff31aa84b7480612c3bd91ab",
+          "aggregateCpuPercent": 156.4,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.5,
+            "rssKiB": 238640,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "3d49de5820fb4deba24f8564c61ff49a7e207a7c395803e4bb01dc0365c9614c",
+          "aggregateCpuPercent": 143.00000000000003,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.7,
+            "rssKiB": 238656,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "561904bf6e2ec688aa8dafc339355c547dc78cb6280ca6dd2c1d76e661981368",
+        "vmAfterSha256": "82a38fe9c9dd76d98d36535f390e61c3a19b5fcc5ef1a44f7cf83da61e22ff73"
+      }
+    },
+    {
+      "index": 22,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-end",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/22-gc-skip-end.json",
+        "-transition-gc",
+        "skip-end"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.86149408299991,
+      "logSha256": "687d681a04f0bf9edf93c4cc46faa60e7c690ecbb5fd84ca86ab09c60dd8e3ac",
+      "resultSha256": "1e7bbaedb125903e4b5a69621d33808dc20d59eee2290a12b6de07d9d84aebbb",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 302.04224657553124,
+        "frameIntervalP95Ms": 5.3297,
+        "frameIntervalP99Ms": 6.4789,
+        "pointOnePercentLowEstimateFps": 121.4565064250492,
+        "simulationHz": 59.923582451478744,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6041,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "22e64f4455743aeb3859c9816c3d8e736f6e57b127ad4bcb43359c3f56c77a21",
+          "aggregateCpuPercent": 173.6,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.7,
+            "rssKiB": 238656,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "f1701c55dc7fdbefe5f83ff07a8b6443ea1eaaaafd3a65e7ca86f7298baa1de9",
+          "aggregateCpuPercent": 143.2,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 71.2,
+            "rssKiB": 238624,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "4aa21747ee422cd8b4f3dbe019ea10d160f7594290ecec9ebdc86167e697693b",
+        "vmAfterSha256": "271336eaed75c9c536431b8065686e03c75f3a211764aabbda39a489a07cf6cd"
+      }
+    },
+    {
+      "index": 23,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-both",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/23-gc-skip-both.json",
+        "-transition-gc",
+        "skip-both"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.90501941699995,
+      "logSha256": "4730da69611d02a1d94f8b06448d5f0a1c9ee35c57a15626b63e1a57f8b907a4",
+      "resultSha256": "46d13a11084f3309e067cedad1f76982658f771cd2a176305beb6c51d3c38329",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 300.5911325615897,
+        "frameIntervalP95Ms": 5.3988,
+        "frameIntervalP99Ms": 6.4435,
+        "pointOnePercentLowEstimateFps": 121.991387408049,
+        "simulationHz": 59.99634022324639,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6012,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "f7dabf23ca3ea50fe29eed0a5a2ced64d83e77a83d875a71946c0510ebe08dae",
+          "aggregateCpuPercent": 193.49999999999991,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 78.6,
+            "rssKiB": 238624,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "ec6696e5a321b93755e37d26c7d181a4233c280e262841263d623cc7cb224224",
+          "aggregateCpuPercent": 142.99999999999997,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 75.0,
+            "rssKiB": 238624,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "43f1838a7e2135c965c923427785a71575b201c67972839233b28ba57d2c1ab4",
+        "vmAfterSha256": "e24b2a4f88877eca856cb4126f35b92c41ef56a1f043fa967128e5ae3195f2e1"
+      }
+    },
+    {
+      "index": 24,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "keep",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/24-gc-keep.json",
+        "-transition-gc",
+        "keep"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.943236333000073,
+      "logSha256": "8162d8e45a8f6263944a4ef9d6047e68cf7be341d93fd7167ac78422673ea098",
+      "resultSha256": "f6ef7d81968194e9f1beebd54e2eba4fabff4b97609039bc0f0d642348101339",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 301.5040236514334,
+        "frameIntervalP95Ms": 5.4155,
+        "frameIntervalP99Ms": 6.3971,
+        "pointOnePercentLowEstimateFps": 130.24394691256722,
+        "simulationHz": 60.44130846741271,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6031,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "2fb7fa62970442a3a6844bd826ab5e030b2f6ac1a8efec23e1372cf3ceafc1aa",
+          "aggregateCpuPercent": 189.0999999999999,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 80.5,
+            "rssKiB": 238624,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "0e846cbaafa53fead8c4ed19bce35232d569b4813df506af7c8857ec88848e39",
+          "aggregateCpuPercent": 215.89999999999998,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 73.5,
+            "rssKiB": 238624,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "921a68065fea20e8b11e159258228d33805849d0e07d6eda1dddf193c05f1488",
+        "vmAfterSha256": "c99739eb34fbe9dba61764a99d22b387c0851c52001d52fe230bfe983db01594"
+      }
+    },
+    {
+      "index": 25,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-load",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/25-gc-skip-load.json",
+        "-transition-gc",
+        "skip-load"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.913046332999897,
+      "logSha256": "2b2cb19b8c7e65029f7cb26a6f69f087a4ad291757261e01fe4683fb3a97388d",
+      "resultSha256": "9535125425dd2a09701b212ddd57d68b008a77dbf163db4eaa298b7399e82300",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 299.14577007881076,
+        "frameIntervalP95Ms": 5.5137,
+        "frameIntervalP99Ms": 6.6091,
+        "pointOnePercentLowEstimateFps": 119.6601651310279,
+        "simulationHz": 60.41230248110335,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 5983,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "e8206669b696c7308cc26ec15e4feaa9f3e0c49676f4f6c92fc1fa986ce8e123",
+          "aggregateCpuPercent": 306.2,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 78.6,
+            "rssKiB": 238624,
+            "state": "S"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "fa9bd0032e6681f7253b2ae5fac459fa9a736e4fd0b651154fd9c1c5bbe27fa2",
+          "aggregateCpuPercent": 144.79999999999998,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 73.4,
+            "rssKiB": 238576,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "df1856071cbf6e5285a9ada125c3271da0ca1af11a2aab2319796a230521680a",
+        "vmAfterSha256": "cbcad5fb6c906062ca32b2f8214b1fce07d45cc75cd7b9d32c4992229b911956"
+      }
+    },
+    {
+      "index": 26,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "keep",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/26-gc-keep.json",
+        "-transition-gc",
+        "keep"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.917763291999904,
+      "logSha256": "4f1e4a4b13dd96b93bd3cbe12eaa6ed39f2e7c150e8f2ff4f5b4a7aa04d45f56",
+      "resultSha256": "1d14215265607cb94714183c36aea9f4827fd04b8db493444e4d0ca38c1c538c",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 298.5812640256829,
+        "frameIntervalP95Ms": 5.4105,
+        "frameIntervalP99Ms": 6.484,
+        "pointOnePercentLowEstimateFps": 120.69131988027421,
+        "simulationHz": 59.95539917855109,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 5972,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "c9cf540dc092f4abf8e6832331c893df90a8e1ce1f75b6fc6583d000a97ec8ca",
+          "aggregateCpuPercent": 175.69999999999996,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.4,
+            "rssKiB": 238576,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "a50a04fa6aea43234d58acc2c28be7b34133a8ad24159ffe2487d9bb8a478c34",
+          "aggregateCpuPercent": 141.4,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 73.5,
+            "rssKiB": 238560,
+            "state": "S"
+          }
+        },
+        "vmBeforeSha256": "9512b97bd8913a7fd74dc22518f5875397ab818399068864cab847c7efc5ab9e",
+        "vmAfterSha256": "d5cc2978cad5cdb137406760b408fffd9c33f849dfd603fe20ceaa7ebbd2772e"
+      }
+    },
+    {
+      "index": 27,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-both",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/27-gc-skip-both.json",
+        "-transition-gc",
+        "skip-both"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.85553908399993,
+      "logSha256": "c1477cdb636831d230910b95e782b41b588493b3367fa0c2ea743acc9297b4c4",
+      "resultSha256": "dfff6af9d31868007c4b1a91fa9480274f9f5ac58406b1258a0578d2336e5d6d",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 300.38358368773,
+        "frameIntervalP95Ms": 5.416,
+        "frameIntervalP99Ms": 6.5105,
+        "pointOnePercentLowEstimateFps": 131.68810988055887,
+        "simulationHz": 60.40120175429052,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6009,
+        "gcCollections": [
+          21,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "36c6579fc984151251c5978231c71cff3470947e59d28adaa6d97ae715507c13",
+          "aggregateCpuPercent": 174.69999999999996,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 79.4,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "8221bcc55d8d70c3b9e6bf30d0a5e4d085a5114e853783b61c6fc28f275e8a37",
+          "aggregateCpuPercent": 143.49999999999997,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.0,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "08b4571a9ff7309f7224b2f7ef814be3c77d3d692808b8de871e48be9c01058f",
+        "vmAfterSha256": "2f6acae24e832b116ce03d4efbd6064ccd0166c5d1119d100078854d865d0784"
+      }
+    },
+    {
+      "index": 28,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-load",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/28-gc-skip-load.json",
+        "-transition-gc",
+        "skip-load"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.87640916700002,
+      "logSha256": "13cd56f5f7d3d17a950096e13126485c50e7942387df737f868b6791b7f94098",
+      "resultSha256": "4d37e618d5b9eb6f1fc1f44d8bc928610eb6e377985c5570738f80ce092617a7",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 303.06781571331055,
+        "frameIntervalP95Ms": 5.4206,
+        "frameIntervalP99Ms": 6.4809,
+        "pointOnePercentLowEstimateFps": 122.45447754797155,
+        "simulationHz": 59.96372794096851,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 6062,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "e2a339a36c6bbfca4de20ee6b743fef0712ead83ceca6268a31b2d5c5e758c75",
+          "aggregateCpuPercent": 199.59999999999994,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 79.2,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "5b0e3e19f6269622861a7d5e03fc0b480eff42b94a64ce20a0ad2891067dbd84",
+          "aggregateCpuPercent": 171.99999999999994,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 79.4,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "84900b2785783acca248f588e513cc6d4d984b84ca9ea925ebb09458c5e900c6",
+        "vmAfterSha256": "8353138a6f82b340022bc9d3c0a4ac36aa98b217298601b7630d8a22c8d13dfb"
+      }
+    },
+    {
+      "index": 29,
+      "kind": "gc",
+      "arm": "gc",
+      "policy": "skip-end",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/transition-gc-diagnostics/Prime Hunters Online/tools/native-render-check/bin/Release/net10.0/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "/Users/jarrett/.codex/worktrees/render-attribution/Prime Hunters Online/artifacts/render-attribution/ambient-controls/29-gc-skip-end.json",
+        "-transition-gc",
+        "skip-end"
+      ],
+      "exitCode": 0,
+      "processWallSeconds": 25.919193624999934,
+      "logSha256": "8d588f8155002af5673b1f8ef5b9cbff5ddb4b8ec2f58177954b71bc9b7065aa",
+      "resultSha256": "423ea22acd0cb6a84779d710d2989a24fecb47713e45ba6560c3dcb4a15d9c0e",
+      "valid": true,
+      "assemblyMvid": "2b6fb908-f038-47de-9b00-4694debc786c",
+      "cleanup": {
+        "ownedProgramsBefore": 4,
+        "recognizedProgramsAfter": 0,
+        "ownedTexturesBefore": 763,
+        "recognizedTexturesAfter": 0,
+        "ownedFramebuffersBefore": 2,
+        "recognizedFramebuffersAfter": 0,
+        "sceneWeakTargetAvailableAfter": true,
+        "scope": "GC diagnostic cleanup: only weak scene reference and numeric handles cross EndScene; no extra GC or finalizer drain. Ordinary ownership-field inspection is a separate check."
+      },
+      "rawMetrics": {
+        "meanCompletedFrameFps": 298.3928385718755,
+        "frameIntervalP95Ms": 5.5215,
+        "frameIntervalP99Ms": 6.8553,
+        "pointOnePercentLowEstimateFps": 111.15804450768103,
+        "simulationHz": 59.97987375336208,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "samples": 5968,
+        "gcCollections": [
+          22,
+          2,
+          0
+        ]
+      },
+      "ambient": {
+        "ambient-before.txt": {
+          "sha256": "87dc346c1e8cd528d199cb57102636d4baa06d3e006e91377a2589b431f08983",
+          "aggregateCpuPercent": 174.69999999999993,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 79.4,
+            "rssKiB": 238560,
+            "state": "R"
+          }
+        },
+        "ambient-after.txt": {
+          "sha256": "04688785dfa00573d77cc56b9b11a9b3620910e5fda515fa85b8ffba9a0df1cc",
+          "aggregateCpuPercent": 162.99999999999994,
+          "userApplication": {
+            "pid": 32937,
+            "comm": "/Applications/Pr",
+            "cpuPercent": 77.6,
+            "rssKiB": 238592,
+            "state": "R"
+          }
+        },
+        "vmBeforeSha256": "0a8743c9217598dc0e2b74031c792ba9c6be3f85171332558452dcb9c7fc730d",
+        "vmAfterSha256": "d501708dd95bd67f588abd4f005affa3b6b62c81e93303b4f18d3f97e549bbdf"
+      }
+    }
+  ],
+  "limits": "Medians of per-run percentiles are not pooled percentiles. User-owned game remains running; agent-idle conditional ambient data does not establish a global-quiet optimization result or GPU/native-allocation causality. Stage scopes exclude construction/AddRoom; latest GC snapshot can predate a skipped call. Weak last foreground owner is intentional and bounded; no production policy changes."
+}

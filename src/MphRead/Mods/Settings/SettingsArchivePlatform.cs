@@ -17,7 +17,15 @@ internal static class SettingsArchivePlatform
         string executable = Environment.ProcessPath ?? throw new InvalidOperationException("Cannot locate application executable.");
         var start = new ProcessStartInfo(executable) { UseShellExecute = false };
         if (Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
-            start.ArgumentList.Add(typeof(SettingsArchivePlatform).Assembly.Location);
+        {
+            // Resolve beside the loaded application, independently of any
+            // working-directory changes made since the original dotnet launch.
+            string application = Diagnostics.RuntimeApplicationImage.AssemblyPath(
+                typeof(SettingsArchivePlatform).Assembly);
+            if (!File.Exists(application))
+                throw new InvalidOperationException("Cannot locate application assembly for restart.");
+            start.ArgumentList.Add(application);
+        }
         start.ArgumentList.Add("-launcher");
         using var child = Process.Start(start) ?? throw new InvalidOperationException("Could not restart Project Prime.");
 #if MPHREAD_SHELL
