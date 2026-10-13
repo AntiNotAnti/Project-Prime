@@ -34,12 +34,14 @@ public static class NetBotCheck
             // Gameplay-derived input quality metrics. They are diagnostics,
             // not visual or skill proof, and are never used as game authority.
             int analogMovementSamples = 0, instantAxisReversals = 0, measuredTurns = 0;
+            int altFormSamples = 0, altAnalogSamples = 0, formTransitions = 0;
             double totalAimDegrees = 0;
             float largestAimStep = 0;
             var lastAxisX = new sbyte[PlayerEntity.SlotCapacity];
             var lastAxisY = new sbyte[PlayerEntity.SlotCapacity];
             var lastAim = new Vector3[PlayerEntity.SlotCapacity];
             var lastLife = new ushort[PlayerEntity.SlotCapacity];
+            var lastAltForm = new bool[PlayerEntity.SlotCapacity];
             var hasLast = new bool[PlayerEntity.SlotCapacity];
             NetBotInput.Sink = (slot, intent) =>
             {
@@ -49,10 +51,18 @@ public static class NetBotCheck
                 if (slot == bots) old = intent;
                 if (intent.AckFrame != 0 || intent.SlotGeneration != NetPlayerLifecycle.Generation(slot))
                     throw new InvalidOperationException("bot intent identity/rewind");
+                bool altForm = PlayerEntity.Players[slot].IsAltForm;
                 if (intent.HasAnalogMove && (intent.MoveX != 0 || intent.MoveY != 0))
                     analogMovementSamples++;
+                if (altForm)
+                {
+                    altFormSamples++;
+                    if (intent.HasAnalogMove && (intent.MoveX != 0 || intent.MoveY != 0))
+                        altAnalogSamples++;
+                }
                 if (hasLast[slot] && lastLife[slot] == intent.LifeId)
                 {
+                    if (lastAltForm[slot] != altForm) formTransitions++;
                     if (Math.Sign(intent.MoveX) * Math.Sign(lastAxisX[slot]) < 0
                         && Math.Abs((int)intent.MoveX) > 16 && Math.Abs((int)lastAxisX[slot]) > 16
                         || Math.Sign(intent.MoveY) * Math.Sign(lastAxisY[slot]) < 0
@@ -70,6 +80,7 @@ public static class NetBotCheck
                 }
                 hasLast[slot] = true;
                 lastLife[slot] = intent.LifeId;
+                lastAltForm[slot] = altForm;
                 lastAxisX[slot] = intent.MoveX;
                 lastAxisY[slot] = intent.MoveY;
                 lastAim[slot] = intent.Aim;
@@ -112,7 +123,9 @@ public static class NetBotCheck
             Console.WriteLine($"[botcheck] motor analogSamples={analogMovementSamples}"
                 + $" sameLifeDirectAxisReversals={instantAxisReversals}"
                 + $" aimSamples={measuredTurns} meanAimStep={(measuredTurns == 0 ? 0 : totalAimDegrees / measuredTurns):0.00}deg"
-                + $" peakAimStep={largestAimStep:0.00}deg");
+                + $" peakAimStep={largestAimStep:0.00}deg"
+                + $" altFormFrames={altFormSamples} altAnalogFrames={altAnalogSamples}"
+                + $" formTransitions={formTransitions}");
             typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, NetRole.Client);
             typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, false);
             typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, 0);
