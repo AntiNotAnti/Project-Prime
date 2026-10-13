@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "kind": "scene-bound-auxiliary-program-ownership",
+  "baselineSource": "0273aa86c44772e728e069ebcd95e04f9c0b2590",
+  "testedCandidateSource": "baselineSource plus owned Renderer.cs/ShaderOwnershipCheck.cs working changes identified below",
+  "sourceFiles": {
+    "src/MphRead/Renderer.cs": "908c4fbc6cc982ba73773182a9e8259e66bf36d7e9737922a6fbb75f5de318c2",
+    "tools/render-resource-check/ShaderOwnershipCheck.cs": "f3d9cb2364b098f1eef3af7cd2e9b3a29e5c31c74aad552ff204ebba6720e79c"
+  },
+  "files": {
+    "baselineClient": {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts/aux-ownership-crossbuild-negative/bin/ProjectPrime.dll",
+      "sha256": "cdcc1102db9a8e096211b0afe9e7b3d3119622446ab78927595420c22a5a301d"
+    },
+    "candidateClient": {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts/aux-ownership-candidate/build/bin/render-resource-check/release/ProjectPrime.dll",
+      "sha256": "3106e7c42d37e554eb8753692e83e2c793c0069270ab630ed041edf1795681f1"
+    },
+    "baselineHarness": {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts/aux-ownership-crossbuild-negative/bin/render-resource-check.dll",
+      "sha256": "1dad9b6f1ffb50e7f924d1e4fc3c2b1d10c4d7fbb5c9cd9a1c07070a89d9759b"
+    },
+    "candidateHarness": {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts/aux-ownership-candidate/build/bin/render-resource-check/release/render-resource-check.dll",
+      "sha256": "1dad9b6f1ffb50e7f924d1e4fc3c2b1d10c4d7fbb5c9cd9a1c07070a89d9759b"
+    },
+    "initialNegativeLog": {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts/aux-ownership-negative/native.log",
+      "sha256": "d6d59b2a24a90d2d1e5c41cc9ca6a70e08162861acf59b0662f19b838eb18488"
+    },
+    "detailedNegativeLog": {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts/aux-ownership-negative-detailed/native.log",
+      "sha256": "788e0e45ce6673d4f0b13755127dfe56a00733c876f2362fc843dfe8f0d29c04"
+    },
+    "crossBuildNegativeLog": {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts/aux-ownership-crossbuild-negative/native.log",
+      "sha256": "ef5f7992afdc05f6ad2924a590b4c1a0ecabfd4c1e7f7bc1173d040a8643e5ba"
+    },
+    "candidate120Log": {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts/aux-ownership-candidate/native-120.log",
+      "sha256": "d5f6d488e65ca6a028a9be2dd0b6371ed44cf5c00e498e176c29a942f7b2ef27"
+    },
+    "candidateBuildLog": {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts-aux-candidate-final-build.log",
+      "sha256": "a012bba8078e9a5ab9b128aaf255d544e6ebcb7e03bb7b8c0ae5a37c5f3b312d"
+    },
+    "serverBuildLog": {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts-aux-server-corrected-build.log",
+      "sha256": "5940f4ca76a49f5e6aeab813fce30235d4feb910e3abd1fef65d42de37d9db74"
+    },
+    "invalidServerProjectAttempt": {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts-aux-server-build.log",
+      "sha256": "6d8433d0dd2cc4f1e85f3a6faa01352b6735685e354758c0232626477c6dc5f4"
+    }
+  },
+  "sameHarnessAcrossBuilds": true,
+  "environment": {
+    "PROJECT_PRIME_GL_SHADER_VARIANTS": "1",
+    "PROJECT_PRIME_GL_PLAIN_SHADER": "1",
+    "PROJECT_PRIME_GL_UNLIT_SHADER": "1",
+    "PROJECT_PRIME_USER_DATA": "fresh isolated artifacts/<arm>/user-data for each arm"
+  },
+  "baselineExpectedExit": 1,
+  "candidateExit": 0,
+  "baselineWitness": [
+    "SHADEROWNERSHIP AUX field=_graphicsProgram cycle=0 recognized=True independentBinding=True released=False fieldAfter=0 recognizedAfter=True currentAfter=10 deletePending=1 glClean=True",
+    "SHADEROWNERSHIP AUX field=_playerOutlineProgram cycle=0 recognized=True independentBinding=True released=False fieldAfter=0 recognizedAfter=True currentAfter=10 deletePending=1 glClean=True"
+  ],
+  "candidate": {
+    "failureScenarios": 1680,
+    "auxiliaryPairs": 240,
+    "canonicalPairs": 120,
+    "exactRecoveryFrames": 120,
+    "colorSha256": "085C37F72243AED3A5DF919D8FBC382D3F826D9F40C1019D06C3B3CAB27FC16F",
+    "depthSha256": "6A87A00CE12CE45AB9EF0C5DDC66F51D1AE76EB7E42201E5E07869109E889E46",
+    "crossBuildReferenceHashesEqual": true,
+    "allAuxiliaryNamesRecognizedBeforeAndRetiredAfter": true,
+    "allIndependentBindingsPreserved": true,
+    "zeroGlErrors": true,
+    "celAndOffLowHighUltraShadowLifecycle": "PASS"
+  },
+  "builds": {
+    "desktop": "PASS;30 existing warnings; final incremental0warnings/errors",
+    "server": "PASS;22 existing warnings,0errors",
+    "invalidServerProjectAttempt": "Harness command used nonexistent separate server csproj; preserved MSB1009, corrected to MphRead.csproj -p:MphReadServer=true; no source repair"
+  },
+  "limitations": [
+    "Actual Apple M4 Pro compatibility GL; readbacks/compile loops are not FPS evidence.",
+    "Exact synthetic non-vacuous editor color/depth parity, not new full-game/physicalAndroid acceptance.",
+    "Normal frozen-edcf workload AGX population remained after Dispose/Poll/Terminate; this separately proven bound-auxiliary owner bug is not its demonstrated cause.",
+    "Malloc origin and survival do not establish retaining roots, driver cache classification or long-session boundedness.",
+    "No cache, GC policy, simulation, protocol or render-optimization changes."
+  ],
+  "commands": [
+    {
+      "arm": "baseline-negative",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts/aux-ownership-crossbuild-negative/bin/render-resource-check.dll",
+        "-shadercycles",
+        "1"
+      ],
+      "userData": "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts/aux-ownership-crossbuild-negative/user-data"
+    },
+    {
+      "arm": "candidate",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts/aux-ownership-candidate/build/bin/render-resource-check/release/render-resource-check.dll",
+        "-shadercycles",
+        "120"
+      ],
+      "userData": "/Users/jarrett/.codex/worktrees/consolidation-shader/Prime Hunters Online/artifacts/aux-ownership-candidate/user-data"
+    }
+  ],
+  "nativeContextHeader": "RENDERRESOURCES mvid=1edb3e01-536c-49dc-aae6-a40241174ae0 vendor=Apple renderer=Apple M4 Pro gl=2.1 Metal - 91.7"
+}

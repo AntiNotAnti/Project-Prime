@@ -136,3 +136,53 @@ The Linux CI step explicitly enables the three shader policies, isolates user da
 under the runner temporary directory, and executes this same resource harness in
 a 640x480 Xvfb display after installing software OpenGL. Remote CI results have
 not yet been observed.
+
+## Bound auxiliary program follow-up (October 13, 2026)
+
+The scene-wide release guard recognizes canonical and variant programs, but
+`UnloadGl` disposes graphics-compositor and player-outline programs first. An
+explicitly current auxiliary program was deleted and its field zeroed before the
+guard could recognize that name. A real GL negative control against production
+source `0273aa86c44772e728e069ebcd95e04f9c0b2590` reproduced both cases: the owner
+field was zero, `glIsProgram` remained true, the program was still current, and
+`GL_DELETE_STATUS` was 1. GL errors were absent. Unloading another owner preserved
+the current auxiliary binding, as required. These were two additional expected
+negative-control failures; the original 14 failure scenarios still passed.
+
+The existing `DeleteProgram(ref)` helper now unbinds only when the actual current
+program equals the owned name being deleted. This closes both auxiliary release
+paths before the field is zeroed and also preserves an independent owner's
+binding. Repeated teardown remains harmless. Shader creation, successful drawing,
+uniform state, settings and defaults are unchanged.
+
+The corrected actual desktop GL run passed 120 repetitions: 1,680 injected
+compile/link/initialization failure scenarios, 120 canonical owner pairs, and
+240 auxiliary owner pairs using the real lazy allocators. Every auxiliary name
+was recognized before teardown and immediately unrecognized afterward, with
+current program 0, delete-pending 0, and no GL errors. Other-owner bindings and
+idempotent unload passed. Existing cel and Off/Low/High/Ultra shadow lifecycle
+checks also passed.
+
+The same immutable final harness was run with the original and corrected client
+DLLs. The non-vacuous synthetic reference color and depth hashes matched across
+builds; all 120 candidate recovery frames exactly matched that reference:
+
+- RGB: `085C37F72243AED3A5DF919D8FBC382D3F826D9F40C1019D06C3B3CAB27FC16F`.
+- Depth: `6A87A00CE12CE45AB9EF0C5DDC66F51D1AE76EB7E42201E5E07869109E889E46`.
+
+Desktop and dedicated-server Release builds passed (30 and 22 existing warnings
+respectively, zero errors; final desktop incremental build zero warnings/errors).
+The OpenGL/GLES source/package guard and whitespace check passed. One command
+used a nonexistent separate server project; its MSB1009 log is preserved, and the
+correct `MphRead.csproj -p:MphReadServer=true` build passed without source repair.
+Exact commands, source-file, binary and log hashes, all negative controls, and
+scope limits are in [auxiliary-shader-ownership-receipt.json](auxiliary-shader-ownership-receipt.json).
+
+This is a proven owner-lifetime correction, not an attribution of the independent
+AGX compiler-string population. Frozen `edcf0f1b` normal-workload controls retired
+all observed owned program names, yet direct AGX malloc-origin groups persisted
+unchanged through context disposal, GLFW event polling and final termination.
+Those stacks establish allocation origin and lifecycle persistence, not retaining
+roots, cache classification or long-session boundedness. No driver cache or GC
+policy change is justified by this follow-up. New full-game visual acceptance,
+physical Android lifecycle and driver boundedness remain separate gates.

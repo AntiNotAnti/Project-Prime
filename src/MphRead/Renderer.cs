@@ -5521,6 +5521,11 @@ namespace MphRead
         {
             if (program != 0)
             {
+                // Deletion is deferred while current. Auxiliary scene programs
+                // use this helper before the canonical ownership guard runs.
+                // Preserve an independent owner's current binding.
+                if (GL.GetInteger(GetPName.CurrentProgram) == program)
+                    GL.UseProgram(0);
                 GL.DeleteProgram(program);
                 program = 0;
             }

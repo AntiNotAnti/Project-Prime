@@ -137,7 +137,36 @@ internal static class ShaderOwnershipCheck
             if (GL.IsProgram(ownerProgram) || GL.GetInteger(GetPName.CurrentProgram) != 0 || GL.GetError() != ErrorCode.NoError)
             { failures++; Console.WriteLine($"SHADEROWNERSHIP FAIL bound program release cycle={cycle}"); }
         }
-        Console.WriteLine($"SHADEROWNERSHIP recoveryFrames={cycles} colorSha256={Convert.ToHexString(SHA256.HashData(expected.Color))}");
+        // Auxiliary programs have independent release paths and may be current
+        // when public teardown is called. Exercise the real lazy allocators.
+        foreach (string field in new[] { "_graphicsProgram", "_playerOutlineProgram" })
+        for (int cycle = 0; cycle < cycles; cycle++)
+        {
+            Scene owner = Scene.CreateEditorRenderer(new Vector2i(32, 32));
+            MethodInfo allocate = typeof(Scene).GetMethod(field == "_graphicsProgram"
+                ? "EnsureGraphicsPipeline" : "EnsurePlayerOutlineTarget", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            allocate.Invoke(owner, field == "_graphicsProgram" ? new object[] { new Vector2i(32, 32) } : null);
+            int program = Field(owner, field);
+            Scene other = Scene.CreateEditorRenderer(new Vector2i(32, 32));
+            GL.UseProgram(program);
+            bool recognized = program != 0 && GL.IsProgram(program);
+            other.UnloadGl();
+            bool independent = GL.GetInteger(GetPName.CurrentProgram) == program && GL.IsProgram(program);
+            owner.UnloadGl(); owner.UnloadGl();
+            int fieldAfter = Field(owner, field), currentAfter = GL.GetInteger(GetPName.CurrentProgram);
+            bool recognizedAfter = GL.IsProgram(program);
+            int deletePending = 0;
+            if (recognizedAfter) GL.GetProgram(program, GetProgramParameterName.DeleteStatus, out deletePending);
+            bool released = fieldAfter == 0 && !recognizedAfter && currentAfter == 0;
+            bool clean = GL.GetError() == ErrorCode.NoError;
+            Console.WriteLine($"SHADEROWNERSHIP AUX field={field} cycle={cycle} recognized={recognized} independentBinding={independent} released={released} fieldAfter={fieldAfter} recognizedAfter={recognizedAfter} currentAfter={currentAfter} deletePending={deletePending} glClean={clean}");
+            if (!recognized || !independent || !released || !clean) failures++;
+            // Bound the negative control without masking the failed witness.
+            GL.UseProgram(0);
+            if (GL.IsProgram(program)) GL.DeleteProgram(program);
+            while (GL.GetError() != ErrorCode.NoError) { }
+        }
+        Console.WriteLine($"SHADEROWNERSHIP recoveryFrames={cycles} colorSha256={Convert.ToHexString(SHA256.HashData(expected.Color))} depthSha256={Convert.ToHexString(SHA256.HashData(System.Runtime.InteropServices.MemoryMarshal.AsBytes(expected.Depth.AsSpan())))}");
         Console.WriteLine($"SHADEROWNERSHIP cycles={cycles} scenarios={stages.Length * cycles} failures={failures}");
         return failures;
     }
