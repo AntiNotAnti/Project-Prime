@@ -269,6 +269,7 @@
        game API. -->
   <ItemGroup>
     <InternalsVisibleTo Include="nettest" />
+    <InternalsVisibleTo Include="replay-export-queue-check" />
     <InternalsVisibleTo Include="audio-check" />
     <InternalsVisibleTo Include="settings-archive-check" />
     <InternalsVisibleTo Include="fidelity-oracle" />
