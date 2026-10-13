@@ -17,7 +17,7 @@ using OpenTK.Mathematics;
 static class AudioRetentionProbe
 {
     internal sealed record Observation(int Cycle, int Load, string Kind, int Item, long? Bytes, WeakReference Reference);
-    private const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
+    private const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance;
 
     internal static int SelfTest()
     {
@@ -96,6 +96,8 @@ static class AudioRetentionProbe
             for (int item = 0; item < samples.Count; item++)
             {
                 SoundSample sample = samples[item];
+                Observe("sound-sample", sample, item);
+                Observe("sample-encoded-data", sample.Data, item);
                 if (sample.WaveData.IsValueCreated) Observe("sample-payload", sample.WaveData.Value, item);
             }
         }
@@ -104,6 +106,9 @@ static class AudioRetentionProbe
             for (int item = 0; item < soundData.Streams.Count; item++)
             {
                 SoundStream stream = soundData.Streams[item];
+                Observe("sound-stream", stream, item);
+                for (int channel = 0; channel < stream.Channels.Count; channel++)
+                    Observe("stream-channel", stream.Channels[channel], item * 4 + channel);
                 if (stream.BufferData.IsValueCreated) Observe("stream-payload", stream.BufferData.Value, item);
             }
         }
