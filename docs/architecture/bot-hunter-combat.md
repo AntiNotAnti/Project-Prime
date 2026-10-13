@@ -35,7 +35,11 @@ human would use.
   use its native close-range lunge when safe.
 
 Bots commit to alt combat for finite windows, then attempt to return to
-biped combat. Morph attempts have cooldowns. The policy only manages forms it
+biped combat. Morph attempts have cooldowns. An unmorph request may fail
+because the taller biped cannot occupy the space above a Morph Ball; the
+combat controller now **retains form ownership** until the exit actually
+completes and retries at a limited cadence, instead of forgetting the bot
+in an indefinite alt state. Loss of sight never blocks a safe unmorph. The policy only manages forms it
 deliberately entered; native alt forms needed for map navigation remain the
 responsibility of the original MPH navigation tree. Objective carrying and
 special game modes retain their existing native behavior.

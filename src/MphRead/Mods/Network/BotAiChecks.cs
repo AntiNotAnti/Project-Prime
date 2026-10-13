@@ -378,6 +378,12 @@ public static class BotAiChecks
                 == BotHunterAltAction.None,
             "Noxus native spin initiation requires a real visible frozen opponent");
 
+        Check(BotHunterCombatPolicy.ShouldExitAlt(Hunter.Weavel, 110,
+                targetVisible: false, distance: float.PositiveInfinity)
+            && BotHunterCombatPolicy.ShouldExitAlt(Hunter.Noxus, 41,
+                targetVisible: false, distance: float.PositiveInfinity),
+            "hunter alt combat eventually exits after lost sight or long commitment");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }

@@ -15,6 +15,7 @@ public partial class PlayerEntity
         private int _hunterAbilityCooldownTicks;
         private int _hunterBoostChargeTicks;
         private int _hunterSpinTicks;
+        private int _hunterUnmorphRetryTicks;
 
         private void ResetCompetitiveHunterCombat()
         {
@@ -25,6 +26,7 @@ public partial class PlayerEntity
             _hunterAbilityCooldownTicks = 0;
             _hunterBoostChargeTicks = 0;
             _hunterSpinTicks = 0;
+            _hunterUnmorphRetryTicks = 0;
         }
 
         /// <summary>
@@ -45,8 +47,10 @@ public partial class PlayerEntity
 
             if (_hunterMorphCooldownTicks > 0) _hunterMorphCooldownTicks--;
             if (_hunterAbilityCooldownTicks > 0) _hunterAbilityCooldownTicks--;
+            if (_hunterUnmorphRetryTicks > 0) _hunterUnmorphRetryTicks--;
 
             bool inAlt = _player.IsAltForm;
+            if (inAlt) _hunterMorphPendingTicks = 0;
             if (!inAlt && _hunterOwnsAltForm && !_player.IsMorphing && !_player.IsUnmorphing)
             {
                 if (_hunterMorphPendingTicks > 0)
@@ -58,14 +62,6 @@ public partial class PlayerEntity
                 }
             }
             if (_player.IsMorphing || _player.IsUnmorphing) return;
-            // Abilities share the visual acquisition policy with gunfire.
-            // They must not bypass reaction time just because they are alt-form.
-            if (_botSuppressFireThisTick)
-            {
-                _hunterBoostChargeTicks = 0;
-                _hunterSpinTicks = 0;
-                return;
-            }
 
             // Never commandeer a native objective/health route, or make a flag
             // carrier enter a form in which it cannot retain the flag.
@@ -107,8 +103,10 @@ public partial class PlayerEntity
                     TryHunterUnmorph();
                     return;
                 }
-                if (!visible || target == null)
+                if (_botSuppressFireThisTick || !visible || target == null)
                 {
+                    // Lost sight must cancel offensive intent, but cannot
+                    // prevent a safe escape/unmorph attempt on later ticks.
                     _hunterSpinTicks = 0;
                     _hunterBoostChargeTicks = 0;
                     return;
@@ -120,7 +118,8 @@ public partial class PlayerEntity
                 return;
             }
 
-            if (!visible || target == null || _hunterMorphCooldownTicks > 0
+            if (_botSuppressFireThisTick || !visible || target == null
+                || _hunterMorphCooldownTicks > 0
                 || !_player.Flags1.TestFlag(PlayerFlags1.Grounded)
                 || !_player._abilities.TestFlag(AbilityFlags.AltForm))
             {
@@ -143,6 +142,7 @@ public partial class PlayerEntity
                 // Cooldown starts upon entering, and is extended upon exit.
                 _hunterMorphCooldownTicks = 120;
                 _hunterAbilityCooldownTicks = 0;
+                _hunterUnmorphRetryTicks = 0;
                 return;
             }
 
@@ -176,13 +176,17 @@ public partial class PlayerEntity
         private void TryHunterUnmorph()
         {
             if (!_hunterOwnsAltForm || !_player.IsAltForm || _player.IsUnmorphing
-                || _player.Flags1.TestFlag(PlayerFlags1.NoUnmorph))
+                || _hunterUnmorphRetryTicks > 0
+                || _player.Flags1.TestFlag(PlayerFlags1.NoUnmorph)
+                || _player.MorphCamera != null)
             {
                 return;
             }
+            // The native request can fail due to biped collision clearance,
+            // even without the NoUnmorph flag. Keep ownership until the bot
+            // actually completes the form switch; retry on a bounded timer.
             _touchButtons.Unmorph.IsDown = true;
-            _hunterOwnsAltForm = false;
-            _hunterMorphPendingTicks = 0;
+            _hunterUnmorphRetryTicks = 12;
             _hunterMorphCooldownTicks = Math.Max(_hunterMorphCooldownTicks, 180);
             _hunterSpinTicks = 0;
             _hunterBoostChargeTicks = 0;
