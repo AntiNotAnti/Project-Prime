@@ -17,7 +17,9 @@
     "movementHunters": 7,
     "movementFramesPerHunter": 603,
     "replayFormAssertions": 43,
-    "replayFormatAssertions": 3034
+    "replayFormatAssertions": 3034,
+    "allSelectableMultiplayerReplayModes": "PASS",
+    "gameplayPresentationHashesPerMode": 1801
   },
   "physicalRenderedAcceptance": "NOT_RUN"
 }
