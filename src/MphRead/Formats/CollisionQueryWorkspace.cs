@@ -13,7 +13,10 @@ namespace MphRead.Formats
     public sealed class CollisionQueryWorkspace : IReadOnlyList<CollisionCandidate>, IDisposable
     {
         private const int MaxRetainedWorkspaces = 8;
-        private const int MaxRetainedCandidates = 2048;
+        // The supported 4,225-cell room fixture needs the next geometric capacity,
+        // 8,192. Retain that high-water scratch instead of allocating it each query.
+        // Eight cached workspaces still bound each lane to 65,536 candidate objects.
+        private const int MaxRetainedCandidates = 8192;
         private const int MaxRetainedFaces = 16384;
         [ThreadStatic] private static Stack<CollisionQueryWorkspace>? _available;
         private bool _borrowed;
@@ -77,7 +80,8 @@ namespace MphRead.Formats
             SeenFaces.Clear();
             _borrowed = false;
             // Bound both retained object counts and high-water collection capacity.
-            if (retain && _inactiveItems.Count <= MaxRetainedCandidates && _available!.Count < MaxRetainedWorkspaces)
+            if (retain && _inactiveItems.Count <= MaxRetainedCandidates
+                && _inactiveItems.EnsureCapacity(0) <= MaxRetainedCandidates && _available!.Count < MaxRetainedWorkspaces)
                 _available.Push(this);
         }
     }
