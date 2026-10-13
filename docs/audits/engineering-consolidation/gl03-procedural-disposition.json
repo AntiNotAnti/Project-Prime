@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "task": "GL-03",
+  "disposition": "NOT_ELIGIBLE",
+  "scope": "measured eligibility disposition; no new rendering optimization",
+  "sourceCommit": "a51d947504ed9102b7750d50c52b2f40221989a6",
+  "sourceLog": {
+    "name": "gl01-eight-high-corrected.log",
+    "sha256": "cbfa659b964f7608b291aab05deed5d9320159fb78e4897325883740ce0ecaf2"
+  },
+  "validatedReview": {
+    "name": "gl01-four-window-attribution.json",
+    "sha256": "2e96008d215ad459a1a1d91c3da6ee6c16ca7c065a1e1dadb14c5bc2f8e7193a"
+  },
+  "client": {
+    "assemblyMvid": "1834d49d-afb6-4f38-8ab8-68ae8de302c5",
+    "sha256": "290e6a6f2719a39017e5e7443c0a00a16b15061bc50ff0effb6abb01fc1417b2"
+  },
+  "fixture": {
+    "renderer": "Apple M4 Pro",
+    "glVersion": "2.1 Metal - 91.7",
+    "room": "MP3 PROVING GROUND",
+    "playerCount": 8,
+    "width": 1920,
+    "height": 1080,
+    "shadows": "High",
+    "renderScale": 100,
+    "cap": -1,
+    "vsync": "Off",
+    "proceduralBatch": true,
+    "proceduralStream": false
+  },
+  "windowSelection": {
+    "method": "draw_attribution.measured_stdout; exclude pre-simulation-marker windows, then four completed post-marker windows",
+    "postMarkerWarmupWindows": 4,
+    "retainedWindows": 34,
+    "samplesPerWindow": 240,
+    "retainedPresentedFrames": 8160
+  },
+  "countWeighting": "For every retained complete window, recover integer counter sums as round(average-per-frame * 240), then sum. All selected windows have 240 samples. Median window averages are reported separately; medians are not pooled percentiles.",
+  "totalProceduralItemSubmissions": 2548029,
+  "totalAlreadyReusedMaterialPreparations": 276014,
+  "totalAlreadyReusedObjectPreparations": 5510,
+  "strictAdjacentMergeUpperBound": {
+    "itemPairs": 5510,
+    "proceduralItemSubmissions": 2548029,
+    "percentage": 0.2162455764828422,
+    "meaning": "Necessary identical object/shared-state pairs only; topology, stencil and pass barriers further restrict this set. Frequency bound is not a CPU/GPU time or native-driver draw-call savings bound."
+  },
+  "medianWindowAverageCounters": {
+    "ProceduralItems": 306.55,
+    "ProceduralMaterialReuses": 29.30625,
+    "ProceduralObjectReuses": 0,
+    "ImmediateDraws": 411.9625,
+    "BufferUploads": 0,
+    "BufferOrphans": 0,
+    "UploadBytes": 0
+  },
+  "objectReuseWindowAverageRange": {
+    "minimum": 0,
+    "maximum": 6.379166666666666
+  },
+  "medianWindowParticleGeometryP95Ms": 0.4902015,
+  "barriers": [
+    "MarkTranslucent/TranslucentBehind/TranslucentFront set each item stencil reference",
+    "QuadStrip concatenation can connect otherwise independent trails",
+    "Primitive topology, pose, palette, billboard/viewmodel, diffuse, lights and exact material/raster state must stay compatible",
+    "Native per-item/pass order and inherited final attributes must be preserved"
+  ],
+  "historicalStream": {
+    "source": "docs/performance/opengl-procedural-stream-pilot.json",
+    "sourceSha256": "bbbdc36ddf97fd327bd56187c4ddea61212524961bfaa63e15b59bc5f104467f",
+    "observation": "About 422 -> 407 FPS unprofiled; world CPU p99 1.465375 -> 1.547604 ms profiled",
+    "action": "Existing unchanged experiment was not repeated; stays opt-in"
+  },
+  "gpuExecution": "UNVERIFIED",
+  "otherDeviceAcceptance": "UNVERIFIED",
+  "nativeMergePrototype": "NOT_IMPLEMENTED",
+  "productionFlagsOrQueuesAdded": false,
+  "limits": [
+    "Existing reused preparation counts are not additional work savings",
+    "No new per-pass/type/stencil eligible-run or order witness is claimed",
+    "Inclusive owner geometry wall includes driver/backpressure and is not isolated GPU time",
+    "No universal absence of opportunities is inferred from one fixture",
+    "User paths, machine name, PID and raw game assets are omitted"
+  ]
+}
