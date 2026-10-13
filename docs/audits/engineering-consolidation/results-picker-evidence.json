@@ -1,0 +1,191 @@
+{
+  "baseCommit": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "sdk": "10.0.401",
+  "platform": "macOS arm64",
+  "scope": "post-match disabled picker only; no renderer/audio/runtime/schema edits",
+  "baseline": {
+    "ProductMvid": "bb5922d1-051d-4a89-940b-d14096c550fe",
+    "ProductSha256": "22C7EB0FB0E59C7E40FA656C4BDA1C20A58C42B5628E3FDD5F47FB79FB6FF0B2",
+    "Hashes": {
+      "offline-ballot": "C359EB340D2A9F5F9726CF546F46E397C7082AF6647F0FF901CE30907A5E45DE",
+      "empty-ballot": "4D4832D692BE58796A9EC923A7B8C87A2C0FB2BF2BB327566C5A66EB1A9E8393",
+      "persistent-return": "73E85CBD6733AAA689FF42CDB2840852A24F98740662C61AA92E9CDBDFCC3086"
+    },
+    "TileGradientHashes": {
+      "MP1 SANCTORUS": 1017121477,
+      "MP2 HARVESTER": 1011407595
+    },
+    "Checks": 11
+  },
+  "candidate": {
+    "ProductMvid": "337269fc-714b-4d42-aa21-a6ee5187557c",
+    "ProductSha256": "0CE213543BC4E294268B120576BC238594EFCCA11091A53877121EB902288FBB",
+    "Hashes": {
+      "offline-ballot": "08B1E13D85CF3FBD4EAE4437D2398365D8754D3805BADE63FA159294E2A69AD3",
+      "empty-ballot": "4D4832D692BE58796A9EC923A7B8C87A2C0FB2BF2BB327566C5A66EB1A9E8393",
+      "persistent-return": "73E85CBD6733AAA689FF42CDB2840852A24F98740662C61AA92E9CDBDFCC3086"
+    },
+    "TileGradientHashes": {
+      "MP1 SANCTORUS": 1299163443,
+      "MP2 HARVESTER": 201988767
+    },
+    "Checks": 11
+  },
+  "desktopBuild": {
+    "exit": 0,
+    "warnings": 19,
+    "errors": 0,
+    "baselineWarnings": 30,
+    "removed": "all eleven CS0162 sites in EndScreen/EndPanel"
+  },
+  "androidSharedCompile": {
+    "exit": 0,
+    "warnings": 39,
+    "errors": 0,
+    "java": "verified Temurin17.0.20.1+1",
+    "packaging": "NOT_RUN on this slice; #500 signed APK is separate"
+  },
+  "existingUiChecks": {
+    "gamepad": 1006,
+    "primeUiIncluded": 165,
+    "exit": 0
+  },
+  "pngBoundary": {
+    "dimensions": [
+      1280,
+      720
+    ],
+    "differentPixels": 8145,
+    "bbox": [
+      944,
+      181,
+      1249,
+      263
+    ],
+    "maxChannelDelta": 3,
+    "tileInteriors": [
+      [
+        944,
+        181,
+        1093,
+        263
+      ],
+      [
+        1100,
+        181,
+        1249,
+        263
+      ]
+    ],
+    "outsideTileInteriorDifferences": 0,
+    "outsideBbox": null
+  },
+  "negativeBoundaryProbe": {
+    "exit": 1,
+    "changedPixel": [
+      0,
+      0
+    ],
+    "channelsChanged": 1,
+    "channelDelta": 1,
+    "expectedRejection": true
+  },
+  "preservedOriginalMismatch": {
+    "dimensions": [
+      1280,
+      720
+    ],
+    "differentPixels": 15637,
+    "bbox": [
+      944,
+      181,
+      1249,
+      263
+    ],
+    "maxChannelDelta": 4,
+    "tileInteriors": [
+      [
+        944,
+        181,
+        1093,
+        263
+      ],
+      [
+        1100,
+        181,
+        1249,
+        263
+      ]
+    ],
+    "outsideTileInteriorDifferences": 0,
+    "outsideBbox": null
+  },
+  "unchangedSourceHashes": {
+    "src/MphRead/Mods/Launcher/Gui/DeckTile.cs": "c5697e243afa91812776bd7cff78e896e6c37e1a7f5a04a6697d04d85fa3f303",
+    "src/MphRead/Mods/Launcher/Portable/LauncherPrefs.cs": "e9afc3333b1940acb7a0b690b8b0292edf49e470f74257727c8105229a0ccd45",
+    "src/MphRead/Mods/MapPick.cs": "158aae955912cf6167a7e09575c0db407e4f94df62165fee506d734e7098cf93",
+    "src/MphRead/Mods/Render/PlayerEntityMapPick.cs": "9e29ff7a2bccd357180da544811df61d1f3c97e4b716533bc1f91a270aa86624",
+    "src/MphRead/Mods/Replay/ReplayWorldCheckpoint.cs": "3f30771e647de44da7923dedb5cf5fc66350fb3b399d9367458bf7f21536ab46",
+    "src/MphRead/Mods/RespawnChoice.cs": "aaa6de868d0fff3c01a6a45252eb8cbc5d85844949695bb8f05e0444a099545d"
+  },
+  "artifactHashes": {
+    "artifacts/results-picker-final/consolidation-results-picker-final-build.log": "906147768173b2c3f0cc34c542feb7001abe1e3aed2e75754df6557c74d89d48",
+    "artifacts/results-picker-final/checks.log": "e6595053259d79bdf562c8086c4bd706f2fe9da5febc74b7c7693a66546ea7d9",
+    "artifacts/results-picker-final/png-boundary-negative.log": "eec9aef0eb7898163ee73ec07f2d56f0a62a21ce88ff990efd86d4ff67b542bd",
+    "artifacts/results-picker-final/png-boundary.log": "9bd1d95d4cabdbb1efa77508424ffb5b4130cce10eb11df54f8f350457a61d64",
+    "artifacts/results-picker-final/png-boundary.json": "9bd1d95d4cabdbb1efa77508424ffb5b4130cce10eb11df54f8f350457a61d64",
+    "artifacts/results-picker-final/consolidation-results-picker-png-boundary.json": "37b8a3d9ff8855892df1559d253bf3491950f4d0e90dacf0045af471256639eb",
+    "artifacts/results-picker-final/consolidation-results-picker-android-compile.log": "1e63a695debc8848577acfe3934a2a78f0e47ac1aaccc46e23df8ef353a9f52b",
+    "artifacts/results-picker-final/Program.cs": "18cbf4afb1153ce2845fc68badb1f139087c6439368fd9ec27ea32c903472a33",
+    "artifacts/results-picker-final/baseline-final/evidence.json": "4ea4d3afc9ecd9be04475a587d2f00e6b107687488b6756ecca6b8e21f50080f",
+    "artifacts/results-picker-final/baseline-final/persistent-return.png": "73e85cbd6733aaa689ff42cdb2840852a24f98740662c61aa92e9cdbdfcc3086",
+    "artifacts/results-picker-final/baseline-final/offline-ballot.png": "c359eb340d2a9f5f9726cf546f46e397c7082af6647f0ff901ce30907a5e45de",
+    "artifacts/results-picker-final/baseline-final/checks.log": "53d3d46e5dff77d549c44853591f88755f99064628564adcd17db63e53c9ffe4",
+    "artifacts/results-picker-final/baseline-final/empty-ballot.png": "4d4832d692be58796a9ec923a7b8c87a2c0fb2bf2bb327566c5a66eb1a9e8393",
+    "artifacts/results-picker-final/shots/evidence.json": "7541ac9baf70c9d8087a623053ff0f7f2ed01d08a8c7e398e35e98693c1ce3f7",
+    "artifacts/results-picker-final/shots/persistent-return.png": "73e85cbd6733aaa689ff42cdb2840852a24f98740662c61aa92e9cdbdfcc3086",
+    "artifacts/results-picker-final/shots/offline-ballot.png": "08b1e13d85cf3fbd4eae4437d2398365d8754d3805bade63fa159294e2a69ad3",
+    "artifacts/results-picker-final/shots/empty-ballot.png": "4d4832d692be58796a9ec923a7b8c87a2c0fb2bf2bb327566c5a66eb1a9e8393"
+  },
+  "notRun": [
+    "physical Windows/Linux/Android UI",
+    "actual GL/native scoreboard composition",
+    "native audio",
+    "real account/social requests",
+    "device IME/accessibility acceptance"
+  ],
+  "initialFailuresPreserved": [
+    "bad temporary characterization assumptions/namespace/native-asset setup",
+    "initial scripted source edit compile failure, corrected before any commit"
+  ],
+  "nonfatalCandidateMessages": [
+    "packaged mk_blockfort missing import/texture source FP-MAP-005/006 during map thumbnail catalog lookup; no runtime/GL initialized"
+  ],
+  "originalWitnessHashes": {
+    "artifacts/results-picker-characterization/baseline/persistent-return.png": "73e85cbd6733aaa689ff42cdb2840852a24f98740662c61aa92e9cdbdfcc3086",
+    "artifacts/results-picker-characterization/baseline/offline-ballot.png": "e4f183f6999a808fd0a535267790550661d32bbcb56cdab418f788a141df95c0",
+    "artifacts/results-picker-characterization/baseline/empty-ballot.png": "4d4832d692be58796a9ec923a7b8c87a2c0fb2bf2bb327566c5a66eb1a9e8393",
+    "artifacts/results-picker-characterization/baseline/hashes.json": "56c3fc21662f3b5eb96cfd22416363556817a93f4805dae8622d0a731e71ddde",
+    "artifacts/results-picker-characterization/baseline/Program.cs": "a153552bd5e9c537421bc2e25b8ab711792fd69a13efa97a070d603fc1206a55",
+    "artifacts/results-picker-characterization/baseline/checks-toggle-corrected.log": "1df653d019e7f11d6cda5bac68d6b7c0dd076d67633cf7f2e6ca47b1b709e33f",
+    "artifacts/results-picker-characterization/candidate-before-final-format/persistent-return.png": "73e85cbd6733aaa689ff42cdb2840852a24f98740662c61aa92e9cdbdfcc3086",
+    "artifacts/results-picker-characterization/candidate-before-final-format/offline-ballot.png": "c914033c91f971dbff509475ac73cbd79f85a8a39f6771b02e6dd5005dd3fb48",
+    "artifacts/results-picker-characterization/candidate-before-final-format/empty-ballot.png": "4d4832d692be58796a9ec923a7b8c87a2c0fb2bf2bb327566c5a66eb1a9e8393",
+    "artifacts/results-picker-characterization/candidate-before-final-format/hashes.json": "2bea479a19f1ff8b126cfe067b19ab18cea251c2ce4e39b3e34d5c4770a69f45",
+    "artifacts/results-picker-characterization/candidate-before-final-format/Program.cs": "a153552bd5e9c537421bc2e25b8ab711792fd69a13efa97a070d603fc1206a55",
+    "artifacts/results-picker-characterization/candidate-before-final-format/checks.log": "22ed14bb6f71afac4ba23da669d096c2d17f2ad2d2605af04008cd5a97ebce6e",
+    "artifacts/results-picker-characterization/consolidation-results-picker-baseline-temporary-logs/checks-native-assets.log": "e14399d9be8452f59238c0cddaf0249ef11a7c82d6c02023308f23d7aa66f92a",
+    "artifacts/results-picker-characterization/consolidation-results-picker-baseline-temporary-logs/build-corrected.log": "73ad5cac0e19f26c2e8e555946778c0cb73f77aa038185b2f6ebf994dd3d162b",
+    "artifacts/results-picker-characterization/consolidation-results-picker-baseline-temporary-logs/checks-corrected.log": "42a8e8280407a16cfcc7b08c247b9f48c9de3b71d1d6ae0a7a0391b289577189",
+    "artifacts/results-picker-characterization/consolidation-results-picker-baseline-temporary-logs/build-toggle-corrected.log": "059ec836511afead7bcb8ca13faf874b1bb148d0aa4d1799bb3ba9c56f2f60a9",
+    "artifacts/results-picker-characterization/consolidation-results-picker-baseline-temporary-logs/checks-order-corrected.log": "0a0fc1fd58b4020a9ca882c4236fb6ee62c28962971f8224775e1904f4b25416",
+    "artifacts/results-picker-characterization/consolidation-results-picker-baseline-temporary-logs/checks-toggle-corrected.log": "1df653d019e7f11d6cda5bac68d6b7c0dd076d67633cf7f2e6ca47b1b709e33f",
+    "artifacts/results-picker-characterization/consolidation-results-picker-baseline-temporary-logs/final-build.log": "982ad7bc13e3ec9a511fb7b220dba3993842af1f4161e9258d8b86f0225f1c55",
+    "artifacts/results-picker-characterization/consolidation-results-picker-baseline-temporary-logs/final-checks.log": "53d3d46e5dff77d549c44853591f88755f99064628564adcd17db63e53c9ffe4",
+    "artifacts/results-picker-characterization/consolidation-results-picker-baseline-temporary-logs/build-order-corrected.log": "fda485a044c17d3387ad789cd441489078bd51371c316f0703f1ca9433d6d584",
+    "artifacts/results-picker-characterization/consolidation-results-picker-baseline-temporary-logs/build.log": "18e47bc585f39a234efb09a41cec7552c953bb0de6fd24267da105a4dd6f14ea",
+    "artifacts/results-picker-characterization/consolidation-results-picker-candidate-temporary-logs/checks.log": "22ed14bb6f71afac4ba23da669d096c2d17f2ad2d2605af04008cd5a97ebce6e",
+    "artifacts/results-picker-characterization/consolidation-results-picker-candidate-temporary-logs/build.log": "a4d08e0d3a9d03760a81b9d45b8673f55a5afa39b080bb49b3ec2ad8d04f1976",
+    "artifacts/results-picker-characterization/initial-scripted-source-compile-failure.log": "366e728e211dc27619b2e9ca7f79404a119cd3200d79bdbf45f8b9fbfa421784"
+  }
+}
