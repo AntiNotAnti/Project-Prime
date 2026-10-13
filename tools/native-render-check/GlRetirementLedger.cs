@@ -14,7 +14,7 @@ sealed class GlRetirementLedger
     private readonly HashSet<int> _lists = new(), _buffers = new(), _programs = new(), _shaders = new(), _textures = new(), _framebuffers = new(), _renderbuffers = new();
     private readonly HashSet<(int Id, string Api)> _vaos = new();
     private readonly object[] _models;
-    private readonly int _liveListsBefore;
+    private readonly int _liveListsBefore, _liveProgramsBefore, _liveBuffersBefore, _liveVaosBefore;
     private GlRetirementLedger(Scene scene)
     {
         object? Field(object value, string name) => value.GetType().GetField(name, Instance)?.GetValue(value)
@@ -65,14 +65,18 @@ sealed class GlRetirementLedger
             foreach (int shader in names.Take(written)) Add(_shaders, shader);
         }
         _liveListsBefore = _lists.Count(GL.IsList);
+        _liveProgramsBefore = _programs.Count(GL.IsProgram);
+        _liveBuffersBefore = _buffers.Count(GL.IsBuffer);
+        _liveVaosBefore = _vaos.Count(IsVao);
     }
     private static void Add(HashSet<int> ids, object? value) { if (value is int id && id != 0) ids.Add(id); }
+    private static bool IsVao((int Id, string Api) v) => v.Api == "Apple" ? GL.Apple.IsVertexArray(v.Id) : GL.IsVertexArray(v.Id);
     internal static GlRetirementLedger Capture(Scene scene) => new(scene);
     internal object Verify(Scene scene)
     {
         int lists = _lists.Count(GL.IsList), buffers = _buffers.Count(GL.IsBuffer), textures = _textures.Count(GL.IsTexture);
         int framebuffers = _framebuffers.Count(GL.IsFramebuffer), renderbuffers = _renderbuffers.Count(GL.IsRenderbuffer);
-        int vaos = _vaos.Count(v => v.Api == "Apple" ? GL.Apple.IsVertexArray(v.Id) : GL.IsVertexArray(v.Id));
+        int vaos = _vaos.Count(IsVao);
         int programs = 0, pendingPrograms = 0, shaders = 0, pendingShaders = 0;
         foreach (int id in _programs)
         {
@@ -96,8 +100,9 @@ sealed class GlRetirementLedger
             throw new InvalidOperationException($"GL retirement failed: lists={lists},buffers={buffers},vaos={vaos},textures={textures},fbos={framebuffers},rbos={renderbuffers},meshes={meshNamesAfter},leases={leasesAfter}");
         return new { legacyListNamesBefore = _lists.Count, legacyListsRecognizedBefore = _liveListsBefore, legacyListsRecognizedAfter = lists,
             meshListFieldsAfter = meshNamesAfter, sceneModelLeasesAfter = leasesAfter,
-            bufferNamesBefore = _buffers.Count, bufferNamesRecognizedAfter = buffers, vertexArrayNamesBefore = _vaos.Count, vertexArraysRecognizedAfter = vaos,
-            programNamesBefore = _programs.Count, programsRecognizedAfter = programs, deletionPendingProgramsAfter = pendingPrograms,
+            bufferNamesBefore = _buffers.Count, buffersRecognizedBefore = _liveBuffersBefore, bufferNamesRecognizedAfter = buffers,
+            vertexArrayNamesBefore = _vaos.Count, vertexArraysRecognizedBefore = _liveVaosBefore, vertexArraysRecognizedAfter = vaos,
+            programNamesBefore = _programs.Count, programsRecognizedBefore = _liveProgramsBefore, programsRecognizedAfter = programs, deletionPendingProgramsAfter = pendingPrograms,
             attachedShaderNamesBefore = _shaders.Count, shadersRecognizedAfter = shaders, deletionPendingShadersAfter = pendingShaders,
             textureNamesBefore = _textures.Count, texturesRecognizedAfter = textures, framebufferNamesBefore = _framebuffers.Count, framebuffersRecognizedAfter = framebuffers,
             renderbufferNamesBefore = _renderbuffers.Count, renderbuffersRecognizedAfter = renderbuffers,
