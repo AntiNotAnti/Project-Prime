@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -55,13 +54,8 @@ internal sealed class ReplayEncoderJob : IDisposable
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)
         { return new(_cancel.IsCancellationRequested, null, ex.Message, tail.ToString()); }
     }
-    private async Task ReadProgress(StreamReader reader)
-    {
-        while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
-            if (line.StartsWith("frame=", StringComparison.Ordinal)
-                && int.TryParse(line.AsSpan(6), NumberStyles.Integer, CultureInfo.InvariantCulture, out int frame))
-                Volatile.Write(ref _frames, frame);
-    }
+    private Task ReadProgress(StreamReader reader)
+        => ReplayEncoderProgress.Read(reader, frame => Volatile.Write(ref _frames, frame));
     private static async Task ReadError(StreamReader reader, StringBuilder tail)
     {
         char[] buffer = new char[2048];

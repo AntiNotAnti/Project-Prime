@@ -1,0 +1,26 @@
+{
+  "baseline_sha": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "environment": {
+    "sdk": "10.0.401",
+    "host": "macOS arm64",
+    "tests": "source-linked, no subprocess/native/GL/audio"
+  },
+  "artifacts": [
+    {
+      "path": "baseline.log",
+      "sha256": "5f8771418b6adeb6d0b9ed6c469b414c51fa024160d39114ab4d2b56401a3c77"
+    },
+    {
+      "path": "candidate.log",
+      "sha256": "fc18df1f0f766d41eb67ab740bd57269aca5e7896097659854f7cfc654c69e53"
+    },
+    {
+      "path": "desktop-build.log",
+      "sha256": "09eec825501fe3add71f26b82d9cf4ea7c0bddc76339cd61d85bcf7f8dd2507a"
+    },
+    {
+      "path": "replay-format.log",
+      "sha256": "bdacefa19fd468ae4d997891416c741d50f08e7e3fe606119a813417686b454a"
+    }
+  ]
+}

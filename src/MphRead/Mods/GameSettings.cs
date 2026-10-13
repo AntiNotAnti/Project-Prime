@@ -190,7 +190,7 @@ namespace MphRead.Mods
             state.FriendlyFire = settings.FriendlyFire == "on";
             state.RadarPlayers = settings.HunterRadar == "on";
             state.AffinityWeapons = settings.AffinityWeapons == "on";
-            state.EnhancedHunters = settings.EnhancedHunters == "on";
+            state.EnhancedHunters = false; // Compatibility JSON cannot activate retired gameplay.
             // Advanced combat rules are opt-in. Explicit saved on values are preserved.
             state.Fiesta = settings.Fiesta == "on"; state.OneInTheChamber = state.Mode == GameMode.OneInTheChamber;
             state.InstaGib = settings.InstaGib == "on";

@@ -128,13 +128,13 @@ foreach(var (w,h) in new[]{(1280,720),(960,600),(420,900)})
 {
  window.Width=w;window.Height=h;window.UpdateLayout();Dispatcher.UIThread.RunJobs();
  Check(canvas.Bounds.Width>0 && canvas.Bounds.Height>0,"canvas visible "+w);
- using var bitmap=new RenderTargetBitmap(new PixelSize(w,h),new Vector(96,96));bitmap.Render(view);bitmap.Save(Path.Combine(shots,$"hud-{w}x{h}.png"));
+ using var bitmap=new RenderTargetBitmap(new PixelSize(w,h),new Vector(96,96));bitmap.Render(view);bitmap.Save(Path.Combine(shots,$"hud-{w}x{h}.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
 }
 if(Environment.GetEnvironmentVariable("HUD_NATIVE_ASSET_ROOT")!=null)
 {
     canvas.History.Edit(p=> { p.Mode=HudMode.Custom;p.Health.Native=true;p.Ammo.Native=true;p.Inventory.Native=true;p.Crosshair.Native=true; });
     canvas.Refresh(); window.Width=1280;window.Height=720;window.UpdateLayout();Dispatcher.UIThread.RunJobs();
-    using var nativeBitmap=new RenderTargetBitmap(new PixelSize(1280,720),new Vector(96,96));nativeBitmap.Render(view);nativeBitmap.Save(Path.Combine(shots,"native-hud.png"));
+    using var nativeBitmap=new RenderTargetBitmap(new PixelSize(1280,720),new Vector(96,96));nativeBitmap.Render(view);nativeBitmap.Save(Path.Combine(shots,"native-hud.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
 }
 view.HandleController(UiAction.Back); Check(closed && accepted==null,"cancel");
 Check(HudProfiles.CopyCurrent().Elements["core.health"].OffsetX==original.Elements["core.health"].OffsetX,"cancel restores original");

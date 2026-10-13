@@ -231,9 +231,6 @@ namespace MphRead.Mods.Launcher.Gui
             // real match is the engine's and is not drawn here -- this is the
             // half the theme owns.
             yield return ("end-panel", new EndPanelView(), _windowSize);
-            var endHunter = new EndPanelView();
-            endHunter.ShowHunter();
-            yield return ("end-panel-hunter", endHunter, _windowSize);
             yield return ("setup", new SetupScreen(), _windowSize);
             yield return ("confirm",
                 new ConfirmScreen("Quit Project Prime?"), _windowSize);

@@ -390,6 +390,15 @@ namespace MphRead.Mods.Network
             finally { sim.Stop(); NetSession.Stop(); }
         }
 
+        private static void PrepareSyntheticHit(BeamProjectileEntity beam)
+        {
+            // Direct-hit fixtures must carry the identity and captured Hunter assigned
+            // by production Spawn before TakeDamage accepts their status effects.
+            beam.ModOwnerHunter = ((PlayerEntity)beam.Owner!).Hunter;
+            NetPlayerLifecycle.StampProjectile(beam);
+            Check(NetPlayerLifecycle.CurrentProjectile(beam), $"synthetic {beam.Beam} hit has a current launch identity");
+        }
+
         private static void CheckBalancedAffinityScene()
         {
             const string room = "MP1 SANCTORUS";
@@ -422,6 +431,9 @@ namespace MphRead.Mods.Network
                 var spire = PlayerEntity.Players[5];
                 var weavel = PlayerEntity.Players[6];
                 var scene = samus.OwningScene;
+                // Observe only this fixture's explicit seven-Hunter spawn/status phase.
+                // Room construction and slot activation have already emitted picks.
+                BalancedModeTelemetry.Reset();
                 foreach (var player in new[] { samus, kanden, trace, sylux, noxus, spire, weavel })
                     player.Spawn(player.Position, Vector3.UnitZ, Vector3.UnitY, player.NodeRef, respawn: false);
 
@@ -446,6 +458,7 @@ namespace MphRead.Mods.Network
                     Owner = kanden, Beam = BeamType.VoltDriver, BeamKind = BeamType.VoltDriver,
                     Flags = BeamFlags.Charged, Afflictions = Affliction.Disrupt, EnhancedDirectHit = true
                 };
+                PrepareSyntheticHit(disrupt);
                 trace.Health = 199;
                 trace.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, disrupt);
                 ushort disrupted = (ushort)typeof(PlayerEntity).GetField("_disruptedTimer",
@@ -476,6 +489,7 @@ namespace MphRead.Mods.Network
                     Owner = noxus, Beam = BeamType.Judicator, BeamKind = BeamType.Judicator,
                     Flags = BeamFlags.Charged, Afflictions = Affliction.Freeze, EnhancedDirectHit = true
                 };
+                PrepareSyntheticHit(freeze);
                 samus.Health = 199;
                 typeof(PlayerEntity).GetField("_timeSinceFrozen", BindingFlags.Instance | BindingFlags.NonPublic)!
                     .SetValue(samus, (ushort)255);
@@ -514,6 +528,7 @@ namespace MphRead.Mods.Network
                     Owner = spire, Beam = BeamType.Magmaul, BeamKind = BeamType.Magmaul,
                     Flags = BeamFlags.Charged, Afflictions = Affliction.Burn, EnhancedDirectHit = true
                 };
+                PrepareSyntheticHit(burn);
                 samus.Health = 199;
                 typeof(PlayerEntity).GetField("_burnTimer", BindingFlags.Instance | BindingFlags.NonPublic)!
                     .SetValue(samus, (ushort)0);
@@ -653,7 +668,7 @@ namespace MphRead.Mods.Network
 
                 var balance = BalancedModeTelemetry.Capture();
                 Check(balance.Revision == BalancedModeRules.BalanceRevision
-                    && balance.HunterPicks.Sum() == 7
+                    && balance.HunterPicks.Sum() == 7 && balance.HunterPicks.All(picks => picks == 1)
                     && balance.Battlehammer.Length == BalancedModeTelemetry.BattlehammerMetrics,
                     "Balanced telemetry captures revision and the revised burst diagnostics");
                 Check(balance.Affinity[0] >= 1 && balance.Affinity[1] >= 1

@@ -232,6 +232,8 @@ namespace MphRead.Mods.Network
             Mods.Headless.Enter();
             try
             {
+                if (session is { } requested && !Multiplayer.MatchModifierRules.Validate(requested.Match, out string ruleError))
+                    throw new InvalidOperationException(ruleError);
                 _room = roomKey;
                 _mode = mode;
                 // Before any player is created. Offline this is four, a DS

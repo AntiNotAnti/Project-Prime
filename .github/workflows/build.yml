@@ -30,6 +30,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: diagnostic command-line credential redaction
+        run: dotnet run --project tools/diagnostic-args-check -c Release
+
       - name: telemetry collector and report checks
         run: python3 -m unittest discover -s tools/telemetry -p 'test_*.py'
 
@@ -112,6 +118,12 @@ jobs:
           key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
+      - name: framework-dependent and single-file application image identity
+        run: |
+          dotnet run --project tools/application-image-check -c Release -- assembly
+          dotnet publish tools/application-image-check -c Release -r linux-x64 \
+            --self-contained true -p:PublishSingleFile=true -o "$RUNNER_TEMP/application image check"
+          "$RUNNER_TEMP/application image check/application-image-check" process
       - name: compile server-only surface
         run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadServer=true
 
@@ -175,6 +187,15 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y xvfb xauth libgl1-mesa-dri libgl1 libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1
+      - name: Scene shader ownership under repeated initialization failures
+        env:
+          PROJECT_PRIME_GL_SHADER_VARIANTS: "1"
+          PROJECT_PRIME_GL_PLAIN_SHADER: "1"
+          PROJECT_PRIME_GL_UNLIT_SHADER: "1"
+          PROJECT_PRIME_USER_DATA: ${{ runner.temp }}/shader-ownership-user-data
+        run: |
+          xvfb-run -a --server-args="-screen 0 640x480x24" \
+            dotnet run --project tools/render-resource-check -c Release -- -shadercycles 120
       - name: publish focused OpenGL build
         run: >
           dotnet publish src/MphRead/MphRead.csproj
@@ -215,6 +236,14 @@ jobs:
         run: python -m unittest discover -s tools/opengl-phase4 -v
       - name: Validate OpenGL modernization profiling evidence
         run: python -m unittest discover -s tools/opengl-modernization -p 'test_*.py' -v
+      - name: Validate native memory attribution analysis and runner
+        run: python -m unittest discover -s tools/native-render-check -p 'test_*.py' -v
+      - name: Verify audio retention weak observations without native startup
+        run: dotnet run --project tools/native-render-check -c Release -- -resource-retention-selftest
+      - name: Verify native context control arguments without native startup
+        run: dotnet run --project tools/native-render-check -c Release -- -resource-context-selftest
+      - name: Compile headless replay memory isolation
+        run: dotnet build tools/replay-memory-check -c Release
       - name: OpenGL depth, alpha, stencil and repeated-frame pixel fixtures
         run: |
           xvfb-run -a --server-args="-screen 0 640x480x24" \
@@ -290,13 +319,21 @@ jobs:
           key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
+      - name: device-free encoder capability stderr drain
+        run: dotnet run --project tools/encoder-error-drain-check -c Release
+      - name: device-free bounded encoder progress and parsing parity
+        run: dotnet run --project tools/encoder-progress-check -c Release
       - name: content-free renderer state and lifecycle contracts
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -renderbackendcheck
+      - name: native audio ownership, failure fallback and headless lifecycle
+        run: dotnet run --project tools/audio-check -c Release
+      - name: device-free Music startup failure ownership
+        run: dotnet run --project tools/music-startup-check -c Release
       - name: device-free music loading, PCM parity and callback retirement
         run: dotnet run --project tools/music-lifecycle-check -c Release
 
-  enhanced-hunter-checks:
-    name: enhanced hunter regressions
+  enhanced-retirement-checks:
+    name: retired hunter compatibility regressions
     needs: assets
     runs-on: ubuntu-latest
     steps:
@@ -318,14 +355,18 @@ jobs:
         run: python3 -m unittest discover -s tools/nettest -p 'test_*.py'
       - name: waitlist policy and synthetic UDP wire checks
         run: dotnet run --project tools/lobby-waitlist-check -c Release
-      - name: enhanced rules, state and maximum packet budgets
-        run: dotnet run --project tools/nettest -c Release -- --enhanced-hunters
+      - name: retired live rules, archived wire state and maximum packet budgets
+        run: dotnet run --project tools/nettest -c Release -- --enhanced-retirement
       - name: production waitlist admission and real UDP lifecycle
         run: dotnet run --project tools/nettest -c Release --no-build -- --waitlist
+      - name: scene-owned encounter creation and navigation
+        run: dotnet run --project tools/nettest -c Release --no-build -- --scene-setup-ownership
       - name: replication lane round trip
         run: dotnet run --project tools/nettest -c Release --no-build -- --protocol18
       - name: mixed-quality eight-player transport
         run: dotnet run --project tools/nettest -c Release --no-build -- --transport-stress
+      - name: transport profiling delivery and queue gates
+        run: dotnet run --project tools/nettest -c Release --no-build -- --transport-profile-json "$RUNNER_TEMP/transport-profile.json"
       - name: replay format compatibility
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -replayformatcheck
 
@@ -354,6 +395,9 @@ jobs:
 
       - name: map editor history and PK3 import regressions
         run: dotnet run --project tools/map-editor-check -c Release
+
+      - name: scoped collision query lifetime and deterministic results
+        run: dotnet run --project tools/collision-query-check -c Release -- --compare docs/audits/engineering-consolidation/collision-query-baseline.txt
 
       # The default map-editor check already runs model import and collision
       # fixtures. Community publishing is a distinct opt-in check.
@@ -394,6 +438,24 @@ jobs:
             ${{ runner.temp }}/mapviewportcheck
           if-no-files-found: warn
 
+  png-callback-checks:
+    name: PNG callback ownership (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-15-intel]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: GC-pressure native PNG, byte and pixel parity, stream ownership
+        env:
+          DOTNET_TieredCompilation: '0'
+        run: dotnet run --project tools/png-callback-check -c Release -- candidate "${{ runner.temp }}/png-callback-check"
+
   controller-checks:
     name: input regressions (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -424,6 +486,24 @@ jobs:
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -gamepadcheck
       - name: deterministic pointer and stylus checks
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -pointercheck
+      - name: native audio ownership, failure fallback and headless lifecycle
+        run: dotnet run --project tools/audio-check -c Release
+
+      - name: post-match ballot and retired picker UI checks
+        shell: pwsh
+        run: |
+          $env:PROJECT_PRIME_USER_DATA = Join-Path $env:RUNNER_TEMP 'results-ui-check-user-data'
+          $env:PROJECT_PRIME_MAP_COMMUNITY = 'https://maps.example.test/'
+          New-Item -ItemType Directory -Force $env:PROJECT_PRIME_USER_DATA | Out-Null
+          dotnet run --project tools/results-ui-check/results-ui-check.csproj -c Release -- artifacts/results-ui-check
+
+      - name: upload post-match UI witnesses
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: results-ui-${{ matrix.os }}
+          path: artifacts/results-ui-check
+          if-no-files-found: ignore
 
       - name: high-refresh frame timing and first-person pose checks
         if: matrix.os == 'windows-latest'
@@ -544,6 +624,10 @@ jobs:
       - name: replay timeline bounds and identity regressions
         if: matrix.id == 'linux-x64'
         run: dotnet run --project tools/replay-timeline-check -c Release
+
+      - name: replay sidecar malformed-entry and identity regressions
+        if: matrix.id == 'linux-x64'
+        run: dotnet run --project tools/replay-sidecar-check -c Release
 
       - name: replay format and server-retention regressions
         if: matrix.id == 'linux-x64'

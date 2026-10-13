@@ -819,7 +819,7 @@ namespace MphRead.Mods.Network
             // actual answer; this is what fixes join-in-progress false protection.
             player.ModSetSpawnProtectionFromAuthority(state.SpawnProtected);
             player.EnhancedState.Hunter = player.Hunter;
-            if (isLocal && !fresh && state.Health > 0 && player.OwningScene.GameState.EnhancedHunters)
+            if (isLocal && !fresh && state.Health > 0 && Mods.EnhancedHunters.EnhancedHunters.Enabled(player))
                 Mods.EnhancedHunters.EnhancedHunterMovement.Apply(player, state.Enhanced.Impulse1, state.Enhanced.Impulse0);
             state.Enhanced.Apply(player.EnhancedState);
             bool spawned = (state.Flags & PlayerState.FlagSpawned) != 0 && state.Health > 0;
