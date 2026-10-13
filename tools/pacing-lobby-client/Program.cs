@@ -108,7 +108,10 @@ internal static class Program
             double seconds = double.Parse(Value("seconds")!, CultureInfo.InvariantCulture);
             if (Value("mapdir") is string mapDirectory)
                 MphRead.Mods.MapGen.CustomRooms.MapDirectory = Path.GetFullPath(mapDirectory);
+            ConsoleSetup.Run();
             Paths.UpdatePaths(); Paths.ChooseMphPath(); Paths.ChooseFhPath();
+            if (string.IsNullOrEmpty(Paths.FileSystem) || !Directory.Exists(Paths.FileSystem))
+                throw new InvalidOperationException("Normal startup did not resolve the declared native asset directory.");
             if (!NetLag.Configure(Value("netlag")) || !NetLag.ConfigureLoss(Value("netloss"))
                 || !NetLag.ConfigureReorder(Value("netreorder"))
                 || !NetLag.ConfigureDuplicate(Value("netduplicate")) || !NetLag.ConfigureSeed(Value("netseed")))
@@ -175,6 +178,7 @@ internal static class Program
                     accepted.StartGeneration, accepted.MaxPlayers, accepted.ExpectedParticipants, accepted.Match.RoomKey,
                     accepted.Match.Mode, accepted.Match.Rules, accepted.Match.DisablePowerups },
                 aiLevel = NetAiClient.Level, aiSeed = NetAiClient.Seed,
+                actualAssets = new { Paths.MphKey, Paths.FileSystem, Paths.Export },
                 actualFaults = new { NetLag.RoundTripMs, NetLag.JitterMs, NetLag.LossPercent,
                     NetLag.ReorderRate, NetLag.DuplicateRate, NetLag.Seed },
                 setupSeconds = clock.Elapsed.TotalSeconds
@@ -208,9 +212,13 @@ internal static class Program
         {
             if (liveAttempt)
             {
-                NetCampaignEvidence.Write("simulation-client");
-                if (recording) DemoRecorder.Stop();
-                NetSession.Stop(); NetLog.Close();
+                try { NetCampaignEvidence.Write("simulation-client"); }
+                catch (Exception ex) { Console.Error.WriteLine("[pacing-lobby] evidence capture failed after route failure: " + ex); }
+                finally
+                {
+                    if (recording) DemoRecorder.Stop();
+                    NetSession.Stop(); NetLog.Close();
+                }
             }
         }
     }

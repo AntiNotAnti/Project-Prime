@@ -36,6 +36,7 @@ def initial_world_admission(authority, peer, identity):
         return None
     generation = next(iter(generations))
     boundaries = set()
+    explicit_boundaries = set()
     for ready in authority.get('Readiness', []):
         if type(ready) is not dict:
             raise ValueError('invalid world admission row')
@@ -52,13 +53,21 @@ def initial_world_admission(authority, peer, identity):
         values = tuple(ready.get(k) for k in ('AuthorityFrame', 'BaselineAuthorityFrame', 'BootstrapRevision'))
         if all(v is None for v in values):
             continue
-        if any(type(v) is not int or not 0 < v <= 0xffffffff for v in values):
-            raise ValueError('invalid explicit world admission boundary')
         frame, baseline, revision = values
+        if (type(frame) is not int or not 0 <= frame <= 0xffffffff
+                or any(type(v) is not int or not 0 < v <= 0xffffffff for v in (baseline, revision))):
+            raise ValueError('invalid explicit world admission boundary')
+        explicit_boundaries.add(values)
+        # A fresh start acknowledges the seed snapshot at frame 1 while the
+        # simulation remains frozen at frame 0. It is not a running-match
+        # admission fence: retain the canonical offer interval, without
+        # inventing a frame or declaring pre-start offers absent.
+        if frame == 0 and baseline == 1 and ready.get('LateJoin') is False:
+            continue
         if ((frame - baseline) & 0xffffffff) >= 0x80000000:
             raise ValueError('world admission precedes its acknowledged baseline')
         boundaries.add(values)
-    if len(boundaries) > 1:
+    if len(explicit_boundaries) > 1:
         raise ValueError('conflicting initial world admission boundaries')
     return next(iter(boundaries))[0] if boundaries else None
 

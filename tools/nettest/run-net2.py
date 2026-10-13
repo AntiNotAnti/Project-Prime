@@ -28,7 +28,7 @@ BOMB_HUNTERS = {"bomb-samus": "Samus", "bomb-kanden": "Kanden", "bomb-lockjaw": 
 def server_flags(args):
     """Explicit server-only rule switches; ordinary campaign defaults stay off."""
     if getattr(args, "pacing_lobby_client", None):
-        return ["-lobby", "-ownertoken", args.pacing_owner_token]
+        return ["-lobby"]
     return ["-powerups"] if args.powerups else []
 
 
@@ -197,7 +197,7 @@ def run(args):
     stage = args.out / "bin"
     staged_entry = stage_build(args.build.resolve(), stage)
     if args.pacing_lobby_client:
-        args.pacing_owner_token = str(uuid.uuid4())
+        args.pacing_owner_token = str(uuid.UUID(int=0))
         # The frozen nettest metadata supplies the unchanged client's complete
         # dependency graph; only this isolated entry DLL is replaced in this run.
         for name in ("nettest.dll", "nettest.deps.json", "nettest.runtimeconfig.json"):

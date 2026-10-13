@@ -224,6 +224,32 @@ class EvidenceTests(unittest.TestCase):
                 self.assertEqual(result['status'], 'FAIL')
                 self.assertTrue(any('invalid world admission evidence' in value for value in result['failures']))
 
+    def test_fresh_start_receipt_is_not_a_running_match_admission_fence(self):
+        ready = self.admission_fixture()
+        ready.update(AuthorityFrame=0, BaselineAuthorityFrame=1, BootstrapRevision=6, LateJoin=False)
+        self.assertIsNone(initial_world_admission(self.server, self.client, (111, 2)))
+
+    def test_prestart_shape_cannot_excuse_malformed_or_late_join_boundary(self):
+        for change in ({'LateJoin': True}, {'BaselineAuthorityFrame': 0},
+                       {'BootstrapRevision': 0}, {'AuthorityFrame': False},
+                       {'BaselineAuthorityFrame': 2}, {'LateJoin': None}):
+            with self.subTest(change=change):
+                self.setUp()
+                ready = self.admission_fixture()
+                ready.update(AuthorityFrame=0, BaselineAuthorityFrame=1, BootstrapRevision=6, LateJoin=False)
+                ready.update(change)
+                with self.assertRaises(ValueError):
+                    initial_world_admission(self.server, self.client, (111, 2))
+
+    def test_prestart_receipt_cannot_hide_conflicting_initial_admission(self):
+        ready = self.admission_fixture()
+        ready.update(AuthorityFrame=0, BaselineAuthorityFrame=1, BootstrapRevision=6, LateJoin=False)
+        for other in (dict(ready, BootstrapRevision=7), dict(ready, AuthorityFrame=2)):
+            with self.subTest(other=other):
+                self.server['Readiness'] = [ready, other]
+                with self.assertRaises(ValueError):
+                    initial_world_admission(self.server, self.client, (111, 2))
+
     def test_admission_frame_wrap_uses_uint_serial_order(self):
         ready = self.admission_fixture()
         ready.update(AuthorityFrame=5, BaselineAuthorityFrame=0xfffffffe)

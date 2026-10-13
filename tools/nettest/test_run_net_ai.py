@@ -106,7 +106,7 @@ class PacingLobbyParserTests(unittest.TestCase):
             args = self.parse('--pacing-lobby-client', str(entry), '--players', '8',
                               '--ai-net-client', '2', '--powerups')
             args.pacing_owner_token = 'explicit-test-token'
-            self.assertEqual(RUNNER.server_flags(args), ['-lobby', '-ownertoken', 'explicit-test-token'])
+            self.assertEqual(RUNNER.server_flags(args), ['-lobby'])
 
     def test_lobby_route_refuses_incompatible_workloads_before_staging(self):
         with tempfile.TemporaryDirectory() as root:
