@@ -100,10 +100,11 @@ internal sealed class TimedGrantPresentation
             if (fact.Life == prior.Life && fact.Sequence < prior.Sequence)
                 throw new InvalidDataException("Timed grant sequence moved backward.");
         }
+        // Capacity refusal must not publish a fact or clear its resume marker.
+        if (fact.Sequence != 0) Consume(fact.Spawn, fact.ContactFrame, fact.AuthorityFrame);
         if (_facts[slot, type] is not { } previous || previous.Life != fact.Life || previous.Sequence != fact.Sequence)
             _resumeCoverage[slot, type] = false;
         _facts[slot, type] = fact;
-        if (fact.Sequence != 0) Consume(fact.Spawn, fact.ContactFrame, fact.AuthorityFrame);
         ObserveClock(fact.AuthorityFrame, localFrame);
         // A matching delta can confirm before the terminal response arrives.
         // Delivery still retains its independent pending claim obligation.
@@ -133,14 +134,16 @@ internal sealed class TimedGrantPresentation
         if (!verdict.IsValid || !Scope(verdict.Claim.Key.Epoch, verdict.Claim.Key.Match, verdict.Claim.Spawn.Room)) return false;
         if (_pending.TryGetValue(verdict.Claim.Key, out var pending) && pending.Claim != verdict.Claim)
             throw new InvalidDataException("Pickup terminal does not match prediction.");
-        bool changed = _pending.Remove(verdict.Claim.Key);
         if (verdict.Result == PickupResult.Grant)
         {
-            Consume(verdict.Claim.Spawn, verdict.GrantFrame, verdict.DecisionFrame);
             int slot = verdict.Claim.Key.Slot, type = (int)verdict.Claim.Type;
             var old = _acks[slot, type];
             if (_facts[slot, type] is { } fact && OlderLife(verdict.Claim.Key.LifeKey, fact.Life)
-                || old is { } known && OlderLife(verdict.Claim.Key.LifeKey, known.Claim.Key.LifeKey)) return changed;
+                || old is { } known && OlderLife(verdict.Claim.Key.LifeKey, known.Claim.Key.LifeKey))
+                return _pending.Remove(verdict.Claim.Key);
+            // Keep the pending overlay intact if consumption capacity refuses.
+            Consume(verdict.Claim.Spawn, verdict.GrantFrame, verdict.DecisionFrame);
+            bool changed = _pending.Remove(verdict.Claim.Key);
             if (old == null || old.Value.Claim.Key.LifeKey != verdict.Claim.Key.LifeKey
                 || old.Value.GrantSequence < verdict.GrantSequence)
             {
@@ -151,8 +154,9 @@ internal sealed class TimedGrantPresentation
                 _acks[slot, type] = verdict; changed = true;
             }
             ObserveClock(verdict.DecisionFrame, localFrame);
+            return changed;
         }
-        return changed;
+        return _pending.Remove(verdict.Claim.Key);
     }
     internal void Advance(uint localFrame, Func<ShotKey, bool>? alive = null)
     {
@@ -202,11 +206,11 @@ internal sealed class TimedGrantPresentation
         var old = new List<PowerUpSpawnKey>();
         foreach (var pair in _consumed)
             if (unchecked((int)(now - pair.Value)) > NetTimedGrants.Retention) old.Add(pair.Key);
-        foreach (var key in old) _consumed.Remove(key);
-        if (unchecked((int)(now - contact)) > NetTimedGrants.Retention) return;
-        if (!_consumed.ContainsKey(spawn) && _consumed.Count >= NetTimedGrants.GrantCapacity)
+        bool retained = unchecked((int)(now - contact)) <= NetTimedGrants.Retention;
+        if (retained && !_consumed.ContainsKey(spawn) && _consumed.Count - old.Count >= NetTimedGrants.GrantCapacity)
             throw new InvalidDataException("Timed pickup consumption history exceeded its bound.");
-        _consumed[spawn] = contact;
+        foreach (var key in old) _consumed.Remove(key);
+        if (retained) _consumed[spawn] = contact;
     }
     internal bool Hides(PowerUpSpawnKey spawn, uint localFrame)
     {
