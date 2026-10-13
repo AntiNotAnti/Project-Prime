@@ -431,9 +431,9 @@ internal sealed class AcceptanceWindow : RenderWindow
             Reflection.Set(_victim, "_volume", CollisionVolume.Move((CollisionVolume)Reflection.Get(_victim, "_volumeUnxf")!, _victim.Position));
             Check(Vector3.Distance(_owner.Volume.SpherePosition, _victim.Volume.SpherePosition)
                 < _owner.Volume.SphereRadius + _victim.Volume.SphereRadius, "actual loaded native victim volumes overlap");
-            int before = Convert.ToInt32(Reflection.Static("NetHitPrediction", "HealthFor", _victim.SlotIndex, _victim.Health));
+            int before = Convert.ToInt32(Reflection.Static("NetHitPrediction", "HealthFor", _victim.SlotIndex, _victim.Health, null));
             Reflection.Call(_owner, "CheckPlayerCollision");
-            int after = Convert.ToInt32(Reflection.Static("NetHitPrediction", "HealthFor", _victim.SlotIndex, _victim.Health));
+            int after = Convert.ToInt32(Reflection.Static("NetHitPrediction", "HealthFor", _victim.SlotIndex, _victim.Health, null));
             _report.Stages.Add(new { stage = "native-DeathAlt-victim-collision", fixtureFrame = _frame,
                 role = NetSession.Role.ToString(), before, after, rawHealth = _victim.Health,
                 prediction = Reflection.Static("NetHitPrediction", "Capture"), authorityPayment = "NOT_RUN" });
