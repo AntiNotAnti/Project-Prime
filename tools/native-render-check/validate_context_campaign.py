@@ -3,6 +3,7 @@
 import argparse
 from collections import Counter
 import hashlib
+import gzip
 import json
 from pathlib import Path
 import re
@@ -272,7 +273,18 @@ def _validate_campaign(manifest, root):
             if normalized_path in capture_paths:
                 report("artifactIntegrity", "INVALID", "capture file reused across phases/tools")
             capture_paths.add(normalized_path)
-            text = path.read_text(errors="replace")
+            if step.get("compression") == "gzip":
+                try:
+                    with gzip.open(path, "rb") as stream:
+                        raw = stream.read()
+                    if hashlib.sha256(raw).hexdigest() != step.get("uncompressedSha256"):
+                        report("artifactIntegrity", "INVALID", "decompressed stdout hash differs from original capture")
+                    text = raw.decode(errors="replace")
+                except (OSError, EOFError) as error:
+                    report("artifactIntegrity", "INVALID", "invalid compressed capture: " + str(error))
+                    continue
+            else:
+                text = path.read_text(errors="replace")
             if tool == "malloc_history":
                 if "-allBySize" not in cmd or "-fullStacks" not in cmd or any(flag in cmd for flag in ("-highWaterMark", "-allEvents")):
                     report("nativeStacks", "INVALID", "malloc capture is not current outstanding full stacks")

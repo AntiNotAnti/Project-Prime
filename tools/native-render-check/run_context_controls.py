@@ -2,10 +2,12 @@
 """Sequential context controls with immutable binaries and optional live native captures."""
 import argparse
 import hashlib
+import gzip
 import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -46,7 +48,7 @@ def expected_phases(contexts, driver_drain):
     return phases + (["after-glfw-poll", "after-glfw-terminate"] if driver_drain else [])
 
 
-def capture(pid, stem, output):
+def capture(pid, stem, output, compress_stacks=False):
     steps = []
     for tool, cmd, timeout in [("vmmap", ["vmmap", "-summary", str(pid)], 20),
                                ("malloc-history", ["malloc_history", str(pid), "-allBySize", "-fullStacks"], 60)]:
@@ -59,9 +61,19 @@ def capture(pid, stem, output):
             except (subprocess.TimeoutExpired, OSError) as error:
                 dest.write(str(error) + "\n")
                 code = -1
+        original_hash = sha256(path)
+        compression = None
+        if compress_stacks and tool == "malloc-history":
+            packed = path.with_suffix(path.suffix + ".gz")
+            with path.open("rb") as source, gzip.open(packed, "wb", compresslevel=1) as dest:
+                shutil.copyfileobj(source, dest)
+            path.unlink()
+            path = packed
+            compression = "gzip"
         steps.append({"command": cmd, "exitCode": code, "wallSeconds": time.monotonic() - started,
                       "captureUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                      "path": str(path.resolve()), "sha256": sha256(path)})
+                      "path": str(path.resolve()), "sha256": sha256(path),
+                      "compression": compression, "uncompressedSha256": original_hash})
     return {"phase": stem, "pid": pid, "trigger": "at least 3 seconds after phase marker while process alive", "steps": steps}
 
 
@@ -85,6 +97,7 @@ def main():
     parser.add_argument("--max-rss-mib", type=int, default=4096)
     parser.add_argument("--min-free-disk-mib", type=int, default=512)
     parser.add_argument("--capture-native-stacks", action="store_true")
+    parser.add_argument("--uncompressed-stacks", action="store_true", help="Keep large raw stack stdout without lossless gzip")
     parser.add_argument("--driver-drain", action="store_true", help="Final owner-thread GLFW poll/terminate phases; no recreation afterward")
     parser.add_argument("--shader-source-ledger", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -149,7 +162,7 @@ def main():
                 if args.capture_native_stacks:
                     for stem, (marker, pid) in list(pending.items()):
                         if time.monotonic() - marker >= 3:
-                            result = capture(pid, stem, args.output)
+                            result = capture(pid, stem, args.output, compress_stacks=not args.uncompressed_stacks)
                             manifest["captures"].append(result)
                             observed.add(stem)
                             del pending[stem]
@@ -161,7 +174,6 @@ def main():
                     manifest["error"] = "Campaign timeout; partial artifacts preserved"
                     process.kill()
                     break
-                import shutil
                 free = shutil.disk_usage(args.output).free / 1024**2
                 rss = subprocess.run(["ps", "-o", "rss=", "-p", str(process.pid)], capture_output=True, text=True)
                 rss_mib = int(rss.stdout.strip()) / 1024 if rss.returncode == 0 and rss.stdout.strip() else None
