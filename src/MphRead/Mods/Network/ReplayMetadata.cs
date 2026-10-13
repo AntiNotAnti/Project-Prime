@@ -83,7 +83,7 @@ namespace MphRead.Mods.Network
         {
             foreach (byte[] packet in metadata.Bootstrap.Packets)
                 if (packet.Length == 1 + SessionStatePacket.Size && packet[0] == (byte)PacketType.SessionState
-                    && SessionStatePacket.TryRead(packet.AsSpan(1), out var session)
+                    && SessionStatePacket.TryReadArchived(packet.AsSpan(1), out var session)
                     && session.Match.MapIdentity.IsCustom && session.Match.RoomKey == metadata.RoomKey) return session;
             return null;
         }

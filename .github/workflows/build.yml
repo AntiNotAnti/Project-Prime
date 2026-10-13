@@ -308,8 +308,8 @@ jobs:
       - name: native audio ownership, failure fallback and headless lifecycle
         run: dotnet run --project tools/audio-check -c Release
 
-  enhanced-hunter-checks:
-    name: enhanced hunter regressions
+  enhanced-retirement-checks:
+    name: retired hunter compatibility regressions
     needs: assets
     runs-on: ubuntu-latest
     steps:
@@ -331,8 +331,8 @@ jobs:
         run: python3 -m unittest discover -s tools/nettest -p 'test_*.py'
       - name: waitlist policy and synthetic UDP wire checks
         run: dotnet run --project tools/lobby-waitlist-check -c Release
-      - name: enhanced rules, state and maximum packet budgets
-        run: dotnet run --project tools/nettest -c Release -- --enhanced-hunters
+      - name: retired live rules, archived wire state and maximum packet budgets
+        run: dotnet run --project tools/nettest -c Release -- --enhanced-retirement
       - name: production waitlist admission and real UDP lifecycle
         run: dotnet run --project tools/nettest -c Release --no-build -- --waitlist
       - name: replication lane round trip
