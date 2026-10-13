@@ -727,8 +727,11 @@ namespace MphRead.Entities
 
         public void UpdateHud()
         {
-            Mods.EnhancedHunters.EnhancedHunterHud.Queue(this);
-            ModEnhancedFeedback();
+            if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(_scene))
+            {
+                Mods.EnhancedHunters.EnhancedHunterHud.Queue(this);
+                ModEnhancedFeedback();
+            }
             if (_scene.GameState.MenuPause)
             {
                 InitHudState();

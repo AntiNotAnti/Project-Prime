@@ -1,5 +1,9 @@
 # Game-mode implementation status
 
+> Historical implementation/acceptance record. Enhanced Hunters activation was
+> superseded by [live retirement](../gameplay/enhanced-hunters.md); its wire bits and
+> archived replay state remain reserved. Other historical results below are retained.
+
 This branch implements the supplied game-mode architecture and all requested new modes and modifiers.
 The automated checks below cover gameplay, lifecycle contracts, frozen joins, replay restoration,
 map resources, UI, and platform compilation. Live rendered multiplayer playtesting remains

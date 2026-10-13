@@ -345,6 +345,19 @@ namespace MphRead.Mods
             };
         }
 
+        internal static void WriteArguments(string[] arguments)
+        {
+            string[] safe = (string[])arguments.Clone();
+            // Match ModEntry.ValueAfter: any leading hyphens and ordinal-insensitive
+            // option spelling. Redact every occurrence, including invalid values.
+            for (int i = 1; i < arguments.Length - 1; i++)
+            {
+                if (arguments[i].TrimStart('-').Equals("ownertoken", StringComparison.OrdinalIgnoreCase))
+                    safe[i + 1] = "(redacted)";
+            }
+            Line("args", String.Join(' ', safe));
+        }
+
         private static void WriteHeader()
         {
             Line("build", $"{Branding.Name} {BuildVersion.Display}, "
@@ -366,7 +379,7 @@ namespace MphRead.Mods
             {
                 Line("paths", $"game files could not be checked: {ex.Message}");
             }
-            Line("args", String.Join(' ', Environment.GetCommandLineArgs()));
+            WriteArguments(Environment.GetCommandLineArgs());
             WriteDisplay();
             Line("render", $"cel={RenderOptions.OnOff(RenderOptions.CelShading)} "
                 + $"fog={RenderOptions.OnOff(RenderOptions.Fog)} "

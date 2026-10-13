@@ -249,6 +249,8 @@ internal static class TurretEventTests
     {
         var victim = PlayerEntity.Players[1]; var scene = owner.OwningScene;
         var savedMode = NetShotProof.Mode; var savedSink = NetHitClaims.CombatAckSink;
+        var savedTurretSink = NetSession.TurretOutcomeSink;
+        int outcomesPublished = 0;
         var answers = new Dictionary<ushort, CombatAckEntry>();
         ushort nextClaim = 100;
         void Frame(uint frame) => typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, frame);
@@ -313,6 +315,8 @@ internal static class TurretEventTests
                 Check(outgoing.FireEventCount == 1 && outgoing.FireEvents[0].Kind == FireEventKind.TurretFire,
                     "actual client launch supplies exact turret offer");
                 fire = outgoing.FireEvents[0];
+                Check(fire.SourceLife != 0 && fire.SourceLife == NetPlayerLifecycle.Get(owner.SlotIndex),
+                    "native turret author supplies exact nonzero source life");
                 if (zeroSourceLife) fire = fire with { SourceLife = 0 };
             }
             finally { Session(nameof(NetSession.Role), role); Session(nameof(NetSession.IsAuthority), authority); Session(nameof(NetSession.LocalSlot), local); }
@@ -323,7 +327,19 @@ internal static class TurretEventTests
                 Frame = NetSession.NetFrame, AckFrame = NetSession.NetFrame, HasFireEvents = true, FireEventCount = 1 };
             carrier.FireEvents[0] = fire;
             NetSession.RemoteIntents[owner.SlotIndex] = carrier; NetSession.RemoteIntentValid[owner.SlotIndex] = true;
-            Check(NetFireEvents.Accept(owner.SlotIndex, carrier), "exact authored offer enters authority native turret queue");
+            int publishedBefore = outcomesPublished, pendingBefore = NetSession.PendingTurretOutcomes;
+            bool admitted = NetFireEvents.Accept(owner.SlotIndex, carrier);
+            if (zeroSourceLife)
+            {
+                var malformedKey = ShotKey.For(owner.SlotIndex, fire.ShotId);
+                Check(!admitted, "zero source-life turret offer is rejected before authority admission");
+                Check(!NetFireEvents.IsPendingTurret(malformedKey)
+                    && !NetFireEvents.IsRetiredUnemittedTurret(malformedKey)
+                    && !NetFireEvents.IsRetiredUnemittedTurret(malformedKey with { LifeId = 0 })
+                    && NetSession.PendingTurretOutcomes == pendingBefore && outcomesPublished == publishedBefore,
+                    "rejected zero-life offer creates no pending retired or published authority outcome");
+            }
+            else Check(admitted, "exact authored offer enters authority native turret queue");
             Record(); return carrier;
         }
         void Retire()
@@ -335,6 +351,7 @@ internal static class TurretEventTests
         try
         {
             NetShotProof.Mode = ShotProofMode.Shadow;
+            NetSession.TurretOutcomeSink = payload => { outcomesPublished++; savedTurretSink?.Invoke(payload); };
             NetHitClaims.CombatAckSink = (slot, entries) => { if (slot == owner.SlotIndex) foreach (var ack in entries) answers[ack.ClaimId] = ack; };
             var carrier = Offer(); var parked = Claim(carrier);
             int health = victim.Health; ushort sequence = NetDamage.Sequence(victim.SlotIndex);
@@ -398,13 +415,19 @@ internal static class TurretEventTests
                     && ack.DamageApplied == 0 && victim.Health == health && NetDamage.Sequence(victim.SlotIndex) == sequence,
                     $"expired un-emitted offer cannot pay with evidence={evidence}");
             }
+            // Protocol-52 authority outcomes require the original nonzero source life.
+            // This deliberately malformed offer must never enter the native queue;
+            // legacy zero-life interpretation belongs to historical replay fixtures.
+            int publishedBeforeZeroLife = outcomesPublished;
             carrier = Offer(zeroSourceLife: true); key = ShotKey.For(owner.SlotIndex, carrier.FireEvents[0].ShotId);
-            Retire(); Record(); var legacyLife = Claim(carrier); health = victim.Health; sequence = NetDamage.Sequence(victim.SlotIndex);
-            Receive(legacyLife);
-            Check(NetFireEvents.IsRetiredUnemittedTurret(key) && !NetFireEvents.IsRetiredUnemittedTurret(key with { LifeId = 0 })
-                && answers.TryGetValue(legacyLife.ClaimId, out ack) && ack.Result == HitVerdictPacket.ResultInvalidLaunch
+            int pendingBeforeZeroLifeRetirement = NetSession.PendingTurretOutcomes;
+            health = victim.Health; sequence = NetDamage.Sequence(victim.SlotIndex); Retire();
+            Check(!NetFireEvents.IsPendingTurret(key) && !NetFireEvents.IsRetiredUnemittedTurret(key)
+                && !NetFireEvents.IsRetiredUnemittedTurret(key with { LifeId = 0 })
+                && NetSession.PendingTurretOutcomes == pendingBeforeZeroLifeRetirement
+                && outcomesPublished == publishedBeforeZeroLife && owner.EquipInfo.Beams.All(beam => beam.Lifespan <= 0)
                 && victim.Health == health && NetDamage.Sequence(victim.SlotIndex) == sequence,
-                "legacy zero source-life offer retires exact actual current life and cannot pay");
+                "native retirement after rejected zero-life offer fabricates no outcome flight or damage");
             carrier = Offer(); key = ShotKey.For(owner.SlotIndex, carrier.FireEvents[0].ShotId);
             owner.TakeDamage(0, DamageFlags.Death | DamageFlags.IgnoreInvuln, null, victim);
             scene.RemoveEntity(owner.Halfturret); owner.ModForceForm(false);
@@ -454,7 +477,7 @@ internal static class TurretEventTests
             Check(answers[committed.ClaimId].Result == HitVerdictPacket.ResultDuplicate && victim.Health == health
                 && NetDamage.Sequence(victim.SlotIndex) == sequence, "committed native payment receipt remains idempotent");
         }
-        finally { NetHitClaims.CombatAckSink = savedSink; NetShotProof.Mode = savedMode;
+        finally { NetSession.TurretOutcomeSink = savedTurretSink; NetHitClaims.CombatAckSink = savedSink; NetShotProof.Mode = savedMode;
             foreach (var beam in owner.EquipInfo.Beams) beam.Lifespan = 0; NetHitClaims.Reset(); NetFireEvents.Reset(); }
     }
 

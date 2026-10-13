@@ -1,0 +1,214 @@
+{
+  "utc": "2026-10-13T04:26:55.105870+00:00",
+  "baseline_sha": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "arm_A": "original static scratch",
+  "arm_B": "scoped query workspace",
+  "fixture": "two-room-instance floor + two entity colliders; four query types",
+  "sdk": "10.0.401",
+  "runtime": "10.0.12",
+  "os": "macOS 27.0 26A428 arm64",
+  "tiered_compilation": false,
+  "warmup_queries": 40000,
+  "allocation_queries": 40000,
+  "timed_queries_per_batch": 40000,
+  "batches_per_process": 9,
+  "processes_per_arm": 5,
+  "simultaneous_other_work": "Other consolidation branches were building/testing on this host; exploratory CPU timings only, not a frame-time acceptance gate.",
+  "run_order": "ABBAABBAAB",
+  "rows": [
+    {
+      "run": 1,
+      "arm": "A",
+      "batch_ms": [
+        74.802,
+        75.736,
+        74.441,
+        74.203,
+        74.48,
+        76.449,
+        75.031,
+        74.863,
+        75.224
+      ],
+      "median_ms": 74.863,
+      "warm_allocated_bytes": 0
+    },
+    {
+      "run": 2,
+      "arm": "B",
+      "batch_ms": [
+        256.168,
+        185.358,
+        155.602,
+        114.57,
+        153.725,
+        126.224,
+        87.109,
+        108.281,
+        168.514
+      ],
+      "median_ms": 153.725,
+      "warm_allocated_bytes": 0
+    },
+    {
+      "run": 3,
+      "arm": "B",
+      "batch_ms": [
+        134.315,
+        99.579,
+        100.663,
+        262.577,
+        257.6,
+        228.428,
+        112.184,
+        133.258,
+        120.944
+      ],
+      "median_ms": 133.258,
+      "warm_allocated_bytes": 0
+    },
+    {
+      "run": 4,
+      "arm": "A",
+      "batch_ms": [
+        236.426,
+        118.049,
+        173.47,
+        125.228,
+        117.227,
+        129.64,
+        99.36,
+        186.066,
+        150.476
+      ],
+      "median_ms": 129.64,
+      "warm_allocated_bytes": 0
+    },
+    {
+      "run": 5,
+      "arm": "A",
+      "batch_ms": [
+        116.564,
+        146.827,
+        138.594,
+        130.946,
+        98.734,
+        77.751,
+        110.858,
+        190.844,
+        110.721
+      ],
+      "median_ms": 116.564,
+      "warm_allocated_bytes": 0
+    },
+    {
+      "run": 6,
+      "arm": "B",
+      "batch_ms": [
+        95.415,
+        113.422,
+        120.1,
+        96.856,
+        150.026,
+        115.077,
+        116.243,
+        108.346,
+        111.266
+      ],
+      "median_ms": 113.422,
+      "warm_allocated_bytes": 0
+    },
+    {
+      "run": 7,
+      "arm": "B",
+      "batch_ms": [
+        124.148,
+        155.282,
+        152.147,
+        134.496,
+        119.495,
+        120.374,
+        131.332,
+        173.137,
+        148.516
+      ],
+      "median_ms": 134.496,
+      "warm_allocated_bytes": 0
+    },
+    {
+      "run": 8,
+      "arm": "A",
+      "batch_ms": [
+        149.929,
+        139.665,
+        138.395,
+        144.479,
+        119.278,
+        125.938,
+        147.924,
+        174.876,
+        163.602
+      ],
+      "median_ms": 144.479,
+      "warm_allocated_bytes": 0
+    },
+    {
+      "run": 9,
+      "arm": "A",
+      "batch_ms": [
+        197.841,
+        253.708,
+        135.273,
+        174.436,
+        187.195,
+        134.214,
+        149.948,
+        260.723,
+        186.91
+      ],
+      "median_ms": 186.91,
+      "warm_allocated_bytes": 0
+    },
+    {
+      "run": 10,
+      "arm": "B",
+      "batch_ms": [
+        217.483,
+        184.359,
+        148.018,
+        473.527,
+        153.309,
+        454.387,
+        235.367,
+        318.791,
+        244.899
+      ],
+      "median_ms": 235.367,
+      "warm_allocated_bytes": 0
+    }
+  ],
+  "median_batch_ms": {
+    "A": 129.64,
+    "B": 134.496
+  },
+  "candidate_change_percent": 3.7457574822585826,
+  "measurement_fixture_source_sha256": "f53619235a87a09408740e161fff33e435de49b870cab18236232287e146e8d7",
+  "baseline_game_assembly_sha256": "20e48325d25ff24ae4b483385c45707e10713ae1f149e20f178af59c4d6680d4",
+  "candidate_game_assembly_sha256": "b4e88d518b78afc8478295589038420dea0fbf574d0a90eb3ce39f571e2cad59",
+  "excluded_initial_trial": {
+    "tiered_compilation": true,
+    "candidate_batch_ms": [
+      708.889,
+      420.458,
+      453.337,
+      466.098,
+      512.86,
+      249.225,
+      149.809,
+      206.522,
+      111.529
+    ],
+    "reason": "Concurrent compilation and ongoing tiered JIT warming caused large within-process drift; not used to estimate game frame cost."
+  },
+  "status": "HISTORICAL: initial2048-cap implementation; predates large-query allocation regression fix c605f755"
+}

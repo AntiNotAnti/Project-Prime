@@ -2506,7 +2506,11 @@ namespace MphRead.Mods.Network
                 {
                     if (NetShotProof.TryBurnSource(shooterSlot, proofClaim, out var burn))
                     {
-                        if ((entry.Flags & HitClaimPacket.FlagHalfturret) != 0) victim.Halfturret.OnSetOnFire(burn);
+                        if ((entry.Flags & HitClaimPacket.FlagHalfturret) != 0)
+                        {
+                            var burnTurret = victim.Halfturret ?? throw new InvalidOperationException("Half-turret burn requires the owned turret.");
+                            burnTurret.OnSetOnFire(burn);
+                        }
                         else victim.ModStartBurn(burn);
                     }
                 }

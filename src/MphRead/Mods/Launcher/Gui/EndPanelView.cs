@@ -19,14 +19,9 @@ namespace MphRead.Mods.Launcher.Gui
     /// </summary>
     internal sealed class EndPanelView : UserControl
     {
-        private readonly UiTabs _tabs;
         private readonly bool _hasBallot;
         private readonly DeckGrid _ballot = new() { FixedColumns = 2, Ratio = 16 / 9.0 };
         private readonly ScrollViewer _ballotScroll;
-        private readonly StackPanel _hunterPane = new() { Spacing = 8 };
-        private readonly HunterStand _stand;
-        private readonly ChoiceRow _hunter;
-        private readonly ChoiceRow _suit;
         private readonly Note _count = new("");
         private readonly TextBlock _next = PrimeChrome.Text("CURRENT ARENA // REMATCH", PrimeTypography.DataSmall,
             PrimeTheme.HighlightBrush, data: true);
@@ -43,7 +38,6 @@ namespace MphRead.Mods.Launcher.Gui
             VerticalAlignment = VerticalAlignment.Center,
             IsVisible = false
         };
-        private readonly string[] _hunters;
 
         /// <summary>What the ballot was built from, so it is only rebuilt when it moves.</summary>
         private string _order = "";
@@ -54,21 +48,10 @@ namespace MphRead.Mods.Launcher.Gui
             Focusable = true;
             IsHitTestVisible = true;
 
-            _hunters = HunterStand.Names;
             // Persistent online sessions return to their lobby after the report,
             // so the lobby is where the next map is chosen. Continuous/offline
             // flows keep the existing results ballot.
             _hasBallot = !NetSession.PersistentLobby;
-            _tabs = new UiTabs(_hasBallot
-                ? (Mods.EndScreen.CharacterChangeEnabled
-                    ? new[] { "Next match", "Change hunter" }
-                    : new[] { "Next match" })
-                : (Mods.EndScreen.CharacterChangeEnabled
-                    ? new[] { "Change hunter" }
-                    : new[] { "Results" }));
-            _tabs.Changed += (_, _) => ShowFace();
-            _tabs.IsVisible = Mods.EndScreen.CharacterChangeEnabled;
-
             _ballotScroll = new ScrollViewer
             {
                 Content = _ballot,
@@ -76,26 +59,6 @@ namespace MphRead.Mods.Launcher.Gui
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             };
-
-            _stand = new HunterStand
-            {
-                Height = 150,
-                HorizontalAlignment = HorizontalAlignment.Stretch
-            };
-            _hunter = new ChoiceRow("Hunter", _hunters, HunterIndex());
-            _suit = new ChoiceRow("Suit", new[] { "1", "2", "3", "4" },
-                Math.Clamp(Mods.EndScreen.Suit, 0, 3));
-            _suit.Preview = (context, area) =>
-            {
-                context.DrawRectangle(new SolidColorBrush(SuitColour()), null,
-                    new RoundedRect(area, 3));
-            };
-            _hunter.Changed += (_, _) => Commit();
-            _suit.Changed += (_, _) => Commit();
-            _hunterPane.Children.Add(_stand);
-            _hunterPane.Children.Add(_hunter);
-            _hunterPane.Children.Add(_suit);
-            _hunterPane.IsVisible = false;
 
             _lobbyPane.Children.Add(new PrimeBadge("PERSISTENT LOBBY"));
             _lobbyPane.Children.Add(PrimeChrome.Title("RETURNING TO LOBBY"));
@@ -109,7 +72,6 @@ namespace MphRead.Mods.Launcher.Gui
             var body = new Panel();
             body.Children.Add(_ballotScroll);
             body.Children.Add(_empty);
-            body.Children.Add(_hunterPane);
             body.Children.Add(_lobbyPane);
 
             var start = new PrimeButton("START NEXT MATCH", () => OfflineRematch.Continue(), primary: true)
@@ -123,7 +85,6 @@ namespace MphRead.Mods.Launcher.Gui
                 new PrimeBadge("POST-MATCH REPORT"),
                 _phase,
                 _panelTitle,
-                _tabs,
                 _search);
 
             var stack = new Grid
@@ -144,7 +105,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // Preserve the original scoreboard's deaths-column clearance.
                 Width = Deck.Phone ? 285 : 340,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = _hasBallot || Mods.EndScreen.CharacterChangeEnabled
+                VerticalAlignment = _hasBallot
                     ? VerticalAlignment.Stretch
                     : VerticalAlignment.Center,
                 Margin = new Thickness(0, 14, 14, 14)
@@ -156,15 +117,6 @@ namespace MphRead.Mods.Launcher.Gui
             Refresh();
         }
 
-        /// <summary>Open on the hunter face, for -uishot.</summary>
-        internal void ShowHunter()
-        {
-            if (Mods.EndScreen.CharacterChangeEnabled)
-            {
-                _tabs.Index = _hasBallot ? 1 : 0;
-            }
-        }
-
         private void FilterMaps()
         {
             string query = _search.Text?.Trim() ?? "";
@@ -174,78 +126,24 @@ namespace MphRead.Mods.Launcher.Gui
                         || tile.Blurb.Contains(query, StringComparison.OrdinalIgnoreCase);
         }
 
-        private int HunterIndex() =>
-            Math.Max(0, Array.IndexOf(_hunters, Mods.EndScreen.Hunter.ToString()));
-
-        private Color SuitColour()
-        {
-            try
-            {
-                ColorRgba sampled = Mods.HunterSuits.Color(
-                    Mods.EndScreen.Hunter, Math.Clamp(_suit.Index, 0, 3));
-                return Color.FromRgb(sampled.Red, sampled.Green, sampled.Blue);
-            }
-            catch (Exception)
-            {
-                return GuiTheme.Accent;
-            }
-        }
-
         private void ShowFace()
         {
-            bool ballot = _hasBallot
-                && (!Mods.EndScreen.CharacterChangeEnabled || _tabs.Index == 0);
-            bool hunter = Mods.EndScreen.CharacterChangeEnabled && !ballot;
-            bool returning = NetSession.PersistentLobby && !hunter;
-
+            bool ballot = _hasBallot;
+            bool returning = NetSession.PersistentLobby;
             _ballotScroll.IsVisible = ballot;
-            _hunterPane.IsVisible = hunter;
             _lobbyPane.IsVisible = returning;
             _search.IsVisible = ballot;
-            _stand.IsVisible = hunter;
-
-            _phase.Text = returning
-                ? "MATCH COMPLETE // SESSION CONTINUES"
-                : hunter
-                    ? "MATCH COMPLETE // NEXT HUNTER"
-                    : "MATCH COMPLETE // NEXT DEPLOYMENT";
-            _panelTitle.Text = returning
-                ? "RETURNING TO LOBBY"
-                : hunter ? "CHANGE HUNTER" : "NEXT DEPLOYMENT";
-
-            _empty.Text = ballot
-                ? "The rotation decides where next."
-                : "Hunter changes are available from the lobby.";
-            _empty.IsVisible = !returning
-                && (ballot ? MapPick.Order.Count == 0 : !hunter);
-        }
-
-        /// <summary>
-        /// Send the two rows where the HUD's own arrows and swatches sent
-        /// them. Nothing is held here.
-        /// </summary>
-        private void Commit()
-        {
-            if (!Mods.EndScreen.CharacterChangeEnabled)
-            {
-                return;
-            }
-            if (!Enum.TryParse(_hunter.Value, ignoreCase: true, out Hunter which))
-            {
-                return;
-            }
-            Mods.EndScreen.Pick(which, Math.Clamp(_suit.Index, 0, 3));
-            _stand.Name2 = _hunter.Value;
-            _stand.Suit = Math.Clamp(_suit.Index, 0, 3);
-            _suit.InvalidateVisual();
+            _phase.Text = returning ? "MATCH COMPLETE // SESSION CONTINUES" : "MATCH COMPLETE // NEXT DEPLOYMENT";
+            _panelTitle.Text = returning ? "RETURNING TO LOBBY" : "NEXT DEPLOYMENT";
+            _empty.Text = ballot ? "The rotation decides where next." : "Hunter changes are available from the lobby.";
+            _empty.IsVisible = !returning && (!ballot || MapPick.Order.Count == 0);
         }
 
         /// <summary>
         /// Read the match's own state back into the panel, once a frame.
         ///
-        /// Everything here is somebody else's: the ballot is the server's and the
-        /// hunter is <c>RespawnChoice</c>'s. So this pulls rather than pushing;
-        /// the only writes are the choices made through this panel.
+        /// The ballot remains owned by MapPick/the server. This reads its current
+        /// presentation state without changing match or respawn choices.
         /// </summary>
         public void Refresh()
         {
@@ -285,10 +183,8 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 FilterMaps();
             }
-            bool showingBallot = _hasBallot
-                && (!Mods.EndScreen.CharacterChangeEnabled || _tabs.Index == 0);
-            _empty.IsVisible = showingBallot ? order.Length == 0
-                : !Mods.EndScreen.CharacterChangeEnabled;
+            bool showingBallot = _hasBallot;
+            _empty.IsVisible = !showingBallot || order.Length == 0;
             int best = 0;
             foreach (string room in order)
             {
@@ -314,22 +210,6 @@ namespace MphRead.Mods.Launcher.Gui
                     tile.InvalidateVisual();
                 }
                 tile.Chosen = tile.RoomKey == MapPick.Picked;
-            }
-
-            if (Mods.EndScreen.CharacterChangeEnabled)
-            {
-                int wantHunter = HunterIndex();
-                if (_hunter.Index != wantHunter)
-                {
-                    _hunter.Index = wantHunter;
-                }
-                int wantSuit = Math.Clamp(Mods.EndScreen.Suit, 0, 3);
-                if (_suit.Index != wantSuit)
-                {
-                    _suit.Index = wantSuit;
-                }
-                _stand.Name2 = _hunter.Value;
-                _stand.Suit = wantSuit;
             }
 
             string next = MapPick.Picked;

@@ -43,7 +43,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly ChoiceRow _hunter, _suit, _team, _mode, _format;
         private readonly ChoiceRow _target, _handicap;
         private readonly PickRow _map, _customTeams;
-        private readonly ButtonToggleRow _fire, _affinity, _enhancedHunters, _freeze, _requireReady, _join;
+        private readonly ButtonToggleRow _fire, _affinity, _freeze, _requireReady, _join;
         private readonly ButtonToggleRow _lockTeams, _opponentHealth, _disablePowerups, _spawnProtection;
         private readonly ButtonToggleRow _vanillaDuelResources, _fiesta, _instaGib, _lowTier, _noImperialist, _balancedMode, _octolithAutoReset;
         private Hunter[] _allowedHunters = Enumerable.Range(0, Hunters.Playable).Select(i => (Hunter)i).ToArray();
@@ -137,7 +137,6 @@ namespace MphRead.Mods.Launcher.Gui
 
             _fire = Toggle("Friendly fire");
             _affinity = Toggle("Affinity weapons");
-            _enhancedHunters = Toggle("Enhanced Hunters");
             _freeze = Toggle("Shadow freeze");
             _requireReady = Toggle("Require ready");
             _join = Toggle("Join in progress");
@@ -157,7 +156,7 @@ namespace MphRead.Mods.Launcher.Gui
             _vanillaDuelResources = Toggle("Vanilla 1v1 spawns/pickups");
             foreach (ButtonToggleRow toggle in new[]
             {
-                _fire, _affinity, _enhancedHunters, _freeze, _opponentHealth, _requireReady, _join, _lockTeams,
+                _fire, _affinity, _freeze, _opponentHealth, _requireReady, _join, _lockTeams,
                 _fiesta, _instaGib, _lowTier, _noImperialist, _balancedMode, _octolithAutoReset, _disablePowerups, _spawnProtection
             })
                 toggle.Changed += (_, _) => DraftChanged();
@@ -200,7 +199,7 @@ namespace MphRead.Mods.Launcher.Gui
                 return section;
             }
             var matchRules = RuleSection("MATCH", _requireReady, _join, _lockTeams);
-            var gameplayRules = RuleSection("GAMEPLAY", _fire, _affinity, _enhancedHunters, _freeze, _opponentHealth,
+            var gameplayRules = RuleSection("GAMEPLAY", _fire, _affinity, _freeze, _opponentHealth,
                 _disablePowerups, _spawnProtection, _octolithAutoReset);
             var advancedRules = RuleSection("ADVANCED", _balancedMode, _vanillaDuelResources, _fiesta, _instaGib, _lowTier, _noImperialist);
 
@@ -774,7 +773,6 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 _fire.On = session.Match.FriendlyFire;
                 _affinity.On = session.Match.AffinityWeapons;
-                _enhancedHunters.On = session.Match.EnhancedHunters;
                 _freeze.On = session.Match.ShadowFreeze;
                 _opponentHealth.On = !session.Match.HideOpponentHealth;
                 _disablePowerups.On = session.Match.DisablePowerups;
@@ -815,7 +813,7 @@ namespace MphRead.Mods.Launcher.Gui
                 : "SELECT A PLAYER TO MANAGE";
             _selectedPlayerName.IsVisible = NetSession.LocalIsLobbyOwner;
             _handicap.IsEnabled = _ownerControls.IsEnabled && selectedTargetSlot != byte.MaxValue;
-            foreach (var toggle in new[] { _fire, _affinity, _enhancedHunters, _freeze, _opponentHealth, _requireReady, _join, _lockTeams, _fiesta, _instaGib, _lowTier, _noImperialist, _balancedMode, _octolithAutoReset, _disablePowerups, _spawnProtection, _vanillaDuelResources })
+            foreach (var toggle in new[] { _fire, _affinity, _freeze, _opponentHealth, _requireReady, _join, _lockTeams, _fiesta, _instaGib, _lowTier, _noImperialist, _balancedMode, _octolithAutoReset, _disablePowerups, _spawnProtection, _vanillaDuelResources })
                 toggle.IsEnabled = _ownerControls.IsEnabled;
             bool vanillaDuelAvailable = session.Match.Format == MatchFormat.OneVsOne
                 && session.Match.Mode == GameMode.BattleTeams;
@@ -1243,7 +1241,6 @@ namespace MphRead.Mods.Launcher.Gui
                 PointGoal = goal,
                 FriendlyFire = _fire.On,
                 AffinityWeapons = _affinity.On,
-                EnhancedHunters = _enhancedHunters.On,
                 ShadowFreeze = _freeze.On,
                 HideOpponentHealth = !_opponentHealth.On,
                 DisablePowerups = _disablePowerups.On,
