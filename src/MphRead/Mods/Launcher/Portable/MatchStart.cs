@@ -20,6 +20,8 @@ namespace MphRead.Mods.Launcher
     {
         /// <summary>The last reason a synchronous launch returned false.</summary>
         public static string? LastError { get; private set; }
+        // Failed commits remain retryable without retaining the old world.
+        private static PostMatchCommitContext? _pendingCommit;
 
         /// <summary>
         /// Load what the plan asked for into a window of its own and run until
@@ -44,7 +46,7 @@ namespace MphRead.Mods.Launcher
                 return;
             }
             renderer.Run();
-            AfterMatch();
+            AfterMatch(PrepareAfterMatch(renderer.Scene.GameState));
         }
 
         /// <summary>
@@ -65,6 +67,12 @@ namespace MphRead.Mods.Launcher
         public static bool Begin(RenderWindow window, MenuSettings settings, LaunchPlan plan)
         {
             LastError = null;
+            try { RetryPendingCommit(); }
+            catch (Exception ex)
+            {
+                LastError = "The previous Adventure save is still pending: " + ex.Message;
+                return false;
+            }
             if (plan.Kind == LaunchKind.AimTrainer && NetSession.Active)
             { LastError = "Disconnect before starting training."; return false; }
             Chat.ChatBox.Clear();
@@ -229,13 +237,42 @@ namespace MphRead.Mods.Launcher
         /// point the scene is unloaded at, now that it is not.
         /// </summary>
         public static void AfterMatch()
+            => AfterMatch(PrepareAfterMatch(GameState.Current));
+
+        internal static void AfterMatch(PostMatchCommitContext commit)
         {
             Chat.ChatBox.Clear();
             if (Mods.Network.DemoPlayback.IsActive)
             {
                 DemoPlayback.Stop();
             }
-            CommitAdventureSave();
+            CompleteCommit(commit);
+        }
+
+        internal static PostMatchCommitContext PrepareAfterMatch(SceneGameState state)
+        {
+            if (_pendingCommit is { } pending)
+            {
+                if (pending.RequestVersion == Menu.SaveRequestVersion) return pending;
+                throw new InvalidOperationException("The previous Adventure save must commit before capturing a new request.");
+            }
+            return _pendingCommit = PostMatchCommitContext.Capture(state,
+                Menu.SaveSlot, Menu.NeededSave, Menu.SaveRequestVersion);
+        }
+
+        internal static void RetryPendingCommit()
+        {
+            if (_pendingCommit is { } pending) CompleteCommit(pending);
+        }
+
+        private static void CompleteCommit(PostMatchCommitContext commit)
+        {
+            commit.Commit();
+            // A new scene/slot may already have issued its own request. The old
+            // save completion must not erase it, including same-value requests.
+            if (Menu.SaveRequestVersion == commit.RequestVersion) Menu.NeededSave = SaveWhen.Never;
+            commit.Release();
+            if (ReferenceEquals(_pendingCommit, commit)) _pendingCommit = null;
         }
 
         /// <summary>
@@ -352,11 +389,7 @@ namespace MphRead.Mods.Launcher
         /// </summary>
         public static void CommitAdventureSave()
         {
-            if (Menu.NeededSave != SaveWhen.Never && Menu.SaveSlot != 0)
-            {
-                GameState.CommitSave();
-            }
-            Menu.NeededSave = SaveWhen.Never;
+            CompleteCommit(PrepareAfterMatch(GameState.Current));
         }
 
         /// <summary>

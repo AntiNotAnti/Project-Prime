@@ -640,7 +640,9 @@ namespace MphRead.Mods.Launcher.Gui
         private static void EndNetworkMatchToLobby(RenderWindow window)
         {
             _matchLoading = false;
-            CloseMenu(); window.EndScene(); MatchStart.AfterMatch();
+            CloseMenu();
+            var commit = MatchStart.PrepareAfterMatch(window.Scene.GameState);
+            window.EndScene(); MatchStart.AfterMatch(commit);
             NetSession.ResetMatchState(); PauseMenu.Reset();
             if (_front != null) { UiSurface.Current?.Show(_front); _front.ResumeLobby(); }
         }
@@ -649,12 +651,13 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _matchLoading = false;
             CloseMenu();
+            var commit = MatchStart.PrepareAfterMatch(window.HasScene ? window.Scene.GameState : GameState.Current);
             window.EndScene();
             // Both own a worker thread and a bound socket; a match that ends
             // any way at all must not leave either behind.
             NetSession.Stop();
             NetHostSession.Stop();
-            MatchStart.AfterMatch();
+            MatchStart.AfterMatch(commit);
             ShowFrontScreen();
             if (_played?.Kind == LaunchKind.AimTrainer) _front?.OpenTraining(_focusTrainingOnReturn);
             _focusTrainingOnReturn = false;

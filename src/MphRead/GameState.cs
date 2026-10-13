@@ -1825,6 +1825,15 @@ namespace MphRead
             {
                 Directory.CreateDirectory(_saveFolder);
             }
+            CaptureSaveCommit(Menu.SaveSlot).Write();
+        }
+
+        // Capture the exact legacy normalization/serializer, while the named
+        // match still owns its final save. The result survives scene teardown
+        // and later slot/CWD changes without borrowing compatibility facades.
+        internal StorySaveCommit CaptureSaveCommit(byte slot)
+        {
+            if (slot == 0) throw new ArgumentOutOfRangeException(nameof(slot));
             StorySave.Weapons &= 0xFF;
             if (StorySave.WeaponSlots[2] == (int)BeamType.OmegaCannon)
             {
@@ -1837,12 +1846,8 @@ namespace MphRead
                     StorySave.RoomState[r - 27][b] = 0;
                 }
             }
-            File.WriteAllText(GetSavePath(Menu.SaveSlot), JsonSerializer.Serialize(StorySave, _jsonOpt));
-            if (DebugLog.Active)
-            {
-                DebugLog.Line("save", $"wrote slot {Menu.SaveSlot}: artifacts=0x{StorySave.Artifacts:X8} "
-                    + $"checkpoint room={StorySave.CheckpointRoomId}");
-            }
+            return new StorySaveCommit(Path.GetFullPath(GetSavePath(slot)),
+                JsonSerializer.Serialize(StorySave, _jsonOpt), slot, StorySave.Artifacts, StorySave.CheckpointRoomId);
         }
 
         internal sealed class ByteArrayConverter : JsonConverter<byte[]>
