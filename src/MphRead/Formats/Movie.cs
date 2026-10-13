@@ -754,7 +754,7 @@ namespace MphRead.Formats
                 }
                 using FileStream fileStream = File.Create(Paths.Combine(folder, $"{f.ToString().PadLeft(4, '0')}.png"));
                 StbImage.FlipVerticallyOnSave = false;
-                StbImage.WritePng<byte>(pixelBuffer, FrameWidth, FrameHeight, StbiImageFormat.Rgb, fileStream);
+                global::MphRead.Mods.PngEncoder.Write<byte>(pixelBuffer, FrameWidth, FrameHeight, StbiImageFormat.Rgb, fileStream);
             }
 
             if (writeFiles && !UseStaticBuffers)
