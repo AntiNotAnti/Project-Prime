@@ -355,9 +355,386 @@
     {
       "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context.log",
       "sha256": "070134c7ddfcc8c1295a1d7881a31bd669c3eb32280b2462f8e5f3f535510d90"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context.json.contexts/context-00-120cycles.analysis.json",
+      "sha256": "7b1154394ebde49564657717d3dcc078f14f6dbfd915b4bc364bcc06e762cb0c"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context.json.contexts/context-00-120cycles.json",
+      "sha256": "74bc2b265fd11ca73b20dc3fac9326f2da862a8984d375d1dca7a0c0be2bc28f"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context.json.contexts/context-01-180cycles.analysis.json",
+      "sha256": "5ca5f5a2524553ab8f01deeac00622ca15484846e886c128b986566b9bb058d7"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/candidate-120-180-stacks-retry/context.json.contexts/context-01-180cycles.json",
+      "sha256": "79ff1847e473a042200a03a2d26728e7a85ba4f15b41bfe111fb668719e75354"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/00-map-gl.analysis.json",
+      "sha256": "ecc25c62b67f1376baeb7f9f4412ebbd7283ef565d6a36c968724fd58bac8516"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/00-map-gl.json",
+      "sha256": "6948459c9f547b33bc1e34fca6a60d1e1f814f75793d8cfad821af216202018a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/00-map-gl.log",
+      "sha256": "a9824db294f9c783779c5ce997fc4f6679d6a3d333516bcd59e4c6c3646ca576"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/01-studio.analysis.json",
+      "sha256": "1c809d7b308b6dc68158443ba9fe2f9fb20d200438dc51e62c8a6a42d1b1d04a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/01-studio.json",
+      "sha256": "d0cf5bb87ff798d6a15d3792ffc42b126cfe254fe79f3d88c13995f8f07ebec0"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/01-studio.log",
+      "sha256": "7d72a3b013ba5fda468c9efc3ed60933fca4321b6f62cdfab2c381a09a6e3822"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/context-controls/retirement-source-5cycles-v2/manifest.json",
+      "sha256": "463768b9f59bed21d3969327b8459be08c9c4f3c8c917afe67bf8435d0cf911f"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/replay-memory/candidate-120.json",
+      "sha256": "e41648c795ad4290a16d0bb229a90af2ebfcd81d274a7b588f29b612c817f2f1"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/replay-memory/candidate-120.log",
+      "sha256": "67623aad167e27bf9795e2f847b8f2a74af5375432a4ca90ddc0430334486e60"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/replay-memory/pilot-2.json",
+      "sha256": "b7b922fc6ade7b4c737094a4e897e393fba1f9af370c8be9a83ff2e4130489ab"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/native-context-controls/Prime Hunters Online/artifacts/replay-memory/pilot-2.log",
+      "sha256": "2148e252a22d1323c2e14fb5212317bd1f93163c3585bd0fd9936c2ba243cdbd"
     }
   ],
-  "hashScope": "Existing runner hashes reused during renderer quiet hold; no large raw file rehashing. Extra per-context/retirement fixture hashes will be appended after the quiet interval; no older artifact is overwritten.",
-  "retirementWitness": "PENDING physical5cycle map/Studio checks in next exclusive native slot",
+  "hashScope": "Earlier large native capture hashes reused from immutable runner/origin manifests; fresh retirement-source, per-context and headless replay JSON/log hashes added after quiet hold. Screenshot/evidence PNG files are not indexed; no prior raw artifact overwritten.",
+  "retirementWitness": {
+    "sourceSha": "22764624b5e90d388d90d444155bce3ce65ec542",
+    "sourceDirtyAtLaunch": false,
+    "identity": {
+      "harnessSha256": "1a530c6e79c0f77ab35ec2736303abff3ce5a9dc19c83222d776385c7ac3e8eb",
+      "clientSha256": "86f075e7c8dd7a06277b4050feedc796680b97a2f259615e2aa81e1faab37328"
+    },
+    "binaryIdentityMatches": true,
+    "arms": [
+      {
+        "arm": "map-gl",
+        "complete": true,
+        "cycles": 5,
+        "retirementRecords": 10,
+        "observedNameCounts": {
+          "legacyListNamesBefore": [
+            270,
+            454
+          ],
+          "legacyListsRecognizedBefore": [
+            270,
+            454
+          ],
+          "legacyListsRecognizedAfter": [
+            0
+          ],
+          "meshListFieldsAfter": [
+            0
+          ],
+          "sceneModelLeasesAfter": [
+            0
+          ],
+          "bufferNamesBefore": [
+            208,
+            542,
+            544
+          ],
+          "buffersRecognizedBefore": [
+            208,
+            542,
+            544
+          ],
+          "bufferNamesRecognizedAfter": [
+            0
+          ],
+          "vertexArrayNamesBefore": [
+            103,
+            104,
+            271,
+            272
+          ],
+          "vertexArraysRecognizedBefore": [
+            103,
+            104,
+            271,
+            272
+          ],
+          "vertexArraysRecognizedAfter": [
+            0
+          ],
+          "programNamesBefore": [
+            8,
+            9
+          ],
+          "programsRecognizedBefore": [
+            8,
+            9
+          ],
+          "programsRecognizedAfter": [
+            0
+          ],
+          "deletionPendingProgramsAfter": [
+            0
+          ],
+          "attachedShaderNamesBefore": [
+            2,
+            4
+          ],
+          "shadersRecognizedAfter": [
+            0
+          ],
+          "deletionPendingShadersAfter": [
+            0
+          ],
+          "textureNamesBefore": [
+            395,
+            414,
+            415,
+            417
+          ],
+          "texturesRecognizedAfter": [
+            0
+          ],
+          "framebufferNamesBefore": [
+            2,
+            4
+          ],
+          "framebuffersRecognizedAfter": [
+            0
+          ],
+          "renderbufferNamesBefore": [
+            1
+          ],
+          "renderbuffersRecognizedAfter": [
+            0
+          ]
+        },
+        "shaderSourceLedger": {
+          "compileAttemptCallbacks": 120,
+          "linkAttemptCallbacks": 70,
+          "sourceStageKeys": 10,
+          "uniqueSourceHashes": 9,
+          "overflowCallbacks": 0,
+          "sources": [
+            {
+              "stage": "main-vertex",
+              "sourceSha256": "10D6837ED1A7531C81F5EC6D5F39473C03EFC0266541B66A79DE89EB268D63DB",
+              "callbacks": 10
+            },
+            {
+              "stage": "main-fragment",
+              "sourceSha256": "D98139690FE19E9C909353639701B5550E50D30840A8886D35C591403A214B23",
+              "callbacks": 10
+            },
+            {
+              "stage": "rtt-vertex",
+              "sourceSha256": "AF070F447840BF1FC51D6BBA88A339FAB067A4E3A01E460351A2549CA9107F4F",
+              "callbacks": 10
+            },
+            {
+              "stage": "rtt-fragment",
+              "sourceSha256": "E2D19241B220426AC18BB3C74ACC7195E4DE947168020C979F9CD2A053399B31",
+              "callbacks": 10
+            },
+            {
+              "stage": "shift-fragment",
+              "sourceSha256": "C211FF39501D0621308D2AF61925BDC726B640F2E6CD3EBB7CD4A27ED898577A",
+              "callbacks": 10
+            },
+            {
+              "stage": "cel-fragment",
+              "sourceSha256": "0FCB40630809A0E5B2D78448ED8B9518686FB6A5FC3B1A69914A37FECF28F7D5",
+              "callbacks": 10
+            },
+            {
+              "stage": "variant-vertex",
+              "sourceSha256": "10D6837ED1A7531C81F5EC6D5F39473C03EFC0266541B66A79DE89EB268D63DB",
+              "callbacks": 20
+            },
+            {
+              "stage": "variant-fragment",
+              "sourceSha256": "BC14F811D243637825C7FC8AAE82CA026A1CDC6DA6A52DF529D24B6C39D33EDE",
+              "callbacks": 10
+            },
+            {
+              "stage": "variant-fragment",
+              "sourceSha256": "5B21F12D86F8DE5222C1E9FF6895A862E684365683C97AF605E95890F44F1BB8",
+              "callbacks": 20
+            },
+            {
+              "stage": "variant-vertex",
+              "sourceSha256": "1D6AF4F1398712C0C37BBE571B0C85C481FE804F7BD5B999F4BAD8161CC3AD6C",
+              "callbacks": 10
+            }
+          ],
+          "scope": "Existing canonical/world-variant shader-owner callback after ShaderSource and before compilation/link. GraphicsPipeline, outlines, HUD/UI paths without that hook are not profiled here. Attempts are not compile/link success; identical GLSL does not prove identical driver pipeline keys or safe program sharing."
+        },
+        "failureStagesReached": [
+          "retained-promotion-after-vbo",
+          "retained-vao-after-create",
+          "retained-combined-after-vbo",
+          "depth-snapshot-after-framebuffer",
+          "shadow-after-framebuffer"
+        ]
+      },
+      {
+        "arm": "studio",
+        "complete": true,
+        "cycles": 5,
+        "retirementRecords": 5,
+        "observedNameCounts": {
+          "legacyListNamesBefore": [
+            11
+          ],
+          "legacyListsRecognizedBefore": [
+            11
+          ],
+          "legacyListsRecognizedAfter": [
+            0
+          ],
+          "meshListFieldsAfter": [
+            0
+          ],
+          "sceneModelLeasesAfter": [
+            0
+          ],
+          "bufferNamesBefore": [
+            0
+          ],
+          "buffersRecognizedBefore": [
+            0
+          ],
+          "bufferNamesRecognizedAfter": [
+            0
+          ],
+          "vertexArrayNamesBefore": [
+            0
+          ],
+          "vertexArraysRecognizedBefore": [
+            0
+          ],
+          "vertexArraysRecognizedAfter": [
+            0
+          ],
+          "programNamesBefore": [
+            7
+          ],
+          "programsRecognizedBefore": [
+            7
+          ],
+          "programsRecognizedAfter": [
+            0
+          ],
+          "deletionPendingProgramsAfter": [
+            0
+          ],
+          "attachedShaderNamesBefore": [
+            0
+          ],
+          "shadersRecognizedAfter": [
+            0
+          ],
+          "deletionPendingShadersAfter": [
+            0
+          ],
+          "textureNamesBefore": [
+            2
+          ],
+          "texturesRecognizedAfter": [
+            0
+          ],
+          "framebufferNamesBefore": [
+            1
+          ],
+          "framebuffersRecognizedAfter": [
+            0
+          ],
+          "renderbufferNamesBefore": [
+            1
+          ],
+          "renderbuffersRecognizedAfter": [
+            0
+          ]
+        },
+        "shaderSourceLedger": {
+          "compileAttemptCallbacks": 60,
+          "linkAttemptCallbacks": 35,
+          "sourceStageKeys": 10,
+          "uniqueSourceHashes": 9,
+          "overflowCallbacks": 0,
+          "sources": [
+            {
+              "stage": "main-vertex",
+              "sourceSha256": "10D6837ED1A7531C81F5EC6D5F39473C03EFC0266541B66A79DE89EB268D63DB",
+              "callbacks": 5
+            },
+            {
+              "stage": "main-fragment",
+              "sourceSha256": "D98139690FE19E9C909353639701B5550E50D30840A8886D35C591403A214B23",
+              "callbacks": 5
+            },
+            {
+              "stage": "rtt-vertex",
+              "sourceSha256": "AF070F447840BF1FC51D6BBA88A339FAB067A4E3A01E460351A2549CA9107F4F",
+              "callbacks": 5
+            },
+            {
+              "stage": "rtt-fragment",
+              "sourceSha256": "E2D19241B220426AC18BB3C74ACC7195E4DE947168020C979F9CD2A053399B31",
+              "callbacks": 5
+            },
+            {
+              "stage": "shift-fragment",
+              "sourceSha256": "C211FF39501D0621308D2AF61925BDC726B640F2E6CD3EBB7CD4A27ED898577A",
+              "callbacks": 5
+            },
+            {
+              "stage": "cel-fragment",
+              "sourceSha256": "0FCB40630809A0E5B2D78448ED8B9518686FB6A5FC3B1A69914A37FECF28F7D5",
+              "callbacks": 5
+            },
+            {
+              "stage": "variant-vertex",
+              "sourceSha256": "10D6837ED1A7531C81F5EC6D5F39473C03EFC0266541B66A79DE89EB268D63DB",
+              "callbacks": 10
+            },
+            {
+              "stage": "variant-fragment",
+              "sourceSha256": "BC14F811D243637825C7FC8AAE82CA026A1CDC6DA6A52DF529D24B6C39D33EDE",
+              "callbacks": 5
+            },
+            {
+              "stage": "variant-fragment",
+              "sourceSha256": "5B21F12D86F8DE5222C1E9FF6895A862E684365683C97AF605E95890F44F1BB8",
+              "callbacks": 10
+            },
+            {
+              "stage": "variant-vertex",
+              "sourceSha256": "1D6AF4F1398712C0C37BBE571B0C85C481FE804F7BD5B999F4BAD8161CC3AD6C",
+              "callbacks": 5
+            }
+          ],
+          "scope": "Existing canonical/world-variant shader-owner callback after ShaderSource and before compilation/link. GraphicsPipeline, outlines, HUD/UI paths without that hook are not profiled here. Attempts are not compile/link success; identical GLSL does not prove identical driver pipeline keys or safe program sharing."
+        },
+        "failureStagesReached": []
+      }
+    ]
+  },
   "boundedness": "UNVERIFIED; current AGX malloc-prefix groups grow across destroyed contexts while heavy paging invalidates RSS release/plateau interpretation."
 }
