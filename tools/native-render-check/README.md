@@ -100,3 +100,104 @@ This separate lifecycle mode rotates `MP9 CRYOCHASM` and `MP3 PROVING GROUND` in
 The fixture verifies exact repeated room pixels, owned-resource cleanup and retained generations per cycle, plus three actual Studio renderer/cache geometry/material reloads. Studio UI interactions are outside this test. RSS/managed memory are informational; unsupported Mac private-memory accounting is null, not a zero-memory claim. Thirty cycles supply longer-run evidence beyond the pilot. Mismatch files preserve reference/candidate RGBA, float depth, PNGs and exact frame metadata in `-resource-evidence` (default `<output>.resource-evidence`).
 
 Independent timing probes accept `-render-scale 25..200` (percent), `-texturequality Automatic|Low|Medium|High|Ultra`, and `-lighting true|false`. The modernization resource runner separates unprofiled ABBA, profiled Low/High/Ultra shadows, and render-scale/texture-response proxies. Such proxies do not directly measure GPU bandwidth or overdraw.
+
+## Controlled memory-attribution arms
+
+`-resource-arm combined|map-gl|studio|audio` selects a lifecycle arm (default
+`combined`). Use one immutable harness/client build for the whole campaign,
+repeat in reverse order, and preserve the recorded identities. The modes are:
+
+| Arm | Work per cycle | Audio | GL / Studio |
+| --- | --- | --- | --- |
+| `combined` | Two real map loads, exact fixed-frame fallback comparison, three Studio cache rebuilds | Ordinary scene audio | One window/context, ordinary renderer plus Studio |
+| `map-gl` | The same two maps, players, RNG, simulation steps, rendering, failure schedule and readbacks | SFX stub; music device closed before measurement | Same window/context, no Studio |
+| `studio` | Three geometry/material rebuilds of the existing 320x180 generated editor fixture | Music device closed before measurement | One window/context, no map scene or simulation |
+| `audio` | Two SFX initialization/update/shutdown loads; exactly `-resourceframes` 1/60-second audio updates per load | Ordinary SFX banks, OpenAL owner and feedback warmup | No window/context, map scene or Studio |
+
+All stress arms omit the historical harness's unused initial map load before
+the first measured cycle. This changes the harness startup fixture; compare
+these arms to a fresh `combined` run from **this same build**. Existing historical
+reports remain unchanged. Non-stress renderer/performance modes retain their
+ordinary startup path.
+
+`map-gl` installs the existing `SfxInstanceBase` stub and wraps `ISceneServices`
+only during `AddRoom`. Every policy is forwarded except
+`AllowsPresentationSideEffects`; the two guarded statements skipped in
+`SceneSetup.LoadGame` are exactly `Sfx.Load` and `Music.TryPlayRoomMusic`.
+The original services are restored in `finally`, before `LoadScene` and every
+simulation/render step. Headless and thumbnail switches are untouched. Music's
+existing static constructor still performs one startup device probe; the tool
+closes that device with its existing shutdown method before window construction.
+`manifest.musicStartupProbeClosed` records this, so these arms **do not claim
+zero startup audio allocation**. Repeated `Music.Init` still reads its managed
+metadata but cannot start a closed device.
+
+`audio` exercises SFX lifecycle and feedback initialization, including the
+existing MiniAudio feedback device. It excludes room music, audible playback,
+map resources, renderer and replay. It requests the same diagnostic unload GC
+as `RenderWindow.EndScene`, without changing production policy. Shutdown may
+overlap the next load by default; add `-resource-audio-wait` to wait up to 15
+seconds after each unload for a separate serialized comparison. Native audio
+fallback to a silent stub fails this arm, so unavailable devices cannot appear
+to pass ownership validation. Context/source/buffer fields and owner-array
+counts are observations of existing owners, not a complete OpenAL handle census.
+
+Every map unload retains the existing release assertions and adds explicit
+scene texture/framebuffer/program release checks. Records include RSS,
+private/virtual bytes when supported, managed live/committed/fragmented and LOH
+metrics, allocations/collections, process thread/handle counts, thread-pool
+workers/pending work, audio owner/pool counts and outstanding shutdown tasks.
+Detailed task observations are emitted once in the final result, avoiding an
+expanding task-detail array in every sample. GL counts cover the existing owned
+resources; global driver object/residency accounting, VM categories and native
+allocation stacks remain unavailable. Process accounting cannot distinguish
+allocator retention from a driver cache or a native leak.
+
+`-resource-drain` waits for **all** observed audio tasks, verifies completion,
+then performs diagnostic full GC/LOH compaction/finalizers and `GL.Finish` where
+there is a GL context. It records repeated post-drain samples at
+`-resource-quiescent-samples 2..120` (default 6), separated by
+`-resource-quiescent-ms 10..5000` (default 1000). Quiescence performs no more
+loads, draws, audio updates or forced collections. These samples describe the
+process while its context is still alive. They do not establish behavior after
+context destruction. No lifecycle result is FPS evidence.
+
+For a sequential campaign with immutable DLL hashes, SDK/runtime info, source
+SHA/dirty state, environment flags, exact commands, logs and per-arm analyses:
+
+```sh
+PROJECT_PRIME_USER_DATA='/absolute/path/to/user-data' \
+python3 tools/native-render-check/run_resource_arms.py \
+  --dotnet /absolute/path/to/dotnet \
+  --binary tools/native-render-check/bin/Release/net10.0/native-render-check.dll \
+  --output /absolute/path/fresh-campaign-directory \
+  --arms combined map-gl studio audio --cycles 60 --frames 120 \
+  --quiescent-samples 30 --quiescent-ms 1000
+```
+
+The runner records source state from its own checkout, not an inferred commit
+from a DLL. Actual client/harness SHA-256 and MVID are authoritative for build
+identity; a baseline built via `MphReadProject` can have a different source SHA.
+Use a second fresh directory and `--arms audio studio map-gl combined` for
+reverse order. Extra shared harness flags may follow `--`, e.g.
+`-- -failure-stages none`; separate the no-failure workload from the injected
+workload and keep the choice identical in paired map arms. `--dry-run` prepares
+the manifest/commands without opening a window or audio device. Do not rebuild
+the DLLs or run another native diagnostic during a campaign.
+
+Analyze an existing result independently:
+
+```sh
+python3 tools/native-render-check/analyze_resources.py /absolute/path/result.json \
+  --warmup-cycles 5 --block-cycles 10 --output /absolute/path/analysis.json
+python3 -m unittest discover -s tools/native-render-check -p 'test_*.py' -v
+```
+
+The analyzer excludes requested warmup cycles, reports whole-run and latter-half
+OLS slopes per full cycle, block means/ranges and quiescent slopes per second.
+Reference, candidate and Studio cleanup observations are separate series.
+Unavailable/null counters stay unavailable; a short pilot with no post-warmup
+samples yields no slope. R-squared is descriptive and does not supply confidence
+intervals for autocorrelated reload samples. A flat/positive slope never
+changes the report's `boundedness: UNVERIFIED` classification automatically.
+Replay-only and full Studio UI isolation remain **NOT_RUN**.

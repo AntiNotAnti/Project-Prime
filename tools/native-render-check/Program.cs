@@ -64,8 +64,12 @@ typeof(Scene).Assembly.GetType("MphRead.ConsoleSetup")!.GetMethod("Run")!.Invoke
 // child command assumes ProjectPrime's entry point, not this tool's entry point.
 GraphicsBackendPolicy.LoadPreference();
 Paths.UpdatePaths(); Paths.ChooseMphPath(); Paths.ChooseFhPath();
+if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") == "audio")
+    return AudioResourceStress.Run(args, output);
 MphRead.Mods.MapGen.CustomRooms.GenerateMissing(room);
-using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"));
+if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") is "map-gl" or "studio")
+    ResourceAttribution.DisableMusic();
+using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"));
 window.ConfigureResourceStress(args);
 window.ConfigureDiagnosticOptions(args);
 try
@@ -78,7 +82,17 @@ try
     Console.WriteLine("NATIVERENDER " + (window.Complete ? "PASS " : "FAIL ") + output);
     return window.Complete ? 0 : 1;
 }
-catch (Exception ex) { Console.WriteLine("NATIVERENDER FAIL " + ex); return 1; }
+catch (Exception ex)
+{
+    if (window.ResourceStressEnabled)
+    {
+        var result=JsonSerializer.SerializeToNode(window.ResourceStressResult())!;
+        result["error"]=ex.ToString();
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        File.WriteAllText(output,result.ToJsonString(new JsonSerializerOptions { WriteIndented=true })+"\n");
+    }
+    Console.WriteLine("NATIVERENDER FAIL " + ex); return 1;
+}
 finally
 {
     // Run's unload handles gameplay; explicitly release GL before its context dies.
@@ -121,7 +135,7 @@ sealed partial class CheckWindow : RenderWindow
     {
         state = WindowState.ToString(), visible = IsVisible, focused = IsFocused,
         framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y },
-        renderSize = new[] { Scene.RenderSize.X, Scene.RenderSize.Y }
+        renderSize = Scene == null ? null : new[] { Scene.RenderSize.X, Scene.RenderSize.Y }
     };
     private void ObserveWindowState(bool? focusedOverride = null)
     {
@@ -150,7 +164,7 @@ sealed partial class CheckWindow : RenderWindow
     private string? _glVendor, _glRenderer, _glVersion;
     public bool Complete { get; private set; }
 
-    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud)
+    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud, bool resourceStress)
     {
         _room = room; _seconds = seconds; _cap = cap; _shadows = shadows; _shots = shots;
         _windowCycle = windowCycle; _requestedPixels = pixels;
@@ -159,6 +173,8 @@ sealed partial class CheckWindow : RenderWindow
         double sx = FramebufferSize.X / (double)ClientSize.X, sy = FramebufferSize.Y / (double)ClientSize.Y;
         ClientSize = new Vector2i((int)Math.Round(pixels.X / sx), (int)Math.Round(pixels.Y / sy));
         Title = "Project Prime native renderer QA";
+        _resourcePlayers=Math.Max(2,players);
+        if (resourceStress) return;
         // Frozen input prevents keyboard/mouse activity from changing the workload.
         typeof(Scene).GetField("_keyboardState", BindingFlags.NonPublic | BindingFlags.Instance)!
             .SetValue(Scene, SyntheticInput.CreateKeyboard());
@@ -179,7 +195,7 @@ sealed partial class CheckWindow : RenderWindow
     protected override void OnLoad()
     {
         ApplyDiagnosticOptions();
-        base.OnLoad();
+        if (!ResourceStressEnabled) base.OnLoad();
         RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
         RenderOptions.Shadows = _shadows;
         RenderOptions.PlayerOutline = _outlines;
@@ -202,11 +218,16 @@ sealed partial class CheckWindow : RenderWindow
             + " gen=" + (resolver.GetProcAddress("glGenVertexArraysAPPLE") != IntPtr.Zero)
             + " bind=" + (resolver.GetProcAddress("glBindVertexArrayAPPLE") != IntPtr.Zero)
             + " delete=" + (resolver.GetProcAddress("glDeleteVertexArraysAPPLE") != IntPtr.Zero));
-        Console.WriteLine($"NATIVERENDER context room={_room} pixels={FramebufferSize} cap={_cap} shadows={_shadows}"
+        Console.WriteLine($"NATIVERENDER pid={Environment.ProcessId} context room={_room} pixels={FramebufferSize} cap={_cap} shadows={_shadows}"
             + $" vendor={GL.GetString(StringName.Vendor)} renderer={GL.GetString(StringName.Renderer)} gl={GL.GetString(StringName.Version)}"
             + $" mvid={typeof(Scene).Module.ModuleVersionId:D}");
         _wall.Start();
-        if (ResourceStressEnabled) StartResourceScene();
+        if (ResourceStressEnabled)
+        {
+            if (_resourceArm == "studio") EndScene();
+            else StartResourceScene();
+            _resourceDrainSamples.Add(new { phase="workload-start", memory=ResourceAttribution.MemorySample(), audio=AudioShutdownSummary() });
+        }
         ObserveWindowState();
     }
 
@@ -250,6 +271,13 @@ sealed partial class CheckWindow : RenderWindow
         ObserveWindowState();
         if (ResourceStressEnabled)
         {
+            if (_resourceArm == "studio")
+            {
+                RunStudioReload();
+                _resourceCycle++;
+                FinishResourceCycle();
+                return;
+            }
             // Lifecycle comparisons require identical simulation steps, independent
             // of allocation failures, reload time and driver backpressure.
             typeof(Scene).GetField("_frameAdvanceOn", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(Scene, true);
@@ -496,7 +524,15 @@ sealed partial class CheckWindow : RenderWindow
         long shadowColorBytesBefore = Field("_shadowColorTexture") == 0 ? 0
             : (long)Field("_shadowTargetSize") * Field("_shadowTargetSize") * 4;
         long combinedBefore = (long)(retained.GetField("_combinedBytes", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null) ?? 0L);
+        int OwnedTextureCount() => ((HashSet<int>)typeof(Scene).GetField("_ownedTextures", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(scene)!).Count;
+        string[] programFields={"_shaderProgramId","_rttShaderProgramId","_shiftShaderProgramId","_celShaderProgramId"};
+        int[] programsBefore=programFields.Select(Field).Where(id=>id!=0).ToArray();
+        int ownedTexturesBefore=OwnedTextureCount(),framebufferBefore=Field("_frameBuffer");
         EndScene();
+        int ownedTexturesAfter=OwnedTextureCount(),framebufferAfter=Field("_frameBuffer");
+        bool programsReleased=programsBefore.All(id=>!GL.IsProgram(id));
+        if (ownedTexturesAfter!=0 || framebufferAfter!=0 || !programsReleased)
+            throw new InvalidOperationException("Scene unload retained owned textures, framebuffer or shader programs.");
         bool shadowReleased = (shadowFbo == 0 || !GL.IsFramebuffer(shadowFbo))
             && (shadowTexture == 0 || !GL.IsTexture(shadowTexture)) && Field("_shadowFramebuffer") == 0 && Field("_shadowDepthTexture") == 0;
         object? retainedAfter = Counter("RetainedListCount");
@@ -510,7 +546,7 @@ sealed partial class CheckWindow : RenderWindow
         long depthSnapshotBytesAfter = DepthSnapshotBytes();
         if (depthSnapshotBytesAfter != 0 || proceduralBytesAfter != 0 || spriteCountAfter != 0 || spriteBytesAfter != 0 || glyphCountAfter != 0 || glyphBytesAfter != 0 || !shadowReleased || retainedAfter is int count && count != 0 || combinedAfter != 0 || GL.GetError() != ErrorCode.NoError)
             throw new InvalidOperationException("Scene unload retained live GL resources or an error.");
-        return new { depthSnapshotBytesBefore, depthSnapshotBytesAfter, proceduralBytesBefore, proceduralBytesAfter, shadowReleased, retainedListsBefore = retainedBefore, retainedListsAfter = retainedAfter,
+        return new { ownedTexturesBefore,ownedTexturesAfter,framebufferBefore,framebufferAfter,programCountBefore=programsBefore.Length,programsReleased,depthSnapshotBytesBefore, depthSnapshotBytesAfter, proceduralBytesBefore, proceduralBytesAfter, shadowReleased, retainedListsBefore = retainedBefore, retainedListsAfter = retainedAfter,
             combinedBytesBefore = combinedBefore, combinedBytesAfter = combinedAfter,
             retainedBytesBefore, retainedBytesAfter, shadowColorBytesBefore,
             glyphCountBefore, glyphBytesBefore, glyphCountAfter, glyphBytesAfter,

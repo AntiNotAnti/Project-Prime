@@ -21,6 +21,8 @@ using OpenTK.Mathematics;
 sealed partial class CheckWindow
 {
     internal bool ResourceStressEnabled { get; private set; }
+    private string _resourceArm="combined";
+    private int _quiescentSamples=6, _quiescentIntervalMs=1000;
     private int _resourceCycles = 4, _resourceFrames = 120, _resourceCycle;
     private bool _resourceCandidate, _resourceHit, _resourceDrain;
     private readonly List<AudioShutdownObservation> _audioShutdowns=new();
@@ -51,7 +53,14 @@ sealed partial class CheckWindow
         if (!ResourceStressEnabled) return;
         string Value(string key,string fallback) => Array.IndexOf(args,key) is int i && i>=0 && i+1<args.Length ? args[i+1] : fallback;
         _resourceEvidence=Path.GetFullPath(Value("-resource-evidence",Value("-output","native-render-result.json")+".resource-evidence"));
+        Directory.CreateDirectory(_resourceEvidence);
         _resourceDrain=args.Contains("-resource-drain");
+        _resourceArm=Value("-resource-arm","combined");
+        if (_resourceArm is not ("combined" or "map-gl" or "studio"))
+            throw new ArgumentException("Use -resource-arm combined|map-gl|studio|audio.");
+        _quiescentSamples=int.Parse(Value("-resource-quiescent-samples","6"));
+        _quiescentIntervalMs=int.Parse(Value("-resource-quiescent-ms","1000"));
+        ResourceAttribution.ValidateQuiescence(_quiescentSamples,_quiescentIntervalMs);
         _resourceCycles=int.Parse(Value("-resourcecycles","4"));
         _resourceFrames=int.Parse(Value("-resourceframes","120"));
         _resourceRooms=Value("-resourcerooms","MP9 CRYOCHASM|MP3 PROVING GROUND").Split('|',StringSplitOptions.RemoveEmptyEntries);
@@ -61,9 +70,9 @@ sealed partial class CheckWindow
             throw new ArgumentException("Resource cycles 1..200, frames 30..600, nonempty rooms required.");
         if (_windowCycle || _shots!=null || _bombCheck || _impactCheck || _outlineCheck)
             throw new ArgumentException("Resource stress is separate from capture, window-cycle and performance modes.");
-        if (_failureStages.Contains("shadow-after-framebuffer") && _shadows==ShadowQuality.Off)
+        if (_resourceArm != "studio" && _failureStages.Contains("shadow-after-framebuffer") && _shadows==ShadowQuality.Off)
             throw new ArgumentException("Shadow allocation injection requires enabled -shadows.");
-        _resourcePlayers=Math.Max(2,PlayerEntity.PlayerCount);
+
     }
     internal void ClearResourceFailureCallback()
     {
@@ -91,7 +100,9 @@ sealed partial class CheckWindow
         for(int i=0;i<_resourcePlayers;i++) AddPlayer(i==0?Hunter.Samus:Hunter.Spire);
         PlayerEntity.PlayerCount=_resourcePlayers;PlayerEntity.MainPlayerIndex=0;
         foreach(var player in PlayerEntity.Players) player.IsBot=false;
-        AddRoom(ResourceRoom,GameMode.Battle,playerCount:_resourcePlayers);
+        if (_resourceArm == "map-gl") ResourceAttribution.AddRoomWithoutAudio(Scene!,
+            () => AddRoom(ResourceRoom,GameMode.Battle,playerCount:_resourcePlayers));
+        else AddRoom(ResourceRoom,GameMode.Battle,playerCount:_resourcePlayers);
         ApplyDiagnosticOptions();
         LoadScene();
         RenderOptions.PlayerOutline=PlayerOutlineStyle.Red;
@@ -154,6 +165,7 @@ sealed partial class CheckWindow
         long generationBefore=RetainedGeneration();
         ulong capturedFrame=Scene.FrameCount;
         long cleanupStarted=Stopwatch.GetTimestamp();
+        object audioOwnedBefore=ResourceAttribution.AudioOwnedSample();
         object cleanup=CleanupAndInspect();
         ObserveAudioShutdown(cleanupStarted);
         long generationAfter=RetainedGeneration();
@@ -162,11 +174,11 @@ sealed partial class CheckWindow
         _resourcePrivateBytes.Add(process.PrivateMemorySize64);
         _resourceRecords.Add(new { cycle=_resourceCycle,room=ResourceRoom,candidate=_resourceCandidate,stage=FailureStage,depthSnapshotDedicatedFixture=FailureStage=="depth-snapshot-after-framebuffer",injectionHit=_resourceHit,
             width,height,simulationFrame=capturedFrame,pixelsSha256=Convert.ToHexString(SHA256.HashData(pixels)),depthSha256=Convert.ToHexString(SHA256.HashData(depthBytes)),
-            generationBefore,generationAfter,cleanup,privateBytes=process.PrivateMemorySize64>0?(long?)process.PrivateMemorySize64:null,workingSetBytes=process.WorkingSet64,managedBytes=GC.GetTotalMemory(false),memory=MemorySample(),audioShutdown=AudioShutdownSummary() });
+            generationBefore,generationAfter,cleanup,privateBytes=process.PrivateMemorySize64>0?(long?)process.PrivateMemorySize64:null,workingSetBytes=process.WorkingSet64,managedBytes=GC.GetTotalMemory(false),memory=ResourceAttribution.MemorySample(),audioOwnedBefore,audioShutdown=AudioShutdownSummary() });
         if(!_resourceCandidate){_resourceCandidate=true;StartResourceScene();return;}
-        RunStudioReload();
+        if (_resourceArm == "combined") RunStudioReload();
         _resourceCandidate=false;_resourceCycle++;
-        if(_resourceCycle==_resourceCycles){if(_resourceDrain) DrainResources();Complete=true;Close();return;}
+        if(FinishResourceCycle()) return;
         StartResourceScene();
     }
     private void ObserveAudioShutdown(long cleanupStarted)
@@ -179,43 +191,43 @@ sealed partial class CheckWindow
         else _=task.ContinueWith(_=>Interlocked.Exchange(ref entry.CompletedAt,Stopwatch.GetTimestamp()),
             CancellationToken.None,TaskContinuationOptions.ExecuteSynchronously,TaskScheduler.Default);
     }
-    private object AudioShutdownSummary() => new
+    private object AudioShutdownSummary() => AudioShutdownSummary(false);
+    private object AudioShutdownSummary(bool includeTasks) => new
     {
         observations=_audioShutdowns.Count,distinctTasks=_audioShutdowns.Select(e=>e.Task).Distinct().Count(),
         completed=_audioShutdowns.Count(e=>e.Task.IsCompleted),remaining=_audioShutdowns.Count(e=>!e.Task.IsCompleted),
         faulted=_audioShutdowns.Count(e=>e.Task.IsFaulted),canceled=_audioShutdowns.Count(e=>e.Task.IsCanceled),
-        tasks=_audioShutdowns.Select((e,index)=>new { index,status=e.Task.Status.ToString(),
+        tasks=includeTasks ? _audioShutdowns.Select((e,index)=>new { index,status=e.Task.Status.ToString(),
             observedAfterCleanupMs=Stopwatch.GetElapsedTime(e.CleanupStarted,e.ObservedAt).TotalMilliseconds,
             observedCompletionFromCleanupStartMs=Interlocked.Read(ref e.CompletedAt) is long end && end>0
-                ? (double?)Stopwatch.GetElapsedTime(e.CleanupStarted,end).TotalMilliseconds : null }).ToArray(),
+                ? (double?)Stopwatch.GetElapsedTime(e.CleanupStarted,end).TotalMilliseconds : null }).ToArray() : null,
         durationMeaning="Observation from cleanup start; includes cleanup/GC and completion-observer scheduling. Already-completed tasks provide an upper bound, not native close duration."
     };
-    private static object MemorySample()
+    private bool FinishResourceCycle()
     {
-        using var process=Process.GetCurrentProcess();process.Refresh();
-        var info=GC.GetGCMemoryInfo();int? threads=null;
-        try{threads=process.Threads.Count;}catch(PlatformNotSupportedException){}
-        return new { timestamp=Stopwatch.GetTimestamp(),workingSetBytes=process.WorkingSet64,
-            privateBytes=process.PrivateMemorySize64>0?(long?)process.PrivateMemorySize64:null,
-            managedLiveBytes=GC.GetTotalMemory(false),gcCommittedBytes=info.TotalCommittedBytes,
-            gcHeapSizeBytes=info.HeapSizeBytes,gcFragmentedBytes=info.FragmentedBytes,gcMemoryInfoCollectionIndex=info.Index,
-            processThreadCount=threads };
+        Console.WriteLine($"NATIVERENDER resource arm={_resourceArm} cycle={_resourceCycle}/{_resourceCycles}");
+        if (_resourceCycle != _resourceCycles) return false;
+        if (_resourceDrain) DrainResources();
+        Complete=true;Close();return true;
     }
     private void DrainResources()
     {
-        _resourceDrainSamples.Add(new { phase="before-drain",memory=MemorySample(),audio=AudioShutdownSummary() });
+        _resourceDrainSamples.Add(new { phase="before-drain",memory=ResourceAttribution.MemorySample(),audio=AudioShutdownSummary() });
         Task[] tasks=_audioShutdowns.Select(e=>e.Task).Distinct().ToArray();
         long started=Stopwatch.GetTimestamp();bool allComplete=false;
         try {allComplete=Task.WaitAll(tasks,TimeSpan.FromSeconds(15));}
         catch(AggregateException ex){_resourceDrainError=ex.Flatten().ToString();allComplete=tasks.All(t=>t.IsCompleted);}
         _resourceDrainSamples.Add(new { phase="after-audio-wait",waitLimitSeconds=15,elapsedMs=Stopwatch.GetElapsedTime(started).TotalMilliseconds,
-            allComplete,memory=MemorySample(),audio=AudioShutdownSummary() });
+            allComplete,memory=ResourceAttribution.MemorySample(),audio=AudioShutdownSummary() });
+        if (!allComplete || tasks.Any(t=>t.IsFaulted || t.IsCanceled))
+            throw new InvalidOperationException("Audio drain incomplete, faulted or canceled: "+_resourceDrainError);
         // Deliberately outside timing evidence: request one LOH compaction and
         // drain finalizers plus queued GL work to distinguish deferred release.
         GCSettings.LargeObjectHeapCompactionMode=GCLargeObjectHeapCompactionMode.CompactOnce;
         GC.Collect(GC.MaxGeneration,GCCollectionMode.Forced,blocking:true,compacting:true);
         GC.WaitForPendingFinalizers();GL.Finish();
-        _resourceDrainSamples.Add(new { phase="after-full-gc-finalizers-gl-finish",memory=MemorySample(),audio=AudioShutdownSummary() });
+        _resourceDrainSamples.Add(new { phase="after-full-gc-finalizers-gl-finish",memory=ResourceAttribution.MemorySample(),audio=AudioShutdownSummary() });
+        ResourceAttribution.QuiescentSamples(_resourceDrainSamples,_quiescentSamples,_quiescentIntervalMs,AudioShutdownSummary);
     }
     private void ProbeDepthSnapshotAllocation()
     {
@@ -283,14 +295,18 @@ sealed partial class CheckWindow
         int meshes=(int)typeof(Scene).GetProperty("EditorMeshCount")!.GetValue(editor)!;
         int textures=((HashSet<int>)typeof(Scene).GetField("_ownedTextures",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(editor)!).Count;
         int framebuffer=(int)typeof(Scene).GetField("_frameBuffer",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(editor)!;
+        int program=(int)typeof(Scene).GetField("_shaderProgramId",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(editor)!;
         long retained=Convert.ToInt64(typeof(Scene).Assembly.GetType("MphRead.Mods.Render.DesktopRetainedGeometry")!
             .GetProperty("ResidentBytes",BindingFlags.NonPublic|BindingFlags.Static)!.GetValue(null));
-        if(meshes!=0 || textures!=0 || framebuffer!=0 || retained!=0 || GL.GetError()!=ErrorCode.NoError) throw new InvalidOperationException("Studio unload retained meshes or GL errors.");
-        _studioRecords.Add(new { cycle=_resourceCycle,geometryRebuilds=cache.GeometryRebuildCount,meshCountAfter=meshes,textureCountAfter=textures,framebufferAfter=framebuffer,retainedBytesAfter=retained,pixelsSha256=Convert.ToHexString(SHA256.HashData(first!)) });
+        if(meshes!=0 || textures!=0 || framebuffer!=0 || program!=0 || retained!=0 || GL.GetError()!=ErrorCode.NoError) throw new InvalidOperationException("Studio unload retained meshes or GL errors.");
+        _studioRecords.Add(new { cycle=_resourceCycle,geometryRebuilds=cache.GeometryRebuildCount,meshCountAfter=meshes,textureCountAfter=textures,framebufferAfter=framebuffer,programAfter=program,retainedBytesAfter=retained,pixelsSha256=Convert.ToHexString(SHA256.HashData(first!)),memory=ResourceAttribution.MemorySample(),audio=ResourceAttribution.AudioOwnedSample() });
     }
-    internal object ResourceStressResult() => new { schema=1,kind="same-context-resource-stress",assemblyMvid=typeof(Scene).Module.ModuleVersionId,
-        cyclesRequested=_resourceCycles,cyclesCompleted=_resourceCycle,simulationFramesPerArm=_resourceFrames,rooms=_resourceRooms,failureStages=_failureStages,resourceDrainRequested=_resourceDrain,audioShutdown=AudioShutdownSummary(),drainSamples=_resourceDrainSamples,drainError=_resourceDrainError,
-        contextCount=1,windowEvents=_windowEvents,ownedResourcesAfterEveryUnloadZero=true,records=_resourceRecords,studioReloads=_studioRecords,privateMemoryAvailable=_resourcePrivateBytes.Any(v=>v>0),privateBytesFirst=_resourcePrivateBytes.FirstOrDefault()>0?(long?)_resourcePrivateBytes.FirstOrDefault():null,
+    internal object ResourceStressResult() => new { schema=2,kind="same-context-resource-stress",arm=_resourceArm,manifest=ResourceAttribution.Manifest(),
+        workload=new { fixedRng=new[]{12345,98765},players=_resourceArm=="studio"?0:_resourcePlayers,bots=false,simulationHz=60,studioRebuildsPerCycle=_resourceArm=="map-gl"?0:3,readback=true,audioEnabled=_resourceArm=="combined",
+            shadows=_shadows.ToString(),requestedFramebuffer=new[]{_requestedPixels.X,_requestedPixels.Y},actualFramebuffer=new[]{FramebufferSize.X,FramebufferSize.Y},cap=_cap,
+            vendor=_glVendor,renderer=_glRenderer,glVersion=_glVersion,quiescentSamples=_quiescentSamples,quiescentIntervalMs=_quiescentIntervalMs },assemblyMvid=typeof(Scene).Module.ModuleVersionId,
+        cyclesRequested=_resourceCycles,cyclesCompleted=_resourceCycle,simulationFramesPerArm=_resourceArm=="studio"?0:_resourceFrames,rooms=_resourceArm=="studio"?Array.Empty<string>():_resourceRooms,failureStages=_resourceArm=="studio"?Array.Empty<string>():_failureStages,resourceDrainRequested=_resourceDrain,audioShutdown=AudioShutdownSummary(true),drainSamples=_resourceDrainSamples,drainError=_resourceDrainError,
+        contextCount=1,windowEvents=_windowEvents,ownedResourcesAfterEveryUnloadZero=Complete,records=_resourceRecords,studioReloads=_studioRecords,privateMemoryAvailable=_resourcePrivateBytes.Any(v=>v>0),privateBytesFirst=_resourcePrivateBytes.FirstOrDefault()>0?(long?)_resourcePrivateBytes.FirstOrDefault():null,
         privateBytesLast=_resourcePrivateBytes.LastOrDefault()>0?(long?)_resourcePrivateBytes.LastOrDefault():null,complete=Complete,
         limitations="Readback/GC/reloads are lifecycle evidence, never FPS evidence. Live managed bytes differ from GC committed/fragmented bytes and RSS. Memory is informational, not driver residency. Optional audio wait/full GC/finalizers/GL.Finish is diagnostic-only, never FPS evidence. Studio tests renderer/cache reload, not full editor UI." };
 }
