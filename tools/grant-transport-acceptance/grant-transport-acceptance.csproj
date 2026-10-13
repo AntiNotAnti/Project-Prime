@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>nettest</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="ProjectPrime"><HintPath>$(AcceptanceBinaryDirectory)/ProjectPrime.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="OpenTK.Mathematics"><HintPath>$(AcceptanceBinaryDirectory)/OpenTK.Mathematics.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="RequireFrozenCandidate" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(AcceptanceBinaryDirectory)' == '' or !Exists('$(AcceptanceBinaryDirectory)/ProjectPrime.dll')"
+           Text="Supply -p:AcceptanceBinaryDirectory=/absolute/frozen/candidate. This diagnostic never builds the client." />
+  </Target>
+</Project>
