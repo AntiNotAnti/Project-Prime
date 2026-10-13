@@ -177,8 +177,10 @@
     },
     {
       "path": ".github/workflows/build.yml",
-      "sha256": "66c1985d9f8caf652ece186b6a9fdfd957e61819fda8760f3c6a5c4ade259e8c",
-      "bytes": 50727
+      "sha256": "3caef8111a9cccf9f30480f75b13f86dbd18ea13da85fb99573bf22f7d97e2b3",
+      "bytes": 51288
     }
-  ]
+  ],
+  "integration_base": "9bd938a54c73a8871da7eca387ae883415468eb3",
+  "integration": "ordinary merge preserves all32 earlier product fixes and current CI union; no change to #518"
 }

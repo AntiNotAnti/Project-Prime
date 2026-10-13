@@ -1,6 +1,6 @@
 # Encoder capability stdout and probe lifetime
 
-Phase 6/9; main baseline `b0d44a1e9578d350714221be9a73e17059501ec2`, branch `codex/consolidation-encoder-capability-probe`. Evidence dependency #489. Reuses merged #511 discarded-stderr and #516 progress work; #518 encoder-job pipe cancellation remains a separate implementation and is not imported by this slice. Conceptual runtime dependencies #492/#494/#495/#501/#503/#515 do not make this an audiovisual acceptance gate.
+Phase 6/9; main baseline `b0d44a1e9578d350714221be9a73e17059501ec2`, branch `codex/consolidation-encoder-capability-probe`. Ordinary integration base: current main `9bd938a54c73a8871da7eca387ae883415468eb3`; the earlier b0d44a1e measurements remain baseline evidence only. Evidence dependency #489. Uses merged #511 discarded-stderr helper; #516 is related progress-parser evidence, not a code dependency. Merged #518 encoder-job cancellation is unchanged by this slice. Conceptual runtime dependencies #492/#494/#495/#501/#503/#515 do not make this an audiovisual acceptance gate.
 
 ## Proven boundary and implementation
 
