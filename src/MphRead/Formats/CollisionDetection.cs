@@ -57,19 +57,9 @@ namespace MphRead.Formats
         private static bool FiniteVector(Vector3 value)
             => Single.IsFinite(value.X) && Single.IsFinite(value.Y) && Single.IsFinite(value.Z);
 
-        private static readonly List<CollisionCandidate> _activeItems = new List<CollisionCandidate>(2048);
-        private static readonly Queue<CollisionCandidate> _inactiveItems = new Queue<CollisionCandidate>(2048);
-        // due to using linked lists, the game checks collision with room candidates in the reverse order as they were found,
-        // then checks collision with entity candidates in the reverse order as they were found,
-        // so we need this temporary collection to add everything to _activeItems in the right order
-        private static readonly Stack<CollisionCandidate> _tempItems = new Stack<CollisionCandidate>(2048);
-
+        // Kept for existing runtime/tool startup calls. Scratch initializes on first borrow.
         public static void Init()
         {
-            for (int i = 0; i < 2048; i++)
-            {
-                _inactiveItems.Enqueue(new CollisionCandidate(null!, default));
-            }
         }
 
         public static bool CheckBetweenPoints(IReadOnlyList<CollisionCandidate> candidates, Vector3 point1, Vector3 point2,
@@ -86,7 +76,7 @@ namespace MphRead.Formats
         private static bool CheckBetweenPoints(IReadOnlyList<CollisionCandidate>? candidates, Vector3 point1, Vector3 point2,
             TestFlags flags, Scene scene, ref CollisionResult result, bool hasCandidates)
         {
-            _seenData.Clear();
+            using var workspace = CollisionQueryWorkspace.Borrow();
             bool collided = false;
             ushort mask = 0;
             bool includeEntities = !flags.TestFlag(TestFlags.Scan);
@@ -104,7 +94,8 @@ namespace MphRead.Formats
             float minDist = Single.MaxValue;
             if (!hasCandidates)
             {
-                candidates = GetCandidatesForPoints(point1, point2, 0, includeEntities, scene);
+                PopulateCandidatesForPoints(point1, point2, 0, includeEntities, scene, workspace);
+                candidates = workspace.Items;
             }
             Debug.Assert(candidates != null);
             for (int i = 0; i < candidates.Count; i++)
@@ -125,13 +116,13 @@ namespace MphRead.Formats
                 {
                     // todo: counter
                     CollisionFace data = info.RuntimeData[info.RuntimeDataIndices[candidate.Entry.DataStartIndex + j]];
-                    if (((ushort)data.Flags & mask) != 0 || _seenData.Contains(data))
+                    if (((ushort)data.Flags & mask) != 0 || workspace.SeenFaces.Contains(data))
                     {
                         continue;
                     }
                     if (candidate.EntityCollision == null)
                     {
-                        _seenData.Add(data);
+                        workspace.SeenFaces.Add(data);
                     }
                     Vector4 plane = info.Planes[data.PlaneIndex];
                     float dot1 = Vector3.Dot(transPoint1, plane.Xyz) - plane.W;
@@ -350,20 +341,6 @@ namespace MphRead.Formats
             return false;
         }
 
-        private static void ClearCandidates()
-        {
-            while (_activeItems.Count > 0)
-            {
-                int last = _activeItems.Count - 1;
-                CollisionCandidate item = _activeItems[last];
-                _activeItems.RemoveAt(last);
-                _inactiveItems.Enqueue(item);
-            }
-        }
-
-        private static CollisionCandidate RentCandidate()
-            => _inactiveItems.Count > 0 ? _inactiveItems.Dequeue() : new CollisionCandidate(null!, default);
-
         public static int CheckSphereBetweenPoints(IReadOnlyList<CollisionCandidate> candidates, Vector3 point1, Vector3 point2, float radius,
             int limit, bool includeOffset, TestFlags flags, Scene scene, CollisionResult[] results)
         {
@@ -386,14 +363,11 @@ namespace MphRead.Formats
                 hasCandidates: true, robustEdges: true);
         }
 
-        // todo: revisit this approach
-        private static readonly HashSet<CollisionFace> _seenData = new HashSet<CollisionFace>(64);
-
         private static int CheckSphereBetweenPoints(IReadOnlyList<CollisionCandidate>? candidates, Vector3 point1, Vector3 point2, float radius,
             int limit, bool includeOffset, TestFlags flags, Scene scene, CollisionResult[] results,
             bool hasCandidates, bool robustEdges)
         {
-            _seenData.Clear();
+            using var workspace = CollisionQueryWorkspace.Borrow();
             limit = Math.Min(limit, results.Length);
             if (limit <= 0)
             {
@@ -415,7 +389,8 @@ namespace MphRead.Formats
             Vector3 transPoint2 = point2;
             if (!hasCandidates)
             {
-                candidates = GetCandidatesForLimits(point1, point2, radius, null, Vector3.Zero, includeEntities: false, scene);
+                PopulateCandidatesForLimits(point1, point2, radius, null, Vector3.Zero, includeEntities: false, scene, workspace);
+                candidates = workspace.Items;
             }
             Debug.Assert(candidates != null);
             for (int i = 0; i < candidates.Count; i++)
@@ -439,13 +414,13 @@ namespace MphRead.Formats
                         break;
                     }
                     CollisionFace data = info.RuntimeData[info.RuntimeDataIndices[candidate.Entry.DataStartIndex + j]];
-                    if (((ushort)data.Flags & mask) != 0 || _seenData.Contains(data))
+                    if (((ushort)data.Flags & mask) != 0 || workspace.SeenFaces.Contains(data))
                     {
                         continue;
                     }
                     if (candidate.EntityCollision == null)
                     {
-                        _seenData.Add(data);
+                        workspace.SeenFaces.Add(data);
                     }
                     Vector4 plane = info.Planes[data.PlaneIndex];
                     float dot1 = Vector3.Dot(transPoint1, plane.Xyz) - plane.W;
@@ -875,7 +850,7 @@ namespace MphRead.Formats
         public static int CheckSpherePenetration(Vector3 point, float radius, int limit,
             TestFlags flags, Scene scene, CollisionResult[] results)
         {
-            _seenData.Clear();
+            using var workspace = CollisionQueryWorkspace.Borrow();
             limit = Math.Min(limit, results.Length);
             if (limit <= 0 || radius <= 0)
             {
@@ -892,8 +867,8 @@ namespace MphRead.Formats
                 mask |= (ushort)CollisionFlags.IgnoreBeams;
             }
 
-            IReadOnlyList<CollisionCandidate> candidates = GetCandidatesForLimits(
-                point, point, radius, null, Vector3.Zero, includeEntities: true, scene);
+            PopulateCandidatesForLimits(point, point, radius, null, Vector3.Zero, includeEntities: true, scene, workspace);
+            IReadOnlyList<CollisionCandidate> candidates = workspace.Items;
             int count = 0;
             for (int candidateIndex = 0; candidateIndex < candidates.Count && count < limit; candidateIndex++)
             {
@@ -909,13 +884,13 @@ namespace MphRead.Formats
                 for (int dataIndex = 0; dataIndex < candidate.Entry.DataCount && count < limit; dataIndex++)
                 {
                     CollisionFace data = info.RuntimeData[info.RuntimeDataIndices[candidate.Entry.DataStartIndex + dataIndex]];
-                    if (((ushort)data.Flags & mask) != 0 || _seenData.Contains(data))
+                    if (((ushort)data.Flags & mask) != 0 || workspace.SeenFaces.Contains(data))
                     {
                         continue;
                     }
                     if (candidate.EntityCollision == null)
                     {
-                        _seenData.Add(data);
+                        workspace.SeenFaces.Add(data);
                     }
 
                     Vector4 plane = info.Planes[data.PlaneIndex];
@@ -1056,7 +1031,7 @@ namespace MphRead.Formats
         public static int CheckInRadius(Vector3 point, float radius, int limit, bool getSimpleNormal,
             TestFlags flags, Scene scene, CollisionResult[] results)
         {
-            _seenData.Clear();
+            using var workspace = CollisionQueryWorkspace.Borrow();
 
             static Vector4 MovePlane(Vector4 plane, Vector3 translation)
             {
@@ -1079,8 +1054,8 @@ namespace MphRead.Formats
             }
             var limitMin = new Vector3(point.X - radius, point.Y - radius, point.Z - radius);
             var limitMax = new Vector3(point.X + radius, point.Y + radius, point.Z + radius);
-            IReadOnlyList<CollisionCandidate> candidates
-                = GetCandidatesForLimits(null, Vector3.Zero, 0, limitMin, limitMax, includeEntities: false, scene);
+            PopulateCandidatesForLimits(null, Vector3.Zero, 0, limitMin, limitMax, includeEntities: false, scene, workspace);
+            IReadOnlyList<CollisionCandidate> candidates = workspace.Items;
             for (int i = 0; i < candidates.Count; i++)
             {
                 CollisionCandidate candidate = candidates[i];
@@ -1097,13 +1072,13 @@ namespace MphRead.Formats
                     }
                     // todo: counter
                     CollisionFace data = info.RuntimeData[info.RuntimeDataIndices[candidate.Entry.DataStartIndex + j]];
-                    if (((ushort)data.Flags & mask) != 0 || _seenData.Contains(data))
+                    if (((ushort)data.Flags & mask) != 0 || workspace.SeenFaces.Contains(data))
                     {
                         continue;
                     }
                     if (candidate.EntityCollision == null)
                     {
-                        _seenData.Add(data);
+                        workspace.SeenFaces.Add(data);
                     }
                     Vector4 plane = info.Planes[data.PlaneIndex];
                     float dot = Vector3.Dot(transPoint, plane.Xyz) - plane.W;
@@ -1223,11 +1198,27 @@ namespace MphRead.Formats
             return count;
         }
 
-        public static IReadOnlyList<CollisionCandidate> GetCandidatesForLimits(Vector3? point1, Vector3 point2, float margin,
+        /// <summary>Borrow candidates until disposal. Keep the lease alive through every consumer.</summary>
+        public static CollisionQueryWorkspace GetCandidatesForLimits(Vector3? point1, Vector3 point2, float margin,
             Vector3? limitMin, Vector3 limitMax, bool includeEntities, Scene scene)
         {
+            var workspace = CollisionQueryWorkspace.Borrow();
+            try
+            {
+                PopulateCandidatesForLimits(point1, point2, margin, limitMin, limitMax, includeEntities, scene, workspace);
+                return workspace;
+            }
+            catch
+            {
+                workspace.Dispose();
+                throw;
+            }
+        }
+
+        private static void PopulateCandidatesForLimits(Vector3? point1, Vector3 point2, float margin,
+            Vector3? limitMin, Vector3 limitMax, bool includeEntities, Scene scene, CollisionQueryWorkspace workspace)
+        {
             // for some reason, this is used both for querying with points and with limits
-            ClearCandidates();
             if (limitMin == null)
             {
                 Debug.Assert(point1 != null);
@@ -1242,15 +1233,14 @@ namespace MphRead.Formats
                     MathF.Max(MathF.Max(Single.MinValue, point1.Value.Z), point2.Z) + margin
                 );
             }
-            GetRoomCandidatesForLimits(limitMin.Value, limitMax, scene);
+            GetRoomCandidatesForLimits(limitMin.Value, limitMax, scene, workspace);
             if (includeEntities && point1 != null)
             {
-                GetEntityCandidates(limitMin.Value, limitMax, scene);
+                GetEntityCandidates(limitMin.Value, limitMax, scene, workspace);
             }
-            return _activeItems;
         }
 
-        private static void GetRoomCandidatesForLimits(Vector3 limitMin, Vector3 limitMax, Scene scene)
+        private static void GetRoomCandidatesForLimits(Vector3 limitMin, Vector3 limitMax, Scene scene, CollisionQueryWorkspace workspace)
         {
             if (scene.Room == null)
             {
@@ -1297,11 +1287,11 @@ namespace MphRead.Formats
                                 CollisionGridEntry entry = info.RuntimeEntries[entryIndex++];
                                 if (entry.DataCount > 0)
                                 {
-                                    CollisionCandidate item = RentCandidate();
+                                    CollisionCandidate item = workspace.RentCandidate();
                                     item.Collision = inst;
                                     item.Entry = entry;
                                     item.EntityCollision = null;
-                                    _tempItems.Push(item);
+                                    workspace.PendingItems.Push(item);
                                 }
                                 xIndex++;
                             }
@@ -1314,17 +1304,33 @@ namespace MphRead.Formats
                     }
                 }
             }
-            while (_tempItems.Count > 0)
+            while (workspace.PendingItems.Count > 0)
             {
-                _activeItems.Add(_tempItems.Pop());
+                workspace.Items.Add(workspace.PendingItems.Pop());
             }
         }
 
-        public static IReadOnlyList<CollisionCandidate> GetCandidatesForPoints(Vector3 point1, Vector3 point2, float margin,
+        /// <summary>Borrow candidates until disposal. Keep the lease alive through every consumer.</summary>
+        public static CollisionQueryWorkspace GetCandidatesForPoints(Vector3 point1, Vector3 point2, float margin,
             bool includeEntities, Scene scene)
         {
-            ClearCandidates();
-            GetRoomCandidatesForPoints(point1, point2, scene);
+            var workspace = CollisionQueryWorkspace.Borrow();
+            try
+            {
+                PopulateCandidatesForPoints(point1, point2, margin, includeEntities, scene, workspace);
+                return workspace;
+            }
+            catch
+            {
+                workspace.Dispose();
+                throw;
+            }
+        }
+
+        private static void PopulateCandidatesForPoints(Vector3 point1, Vector3 point2, float margin,
+            bool includeEntities, Scene scene, CollisionQueryWorkspace workspace)
+        {
+            GetRoomCandidatesForPoints(point1, point2, scene, workspace);
             if (includeEntities)
             {
                 var limitMin = new Vector3(
@@ -1337,12 +1343,11 @@ namespace MphRead.Formats
                     MathF.Max(MathF.Max(Single.MinValue, point1.Y), point2.Y) + margin,
                     MathF.Max(MathF.Max(Single.MinValue, point1.Z), point2.Z) + margin
                 );
-                GetEntityCandidates(limitMin, limitMax, scene);
+                GetEntityCandidates(limitMin, limitMax, scene, workspace);
             }
-            return _activeItems;
         }
 
-        private static void GetEntityCandidates(Vector3 limitMin, Vector3 limitMax, Scene scene)
+        private static void GetEntityCandidates(Vector3 limitMin, Vector3 limitMax, Scene scene, CollisionQueryWorkspace workspace)
         {
             foreach (EntityBase entity in scene.Entities)
             {
@@ -1386,11 +1391,11 @@ namespace MphRead.Formats
                                     CollisionGridEntry entry = info.RuntimeEntries[entryIndex++];
                                     if (entry.DataCount > 0)
                                     {
-                                        CollisionCandidate item = RentCandidate();
+                                        CollisionCandidate item = workspace.RentCandidate();
                                         item.Collision = inst;
                                         item.Entry = entry;
                                         item.EntityCollision = entCol;
-                                        _tempItems.Push(item);
+                                        workspace.PendingItems.Push(item);
                                     }
                                     xIndex++;
                                 }
@@ -1404,13 +1409,13 @@ namespace MphRead.Formats
                     }
                 }
             }
-            while (_tempItems.Count > 0)
+            while (workspace.PendingItems.Count > 0)
             {
-                _activeItems.Add(_tempItems.Pop());
+                workspace.Items.Add(workspace.PendingItems.Pop());
             }
         }
 
-        private static void GetRoomCandidatesForPoints(Vector3 point1, Vector3 point2, Scene scene)
+        private static void GetRoomCandidatesForPoints(Vector3 point1, Vector3 point2, Scene scene, CollisionQueryWorkspace workspace)
         {
             if (scene.Room == null)
             {
@@ -1645,11 +1650,11 @@ namespace MphRead.Formats
                         CollisionGridEntry entry = info.RuntimeEntries[entryIndex];
                         if (entry.DataCount > 0)
                         {
-                            CollisionCandidate item = RentCandidate();
+                            CollisionCandidate item = workspace.RentCandidate();
                             item.Collision = inst;
                             item.Entry = entry;
                             item.EntityCollision = null;
-                            _tempItems.Push(item);
+                            workspace.PendingItems.Push(item);
                         }
                     }
                     if (curX == endX && curY == endY && curZ == endZ)
@@ -1700,9 +1705,9 @@ namespace MphRead.Formats
                     }
                 }
             }
-            while (_tempItems.Count > 0)
+            while (workspace.PendingItems.Count > 0)
             {
-                _activeItems.Add(_tempItems.Pop());
+                workspace.Items.Add(workspace.PendingItems.Pop());
             }
         }
 

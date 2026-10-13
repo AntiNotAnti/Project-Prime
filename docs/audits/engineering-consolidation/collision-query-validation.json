@@ -1,0 +1,199 @@
+{
+  "baseline_sha": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "candidate_source_sha": "c605f755c30ade462d331d3ba13d87d38db0c8db",
+  "baseline_assembly_sha256": "20e48325d25ff24ae4b483385c45707e10713ae1f149e20f178af59c4d6680d4",
+  "candidate_assembly_sha256": "7dfa5ef9c7cd34be100b0a2fa1cd8a82c70287fa4ac2aca3bf2f3e7687c96570",
+  "source_file_sha256": {
+    "src/MphRead/Entities/Enemies/30_Trocra.cs": "b8e97205f0a4c6000820e5eac85a56a9da113e1caac4fc5e997311f9ec83b16d",
+    "src/MphRead/Entities/Enemies/33_GoreaMeteor.cs": "03d12a82e8eed1b8ab53bc83fe142fa5833c56dac2763ad35fd7a2a2a834a819",
+    "src/MphRead/Entities/Players/PlayerCamera.cs": "906d85768b12fea8ddd928317ae157c9f0a2cfec27dd07db506b6a2898618480",
+    "src/MphRead/Entities/Players/PlayerCollision.cs": "cecda4a51b6d8b66c6efc9636272ac8b2fcde9d0d41ab198413b2a1b2feedfff",
+    "src/MphRead/Formats/CollisionDetection.cs": "ef878d7eb53df6be1abcbcb07c3a8c0f51166cf1fc0e2fa0fca361eb737adbb3",
+    "src/MphRead/Formats/CollisionQueryWorkspace.cs": "ee75efe785be0bcbc61db0f93d21ff0dda865936202949fa279fd5350c4cf06a",
+    "src/MphRead/Mods/EnhancedHunters/EnhancedHunterProjectiles.cs": "b7241013821eb0f761e71d5fefba5dde6193dd66dcae0277c42f5f732f7d78a7",
+    "src/MphRead/Mods/EnhancedHunters/EnhancedHunters.cs": "05588cf063644ae65eb2a24a379f0f41b0ba548041f68df9510eb8d2c308598f",
+    "src/MphRead/Mods/Input/AimAssist/AimAssistWorld.cs": "95bc8a2f596ac680fbd26ae2db7c6966991cde2489a525187eaafe6fb311b8d0",
+    "tools/collision-query-check/Program.cs": "debd0c2f331fd0dda83960f93ebd870ed1cbbca02f6dfdf5e4b18e2e1686ff81"
+  },
+  "environment": {
+    "sdk": "10.0.401",
+    "runtime": "10.0.12",
+    "os": "macOS 27.0",
+    "build": "26A428",
+    "architecture": "arm64",
+    "cpu": "Apple M4 Pro",
+    "configuration": "Release",
+    "native_window": false
+  },
+  "snapshot": {
+    "rows": 618,
+    "sha256": "68461616B61605635F0AA9532FA7716F2E399CF9A9D0B2190B917A5E0F7D8435"
+  },
+  "gates": {
+    "nested_candidates": {
+      "baseline": "FAIL",
+      "candidate": "PASS"
+    },
+    "nested_deduplication": {
+      "baseline_contacts": 2,
+      "candidate_contacts": 1,
+      "expected": 1
+    },
+    "simultaneous_scene_leases": {
+      "baseline_failures": 1000,
+      "candidate_failures": 0,
+      "checks": 2000
+    },
+    "concurrent_queries": {
+      "candidate_failures": 0,
+      "checks": 32000
+    },
+    "convenience_warm_allocation": {
+      "baseline_bytes": 0,
+      "candidate_bytes": 0,
+      "queries": 40000
+    },
+    "borrowed_warm_allocation": {
+      "baseline_bytes": 0,
+      "candidate_bytes": 0,
+      "borrows": 10000,
+      "checks": 10000
+    },
+    "repeated_init": {
+      "extra_calls": 3,
+      "baseline_before": 2048,
+      "baseline_after": 8192,
+      "candidate_bytes": 0
+    },
+    "nested_pool": {
+      "depth": 24,
+      "retained": 8
+    },
+    "oversized_query": {
+      "candidates": 8193,
+      "pool_before": 8,
+      "pool_after": 7,
+      "scene_references_cleared": true
+    },
+    "disposed_references": "PASS",
+    "exception_return": "PASS",
+    "large_warm_allocation": {
+      "candidates": 4225,
+      "queries": 100,
+      "warmup": 20,
+      "baseline_bytes": 0,
+      "initial_candidate_bytes": 43387200,
+      "fixed_candidate_bytes": 0
+    },
+    "capacity_boundary_warm_allocation": {
+      "candidates": 8192,
+      "queries": 100,
+      "warmup": 20,
+      "baseline_bytes": 0,
+      "fixed_candidate_bytes": 0
+    },
+    "large_retained_pool": {
+      "workspaces": 8,
+      "retained_objects": 8252,
+      "item_capacity": 8640,
+      "pending_capacity": 8640,
+      "inactive_capacity": 8640,
+      "maximum_workspaces": 8,
+      "maximum_objects_per_workspace": 8192,
+      "maximum_objects_per_lane": 65536
+    }
+  },
+  "stdout_summaries": {
+    "baseline": [
+      "REPEATED_INIT before=2048 after=8192 added=6144",
+      "SNAPSHOT rows=618 sha256=68461616B61605635F0AA9532FA7716F2E399CF9A9D0B2190B917A5E0F7D8435",
+      "NESTED_CANDIDATE_LIFETIME FAIL",
+      "NESTED_DEDUPLICATION expected=1 actual=2",
+      "INDEPENDENT_SCENES failures=1000/2000",
+      "WARM_ALLOCATION bytes=0 queries=40000",
+      "BORROWED_WARM_ALLOCATION bytes=0 borrows=10000 checks=10000"
+    ],
+    "candidate": [
+      "REPEATED_INIT bytes=0",
+      "SNAPSHOT rows=618 sha256=68461616B61605635F0AA9532FA7716F2E399CF9A9D0B2190B917A5E0F7D8435",
+      "NESTED_CANDIDATE_LIFETIME PASS",
+      "NESTED_DEDUPLICATION expected=1 actual=1",
+      "INDEPENDENT_SCENES failures=0/2000",
+      "CONCURRENT_QUERY_STRESS failures=0/32000",
+      "RETURN_CLEARS_SCENE_REFERENCES PASS",
+      "RETAINED_POOL count=8 nested=24",
+      "EXCEPTION_RETURNS_WORKSPACE PASS",
+      "LARGE_WARM_ALLOCATION candidates=4225 queries=100 bytes=0",
+      "LARGE_RETAINED_POOL workspaces=8 candidateCap=8192 objects=4285 itemCapacity=8640 pendingCapacity=8640 inactiveCapacity=8640 maximumObjects=65536",
+      "LARGE_WARM_ALLOCATION candidates=8192 queries=100 bytes=0",
+      "LARGE_RETAINED_POOL workspaces=8 candidateCap=8192 objects=8252 itemCapacity=8640 pendingCapacity=8640 inactiveCapacity=8640 maximumObjects=65536",
+      "OVERSIZED_QUERY candidates=8193 poolBefore=8 poolAfter=7 sceneReferencesCleared=true",
+      "WARM_ALLOCATION bytes=0 queries=40000",
+      "BORROWED_WARM_ALLOCATION bytes=0 borrows=10000 checks=10000"
+    ],
+    "custom_collision": [
+      "PASS: nested user map storage and metadata exclusion"
+    ],
+    "forms": [],
+    "architecture": [
+      "PASS: architecture, owner position, full snapshots and v20 byte fixture"
+    ],
+    "replay_forms": [
+      "PASS: replay form history 43 assertions; eight-slot bridge cache, transactional malformed-input rejection and restored ammo delegate bindings."
+    ],
+    "biped": [
+      "BIPED EDGE PASS opposing-speed fallback: native contact preserves finite spatial state; position=(0, 0, 0.5) speed=(0, 0, 0)",
+      "BIPED EDGE PASS opposing-speed fallback: native response separates by capsule radius",
+      "BIPED EDGE PASS opposing-speed fallback: lateral edge preserves height",
+      "BIPED EDGE PASS opposing-speed fallback: degenerate contact honors available separating direction",
+      "BIPED EDGE PASS fixture edge intersects upper biped capsule",
+      "BIPED EDGE PASS stationary deterministic fallback: native contact preserves finite spatial state; position=(0.5, 0, 0) speed=(0, 0, 0)",
+      "BIPED EDGE PASS stationary deterministic fallback: native response separates by capsule radius",
+      "BIPED EDGE PASS stationary deterministic fallback: lateral edge preserves height",
+      "BIPED EDGE PASS stationary deterministic fallback: degenerate contact honors available separating direction",
+      "BIPED EDGE PASS bottom-cap neighbor: cap contact preserves finite spatial state",
+      "BIPED EDGE PASS bottom-cap neighbor: cap response retains native penetration and vertical step limit; position=(0.5, 0, 0)",
+      "BIPED EDGE PASS exact bottom-cap center: cap contact preserves finite spatial state",
+      "BIPED EDGE PASS exact bottom-cap center: cap response retains native penetration and vertical step limit; position=(0, 0.5, 0)",
+      "BIPED EDGE PASS scene fixture has no simulation failures",
+      "PASS: 51 biped edge collision assertions (/Users/jarrett/Library/Application Support/Project Prime)"
+    ],
+    "replay_format": [
+      "[replayformat] PASS 3034 checks (v2/v3/v4, order, metadata, CRC, recovery, extraction, malformed files)"
+    ],
+    "replay_replica": [
+      "[replayparticles] PASS: real pooled birth resets rotation; historical world restore clears unowned angles and preserves authored rotation.",
+      "[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.",
+      "[replayseek] PASS: 62 file/clip comparisons, 7 checkpoints, 4823578 retained bytes, frozen EOF.",
+      "[replayreplica] PASS: 1801 gameplay/presentation hashes and decoder restores, 11186 animation restores, 7 detached worlds and 1500 continuation frames, 793 frames with projectiles; interleaved scenes and teardown preserve foreground state."
+    ],
+    "transport": [
+      "PASS: eight mixed-quality UDP peers, 1752 intents, 128 exact-once controls, 400ms client pump stall"
+    ],
+    "dynamic_geometry": [
+      "PASS: doors, force fields, moving collision, fractional sampling, catch-up, exception restoration, misses and 0 rewind allocations"
+    ],
+    "movement_tour": [
+      "MOVEMENT TOUR Samus: native activation PASS, frames=575, samples=575, hardRejections=0, wouldRefuseCandidates=0, evaluatedBiped=336, maximumBipedHorizontal=0.112789266, maximumBipedUpward=0.14990234, unsupportedAlt=126, exempt=112, inputAbsentWhileMoving=5",
+      "MOVEMENT TOUR Kanden: native activation PASS, frames=607, samples=607, hardRejections=0, wouldRefuseCandidates=0, evaluatedBiped=336, maximumBipedHorizontal=0.112789266, maximumBipedUpward=0.14990234, unsupportedAlt=166, exempt=104, inputAbsentWhileMoving=5",
+      "MOVEMENT TOUR Spire: native activation PASS, frames=607, samples=607, hardRejections=0, wouldRefuseCandidates=0, evaluatedBiped=336, maximumBipedHorizontal=0.112789266, maximumBipedUpward=0.14990234, unsupportedAlt=166, exempt=104, inputAbsentWhileMoving=5",
+      "MOVEMENT TOUR Noxus: native activation PASS, frames=627, samples=627, hardRejections=0, wouldRefuseCandidates=0, evaluatedBiped=336, maximumBipedHorizontal=0.112789266, maximumBipedUpward=0.14990234, unsupportedAlt=166, exempt=124, inputAbsentWhileMoving=5",
+      "MOVEMENT TOUR Trace: native activation PASS, frames=617, samples=617, hardRejections=0, wouldRefuseCandidates=0, evaluatedBiped=336, maximumBipedHorizontal=0.112789266, maximumBipedUpward=0.14990234, unsupportedAlt=154, exempt=126, inputAbsentWhileMoving=5",
+      "MOVEMENT TOUR Sylux: native activation PASS, frames=613, samples=613, hardRejections=0, wouldRefuseCandidates=0, evaluatedBiped=336, maximumBipedHorizontal=0.112789266, maximumBipedUpward=0.14990234, unsupportedAlt=166, exempt=110, inputAbsentWhileMoving=5",
+      "MOVEMENT TOUR Weavel: native activation PASS, frames=603, samples=603, hardRejections=0, wouldRefuseCandidates=0, evaluatedBiped=336, maximumBipedHorizontal=0.112789266, maximumBipedUpward=0.14990234, unsupportedAlt=166, exempt=100, inputAbsentWhileMoving=5",
+      "MOVEMENT TOUR: native local body controls, seven hunters, Roam camera; no dedicated kernel proof.",
+      "UNSUPPORTED/UNEXERCISED: pad, moving platform, teleport, external knockback, grapple, Spire wall climb, HUD/camera input parity."
+    ],
+    "large_baseline": [
+      "LARGE_WARM_ALLOCATION candidates=4225 queries=100 bytes=0",
+      "LARGE_WARM_ALLOCATION candidates=8192 queries=100 bytes=0"
+    ],
+    "large_initial_candidate": [
+      "LARGE_WARM_ALLOCATION candidates=4225 queries=100 bytes=43387200",
+      "LARGE_RETAINED_POOL workspaces=0 candidateCap=2048 objects=0 itemCapacity=0 pendingCapacity=0 inactiveCapacity=0 maximumObjects=16384"
+    ]
+  },
+  "initial_candidate_source_sha": "b83491e334a40ec548a44800e8518e8591cdc4a6",
+  "initial_candidate_assembly_sha256": "b4e88d518b78afc8478295589038420dea0fbf574d0a90eb3ce39f571e2cad59",
+  "zero_allocation_scope": "Verified for tested queries within retained candidate/face capacities and nesting budgets; above-budget valid inputs can allocate and return all candidates."
+}

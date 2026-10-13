@@ -252,3 +252,20 @@ This file is the short, machine-oriented source of truth for architectural assum
   cannot prove no intervening collision mutation.
 - Direct live snapshot decoding validates the complete packet before mutation;
   replay recording and bootstrap retain owned canonical representations.
+
+## Collision query ownership
+
+- Candidate queries return a synchronous `CollisionQueryWorkspace` lease. Keep it
+  in a `using` scope through every consumer; candidates and enumerators must not
+  escape disposal or cross the borrowing thread.
+- Nested calls borrow separate candidate and face-deduplication scratch. Independent
+  scenes can query concurrently; mutating the same scene concurrently remains unsupported.
+- Thread-local reuse retains at most eight workspaces, each with at most 8,192
+  candidate objects and 16,384 face-set capacity. Oversized queries return all
+  candidates and discard exceptional scratch on disposal. Zero allocation after
+  warmup is verified for tested queries within these reuse budgets; larger valid
+  queries can allocate. Return clears room/entity
+  references. `CollisionDetection.Init()` is a compatibility no-op.
+- Preserve room-then-entity reverse traversal, face order, strict distance tie-breaks
+  and collision floating-point evaluation order. This refactor does not change
+  simulation timing, protocol layouts or replay schemas.
