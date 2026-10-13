@@ -191,7 +191,7 @@ internal static class PostMatchSaveTests
     }
     // Avoid StorySave's asset-dependent logbook constructor while exercising
     // the real public save fields and production normalization/serializer.
-    private static StorySave Fixture()
+    internal static StorySave Fixture()
     {
         var save = (StorySave)RuntimeHelpers.GetUninitializedObject(typeof(StorySave));
         void Set(string name, object value) => typeof(StorySave).GetProperty(name)!.SetValue(save, value);
@@ -212,7 +212,7 @@ internal static class PostMatchSaveTests
     // Frozen source oracle: SceneGameState.CommitSave from baseline
     // 16b1d89bfb6ed7776b801b3e39d513e740ee5e58, GameState.cs:1818–1845.
     // Keep independent of CaptureSaveCommit so a shared-helper regression fails.
-    private static byte[] LegacySave(StorySave save)
+    internal static byte[] LegacySave(StorySave save)
     {
         save.Weapons &= 0xFF;
         if (save.WeaponSlots[2] == (int)BeamType.OmegaCannon) save.WeaponSlots[2] = (int)BeamType.None;
