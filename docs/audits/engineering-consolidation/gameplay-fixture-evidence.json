@@ -1,0 +1,719 @@
+{
+  "schemaVersion": 1,
+  "baselineSource": "91b1c0c6c44e8c90effd250729709f791a84765e",
+  "integratedSource": "164990e60244ecdb21fdcc4e98e91f3ea097090b",
+  "baselineClientMvid": "bb5922d1-051d-4a89-940b-d14096c550fe",
+  "correctedInvocations": {
+    "schemaVersion": 2,
+    "sourceSha": "164990e60244ecdb21fdcc4e98e91f3ea097090b",
+    "binarySha256": "8bc3701ba6d37db067da1b86be6168153a58b0edc3610fca15da86f3c7b133c3",
+    "supersedes": "artifacts/integration-checks/manifest.json",
+    "environment": {
+      "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data",
+      "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+    },
+    "frozenFixtureSha256": {
+      "enhanced-synthetic.ppdemo": "3c3b539b8922ec9374cbb672754fae10507070ae1b8b3518799aa07dd74afdef",
+      "enhanced-world-v9.bin": "a842a51563ee32307b209423e888a89ed167d5b37bf333c015f789a4434149c0",
+      "enhanced-world-v9-hashes.json": "a29bb0647836e589aaf5934a4965b0c068b821d3a87bf33ec9a200b8e9d99b93"
+    },
+    "results": [
+      {
+        "name": "retirement",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--enhanced-retirement"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:03:42.666038+00:00",
+        "log": "artifacts/integration-checks-corrected-20261013/retirement.log",
+        "logSha256": "e6de6949116f8a4b706ff4d29b5619a4fc105548d9d0c8955c19880cf9f255e0",
+        "lastLine": "ENHANCED RETIREMENT PASS 80 checks (live eligibility, settings, wire and archive compatibility)"
+      },
+      {
+        "name": "archival-world",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--enhanced-retirement-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data",
+          "/tmp/consolidation-enhanced-fixture"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:03:42.812686+00:00",
+        "log": "artifacts/integration-checks-corrected-20261013/archival-world.log",
+        "logSha256": "65ec95ce64c56d9088f91f0e65de4c63d249afbf47cf5b7a6f1c0f4cf6d6000d",
+        "lastLine": "ENHANCED ARCHIVE PASS 46 checks (baseline fixture replayed; headless synthetic archive)"
+      },
+      {
+        "name": "retired-live-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--enhanced-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:03:43.372101+00:00",
+        "log": "artifacts/integration-checks-corrected-20261013/retired-live-scene.log",
+        "logSha256": "8bb915597e3d057d6d6f0fbff8ef748aa3a80b159eafd40476f2dc60d7405151",
+        "lastLine": "ENHANCED RETIREMENT SCENE PASS 20 checks (headless, eight-player Balanced and forced retired rules)"
+      },
+      {
+        "name": "advanced",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--advanced-rules"
+        ],
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:03:44.323245+00:00",
+        "log": "artifacts/integration-checks-corrected-20261013/advanced.log",
+        "logSha256": "0adb6f34e3b68706ce22ba3bde698e7baf5b3c22d2a2d5c1ca452ffa1c829998",
+        "lastLine": "[advanced-rules] PASS 130 checks"
+      },
+      {
+        "name": "combat-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--combat-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data"
+        ],
+        "exitCode": 1,
+        "startedAtUtc": "2026-10-13T05:03:46.613257+00:00",
+        "log": "artifacts/integration-checks-corrected-20261013/combat-scene.log",
+        "logSha256": "c4a57ff0484025262925729c31215f2f9a5ecf331390d46cf37cf73e8f3a4c26",
+        "lastLine": "   at MphRead.Mods.Network.NetCombatCheck.Run(String room) in /Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/src/MphRead/Mods/Network/NetCombatCheck.cs:line 58"
+      },
+      {
+        "name": "advanced-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--advanced-rules-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data"
+        ],
+        "exitCode": 1,
+        "startedAtUtc": "2026-10-13T05:03:47.286290+00:00",
+        "log": "artifacts/integration-checks-corrected-20261013/advanced-scene.log",
+        "logSha256": "585ba0fb70433de440e074d3eaefbb98f4f1db57832d0c783b0d318466d610c4",
+        "lastLine": "   at MphRead.Mods.Network.NetLobbyTest.RunAdvancedRulesScene() in /Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/src/MphRead/Mods/Network/AdvancedMatchRulesCheck.cs:line 75"
+      }
+    ]
+  },
+  "fixtureBranchValidation": {
+    "baseSha": "91b1c0c6c44e8c90effd250729709f791a84765e",
+    "nettestSha256": "67f585fad6d0258a2090bd9245afdfd2c0361929a2d9f873fbe4f180bb451248",
+    "clientSha256": "254b8245adc17ee936675360aa135c63d9b973de413a278218d50b6881110a93",
+    "results": [
+      {
+        "name": "combat",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--combat-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/user-data"
+        ],
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/user-data",
+          "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+        },
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:20:48.387527+00:00",
+        "log": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/combat.log",
+        "logSha256": "8f13afe7eb01925327093bbc04343692b3d0eb92960c448fdaaa9bdda38beb64",
+        "lastLine": "COMBAT PASS 204 assertions"
+      },
+      {
+        "name": "advanced-scene",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--advanced-rules-scene",
+          "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/user-data"
+        ],
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/user-data",
+          "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+        },
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:20:49.368624+00:00",
+        "log": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/advanced-scene.log",
+        "logSha256": "dba6a39a09a5210c44a19af3bf10e529e8c6d57f1558c0e085b1d222a9678d97",
+        "lastLine": "[advanced-rules-scene] PASS 347 checks"
+      },
+      {
+        "name": "advanced",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--advanced-rules"
+        ],
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/user-data",
+          "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+        },
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:20:53.327854+00:00",
+        "log": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/advanced.log",
+        "logSha256": "ff8c6e955fdbdbb24d41cb6cf7d27967460a6b76d6964b85832532239d95e37b",
+        "lastLine": "[advanced-rules] PASS 130 checks"
+      },
+      {
+        "name": "protocol18",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--protocol18"
+        ],
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/user-data",
+          "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+        },
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:20:55.552763+00:00",
+        "log": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/protocol18.log",
+        "logSha256": "768650085c1f77361be185ae9708f2e702b18e96945e8549c8a31a0e78fbf3a8",
+        "lastLine": "PASS: protocol 18 lane round-trip, revision fencing, 0 decode allocations, 1172B worst-case fast datagram"
+      },
+      {
+        "name": "replay-format",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-replayformatcheck"
+        ],
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/user-data",
+          "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+        },
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:20:55.628078+00:00",
+        "log": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/replay-format.log",
+        "logSha256": "bdacefa19fd468ae4d997891416c741d50f08e7e3fe606119a813417686b454a",
+        "lastLine": "[replayformat] PASS 3034 checks (v2/v3/v4, order, metadata, CRC, recovery, extraction, malformed files)"
+      },
+      {
+        "name": "game-mode",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-gamemodecheck"
+        ],
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/user-data",
+          "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+        },
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:20:56.119119+00:00",
+        "log": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/game-mode.log",
+        "logSha256": "f961b1fa0a104f477d8ad0ba07e8ff0dc724cd12964142c621bd99715d23fdc3",
+        "lastLine": "[gamemodecheck] PASS 2198 lifecycle checks (asset-free; not objective simulation)"
+      },
+      {
+        "name": "mechanics",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/tools/mechanicscheck/bin/Release/net10.0/mechanicscheck.dll",
+          "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/user-data"
+        ],
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/user-data",
+          "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+        },
+        "exitCode": 0,
+        "startedAtUtc": "2026-10-13T05:21:21.545843+00:00",
+        "log": "/Users/jarrett/.codex/worktrees/consolidation-gameplay-fixtures/Prime Hunters Online/artifacts/gameplay-fixture-repair/mechanics-isolated.log",
+        "logSha256": "7dd8d1ca858c85b8009655379ecc2d0d9ed100339125fe960c472e13163530e5",
+        "lastLine": "PASS: 406 asset mechanics assertions; contact kernel and common selection only, no device routing or flight/replay proof"
+      }
+    ]
+  },
+  "repairedAgainstFrozenLibraries": [
+    {
+      "client": "baseline",
+      "suite": "combat",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/consolidation-fixture-repaired/baseline/bin/Release/net10.0/nettest.dll",
+        "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data-repaired-final-baseline-combat",
+        "combat"
+      ],
+      "environment": {
+        "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data-repaired-final-baseline-combat",
+        "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+      },
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-13T05:20:29.136321+00:00",
+      "log": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-final-baseline-combat.log",
+      "logSha256": "f603539e7c12ea3ec9ad7d89883343bf927ccdc4ed78a85f3e783fe1776c2fe5",
+      "lastLine": "COMBAT PASS 204 assertions"
+    },
+    {
+      "client": "baseline",
+      "suite": "advanced",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/consolidation-fixture-repaired/baseline/bin/Release/net10.0/nettest.dll",
+        "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data-repaired-final-baseline-advanced",
+        "advanced"
+      ],
+      "environment": {
+        "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data-repaired-final-baseline-advanced",
+        "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+      },
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-13T05:20:29.615132+00:00",
+      "log": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-final-baseline-advanced.log",
+      "logSha256": "35af13cd7a28dcafcfc22b9c74e2426f56942eabf1d49ee2bcaf7e05aba7553d",
+      "lastLine": "[advanced-rules-scene] PASS 347 checks"
+    },
+    {
+      "client": "integrated",
+      "suite": "combat",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/consolidation-fixture-repaired/integrated/bin/Release/net10.0/nettest.dll",
+        "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data-repaired-final-integrated-combat",
+        "combat"
+      ],
+      "environment": {
+        "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data-repaired-final-integrated-combat",
+        "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+      },
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-13T05:20:31.554191+00:00",
+      "log": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-final-integrated-combat.log",
+      "logSha256": "ee8c195d0287e859f91efbd8aaaa0196ac8eade1ceb521d8221e15722a3b5242",
+      "lastLine": "COMBAT PASS 204 assertions"
+    },
+    {
+      "client": "integrated",
+      "suite": "advanced",
+      "command": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/tmp/consolidation-fixture-repaired/integrated/bin/Release/net10.0/nettest.dll",
+        "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data-repaired-final-integrated-advanced",
+        "advanced"
+      ],
+      "environment": {
+        "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/user-data-repaired-final-integrated-advanced",
+        "PROJECT_PRIME_MAP_COMMUNITY": "https://maps.example.test/"
+      },
+      "exitCode": 0,
+      "startedAtUtc": "2026-10-13T05:20:32.033429+00:00",
+      "log": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-final-integrated-advanced.log",
+      "logSha256": "111116be7076605fef752ad05715e229cea1bfe0b4323e7773a86f69b4fe8283",
+      "lastLine": "[advanced-rules-scene] PASS 347 checks"
+    }
+  ],
+  "preservedEvidence": [
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks/advanced.log",
+      "bytes": 1335,
+      "sha256": "0526fb62c381d7ff95b469e5889cbf79964b0e7838d7567e3566379593ce9646"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks/archival-world.log",
+      "bytes": 1407,
+      "sha256": "0c18660e086684710de290622f6adca86625e8b41bce49577719fab8ba41f7a3"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks/game-mode.log",
+      "bytes": 82,
+      "sha256": "f961b1fa0a104f477d8ad0ba07e8ff0dc724cd12964142c621bd99715d23fdc3"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks/lobby.log",
+      "bytes": 47802,
+      "sha256": "6370de5a2a8ce81956463eb61b02549e9035bee98db67350e75bb6a5ce59e016"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks/manifest.json",
+      "bytes": 2249,
+      "sha256": "c92f7a4d233cbfa847c7ff461be33a19745c204946f71b15ed75a133451306ba"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks/protocol18.log",
+      "bytes": 106,
+      "sha256": "768650085c1f77361be185ae9708f2e702b18e96945e8549c8a31a0e78fbf3a8"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks/replay-format.log",
+      "bytes": 451,
+      "sha256": "bdacefa19fd468ae4d997891416c741d50f08e7e3fe606119a813417686b454a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks/retired-live-scene.log",
+      "bytes": 1403,
+      "sha256": "abc16db01e85025a3654222ce6837aefc50db5ff61e55306bc63e7614fc305e0"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks/retirement.log",
+      "bytes": 208,
+      "sha256": "e6de6949116f8a4b706ff4d29b5619a4fc105548d9d0c8955c19880cf9f255e0"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks/transport.log",
+      "bytes": 779,
+      "sha256": "f5b8b27deb9f1fc22b41208073bdcbb152f2069fb03293e85af7be9dfc04d8cb"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks/waitlist.log",
+      "bytes": 13460,
+      "sha256": "880f624942e8aff836e079b384ee7835b61f8d33ce37e134d620f10a75e94279"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-diagnosis-baseline-affinity.log",
+      "bytes": 3355,
+      "sha256": "a0f0c93689548dc3412da8b9e72460ea5ac3b66b213ecf590c4e5fdf72fd9322"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-diagnosis-baseline-clear-flights-v2.log",
+      "bytes": 17243,
+      "sha256": "1a2847ebe619a2d88a0e18adc566a30f69dfc5d37ded9166fb000fa06da84fdb"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-diagnosis-baseline-clear-flights.log",
+      "bytes": 16052,
+      "sha256": "22321c68df535efe977c6867ba0f8967dcc9c590b82b01b9de9be3a20f35d36d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-diagnosis-baseline-control-v2.log",
+      "bytes": 17237,
+      "sha256": "9a9445b923e957ff23a7b0f660cffbdb0de9c78a1b497d44c29ee0dbfae58ebf"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-diagnosis-baseline-control.log",
+      "bytes": 16046,
+      "sha256": "19868722dba68e409608883f81577d87ecbfb6fb017731932a9253e21993759c"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-diagnosis-baseline-restore-initial-pose.log",
+      "bytes": 19886,
+      "sha256": "f70c02f38bd13ee988d07ffe75b59ead476c480d7aa5852b4d24478e04aea069"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-diagnosis-integrated-affinity.log",
+      "bytes": 3389,
+      "sha256": "843ddbad61edf34c5b7fcd9ff200a026abf53cc67b2121ff2a2936ddf43dfad3"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-diagnosis-integrated-clear-flights-v2.log",
+      "bytes": 16954,
+      "sha256": "1086a0a01c7f64b6d6b5ffff41dcf0b5cc9bb3fc3b053018e95781edf2e6adf7"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-diagnosis-integrated-clear-flights.log",
+      "bytes": 15761,
+      "sha256": "54491e4fd13dc339d2c38d500509b1ee5b316ee505d1ed16272d685aaeda7e36"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-diagnosis-integrated-control-v2.log",
+      "bytes": 16948,
+      "sha256": "8e29e8e2bc4633392a4d82f11125a102ed0520544b940cab0e9ebf5d866a2ca6"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-diagnosis-integrated-control.log",
+      "bytes": 15755,
+      "sha256": "4ddc5fa166e6f3fd386fdf4f452a2a4b26cf8b4988874ce50332f0f4b8a89ecf"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-diagnosis-integrated-restore-initial-pose.log",
+      "bytes": 19593,
+      "sha256": "0456f5682d22590266f4c1f1a2bffa2965cb46c1f8f0236b8ad89756fe254d17"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-baseline-advanced-v2.log",
+      "bytes": 34189,
+      "sha256": "1ff20f0d84614610c4cd66cef87ed46ef02148812d328136f324eb15b599ce5a"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-baseline-advanced-v3.log",
+      "bytes": 34137,
+      "sha256": "818063f49f124bf6f65d0528f735ae8be3c47404821bf0ded9621f6041bf071b"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-baseline-advanced.log",
+      "bytes": 34125,
+      "sha256": "2b745786d42f7904c8b1794da16e9cf633c6a3c265f7756320ea7b518b7a9b64"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-baseline-combat.log",
+      "bytes": 18779,
+      "sha256": "f603539e7c12ea3ec9ad7d89883343bf927ccdc4ed78a85f3e783fe1776c2fe5"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-final-baseline-advanced.log",
+      "bytes": 33928,
+      "sha256": "35af13cd7a28dcafcfc22b9c74e2426f56942eabf1d49ee2bcaf7e05aba7553d"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-final-baseline-combat.log",
+      "bytes": 18779,
+      "sha256": "f603539e7c12ea3ec9ad7d89883343bf927ccdc4ed78a85f3e783fe1776c2fe5"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-final-integrated-advanced.log",
+      "bytes": 33962,
+      "sha256": "111116be7076605fef752ad05715e229cea1bfe0b4323e7773a86f69b4fe8283"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-final-integrated-combat.log",
+      "bytes": 18692,
+      "sha256": "ee8c195d0287e859f91efbd8aaaa0196ac8eade1ceb521d8221e15722a3b5242"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-integrated-advanced-v2.log",
+      "bytes": 34229,
+      "sha256": "5f6de69f8ecfe31c43f71e8804ac2a1e2e103293d71a99c6888ed059b8e533b5"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-integrated-advanced-v3.log",
+      "bytes": 34171,
+      "sha256": "da5d4a39c37ccd918c2ce718b42501d4629b5848bbee3e52812283b7e1bc1249"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-integrated-advanced.log",
+      "bytes": 34165,
+      "sha256": "6983145663e80cfcd2a8f3487121b081544caf4616bcbeafa7e29ed7ad9d748b"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-integrated-combat-v2.log",
+      "bytes": 18692,
+      "sha256": "ee8c195d0287e859f91efbd8aaaa0196ac8eade1ceb521d8221e15722a3b5242"
+    },
+    {
+      "path": "/Users/jarrett/.codex/worktrees/consolidation-feature-validation/Prime Hunters Online/artifacts/integration-checks-corrected-20261013/fixture-repaired-integrated-combat.log",
+      "bytes": 15355,
+      "sha256": "38d1fc0ba6ae29f2fba2b9030bcf4204b1d3b9b9dda8d1a7ee3990dc2f4e1134"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-baseline-advanced-scene-isolated.log",
+      "bytes": 15832,
+      "sha256": "b2db797c03b1e43f08af4cb7259d581835a8fb62ec884f345cac129538b1810f"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-baseline-archive.log",
+      "bytes": 915,
+      "sha256": "62ac5c1fa8843d3757b5fd9903884a8fb25279261bbb9e29a78a9cae8c07492e"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-baseline-combat-isolated.log",
+      "bytes": 16314,
+      "sha256": "d0365597cc547430b2fd43d81e8c6a3cc6c124ad03970a388286e3fe2cb6213b"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-baseline-enhanced-scene.log",
+      "bytes": 3234,
+      "sha256": "ceadc2d3a94082f116fe356013ab5261383cbfbf86dc6323728b135da9629557"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-baseline-enhanced.log",
+      "bytes": 389,
+      "sha256": "bf6bc76c9ca4ddfba59ddbb26806d79db30fdf1073a9e28ce8909ad370689291"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-baseline-gamemode.log",
+      "bytes": 82,
+      "sha256": "f961b1fa0a104f477d8ad0ba07e8ff0dc724cd12964142c621bd99715d23fdc3"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-baseline-harness-build.log",
+      "bytes": 863,
+      "sha256": "2d8f83b126c2aede77fe2422f834106690b1693a1324a0879c7f47376279ff00"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-baseline-replay.log",
+      "bytes": 451,
+      "sha256": "bdacefa19fd468ae4d997891416c741d50f08e7e3fe606119a813417686b454a"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-advanced-isolated.log",
+      "bytes": 3644,
+      "sha256": "548e01a45e34fb87392584485d5ddeeb9120955973c6f47fd97e8e9da9ced370"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-advanced-scene-isolated.log",
+      "bytes": 13173,
+      "sha256": "bbb7633e7652a9b38837df76bf044bca9d67546a0043b5ae19c34e0835b43871"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-advanced-scene.log",
+      "bytes": 13488,
+      "sha256": "84ea037b59b5df44d4d273801b9b6105ad0e5b6339c696342898ba31976a2b07"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-advanced.log",
+      "bytes": 2261,
+      "sha256": "e31caf1edb4741208d0885903da08f3b61f79000011eec180c08134be5457c7f"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-archive-final.log",
+      "bytes": 260,
+      "sha256": "65ec95ce64c56d9088f91f0e65de4c63d249afbf47cf5b7a6f1c0f4cf6d6000d"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-archive.log",
+      "bytes": 575,
+      "sha256": "b5a35094ac07934011ef9d75d22db9354d03906982664a0940144daf1a8aca3f"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-build.log",
+      "bytes": 22357,
+      "sha256": "d358826f344d27fa062a8eb1dec64b7bb6d5cdc5add9c4e09cee031476ba2fe8"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-combat-isolated.log",
+      "bytes": 13521,
+      "sha256": "f99b1d3368209def7ae904b04a5defb978bfced4d4de02b66a04f29563ad9e18"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-combat.log",
+      "bytes": 13836,
+      "sha256": "1cb3ec004b4157e71a9c02bd2e29e88614aedd6304cf555cb70050860051e36e"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-gamemode-final.log",
+      "bytes": 82,
+      "sha256": "f961b1fa0a104f477d8ad0ba07e8ff0dc724cd12964142c621bd99715d23fdc3"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-gamemode.log",
+      "bytes": 82,
+      "sha256": "f961b1fa0a104f477d8ad0ba07e8ff0dc724cd12964142c621bd99715d23fdc3"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-generator.log",
+      "bytes": 2716,
+      "sha256": "158e10ed777b660a0bc991796020a688852c4cc085ec3bc8426a0bf92c87332a"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-live-final.log",
+      "bytes": 1702,
+      "sha256": "39a98bd7409be139faaedea0c9b21c715c4920cdde5e828ac825d2e984e369a1"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-live-scene.log",
+      "bytes": 2017,
+      "sha256": "914270d9f328102b1f0c322a7326b0c510eaf3defe25de1a8115d48b45d49a6f"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-lobby-isolated.log",
+      "bytes": 47802,
+      "sha256": "8eb4ba71ba1514d314c485f3539b94fe1406b1f5145d4b991a7886db9709f420"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-lobby.log",
+      "bytes": 1788,
+      "sha256": "3dd264a238b65db45d42f9df4edff5a7352c48d7913b52e45b3536c46419d17b"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-mechanics.log",
+      "bytes": 23462,
+      "sha256": "4fd32bcd0e42d9ec9e99dfe3e3fd12a9b77c81466dd8c4a1032a7f7442952eb4"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-protocol-final.log",
+      "bytes": 106,
+      "sha256": "768650085c1f77361be185ae9708f2e702b18e96945e8549c8a31a0e78fbf3a8"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-protocol18.log",
+      "bytes": 106,
+      "sha256": "768650085c1f77361be185ae9708f2e702b18e96945e8549c8a31a0e78fbf3a8"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-python.log",
+      "bytes": 526,
+      "sha256": "bcdc2e96fd8e53ba7cc27890d7396b78f27cf9e845fa64e5de1c35f496f3a127"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-replay-final.log",
+      "bytes": 451,
+      "sha256": "bdacefa19fd468ae4d997891416c741d50f08e7e3fe606119a813417686b454a"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-replay.log",
+      "bytes": 451,
+      "sha256": "bdacefa19fd468ae4d997891416c741d50f08e7e3fe606119a813417686b454a"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-retirement-final.log",
+      "bytes": 208,
+      "sha256": "e6de6949116f8a4b706ff4d29b5619a4fc105548d9d0c8955c19880cf9f255e0"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-retirement.log",
+      "bytes": 208,
+      "sha256": "fd80fc9cc69654dc9e78770834ef8b82d5c2fdb3d35d01597e9084a2c033d71f"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-server-build.log",
+      "bytes": 15660,
+      "sha256": "c7287db7d3fbc250e15e8044fbd0127840f079dea68a94af38c74f797be9bf36"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-server-cli.log",
+      "bytes": 112,
+      "sha256": "f1d69d450c26c4796895660af9d0302395f1f11ed12abdced9219a4d1cdf7d5b"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-settings.log",
+      "bytes": 807,
+      "sha256": "c64d0724cb4e0e9774f20183f143709403c2dde3d7cb89d13a8816cbc14f6f32"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-transport.log",
+      "bytes": 778,
+      "sha256": "7aaa7de0dfa5ddf4f1d925dbdb6385b4987ff7a94ade4aac2a7e0472645f957b"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-waitlist-isolated.log",
+      "bytes": 13460,
+      "sha256": "1de66e08f430d68dd0f82f84ea492f609bcf43ae1ad6df335f5b87b2e3542e1a"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-waitlist-policy.log",
+      "bytes": 8457,
+      "sha256": "78e79720afbb9423aaeaefcc409e0ce52330a232e082ddac74a4850057b0feca"
+    },
+    {
+      "path": "/tmp/consolidation-retirement-candidate-waitlist.log",
+      "bytes": 1567,
+      "sha256": "ca28a38540d702ecb46eab922da2e8fb53c38eae6e1771fd56ba715ff5185926"
+    }
+  ],
+  "supersession": [
+    {
+      "original": "archival-world",
+      "classification": "INVALID_INVOCATION",
+      "reason": "--enhanced-retirement-replay is unregistered; argument treated as DNS host",
+      "corrected": "--enhanced-retirement-scene <isolated-paths-directory> <frozen-fixture-directory>",
+      "result": "PASS46"
+    },
+    {
+      "original": "retired-live-scene",
+      "classification": "INVALID_INVOCATION",
+      "reason": "registered archival scene flag omitted required frozen-fixture-directory; argument fell through to DNS host",
+      "corrected": "--enhanced-scene <isolated-paths-directory>",
+      "result": "PASS20"
+    },
+    {
+      "original": "advanced",
+      "classification": "INVALID_INVOCATION",
+      "reason": "--advanced is unregistered; argument treated as DNS host",
+      "corrected": "--advanced-rules",
+      "result": "PASS130"
+    },
+    {
+      "original": "combat-scene and advanced-scene with valid commands",
+      "classification": "FIXTURE_SETUP_FAILURE_BASELINE_REPRODUCED",
+      "reason": "high inherited shooter pose; unstamped synthetic hit sources; pre-observation telemetry picks",
+      "corrected": "fixture setup repairs, unchanged gameplay assertions",
+      "result": "combat PASS204 and Balanced scene PASS347 on baseline and integrated libraries"
+    }
+  ]
+}

@@ -130,32 +130,7 @@ namespace MphRead.Mods.Update
                     LastError = UpdateDownload.LastError ?? "the download failed";
                     return false;
                 }
-                Directory.CreateDirectory(StagedBuild);
-                if (zip)
-                {
-                    ZipFile.ExtractToDirectory(archive, StagedBuild, overwriteFiles: true);
-                }
-                else
-                {
-                    using FileStream compressed = File.OpenRead(archive);
-                    using var plain = new GZipStream(compressed, CompressionMode.Decompress);
-                    // The tar reader is what carries the executable bit across;
-                    // a zip has none to carry, which is why Windows ships one.
-                    TarFile.ExtractToDirectory(plain, StagedBuild, overwriteFiles: true);
-                }
-                File.Delete(archive);
-                string binary = Path.Combine(StagedBuild, UpdateCheck.BinaryName());
-                if (!File.Exists(binary))
-                {
-                    LastError = $"the package does not contain {UpdateCheck.BinaryName()}";
-                    return false;
-                }
-                MakeExecutable(binary);
-                // V0.1.52's released Windows archive lacks required hidden
-                // Game/Studio metadata, while its Linux manifest owns a
-                // forbidden updater lock. Reject those packages *before*
-                // ending the current game session, not after a failed copy.
-                ReleaseInstallation.ValidateIncoming(StagedBuild, AppContext.BaseDirectory);
+                PrepareArchive(archive, zip, StagedBuild, AppContext.BaseDirectory, cancel);
                 return true;
             }
             catch (Exception ex)
@@ -163,6 +138,57 @@ namespace MphRead.Mods.Update
                 LastError = ex.Message;
                 Console.WriteLine($"[update] could not stage the update: {ex}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Prepare only a fully validated release payload. Rejected or cancelled
+        /// extraction must not leave files that a later handoff can mistake for
+        /// a prepared update. Framework extraction retains its path and mode rules.
+        /// </summary>
+        internal static void PrepareArchive(string archive, bool zip, string stagedBuild,
+            string installation, CancellationToken cancel = default)
+        {
+            bool prepared = false;
+            try
+            {
+                cancel.ThrowIfCancellationRequested();
+                Directory.CreateDirectory(stagedBuild);
+                if (zip)
+                {
+                    ZipFile.ExtractToDirectoryAsync(archive, stagedBuild,
+                        overwriteFiles: true, cancellationToken: cancel).GetAwaiter().GetResult();
+                }
+                else
+                {
+                    using FileStream compressed = File.OpenRead(archive);
+                    using var plain = new GZipStream(compressed, CompressionMode.Decompress);
+                    // The tar reader carries the executable bit across; a zip has none.
+                    TarFile.ExtractToDirectoryAsync(plain, stagedBuild,
+                        overwriteFiles: true, cancellationToken: cancel).GetAwaiter().GetResult();
+                }
+                cancel.ThrowIfCancellationRequested();
+                string binary = Path.Combine(stagedBuild, UpdateCheck.BinaryName());
+                if (!File.Exists(binary))
+                    throw new InvalidDataException($"the package does not contain {UpdateCheck.BinaryName()}");
+                MakeExecutable(binary);
+                // Compatibility validation still runs before ending the current game.
+                ReleaseInstallation.ValidateIncoming(stagedBuild, installation);
+                cancel.ThrowIfCancellationRequested();
+                prepared = true;
+            }
+            finally
+            {
+                // Cleanup errors must not mask the original extraction/validation error.
+                try { File.Delete(archive); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { Console.WriteLine("[update] could not remove downloaded archive: " + ex.Message); }
+                if (!prepared)
+                {
+                    try { if (Directory.Exists(stagedBuild)) Directory.Delete(stagedBuild, recursive: true); }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    { Console.WriteLine("[update] could not clean rejected staging: " + ex.Message); }
+                }
             }
         }
 

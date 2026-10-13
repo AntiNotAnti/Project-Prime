@@ -60,10 +60,13 @@ internal static class TurretFireOutcomeTests
             original.Key with { Generation = 0 }, original.Key with { LifeId = 0 }, original.Key with { ShotId = 0 } })
             RejectObject(original with { Key = key }, "invalid full identity");
         foreach (var fire in new[] { original.Fire with { ShotId = 7 }, original.Fire with { SourceLife = 6 },
+            original.Fire with { SourceLife = 0 },
             original.Fire with { Kind = FireEventKind.AutomaticFire }, original.Fire with { Weapon = (byte)BeamType.PowerBeam },
             original.Fire with { Charge = 1 }, original.Fire with { PoseFlags = 0 },
             original.Fire with { Direction = Vector3.Zero }, original.Fire with { Aim = Vector3.Zero } })
             RejectObject(original with { Fire = fire }, "invalid source fire");
+        RejectObject(original with { Key = original.Key with { LifeId = 0 }, Fire = original.Fire with { SourceLife = 0 } },
+            "matching zero source/key life is still invalid authority identity");
         foreach (var value in new[] { Single.NaN, Single.PositiveInfinity, Single.NegativeInfinity })
         {
             RejectObject(original with { EmissionOrigin = new Vector3(value, 0, 0) }, "nonfinite native origin");

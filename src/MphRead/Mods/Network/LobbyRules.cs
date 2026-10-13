@@ -27,10 +27,10 @@ namespace MphRead.Mods.Network
                 ? new MatchWorldProfile(2, ResourceSpawnProfile.Vanilla)
                 : MatchWorldProfile.Resolve(ExactTeams(match) ? ResolveTeamLayout(match).TotalPlayers : maxPlayers);
 
-        public static LobbyResultCode ValidateDefinition(MatchDefinition match, out string reason)
+        public static LobbyResultCode ValidateDefinition(MatchDefinition match, out string reason, bool allowRetiredEnhanced = false)
         {
             reason = "";
-            if (!MatchModifierRules.Validate(match, out reason)) return LobbyResultCode.InvalidConfiguration;
+            if (!MatchModifierRules.Validate(match, out reason, allowRetiredEnhanced)) return LobbyResultCode.InvalidConfiguration;
             if (String.IsNullOrWhiteSpace(match.RoomKey) || match.RoomKey.Length > HostRequestPacket.MaxRoomBytes
                 || !Enum.IsDefined(match.Format) || !Enum.IsDefined(match.Mode)
                 || match.Mode is GameMode.SinglePlayer or GameMode.None)

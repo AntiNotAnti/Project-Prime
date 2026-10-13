@@ -1,9 +1,24 @@
-# Enhanced Hunters
+# Enhanced Hunters retirement
 
-Enhanced Hunters is an optional match rule, OFF by default. It is independent
-of Affinity Weapons pickup replacement and excludes Guardian. Enable it in the
-lobby, offline match settings, console match settings, or with the dedicated
-server `-enhancedhunters` switch.
+Enhanced Hunters is retired from supported live gameplay. Lobby, offline and console
+controls have been removed; `-enhancedhunters` fails with an explicit retirement
+message. Saved settings schema 11 normalizes the old field to `off`, preserving the
+selected mode, Balanced Mode and independent Affinity Weapons choices. Live online
+configurations carrying the retired modifier are rejected.
+
+Historical packets and replay world fields remain readable. Their bits, type names,
+field names and byte layouts remain reserved. Recorded Enhanced playback retains
+reconstruction through `ReplaySceneServices`; an arbitrary live or replica scene
+cannot enable it. The existing `EnhancedDirectHit` field also carries ordinary
+combat evidence and remains unchanged.
+
+See [the retirement evidence](../audits/engineering-consolidation/enhanced-retirement.md)
+for checks and the limits of this compatibility boundary.
+
+## Historical implementation record
+
+The remaining text records the original implementation and acceptance results. Its
+activation instructions are superseded by the retirement above.
 
 ## Implementation
 
