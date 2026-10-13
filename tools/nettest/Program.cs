@@ -239,6 +239,7 @@ namespace MphRead.NetTest
             }
             if (args.Length > 0 && args[0] == "--alt-hits") return AltFormHitTests.Run();
             if (args.Length > 0 && args[0] == "--continuous-targets") return ContinuousTargetTests.Run();
+            if (args.Length > 1 && args[0] == "--transport-profile-json") return TransportProfile.Run(args[1]);
             if (args.Length > 0 && args[0] == "--replication-decode-benchmark") return ReplicationDecodeBenchmark.Run(args);
             if (args.Length > 0 && args[0] == "--server-performance-evidence") return ServerPerformanceEvidenceTests.Run(args);
             if (args.Length > 0 && args[0] == "--server-performance") return ServerPerformanceBenchmark.Run(args);
