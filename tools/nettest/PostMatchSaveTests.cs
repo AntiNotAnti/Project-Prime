@@ -135,6 +135,20 @@ internal static class PostMatchSaveTests
             MatchStart.CommitAdventureSave();
             Check(Menu.NeededSave == SaveWhen.Never, "legacy Android-facing wrapper preserves slot-zero request clearing");
 
+            var transitioning = new Scene(new Vector2i(32, 32), SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(),
+                _ => { }, () => { }, initializeRuntime: false);
+            typeof(SceneGameState).GetProperty(nameof(SceneGameState.StorySave))!.SetValue(transitioning.GameState, Fixture());
+            transitioning.GameState.TransitionState = TransitionState.Process;
+            Menu.SaveSlot = 3; Menu.NeededSave = SaveWhen.Always;
+            Check(MatchStart.PrepareBeforeTeardown(transitioning.GameState) == null && !File.Exists("Savedata/save003.json"),
+                "unsupported active transition skips the raced pre-teardown snapshot");
+            transitioning.DoCleanup(); transitioning.UnloadGl();
+            transitioning.GameState.StorySave.Health = 777; // value appearing at the legacy boundary
+            MatchStart.AfterMatch();
+            using (var legacy = JsonDocument.Parse(File.ReadAllBytes("Savedata/save003.json")))
+                Check(legacy.RootElement.GetProperty("Health").GetInt32() == 777,
+                    "active-transition fallback captures after cleanup/cancellation at the original AfterMatch point");
+
             (PostMatchCommitContext retained, WeakReference<Scene> world) = CaptureEndedWorld();
             RestoreFacades(previousState, previousPlayers, previousRandom);
             GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
@@ -145,9 +159,9 @@ internal static class PostMatchSaveTests
             MatchStart.AfterMatch(retained);
 
             Type shell = typeof(Scene).Assembly.GetType("MphRead.Mods.Launcher.Gui.Shell")!;
-            Check(InOrder(Calls(shell, "EndMatch"), "PrepareAfterMatch", "EndScene", "Stop", "Stop", "AfterMatch", "ShowFrontScreen"),
+            Check(InOrder(Calls(shell, "EndMatch"), "PrepareBeforeTeardown", "EndScene", "Stop", "Stop", "AfterMatch", "ShowFrontScreen"),
                 "compiled shell leave/disconnect/rematch path captures before teardown and preserves network/commit order");
-            Check(InOrder(Calls(shell, "EndNetworkMatchToLobby"), "PrepareAfterMatch", "EndScene", "AfterMatch", "ResetMatchState", "Reset", "ResumeLobby"),
+            Check(InOrder(Calls(shell, "EndNetworkMatchToLobby"), "PrepareBeforeTeardown", "EndScene", "AfterMatch", "ResetMatchState", "Reset", "ResumeLobby"),
                 "compiled persistent-lobby exit preserves commit before match reset/lobby return");
             Check(!Calls(shell, "RunSession").Contains("AfterMatch") && !Calls(typeof(RenderWindow), "OnUnload").Contains("CommitAdventureSave"),
                 "full shell shutdown keeps existing cleanup-only save semantics");

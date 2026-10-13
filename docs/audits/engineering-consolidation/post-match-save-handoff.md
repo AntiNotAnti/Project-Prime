@@ -1,7 +1,7 @@
 # Explicit post-match save ownership (LIFE-02 first migration)
 
 The shell previously tore down its scene before `MatchStart.AfterMatch` read
-`GameState.Current.CommitSave`. This slice captures the final normalized save
+`GameState.Current.CommitSave`. This slice captures a quiescent owner's final normalized save
 into `PostMatchCommitContext` before visual teardown, then commits it at the
 original post-match boundary. It leaves renderer/native ownership and facade
 bindings unchanged. It stacks on LIFE-01's local scene generation diagnostics.
@@ -30,8 +30,8 @@ runs before the match/lobby transition.
 
 | Supported path | Existing ordering retained |
 | --- | --- |
-| Shell leave / offline rematch / disconnect / failed launch cleanup | CloseMenu, **capture**, EndScene, NetSession.Stop, NetHostSession.Stop, AfterMatch(commit), ShowFrontScreen. |
-| Shell persistent-lobby match end / rotation return | CloseMenu, **capture**, EndScene, AfterMatch(commit), ResetMatchState, PauseMenu.Reset, ResumeLobby. |
+| Quiescent shell leave / offline rematch / disconnect / failed launch cleanup | CloseMenu, **capture**, EndScene, NetSession.Stop, NetHostSession.Stop, AfterMatch(commit), ShowFrontScreen. |
+| Quiescent shell persistent-lobby match end / rotation return | CloseMenu, **capture**, EndScene, AfterMatch(commit), ResetMatchState, PauseMenu.Reset, ResumeLobby. |
 | Standalone MatchStart.Launch | Run returns after existing cleanup, **capture explicitly from renderer.Scene**, AfterMatch(commit), using-owned window disposal. |
 | Existing public AfterMatch/CommitAdventureSave wrappers | Capture current owner immediately and use the same immutable commit. Android's wrapper receives this behavior without changing its existing render-thread cleanup/return order. An explicit Android scene handoff is not yet migrated. |
 
@@ -78,7 +78,7 @@ Stats, high byte values, negative IDs and normalized special-room/weapon fields.
 The fixture's saved-byte SHA-256 is
 `575d615b5150732527fe454f7903ec049a92da17fe479302990225523427eae1`.
 
-Measured Release nettest: 24 passing checks. Coverage includes capture without
+Measured Release nettest: 26 passing checks. Coverage includes capture without
 write; immutable bytes after original-save mutation and slot/CWD/profile switch;
 no-save gates; one terminal write; no overwrite on duplicate success; release;
 real IOException from an obstructed destination; retry preservation; launch
@@ -117,3 +117,13 @@ nettest compilation passed with one pre-existing duplicate-using warning; LIFE-0
 lifetime and setup ownership regressions also passed after the handoff change.
 Native transition exits, Android rendered flow and power-interruption tests:
 **NOT_RUN**. Original File.WriteAllText persistence semantics are preserved.
+
+The active-transition gate now preserves the original timing in code:
+PrepareBeforeTeardown returns no early context while InRoomTransition is true;
+the shell tears down/cancels as before, then calls the no-argument AfterMatch.
+That wrapper clears chat/stops playback before capturing at CommitAdventureSave,
+matching the original save point. Two device-free tests prove this fallback does
+not pre-capture and observes values at the original post-cleanup boundary. This
+conservative fallback preserves timing; it does not certify worker quiescence or
+solve active-transition save consistency. Future facade release must remain
+ineligible for that flow until independently fenced and validated.

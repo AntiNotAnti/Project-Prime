@@ -237,17 +237,30 @@ namespace MphRead.Mods.Launcher
         /// point the scene is unloaded at, now that it is not.
         /// </summary>
         public static void AfterMatch()
-            => AfterMatch(PrepareAfterMatch(GameState.Current));
+        {
+            CleanupAfterMatch();
+            // Unsupported active room transitions keep the legacy capture
+            // point after teardown/cancellation, not a raced early snapshot.
+            CommitAdventureSave();
+        }
 
         internal static void AfterMatch(PostMatchCommitContext commit)
+        {
+            CleanupAfterMatch();
+            CompleteCommit(commit);
+        }
+
+        private static void CleanupAfterMatch()
         {
             Chat.ChatBox.Clear();
             if (Mods.Network.DemoPlayback.IsActive)
             {
                 DemoPlayback.Stop();
             }
-            CompleteCommit(commit);
         }
+
+        internal static PostMatchCommitContext? PrepareBeforeTeardown(SceneGameState state)
+            => state.InRoomTransition ? null : PrepareAfterMatch(state);
 
         internal static PostMatchCommitContext PrepareAfterMatch(SceneGameState state)
         {
