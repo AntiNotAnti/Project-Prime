@@ -384,6 +384,22 @@ public static class BotAiChecks
                 targetVisible: false, distance: float.PositiveInfinity),
             "hunter alt combat eventually exits after lost sight or long commitment");
 
+        Vector2 rollRequest = BotMotorMath.AltDesiredAxes(false,
+            false, false, false, false, true, false, true, false);
+        Vector2 strafeRequest = BotMotorMath.AltDesiredAxes(true,
+            true, false, true, false, false, false, false, false);
+        Check(rollRequest == new Vector2(1, 1)
+            && strafeRequest == new Vector2(1, 1),
+            "native roll and strafe alt forms map to the same smooth analog axes");
+        Check(BotMotorMath.AltDesiredAxes(false,
+                false, false, false, false, true, true, false, false) == Vector2.Zero,
+            "opposing alt roll inputs cancel instead of generating abrupt movement");
+        float altRate = 0;
+        float altFirst = BotMotorMath.StepMoveAxis(altRate, 1, 0.4f, 0.52f);
+        float altReverse = BotMotorMath.StepMoveAxis(altFirst, -1, 0.4f, 0.52f);
+        Check(altFirst > 0 && altFirst < 1 && altReverse == 0,
+            "alt motor brakes on direction reversal without snapping across zero");
+
         Console.WriteLine($"[bot-ai] {checks} checks passed");
         return 0;
     }

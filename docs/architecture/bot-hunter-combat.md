@@ -7,6 +7,17 @@ rules. This slice removes its obsolete bot decision hook, rather than gating
 Hunter ability logic behind a nonexistent mode. Single-player story encounter
 AI, damage, protocol, and replay schemas remain unchanged.
 
+## Smooth locomotion in every Hunter form
+
+The common bot motor now handles both biped and native alt-form movement.
+Samus, Kanden, Spire, and Noxus use a rate-limited camera-relative Roll axis;
+Trace, Sylux, and Weavel use their native aimable alt strafe axes with bounded
+yaw/pitch turning. Both paths pass through the existing controller-scale and
+SlotIntent transport, without changing native movement caps or collisions.
+Analog momentum is reset at form transitions to avoid sudden wrong-direction
+commands. Native ability inputs (bomb, boost, lunge, spin, and turret) are
+not substituted or fabricated.
+
 ## Finite combat-state decisions
 
 The Phase 4 policy makes tactical choices for each playable Hunter while
