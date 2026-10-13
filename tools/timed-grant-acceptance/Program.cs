@@ -157,6 +157,12 @@ internal sealed class AcceptanceWindow : RenderWindow
     }
     private void Check(bool value, string name)
     { if (!value) throw new InvalidOperationException(name); _report.Checks.Add(name); }
+    private List<T> Entities<T>() where T : EntityBase
+    {
+        var values = new List<T>();
+        foreach (var entity in Scene.Entities) if (entity is T typed) values.Add(typed);
+        return values;
+    }
     private object Effect(int type) => Reflection.Enum("TimedPowerUp", Types[type]);
     private ShotKey Life => ShotKey.For(_owner.SlotIndex, 0);
     private void Frame(uint frame) { _frame = frame; Reflection.Session(nameof(NetSession.NetFrame), frame); }
@@ -184,7 +190,7 @@ internal sealed class AcceptanceWindow : RenderWindow
         var birth = Reflection.Create("PickupItemFact", key, Effect(type), _frame, true, _owner.Position);
         Check((bool)Reflection.Static("NetPickupNetwork", "ReceiveItem", birth)!, "authority item fact admitted " + Types[type]);
         Reflection.Static("TimedPickupProjection", "ApplyDynamic", Scene);
-        var item = Scene.Entities.OfType<ItemInstanceEntity>().Single(i => Equals(Reflection.Get(i, "ModPickupSpawn"), key));
+        var item = Entities<ItemInstanceEntity>().Single(i => Equals(Reflection.Get(i, "ModPickupSpawn"), key));
         Reflection.Static("NetPickupNetwork", "OwnerContact", _owner, item);
         var view = Reflection.Call(_presentation, "View", Life, Effect(type), _frame)!;
         uint sequence = Convert.ToUInt32(Reflection.Get(view, "PredictionSequence"));
@@ -364,9 +370,9 @@ internal sealed class AcceptanceWindow : RenderWindow
         _owner.EquipInfo.ChargeLevel = 0; Reflection.Set(_owner, "_timeSinceShot", 1000);
         Reflection.Set(_owner, "_muzzlePos", _owner.Position + Vector3.UnitY);
         Reflection.Set(_owner, "_aimPosition", _owner.Position + Vector3.UnitY + Vector3.UnitZ * 10);
-        var before = Scene.Entities.OfType<BeamProjectileEntity>().ToHashSet();
+        var before = Entities<BeamProjectileEntity>().ToHashSet();
         Check((bool)Reflection.Call(_owner, "TryFireWeapon")!, "actual native fixture beam emitted");
-        var beam = Scene.Entities.OfType<BeamProjectileEntity>().Single(b => !before.Contains(b) && b.Owner == _owner);
+        var beam = Entities<BeamProjectileEntity>().Single(b => !before.Contains(b) && b.Owner == _owner);
         float value = beam.Damage; beam.Destroy(); Scene.RemoveEntity(beam); return value;
     }
     private int Bomb()
