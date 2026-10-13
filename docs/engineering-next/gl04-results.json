@@ -2,7 +2,7 @@
   "schema": 1,
   "slice": "GL-04",
   "acceptance": "NO_ROLLOUT",
-  "basedOnGl02Head": "9563b2a8186154f5084a691d191bbab9befbe449",
+  "basedOnGl02Head": "c282090ff0444b131c002a2b78537dc70815ba6d",
   "sourceCandidate": "9104134633ebe0996934260f6b54e448d1ec6195",
   "binary": {
     "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
@@ -13,7 +13,7 @@
   "sourceReceipts": [
     {
       "file": "gl02-results.json",
-      "sha256": "91694ce36afb0059f8c54ca4df03f9de6238cc25d603ee61ac10e5d5c10eeb58"
+      "sha256": "b146fb3830ade228414fc64a81e893031107760276fb1344d11187d5d3194f27"
     },
     {
       "file": "gl02-parity/result.json",
@@ -37,7 +37,8 @@
         "frameIntervalP99Ms": 4.8943,
         "simulationHz": 59.97874653116662,
         "droppedSimulationSteps": 0,
-        "stalls": 0
+        "stalls": 0,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 7.8289
       },
       "1": {
         "frameIntervalP50Ms": 2.1414,
@@ -45,14 +46,16 @@
         "frameIntervalP99Ms": 5.4449,
         "simulationHz": 59.99186810227872,
         "droppedSimulationSteps": 0,
-        "stalls": 0
+        "stalls": 0,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 8.9914
       }
     },
     "candidatePercentChange": {
       "frameIntervalP50Ms": -3.0996877686773283,
       "frameIntervalP95Ms": 5.162760258865173,
       "frameIntervalP99Ms": 11.24982122060354
-    }
+    },
+    "p999Derivation": "Reciprocal-derived from each run's reported 0.1% low FPS estimate, then median across accepted runs; no newly sampled raw percentile."
   },
   "profile": {
     "0": {
