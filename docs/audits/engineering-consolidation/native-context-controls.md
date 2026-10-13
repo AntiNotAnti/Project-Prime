@@ -103,11 +103,43 @@ name is labeled fully released driver storage. Optional procedural/depth owners
 retain their existing dedicated counters; no global context-object census is
 claimed.
 
-The expanded ledger compiles against the same candidate client. Its physical
-five-cycle map/Studio witness is PENDING the next exclusive native slot. Until
-that passes, the source audit does not physically exclude every display-list
-retirement omission. No runtime ownership patch was made merely for a missing
-diagnostic counter.
+The expanded ledger passed an actual five-cycle map/Studio witness against the
+unchanged candidate client. Fresh immutable harness SHA-256 was
+`1a530c6e79c0f77ab35ec2736303abff3ce5a9dc19c83222d776385c7ac3e8eb`, built from
+`22764624`. Both arm manifests matched these immutable binary hashes before and
+after their run. The map arm completed ten real loads, all five requested
+failure stages and exact color/depth comparisons; Studio completed five cycles
+of three visible geometry/material cache rebuilds each. Native work was serial,
+without stack logging, with three 100ms post-drain samples. The unrelated
+operator-owned app PID32937 remained running; this is ownership evidence, not a
+performance comparison. No runtime ownership patch was needed for these owners.
+
+| Captured name set | Native recognized before unload | Recognized after unload |
+| --- | --- | ---: |
+| Map legacy lists | 270 or 454 | 0 |
+| Map retained/combined buffers | 208, 542 or 544 | 0 |
+| Map APPLE/core VAOs | 103, 104, 271 or 272 | 0 |
+| Map scene/variant/outline/pipeline programs | 8 or 9 | 0 |
+| Studio mesh/grid lists | 11 | 0 |
+| Studio programs | 7 | 0 |
+
+All captured names were positively recognized before unload. Programs had zero
+recognized/deletion-pending names afterward; textures/FBO/RBO checks, mesh list
+fields and model leases also returned zero. Studio did not allocate retained
+VBO/VAO names on this editor path, so its zero before/after counts do not cover
+that path. Attached shader counts were zero before and after on this candidate;
+there was no live attached-shader retirement witness. These observations close
+the identified legacy-list name-audit gap for this workload, not a global
+context-object census or an all-platform retirement guarantee.
+
+The opt-in bounded source ledger observed 120 compilation and 70 link callbacks
+for the ten map loads, and 60/35 for Studio. Each arm had the same ten stage/hash
+keys and nine distinct GLSL hashes, with zero overflow. Repeated compilation
+therefore occurred with unchanged observed canonical/world-variant source.
+The ledger excludes graphics pipeline, outline and HUD/UI callbacks. Attempts
+are not success counts; equal GLSL does not prove identical driver pipeline keys,
+identify retaining roots, or establish safe program sharing. The complete source
+hash ledger and positive/retired native-name sets are preserved in the raw JSON.
 
 ## Actual headless replay isolation
 
@@ -133,14 +165,17 @@ Release builds against candidate client passed with zero warnings/errors;
 context parser/NoInlining and weak-retention selftests passed. All 26 Python
 tests passed, including streaming origin mechanism separation and failed native
 capture preservation. Context selftest and replay-tool compilation were added
-to the existing OpenGL CI job. New-head CI and the stronger physical retirement
-witness remain pending; #493's successful CI does not imply this PR's pass.
+to the existing OpenGL CI job. The final retirement/source witness and both
+device-free selftests passed against the fresh candidate harness; its build had
+zero warnings/errors. Final-head CI remains pending; #493's successful CI does
+not imply this PR's pass.
 
 Raw evidence is preserved in the managed native-context-controls worktree:
 
 - `artifacts/context-controls/pilot-2x2/`: original successful context pilot.
 - `artifacts/context-controls/candidate-120-180-stacks/`: preserved pre-native Python3.9 hashlib compatibility failure; no native process started.
 - `artifacts/context-controls/candidate-120-180-stacks-retry/`: completed context workload, four VM/malloc captures, v1 and v2 origin summaries, manifests and exact per-context fixtures.
+- `artifacts/context-controls/retirement-source-5cycles-v2/`: actual five-cycle map/Studio retirement and bounded shader-source witness, exact output hashes and immutable binary manifest.
 - `artifacts/replay-memory/pilot-2.json` and `candidate-120.json`: actual headless replay results/logs.
 
 Source markers distinguish the running immutable DLL from later tool/source
@@ -148,7 +183,10 @@ changes. New origin summaries have new filenames; earlier #489/#493 referenced
 artifacts were never overwritten. Current high-LOH 384 MiB root proof remains
 unavailable; the earlier 63 MiB pool-root proof is not extrapolated to it.
 
-P0 graphics boundedness/retaining-root classification remains open. The next
-gate is the expanded physical list/program retirement witness, then targeted
-source-key/driver-origin controls. Any engine lifetime/cache or GC policy change
-requires its own attributable evidence and matched parity/measurement controls.
+P0 graphics boundedness/retaining-root classification remains open despite the
+passing physical list/program retirement witness. The next gate is targeted
+driver pipeline-key/retaining-root attribution or a bounded ownership correction
+with a demonstrated repeated-workload plateau. Headless replay ownership passed;
+rendered replay/full Studio UI and high-LOH 384 MiB roots remain open. Any engine
+lifetime/cache or GC policy change requires its own attributable evidence and
+matched parity/measurement controls.
