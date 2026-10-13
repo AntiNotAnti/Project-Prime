@@ -75,3 +75,20 @@ class ContextRunnerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class CompressedCaptureTests(unittest.TestCase):
+    def test_compression_preserves_exact_tool_stdout_and_failure_receipt(self):
+        import gzip
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def write(command, stdout, **kwargs):
+                stdout.write('1 calls for 123 bytes:\n0 libsystem_malloc.dylib 0x100 malloc + 1\n')
+                return subprocess.CompletedProcess(command, 1)
+            with patch.object(runner.subprocess, 'run', side_effect=write):
+                result = runner.capture(42, 'held', root, compress_stacks=True)
+            step = result['steps'][1]
+            self.assertEqual(step['exitCode'], 1)
+            self.assertEqual(step['compression'], 'gzip')
+            self.assertTrue(gzip.open(step['path'], 'rt').read().endswith('malloc + 1\n'))
+            self.assertEqual(step['sha256'], runner.sha256(Path(step['path'])))
+            self.assertFalse((root / 'held.malloc-history.txt').exists())
