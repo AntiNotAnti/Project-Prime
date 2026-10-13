@@ -8,7 +8,7 @@ from pathlib import Path
 METRICS = ("workingSetBytes", "privateBytes", "virtualBytes", "managedLiveBytes",
            "gcCommittedBytes", "gcHeapSizeBytes", "gcFragmentedBytes", "lohSizeBytes",
            "lohFragmentedBytes", "processThreadCount", "processHandleCount",
-           "threadPoolThreads", "threadPoolPendingWorkItems")
+           "threadPoolThreads", "threadPoolPendingWorkItems", "gcTotalPauseMs")
 
 
 def numeric(value):
