@@ -16,15 +16,19 @@ later phase independently of an unaccepted earlier phase.
 | Ending save handoff | `--campaign-endings` | Both value-only Gorea variants, save and no-save policy |
 | UI value projections | `--campaign-presentation` | Explored-only map, scanned-only logbook, viewport math |
 | Sound routing | `--campaign-audio` | Original sequence IDs, audio lease preemption, synthesized WAV bytes |
-| Complete simulated journey | `--campaign-journey` | Fresh state, first scan, both ships, unlocked travel, real JSON roundtrip, three slots, bad/good ending variants |
+| Complete simulated journey | `--campaign-journey` | Fresh state, first scan, both ships, unlocked travel, native JSON writes and asset-free field projection, three slots, bad/good ending variants |
 | Scene cleanup | `--scene-lifetime`, `--foreground-binding` | Device-free owner and immutable state fencing |
 | Multiplayer/replay guardrails | `--pickup-protocol`, `--compact-intents`, `--pickup-replay` | Device-free protocol/recorder contract regression |
 
 The journey test **simulates** scripted pickups, scan completion and verified
 Gorea exits by setting their same save/exit values. It does not load combat,
-play movies or operate any real controls. Every step reuses the production
-`StorySave`, `MatchStart`, `AdventureSave` and campaign APIs; it never
-serializes SecondHunt's incompatible save format.
+play movies or operate any real controls. It checks production save bytes
+against explicit on-disk JSON fields without calling `GameState.PeekSave`:
+that normal deserializer constructs a StorySave and reads localized scan
+tables from the user's extracted ROM. The **opt-in native scene test** checks
+the real `PeekSave` load path with those assets available. Every step otherwise
+reuses the production `StorySave`, `MatchStart`, `AdventureSave` and campaign
+APIs; it never serializes SecondHunt's incompatible save format.
 
 ### Cross-platform device-free run
 
