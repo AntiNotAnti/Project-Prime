@@ -46,6 +46,8 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-presentation
       - name: Verify ship and ending audio routing and scene preemption
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-audio
+      - name: Verify full three-slot campaign progression and native save roundtrip
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-journey
       - name: Fence foreground release and cancelled room completion
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --foreground-binding
       - name: Soak 10, 100 and 500 device-free owner/save handoffs
