@@ -24,6 +24,14 @@
   are never promoted automatically.
   Transfers already queued continue after the preview or editor closes; the
   underlying archive and MapId remain immutable.
+- **Concurrent Game + pop-out Studio:** Current coordinated builds share
+  `community-transfers/jobs-v1.json` safely across separate OS processes.
+  The transfer manager serializes index updates, holds a single active
+  lease per job, and preserves remote pause/resume and crash recovery.
+  Uploads already queued stay exact and immutable if an editor window closes.
+  **Both processes must use the coordinated release**; do not enable
+  the preview next to an older process that writes the same queue without
+  the cross-process lease protocol.
 - **Rollback / troubleshooting:** Unset the preview variable (or set it to
   any value other than `1`) and restart Studio to restore the existing
   creator dashboard. No reinstall, package re-encoding, protocol change or
