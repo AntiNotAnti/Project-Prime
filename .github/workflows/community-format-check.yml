@@ -9,6 +9,10 @@ on:
       - "src/MphRead/Mods/MapGen/Q3Import.cs"
       - "src/MphRead/Mods/Launcher/Gui/MapStudioQuakeMap.cs"
       - "tools/community-format-check/**"
+      - "tools/community-patch-package-check/**"
+      - "src/MphRead/Mods/MapGen/Geometry/**"
+      - "src/MphRead/Mods/MapGen/Packaging/**"
+      - "src/MphRead/Mods/MapGen/Validation/MapValidator.cs"
       - ".github/workflows/community-format-check.yml"
   workflow_dispatch:
 
@@ -31,3 +35,15 @@ jobs:
           global-json-file: global.json
       - name: Compile and verify restricted editable map contract
         run: dotnet run --project tools/community-format-check -c Release
+
+  package-compatibility:
+    name: Real .ppmap build, legacy mesh and identity parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Package authoring fixtures and verify strict readback and rollback
+        run: dotnet run --project tools/community-patch-package-check -c Release
