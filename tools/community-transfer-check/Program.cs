@@ -309,7 +309,7 @@ try
     string hashB = MapBuildFingerprint.HashFile(pkgB);
     string rendezvous = Path.Combine(root,"cross-sync");
     string receipts = Path.Combine(root,"cross-child");
-    using (var parentManager = new CommunityTransferManager(multiRoot,credentials))
+    await using (var parentManager = new CommunityTransferManager(multiRoot,credentials))
     {
         var start = new ProcessStartInfo("dotnet")
         {
@@ -377,7 +377,7 @@ try
             await child.WaitForExitAsync(stopped.Token);
             Check(child.ExitCode == 0,
                 "pop-out process exits without holding persistent index or job leases");
-            using var reopened = new CommunityTransferManager(multiRoot,credentials);
+            await using var reopened = new CommunityTransferManager(multiRoot,credentials);
             Check(reopened.GetJob(parentUpload).State == CommunityTransferState.Completed
                 && reopened.GetJob(childUpload).State == CommunityTransferState.Completed,
                 "both processes' upload receipts survive independent window exit");
