@@ -8,7 +8,8 @@
     "strings": "Replace exact workspace and home prefixes with ${WORKSPACE}/${HOME}; no other scalar changes.",
     "roles": "All fields and all rows retained except the four complete fields explicitly listed per original with canonical identity. All source/payment/claim/terminal/pickup/replay-fact rows, all chronological Windows and TransportWindows, and ServerSegments retained.",
     "text": "Complete original text JSON-escaped; no line truncation.",
-    "excludedFiles": "No binaries, assets, recordings, Paths.txt, profiles, telemetry archives or netlog copies. Recording/asset input inventories remain hash/byte metadata in original receipt/manifest."
+    "excludedFiles": "No binaries, assets, recordings, Paths.txt, profiles, telemetry archives or netlog copies. Recording/asset input inventories remain hash/byte metadata in original receipt/manifest.",
+    "encoding": "Role projections use deterministic compact UTF-8 JSON (separators comma/colon, non-ASCII preserved, final newline), lossless text chunks at128Ki-character fences. Indexes give chunk ordinals, contiguous UTF-8 byte ranges, exact hashes/bytes, full recomposed projection SHA256/bytes, array counts and existing numeric/array digest. Each encoded chunk is at most1MiB. No projected value is dropped."
   },
   "entries": [
     {
@@ -172,11 +173,35 @@
           "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
         }
       ],
-      "kind": "json",
+      "kind": "chunked-json",
       "numericAndArrayStructureSHA256": "0623e70d3a5021f7a68e7824d2162aeccf9d822125b125e6af421be1d4f51fc1",
-      "derivativePath": "campaign/server.json",
-      "derivativeSHA256": "6f133a246ba0534112bb7f8c43f505c440c0e4aae524297b4931f14957d93184",
-      "derivativeBytes": 2673990
+      "derivativePath": "campaign/server.index.json",
+      "derivativeSHA256": "42176bd2854dd815208d60344c9da12265eb270938c27f2493d66c507ab7d1bd",
+      "derivativeBytes": 3866,
+      "logicalPath": "campaign/server.json",
+      "chunksDirectory": "campaign/server.chunks",
+      "priorUnchunkedDerivativeSHA256": "6f133a246ba0534112bb7f8c43f505c440c0e4aae524297b4931f14957d93184",
+      "priorUnchunkedDerivativeBytes": 2673990,
+      "topLevelArrayCounts": {
+        "AliveFrames": 8,
+        "AdmissionBudgets": 7,
+        "IntentHistory": 8,
+        "TurretOutcomes": 0,
+        "TimedGrants": 2,
+        "TimedGrantStates": 29,
+        "TimedGrantViews": 0,
+        "PickupClaims": 1,
+        "PickupVerdicts": 1,
+        "PickupItems": 4,
+        "PickupProofs": 1,
+        "Pickups": 23,
+        "TransportWindows": 100,
+        "Readiness": 2,
+        "Windows": 97,
+        "ServerSegments": 1,
+        "Shots": 153,
+        "Facts": 73
+      }
     },
     {
       "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server.drain.json",
@@ -242,11 +267,35 @@
           "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
         }
       ],
-      "kind": "json",
+      "kind": "chunked-json",
       "numericAndArrayStructureSHA256": "fb6d4879fb04ae29baa4043149bb43feb6c09fbf4d31f455213e94169e64e553",
-      "derivativePath": "campaign/peer-0.json",
-      "derivativeSHA256": "0435733d1896708e4b5b13a8c35a2d74dfa20c018cffb227ccd958adc9af3ebe",
-      "derivativeBytes": 1931425
+      "derivativePath": "campaign/peer-0.index.json",
+      "derivativeSHA256": "dbaf85e06ec3cb249e56ecdb92dc5860624822b2668b4a72f471d73dee0fa1fa",
+      "derivativeBytes": 2829,
+      "logicalPath": "campaign/peer-0.json",
+      "chunksDirectory": "campaign/peer-0.chunks",
+      "priorUnchunkedDerivativeSHA256": "0435733d1896708e4b5b13a8c35a2d74dfa20c018cffb227ccd958adc9af3ebe",
+      "priorUnchunkedDerivativeBytes": 1931425,
+      "topLevelArrayCounts": {
+        "AliveFrames": 8,
+        "AdmissionBudgets": 7,
+        "IntentHistory": 8,
+        "TurretOutcomes": 0,
+        "TimedGrants": 0,
+        "TimedGrantStates": 26,
+        "TimedGrantViews": 75,
+        "PickupClaims": 2,
+        "PickupVerdicts": 1,
+        "PickupItems": 4,
+        "PickupProofs": 0,
+        "Pickups": 11,
+        "TransportWindows": 95,
+        "Readiness": 0,
+        "Windows": 95,
+        "ServerSegments": 0,
+        "Shots": 115,
+        "Facts": 70
+      }
     },
     {
       "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0.drain.json",
@@ -312,11 +361,35 @@
           "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
         }
       ],
-      "kind": "json",
+      "kind": "chunked-json",
       "numericAndArrayStructureSHA256": "5929515924d5c4cc7b4cef0fd3cea9660b36a308cdcef1f6f43c4aaa10cc20a4",
-      "derivativePath": "campaign/peer-1.json",
-      "derivativeSHA256": "8ff5096bdf7734449b5df95d8667238b9e32a2ce704c39807f802c266e5fa79a",
-      "derivativeBytes": 1945839
+      "derivativePath": "campaign/peer-1.index.json",
+      "derivativeSHA256": "a2fa515e27d746b86bfd10dc1e06da574cae7a9975589ee308ef3659f540af62",
+      "derivativeBytes": 2829,
+      "logicalPath": "campaign/peer-1.json",
+      "chunksDirectory": "campaign/peer-1.chunks",
+      "priorUnchunkedDerivativeSHA256": "8ff5096bdf7734449b5df95d8667238b9e32a2ce704c39807f802c266e5fa79a",
+      "priorUnchunkedDerivativeBytes": 1945839,
+      "topLevelArrayCounts": {
+        "AliveFrames": 8,
+        "AdmissionBudgets": 7,
+        "IntentHistory": 8,
+        "TurretOutcomes": 0,
+        "TimedGrants": 0,
+        "TimedGrantStates": 29,
+        "TimedGrantViews": 74,
+        "PickupClaims": 0,
+        "PickupVerdicts": 0,
+        "PickupItems": 4,
+        "PickupProofs": 0,
+        "Pickups": 12,
+        "TransportWindows": 95,
+        "Readiness": 0,
+        "Windows": 95,
+        "ServerSegments": 0,
+        "Shots": 140,
+        "Facts": 70
+      }
     },
     {
       "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1.drain.json",
@@ -338,6 +411,29 @@
       "derivativePath": "campaign/peer-1.log.json",
       "derivativeSHA256": "c41d339e49d2be8d07200722503af85465d15c8a51d87fce4c9b944f38b6496d",
       "derivativeBytes": 3960
+    },
+    {
+      "originalRelativePath": "work/plan-completion-integration/ci-e321-no-assets-failure.log",
+      "originalSHA256": "9af9693926d47b8e76b7531cf14ff7d16dd888f6433c70cddb3023539e455e85",
+      "originalBytes": 48726,
+      "omittedFields": [],
+      "kind": "escaped-text",
+      "derivativePath": "ci-e321-no-assets-failure.log.json",
+      "derivativeSHA256": "60a062964e71516d40a4d42f145751867b812b05c4d5484d409e23cdacb80cc6",
+      "derivativeBytes": 49653
     }
-  ]
+  ],
+  "historicalPackagingFailure": {
+    "sourceHead": "e321f224ab937beb55f46d4218a3d538674ff3d3",
+    "jobId": 115838418588,
+    "jobName": "no game assets",
+    "observedConclusion": "FAILURE",
+    "reason": "tracked source file-size guard only; not proprietary asset payload detection",
+    "refusedFile": "docs/evidence/network-campaigns-2026-10-14/smoke2-7588-attempt1/campaign/server.json",
+    "refusedBytes": 2673990,
+    "guardMaximumBytes": 2097152,
+    "actualLogFailureUtc": "2026-10-14T11:57:48.3740179Z",
+    "logDerivative": "ci-e321-no-assets-failure.log.json",
+    "scope": "Actual prior CI failure preserved; source-only storage repair does not establish eventual hosted CI success."
+  }
 }
