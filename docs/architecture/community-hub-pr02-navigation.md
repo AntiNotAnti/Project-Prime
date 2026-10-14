@@ -1,6 +1,6 @@
 # Community Hub PR-02: player Community workspace
 
-Baseline: stacked on PR-01 (which is stacked on PR-00). The current `main` shell is Avalonia; this slice does not assume the older merged standalone Studio PR #367 or the closed RmlUi candidate is the current UI.
+Integration base: PR-00 #533 and PR-01 #534 have now merged into `main` at commits `1f06d8d9` and `5f3c80a9`. PR-02 now targets `main`; its existing feature commits retain PR-01 ancestry through the merge-commit workflow. Full PR-02 acceptance remains pending. The current `main` shell is Avalonia; this slice does not assume the older merged standalone Studio PR #367 or the closed RmlUi candidate is the current UI.
 
 ## Delivered
 
