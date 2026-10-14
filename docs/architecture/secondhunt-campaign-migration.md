@@ -45,7 +45,7 @@ SecondHunt provides a substantially more complete **campaign shell**: file-selec
 
 Acceptance: byte-identical copy; backups never clobbered; empty/missing/bad slots handled without data loss; exact source slot remains unchanged until archive; I/O failures preserve originals and clean temp copies; multiplayer/legacy save and scene-lifecycle checks stay green. Confirm actual keyboard/controller/touch focus and two-click confirmation before merging. CI must pass on the exact PR head.
 
-### CAMP-02: Campaign state and ship-navigation adapter
+### CAMP-02: Campaign state and ship-navigation adapter (implemented on stacked branch; CI pending)
 
 - Extract *data-only* planet/area/landing-room catalog and unlock/visit/completion calculations from SecondHunt `ShipNavigation.cs`.
 - Reference existing `StorySave`, `Metadata`, `GameState.GetAreaState`, and `SceneGameState`, without a second campaign save owner.
@@ -98,3 +98,9 @@ Acceptance: byte-identical copy; backups never clobbered; empty/missing/bad slot
 Run the CAMP-01 test, `--post-match-save`, `--scene-lifetime`, `--foreground-binding` and the normal relevant build/CI jobs. The regression command is **added but not claimed to have passed until CI actually runs on this branch**. The automation environment used for this PR has no local .NET SDK, so native builds, media playback and device acceptance remain unverified here.
 
 CAMP-01 can be reverted without migrating `StorySave` or modifying any previous `Savedata/save###.json` format. A player's existing `.bak*` archives remain untouched by a rollback. This migration must never silently overwrite production saves or pretend a narrower device-free test establishes completed campaign acceptance.
+
+## CAMP-02 implementation notes
+
+The campaign planet catalog lives in `src/MphRead/Mods/Campaign/CampaignNavigation.cs` and projects the native `StorySave` area bits, checkpoint, area states and collectible counts. It carries the original cockpit camera-sequence IDs as metadata, not rendering code. `Classify` is intentionally pure: callers must supply a verified ship-entry signal, rather than guessing based on `Menu.NeededSave` policy, because the user may configure the same policy for normal quit and ship entry. The default game-save serializer and current scene ownership remain unchanged. The asset-free `--campaign-navigation` test is included in the existing scene-ownership workflow.
+
+Next, CAMP-03 may consume this projection in the existing hub without duplicating `CampaignHost`, `Scene`, or MphRead's native save format. A full 3D in-ship cockpit and actual takeoff/landing movies remain coupled to the existing renderer and media lifecycle; adding names and camera-sequence IDs alone does not prove those features.
