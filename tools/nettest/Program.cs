@@ -34,6 +34,7 @@ namespace MphRead.NetTest
                     + "  --scene-lifetime                  Test value-only scene diagnostics and eligible owner release.\n"
                     + "  --post-match-save                 Test post-match save byte parity, owner fencing and retry.\n"
                     + "  --campaign-save-management        Test Adventure save copy/archive and byte preservation.\n"
+                    + "  --campaign-navigation             Test campaign planet unlocks, progress, and exits.\n"
                     + "  --foreground-binding              Test eligible facade release and cancelled room publication.\n"
                     + "  --lifecycle-soak                  Test 10/100/500 device-free save/bot-owner handoffs.\n"
                     + "  --asset-lifecycle <filesystem> <count> <replay|-> <json> Test loaded world/save/replica ownership.\n"
@@ -86,6 +87,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--scene-lifetime") return SceneLifetimeTests.Run();
             if (args.Length > 0 && args[0] == "--post-match-save") return PostMatchSaveTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-save-management") return CampaignSaveManagementTests.Run();
+            if (args.Length > 0 && args[0] == "--campaign-navigation") return CampaignNavigationTests.Run();
             if (args.Length > 0 && args[0] == "--foreground-binding") return ForegroundBindingTests.Run();
             if (args.Length > 0 && args[0] == "--lifecycle-soak") return LifecycleSoakTests.Run();
             if (args.Length > 0 && args[0] == "--asset-lifecycle")
