@@ -226,10 +226,45 @@ internal sealed class StudioCreatorCommunityWorkspace : UserControl, IDisposable
             _details.Children.Add(PrimeChrome.Text(job.Error,
                 PrimeTypography.BodySmall, PrimeTheme.WarningBrush));
         if (job.State == CommunityTransferState.NeedsReview)
+        {
             _details.Children.Add(PrimeChrome.Text(
-                "Server revision changed. Resolve the parent conflict explicitly "
-                + "in Advanced Revisions. No automatic overwrite will occur.",
+                "A newer revision appeared after this upload was queued. "
+                + "Nothing was published. Review My Uploads for the newest server "
+                + "revision before explicitly deciding whether to preserve this older parent.",
                 PrimeTypography.BodySmall, PrimeTheme.WarningBrush));
+            if (job.Publish is { } parent)
+            {
+                _details.Children.Add(PrimeChrome.Text(
+                    "Authored parent: " + (parent.ExpectedParentHash ?? "(new map)"),
+                    PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush));
+                _details.Children.Add(new PrimeButton("REVIEW AND RESOLVE CONFLICT", () =>
+                {
+                    _details.Children.Add(PrimeChrome.Text(
+                        "This will publish the already verified archive as a new revision "
+                        + "even though its recorded parent is older. It does NOT overwrite "
+                        + "the server's newer package. Confirm only after comparing My Uploads.",
+                        PrimeTypography.BodySmall, PrimeTheme.WarningBrush));
+                    _details.Children.Add(new PrimeButton(
+                        "CONFIRM STALE-PARENT REVISION", () =>
+                        {
+                            try
+                            {
+                                _queue.ResolveConflict(job.Id,
+                                    parent with { AllowStaleParent = true });
+                                _queue.Resume(job.Id);
+                                _status.Text = "Explicit parent override queued. "
+                                    + "The server will retain both immutable revisions.";
+                                ShowTransfers();
+                            }
+                            catch (Exception ex) when (ex is IOException
+                                or InvalidOperationException or ArgumentException)
+                            {
+                                _status.Text = "Conflict was not resolved: " + ex.Message;
+                            }
+                        }, danger: true, compact: true));
+                }, compact: true));
+            }
+        }
         if (job.State is CommunityTransferState.Paused
             or CommunityTransferState.Retryable or CommunityTransferState.Failed)
             _details.Children.Add(new PrimeButton("RESUME",
@@ -290,7 +325,8 @@ internal sealed class StudioCreatorCommunityWorkspace : UserControl, IDisposable
                 _endpoint, _operations, _queue, visibility, _notes.Text, token);
             if (_disposed || token.IsCancellationRequested) return;
             _status.Text = "Queued exact package " + receipt.PackageHash[..12]
-                + "… Transfer continues if Studio closes. Check Transfers.";
+                + "… The transfer persists independently of this page; "
+                + "if the application exits, it resumes on the next launch.";
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception ex) when (ex is IOException or InvalidOperationException
