@@ -174,6 +174,12 @@ try
     }
 
     using var firstGate = await cache.AcquireDownloadGateAsync(a.PackageHash.ToString());
+    cache.Promote(second, b);
+    secondProcess.Prune();
+    using (var heldDuringDownload = secondProcess.TryAcquire(a))
+        Check(heldDuringDownload != null && secondProcess.TryAcquire(b) == null,
+            "LRU preserves an archive while another process owns its download gate");
+
     Task<CommunityArchiveCache.DownloadGate> waiting =
         secondProcess.AcquireDownloadGateAsync(a.PackageHash.ToString());
     await Task.Delay(250);
