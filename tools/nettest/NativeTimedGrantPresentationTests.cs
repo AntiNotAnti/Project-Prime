@@ -213,6 +213,136 @@ internal static class NativeTimedGrantPresentationTests
         finally { p.Health=health; NetGrantNetwork.Reset(); Project(p,true); }
     }
 
+    private static void DynamicSamePositionTwins(PlayerEntity owner)
+    {
+        var scene = owner.OwningScene;
+        var oldRole = NetSession.Role;
+        bool oldAuthority = NetSession.IsAuthority;
+        int oldLocal = NetSession.LocalSlot;
+        uint oldFrame = NetSession.NetFrame;
+        var oldServer = NetSession.ServerSession;
+        var oldSend = NetPickupNetwork.SendClaim;
+        var oldFailure = NetPickupNetwork.ClientFailure;
+        ItemInstanceEntity? authorityA = null, authorityB = null;
+        var projected = new List<ItemInstanceEntity>();
+        var delivered = new List<PickupItemFact>();
+        var offered = new List<PickupClaim>();
+        int failures = 0;
+        try
+        {
+            NetPowerUpLedger.Reset();
+            Session(nameof(NetSession.Role), NetRole.Server);
+            Session(nameof(NetSession.IsAuthority), true);
+            Session(nameof(NetSession.LocalSlot), -1);
+            Session(nameof(NetSession.NetFrame), 500u);
+            var peer = NetPickupNetwork.Join(); // starts before genuine births
+            authorityA = ItemSpawnEntity.SpawnItem(ItemType.DoubleDamage, owner.Position,
+                owner.NodeRef, 6000, scene);
+            authorityB = ItemSpawnEntity.SpawnItem(ItemType.DoubleDamage, owner.Position,
+                owner.NodeRef, 6000, scene);
+            Check(authorityA != null && authorityB != null, "real authority twin factories succeed");
+            Check(NetPowerUpLedger.TrySpawnKey(authorityA!, out var keyA), "native A exact key retained");
+            Check(NetPowerUpLedger.TrySpawnKey(authorityB!, out var keyB), "native B exact key retained");
+            Check(keyA.SpawnId == -1 && keyB.SpawnId == -1 && keyA != keyB
+                && authorityA!.Position == authorityB!.Position, "same-position native twins have distinct full keys");
+            Check(NetReliableChannel.IsReliable(PacketType.PickupItem)
+                && NetReliableChannel.IsReliable(PacketType.PickupClaim)
+                && NetReliableChannel.IsReliable(PacketType.PickupVerdict), "existing pickup transport registration is reliable");
+            bool DrainDiscovery(PacketType packet, ReadOnlySpan<byte> bytes)
+            {
+                Check(packet == PacketType.PickupItem && bytes.Length % PickupItemFact.Size == 0,
+                    "native birth/removal delivery uses existing item fact batches");
+                for (int at = 0; at < bytes.Length; at += PickupItemFact.Size)
+                {
+                    Check(PickupItemFact.TryRead(bytes.Slice(at, PickupItemFact.Size), out var fact),
+                        "actual publisher bytes decode");
+                    delivered.Add(fact);
+                }
+                return true;
+            }
+            Check(NetPickupNetwork.Pump(peer, 0, DrainDiscovery)
+                && delivered.Count == 2 && NetPickupNetwork.PeerPending(peer) == 0,
+                "both native birth facts drain once through retained admission");
+            var birthA = delivered.Single(f => f.Spawn == keyA);
+            var birthB = delivered.Single(f => f.Spawn == keyB);
+            Check(birthA.Available && birthB.Available && birthA.Position == birthB.Position,
+                "discovery preserves both same-position incarnations");
+            // Keep original instances registered for genuine later destruction,
+            // but remove them from the scene before switching this fixture to client.
+            scene.RemoveEntity(authorityA!); scene.RemoveEntity(authorityB!);
+            Session(nameof(NetSession.Role), NetRole.Client);
+            Session(nameof(NetSession.IsAuthority), false);
+            Session(nameof(NetSession.LocalSlot), owner.SlotIndex);
+            Session(nameof(NetSession.ServerSession), null);
+            NetPickupNetwork.ClientFailure = _ => failures++;
+            Check(NetSession.WorldIsReady && owner.ModIsInPlay, "declared local owner contact scope is ready");
+            Check(NetPickupNetwork.ReceiveItem(birthA) && NetPickupNetwork.ReceiveItem(birthB),
+                "two real authority birth facts enter owner discovery");
+            Check(!NetPickupNetwork.ReceiveItem(birthA), "duplicate native birth is a no-op");
+            TimedPickupProjection.ApplyDynamic(scene);
+            foreach (var item in scene.GetItemInstanceEntities())
+                if (item.Owner == null && item.ModPickupSpawn is { } key
+                    && (key == keyA || key == keyB) && item.DespawnTimer != 0) projected.Add(item);
+            Check(projected.Count == 2 && projected.Select(i => i.ModPickupSpawn).Distinct().Count() == 2,
+                "same-position discovery materializes two distinct native instances");
+            TimedPickupProjection.ApplyDynamic(scene);
+            int liveTwins = 0;
+            foreach (var item in scene.GetItemInstanceEntities())
+                if (item.ModPickupSpawn is { } key && (key == keyA || key == keyB)
+                    && item.DespawnTimer != 0) liveTwins++;
+            Check(liveTwins == 2,
+                "duplicate projection does not merge or duplicate twins");
+            var clientA = projected.Single(i => i.ModPickupSpawn == keyA);
+            var clientB = projected.Single(i => i.ModPickupSpawn == keyB);
+            NetPickupNetwork.SendClaim = claim => { offered.Add(claim); return true; };
+            NetPickupNetwork.OwnerContact(owner, clientA);
+            NetPickupNetwork.OwnerContact(owner, clientB);
+            NetPickupNetwork.OwnerContact(owner, clientA); // duplicate same-instance contact
+            NetPickupNetwork.PumpOwner();
+            Check(offered.Count == 2 && offered.Select(c => c.Spawn).ToHashSet().SetEquals(new[] { keyA, keyB })
+                && offered.Select(c => c.Key).Distinct().Count() == 2
+                && offered.All(c => c.Position == owner.Position),
+                "actual owner contact emits separate exact-key claims despite identical contact positions");
+            delivered.Clear();
+            Session(nameof(NetSession.Role), NetRole.Server);
+            Session(nameof(NetSession.IsAuthority), true);
+            Session(nameof(NetSession.LocalSlot), -1);
+            Session(nameof(NetSession.NetFrame), 501u);
+            authorityA!.Destroy(); authorityA = null; // production native removal publisher
+            Check(NetPickupNetwork.Pump(peer, 0, DrainDiscovery) && delivered.Count == 1,
+                "one native removal publishes one retained tombstone");
+            var removal = delivered.Single();
+            Check(removal.Spawn == keyA && !removal.Available, "removal cannot alias same-position sibling");
+            Session(nameof(NetSession.Role), NetRole.Client);
+            Session(nameof(NetSession.IsAuthority), false);
+            Session(nameof(NetSession.LocalSlot), owner.SlotIndex);
+            Check(NetPickupNetwork.ReceiveItem(removal), "native removal reaches owner projection");
+            Check(!NetPickupNetwork.ReceiveItem(removal) && !NetPickupNetwork.ReceiveItem(birthA),
+                "duplicate removal and late original birth cannot resurrect consumed identity");
+            TimedPickupProjection.ApplyDynamic(scene);
+            Check(clientA.DespawnTimer == 0 && clientB.DespawnTimer != 0 && clientB.ModPickupSpawn == keyB,
+                "exact-key retirement preserves the same-position sibling instance");
+            Check(!NetPickupNetwork.ReceiveItem(birthA with { AuthorityFrame = 502 }) && failures == 1
+                && !NetPickupNetwork.ItemFacts[keyA].Available,
+                "newer contradictory birth is an explicit negative and cannot resurrect A");
+        }
+        finally
+        {
+            Session(nameof(NetSession.Role), NetRole.Server);
+            Session(nameof(NetSession.IsAuthority), true);
+            authorityA?.Destroy(); authorityB?.Destroy();
+            foreach (var item in projected) { item.Destroy(); scene.RemoveEntity(item); }
+            NetPowerUpLedger.Reset();
+            NetPickupNetwork.SendClaim = oldSend;
+            NetPickupNetwork.ClientFailure = oldFailure;
+            Session(nameof(NetSession.Role), oldRole);
+            Session(nameof(NetSession.IsAuthority), oldAuthority);
+            Session(nameof(NetSession.LocalSlot), oldLocal);
+            Session(nameof(NetSession.ServerSession), oldServer);
+            Session(nameof(NetSession.NetFrame), oldFrame);
+        }
+    }
+
     private static void AuthorityBits(PlayerEntity p)
     {
         Session(nameof(NetSession.Role),NetRole.Server); Session(nameof(NetSession.IsAuthority),true); Session(nameof(NetSession.LocalSlot),-1);
@@ -245,7 +375,7 @@ internal static class NativeTimedGrantPresentationTests
             Session(nameof(NetSession.LocalSlot),1); Session(nameof(NetSession.ServerSession),null); Session(nameof(NetSession.NetFrame),100u);
             player.Position=new Vector3(1000,1000,1000); player.PrevPosition=player.Position;
             Check(player.IsMainPlayer&&player.ModIsInPlay,"native owner presentation hooks active");
-            DamageProjection(player); CloakAndDeathAlt(player); ItemIdentity(player); RoamingOwnerDeathAlt(player); DeadProjection(player); AuthorityBits(player);
+            DamageProjection(player); CloakAndDeathAlt(player); ItemIdentity(player); DynamicSamePositionTwins(player); RoamingOwnerDeathAlt(player); DeadProjection(player); AuthorityBits(player);
             Console.WriteLine($"PASS: {_checks} native timed grant presentation assertions"); return 0;
         }
         catch(Exception error) { Console.Error.WriteLine(error); return 1; }

@@ -2167,6 +2167,7 @@ namespace MphRead.Entities
                         beam._soundSource.Update(beam.Position, rangeIndex: 0);
                         beam.ResolveCollision(muzzleObstacle.Value, muzzleEntity, false, muzzleObstacle.Value.Distance, false);
                         scene.AddEntity(beam);
+                        if (NetCampaignEvidence.Enabled) NetTimedSourceCapabilities.ObserveEmission(beam, parent);
                         continue;
                     }
                     beam.SpawnIceWave(weapon, chargePct);
@@ -2241,6 +2242,7 @@ namespace MphRead.Entities
                     if (!scene.Services.IsReplica && NetSession.Active && weapon.Flags.TestFlag(WeaponFlags.Continuous))
                         NetShotDiagnostics.Continuous(beam, cost);
                     scene.AddEntity(beam);
+                    if (NetCampaignEvidence.Enabled) NetTimedSourceCapabilities.ObserveEmission(beam, parent);
                     if (NetTimedShotProof.Active) emission.Added(beam, parent);
                     continue;
                 }
@@ -2288,6 +2290,7 @@ namespace MphRead.Entities
                     NetShotDiagnostics.Continuous(beam, cost);
                 beam._soundSource.Update(beam.Position, rangeIndex: 0);
                 scene.AddEntity(beam);
+                if (NetCampaignEvidence.Enabled) NetTimedSourceCapabilities.ObserveEmission(beam, parent);
                 if (NetTimedShotProof.Active) emission.Added(beam, parent);
                 Mods.EnhancedHunters.EnhancedHunterProjectiles.Spawned(beam, parent);
             }
