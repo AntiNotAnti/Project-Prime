@@ -105,6 +105,26 @@ public sealed class MapCommunityClient : IDisposable
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", uploadToken.Trim());
         return client;
     }
+    /// <summary>
+    /// Read additive v3 capabilities when available; a legacy Community
+    /// service legitimately returns 404. Do not alter old chunk sizes, upload
+    /// offsets, or publication semantics solely because this endpoint exists.
+    /// </summary>
+    public async Task<MapCommunityServiceCapabilities?> GetCapabilitiesAsync(
+        CancellationToken token = default)
+    {
+        using var response = await GetReadAsync("v3/capabilities",
+            HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false),
+            data, 65536, token).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<MapCommunityServiceCapabilities>(
+            data.ToArray(), MapPackageReader.JsonOptions)
+            ?? throw new InvalidDataException("Community capabilities document is invalid.");
+    }
+
     public async Task<CommunityMap[]> BrowseAsync(CancellationToken token, bool mine = false, bool favorites = false, string? sort = null)
     {
         using var response = await GetReadAsync("maps?mine="+mine.ToString().ToLowerInvariant()+"&favorites="+favorites.ToString().ToLowerInvariant()+"&sort="+Uri.EscapeDataString(sort??"name"), HttpCompletionOption.ResponseHeadersRead, token);
