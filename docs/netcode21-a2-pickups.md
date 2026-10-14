@@ -1,6 +1,6 @@
 # A2 verified timed pickup claims
 
-**Status: measured reconciled A2 correctness PASS; final acceptance pending the expanded 39-route inventory and exact documentation-head CI.** Gameplay evidence is bound to clean source `467d748f687c1fc55f854c986f7304d7151c76d0`, client SHA-256 `2e8d22c2c0bf057ec203e2361edd082545a32583294eb4451391885a35b505d0`, loaded client MVID `8c984a50-1996-4fd4-a8c6-3da2dbeb37f5`, and protocol **55**. Follow-up source `c7833972c9bc5e6f15778038e19330dd9ae4953c` changes only `ClaimStressTests.cs`; its corrected harness passes against that same frozen gameplay binary. This documentation update changes no runtime code. The 467 results retain their original source qualification; they are not fresh builds or completed CI for a later head.
+**Status: measured reconciled A2 correctness PASS; stack merge remains gated by pacing adjudication, A3 acceptance and final-head CI.** Gameplay evidence is bound to clean source `467d748f687c1fc55f854c986f7304d7151c76d0`, client SHA-256 `2e8d22c2c0bf057ec203e2361edd082545a32583294eb4451391885a35b505d0`, loaded client MVID `8c984a50-1996-4fd4-a8c6-3da2dbeb37f5`, and protocol **55**. Follow-up source `c7833972c9bc5e6f15778038e19330dd9ae4953c` changes only `ClaimStressTests.cs`; its corrected harness passes against that same frozen gameplay binary. This documentation update changes no runtime code. The 467 results retain their original source qualification; they are not fresh builds or completed CI for a later head.
 
 Protocol 55 combines current main's native-touch intent with A2 pickup messages. Staged A2 used 53 with a different intent layout, and staged A3 used 54; matching live client/server builds are required. Current private PPRC checkpoints use **version 12, feature flags 3** (NativeTouch plus PickupTables). Historical manifests below remain protocol-53 evidence and cannot accept the reconciled protocol-55 build.
 
@@ -30,7 +30,7 @@ Live protocol is 55; PPRC v12 flags are 3. Historical replay layouts require det
 
 ## Tests: local + exact-head hosted CI
 
-467 has 38 focused PASS, 460 Python tests with one explicit skip, both strict UDP campaign audit sets PASS and 12 metadata/replay commands PASS. Corrected ClaimStress passes against the same frozen client; the expanded final 39-route run and exact documentation-head hosted CI remain pending. The original failed hosted run remains FAIL.
+467 has 38 focused PASS, 460 Python tests with one explicit skip, both strict UDP campaign audit sets PASS and 12 metadata/replay commands PASS. The current full 39-route harness passes at `ac435eaf4a088f11898e8eca80df5ed10043e5ff` against the unchanged frozen 467 client; its physical harness SHA-256 is `6836ba4784a0511d9c59d382b03dca16d6472325919920aaec9756b8140c7ff7`, MVID `36d1816a-98ff-4038-b475-7cd834974409`. The corrected receipt is `work/net21-reconcile/a2-39-ac435eaf-deps/receipt.json`. The initial loader setup attempt remains separate: `a2-39-ac435eaf/` records one PASS and 38 missing-client `FileNotFound` failures; none are relabeled. All 30 hosted checks pass at ac435eaf. Later documentation/base heads require their own CI; the original stale-fixture hosted run remains FAIL.
 
 ## A/B: full samples, median and p95/p99/p99.9; GPU/managed/native where available
 
@@ -42,7 +42,7 @@ Fresh replay continuation/seek/checkpoint hashes and native authority contact/re
 
 ## Missing or inconclusive gates (NOT_RUN / UNVERIFIED / FAIL)
 
-Final 39-route and exact documentation-head hosted CI are pending. Live native-reservation acknowledgment and Cloak/Death Alt claims are NOT_RUN with fixture coverage only. Native GL/audio, physical-device gameplay, controlled pacing, matched render/GPU/managed/native A/B and exported clips are UNVERIFIED. Historical 4b campaign and 467 stale-fixture hosted run remain FAIL; no excluded timing overlap or rerun converts them to PASS.
+The final 39-route inventory and ac435eaf hosted CI pass; final stack/base-head CI and pacing adjudication remain pending. Live native-reservation acknowledgment and Cloak/Death Alt claims are NOT_RUN with fixture coverage only. Native GL/audio, physical-device gameplay, controlled pacing, matched render/GPU/managed/native A/B and exported clips are UNVERIFIED for this A2 binary. Historical 4b campaign and 467 stale-fixture hosted run remain FAIL; no excluded timing overlap or rerun converts them to PASS.
 
 ## Remaining risk and next dependency
 
