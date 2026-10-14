@@ -364,6 +364,10 @@ def drain_barrier(server, peers, require_empty=True):
         if bomb_frontier is not None and any(server[key] for key in ("BombPendingRequests", "BombPendingEvents", "BombFaulted")):
             return None, "authority bomb lane not settled"
         for status in [server, *peers]:
+            if "PickupPendingWork" in status:
+                pending = status["PickupPendingWork"]
+                if type(pending) is not int or pending < 0: return None, "malformed pending pickup work"
+                if pending: return None, "pickup work remains unsettled"
             if "TurretPendingOutcomes" in status:
                 pending = status["TurretPendingOutcomes"]
                 if type(pending) is not int or pending < 0: return None, "malformed pending turret outcomes"

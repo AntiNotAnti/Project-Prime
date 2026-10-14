@@ -819,12 +819,14 @@ namespace MphRead.Mods.Network
             // Build actual protocol-27 bytes; changing only the version label would
             // leave protocol-29 player extensions in the historical fixture.
             var historicalBytes = historicalCheckpoint.ToList();
+            historicalBytes.RemoveAt(7); // v12 feature byte is not a historical header field
             // Schemas 5/6 add two empty semantic counts and two uint frontiers;
             // schema 8 adds the bomb-history count; schema 9 adds the seen and
-            // pending turret-outcome counts. All are absent from schema 4.
+            // pending turret-outcome counts; schema 10 adds the pickup room and
+            // three pickup counts. All are absent from schema 4.
             // Check the empty appendices before stripping them so this fixture
             // cannot silently discard populated history or target the wrong bytes.
-            const int historicalAppendixBytes = 5 * sizeof(int) + 2 * sizeof(uint);
+            const int historicalAppendixBytes = 8 * sizeof(int) + 3 * sizeof(uint);
             Check(historicalBytes.Skip(historicalBytes.Count - historicalAppendixBytes).All(value => value == 0),
                 "protocol-27 fixture strips only empty later-schema appendices");
             historicalBytes.RemoveRange(historicalBytes.Count - historicalAppendixBytes, historicalAppendixBytes);
@@ -832,7 +834,7 @@ namespace MphRead.Mods.Network
             const int matchStart = 46;
             int rosterStart = matchStart + MatchStatePacket.Size + 1;
             int firstPlayer = rosterStart + RosterPacket.Size;
-            // The captured checkpoint uses protocol 53's native-touch tail.
+            // The captured checkpoint declares the native-touch tail.
             // Always locate each source slot at the CURRENT stride before
             // stripping fields for historical protocol 27.
             int stride = 7 + PlayerState.Size + 1 + IntentPacket.TouchCanonicalSize + 4;

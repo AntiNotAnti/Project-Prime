@@ -617,6 +617,7 @@ namespace MphRead.Mods.Network
             }
             HitRig.SetupNetworkTriangleFixtureOnce();
             NetBombs.AfterSimulation();
+            NetPickupNetwork.AfterSimulation();
             NetBotInput.Flush();
             if (_continuousIntentPending)
             {

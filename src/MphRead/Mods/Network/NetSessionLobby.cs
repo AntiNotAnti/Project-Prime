@@ -355,6 +355,7 @@ namespace MphRead.Mods.Network
         {
             ReportMatchLoadProgress(MatchLoadStage.SceneReady);
             if (_hostEndPoint == null) return;
+            MarkPickupSceneReady();
             // A late join can finish its scene after MatchState but before the
             // reliable SessionState carrying the start generation arrives.
             if (ServerSession == null)

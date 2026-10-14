@@ -216,6 +216,9 @@ namespace MphRead.Mods.Network
                     && SessionStatePacket.TryReadArchived(payload, out _),
                 PacketType.MatchState => payload.Length == MatchStatePacket.Size,
                 PacketType.BombState => BombStatePage.TryRead(payload, out _),
+                PacketType.PickupClaim => PickupClaim.TryRead(payload, out _),
+                PacketType.PickupVerdict => PickupVerdict.TryRead(payload, out _),
+                PacketType.PickupItem => PickupItemFact.TryRead(payload, out _),
                 PacketType.TurretFireOutcome => TurretFireOutcome.TryRead(payload, out _),
                 PacketType.BombEvent => BombEvent.TryRead(payload, out _),
                 PacketType.CosmeticState => payload.Length > 0 && payload.Length % CosmeticStatePacket.Size == 0

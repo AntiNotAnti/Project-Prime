@@ -62,17 +62,24 @@ internal static class ReplayFormCompatibilityChecks
         byte[] rosterPacket = new byte[1 + RosterPacket.Size]; rosterPacket[0] = (byte)PacketType.Roster;
         roster.Write(rosterPacket.AsSpan(1)); decoder.Accept(rosterPacket, 0); decoder.Accept(canonical, 10);
         byte[] current = decoder.CaptureCheckpoint().Bytes.ToArray();
-        int at = 46 + MatchStatePacket.Size + 1 + RosterPacket.Size;
-        using var stream = new MemoryStream(); stream.Write(current.AsSpan(0, at));
+        int at = 47 + MatchStatePacket.Size + 1 + RosterPacket.Size;
+        using var stream = new MemoryStream(); stream.Write(current.AsSpan(0, 7)); stream.Write(current.AsSpan(8, at - 8));
         for (int i = 0; i < RosterPacket.MaxSlots; i++)
         {
             stream.Write(current.AsSpan(at, 7 + PlayerState.Protocol48Size)); at += 7 + PlayerState.Size;
-            // A current (protocol 53) detached checkpoint has the 9-byte native
+            // A current flagged detached checkpoint has the 9-byte native
             // touch appendix on each intent. A protocol-48 checkpoint cannot.
-            stream.Write(current.AsSpan(at, 1 + IntentPacket.FullSize + 4));
-            at += 1 + IntentPacket.TouchCanonicalSize + 4;
+            stream.Write(current.AsSpan(at, 1 + IntentPacket.FullSize));
+            at += 1 + IntentPacket.TouchCanonicalSize;
+            stream.Write(current.AsSpan(at, 4)); at += 4;
         }
-        stream.Write(current.AsSpan(at)); byte[] historical = stream.ToArray(); historical[6] = 48;
+        // The historical player-width fixture uses schema 9, which predates
+        // the schema 10 pickup room and three data counts. Strip only empty data.
+        const int pickupTailBytes = sizeof(uint) + 3 * sizeof(int);
+        require(current.AsSpan(current.Length - pickupTailBytes).ToArray().All(value => value == 0),
+            "historical player-width fixture strips only empty pickup data");
+        stream.Write(current.AsSpan(at, current.Length - at - pickupTailBytes));
+        byte[] historical = stream.ToArray(); historical[4] = 9; historical[5] = 0; historical[6] = 48;
         var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(new(historical));
         require(restored.TryGetPlayer(0, out var restoredPlayer) && restoredPlayer.Health == 77
             && restored.TryGetPlayer(1, out var second) && second.Health == 55,

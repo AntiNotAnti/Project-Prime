@@ -29,6 +29,7 @@ internal static class ReplayIdentityCompatibility
         if (converted.IsEmpty) return converted;
 
         PacketType type = (PacketType)converted[0];
+        if (protocol < 53 && type is PacketType.PickupClaim or PacketType.PickupVerdict or PacketType.PickupItem) return ReadOnlySpan<byte>.Empty;
         if (protocol < 52 && type == PacketType.TurretFireOutcome) return ReadOnlySpan<byte>.Empty;
         if (protocol < 48 && type is PacketType.BombState or PacketType.BombEvent) return ReadOnlySpan<byte>.Empty;
         if (protocol < 35 && type is PacketType.MatchSemanticEvent or PacketType.MatchAward) return ReadOnlySpan<byte>.Empty;

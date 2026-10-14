@@ -27,6 +27,45 @@ internal static class NetCampaignEvidence
     private static readonly List<Shot> Shots = new();
     private static readonly List<object> TurretOutcomes = new();
     private static readonly List<object> TimedGrants = new();
+    private static readonly List<object> PickupClaims = new(), PickupVerdicts = new(), PickupItems = new(), PickupProofs = new();
+    internal static void PickupProof(PickupContactProof proof)
+    {
+        if (!Enabled) return;
+        var pose = proof.Pose; var claim = proof.Claim; var item = proof.Item; var verdict = proof.Verdict;
+        Add(PickupProofs, new { claim.Key, claim.Spawn, Type = claim.Type.ToString(), claim.SourceFrame,
+            CapturedSourceFrame = pose.SourceFrame, proof.NativeReservation,
+            ClaimPosition = new[] { claim.Position.X, claim.Position.Y, claim.Position.Z }, pose.Life,
+            pose.AuthorityFrame, Position = new[] { pose.Position.X, pose.Position.Y, pose.Position.Z },
+            SpherePosition = new[] { pose.SpherePosition.X, pose.SpherePosition.Y, pose.SpherePosition.Z },
+            pose.Radius, pose.MinHeight, pose.MaxHeight, pose.Alt, pose.Alive, pose.CanPickup,
+            ItemPosition = new[] { item.Position.X, item.Position.Y, item.Position.Z }, item.Available,
+            ItemAuthorityFrame = item.AuthorityFrame, proof.Window,
+            verdict.DecisionFrame, verdict.ProofFrame, verdict.GrantSequence, verdict.GrantFrame,
+            verdict.ExpiresAtFrame });
+    }
+    internal static void PickupClaim(PickupClaim claim, string stage)
+    {
+        if (!Enabled) return;
+        Span<byte> bytes = stackalloc byte[global::MphRead.Mods.Network.PickupClaim.Size]; claim.Write(bytes);
+        Add(PickupClaims, new { Stage = stage, claim.Key, claim.Spawn, Type = claim.Type.ToString(),
+            claim.SourceFrame, ObservedFrame = NetSession.NetFrame, Payload = Convert.ToHexString(bytes) });
+    }
+    internal static void PickupVerdict(PickupVerdict verdict, string stage)
+    {
+        if (!Enabled) return;
+        Span<byte> bytes = stackalloc byte[global::MphRead.Mods.Network.PickupVerdict.Size]; verdict.Write(bytes);
+        Add(PickupVerdicts, new { Stage = stage, verdict.Claim.Key, verdict.Claim.Spawn,
+            Result = verdict.Result.ToString(), verdict.DecisionFrame, verdict.ProofFrame,
+            verdict.GrantSequence, verdict.GrantFrame, verdict.ExpiresAtFrame,
+            ObservedFrame = NetSession.NetFrame, Payload = Convert.ToHexString(bytes) });
+    }
+    internal static void PickupItem(PickupItemFact fact, string stage)
+    {
+        if (!Enabled) return;
+        Span<byte> bytes = stackalloc byte[PickupItemFact.Size]; fact.Write(bytes);
+        Add(PickupItems, new { Stage = stage, fact.Spawn, Type = fact.Type.ToString(),
+            fact.AuthorityFrame, fact.Available, ObservedFrame = NetSession.NetFrame, Payload = Convert.ToHexString(bytes) });
+    }
     internal static void TimedGrant(TimedGrantRecord grant)
     {
         if (!Enabled) return;
@@ -375,7 +414,7 @@ internal static class NetCampaignEvidence
                 CombatPayments = NetCombatPayments.Capture(),
                 AiClient = NetAiClient.Capture(),
                 TurretOutcomes,
-                TimedGrants,
+                TimedGrants, PickupClaims, PickupVerdicts, PickupItems, PickupProofs,
                 CampaignClaims = CaptureClaims(),
                 HitClaims = new { NetHitClaims.Declared, NetHitClaims.Applied, NetHitClaims.Duplicate,
                     NetHitClaims.RefusedDeadShooter, NetHitClaims.RefusedDeadVictim, NetHitClaims.RefusedOther,

@@ -85,6 +85,7 @@ namespace MphRead.Mods.Network
 
         public static void OnSlotChanged(int slot)
         {
+            NetPickupNetwork.ForgetSlot(slot);
             NetPowerUpLedger.RetireSlot(slot, TimedGrantEnd.Retired);
             NetBotInput.ForgetSlot(slot);
             NetTelemetry.ForgetSlot(slot);
