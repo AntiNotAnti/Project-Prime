@@ -67,6 +67,18 @@ internal sealed class MapCommunityServiceAdmission : IDisposable
         string method = request.HttpMethod;
         if (method == "PUT" && parts.Length >= 2 && parts[0] == "uploads")
             return Lane.Upload;
+        // Generic creator bytes can be 128 MiB. Do not let an arbitrary
+        // number of slow one-body v3 uploads consume metadata/auth slots.
+        if (method == "POST" && parts.Length == 5
+            && parts[0] == "v3" && parts[1] == "content"
+            && parts[4] == "revisions")
+            return Lane.Upload;
+        // Raw v3 content is independent of authoring and must share the
+        // existing bounded byte-serving lane, not lightweight catalog slots.
+        if (method == "GET" && parts.Length == 3
+            && parts[0] == "v3" && parts[1] == "objects"
+            && MapCommunityClient.ValidHash(parts[2]))
+            return Lane.Download;
         if (method == "POST" && parts.Length == 3
             && parts[0] == "uploads" && parts[2] == "complete")
             return Lane.Verification;

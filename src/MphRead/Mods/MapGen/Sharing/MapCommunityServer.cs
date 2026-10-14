@@ -455,6 +455,151 @@ public static class MapCommunityServer
                     }, deadline.Token);
                     return;
                 }
+                // Typed upload is separate from legacy .ppmap publication.
+                // Request metadata is bounded and authenticated before a byte
+                // is written. The server derives OwnerId from the ticket.
+                if (parts.Length == 5 && parts[0] == "v3"
+                    && parts[1] == "content" && parts[4] == "revisions"
+                    && context.Request.HttpMethod == "POST")
+                {
+                    if (creator == null) { context.Response.StatusCode = 401; return; }
+                    if (!Guid.TryParse(parts[3], out Guid assetId))
+                    { context.Response.StatusCode = 400; return; }
+                    string kind;
+                    try { kind = CommunityContentKinds.Normalize(parts[2]); }
+                    catch (ArgumentException) { context.Response.StatusCode = 400; return; }
+                    if (kind == CommunityContentKinds.Map)
+                    { context.Response.StatusCode = 405; return; }
+                    string? encoded = context.Request.Headers["X-Prime-Content-Metadata"];
+                    string? expectedHash = context.Request.Headers["X-Prime-SHA256"];
+                    if (encoded == null || encoded.Length > 8192
+                        || !MapCommunityClient.ValidHash(expectedHash ?? ""))
+                    { context.Response.StatusCode = 400; return; }
+                    long length = context.Request.ContentLength64;
+                    if (length <= 0 || length > CommunityAssetValidator.Limit(kind))
+                    { context.Response.StatusCode = 413; return; }
+                    CommunityContentRegistration metadata;
+                    try
+                    {
+                        byte[] json = Convert.FromBase64String(encoded);
+                        if (json.Length > 6144) throw new InvalidDataException("Metadata too large.");
+                        metadata = JsonSerializer.Deserialize<CommunityContentRegistration>(
+                            json, MapPackageReader.JsonOptions)
+                            ?? throw new InvalidDataException("Missing v3 metadata.");
+                        if (metadata.Kind != kind || metadata.ContentId != assetId
+                            || metadata.OwnerId != creator.CreatorId
+                            || context.Request.ContentType?.Split(';')[0].Trim()
+                                != metadata.MimeType)
+                            throw new InvalidDataException("V3 metadata does not match authenticated request.");
+                    }
+                    catch (Exception ex) when (ex is JsonException
+                        or FormatException or InvalidDataException)
+                    { context.Response.StatusCode = 400; return; }
+
+                    string staging = Path.Combine(storage,
+                        "content-v3-" + Guid.NewGuid().ToString("N") + ".upload");
+                    try
+                    {
+                        await using (var file = new FileStream(staging,
+                            FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                            65536, FileOptions.Asynchronous | FileOptions.SequentialScan))
+                        {
+                            await MapCommunityClient.CopyBoundedAsync(
+                                context.Request.InputStream, file, length, deadline.Token);
+                            await file.FlushAsync(deadline.Token);
+                            if (file.Length != length)
+                                throw new InvalidDataException("Truncated v3 upload.");
+                        }
+                        if (MapBuildFingerprint.HashFile(staging) != expectedHash)
+                            throw new InvalidDataException("V3 upload changed SHA-256 identity.");
+                        CommunityAssetValidator.Validate(staging, kind, metadata.MimeType);
+                        // The registry serializes metadata revisions and retains
+                        // immutable bytes; it cannot mutate any v2 map package.
+                        CommunityContentProject saved =
+                            contentRegistry.RegisterVerifiedBlob(staging, metadata);
+                        context.Response.StatusCode = 201;
+                        await Json(context.Response, saved, deadline.Token);
+                    }
+                    catch (InvalidDataException)
+                    { context.Response.StatusCode = 400; }
+                    finally { if (File.Exists(staging)) File.Delete(staging); }
+                    return;
+                }
+                if (parts.Length is 4 or 5
+                    && parts[0] == "v3" && parts[1] == "content"
+                    && context.Request.HttpMethod is "DELETE" or "POST"
+                    && Guid.TryParse(parts[3], out Guid manageId))
+                {
+                    if (creator == null) { context.Response.StatusCode = 401; return; }
+                    string kind;
+                    try { kind = CommunityContentKinds.Normalize(parts[2]); }
+                    catch (ArgumentException) { context.Response.StatusCode = 400; return; }
+                    if (kind == CommunityContentKinds.Map)
+                    { context.Response.StatusCode = 405; return; }
+                    if (parts.Length == 4 && context.Request.HttpMethod == "DELETE")
+                    {
+                        context.Response.StatusCode =
+                            contentRegistry.Archive(kind, manageId, creator.CreatorId, true)
+                                ? 204 : 404;
+                        return;
+                    }
+                    if (parts.Length == 5 && parts[4] == "restore"
+                        && context.Request.HttpMethod == "POST")
+                    {
+                        context.Response.StatusCode =
+                            contentRegistry.Archive(kind, manageId, creator.CreatorId, false)
+                                ? 204 : 404;
+                        return;
+                    }
+                }
+                // Raw generic objects never use map archive install routes.
+                // Only an authorized published or owner-private exact digest
+                // can be retrieved. No bytes are served on metadata alone.
+                if (parts.Length == 3 && parts[0] == "v3"
+                    && parts[1] == "objects" && context.Request.HttpMethod == "GET")
+                {
+                    string hash = parts[2];
+                    if (!MapCommunityClient.ValidHash(hash))
+                    { context.Response.StatusCode = 400; return; }
+                    string? path = contentRegistry.AuthorizedBlob(hash, creator?.CreatorId);
+                    if (path == null) { context.Response.StatusCode = 404; return; }
+                    long total = new FileInfo(path).Length, offset = 0;
+                    context.Response.Headers["ETag"] = "\"" + hash + "\"";
+                    context.Response.Headers["Accept-Ranges"] = "bytes";
+                    // Different projects may share a hash with different
+                    // visibility. Mark authenticated responses no-store.
+                    context.Response.Headers["Cache-Control"] =
+                        creator == null ? "public, max-age=31536000, immutable"
+                                        : "private, no-store";
+                    if (context.Request.Headers["Range"] == null
+                        && context.Request.Headers["If-None-Match"] == "\"" + hash + "\"")
+                    { context.Response.StatusCode = 304; return; }
+                    if (context.Request.Headers["Range"] is { } range)
+                    {
+                        if (!range.StartsWith("bytes=", StringComparison.OrdinalIgnoreCase)
+                            || !range.EndsWith("-", StringComparison.Ordinal)
+                            || !long.TryParse(range[6..^1], out offset) || offset < 0)
+                        { context.Response.StatusCode = 400; return; }
+                        if (offset >= total)
+                        {
+                            context.Response.StatusCode = 416;
+                            context.Response.Headers["Content-Range"] = "bytes */" + total;
+                            return;
+                        }
+                        context.Response.StatusCode = 206;
+                        context.Response.Headers["Content-Range"] =
+                            "bytes " + offset + "-" + (total - 1) + "/" + total;
+                    }
+                    context.Response.ContentType = "application/octet-stream";
+                    context.Response.ContentLength64 = total - offset;
+                    await using var file = new FileStream(path, FileMode.Open,
+                        FileAccess.Read, FileShare.Read, 65536,
+                        FileOptions.Asynchronous | FileOptions.SequentialScan);
+                    file.Position = offset;
+                    await file.CopyToAsync(context.Response.OutputStream, 65536, deadline.Token);
+                    return;
+                }
+
                 if (parts.Length >= 2 && parts[0] == "v3"
                     && parts[1] == "content" && context.Request.HttpMethod == "GET")
                 {
