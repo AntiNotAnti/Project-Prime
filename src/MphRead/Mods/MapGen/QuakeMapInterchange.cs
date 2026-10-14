@@ -66,8 +66,7 @@ public static class QuakeMapInterchange
         {
             if (new FileInfo(sidecarPath).Length > 65536)
                 throw new InvalidDataException("Quake project sidecar metadata is oversized.");
-            sidecar = JsonSerializer.Deserialize<QuakeMapSidecar>(
-                File.ReadAllBytes(sidecarPath), MapPackageReader.JsonOptions);
+            sidecar = ReadSidecarStrict(File.ReadAllBytes(sidecarPath));
             if (sidecar?.SchemaVersion != 1 || sidecar.MapId == Guid.Empty)
                 throw new InvalidDataException("Unsupported or invalid map identity sidecar.");
             inferred = sidecar.RoomName;
@@ -636,8 +635,7 @@ public static class QuakeMapInterchange
             {
                 if (new FileInfo(sidecar).Length > 65536)
                     throw new InvalidDataException("Existing Quake sidecar is oversized.");
-                previous = JsonSerializer.Deserialize<QuakeMapSidecar>(
-                    File.ReadAllBytes(sidecar), MapPackageReader.JsonOptions);
+                previous = ReadSidecarStrict(File.ReadAllBytes(sidecar));
             }
             catch (JsonException ex)
             {
@@ -652,6 +650,34 @@ public static class QuakeMapInterchange
         AtomicFile.Write(sidecar, JsonSerializer.SerializeToUtf8Bytes(
             new QuakeMapSidecar(1, map.MapId, map.Name, unitsPerPrimeUnit,
                 MapBuildFingerprint.HashFile(full)), MapPackageReader.JsonOptions));
+    }
+
+    private static QuakeMapSidecar? ReadSidecarStrict(byte[] bytes)
+    {
+        // MapId is not enough to prevent destructive overwrite. A richer
+        // sidecar may contain creator metadata not yet expressible by this
+        // restricted interchange, so unknown and duplicate JSON keys must
+        // fail instead of being dropped when a newer source is exported.
+        using JsonDocument document = JsonDocument.Parse(bytes);
+        if (document.RootElement.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException("Expected an object for Quake map identity sidecar.");
+        var supported = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "schemaVersion", "mapId", "roomName", "unitsPerPrimeUnit", "sourceSha256"
+        };
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (JsonProperty property in document.RootElement.EnumerateObject())
+        {
+            if (!supported.Contains(property.Name))
+                throw new InvalidDataException(
+                    "Unsupported sidecar property " + property.Name
+                    + " must be preserved by a newer interchange version.");
+            if (!seen.Add(property.Name))
+                throw new InvalidDataException(
+                    "Duplicate Quake sidecar property " + property.Name + ".");
+        }
+        return JsonSerializer.Deserialize<QuakeMapSidecar>(
+            bytes, MapPackageReader.JsonOptions);
     }
 
     private static Guid GuidFrom(string key)
