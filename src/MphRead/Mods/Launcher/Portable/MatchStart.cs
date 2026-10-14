@@ -27,6 +27,8 @@ namespace MphRead.Mods.Launcher
         /// <summary>In-memory ship boarding after a successfully committed save.</summary>
         public static CampaignDockReceipt? RecentShipDock { get; private set; }
         public static void ClearRecentShipDock() => RecentShipDock = null;
+        public static CampaignEndingSummary? RecentCampaignEnding { get; private set; }
+        public static void ClearRecentCampaignEnding() => RecentCampaignEnding = null;
 
         /// <summary>
         /// Load what the plan asked for into a window of its own and run until
@@ -96,10 +98,11 @@ namespace MphRead.Mods.Launcher
             if (plan.Kind == LaunchKind.Adventure)
             {
                 bool began = BeginAdventure(window, plan);
-                if (began) ClearRecentShipDock();
+                if (began) { ClearRecentShipDock(); ClearRecentCampaignEnding(); }
                 return began;
             }
             ClearRecentShipDock();
+            ClearRecentCampaignEnding();
             if (plan.Kind == LaunchKind.Demo)
             {
                 return BeginDemo(window, plan);
@@ -290,6 +293,12 @@ namespace MphRead.Mods.Launcher
         {
             bool wroteAdventure = commit.HasPayload && commit.Slot != 0;
             commit.Commit();
+            // Publish only after Commit succeeded: the view cannot retain
+            // the prior Scene, and a failed save must remain retryable.
+            if (commit.Departure == CampaignDeparture.Ending && commit.Ending is { } ending)
+                RecentCampaignEnding = ending with { SaveCommitted = wroteAdventure };
+            else if (commit.Slot != 0)
+                RecentCampaignEnding = null;
             // Only the real QuitGame(enteringShip:true) path can produce a
             // star-map ticket, and only after the native save was committed.
             if (wroteAdventure && commit.Departure == CampaignDeparture.ReturnedToShip
