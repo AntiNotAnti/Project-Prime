@@ -345,6 +345,24 @@ try
         && Math.Abs(wideBox.Transform.Position[0] - 300f) <= 0.001f,
         "fixed-point scale increases for a wide Quake arena without moving geometry");
 
+    string richerSidecar = Path.Combine(root, "unrepresented-metadata-sidecar.json");
+    string canonicalSidecar = File.ReadAllText(sidecar);
+    int closeBrace = canonicalSidecar.LastIndexOf('}');
+    if (closeBrace < 0) throw new InvalidDataException("Sidecar fixture is malformed.");
+    File.WriteAllText(richerSidecar, canonicalSidecar[..closeBrace].TrimEnd()
+        + ",\n\"creatorAttribution\":\"MUST NOT BE DISCARDED\"\n}");
+    refused = false;
+    try { QuakeMapInterchange.Import(path, richerSidecar); }
+    catch (InvalidDataException) { refused = true; }
+    Check(refused, "unknown creator sidecar fields cannot silently disappear on import");
+
+    string unsafeRewrite = Path.Combine(root, "unsafe-sidecar-overwrite.map");
+    refused = false;
+    try { QuakeMapInterchange.Export(map, unsafeRewrite, richerSidecar); }
+    catch (InvalidDataException) { refused = true; }
+    Check(refused && !File.Exists(unsafeRewrite),
+        "refuse to replace a richer sidecar without mutating the Quake source");
+
     map.Geometry.Add(new MapWedge());
     refused = false;
     try { QuakeMapInterchange.Export(map, Path.Combine(root, "refused.map")); }
