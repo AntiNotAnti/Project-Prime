@@ -300,7 +300,7 @@ public sealed class CommunityContentRegistry
         if (normalized == CommunityContentKinds.Map)
             throw new InvalidDataException("Map registrations must use the v2 map revision catalog.");
         if (m.Kind != normalized || m.ContentId == Guid.Empty
-            || string.IsNullOrWhiteSpace(m.OwnerId) || m.OwnerId.Length > 128
+            || !SafeText(m.OwnerId, 128)
             || !SafeText(m.Name, 128) || !SafeText(m.DisplayName, 128, optional: true)
             || !SafeText(m.Author, 128, optional: true)
             || !SafeText(m.Description, 2000, optional: true)
