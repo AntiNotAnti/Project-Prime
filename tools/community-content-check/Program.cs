@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -100,6 +102,24 @@ try
         CancellationToken.None))?.CurrentHash == hash,
         "restoring metadata never changes original immutable revision identity");
 
+    // An older published content revision remains a valid public immutable
+    // hash even after a newer published revision becomes current. Historical
+    // presentation references must not break when authors publish updates.
+    byte[] releasedBytes = png.Concat(new byte[] { 2 }).ToArray();
+    File.WriteAllBytes(image, releasedBytes);
+    var released = await creator.PublishContentAsync(image, record with
+    {
+        Visibility = CommunityContentVisibility.Published,
+        ExpectedParentHash = draftHash
+    }, CancellationToken.None);
+    Check(released.RevisionCount == 3 && released.CurrentHash != hash,
+        "later public revision advances current without changing historical blob identity");
+    string older = Path.Combine(root, "older-published.part");
+    await publicClient.DownloadContentAsync(hash, older, png.LongLength,
+        CancellationToken.None);
+    Check(File.ReadAllBytes(older).SequenceEqual(png),
+        "older publicly listed immutable revision stays downloadable by its exact hash");
+
     string corrupt = Path.Combine(root, "not-a-png.png");
     File.WriteAllText(corrupt, "not a PNG file");
     bool refused = false;
@@ -137,6 +157,95 @@ try
     Check(materialItem.Kind == "material"
         && materialItem.CurrentHash == MapBuildFingerprint.HashFile(material),
         "second original type, material descriptor, publishes with pinned identity");
+    // All creator upload slots can be busy without taking slots from the
+    // lightweight catalog and published raw-download lanes. This is a real
+    // HttpListener test with deliberately stalled request bodies.
+    using (var http = new HttpClient { BaseAddress = new Uri(address),
+        Timeout = TimeSpan.FromSeconds(25) })
+    {
+        http.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", ownerToken);
+        var bodies = new StalledAssetBody[3];
+        var requests = new HttpRequestMessage[3];
+        var runningUploads = new Task<HttpResponseMessage>[3];
+        var cancellation = new CancellationTokenSource[3];
+        try
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                var stalled = record with
+                {
+                    ContentId = Guid.NewGuid(),
+                    Visibility = CommunityContentVisibility.Published,
+                    ExpectedParentHash = null
+                };
+                bodies[i] = new StalledAssetBody(4096);
+                requests[i] = new HttpRequestMessage(HttpMethod.Post,
+                    "v3/content/texture/" + stalled.ContentId + "/revisions")
+                { Content = bodies[i] };
+                requests[i].Headers.TryAddWithoutValidation("X-Prime-Content-Metadata",
+                    Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(stalled,
+                        MapPackageReader.JsonOptions)));
+                requests[i].Headers.TryAddWithoutValidation("X-Prime-SHA256",
+                    new string('a', 64));
+                bodies[i].Headers.ContentType = new MediaTypeHeaderValue("image/png");
+                cancellation[i] = new CancellationTokenSource();
+                runningUploads[i] = http.SendAsync(requests[i],
+                    HttpCompletionOption.ResponseHeadersRead, cancellation[i].Token);
+                await bodies[i].Started.Task.WaitAsync(TimeSpan.FromSeconds(8));
+            }
+            bool saturated = false;
+            for (int tries = 0; tries < 80 && !saturated; tries++)
+            {
+                using var response = await http.GetAsync("v2/metrics");
+                response.EnsureSuccessStatusCode();
+                using var metrics = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                saturated = metrics.RootElement.GetProperty("admission")
+                    .GetProperty("uploads").GetProperty("active").GetInt32() == 3;
+                if (!saturated) await Task.Delay(50);
+            }
+            Check(saturated,
+                "three slow v3 asset bodies consume creator upload slots, not catalog capacity");
+            using (var browse = await http.GetAsync("v3/content"))
+                Check(browse.IsSuccessStatusCode,
+                    "typed catalog stays available during saturated v3 asset uploads");
+            using (var read = await http.GetAsync("v3/objects/" + hash))
+                Check(read.IsSuccessStatusCode
+                    && (await read.Content.ReadAsByteArrayAsync()).SequenceEqual(png),
+                    "player-facing immutable asset download remains available during creator uploads");
+
+            var extra = record with { ContentId = Guid.NewGuid() };
+            using var fourth = new HttpRequestMessage(HttpMethod.Post,
+                "v3/content/texture/" + extra.ContentId + "/revisions")
+            { Content = new ByteArrayContent(png) };
+            fourth.Content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+            fourth.Headers.TryAddWithoutValidation("X-Prime-Content-Metadata",
+                Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(extra,
+                    MapPackageReader.JsonOptions)));
+            fourth.Headers.TryAddWithoutValidation("X-Prime-SHA256",
+                MapBuildFingerprint.HashFile(Path.Combine(root, "older-published.part")));
+            using var busy = await http.SendAsync(fourth);
+            Check(busy.StatusCode == HttpStatusCode.ServiceUnavailable
+                && busy.Headers.RetryAfter != null,
+                "fourth v3 upload is refused promptly with Retry-After, without starving browsing");
+        }
+        finally
+        {
+            foreach (var token in cancellation) token?.Cancel();
+            foreach (var body in bodies) body?.Release();
+            foreach (var upload in runningUploads)
+                if (upload != null)
+                {
+                    try { using var response = await upload.WaitAsync(TimeSpan.FromSeconds(10)); }
+                    catch (Exception ex) when (ex is OperationCanceledException or HttpRequestException
+                        or TimeoutException or IOException) { }
+                }
+            foreach (var token in cancellation) token?.Dispose();
+            foreach (var req in requests) req?.Dispose();
+            foreach (var body in bodies) body?.Dispose();
+        }
+    }
+
     Console.WriteLine($"Community typed publishing checks: {checks} PASS.");
 }
 finally
@@ -148,4 +257,28 @@ finally
         catch (OperationCanceledException) { }
     }
     try { Directory.Delete(root, recursive: true); } catch (IOException) { }
+}
+
+internal sealed class StalledAssetBody(long bytes) : HttpContent
+{
+    private readonly TaskCompletionSource _release =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    internal readonly TaskCompletionSource Started =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    protected override bool TryComputeLength(out long length)
+    {
+        length = bytes;
+        return true;
+    }
+    protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+        => SerializeToStreamAsync(stream, context, CancellationToken.None);
+    protected override async Task SerializeToStreamAsync(Stream stream,
+        TransportContext? context, CancellationToken cancellationToken)
+    {
+        await stream.WriteAsync(new byte[] { 137 }, cancellationToken);
+        await stream.FlushAsync(cancellationToken);
+        Started.TrySetResult();
+        await _release.Task.WaitAsync(cancellationToken);
+    }
+    internal void Release() => _release.TrySetResult();
 }
