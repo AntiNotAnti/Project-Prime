@@ -214,6 +214,90 @@ public sealed class CommunityContentRegistry
         return File.Exists(path) ? path : null;
     }
 
+    /// <summary>Owner-only lifecycle. Retain immutable bytes and revisions
+    /// for historical creator references and safe rollback.</summary>
+    public bool Archive(string kind, Guid id, string owner, bool archived)
+    {
+        kind = CommunityContentKinds.Normalize(kind);
+        if (kind == CommunityContentKinds.Map) return false;
+        lock (_gate)
+        {
+            if (!_projects.TryGetValue((kind, id), out var project)
+                || project.OwnerId != owner) return false;
+            if (project.Archived == archived) return true;
+            var changed = project with { Archived = archived, UpdatedAt = DateTimeOffset.UtcNow };
+            SaveReplacing(changed);
+            return true;
+        }
+    }
+
+    public CommunityContentProject? Promote(string kind, Guid id, string owner,
+        string revisionHash)
+    {
+        kind = CommunityContentKinds.Normalize(kind);
+        if (!MapCommunityClient.ValidHash(revisionHash)
+            || kind == CommunityContentKinds.Map) return null;
+        lock (_gate)
+        {
+            if (!_projects.TryGetValue((kind, id), out var project)
+                || project.OwnerId != owner) return null;
+            var revision = project.Revisions.FirstOrDefault(r => r.ContentHash == revisionHash
+                && r.Visibility == CommunityContentVisibility.Published);
+            if (revision == null) return null;
+            var changed = project with
+            {
+                CurrentHash = revisionHash,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+            SaveReplacing(changed);
+            return Project(changed, owner: true);
+        }
+    }
+
+    /// <summary>Authorize a raw immutable asset by exact revision hash. The
+    /// requested hash is not itself proof of public visibility.</summary>
+    public string? AuthorizedBlob(string hash, string? viewerId)
+    {
+        if (!MapCommunityClient.ValidHash(hash)) return null;
+        long declared = -1;
+        lock (_gate)
+        {
+            foreach (var project in _projects.Values)
+            {
+                if (project.Archived && project.OwnerId != viewerId) continue;
+                bool owner = viewerId != null && project.OwnerId == viewerId;
+                foreach (var revision in project.Revisions)
+                {
+                    if (revision.ContentHash != hash) continue;
+                    if (!owner && (revision.Visibility != CommunityContentVisibility.Published
+                        || project.CurrentHash != hash)) continue;
+                    declared = revision.Bytes;
+                    break;
+                }
+                if (declared >= 0) break;
+            }
+        }
+        if (declared < 0) return null;
+        string path = Path.Combine(_objects, hash + ".blob");
+        if (!File.Exists(path) || new FileInfo(path).Length != declared
+            || MapBuildFingerprint.HashFile(path) != hash)
+            throw new InvalidDataException("Referenced v3 asset is missing or corrupted.");
+        return path;
+    }
+
+    private void SaveReplacing(CommunityContentStoredProject replacement)
+    {
+        CommunityContentStoredProject[] updated = _projects.Values
+            .Where(p => !(p.Kind == replacement.Kind && p.ContentId == replacement.ContentId))
+            .Append(replacement)
+            .OrderBy(p => p.Kind, StringComparer.Ordinal)
+            .ThenBy(p => p.ContentId).ToArray();
+        AtomicFile.Write(_index, JsonSerializer.SerializeToUtf8Bytes(
+            new CommunityContentStoredState(Format, updated),
+            MapPackageReader.JsonOptions));
+        _projects[(replacement.Kind, replacement.ContentId)] = replacement;
+    }
+
     private void PutVerifiedBlob(string source, string hash, long bytes)
     {
         string output = Path.Combine(_objects, hash + ".blob");
