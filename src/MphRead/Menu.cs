@@ -1791,11 +1791,25 @@ namespace MphRead
             return true;
         }
 
-        public static byte SaveSlot { get; set; } = 0;
+        private static byte _saveSlot;
+        private static SaveWhen _neededSave = SaveWhen.Never;
+        private static long _saveRequestVersion;
+        // A late post-match commit may clear only the request it captured.
+        // Even assigning the same value can represent a new owner's request.
+        internal static long SaveRequestVersion => System.Threading.Interlocked.Read(ref _saveRequestVersion);
+        public static byte SaveSlot
+        {
+            get => _saveSlot;
+            set { _saveSlot = value; System.Threading.Interlocked.Increment(ref _saveRequestVersion); }
+        }
         public static int PreviousSaveSlot { get; set; } = -1;
         public static SaveWhen SaveFromExit { get; set; } = SaveWhen.Never;
         public static SaveWhen SaveFromShip { get; set; } = SaveWhen.Prompt;
-        public static SaveWhen NeededSave { get; set; } = SaveWhen.Never;
+        public static SaveWhen NeededSave
+        {
+            get => _neededSave;
+            set { _neededSave = value; System.Threading.Interlocked.Increment(ref _saveRequestVersion); }
+        }
 
         private static readonly int[] _planets = [1, 0, 0, 0, 0];
         private static int _alinos1State = 0;

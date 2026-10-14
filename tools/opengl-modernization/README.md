@@ -37,6 +37,14 @@ Exit 1 indicates invalid evidence; exit 0 indicates a valid report, which may st
 
 Counter semantics: `MergedDraws` is a subset of `IndexedDraws`; `ImmediateDraws` counts executed facade Begin/End, not native display-list contents. GLES compiled-list actual indexed draws are instrumented in final source. Captured binary MVIDs identify the instrumentation that produced each log. CPU HUD wall scopes include driver backpressure and do not establish a GPU bottleneck without valid timers.
 
+GL-01 also reports palette collection CPU/copies/repeats, runtime desktop scalar
+uniform requests/submissions/skips, and bounded independent matrix-array
+partitions by program and actual item setup/geometry source. The source review
+helper validates conservation and preserves these optional records without
+rejecting historical captures. See
+[`gl01-work-attribution.md`](../../docs/audits/engineering-consolidation/gl01-work-attribution.md)
+for exact scope, unknown/overflow handling, and still-unverified native gates.
+
 The GPU pass selector is the telemetry `pass` field (for example `World`, `Shadow`, `Outlines`, `SceneOverlays`, `PostProcess`, `Composite`); names are case-insensitive in comparisons. CPU scope keys are preserved verbatim and their inclusive timings must not be added together. The analyzer compares every reported GPU pass rather than accepting a cherry-picked subset.
 
 ## Implemented optimizations and authorized defaults

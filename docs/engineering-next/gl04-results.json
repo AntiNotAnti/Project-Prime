@@ -1,0 +1,167 @@
+{
+  "schema": 1,
+  "slice": "GL-04",
+  "acceptance": "NO_ROLLOUT",
+  "basedOnGl02Head": "c282090ff0444b131c002a2b78537dc70815ba6d",
+  "sourceCandidate": "9104134633ebe0996934260f6b54e448d1ec6195",
+  "binary": {
+    "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
+    "harnessSha256": "2a4b5046965b68566294a9b439ba012afcc30663c16b95fce5dd3efd3fc94b16",
+    "expectedLoadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f"
+  },
+  "fixtureSha256": "99f5e0128f301d7e5188a0bdde0d07f95d6d532fcff448084be126063ceb2ec8",
+  "sourceReceipts": [
+    {
+      "file": "gl02-results.json",
+      "sha256": "b146fb3830ade228414fc64a81e893031107760276fb1344d11187d5d3194f27"
+    },
+    {
+      "file": "gl02-parity/result.json",
+      "sha256": "8d2f19a1c29150f75a4db4dc78b931957691c52c9520c183315c041ddfa68554",
+      "role": "raw exact comparison receipt retained outside repository"
+    }
+  ],
+  "policy": {
+    "palettePrep": "OPT_IN_ONLY_DEFAULT_OFF",
+    "forcedLegacy": "DISABLED",
+    "existingDefaults": "PRESERVED"
+  },
+  "unprofiled": {
+    "acceptedSamplesPerArm": 5,
+    "secondsPerSample": 12,
+    "summaryGrain": "median of per-run completed-frame percentiles; not pooled percentiles",
+    "medianPerRun": {
+      "0": {
+        "frameIntervalP50Ms": 2.2099,
+        "frameIntervalP95Ms": 4.1257,
+        "frameIntervalP99Ms": 4.8943,
+        "simulationHz": 59.97874653116662,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 7.8289
+      },
+      "1": {
+        "frameIntervalP50Ms": 2.1414,
+        "frameIntervalP95Ms": 4.3387,
+        "frameIntervalP99Ms": 5.4449,
+        "simulationHz": 59.99186810227872,
+        "droppedSimulationSteps": 0,
+        "stalls": 0,
+        "frameIntervalP999MsDerivedFromReciprocalEstimate": 8.9914
+      }
+    },
+    "candidatePercentChange": {
+      "frameIntervalP50Ms": -3.0996877686773283,
+      "frameIntervalP95Ms": 5.162760258865173,
+      "frameIntervalP99Ms": 11.24982122060354
+    },
+    "p999Derivation": "Reciprocal-derived from each run's reported 0.1% low FPS estimate, then median across accepted runs; no newly sampled raw percentile."
+  },
+  "profile": {
+    "0": {
+      "retainedWindows": 27,
+      "warmupWindows": 4,
+      "sourceSha256": "ae489a9c236fc402294003c932f6fd69ea71f5add7c023f40f4abf1a96568cea",
+      "palettePreparation": {
+        "PaletteSourceFloatsScaled": 7107.133333333333,
+        "PalettePreparationHits": 0,
+        "PalettePreparationMisses": 0,
+        "PalettePreparationFallbacks": 0,
+        "PalettePreparationSnapshotCopyFloats": 0
+      },
+      "paletteCollectionMedianWindowP95Ms": 0.012205,
+      "gpuStatus": "UNVERIFIED"
+    },
+    "1": {
+      "retainedWindows": 27,
+      "warmupWindows": 4,
+      "sourceSha256": "06fe7ad64b5e2017d2e2584530439356a6b8a36b1b1ac70878c91229acc80e2d",
+      "palettePreparation": {
+        "PaletteSourceFloatsScaled": 1804.2,
+        "PalettePreparationHits": 37.97083333333333,
+        "PalettePreparationMisses": 13.820833333333333,
+        "PalettePreparationFallbacks": 0,
+        "PalettePreparationSnapshotCopyFloats": 8921.666666666666
+      },
+      "paletteCollectionMedianWindowP95Ms": 0.006998,
+      "gpuStatus": "UNVERIFIED"
+    }
+  },
+  "parity": {
+    "passed": true,
+    "comparisonCount": 29,
+    "exactRGBA": 18,
+    "exactFloat32DepthBits": 11,
+    "simulationFrames": [
+      240,
+      540,
+      840,
+      1140
+    ],
+    "fixtures": [
+      "eight-player High shadows 1920x1080 Samus",
+      "solo Off shadows 1280x720 Kanden"
+    ],
+    "scope": "Captured world/HUD/repeated-world PNG and world/repeat/shadow float-depth only; not full render matrix"
+  },
+  "gl03": {
+    "head": "0d9daaf7fc761184ea77f383a806039c10191b8b",
+    "acceptance": "NOT_ELIGIBLE",
+    "exactAdjacentObjectReuseCount": 5510,
+    "proceduralItemSubmissions": 2548029,
+    "strictAdjacentPairFrequencyUpperBoundPercent": 0.2162455764828422,
+    "limits": "Count frequency before stencil/pass/topology/order barriers; not a CPU/GPU time or driver draw savings bound. No production queue/flag/merge."
+  },
+  "negativeEvidence": [
+    {
+      "status": "EXCLUDED",
+      "reason": "Initial 10 A/B runs and two profiles launched baseline-bin harness, loaded baseline MVID3bfa7736; candidate hash alone was not loaded identity proof. All original logs/results/commands preserved."
+    },
+    {
+      "status": "EXCLUDED_REPEATED",
+      "reason": "First corrected arm overlapped build during initial warmup; retained and repeated conservatively as index10."
+    },
+    {
+      "status": "FAIL_PERFORMANCE_ACCEPTANCE",
+      "reason": "Five accepted native samples per arm show p95+5.1628%, p99+11.2498%; arithmetic reduction is not a frame-time win."
+    }
+  ],
+  "missingGates": [
+    {
+      "gate": "Windows GL, Linux GL, physical Android GLES",
+      "status": "NOT_RUN"
+    },
+    {
+      "gate": "Second macOS GPU/OS",
+      "status": "NOT_RUN"
+    },
+    {
+      "gate": "Full solo/one-bot/eight-player original-preset Off/Low/High/Ultra matrix and representative low-end size",
+      "status": "INCOMPLETE",
+      "covered": "Only the named timing/capture fixtures"
+    },
+    {
+      "gate": "60/120/144/240 Hz presentation, input latency and cap overshoot",
+      "status": "NOT_RUN"
+    },
+    {
+      "gate": "Full first-person/morph/high-particle/alpha/stencil/HUD/rendered replay/editor/Studio/export matrix",
+      "status": "INCOMPLETE"
+    },
+    {
+      "gate": "Repeated optimized-renderer AGX-04 lifecycle/context/Studio/replay stress",
+      "status": "NOT_RUN",
+      "covered": "Capture owner/name retirement is narrower"
+    },
+    {
+      "gate": "Native GPU pass time",
+      "status": "UNVERIFIED",
+      "reason": "Unsupported context queries"
+    },
+    {
+      "gate": "Separate complete shader-relink-storm/GPU-driver-error campaign",
+      "status": "NOT_RUN"
+    }
+  ],
+  "limits": "Reduced palette arithmetic and exact captured fidelity do not establish frame-tail improvement. Default-off is retained due measured p95/p99 deterioration and incomplete rollout gates; no statistical-significance or cross-device win claim."
+}

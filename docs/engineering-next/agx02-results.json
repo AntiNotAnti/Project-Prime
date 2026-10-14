@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "slice": "AGX-02",
+  "classification": "REPRODUCIBLE_DRIVER_ORIGIN_ASSOCIATED_BEHAVIOR",
+  "driverLeak": "UNPROVEN",
+  "boundedness": "UNVERIFIED",
+  "agx03ProgramLeaseCache": "NOT_ELIGIBLE",
+  "runtimeMitigation": "NONE_ACCEPTED",
+  "programAcceptance": "NOT_ACCEPTED",
+  "hardware": {
+    "gpu": "Apple M4 Pro",
+    "os": "macOS 27.0",
+    "osBuild": "26A428",
+    "driver": "OpenGL 2.1 Metal - 91.7",
+    "openTk": "4.9.4",
+    "runtime": ".NET 10.0.12"
+  },
+  "sixArmSourceSha": "cdbaa4bc5492bf1876511d6c973ef79a47779fc8",
+  "arms": [
+    {
+      "arm": "compile-delete-four-prewarm",
+      "sourceSha": "cdbaa4bc5492bf1876511d6c973ef79a47779fc8",
+      "identity": {
+        "harnessSha256": "17cefba801b415196cc863e00711dbc811335aa153914119ece9584049d2de0c",
+        "clientSha256": "d814cbff5a6e375f1daf3d8c769a74ac34d58bd6af60e37176c394ea5381d8b4"
+      },
+      "dataQuality": "VALID",
+      "links": 480,
+      "draws": 480,
+      "finalPhase": "minimal-000-after-disposal",
+      "outstandingDirectAgxFragmentBytes": 50482160,
+      "minimumNonBlackPixels": 128,
+      "resultSha256": "342cc633ca89f1a97c4b51db7d44908600709179d76381567fd5a88f40b2a21d"
+    },
+    {
+      "arm": "compile-delete-tiny",
+      "sourceSha": "cdbaa4bc5492bf1876511d6c973ef79a47779fc8",
+      "identity": {
+        "harnessSha256": "17cefba801b415196cc863e00711dbc811335aa153914119ece9584049d2de0c",
+        "clientSha256": "d814cbff5a6e375f1daf3d8c769a74ac34d58bd6af60e37176c394ea5381d8b4"
+      },
+      "dataQuality": "VALID",
+      "links": 120,
+      "draws": 120,
+      "finalPhase": "minimal-000-after-disposal",
+      "outstandingDirectAgxFragmentBytes": 3516368,
+      "minimumNonBlackPixels": 128,
+      "resultSha256": "936de099a168b72669b15a0a2f119496a992f7b3ab698d0cef159ce61a4f3fdd"
+    },
+    {
+      "arm": "compile-only-tiny",
+      "sourceSha": "cdbaa4bc5492bf1876511d6c973ef79a47779fc8",
+      "identity": {
+        "harnessSha256": "17cefba801b415196cc863e00711dbc811335aa153914119ece9584049d2de0c",
+        "clientSha256": "d814cbff5a6e375f1daf3d8c769a74ac34d58bd6af60e37176c394ea5381d8b4"
+      },
+      "dataQuality": "VALID",
+      "links": 120,
+      "draws": 0,
+      "finalPhase": "minimal-000-after-disposal",
+      "outstandingDirectAgxFragmentBytes": 18928,
+      "minimumNonBlackPixels": null,
+      "resultSha256": "ff7a2091f0a3b7556a943afdd9d14280f9541925dd1467cf0536eca3f2c10731"
+    },
+    {
+      "arm": "fresh-contexts-tiny",
+      "sourceSha": "cdbaa4bc5492bf1876511d6c973ef79a47779fc8",
+      "identity": {
+        "harnessSha256": "17cefba801b415196cc863e00711dbc811335aa153914119ece9584049d2de0c",
+        "clientSha256": "d814cbff5a6e375f1daf3d8c769a74ac34d58bd6af60e37176c394ea5381d8b4"
+      },
+      "dataQuality": "VALID",
+      "links": 3,
+      "draws": 3,
+      "finalPhase": "minimal-002-after-disposal",
+      "outstandingDirectAgxFragmentBytes": 106768,
+      "minimumNonBlackPixels": 128,
+      "resultSha256": "121d19f3fc121e5017cb3eb2f9b274db9511afc20a03c42b047395c66bc24da2"
+    },
+    {
+      "arm": "no-shader-tiny",
+      "sourceSha": "cdbaa4bc5492bf1876511d6c973ef79a47779fc8",
+      "identity": {
+        "harnessSha256": "17cefba801b415196cc863e00711dbc811335aa153914119ece9584049d2de0c",
+        "clientSha256": "d814cbff5a6e375f1daf3d8c769a74ac34d58bd6af60e37176c394ea5381d8b4"
+      },
+      "dataQuality": "VALID",
+      "links": 0,
+      "draws": 0,
+      "finalPhase": "minimal-001-after-disposal",
+      "outstandingDirectAgxFragmentBytes": 18896,
+      "minimumNonBlackPixels": null,
+      "resultSha256": "c6e43adef65f09d15c5de06b2656338fb78059fae479c0c7abc6819068c277db"
+    },
+    {
+      "arm": "rebind-draw-tiny",
+      "sourceSha": "cdbaa4bc5492bf1876511d6c973ef79a47779fc8",
+      "identity": {
+        "harnessSha256": "17cefba801b415196cc863e00711dbc811335aa153914119ece9584049d2de0c",
+        "clientSha256": "d814cbff5a6e375f1daf3d8c769a74ac34d58bd6af60e37176c394ea5381d8b4"
+      },
+      "dataQuality": "VALID",
+      "links": 1,
+      "draws": 120,
+      "finalPhase": "minimal-000-after-disposal",
+      "outstandingDirectAgxFragmentBytes": 25424,
+      "minimumNonBlackPixels": 128,
+      "resultSha256": "b0986ac93d7b565299dc8b9e70e667f4ac6fec1e6bc26e4dc6692294fb9966bd"
+    }
+  ],
+  "correctedSceneFixture": {
+    "sourceSha": "1866fc2b25e7e19023415d2cfe79c00e22ed5a85",
+    "receiptSha256": "ee43666e54ee67c29b3c7e8f410fa6867847c7bb77b49ea8f184ca2da21c7adc",
+    "counterSemantics": "facade-operation-v2",
+    "mapLoads": 2,
+    "framesPerLoad": 120,
+    "compileAttempts": 32,
+    "linkAttempts": 18,
+    "compileFailures": 0,
+    "linkFailures": 0,
+    "unexpectedStatusCallbacks": 0,
+    "exactRgbaDepthParity": true,
+    "recognizedOwnedNamesAfterUnload": 0,
+    "clientSha256": "784d4695f2e1b163738c2c29301595a9c8f491905c934e44c420cc8b224f9eeb",
+    "harnessSha256": "db9bd26f2051082e8906323426c2a711f52b268e228a7551aacfed8328b88a5e",
+    "assemblyMvid": "4847308d-0749-4b84-9ef7-7a84789d3d67",
+    "harnessAssemblyMvid": "4bc5a6a4-b3c5-41e4-9bd8-45a4be81b3ee",
+    "compileStatusCoverage": "COMPLETE_OBSERVED",
+    "linkStatusCoverage": "COMPLETE_OBSERVED",
+    "sourceStageKeys": 14,
+    "uniqueSourceHashes": 12,
+    "overflowCallbacks": 0
+  },
+  "negativeAttributionReceipt": {
+    "receiptSha256": "7f02e38deb9cd9bc9cfe684f7d904d2c37072871a515b173ad71c1accca9c3d6",
+    "status": "INVALID_FOR_ATTEMPT_ATTRIBUTION",
+    "reason": "Duplicate nested facade/owner events; 64/36 are not actual native operation counts."
+  },
+  "sharedContexts": "NOT_RUN",
+  "nativeFailureInjection": "NOT_RUN",
+  "notRun": [
+    "optional define/attribute/sampler permutations",
+    "second GPU/OS combination",
+    "Windows/Linux/GLES native lifecycle",
+    "full-scene lease/cache reuse"
+  ],
+  "rollback": "diagnostic instrumentation only; callbacks remain null in normal startup; no production cache, GC or default changes",
+  "limitations": "Source/link/draw hashes describe limited control inputs, not a complete driver pipeline identity or retaining-owner census. Native sources and hashes remain qualified to their original binaries."
+}

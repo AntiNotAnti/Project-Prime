@@ -640,24 +640,34 @@ namespace MphRead.Mods.Launcher.Gui
         private static void EndNetworkMatchToLobby(RenderWindow window)
         {
             _matchLoading = false;
-            CloseMenu(); window.EndScene(); MatchStart.AfterMatch();
+            CloseMenu();
+            var commit = MatchStart.PrepareBeforeTeardown(window.Scene.GameState);
+            window.EndScene();
+            if (commit != null) MatchStart.AfterMatch(commit);
+            else MatchStart.AfterMatch();
             NetSession.ResetMatchState(); PauseMenu.Reset();
             if (_front != null) { UiSurface.Current?.Show(_front); _front.ResumeLobby(); }
+            // Match reset still resolves the owning bridge through the facade.
+            // Release only after all existing reset/return consumers have run.
+            if (commit != null) ForegroundSceneBinding.TryRelease(commit);
         }
 
         private static void EndMatch(RenderWindow window)
         {
             _matchLoading = false;
             CloseMenu();
+            var commit = MatchStart.PrepareBeforeTeardown(window.HasScene ? window.Scene.GameState : GameState.Current);
             window.EndScene();
             // Both own a worker thread and a bound socket; a match that ends
             // any way at all must not leave either behind.
             NetSession.Stop();
             NetHostSession.Stop();
-            MatchStart.AfterMatch();
+            if (commit != null) MatchStart.AfterMatch(commit);
+            else MatchStart.AfterMatch();
             ShowFrontScreen();
             if (_played?.Kind == LaunchKind.AimTrainer) _front?.OpenTraining(_focusTrainingOnReturn);
             _focusTrainingOnReturn = false;
+            if (commit != null) ForegroundSceneBinding.TryRelease(commit);
         }
 
         /// <summary>The match is over; the launcher comes back.</summary>

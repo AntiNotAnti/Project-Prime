@@ -1,0 +1,40 @@
+name: scene ownership
+on:
+  pull_request:
+    paths:
+      - 'src/MphRead/**'
+      - 'tools/nettest/**'
+      - 'tools/collision-query-check/**'
+      - 'global.json'
+      - '.github/workflows/scene-ownership.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/MphRead/**'
+      - 'tools/nettest/**'
+      - 'tools/collision-query-check/**'
+      - 'global.json'
+      - '.github/workflows/scene-ownership.yml'
+permissions:
+  contents: read
+jobs:
+  device-free-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Build scene owner checks
+        run: dotnet build tools/nettest/nettest.csproj -c Release
+      - name: Observe eligible owner release without devices or assets
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --scene-lifetime
+      - name: Verify post-match save bytes, fencing and retries
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --post-match-save
+      - name: Fence foreground release and cancelled room completion
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --foreground-binding
+      - name: Soak 10, 100 and 500 device-free owner/save handoffs
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --lifecycle-soak
+      - name: Reuse nonempty nested collision and exception lease checks
+        run: dotnet run --project tools/collision-query-check/collision-query-check.csproj -c Release

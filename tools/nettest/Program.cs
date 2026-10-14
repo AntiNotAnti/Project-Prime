@@ -31,6 +31,10 @@ namespace MphRead.NetTest
             if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h"))
             {
                 Console.WriteLine("Usage: nettest [host] [port]\n"
+                    + "  --scene-lifetime                  Test value-only scene diagnostics and eligible owner release.\n"
+                    + "  --post-match-save                 Test post-match save byte parity, owner fencing and retry.\n"
+                    + "  --foreground-binding              Test eligible facade release and cancelled room publication.\n"
+                    + "  --lifecycle-soak                  Test 10/100/500 device-free save/bot-owner handoffs.\n"
                     + "  --shot-source-journal              Test independent authority resources and grant chronology.\n"
                     + "  --timed-grants                    Test authority timed pickup reservations and source history.\n"
                     + "  --timed-shot-certificates         Test bounded immutable timed shot storage.\n"
@@ -75,6 +79,10 @@ namespace MphRead.NetTest
             }
             if (args.Length > 0 && args[0] == "--scene-setup-ownership")
                 return SceneSetupOwnershipTests.Run(Array.IndexOf(args, "--baseline") >= 0);
+            if (args.Length > 0 && args[0] == "--scene-lifetime") return SceneLifetimeTests.Run();
+            if (args.Length > 0 && args[0] == "--post-match-save") return PostMatchSaveTests.Run();
+            if (args.Length > 0 && args[0] == "--foreground-binding") return ForegroundBindingTests.Run();
+            if (args.Length > 0 && args[0] == "--lifecycle-soak") return LifecycleSoakTests.Run();
             if (args.Length > 0 && args[0] == "--ai-client-driver") return NetAiClientTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-protocol") return PickupProtocolTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-claims") return PickupClaimTests.Run();
