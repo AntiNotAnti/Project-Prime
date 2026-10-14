@@ -22,10 +22,12 @@ namespace MphRead.Mods.Campaign
     public sealed class CampaignJournal
     {
         private CampaignJournal(IReadOnlyList<CampaignVisitedRoom> rooms,
+            IReadOnlyList<CampaignPlanetStatus> planets,
             IReadOnlyList<CampaignJournalScan> scans, int discoveredScanBits,
             int octoliths, int scanTableCount)
         {
             Rooms = rooms;
+            Planets = planets;
             Scans = scans;
             DiscoveredScanBits = discoveredScanBits;
             Octoliths = octoliths;
@@ -33,6 +35,7 @@ namespace MphRead.Mods.Campaign
         }
 
         public IReadOnlyList<CampaignVisitedRoom> Rooms { get; }
+        public IReadOnlyList<CampaignPlanetStatus> Planets { get; }
         public IReadOnlyList<CampaignJournalScan> Scans { get; }
         public int DiscoveredScanBits { get; }
         public int Octoliths { get; }
@@ -79,7 +82,8 @@ namespace MphRead.Mods.Campaign
                         entry.String2));
                 }
             }
-            return new CampaignJournal(rooms.AsReadOnly(), scans.AsReadOnly(),
+            return new CampaignJournal(rooms.AsReadOnly(),
+                CampaignNavigation.StarMap(save), scans.AsReadOnly(),
                 scannedBits, save.CountFoundOctoliths(), logbook?.Count ?? 0);
         }
 
