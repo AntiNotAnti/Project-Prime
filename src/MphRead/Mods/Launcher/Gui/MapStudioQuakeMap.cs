@@ -35,7 +35,8 @@ internal sealed partial class MapStudioScreen
                             .Select(d => d.Code + " line " + d.Line + " " + d.Message));
                 }
                 catch (Exception ex) when (ex is IOException or ArgumentException
-                    or InvalidDataException)
+                    or System.Text.Json.JsonException or MapAuthoringException
+                    or UnauthorizedAccessException)
                 { Failure(ex); }
             }, ".map");
 
@@ -58,7 +59,8 @@ internal sealed partial class MapStudioScreen
                             .Select(d => d.Code + " " + d.Message));
                 }
                 catch (Exception ex) when (ex is IOException or InvalidOperationException
-                    or ArgumentException or InvalidDataException)
+                    or ArgumentException or MapAuthoringException
+                    or UnauthorizedAccessException)
                 { Failure(ex); }
             }, ".map");
 }
