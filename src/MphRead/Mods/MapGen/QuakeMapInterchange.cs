@@ -114,6 +114,7 @@ public static class QuakeMapInterchange
         var seenObjectIds = new HashSet<Guid>();
         bool inPatch = false, patchBodyClosed = false;
         bool? patchSolid = null;
+        int? patchTessellation = null;
         var patchBody = new List<string>();
 
         int Material(string shaderName)
@@ -152,6 +153,7 @@ public static class QuakeMapInterchange
             }
             MapBezierPatch patch = parsed.Geometry;
             patch.Material = Material(parsed.Shader);
+            patch.Tessellation = patchTessellation ?? 3;
             patch.Id = brushId != Guid.Empty ? brushId
                 : GuidFrom("prime-patch:" + mapId + ":" + patchIndex);
             patch.Label = "Quake patch " + (patchIndex + 1);
@@ -176,6 +178,7 @@ public static class QuakeMapInterchange
             patchBody.Clear();
             patchBodyClosed = inPatch = false;
             patchSolid = null;
+            patchTessellation = null;
             brushId = Guid.Empty;
         }
 
@@ -426,6 +429,18 @@ public static class QuakeMapInterchange
                 else patchSolid = solid;
                 continue;
             }
+            if (line.StartsWith("// PRIME_PATCH_TESSELLATION=", StringComparison.OrdinalIgnoreCase)
+                && depth == 2)
+            {
+                if (inPatch || patchTessellation.HasValue
+                    || !int.TryParse(line["// PRIME_PATCH_TESSELLATION=".Length..],
+                        NumberStyles.None, CultureInfo.InvariantCulture, out int level)
+                    || level is < 1 or > BezierPatchCompiler.MaximumTessellation)
+                    Error("FP-RADIANT-PATCH", lineNo,
+                        "Invalid or duplicate patch tessellation metadata.");
+                else patchTessellation = level;
+                continue;
+            }
             if (line.Length == 0 || line.StartsWith("//", StringComparison.Ordinal))
                 continue;
             if (depth == 2 && line == "patchDef2")
@@ -480,10 +495,10 @@ public static class QuakeMapInterchange
                 else patchBody.Add(line);
                 continue;
             }
-            if (patchSolid != null && depth == 2)
+            if ((patchSolid != null || patchTessellation != null) && depth == 2)
             {
                 Error("FP-RADIANT-PATCH", lineNo,
-                    "PRIME_PATCH_SOLID must precede a patchDef2, not a brush plane.");
+                    "Patch metadata must precede a patchDef2, not brush planes.");
                 continue;
             }
             if (depth == 1)
@@ -642,7 +657,7 @@ public static class QuakeMapInterchange
         int index = 0;
         foreach (var geometry in map.Geometry)
         {
-            if (geometry is not (MapBox or MapConvexBrush)
+            if (geometry is not (MapBox or MapConvexBrush or MapBezierPatch)
                 || geometry.Hidden || !geometry.Solid || geometry.Damaging
                 || geometry.FaceUv.Count != 0
                 || geometry.Uv.Rotation != 0
@@ -654,7 +669,7 @@ public static class QuakeMapInterchange
                     && (geometry.Transform.Position.Any(v => v != 0)
                         || geometry.Transform.Scale.Any(v => v != 1))))
                 errors.Add(new("FP-RADIANT-EXPORT-GEOMETRY", index,
-                    "Only solid boxes and untransformed native convex brushes with default UVs can round-trip.",
+                    "Only supported boxes, convex brushes and quadratic patches can round-trip.",
                     true));
             if (geometry.Material < 0 || geometry.Material >= map.Materials.Count)
                 errors.Add(new("FP-RADIANT-EXPORT-MATERIAL", index,
@@ -668,7 +683,7 @@ public static class QuakeMapInterchange
                 errors.Add(new("FP-RADIANT-EXPORT-UV", index,
                     "Incomplete Quake face mapping, invalid material, or source unit scale mismatch.",
                     true));
-            else if (geometry is MapConvexBrush)
+            else if (geometry is MapConvexBrush or MapBezierPatch)
             {
                 try { GeometryCompiler.Compile(geometry, map.Materials[geometry.Material].TexScale); }
                 catch (MapAuthoringException ex)
@@ -706,6 +721,15 @@ public static class QuakeMapInterchange
                 throw new InvalidDataException("Shader name is not portable to Quake .map.");
             sb.AppendLine("{");
             sb.AppendLine("// PRIME_ID=" + geometry.Id);
+            if (geometry is MapBezierPatch authored)
+            {
+                sb.AppendLine("// PRIME_PATCH_SOLID=" + authored.Solid.ToString().ToLowerInvariant());
+                sb.AppendLine("// PRIME_PATCH_TESSELLATION="
+                    + authored.Tessellation.ToString(CultureInfo.InvariantCulture));
+                QuakePatchDef2.Write(authored, shader, unitsPerPrimeUnit, sb);
+                sb.AppendLine("}");
+                continue;
+            }
             static string P(Vector3 p) => "( " + p.X.ToString("G9", CultureInfo.InvariantCulture)
                 + " " + p.Y.ToString("G9", CultureInfo.InvariantCulture)
                 + " " + p.Z.ToString("G9", CultureInfo.InvariantCulture) + " )";
