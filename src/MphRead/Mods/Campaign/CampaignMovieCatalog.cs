@@ -86,10 +86,11 @@ namespace MphRead.Mods.Campaign
             do
             {
                 int queued = queuedFrames();
+                if (decoding.IsFaulted || decoding.IsCanceled || token.IsCancellationRequested)
+                    return false;
                 if (queued >= 4 || (queued > 0 && decoding.IsCompletedSuccessfully))
                     return true;
-                if (decoding.IsCompleted || token.IsCancellationRequested)
-                    return false;
+                if (decoding.IsCompleted) return false;
                 if (watch.Elapsed >= deadline) return false;
                 Thread.Sleep(5);
             }
