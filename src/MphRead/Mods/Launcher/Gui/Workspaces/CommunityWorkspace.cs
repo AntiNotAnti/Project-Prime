@@ -20,12 +20,6 @@ namespace MphRead.Mods.Launcher.Gui;
 /// </summary>
 internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDisposable
 {
-    private static readonly Lazy<CommunityTransferManager> Transfers = new(() =>
-        new CommunityTransferManager(
-            Path.Combine(LauncherPrefs.Directory, "community-transfers"),
-            new DelegateCommunityCredentialSource(
-                HunterLicenseClient.GetCommunityMapTicketAsync,
-                HunterLicenseClient.RefreshCommunityMapTicketAsync)));
     private readonly PrimeOverlayHost _overlays;
     private readonly CommunityMapProject[]? _fixture;
     private readonly CommunityTransferManager? _transfers;
@@ -56,7 +50,7 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         _overlays = overlays;
         _fixture = fixture;
         // Screenshot/fixture mode never touches a user's transfer directory.
-        _transfers = fixture == null ? Transfers.Value : null;
+        _transfers = fixture == null ? CommunityTransferSession.Shared : null;
         if (_transfers != null) _transfers.Changed += QueueChanged;
         _refresh = new PrimeButton("REFRESH", () => _ = RefreshAsync(), compact: true);
         _install = new PrimeButton("INSTALL MAP", () => _ = InstallAsync(), primary: true, compact: true);
