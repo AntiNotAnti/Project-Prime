@@ -134,6 +134,11 @@ public static class QuakeMapInterchange
 
         void ClosePatch()
         {
+            if (patchIndex >= 32)
+            {
+                Error("FP-RADIANT-PATCH", lineNo, "Map exceeds 32 editable Bezier patches.");
+                return;
+            }
             if (!inPatch || !patchBodyClosed)
             {
                 Error("FP-RADIANT-PATCH", lineNo, "Incomplete patchDef2 data block.");
