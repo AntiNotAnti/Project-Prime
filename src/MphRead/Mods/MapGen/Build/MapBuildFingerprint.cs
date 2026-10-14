@@ -93,5 +93,38 @@ namespace MphRead.Mods.MapGen
                 if (File.Exists(temporary)) File.Delete(temporary);
             }
         }
+
+        /// <summary>
+        /// Stream immutable build output into a same-volume temporary file and
+        /// atomically publish it. Avoid full-file allocations when copying
+        /// potentially large mesh/node/texture runtime outputs.
+        /// </summary>
+        public static long Copy(string source, string destination)
+        {
+            string full = Path.GetFullPath(destination);
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+            string temporary = full + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                long length;
+                using (var input = new FileStream(source, FileMode.Open, FileAccess.Read,
+                    FileShare.Read, 65536, FileOptions.SequentialScan))
+                using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write,
+                    FileShare.None, 65536, FileOptions.SequentialScan))
+                {
+                    length = input.Length;
+                    input.CopyTo(output, 65536);
+                    output.Flush();
+                    if (output.Length != length)
+                        throw new IOException("Build output changed length during atomic copy.");
+                }
+                File.Move(temporary, full, overwrite: true);
+                return length;
+            }
+            finally
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+            }
+        }
     }
 }
