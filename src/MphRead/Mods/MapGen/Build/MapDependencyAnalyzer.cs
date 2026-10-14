@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 
 namespace MphRead.Mods.MapGen;
 
@@ -38,7 +37,7 @@ public static class MapDependencyAnalyzer
             foreach (var asset in PackageAssets(definition))
             {
                 string hash;
-                try { hash = Convert.ToHexString(SHA256.HashData(MapAssets.Read(definition, asset))).ToLowerInvariant(); }
+                try { hash = MapAssets.HashPackageAsset(definition, asset); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
                 { hash = "missing"; }
                 dependencies.Add(new("asset", asset, hash));

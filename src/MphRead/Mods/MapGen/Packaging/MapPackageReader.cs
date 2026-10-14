@@ -1,4 +1,6 @@
 using System;
+using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -60,8 +62,7 @@ namespace MphRead.Mods.MapGen
                     ValidateManifest(Manifest);
                     ProjectEntry = Manifest.Project;
                     RequireProjectShape(_entries);
-                    string hash = ContentHash(_entries.Keys.Where(n => n != "manifest.json"),
-                        n => ReadRequired(_entries, n));
+                    string hash = ContentHashStrictEntries(_entries);
                     if (!hash.Equals(Manifest.ContentHash, StringComparison.OrdinalIgnoreCase))
                         throw new InvalidDataException("Package content hash does not match.");
                     MapDefinition definition = ReadDefinition(_entries, ProjectEntry, legacy: false);
@@ -347,6 +348,53 @@ namespace MphRead.Mods.MapGen
             if (output.Length != entry.Length)
                 throw new InvalidDataException("Truncated package entry.");
             return output.ToArray();
+        }
+
+        /// <summary>
+        /// Strict trust-boundary content checksum. Preserves the original
+        /// name-length/path/data-length/data framing exactly, but hashes ZIP
+        /// entry streams rather than materializing 256 MiB asset byte arrays.
+        /// This also detects truncated or overlong decompressed entries.
+        /// </summary>
+        private static string ContentHashStrictEntries(
+            IReadOnlyDictionary<string, ZipArchiveEntry> entries)
+        {
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            byte[] buffer = ArrayPool<byte>.Shared.Rent(65536);
+            try
+            {
+                Span<byte> prefix = stackalloc byte[8];
+                foreach (string name in entries.Keys
+                    .Where(n => n != "manifest.json")
+                    .OrderBy(n => n, StringComparer.Ordinal))
+                {
+                    ZipArchiveEntry entry = entries[name];
+                    byte[] path = Encoding.UTF8.GetBytes(name);
+                    BinaryPrimitives.WriteInt32LittleEndian(prefix[..4], path.Length);
+                    hash.AppendData(prefix[..4]);
+                    hash.AppendData(path);
+                    BinaryPrimitives.WriteInt64LittleEndian(prefix, entry.Length);
+                    hash.AppendData(prefix);
+
+                    using Stream input = entry.Open();
+                    long remaining = entry.Length;
+                    while (remaining > 0)
+                    {
+                        int n = input.Read(buffer, 0, (int)Math.Min(buffer.Length, remaining));
+                        if (n == 0)
+                            throw new InvalidDataException("Truncated package entry: " + name);
+                        hash.AppendData(buffer, 0, n);
+                        remaining -= n;
+                    }
+                    if (input.ReadByte() != -1)
+                        throw new InvalidDataException("Expanded package entry exceeds its declared size.");
+                }
+                return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
 
         public static string ContentHash(IEnumerable<string> names, Func<string, byte[]> read)
