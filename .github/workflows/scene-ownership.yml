@@ -32,6 +32,8 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --scene-lifetime
       - name: Verify post-match save bytes, fencing and retries
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --post-match-save
+      - name: Verify campaign save copy and recoverable archive
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-save-management
       - name: Fence foreground release and cancelled room completion
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --foreground-binding
       - name: Soak 10, 100 and 500 device-free owner/save handoffs
