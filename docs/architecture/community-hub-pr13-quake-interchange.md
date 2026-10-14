@@ -1,7 +1,7 @@
 # Community Hub PR-13: Editable Quake .map Interchange
 
 **Status:** Draft implementation. This is a strict subset, not full NetRadiant
-brushDef/patch/texture parity. PR-12 #549 is the stacked predecessor; PR-10
+brushDef3/patchDef3/full texture parity. PR-12 #549 is the stacked predecessor; PR-10
 and PR-11 remain upstream dependencies. Do not switch the default Map Studio
 source format until the real editor/gameplay gates pass.
 
@@ -22,26 +22,39 @@ source format until the real editor/gameplay gates pass.
    Source face material indices participate in deterministic material remapping.
    Nonzero Quake surface/content flags are still rejected; proprietary game
    textures and executable shader programs are not imported.
-4. Import uses the same handedness-preserving (x,z,-y) coordinates, and the
+4. Import Q3 patchDef2 quadratic control grids as native MapBezierPatch
+   geometry. The source master contains an odd 3-17 by 3-17 column-major
+   [x,y,z,s,t] grid, with 1-4 tessellation steps per biquadratic cell.
+   The normal render and collision paths reuse the same bounded triangles.
+   PRIME_PATCH_SOLID and PRIME_PATCH_TESSELLATION comments preserve the
+   collision and detail choices on .map export/reimport. Without explicit
+   collision metadata, the imported patch is tentatively solid with a warning
+   requiring shader/collision review before publication.
+5. Import uses the same handedness-preserving (x,z,-y) coordinates, and the
    same +90 degree spawn heading conversion as existing Q3Gameplay.
    Large arenas select the lowest supported fixed-point ScaleFactor that
    covers imported geometry, spawns and pickups. Native geometry compiles
    are checked for convex/collision and UV budget compliance.
-5. Export writes original authoring-readable classic Quake .map planes,
+6. Export writes original authoring-readable classic Quake .map planes,
    permanent PRIME_ID comments, stable prime_id entity keys and a
    project-prime.json sidecar. Both source and sidecar are written only after
    source validity and sidecar MapId conflicts have been checked.
-6. A supported Prime pickup is exported using Q3Gameplay's shared canonical
+7. A supported Prime pickup is exported using Q3Gameplay's shared canonical
    classname mapping plus explicit prime_spawn_interval and prime_has_base.
    The source importer preserves those native gameplay values exactly.
-7. Save the imported project as JSON for normal Prime build, package,
-   playtest and Community publication. Nothing in this PR changes the
-   self-contained .ppmap gameplay output, historic SHA-256 identity,
-   multiplayer Ready barrier or the existing v2 Community APIs.
+8. Save the imported project as JSON for normal Prime build, package,
+   playtest and Community publication. The package builder now lowers new
+   patch controls and Quake-specific face projections to the existing
+   explicit-UV MapMesh schema only for distributed .ppmap packages, retaining
+   the editable JSON/.map master outside the archive. Historical .ppmap bytes,
+   existing maps without these new types, SHA identities, Ready, and v2 APIs
+   remain unchanged.
 
 ## Unsupported data is a hard failure
 
-- Quake brushDef, brushDef3, patchDef2/3 Bezier patches or detail shader stages
+- Quake brushDef, brushDef3, patchDef3, patchDef2 grids outside the bounded
+  subset, unknown patch header metadata, custom shader stages and explicit
+  subdivisions not expressible by our native patch grid
 - Nonzero Quake surface/content flags, displacements, external material
   shader programs or shader-derived behavior; only classic numeric UV
   shifts/rotation/scales and per-face shader names are supported.
@@ -65,6 +78,10 @@ substitute for editable geometry/source parity.
 
 - .map input <=32 MiB, sidecar <=64 KiB, lines <=4,096 characters,
   200,000 lines total, 4–32 source planes/brush, 256 max convex corners.
+- Bezier patches: odd dimensions 3–17, up to 289 control points, maximum
+  2,048 tessellated triangles per patch, 32 patches and 8,192 triangles in
+  one project. NaN/Inf values, out-of-range UVs, malformed nesting and
+  duplicate GUIDs are rejected before publishing.
 - All scene-space floats must be finite. Invalid sidecar unit scales,
   duplicate GUIDs across brushes/spawns/pickups, duplicate entity keys,
   changed source during reading, malformed geometry and untrusted tool
@@ -74,15 +91,19 @@ substitute for editable geometry/source parity.
   exported object GUIDs remain stable where explicitly authored.
 - Existing JSON projects, old .ppmap archives, revisions and replay
   retrieval are left unchanged. Roll back by removing the isolated
-  QuakeMapInterchange/QuakeConvexHull, Map Studio menu additions and check tool.
+  QuakeMapInterchange/QuakeConvexHull/QuakePatchDef2, opt-in MapBezierPatch
+  geometry and the package-compatibility lowering path. Historical archives
+  and existing JSON map projects need no migration.
 
 ## Acceptance and evidence
 
 Focused suite: dotnet run --project tools/community-format-check -c Release.
 It covers axis boxes, convex wedge hull topology and a second round trip;
 stable GUID/MapId/spawns/pickups; source fingerprint and hostile metadata
-controls; inverted face and patch/UV/advanced geometry refusal; and a
-large geometry fixed-point scale case. The suite is in build.yml on this
+controls; inverted planes, bounded patchDef2 construction/roundtrip,
+source UV control points and non-solid/solid collision parity, portable mesh
+package conversion and patchDef3/advanced-geometry refusal; and a large
+geometry fixed-point scale case. The suite is in build.yml on this
 branch, but a passing hosted job must be confirmed at the exact head SHA.
 
 Before marking PR-13 complete, still require:
@@ -91,9 +112,9 @@ Before marking PR-13 complete, still require:
 - Full normal Prime JSON build -> validated .ppmap -> local game smoke,
   correct collision, textures, spawns and item respawns
 - 1v1, 8-player FFA, exact-map join/host rotation, historic replay checks
-- Explicit support plan for Bezier patches and unsupported brush/texture projection formats,
-  or separate versioned editor-source support with validated round-trip
-  before enabling NetRadiant as the default source editor
+- Direct brush primitive, patchDef3, unsupported larger patches and full Quake
+  shader/texture projection parity need separate lossless implementation
+  or an explicit feature report before NetRadiant is the default source editor
 - Editor package/license/asset provenance and supported-platform checks
 
 ## Texture reference and scope
@@ -111,3 +132,24 @@ in-game visual QA to establish actual material parity. Identically named
 or identical in the Prime renderer. New material metadata is not a multiplayer
 protocol revision, but mixed-client visual compatibility should be versioned
 and explicitly checked before publishing these maps to older builds.
+
+## Package/readiness compatibility
+
+Newly authored MapBezierPatch control grids and opt-in classic Quake face
+metadata are converted at the .ppmap serialization boundary into the existing
+MapMesh + explicit texel UV + face material representation. This transformation
+is verified for identical face positions/materials/UVs and preserves shared
+mesh vertex topology. It does not modify the Studio authoring source or
+historical package bytes, and is a no-op on old maps.
+
+The source Quake .map s/t values are stored exactly. Native rendered texel UVs
+currently use the Project Prime material's configured TexScale; this is not
+proof of source texture dimensions or shader stage equivalence. Full visual
+matching still needs licensed texture input and in-game screenshots. The
+source shader's surface contents are not automatically inferred for
+patchDef2; the importer warns about implicit collision and authors must
+validate/declare a solid or render-only patch before publishing.
+
+The standalone acceptance suite must verify all newly introduced behavior
+at the exact branch SHA. A headless conversion and clean .NET build cannot
+replace a real NetRadiant open/save plus offline/1v1/FFA/game-device check.
