@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "scope": "Actual original-file PassiveReplayScene.Step only; full plan NOT_ACCEPTED",
+  "files": [
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-lan2-7588-attempt1-attempt1/receipt.json",
+      "originalSha256": "ccb1f4ed8b3bf2a1889e440be5109aeacf3e46dac1cc6859248d44284646aab6",
+      "originalBytes": 902477,
+      "derivativePath": "receipt.json",
+      "derivativeSha256": "72958e5ac00d495700bd191f33b3a9bcf8aa23aab92bac6d9db91967a5932ce5",
+      "derivativeBytes": 898785,
+      "treatment": "Exact workspace/home prefix replacement; complete JSON retained"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-lan2-7588-attempt1-attempt1/build.log",
+      "originalSha256": "3282cee7b31cd6d79bbaa5d998b864e52af9326963e60c3fbb04ad223c141db1",
+      "originalBytes": 502,
+      "derivativePath": "build.log.json",
+      "derivativeSha256": "2b37c31e8a492b719fc1f1174a47d87ab6a0a4dde052ad3895edd498e2910226",
+      "derivativeBytes": 386,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-lan2-7588-attempt1-attempt1/replay-00.log",
+      "originalSha256": "41b0aab3ce21df6c4022a0d4de625c855727d48d5ee83a79cad44f39f0823a9c",
+      "originalBytes": 1231,
+      "derivativePath": "replay-00.log.json",
+      "derivativeSha256": "085afba71709d8ef21a2b39115ddbd108ed7a5d030f388a91b9c2c6d877987bb",
+      "derivativeBytes": 1189,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-lan2-7588-attempt1-attempt1/replay-01.log",
+      "originalSha256": "b66220b2001db8039ab7d72f2e3acc7bf70516da36022b3131f366493b04f115",
+      "originalBytes": 1231,
+      "derivativePath": "replay-01.log.json",
+      "derivativeSha256": "6ea8a41d4348970103f9f0448515f71b0a7517e8d2757ef126c694b021fcd91c",
+      "derivativeBytes": 1189,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-lan2-7588-attempt1-attempt1/replay-02.log",
+      "originalSha256": "39992c9193017176e43a284935b5be6866d09fd9486650c07aaf7a6ae780f253",
+      "originalBytes": 1237,
+      "derivativePath": "replay-02.log.json",
+      "derivativeSha256": "c50ffd68e1485fc05e9bc5db91083edec458f7bc8c48cb1b6122803c0af8d47b",
+      "derivativeBytes": 1195,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    }
+  ],
+  "inputFinalizationDerivative": {
+    "path": "input-finalization.json",
+    "sha256": "b2f3da3aa837181d4f4ae7157e2d1b8ff168a5ce659857b57a8ff2c1d5a6bf3f",
+    "bytes": 2238
+  }
+}
