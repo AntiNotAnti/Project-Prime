@@ -3,6 +3,8 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using MphRead.Mods.Campaign;
 
 namespace MphRead.Mods.Launcher.Gui
@@ -18,6 +20,8 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _detail;
         private readonly ScrollViewer _credits;
         private readonly PrimeButton _creditsButton;
+        private readonly DispatcherTimer _audioTimer;
+        private CampaignAudioSession? _audio;
 
         public CampaignEndingView(CampaignEndingSummary result)
         {
@@ -33,7 +37,7 @@ namespace MphRead.Mods.Launcher.Gui
             _creditsButton = new PrimeButton("VIEW PROJECT PRIME CREDITS", ToggleCredits);
             ControllerNav.Identify(_creditsButton, "campaign.ending.credits");
             var done = new PrimeButton("RETURN TO CAMPAIGN FILE SELECT",
-                () => Finished?.Invoke(this, EventArgs.Empty), primary: true);
+                Finish, primary: true);
             ControllerNav.Identify(done, "campaign.ending.continue");
             _detail.Text = result.Kind == CampaignEndingKind.Complete
                 ? "The final encounter is complete."
@@ -55,6 +59,9 @@ namespace MphRead.Mods.Launcher.Gui
                     + $"HUNTERS / GUARDIANS DEFEATED: {result.HunterKills}\n"
                     + $"ENEMY DEFEATS: {result.EnemyKills}",
                     15, PrimeTheme.TextBrush, data: true),
+                PrimeChrome.Text("Music: original locally extracted credits sequence, "
+                    + "with safe silence on devices without the game audio files.",
+                    12, PrimeTheme.TextSecondaryBrush),
                 PrimeChrome.Text("The original game footage comes from your own cartridge dump. "
                     + "These are Project Prime's results and attribution screens, not a replacement "
                     + "for the Nintendo DS frontend's animated credits.",
@@ -69,6 +76,36 @@ namespace MphRead.Mods.Launcher.Gui
                 HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
             });
+            _audioTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
+            _audioTimer.Tick += (_, _) => _audio?.Tick();
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            _audio?.Dispose();
+            _audio = new CampaignAudioSession();
+            _audio.Enter(CampaignAudioPage.Ending);
+            _audioTimer.Start();
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            StopAudio();
+            base.OnDetachedFromVisualTree(e);
+        }
+
+        private void StopAudio()
+        {
+            _audioTimer.Stop();
+            _audio?.Dispose();
+            _audio = null;
+        }
+
+        private void Finish()
+        {
+            StopAudio();
+            Finished?.Invoke(this, EventArgs.Empty);
         }
 
         private void ToggleCredits()
