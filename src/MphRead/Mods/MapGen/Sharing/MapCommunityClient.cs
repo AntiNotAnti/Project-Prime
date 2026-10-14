@@ -199,6 +199,64 @@ public sealed class MapCommunityClient : IDisposable
         EnsureSuccess(response);
     }
 
+    public async Task<CommunityPackageDistribution?> GetMapDistributionAsync(
+        string packageHash, CancellationToken cancellation)
+    {
+        if (!ValidHash(packageHash))
+            throw new InvalidDataException("Invalid exact package identity.");
+        using var response = await GetReadAsync(
+            "v3/distribution/maps/" + packageHash,
+            HttpCompletionOption.ResponseHeadersRead, cancellation).ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.NotFound
+            or HttpStatusCode.MethodNotAllowed)
+            return null;
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(
+            await response.Content.ReadAsStreamAsync(cancellation).ConfigureAwait(false),
+            data, 16384, cancellation).ConfigureAwait(false);
+        CommunityPackageDistribution result =
+            JsonSerializer.Deserialize<CommunityPackageDistribution>(
+                data.ToArray(), MapPackageReader.JsonOptions)
+                ?? throw new InvalidDataException("Community distribution response is invalid.");
+        if (result.SchemaVersion != 1 || result.PackageHash != packageHash
+            || result.Bytes <= 0 || result.Bytes > MapPackageReader.MaxArchiveBytes
+            || result.OriginPath != "packages/" + packageHash)
+            throw new InvalidDataException("Community distribution changed immutable identity.");
+        return result;
+    }
+
+    /// <summary>
+    /// Optional CDN read with an explicit CLIENT-side host allowlist. A
+    /// refused host, failed HTTPS request or wrong hash always falls back to
+    /// the authenticated existing Range origin path. Never marks game Ready.
+    /// </summary>
+    public async Task DownloadViaTrustedCdnOrOriginAsync(
+        CommunityMap map, string partialPath, CommunityCdnPolicy policy,
+        CancellationToken cancellation, Action<long, long>? progress = null)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        var distribution = await GetMapDistributionAsync(map.Hash,
+            cancellation).ConfigureAwait(false);
+        if (distribution?.PublicCdnUrl != null && distribution.Bytes == map.Bytes
+            && await CommunityCdnDownloader.TryDownloadAsync(
+                distribution, policy, partialPath, cancellation).ConfigureAwait(false))
+        {
+            MapContentIdentity cdnIdentity = MapContentIdentity.FromPackage(partialPath);
+            if (cdnIdentity.MapId == map.MapId
+                && cdnIdentity.ContentHash.ToString() == map.ContentHash
+                && cdnIdentity.PackageHash.ToString() == map.Hash
+                && cdnIdentity.RoomKey == map.Name)
+            {
+                progress?.Invoke(map.Bytes, map.Bytes);
+                return;
+            }
+            File.Delete(partialPath);
+        }
+        await DownloadResumableAsync(map, partialPath, cancellation,
+            progress).ConfigureAwait(false);
+    }
+
     public async Task<CommunityContentPage> BrowseContentAsync(
         CancellationToken token, string? kind = null, bool mine = false,
         string? query = null, string? sort = null, int page = 1, int pageSize = 24)
