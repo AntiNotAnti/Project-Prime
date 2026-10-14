@@ -228,6 +228,32 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     public void Pause(Guid id) => Stop(id, cancel: false);
     public void Cancel(Guid id) => Stop(id, cancel: true);
 
+    /// <summary>
+    /// Remove an inactive transfer receipt without ever evicting an installed
+    /// map or verified download archive. PR-04 owns durable archive eviction.
+    /// </summary>
+    public void Forget(Guid id)
+    {
+        ThrowIfDisposed();
+        CommunityTransferJob job;
+        lock (_gate)
+        {
+            if (!_jobs.TryGetValue(id, out job!))
+                throw new KeyNotFoundException("Unknown Community transfer.");
+            if (_running.ContainsKey(id) || job.State is CommunityTransferState.Queued
+                or CommunityTransferState.Preparing or CommunityTransferState.Uploading
+                or CommunityTransferState.Downloading or CommunityTransferState.Verifying)
+                throw new InvalidOperationException("Pause or finish the transfer before removing it.");
+            _jobs.Remove(id);
+            PersistLocked();
+        }
+        if (job.Kind == CommunityTransferKind.Upload)
+        {
+            string snapshot = UploadPath(id);
+            if (File.Exists(snapshot)) File.Delete(snapshot);
+        }
+    }
+
     public async Task<CommunityTransferJob> WaitAsync(Guid id)
     {
         Task? running;
@@ -261,10 +287,22 @@ public sealed class CommunityTransferManager : IAsyncDisposable
 
     private void RequireCapacityLocked()
     {
-        // Avoid dropping completed receipts while pending transfers still rely
-        // on the retained state. Cleanup/retention controls follow in PR-04.
-        if (_jobs.Count >= MaximumRetainedJobs)
-            throw new IOException("Community transfer queue is full (32 jobs).");
+        if (_jobs.Count < MaximumRetainedJobs) return;
+        // Only terminal, unowned history may be aged out automatically. An
+        // in-progress or paused receipt is never silently discarded.
+        CommunityTransferJob? oldest = _jobs.Values
+            .Where(j => !_running.ContainsKey(j.Id)
+                && j.State is CommunityTransferState.Completed
+                    or CommunityTransferState.Cancelled)
+            .OrderBy(j => j.UpdatedAt).FirstOrDefault();
+        if (oldest == null)
+            throw new IOException("Community transfer queue is full (32 active/paused jobs).");
+        _jobs.Remove(oldest.Id);
+        if (oldest.Kind == CommunityTransferKind.Upload)
+        {
+            string snapshot = UploadPath(oldest.Id);
+            if (File.Exists(snapshot)) File.Delete(snapshot);
+        }
     }
 
     private void Schedule(Guid id)
