@@ -23,6 +23,7 @@ namespace MphRead.Mods.MapGen
     [JsonDerivedType(typeof(MapWedge), "wedge")]
     [JsonDerivedType(typeof(MapPrism), "prism")]
     [JsonDerivedType(typeof(MapConvexBrush), "convex")]
+    [JsonDerivedType(typeof(MapBezierPatch), "bezier-patch")]
     [JsonDerivedType(typeof(MapMesh), "mesh")]
     public abstract class MapGeometry
     {
@@ -54,6 +55,20 @@ namespace MphRead.Mods.MapGen
     {
         public List<float[]> Vertices { get; set; } = new();
         public List<int[]> Faces { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Native editable quadratic Quake patch control grid (column major).
+    /// Each control point is [Prime x, y, z, original Quake s, t].
+    /// UV controls are retained as source values, not a baked triangle mesh.
+    /// Geometry and surface collision use the same bounded tessellation.
+    /// </summary>
+    public sealed class MapBezierPatch : MapGeometry
+    {
+        public int Columns { get; set; } = 3;
+        public int Rows { get; set; } = 3;
+        public int Tessellation { get; set; } = 3;
+        public List<float[]> ControlPoints { get; set; } = new();
     }
 
     /// <summary>
