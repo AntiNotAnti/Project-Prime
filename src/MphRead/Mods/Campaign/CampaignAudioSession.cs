@@ -1,4 +1,5 @@
 using System;
+using MphRead.Mods.Launcher;
 
 namespace MphRead.Mods.Campaign
 {
