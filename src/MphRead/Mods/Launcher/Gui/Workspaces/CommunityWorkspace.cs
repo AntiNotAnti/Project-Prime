@@ -20,8 +20,16 @@ namespace MphRead.Mods.Launcher.Gui;
 /// </summary>
 internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDisposable
 {
+    private static readonly Lazy<CommunityTransferManager> Transfers = new(() =>
+        new CommunityTransferManager(
+            Path.Combine(LauncherPrefs.Directory, "community-transfers"),
+            new DelegateCommunityCredentialSource(
+                HunterLicenseClient.GetCommunityMapTicketAsync,
+                HunterLicenseClient.RefreshCommunityMapTicketAsync)));
     private readonly PrimeOverlayHost _overlays;
     private readonly CommunityMapProject[]? _fixture;
+    private readonly CommunityTransferManager? _transfers;
+    private Guid? _activeJobId;
     private readonly UiTabs _tabs = new(new[] { "DISCOVER", "INSTALLED", "FAVORITES", "DOWNLOADS" });
     private readonly UiList _list = new() { AutoSelectFirst = true, SpacingEms = 0.25 };
     private readonly StackPanel _details = new() { Spacing = 8 };
@@ -47,11 +55,14 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     {
         _overlays = overlays;
         _fixture = fixture;
+        // Screenshot/fixture mode never touches a user's transfer directory.
+        _transfers = fixture == null ? Transfers.Value : null;
+        if (_transfers != null) _transfers.Changed += QueueChanged;
         _refresh = new PrimeButton("REFRESH", () => _ = RefreshAsync(), compact: true);
         _install = new PrimeButton("INSTALL MAP", () => _ = InstallAsync(), primary: true, compact: true);
         _favorite = new PrimeButton("FAVORITE", () => _ = FavoriteAsync(), compact: true);
         _report = new PrimeButton("REPORT", Report, compact: true);
-        _cancel = new PrimeButton("CANCEL DOWNLOAD", () => _transfer?.Cancel(), compact: true)
+        _cancel = new PrimeButton("PAUSE DOWNLOAD", PauseCurrent, compact: true)
         {
             IsVisible = false
         };
@@ -125,7 +136,11 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     {
         if (_disposed) return;
         _active = true;
-        if (_fixture == null) _ = RefreshAsync();
+        if (_fixture == null)
+        {
+            _transfers?.StartPending(); // User-paused transfers stay paused.
+            _ = RefreshAsync();
+        }
         else RenderList();
     }
 
@@ -133,7 +148,9 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     {
         _active = false;
         _load?.Cancel();
-        _transfer?.Cancel(); // No detached install without PR-03's durable worker.
+        // The worker retains its verified partial bytes. Only the foreground
+        // install handoff is cancelled when leaving this workspace.
+        _transfer?.Cancel();
     }
 
     public void Refresh()
@@ -145,6 +162,7 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     {
         if (_disposed) return;
         _disposed = true;
+        if (_transfers != null) _transfers.Changed -= QueueChanged;
         OnDeactivated();
         Content = null;
     }
@@ -218,17 +236,33 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         if (_disposed) return;
         Guid? previousSelection = _selected?.MapId;
         _list.Clear();
-        _list.IsVisible = _tabs.Index != 3;
+        _list.IsVisible = true;
         _state.IsVisible = false;
 
         if (_tabs.Index == 3)
         {
-            _state.Set(PrimeStateKind.Neutral, "DOWNLOAD ACTIVITY",
-                _transfer == null
-                    ? "No active download. Persistent transfer history, pause and resume arrive with the transfer-manager phase."
-                    : "An exact map is being downloaded, validated, built and installed.");
-            ShowEmptyDetails("DOWNLOADS",
-                "Active transfer progress appears below. Interrupted downloads are not yet persistent across restarts.");
+            CommunityTransferJob[] receipts = _transfers?.ListJobs().ToArray()
+                ?? Array.Empty<CommunityTransferJob>();
+            if (receipts.Length == 0)
+            {
+                _state.Set(PrimeStateKind.Empty, "NO DOWNLOAD HISTORY",
+                    "Downloads and creator uploads will appear here and survive a restart.");
+                ShowEmptyDetails("TRANSFERS",
+                    "No transfer jobs have been queued on this device.");
+                return;
+            }
+            foreach (CommunityTransferJob receipt in receipts)
+            {
+                CommunityTransferJob selected = receipt;
+                string caption = receipt.Download?.DisplayName
+                    ?? receipt.Download?.Name ?? (receipt.Kind == CommunityTransferKind.Upload
+                        ? "Creator upload" : "Community map");
+                var row = new UiListRow(caption,
+                    $"{receipt.Kind} · {receipt.State} · {receipt.AcknowledgedBytes / 1048576d:0.0}/{receipt.TotalBytes / 1048576d:0.0} MiB",
+                    spacious: true) { Choice = receipt.Id };
+                _list.Add(row, _ => ShowTransfer(selected));
+            }
+            _state.IsVisible = false;
             return;
         }
 
@@ -288,6 +322,76 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         // UiList.AutoSelectFirst already populates the details for the first
         // row, including an offline local map, without a second selection.
 
+    }
+
+    private void QueueChanged(CommunityTransferJob job)
+    {
+        // Transfer workers never own Avalonia controls.
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (_disposed || !_active) return;
+            if (_activeJobId == job.Id)
+            {
+                _status.Text = $"{job.State} · {job.AcknowledgedBytes / 1048576d:0.0}/{job.TotalBytes / 1048576d:0.0} MiB";
+                _cancel.IsVisible = job.State is CommunityTransferState.Downloading
+                    or CommunityTransferState.Queued or CommunityTransferState.Retryable;
+            }
+            if (_tabs.Index == 3) RenderList();
+        });
+    }
+
+    private void PauseCurrent()
+    {
+        if (_activeJobId is not Guid id || _transfers == null) return;
+        _transfers.Pause(id);
+        _transfer?.Cancel();
+        _status.Text = "Download paused. Resume it from the Downloads tab.";
+        _cancel.IsVisible = false;
+    }
+
+    private void ShowTransfer(CommunityTransferJob job)
+    {
+        _details.Children.Clear();
+        _details.Children.Add(PrimeChrome.Eyebrow("COMMUNITY // TRANSFER HISTORY"));
+        _details.Children.Add(PrimeChrome.Title(
+            job.Download?.DisplayName ?? job.Download?.Name ??
+            (job.Kind == CommunityTransferKind.Upload ? "CREATOR UPLOAD" : "MAP DOWNLOAD")));
+        _details.Children.Add(new PrimeBadge(job.State.ToString().ToUpperInvariant()));
+        _details.Children.Add(PrimeChrome.Text(
+            $"Acknowledged {job.AcknowledgedBytes / 1048576d:0.0} / {job.TotalBytes / 1048576d:0.0} MiB",
+            PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+        if (!string.IsNullOrWhiteSpace(job.Error))
+            _details.Children.Add(PrimeChrome.Text(job.Error,
+                PrimeTypography.BodySmall, PrimeTheme.WarningBrush));
+        if (job.State is CommunityTransferState.Downloading
+            or CommunityTransferState.Uploading or CommunityTransferState.Queued
+            or CommunityTransferState.Preparing or CommunityTransferState.Retryable)
+        {
+            var pause = new PrimeButton("PAUSE", () => _transfers?.Pause(job.Id),
+                compact: true);
+            ControllerNav.Identify(pause, "community.transfer.pause");
+            _details.Children.Add(pause);
+        }
+        if (job.State is CommunityTransferState.Paused
+            or CommunityTransferState.Failed or CommunityTransferState.Retryable)
+        {
+            var resume = new PrimeButton("RESUME", () => _transfers?.Resume(job.Id),
+                compact: true, primary: true);
+            ControllerNav.Identify(resume, "community.transfer.resume");
+            _details.Children.Add(resume);
+        }
+        if (job.State is not (CommunityTransferState.Completed or CommunityTransferState.Cancelled))
+        {
+            var cancel = new PrimeButton("CANCEL JOB", () => _transfers?.Cancel(job.Id),
+                compact: true, danger: true);
+            ControllerNav.Identify(cancel, "community.transfer.cancel");
+            _details.Children.Add(cancel);
+        }
+        if (job.State == CommunityTransferState.Completed
+            && job.Kind == CommunityTransferKind.Download)
+            _details.Children.Add(PrimeChrome.Text(
+                "Verified archive saved. Select the map from Discover to install it.",
+                PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
     }
 
     private void ShowEmptyDetails(string title, string description)
