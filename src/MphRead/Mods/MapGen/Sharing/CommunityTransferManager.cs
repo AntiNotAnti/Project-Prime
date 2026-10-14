@@ -196,23 +196,51 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(map);
         ValidateEndpoint(endpoint);
         ValidateMap(map);
+        CommunityTransferJob? existing;
         lock (_gate)
         {
-            // An exact download is single-flight within this manager; reuse
-            // even a paused or completed job instead of creating duplicates.
-            var existing = _jobs.Values.FirstOrDefault(j =>
+            existing = _jobs.Values.FirstOrDefault(j =>
                 j.Kind == CommunityTransferKind.Download
                 && j.PackageHash == map.Hash
                 && j.Endpoint == endpoint && j.State != CommunityTransferState.Cancelled);
-            if (existing != null)
-            {
-                if (existing.State is CommunityTransferState.Retryable
-                    or CommunityTransferState.Failed)
-                    Schedule(existing.Id);
-                return existing.Id;
-            }
-            RequireCapacityLocked();
+            if (existing == null) RequireCapacityLocked();
         }
+        if (existing != null)
+        {
+            if (existing.Download == null || existing.Download.MapId != map.MapId
+                || existing.Download.ContentHash != map.ContentHash
+                || !StringComparer.OrdinalIgnoreCase.Equals(existing.Download.Name, map.Name)
+                || existing.TotalBytes != map.Bytes)
+                throw new InvalidDataException(
+                    "Stored transfer conflicts with the selected exact map revision.");
+
+            if (existing.State == CommunityTransferState.Completed)
+            {
+                // A terminal receipt is not an archive lease. The CAS may have
+                // been evicted or damaged since this job finished, and the same
+                // selection must fetch verified bytes again rather than failing
+                // its install handoff.
+                var exact = new MapContentIdentity(map.MapId, map.Name,
+                    MapHash256.Parse(map.ContentHash), MapHash256.Parse(map.Hash), true);
+                using var cached = _archiveCache.TryAcquire(exact);
+                if (cached == null)
+                {
+                    Update(existing.Id, job => job with
+                    {
+                        State = CommunityTransferState.Retryable,
+                        Download = map,
+                        AcknowledgedBytes = 0,
+                        Error = "Cached archive missing or invalid; recovering exact revision."
+                    });
+                    Schedule(existing.Id);
+                }
+            }
+            else if (existing.State is CommunityTransferState.Retryable
+                or CommunityTransferState.Failed)
+                Schedule(existing.Id);
+            return existing.Id;
+        }
+
         Guid id = Guid.NewGuid();
         AddJob(new CommunityTransferJob(id, CommunityTransferKind.Download,
             CommunityTransferState.Queued, endpoint, map.Hash, map.Bytes, 0,
