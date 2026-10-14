@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  Restored ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/original3-scene-consumers/source/diagnostic.csproj (in 22 ms).
+  diagnostic -> ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/original3-scene-consumers/runtime/nettest.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.98

@@ -1,0 +1,237 @@
+{
+  "schema": 3,
+  "status": "PASS",
+  "failure": null,
+  "room": "MP1 SANCTORUS",
+  "hunter": "Kanden",
+  "item": "DoubleDamage",
+  "mode": "Shadow",
+  "assemblySha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+  "assemblyMvid": "5e534c23-57c6-4026-a55a-f8233293a732",
+  "entryAssemblySha256": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+  "entryAssemblyMvid": "0151d5f2-81b8-4566-96e3-aadf793388ee",
+  "checks": 29,
+  "completedArms": 1,
+  "arm": {
+    "Hunter": "Kanden",
+    "Item": "DoubleDamage",
+    "Mode": "Shadow",
+    "Spawn": {
+      "Epoch": 1,
+      "Match": 1,
+      "Room": 1,
+      "SpawnId": -1,
+      "Generation": 1
+    },
+    "Life": {
+      "AuthorityEpoch": 1,
+      "MatchId": 1,
+      "ShooterSlot": 0,
+      "Generation": 1,
+      "LifeId": 1,
+      "ShotId": 0
+    },
+    "GrantSequence": 1,
+    "ContactFrame": 121,
+    "EffectiveFrame": 122,
+    "ExpiryFrame": 1921,
+    "ContactTimer": 1799,
+    "EffectiveTimer": 1798,
+    "LastActiveTimer": 0,
+    "ExpiredTimer": 0,
+    "NativeFrames": 1801,
+    "NativePresentation": true,
+    "CertificateKnowledge": "Granted",
+    "Certificate": {
+      "Key": {
+        "AuthorityEpoch": 1,
+        "MatchId": 1,
+        "ShooterSlot": 0,
+        "Generation": 1,
+        "LifeId": 1,
+        "ShotId": 1
+      },
+      "Fire": {
+        "ShotId": 1,
+        "SourceFrame": 122,
+        "AckFrame": 122,
+        "AckSubFrame": 0,
+        "Kind": "PressFire",
+        "Weapon": 0,
+        "Charge": 1,
+        "ContinuousPhase": 536870912,
+        "PoseFlags": 3,
+        "SourceLife": 1,
+        "Origin": [
+          4.474884,
+          5.0922093,
+          -17.267578
+        ],
+        "Direction": [
+          0.0016702081,
+          0.0025073516,
+          0.99999547
+        ],
+        "Aim": [
+          0.0016702081,
+          0.0025073516,
+          0.99999547
+        ],
+        "View": [
+          0,
+          0,
+          1
+        ],
+        "Reticle": [
+          0.5,
+          0.5
+        ],
+        "Target": {
+          "EncodedSlot": 0,
+          "Generation": 0,
+          "LifeId": 0
+        },
+        "CanonicalBytes": "010000007A0000007A00000000000001000000200340328F4061F3A24000248AC1E2EADA3A6152243BB4FF7F3FE2EADA3A6152243BB4FF7F3F00000000FF7F0080008001000000000000"
+      },
+      "Room": 1,
+      "AuthorityFrame": 122,
+      "Lane": "NativeInput",
+      "Knowledge": "Granted",
+      "Unavailable": "None",
+      "Components": 1,
+      "TrustedSource": true,
+      "AuthorizedDouble": true,
+      "Source": {
+        "Source": "Verified",
+        "Pose": "Verified",
+        "DoubleHintAgrees": true,
+        "AmmoType": 0,
+        "Cost": 0,
+        "Cooldown": 10
+      },
+      "LedgerAnswer": {
+        "Knowledge": "Granted",
+        "Sequence": 1
+      },
+      "CaptureMode": "Shadow",
+      "Funding": {
+        "Sequence": 1,
+        "Spawn": {
+          "Epoch": 1,
+          "Match": 1,
+          "Room": 1,
+          "SpawnId": -1,
+          "Generation": 1
+        },
+        "Life": {
+          "AuthorityEpoch": 1,
+          "MatchId": 1,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 0
+        },
+        "Type": "DoubleDamage",
+        "ContactFrame": 121,
+        "SourceContactFrame": 121,
+        "ExpiresAtFrame": 1921,
+        "ObservationAuthorityFrame": 122
+      },
+      "Damage": {
+        "Body": 12,
+        "Head": 16,
+        "Splash": 0,
+        "Origin": [
+          4.474884,
+          5.0922093,
+          -17.267578
+        ],
+        "Direction": [
+          0.0016702081,
+          0.0025073516,
+          0.9999954
+        ],
+        "Radius": 0.099853516,
+        "Speed": 1.5,
+        "Reach": 0,
+        "Curve": 0,
+        "Balanced": false,
+        "Effects": 0,
+        "Present": true,
+        "DirectOnlyEffects": 0
+      }
+    },
+    "Shot": {
+      "Key": {
+        "AuthorityEpoch": 1,
+        "MatchId": 1,
+        "ShooterSlot": 0,
+        "Generation": 1,
+        "LifeId": 1,
+        "ShotId": 1
+      },
+      "Fire": {
+        "ShotId": 1,
+        "SourceFrame": 122,
+        "AckFrame": 122,
+        "AckSubFrame": 0,
+        "Kind": "PressFire",
+        "Weapon": 0,
+        "Charge": 1,
+        "ContinuousPhase": 536870912,
+        "PoseFlags": 3,
+        "SourceLife": 1,
+        "Origin": [
+          4.474884,
+          5.0922093,
+          -17.267578
+        ],
+        "Direction": [
+          0.0016702081,
+          0.0025073516,
+          0.99999547
+        ],
+        "Aim": [
+          0.0016702081,
+          0.0025073516,
+          0.99999547
+        ],
+        "View": [
+          0,
+          0,
+          1
+        ],
+        "Reticle": [
+          0.5,
+          0.5
+        ],
+        "Target": {
+          "EncodedSlot": 0,
+          "Generation": 0,
+          "LifeId": 0
+        },
+        "CanonicalBytes": "010000007A0000007A00000000000001000000200340328F4061F3A24000248AC1E2EADA3A6152243BB4FF7F3FE2EADA3A6152243BB4FF7F3F00000000FF7F0080008001000000000000"
+      },
+      "Outcome": {
+        "Damage": 12,
+        "Lifespan": 8.483334,
+        "Ammo": 0,
+        "Fired": 1,
+        "Semantic": 1,
+        "Kind": "PressFire",
+        "Weapon": 0,
+        "Charge": 1,
+        "IntentBytes": "7A0000001000080000000000000000000000803F0000000000000000000000000000000000000000000000000000000000000000000062924000F08A40802D8DC10000640000000000000100010000000000000001000100010001000000000000000000000001010000007A0000007A00000000000001000000200340328F4061F3A24000248AC1E2EADA3A6152243BB4FF7F3FE2EADA3A6152243BB4FF7F3F00000000FF7F0080008001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "ReplayFacts": "[{\u0022Kind\u0022:6,\u0022RecordingFrame\u0022:122,\u0022ServerTick\u0022:122,\u0022Marker\u0022:null,\u0022Payload\u0022:\u00224B0100000000000000010001000000FFFFFFFF01000000007A000000000062924000F08A40802D8DC1\u0022},{\u0022Kind\u0022:6,\u0022RecordingFrame\u0022:122,\u0022ServerTick\u0022:122,\u0022Marker\u0022:null,\u0022Payload\u0022:\u00223701000100000000000000030000007A000000070001000100FF000000000000000000FFFFFFFF000000000000000000\u0022}]",
+        "ReplayWeaponFired": 1,
+        "ReplayShotFacts": 0
+      }
+    }
+  },
+  "scope": "one fresh-process native factory/contact/input arm with declared stationary authority body/item placement",
+  "authoredUdp": "NOT_RUN",
+  "targetImpactDamage": "NOT_RUN",
+  "glAudioPixels": "NOT_RUN",
+  "specialFamilyAcceptance": "NOT_RUN",
+  "naturalMovement": "NOT_RUN"
+}

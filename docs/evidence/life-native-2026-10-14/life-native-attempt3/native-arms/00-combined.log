@@ -1,0 +1,174 @@
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+NATIVERENDER appleVao advertised=True gen=True bind=True delete=True
+NATIVERENDER pid=48208 context room=MP3 PROVING GROUND pixels=(1920, 1080) cap=-1 shadows=High vendor=Apple renderer=Apple M4 Pro gl=2.1 Metal - 91.7 mvid=896c230f-be96-4e23-b0cc-3fb2824d1a15
+[load] SFX device ready in 0.21s
+[glcapabilities] version=2.1 Metal - 91.7; vao=False; appleVao=True; desktopVaoApi=Apple; timer=False; disjointTimer=False; sync=True; ubo=False; storage=False; optimizations=capability-and-policy; forceLegacy=False
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.915
+[world-shaders] variant=plain elapsedMs=4.595
+[world-shaders] variant=plain-unlit elapsedMs=4.376
+[input] gamepad mappings: 2275 from ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-normal1-runtime/gamecontrollerdb.txt
+[render] cel outline: the depth buffer is 24 bits
+UNSUPPORTED (log once): POSSIBLE ISSUE: unit 1 GLD_TEXTURE_INDEX_2D is unloadable and bound to sampler type (Float) - using zero texture because texture unloadable
+[load] SFX device ready in 0.19s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.093
+[world-shaders] variant=plain elapsedMs=4.772
+[world-shaders] variant=plain-unlit elapsedMs=4.631
+[world-shaders] variant=native elapsedMs=6.010
+[world-shaders] variant=plain elapsedMs=4.684
+[world-shaders] variant=plain-unlit elapsedMs=4.514
+NATIVERENDER resource arm=combined cycle=1/10
+[load] SFX device ready in 0.27s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.039
+[world-shaders] variant=plain elapsedMs=4.710
+[world-shaders] variant=plain-unlit elapsedMs=4.619
+[load] SFX device ready in 0.26s
+[glvao] layout validation failed; using retained client arrays: Injected GL allocation failure: retained-vao-after-create
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.056
+[world-shaders] variant=plain elapsedMs=4.728
+[world-shaders] variant=plain-unlit elapsedMs=4.538
+[world-shaders] variant=native elapsedMs=5.850
+[world-shaders] variant=plain elapsedMs=4.630
+[world-shaders] variant=plain-unlit elapsedMs=4.473
+NATIVERENDER resource arm=combined cycle=2/10
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.926
+[world-shaders] variant=plain elapsedMs=4.767
+[world-shaders] variant=plain-unlit elapsedMs=4.774
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.949
+[world-shaders] variant=plain elapsedMs=4.879
+[world-shaders] variant=plain-unlit elapsedMs=4.585
+[world-shaders] variant=native elapsedMs=5.876
+[world-shaders] variant=plain elapsedMs=4.637
+[world-shaders] variant=plain-unlit elapsedMs=4.474
+NATIVERENDER resource arm=combined cycle=3/10
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.969
+[world-shaders] variant=plain elapsedMs=4.627
+[world-shaders] variant=plain-unlit elapsedMs=4.576
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.977
+[world-shaders] variant=plain elapsedMs=4.741
+[world-shaders] variant=plain-unlit elapsedMs=4.757
+[world-shaders] variant=native elapsedMs=5.811
+[world-shaders] variant=plain elapsedMs=4.578
+[world-shaders] variant=plain-unlit elapsedMs=4.422
+NATIVERENDER resource arm=combined cycle=4/10
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.869
+[world-shaders] variant=plain elapsedMs=4.656
+[world-shaders] variant=plain-unlit elapsedMs=4.466
+[load] SFX device ready in 0.13s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.912
+[world-shaders] variant=plain elapsedMs=4.679
+[world-shaders] variant=plain-unlit elapsedMs=4.540
+[render] shadow maps unavailable: Injected GL allocation failure: shadow-after-framebuffer
+[world-shaders] variant=native elapsedMs=5.984
+[world-shaders] variant=plain elapsedMs=4.745
+[world-shaders] variant=plain-unlit elapsedMs=4.519
+NATIVERENDER resource arm=combined cycle=5/10
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.987
+[world-shaders] variant=plain elapsedMs=4.742
+[world-shaders] variant=plain-unlit elapsedMs=4.546
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.101
+[world-shaders] variant=plain elapsedMs=4.862
+[world-shaders] variant=plain-unlit elapsedMs=4.709
+[world-shaders] variant=native elapsedMs=6.077
+[world-shaders] variant=plain elapsedMs=4.952
+[world-shaders] variant=plain-unlit elapsedMs=4.631
+NATIVERENDER resource arm=combined cycle=6/10
+[load] SFX device ready in 0.13s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.015
+[world-shaders] variant=plain elapsedMs=5.279
+[world-shaders] variant=plain-unlit elapsedMs=5.121
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.997
+[world-shaders] variant=plain elapsedMs=4.782
+[world-shaders] variant=plain-unlit elapsedMs=4.546
+[world-shaders] variant=native elapsedMs=5.876
+[world-shaders] variant=plain elapsedMs=4.686
+[world-shaders] variant=plain-unlit elapsedMs=4.480
+NATIVERENDER resource arm=combined cycle=7/10
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.999
+[world-shaders] variant=plain elapsedMs=4.770
+[world-shaders] variant=plain-unlit elapsedMs=4.558
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.175
+[world-shaders] variant=plain elapsedMs=4.888
+[world-shaders] variant=plain-unlit elapsedMs=4.415
+[world-shaders] variant=native elapsedMs=6.053
+[world-shaders] variant=plain elapsedMs=4.823
+[world-shaders] variant=plain-unlit elapsedMs=4.558
+NATIVERENDER resource arm=combined cycle=8/10
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.005
+[world-shaders] variant=plain elapsedMs=4.696
+[world-shaders] variant=plain-unlit elapsedMs=4.562
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.078
+[world-shaders] variant=plain elapsedMs=4.755
+[world-shaders] variant=plain-unlit elapsedMs=4.516
+[world-shaders] variant=native elapsedMs=5.839
+[world-shaders] variant=plain elapsedMs=4.642
+[world-shaders] variant=plain-unlit elapsedMs=4.552
+NATIVERENDER resource arm=combined cycle=9/10
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.944
+[world-shaders] variant=plain elapsedMs=4.654
+[world-shaders] variant=plain-unlit elapsedMs=4.495
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.012
+[world-shaders] variant=plain elapsedMs=4.780
+[world-shaders] variant=plain-unlit elapsedMs=4.545
+[render] shadow maps unavailable: Injected GL allocation failure: shadow-after-framebuffer
+[world-shaders] variant=native elapsedMs=5.859
+[world-shaders] variant=plain elapsedMs=4.655
+[world-shaders] variant=plain-unlit elapsedMs=4.494
+NATIVERENDER resource arm=combined cycle=10/10
+NATIVERENDER PASS ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/00-combined.json

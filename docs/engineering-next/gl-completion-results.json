@@ -1,0 +1,137 @@
+{
+  "schema": 1,
+  "slice": "GL-completion",
+  "decision": "NO_ROLLOUT",
+  "gl02": "REJECTED_FRAME_TAILS_DEFAULT_OFF",
+  "gl03": "NOT_ELIGIBLE_NO_NEW_MERGE",
+  "gl04": "NO_ROLLOUT",
+  "historicalSource": "9104134633ebe0996934260f6b54e448d1ec6195",
+  "binary": {
+    "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
+    "harnessSha256": "2a4b5046965b68566294a9b439ba012afcc30663c16b95fce5dd3efd3fc94b16",
+    "expectedLoadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f"
+  },
+  "fixtureSha256": "99f5e0128f301d7e5188a0bdde0d07f95d6d532fcff448084be126063ceb2ec8",
+  "evidenceManifest": {
+    "file": "gl-evidence/manifest.json",
+    "sha256": "0b18897e28781cc50ecc087815f734117637f8788a618c001792ef9e030de139"
+  },
+  "rawSampleArrays": {
+    "0": {
+      "frameIntervalP50Ms": [
+        2.3472,
+        2.2099,
+        2.0834,
+        2.0685,
+        2.2315
+      ],
+      "frameIntervalP95Ms": [
+        4.6999,
+        3.9547,
+        4.1257,
+        3.8712,
+        4.608
+      ],
+      "frameIntervalP99Ms": [
+        6.4452,
+        4.7091,
+        4.8943,
+        4.5741,
+        5.6347
+      ]
+    },
+    "1": {
+      "frameIntervalP50Ms": [
+        2.151,
+        2.2193,
+        2.0709,
+        2.1414,
+        2.0377
+      ],
+      "frameIntervalP95Ms": [
+        4.4427,
+        4.4895,
+        4.3042,
+        4.1729,
+        4.3387
+      ],
+      "frameIntervalP99Ms": [
+        5.6583,
+        6.0512,
+        5.1816,
+        5.3982,
+        5.4449
+      ]
+    }
+  },
+  "medianPerRun": {
+    "0": {
+      "frameIntervalP50Ms": 2.2099,
+      "frameIntervalP95Ms": 4.1257,
+      "frameIntervalP99Ms": 4.8943
+    },
+    "1": {
+      "frameIntervalP50Ms": 2.1414,
+      "frameIntervalP95Ms": 4.3387,
+      "frameIntervalP99Ms": 5.4449
+    }
+  },
+  "candidatePercentChange": {
+    "frameIntervalP50Ms": -3.0996877686773283,
+    "frameIntervalP95Ms": 5.162760258865173,
+    "frameIntervalP99Ms": 11.24982122060354
+  },
+  "recordedNativeParity": {
+    "status": "PASS",
+    "decodedRGBAComparisons": 18,
+    "bitwiseFloat32DepthComparisons": 11,
+    "receipts": 4,
+    "source": "9104134633ebe0996934260f6b54e448d1ec6195",
+    "currentIntegrationBuild": "NOT_RUN"
+  },
+  "causeDisposition": {
+    "identifiedNewCorrectnessDefect": false,
+    "identifiedCausalTailRegression": "NOT_ESTABLISHED",
+    "sourceObservation": "Opt-in cache adds bounded 512-float scratch and Array.Copy per versioned request while retaining independent item snapshots. It eliminates repeated source scaling, not uniform uploads.",
+    "measurement": "Palette collection median window p95 improves 0.012205 to 0.006998 ms, while unprofiled total p95/p99 worsen. Profiled owner improvement does not causally explain total tails.",
+    "action": "Rejected candidate for default enablement. No speculative source rewrite or repeated unchanged VBO/procedural experiment."
+  },
+  "portableValidation": {
+    "status": "PASS",
+    "tests": 11,
+    "nativeExecution": "NOT_RUN",
+    "purpose": "Recompute unchanged historical observations from path-sanitized derivatives, verifying derivative hashes/lengths and scoped numeric equality with external originals. This is not a new native campaign."
+  },
+  "otherDevices": [
+    {
+      "device": "Windows GL",
+      "status": "NOT_RUN"
+    },
+    {
+      "device": "Linux GL",
+      "status": "NOT_RUN",
+      "reason": "Current native fixture harness explicitly supports macOS/Windows only"
+    },
+    {
+      "device": "physical Android GLES",
+      "status": "NOT_RUN"
+    }
+  ],
+  "remainingGates": [
+    "Current integration same-binary timing/parity/resource campaign",
+    "Full rendering/presentation/workload matrix",
+    "Second macOS GPU/OS",
+    "Native GPU timing unsupported on recorded M4 Pro context: UNVERIFIED",
+    "Full optimized AGX-04 lifecycle/context/Studio/replay acceptance"
+  ],
+  "limits": "Recorded native PASS applies only to the named immutable historical candidate. Current integration identity must be newly recorded; no device/GPU/FPS improvement or significance claim.",
+  "evidenceSanitization": {
+    "status": "PASS",
+    "derivativeFiles": 65,
+    "originalsVerified": true,
+    "originalAndDerivativeFingerprints": "SHA256 and byte length recorded separately per file",
+    "numericScope": "All numeric JSON leaves and numeric leaves in structured *-json log events; strings/unstructured text excluded",
+    "privateHostPaths": "Replaced with stable placeholders",
+    "originalPayloads": "External; not committed in this sanitized package"
+  }
+}

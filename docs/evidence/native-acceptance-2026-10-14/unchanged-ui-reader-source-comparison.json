@@ -1,0 +1,32 @@
+{
+  "src/MphRead/Mods/Launcher/Gui/Shell.cs": {
+    "previous09Blob": "37ebdc60437a77af1246881d44f77434a949222b",
+    "currentFrozen758Blob": "37ebdc60437a77af1246881d44f77434a949222b",
+    "equal": true
+  },
+  "src/MphRead/Mods/Launcher/Gui/HunterStand.cs": {
+    "previous09Blob": "0aafe6012544a3f68a9a53f506c6798123a7b103",
+    "currentFrozen758Blob": "0aafe6012544a3f68a9a53f506c6798123a7b103",
+    "equal": true
+  },
+  "src/MphRead/Mods/Launcher/Gui/CreateServerScreen.cs": {
+    "previous09Blob": "0ec47c13b45ad6b145726f886617cdd0f2dae094",
+    "currentFrozen758Blob": "0ec47c13b45ad6b145726f886617cdd0f2dae094",
+    "equal": true
+  },
+  "src/MphRead/Mods/Render/LauncherHunter.cs": {
+    "previous09Blob": "ea788c7daf388058094d00830bdd44aa019b27b9",
+    "currentFrozen758Blob": "ea788c7daf388058094d00830bdd44aa019b27b9",
+    "equal": true
+  },
+  "src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs": {
+    "previous09Blob": "1a63a55325e8c0e294fca3ac2ed0d28615c255b0",
+    "currentFrozen758Blob": "1a63a55325e8c0e294fca3ac2ed0d28615c255b0",
+    "equal": true
+  },
+  "src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs": {
+    "previous09Blob": "cbab85c10b63fd8daba3de97ba4fc8d15ca9f788",
+    "currentFrozen758Blob": "cbab85c10b63fd8daba3de97ba4fc8d15ca9f788",
+    "equal": true
+  }
+}

@@ -1,0 +1,302 @@
+[
+  {
+    "index": 0,
+    "arm": 0,
+    "startedUtc": "2026-10-13T18:55:46.553893+00:00",
+    "finishedUtc": "2026-10-13T18:56:00.182341+00:00",
+    "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
+    "command": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "${WORKSPACE}/work/baseline-bin/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-seconds",
+      "12",
+      "-hz",
+      "-1",
+      "-size",
+      "1920x1080",
+      "-shadows",
+      "High",
+      "-output",
+      "${WORKSPACE}/work/gl-evidence/gl02-ab/00-palette-0.json"
+    ],
+    "exitCode": 0,
+    "environment": {
+      "PROJECT_PRIME_GL_PALETTE_PREP": "0"
+    },
+    "host": "game closed; agent builds/tests held"
+  },
+  {
+    "index": 1,
+    "arm": 1,
+    "startedUtc": "2026-10-13T18:56:00.182999+00:00",
+    "finishedUtc": "2026-10-13T18:56:13.703260+00:00",
+    "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
+    "command": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "${WORKSPACE}/work/baseline-bin/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-seconds",
+      "12",
+      "-hz",
+      "-1",
+      "-size",
+      "1920x1080",
+      "-shadows",
+      "High",
+      "-output",
+      "${WORKSPACE}/work/gl-evidence/gl02-ab/01-palette-1.json"
+    ],
+    "exitCode": 0,
+    "environment": {
+      "PROJECT_PRIME_GL_PALETTE_PREP": "1"
+    },
+    "host": "game closed; agent builds/tests held"
+  },
+  {
+    "index": 2,
+    "arm": 1,
+    "startedUtc": "2026-10-13T18:56:13.704018+00:00",
+    "finishedUtc": "2026-10-13T18:56:27.249633+00:00",
+    "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
+    "command": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "${WORKSPACE}/work/baseline-bin/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-seconds",
+      "12",
+      "-hz",
+      "-1",
+      "-size",
+      "1920x1080",
+      "-shadows",
+      "High",
+      "-output",
+      "${WORKSPACE}/work/gl-evidence/gl02-ab/02-palette-1.json"
+    ],
+    "exitCode": 0,
+    "environment": {
+      "PROJECT_PRIME_GL_PALETTE_PREP": "1"
+    },
+    "host": "game closed; agent builds/tests held"
+  },
+  {
+    "index": 3,
+    "arm": 0,
+    "startedUtc": "2026-10-13T18:56:27.250198+00:00",
+    "finishedUtc": "2026-10-13T18:56:40.829691+00:00",
+    "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
+    "command": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "${WORKSPACE}/work/baseline-bin/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-seconds",
+      "12",
+      "-hz",
+      "-1",
+      "-size",
+      "1920x1080",
+      "-shadows",
+      "High",
+      "-output",
+      "${WORKSPACE}/work/gl-evidence/gl02-ab/03-palette-0.json"
+    ],
+    "exitCode": 0,
+    "environment": {
+      "PROJECT_PRIME_GL_PALETTE_PREP": "0"
+    },
+    "host": "game closed; agent builds/tests held"
+  },
+  {
+    "index": 4,
+    "arm": 1,
+    "startedUtc": "2026-10-13T18:56:40.830295+00:00",
+    "finishedUtc": "2026-10-13T18:56:54.397163+00:00",
+    "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
+    "command": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "${WORKSPACE}/work/baseline-bin/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-seconds",
+      "12",
+      "-hz",
+      "-1",
+      "-size",
+      "1920x1080",
+      "-shadows",
+      "High",
+      "-output",
+      "${WORKSPACE}/work/gl-evidence/gl02-ab/04-palette-1.json"
+    ],
+    "exitCode": 0,
+    "environment": {
+      "PROJECT_PRIME_GL_PALETTE_PREP": "1"
+    },
+    "host": "game closed; agent builds/tests held"
+  },
+  {
+    "index": 5,
+    "arm": 0,
+    "startedUtc": "2026-10-13T18:56:54.397935+00:00",
+    "finishedUtc": "2026-10-13T18:57:07.957538+00:00",
+    "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
+    "command": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "${WORKSPACE}/work/baseline-bin/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-seconds",
+      "12",
+      "-hz",
+      "-1",
+      "-size",
+      "1920x1080",
+      "-shadows",
+      "High",
+      "-output",
+      "${WORKSPACE}/work/gl-evidence/gl02-ab/05-palette-0.json"
+    ],
+    "exitCode": 0,
+    "environment": {
+      "PROJECT_PRIME_GL_PALETTE_PREP": "0"
+    },
+    "host": "game closed; agent builds/tests held"
+  },
+  {
+    "index": 6,
+    "arm": 0,
+    "startedUtc": "2026-10-13T18:57:07.958376+00:00",
+    "finishedUtc": "2026-10-13T18:57:21.514226+00:00",
+    "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
+    "command": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "${WORKSPACE}/work/baseline-bin/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-seconds",
+      "12",
+      "-hz",
+      "-1",
+      "-size",
+      "1920x1080",
+      "-shadows",
+      "High",
+      "-output",
+      "${WORKSPACE}/work/gl-evidence/gl02-ab/06-palette-0.json"
+    ],
+    "exitCode": 0,
+    "environment": {
+      "PROJECT_PRIME_GL_PALETTE_PREP": "0"
+    },
+    "host": "game closed; agent builds/tests held"
+  },
+  {
+    "index": 7,
+    "arm": 1,
+    "startedUtc": "2026-10-13T18:57:21.514834+00:00",
+    "finishedUtc": "2026-10-13T18:57:35.042797+00:00",
+    "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
+    "command": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "${WORKSPACE}/work/baseline-bin/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-seconds",
+      "12",
+      "-hz",
+      "-1",
+      "-size",
+      "1920x1080",
+      "-shadows",
+      "High",
+      "-output",
+      "${WORKSPACE}/work/gl-evidence/gl02-ab/07-palette-1.json"
+    ],
+    "exitCode": 0,
+    "environment": {
+      "PROJECT_PRIME_GL_PALETTE_PREP": "1"
+    },
+    "host": "game closed; agent builds/tests held"
+  },
+  {
+    "index": 8,
+    "arm": 0,
+    "startedUtc": "2026-10-13T18:57:35.043544+00:00",
+    "finishedUtc": "2026-10-13T18:57:48.592191+00:00",
+    "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
+    "command": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "${WORKSPACE}/work/baseline-bin/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-seconds",
+      "12",
+      "-hz",
+      "-1",
+      "-size",
+      "1920x1080",
+      "-shadows",
+      "High",
+      "-output",
+      "${WORKSPACE}/work/gl-evidence/gl02-ab/08-palette-0.json"
+    ],
+    "exitCode": 0,
+    "environment": {
+      "PROJECT_PRIME_GL_PALETTE_PREP": "0"
+    },
+    "host": "game closed; agent builds/tests held"
+  },
+  {
+    "index": 9,
+    "arm": 1,
+    "startedUtc": "2026-10-13T18:57:48.592838+00:00",
+    "finishedUtc": "2026-10-13T18:58:02.164082+00:00",
+    "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
+    "command": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "${WORKSPACE}/work/baseline-bin/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-seconds",
+      "12",
+      "-hz",
+      "-1",
+      "-size",
+      "1920x1080",
+      "-shadows",
+      "High",
+      "-output",
+      "${WORKSPACE}/work/gl-evidence/gl02-ab/09-palette-1.json"
+    ],
+    "exitCode": 0,
+    "environment": {
+      "PROJECT_PRIME_GL_PALETTE_PREP": "1"
+    },
+    "host": "game closed; agent builds/tests held"
+  }
+]

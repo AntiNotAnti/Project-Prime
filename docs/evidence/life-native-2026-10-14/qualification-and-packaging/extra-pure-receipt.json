@@ -1,0 +1,687 @@
+{
+  "startedUtc": "2026-10-14T09:33:04.663851+00:00",
+  "sourceBefore": {
+    "commit": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "tree": "eafd1c25936e1dbeeb254cac1936e3090b22e2e2",
+    "dirty": ""
+  },
+  "physicalHashesBefore": {
+    "ProjectPrime.dll": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "733c26053828d9725c1fee695ae86ef5ed4c25a6ed9da8b5d143f3e647a3dc9f",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "verifiedClient": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+    "sha256": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15",
+    "buildId": "local+88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "fixtureSourceHashes": {
+    "TimedDamageProfileTests.cs": "82e3c4e7b314217ec4ae2acc29ea30c81840fe814de4f151017f1c4c34b27f10",
+    "TimedShotCertificateTests.cs": "c2c152799d7c1ca7f8a6fee46175f908d5fd593f6cadb09ee2aa0cd0f5508006",
+    "TimedShotDamageTests.cs": "389791292a612765aae4f21f0193d51ffbdcddbe1fd23ec6f70a185439ff89e5",
+    "TimedSourceCapabilityTests.cs": "19e6c84ac97d833eaa4e6c1fbe0bfcf71ed9ca1cfe7ab0a8eef0682aa26e6fed",
+    "TimedShotReplayTests.cs": "20afe094c83855e34ec551c631e1ea40f1b8ea2b49757a4c9130a97851cc3fed"
+  },
+  "results": [
+    {
+      "name": "timed-damage-profiles",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--timed-damage-profiles"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-damage-profiles-profile",
+      "startUtc": "2026-10-14T09:33:04.712124+00:00",
+      "endUtc": "2026-10-14T09:33:04.921515+00:00",
+      "pid": 47418,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 4.541600000002033e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-damage-profiles-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "51698ab33600dc2041b044b462f53ce2f9c21b7bdc5580b682948205e86b50cd",
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": [
+        "PASS: 739 pure constructed timed victim-damage assertions; no native recording/admission proof"
+      ]
+    },
+    {
+      "name": "timed-shot-certificates",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--timed-shot-certificates"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-shot-certificates-profile",
+      "startUtc": "2026-10-14T09:33:04.922026+00:00",
+      "endUtc": "2026-10-14T09:33:05.052922+00:00",
+      "pid": 47419,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.0040999999980667e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-shot-certificates-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "3bcec5bbb4058464fcf2a14fef2cbfb336e72f05371d20819e2587ae4e6ed4b5",
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": [
+        "PASS: 5238 pure constructed timed-shot certificate storage assertions; no authenticated/native admission claim"
+      ]
+    },
+    {
+      "name": "timed-shot-damage",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--timed-shot-damage"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-shot-damage-profile",
+      "startUtc": "2026-10-14T09:33:05.053438+00:00",
+      "endUtc": "2026-10-14T09:33:05.244495+00:00",
+      "pid": 47422,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.199999999992098e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-shot-damage-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "4304b7868e188ddab78e5edc2959a4d886f62f3585a0ac47821496048b6718a3",
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": [
+        "PASS: 82 pure constructed frozen-channel/ceiling assertions; no native/admission/impact proof."
+      ]
+    },
+    {
+      "name": "timed-source-capabilities",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--timed-source-capabilities"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-source-capabilities-profile",
+      "startUtc": "2026-10-14T09:33:05.244991+00:00",
+      "endUtc": "2026-10-14T09:33:05.286047+00:00",
+      "pid": 47423,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.31669999999351e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-source-capabilities-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "848e7faada9e8cfb8ade4b594823ecc57574f1905c96f0bd49c8040bc06303d7",
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": [
+        "PASS: 31 pure timed source capability assertions."
+      ]
+    },
+    {
+      "name": "timed-shot-replay",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--timed-shot-replay"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-shot-replay-profile",
+      "startUtc": "2026-10-14T09:33:05.286515+00:00",
+      "endUtc": "2026-10-14T09:33:05.652852+00:00",
+      "pid": 47424,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.2000000000032e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-shot-replay-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "dfee6ec3511f70be53df12e2910e63a4842686b0c3bc41db71fad44fb63fcf91",
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": [
+        "PASS: 4668 pure timed-shot archival assertions. SCOPE: explicit storage fixtures; no native admission or visual fidelity claim."
+      ]
+    },
+    {
+      "name": "scene-setup-ownership",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--scene-setup-ownership"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/scene-setup-ownership-profile",
+      "startUtc": "2026-10-14T09:33:05.653449+00:00",
+      "endUtc": "2026-10-14T09:33:05.899808+00:00",
+      "pid": 47425,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.8957999999977844e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/scene-setup-ownership-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "4ef5be382c1ca2d8459f80754ef64dfddbf3ade253b3a1c626735014c7e1194c",
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": []
+    },
+    {
+      "name": "scene-lifetime",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--scene-lifetime"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/scene-lifetime-profile",
+      "startUtc": "2026-10-14T09:33:05.900480+00:00",
+      "endUtc": "2026-10-14T09:33:05.991499+00:00",
+      "pid": 47433,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.1290999999988856e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/scene-lifetime-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "063de0adbe8cc464cb43dd1c953d1ad01a391d84485946db3d3152530a4cc355",
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": []
+    },
+    {
+      "name": "post-match-save",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--post-match-save"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/post-match-save-profile",
+      "startUtc": "2026-10-14T09:33:05.992109+00:00",
+      "endUtc": "2026-10-14T09:33:06.136250+00:00",
+      "pid": 47434,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.9832999999923615e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/post-match-save-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "50da43f5caf2ce38388745855964966f903cbc99e8ebf0f7cca86a6bbaa2f61f",
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": []
+    },
+    {
+      "name": "foreground-binding",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--foreground-binding"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/foreground-binding-profile",
+      "startUtc": "2026-10-14T09:33:06.136924+00:00",
+      "endUtc": "2026-10-14T09:33:06.271263+00:00",
+      "pid": 47435,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.7416999999928535e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/foreground-binding-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "bf0278dc0297bad885f72249a27384d101dc52b33e5f5d349902be42774924d4",
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": []
+    },
+    {
+      "name": "lifecycle-soak",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--lifecycle-soak"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/lifecycle-soak-profile",
+      "startUtc": "2026-10-14T09:33:06.271987+00:00",
+      "endUtc": "2026-10-14T09:33:07.198664+00:00",
+      "pid": 47436,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.537500000039273e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/lifecycle-soak-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "50131516cd7b1dcc5f268bc13a7a1ec47c3c31ab731a8e266b6197efa676d4f1",
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": []
+    },
+    {
+      "name": "replayformatcheck",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+        "-replayformatcheck"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/replayformatcheck-profile",
+      "startUtc": "2026-10-14T09:33:07.199274+00:00",
+      "endUtc": "2026-10-14T09:33:07.723648+00:00",
+      "pid": 47437,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.2041999999954385e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/replayformatcheck-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "ef635205c6338dd5f738e90c001c47c8a22b4424ccc5199c5788f97f2fba773f",
+      "loadedModules": [
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": []
+    },
+    {
+      "name": "renderbackendcheck",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+        "-renderbackendcheck"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/renderbackendcheck-profile",
+      "startUtc": "2026-10-14T09:33:07.724472+00:00",
+      "endUtc": "2026-10-14T09:33:07.807009+00:00",
+      "pid": 47438,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.079200000000171e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/renderbackendcheck-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "44d101d8504f71d1c3ad7929960062dc2fdd02524bfe0011fc2a7e68214e799b",
+      "loadedModules": [
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": []
+    },
+    {
+      "name": "rendergraphcheck",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+        "-rendergraphcheck"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/rendergraphcheck-profile",
+      "startUtc": "2026-10-14T09:33:07.807755+00:00",
+      "endUtc": "2026-10-14T09:33:07.948818+00:00",
+      "pid": 47439,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.108300000009834e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/rendergraphcheck-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "4c2dfdf3afda8c7a93e7b9db6c02a3f4a335b8dd6dc17005c8ba5b577bc34f42",
+      "loadedModules": [
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": []
+    },
+    {
+      "name": "graphicscheck",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+        "-graphicscheck"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/graphicscheck-profile",
+      "startUtc": "2026-10-14T09:33:07.949749+00:00",
+      "endUtc": "2026-10-14T09:33:08.030975+00:00",
+      "pid": 47440,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.1040999999731866e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/graphicscheck-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+      },
+      "logSha256": "578881c1dc71178d1ff42265a0f51b29689d8ec7ab4fe1e7ec3cb29cc5426420",
+      "loadedModules": [
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": []
+    },
+    {
+      "name": "timed-shot-damage-enforce-env",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--timed-shot-damage"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-shot-damage-enforce-env-profile",
+      "startUtc": "2026-10-14T09:33:08.031636+00:00",
+      "endUtc": "2026-10-14T09:33:08.227021+00:00",
+      "pid": 47441,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.304099999956733e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-shot-damage-enforce-env-profile",
+        "ALSOFT_DRIVERS": "null",
+        "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll",
+        "PRIME_TIMED_GRANT_PROOF": "enforce-discrete"
+      },
+      "logSha256": "4304b7868e188ddab78e5edc2959a4d886f62f3585a0ac47821496048b6718a3",
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "qualified": true,
+      "assertionEvidence": [
+        "PASS: 82 pure constructed frozen-channel/ceiling assertions; no native/admission/impact proof."
+      ]
+    },
+    {
+      "name": "configured-enforce-assert-off",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/net02-evidence/candidate-1e6fea6b/config-mode-probe/out/ModeProbe.dll",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime",
+        "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+        "Off"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/configured-enforce-assert-off-profile",
+      "startUtc": "2026-10-14T09:33:08.227783+00:00",
+      "endUtc": "2026-10-14T09:33:08.318598+00:00",
+      "pid": 47442,
+      "exit": 0,
+      "expectedExit": 0,
+      "timedOut": false,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.8208000000251587e-05,
+        "observations": []
+      },
+      "environmentOverrides": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/configured-enforce-assert-off-profile",
+        "ALSOFT_DRIVERS": "null",
+        "PRIME_TIMED_GRANT_PROOF": "enforce-discrete"
+      },
+      "logSha256": "6c0a0f19359680e142cb5b5c8b5f37ad638c3dae85ba5c3044a0055c414de383",
+      "loadedModules": [],
+      "qualified": true,
+      "assertionEvidence": [
+        "{\"path\":\"${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll\",\"sha256\":\"785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009\",\"mvid\":\"896c230f-be96-4e23-b0cc-3fb2824d1a15\",\"requested\":\"enforce-discrete\",\"actualMode\":\"Off\",\"expectedMode\":\"Off\",\"scope\":\"Actual managed configuration only; no gameplay/native/admission claim\"}"
+      ]
+    }
+  ],
+  "configOracleReuse": {
+    "path": "${WORKSPACE}/work/net02-evidence/candidate-1e6fea6b/config-mode-probe/out/ModeProbe.dll",
+    "scope": "Unchanged metadata oracle, loads new physical client by exact path/SHA"
+  },
+  "preservedCompileFailure": "work/net04-evidence/candidate-6f5549c2; original FAIL not relabeled",
+  "historicalConfigFalsifierReference": "work/net02-evidence/candidate-1e6fea6b/old-285-config-falsifier.log; preserved expected negative, not repeated",
+  "sourceAfter": {
+    "commit": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "tree": "eafd1c25936e1dbeeb254cac1936e3090b22e2e2",
+    "dirty": ""
+  },
+  "physicalHashesAfter": {
+    "ProjectPrime.dll": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "733c26053828d9725c1fee695ae86ef5ed4c25a6ed9da8b5d143f3e647a3dc9f",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "finishedUtc": "2026-10-14T09:33:08.369455+00:00",
+  "sourceUnchanged": true,
+  "runtimeUnchanged": true,
+  "qualified": true
+}

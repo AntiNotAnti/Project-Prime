@@ -667,6 +667,19 @@ namespace MphRead.Mods.Network
             return _stamp[frame % HistoryFrames] == frame;
         }
 
+        // A complete inactive cell differs from an absent cell. Exact first-
+        // segment validation must not silently skip an unknown competing body.
+        internal static bool TryHistoricalCollisionEligibility(int slot, uint frame,
+            out bool active, out bool halfturret, out ushort generation, out ushort life)
+        {
+            active = halfturret = false; generation = life = 0;
+            if ((uint)slot >= Slots || frame == 0 || _stamp[frame % HistoryFrames] != frame) return false;
+            int index = (int)(frame % HistoryFrames);
+            active = _inPlay[slot, index]; halfturret = _halfturretActive[slot, index];
+            generation = _generation[slot, index]; life = _life[slot, index];
+            return true;
+        }
+
         public static bool PositionAt(int slot, uint frame, ushort expectedGeneration, ushort expectedLife, out Vector3 position)
         {
             position = Vector3.Zero;
@@ -866,6 +879,23 @@ namespace MphRead.Mods.Network
         /// playout clock is reading, which is the same quantity its intent
         /// acks. A bot, or a shot with neither, gets the present.
         /// </summary>
+        // This is the actual first Process in EndShot's catch-up loop, not the
+        // requested ACK or a rounded timing histogram. Current-world fallback,
+        // clamping and incomplete first-step history cannot produce this proof.
+        internal static bool TryTimedFirstCollisionFrame(PlayerEntity shooter, out uint frame)
+        {
+            frame = 0;
+            if (!_inProgress || _shooter != shooter || _rewind <= 0
+                || _shotPolicy.CatchUpFrames(_rewind) < 1
+                || !NetFireEvents.TryTiming(shooter, out var fire) || fire.AckSubFrame != 0
+                || _shotTargetFrame != fire.AckFrame) return false;
+            uint first = unchecked(NetSession.NetFrame - (uint)(_rewind - 1));
+            if (first >= NetSession.NetFrame || first != unchecked(fire.AckFrame + 1)
+                || !HistoryAvailable(first)
+                || !NetDynamicGeometryHistory.HasHistoricalFrame(shooter.OwningScene, first)) return false;
+            frame = first; return true;
+        }
+
         internal static uint LaunchFrameFor(PlayerEntity shooter)
         {
             if (NetFireEvents.TryTiming(shooter, out var fire)) return fire.AckFrame;

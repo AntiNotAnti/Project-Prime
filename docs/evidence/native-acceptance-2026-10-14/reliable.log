@@ -1,0 +1,8 @@
+COMPACT_LOADED_IDENTITY nettest location=<candidate>/runtime/nettest.dll mvid=0151d5f2-81b8-4566-96e3-aadf793388ee
+COMPACT_LOADED_IDENTITY ProjectPrime location=<candidate>/runtime/ProjectPrime.dll mvid=5e534c23-57c6-4026-a55a-f8233293a732
+RATE_REFUSAL event=2 sequence=1 drops=1 inbox=0 receiveLatest=0 receiveBits=0 applications=0
+NO_ACK event=2 reverseWorldReadyClosed=true targetPending=1
+RECOVERY event=2 firstSequence=1 retrySequence=3 retransmissions=1 wireApplications=2 logicalAwards=1 presentationCallbacks=1 pending=0 failed=false
+PASS: actual authority rate refusal withholds ACK; automatic same-event retry and downstream once-only award close
+[net] reliable control failed for 127.0.0.1:61680; disconnecting; LobbyCommandResult: admission refused; NetReliableSnapshot { Pending = 33, HighWater = 33, Refused = 1, ReserveUses = 0, SpanRefused = 0, Retransmissions = 0, Duplicates = 0, OldestAgeMilliseconds = 10.119375005364418, Failed = True, CurrentRtoMilliseconds = 150 }
+PASS: reliability under 5% loss / 80ms jitter / 3% reorder / 1% duplicate; capacity, dedup span and expiry

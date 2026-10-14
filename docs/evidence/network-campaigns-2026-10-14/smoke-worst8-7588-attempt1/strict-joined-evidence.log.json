@@ -1,0 +1,1 @@
+{"text":"{\"status\": \"FAIL\", \"metrics\": {\"fundedOrdinaryCertificates\": 2, \"verifiedSourceCertificates\": 2, \"nativeComponents\": 2, \"fundedPayments\": 2, \"fullyJoinedPaidCases\": 2, \"nativePaidWithoutOwnerClaim\": 0, \"nativeImpactObservations\": 238, \"authorityNativePaidJoins\": 0, \"corrections\": 0, \"continuousPayments\": 42}}\n"}

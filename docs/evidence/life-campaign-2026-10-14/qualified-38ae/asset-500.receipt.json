@@ -1,0 +1,71 @@
+{
+  "startedUtc": "2026-10-14T09:25:24.766953+00:00",
+  "scope": "500 loaded production worlds/save receipts + three simultaneous worlds with actual detached replay advance; headless native assets, GL/audio/UI/media NOT_RUN",
+  "sourceBefore": {
+    "commit": "38ae3ceb54b4f2ecf7c4c620a1f0542f42096305",
+    "tree": "407a9960e49079e1611a72e46c93e2bbc7da4835",
+    "dirty": ""
+  },
+  "runtimeHashesBefore": {
+    "ProjectPrime.dll": "2238516d0eee2976c49cff8f3e2eb59b180d0bb704b50ad63561235d9272a517",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "c3c80ca0bc3f2e264f6484aa7bc5a4b5f7140ecc54aca169efaf873f6574cdae",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "actualLoadedClient": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/runtime/ProjectPrime.dll",
+    "sha256": "2238516d0eee2976c49cff8f3e2eb59b180d0bb704b50ad63561235d9272a517",
+    "mvid": "0727be91-ff32-463e-b0b8-431bcbb272e8",
+    "buildId": "local+38ae3ceb54b4f2ecf7c4c620a1f0542f42096305",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "replay": "${WORKSPACE}/work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo",
+  "replaySha256Before": "fb7c9a1761f60a94743c18db430f04b22278bb0668ee930692834307635e616f",
+  "assets": "${HOME}/Library/Application Support/Project Prime/files/AMHE1",
+  "profilePathsSha256": "b7cdea1de884e8fe293b50441506cbddaf140c1becb71d033356a51e00ccc61f",
+  "command": [
+    "${WORKSPACE}/work/dotnet/dotnet",
+    "${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/runtime/nettest.dll",
+    "--asset-lifecycle",
+    "${HOME}/Library/Application Support/Project Prime/files/AMHE1",
+    "500",
+    "${WORKSPACE}/work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo",
+    "${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/asset-smoke-500/asset-500.json"
+  ],
+  "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/asset-smoke-500/profile",
+  "environmentOverrides": {
+    "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/asset-smoke-500/profile",
+    "ALSOFT_DRIVERS": "null",
+    "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+  },
+  "pid": 46699,
+  "exit": 0,
+  "ownedSurvivors": [],
+  "sourceAfter": {
+    "commit": "38ae3ceb54b4f2ecf7c4c620a1f0542f42096305",
+    "tree": "407a9960e49079e1611a72e46c93e2bbc7da4835",
+    "dirty": ""
+  },
+  "runtimeHashesAfter": {
+    "ProjectPrime.dll": "2238516d0eee2976c49cff8f3e2eb59b180d0bb704b50ad63561235d9272a517",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "c3c80ca0bc3f2e264f6484aa7bc5a4b5f7140ecc54aca169efaf873f6574cdae",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "replaySha256After": "fb7c9a1761f60a94743c18db430f04b22278bb0668ee930692834307635e616f",
+  "finishedUtc": "2026-10-14T09:26:46.322493+00:00",
+  "logSha256": "c828348376450faf2e6ae56a2d1315fc530bb8facec61c71254805752f39af79",
+  "qualified": true,
+  "nativeFrameDenominator": 30000,
+  "status": "PASS"
+}

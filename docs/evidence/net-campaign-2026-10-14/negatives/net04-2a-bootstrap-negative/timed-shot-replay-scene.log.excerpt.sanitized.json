@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/native-2a0927b1-attempt1/timed-shot-replay-scene.log",
+    "sha256": "4bfec2352a70b869807c4678a7494abc9d79d984bada6e04ebf733a141f5ff06",
+    "bytes": 9739
+  },
+  "treatment": "Selected diagnostic/summary lines only; ordinary progress and stack frames omitted. Path strings sanitized. This excerpt is not an original raw log.",
+  "payload": {
+    "selectedLines": [
+      "TIMED REPLAY SCENE PASS actual drain has expected terminal disposition Fired: projectile spawned",
+      "TIMED REPLAY SCENE PASS actual drain has expected terminal disposition Fired: projectile spawned",
+      "TIMED REPLAY SCENE PASS actual drain has expected terminal disposition Fired: projectile spawned",
+      "TIMED REPLAY SCENE FAIL System.IO.InvalidDataException: Invalid replica checkpoint body.",
+      " ---> System.IO.InvalidDataException: Replay packet has an invalid length or state value.",
+      "   --- End of inner exception stack trace ---"
+    ],
+    "originalLineCount": 93,
+    "selectedLineCount": 6
+  }
+}

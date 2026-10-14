@@ -1,0 +1,34 @@
+NATIVERENDER pid=48247 arm=audio contextCount=0
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[load] SFX device ready in 0.34s
+[load] SFX device ready in 0.17s
+NATIVERENDER resource arm=audio cycle=1/10
+[load] SFX device ready in 0.15s
+[load] SFX device ready in 0.12s
+NATIVERENDER resource arm=audio cycle=2/10
+[load] SFX device ready in 0.12s
+[load] SFX device ready in 0.12s
+NATIVERENDER resource arm=audio cycle=3/10
+[load] SFX device ready in 0.12s
+[load] SFX device ready in 0.12s
+NATIVERENDER resource arm=audio cycle=4/10
+[load] SFX device ready in 0.12s
+[load] SFX device ready in 0.13s
+NATIVERENDER resource arm=audio cycle=5/10
+[load] SFX device ready in 0.12s
+[load] SFX device ready in 0.12s
+NATIVERENDER resource arm=audio cycle=6/10
+[load] SFX device ready in 0.12s
+[load] SFX device ready in 0.12s
+NATIVERENDER resource arm=audio cycle=7/10
+[load] SFX device ready in 0.12s
+[load] SFX device ready in 0.12s
+NATIVERENDER resource arm=audio cycle=8/10
+[load] SFX device ready in 0.12s
+[load] SFX device ready in 0.12s
+NATIVERENDER resource arm=audio cycle=9/10
+[load] SFX device ready in 0.12s
+[load] SFX device ready in 0.12s
+NATIVERENDER resource arm=audio cycle=10/10
+NATIVERENDER PASS ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/03-audio.json

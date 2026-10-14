@@ -1,0 +1,172 @@
+{
+  "schema": 1,
+  "UTC": "2026-10-14T13:10:46.559152+00:00",
+  "status": "PASS_EXACT_ORIGINAL_DERIVATIVES_AND_32_SCENE_RESULTS",
+  "sceneCount": 32,
+  "completeArtifactCount": 42,
+  "scope": "Exact source-file identity and deterministic sanitized derivative reproduction, complete logs and actual parsed EOF outcomes; no new game execution or authority acceptance.",
+  "initialValidatorNegative": {
+    "status": "FAIL_VALIDATOR_SCHEMA_COMPARISON",
+    "reason": "Initial whole-object comparison of replaysBefore and replaysAfter failed: before intentionally includes observed header/bytes fields; after intentionally contains only path/streaming SHA. Corrected comparison uses every path/SHA tuple without altering originals or metadata."
+  },
+  "packages": [
+    {
+      "package": "docs/evidence/replay-scene-2026-10-14/long8-7588-attempt1",
+      "sceneCount": 9,
+      "scenes": [
+        {
+          "frames": 72635,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 72580,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 72600,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 72616,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 72598,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 72582,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 72549,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 72551,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 72819,
+          "certificateFactsObserved": 8683
+        }
+      ]
+    },
+    {
+      "package": "docs/evidence/replay-scene-2026-10-14/smoke-lan2-7588-attempt1",
+      "sceneCount": 3,
+      "scenes": [
+        {
+          "frames": 5583,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5574,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5618,
+          "certificateFactsObserved": 59
+        }
+      ]
+    },
+    {
+      "package": "docs/evidence/replay-scene-2026-10-14/smoke-long2-7588-attempt1",
+      "sceneCount": 6,
+      "scenes": [
+        {
+          "frames": 5741,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5753,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5835,
+          "certificateFactsObserved": 51
+        },
+        {
+          "frames": 72145,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 72145,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 72251,
+          "certificateFactsObserved": 368
+        }
+      ]
+    },
+    {
+      "package": "docs/evidence/replay-scene-2026-10-14/smoke-moderate4-7588-attempt1",
+      "sceneCount": 5,
+      "scenes": [
+        {
+          "frames": 5602,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5614,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5606,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5590,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5668,
+          "certificateFactsObserved": 176
+        }
+      ]
+    },
+    {
+      "package": "docs/evidence/replay-scene-2026-10-14/smoke-worst8-7588-attempt1",
+      "sceneCount": 9,
+      "scenes": [
+        {
+          "frames": 5678,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5685,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5650,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5627,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5518,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5591,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5609,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5602,
+          "certificateFactsObserved": 0
+        },
+        {
+          "frames": 5836,
+          "certificateFactsObserved": 639
+        }
+      ]
+    }
+  ]
+}

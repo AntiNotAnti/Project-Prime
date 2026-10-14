@@ -1,0 +1,299 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/benchmark-4b4b5c45/receipt.json",
+    "sha256": "67b187c68a8200add0375984a015903adc64bc6bf21496df990d1f6ac6932af8",
+    "bytes": 17389
+  },
+  "treatment": "JSON reserialized with relative/sanitized path strings; full sourceTreeLines omitted with separate text digest. Numeric samples, SHA256, MVID, full commits, results and closure flags unchanged.",
+  "payload": {
+    "scope": "external focused archival benchmark only; native/fullfixture identity is recorded, not executed",
+    "utc_started": "2026-10-14T07:59:39.362872+00:00",
+    "args": {
+      "repo": "work/prime-net04",
+      "runtime": "work/net04-evidence/candidate-4b4b5c45/runtime",
+      "donor": "work/net21-runtime/a3-replica-order-fixed",
+      "sdk": "work/dotnet/dotnet",
+      "head": "4b4b5c451a17430fcd6fadb2fe72c56b020bd570",
+      "client_sha": "ab231b0305f05ab02a0e44e1f424e12e97dee08cca37ba09aa5293a02b044764",
+      "client_mvid": "7febc0c6-ae07-4b8f-bc17-ab8e291d2cc7",
+      "out": "work/net04-evidence/benchmark-4b4b5c45",
+      "execution_slot_released": true
+    },
+    "success": false,
+    "processes": [
+      {
+        "command": [
+          "work/dotnet/dotnet",
+          "build",
+          "work/net04-evidence/benchmark-4b4b5c45/external-entry-source/benchmark.csproj",
+          "-c",
+          "Release",
+          "-o",
+          "work/net04-evidence/benchmark-4b4b5c45/runtime",
+          "--nologo",
+          "-p:UseSharedCompilation=false",
+          "-nodeReuse:false"
+        ],
+        "cwd": "work/net04-evidence/benchmark-4b4b5c45/external-entry-source",
+        "pid": 40380,
+        "owned_pgid": 40380,
+        "returncode": 1,
+        "timeout": false,
+        "leftover_group_after_parent_exit": false,
+        "owned_group_closed": true,
+        "wall_seconds": 0.9842882500000001,
+        "children_cpu_seconds": 1.1368950000000002,
+        "log": "work/net04-evidence/benchmark-4b4b5c45/external-entry-build.log"
+      }
+    ],
+    "source_before": {
+      "head": "4b4b5c451a17430fcd6fadb2fe72c56b020bd570",
+      "tree": "9cd547a9f3f4cdcd5e87f2f6c2d6413c37e8a6c3",
+      "status_porcelain": ""
+    },
+    "qualified_binaries_before": {
+      "work/net04-evidence/candidate-4b4b5c45/runtime/ProjectPrime.dll": "ab231b0305f05ab02a0e44e1f424e12e97dee08cca37ba09aa5293a02b044764",
+      "work/net04-evidence/candidate-4b4b5c45/runtime/nettest.dll": "5cd1f48bf2676db1889ec25e077b57b1ed5c3ccba37161f48b02bb48bac37085"
+    },
+    "references": [
+      {
+        "path": "work/net04-evidence/candidate-4b4b5c45/runtime/ProjectPrime.dll",
+        "sha256": "ab231b0305f05ab02a0e44e1f424e12e97dee08cca37ba09aa5293a02b044764",
+        "role": "qualified_actual_client"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Base.dll",
+        "sha256": "39f7c973a20346b2a0c0e758b875749670a610d63863e9a85ffea22d5f320279",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Controls.dll",
+        "sha256": "909b7abd1e4b389b3372c4d1c0fcae1106f99ed783cc177fa0fa67ed1147ca24",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.DesignerSupport.dll",
+        "sha256": "ee57e6001029f66ff212f4b81024e51f3167abc9461b055f7c829ec617931a2a",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Desktop.dll",
+        "sha256": "2f3af65d2dace707ea07ad9723b4a4b849622ad9090533d44ac00ef4b0754241",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Dialogs.dll",
+        "sha256": "70aaeffbb3afcfafee5a5b1e19707e13b7ae5f293c4c157332693690e12e3598",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Fonts.Inter.dll",
+        "sha256": "332d53aa406bcecec75f498fb8c0a91eb3ac1dcddd34a0a1fbeba0b5ddf87585",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.FreeDesktop.AtSpi.dll",
+        "sha256": "217ee386cbccaece75184e2ac675dc0cfcd2fcf5a7f7bf4e689f401818c945cd",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.FreeDesktop.dll",
+        "sha256": "a0b0918cdeb2d1b34ba86a6f858d2a81180eca919e9b7c05e18f20a02a7ffd5c",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.HarfBuzz.dll",
+        "sha256": "77bbaad227444b7dbde768677b4dbfba28fec0365b9021d8f5803b23c1323eaa",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Headless.dll",
+        "sha256": "5806ec32049e9bbaae3673688c420ce8215ed84af19f1e30cb51edb5e6810200",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Markup.Xaml.dll",
+        "sha256": "1228b0a7359ebfa592408de8e20aa3b8a2775d27c36f19c1f7c8f1e9ff1e14a8",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Markup.dll",
+        "sha256": "ce634015611862dd6814355a4880c3c718782a017665445d232834615a6120cb",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Metal.dll",
+        "sha256": "d9efd4c5293f90239f2930ae688c98b2ef55925fc3de85c4a6b8422175bd78b9",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.MicroCom.dll",
+        "sha256": "63457674ab61566ea94a7a089044bb2be7d0cda1530085578109df953ef37d49",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Native.dll",
+        "sha256": "929bd4b42462a0cb9734ff49690dccf4b52a65e86892d23f2b1d60be56a1b913",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.OpenGL.dll",
+        "sha256": "365fc038f938088c913db7d067160f985a31f116961dbc527a38703c570119d3",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Remote.Protocol.dll",
+        "sha256": "080f6f41f70cfd4f98863deeb61d15d229aa7d9333e7a3eb17582efb19ed779c",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Skia.dll",
+        "sha256": "449a83a2d086a1cf255b69bc352136aa3a21b9f742bbb165ab9ba9178d28af78",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Themes.Fluent.dll",
+        "sha256": "71ff087f03da9f484f53ef1aea502eb19b015c8a6a1e8a9161b0d344053ed8ef",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Vulkan.dll",
+        "sha256": "ba98aeb0319a60c1de28b927c46fd94c75a6adc676dd160faae5bce14080e38d",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Win32.Automation.dll",
+        "sha256": "beba00c11bcfff73dd3228d7219c8d80e6a78aca4cb278a71c1122b1974633ec",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Win32.dll",
+        "sha256": "511a118f48b8d029924f3720e62658df72ee7a99c5b810f37378514ad4ea0427",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.X11.dll",
+        "sha256": "cfce1f1ba8c47a0e303bd9e37da1908d665910b3818969264a3dd06d7014bfe2",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.dll",
+        "sha256": "ac289895e7fa553ea6be420f9154c452bec6aebf64d0b344aa37827bd29d2fdb",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/CommunityToolkit.HighPerformance.dll",
+        "sha256": "196607c6d4d704b5ee95c80f8e3cd799595b7d8a08108701894c211b138d2839",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/HarfBuzzSharp.dll",
+        "sha256": "55e72ac23263f8e12484f3435e02ec22fac9eff6e6d169bb0a8c246be6b99d29",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Ktx2.NET.dll",
+        "sha256": "d7e87f619302fe22451b8d1e49feb8c98b918a095f0c6bf69992b0376dc2a90f",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/MicroCom.Runtime.dll",
+        "sha256": "2538ec6f3c24e901a90e33c37788b9a4e4b6ae8158cab7328a00a00bb28eab9e",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/MphRead.Protocol.Generator.dll",
+        "sha256": "da5c675754c258ccf1ea4cbcabb5c1ca472da8bc910f2afa3ef6f55373dcce3a",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/NcsfPlay.dll",
+        "sha256": "003a435aa8a89de856cb0660f184bf4ca1c3e9edf3af1bd5a517c9e7addbc3e1",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Audio.OpenAL.dll",
+        "sha256": "88968377988b018039adeeed92efbbe390ba836bfeaac1885ebccb9c86b0f20b",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Compute.dll",
+        "sha256": "8aa991eb9a7dfba704f562ef838162136b8dfa461ca7a234947ca8cace09f07c",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Core.dll",
+        "sha256": "00e86fd2aa3ec0a518294ac210f2377078570120dfc22889654843e5ccb9e71c",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Graphics.dll",
+        "sha256": "5b57957ca9e4c5f7bfb7ec495b991e6b88cfac52863a19e405492ab8c33cb1d2",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Input.dll",
+        "sha256": "0df16a0035a375313c1f5e0823972748b6d58bf717a08c36edd2cb1afe0f993a",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Mathematics.dll",
+        "sha256": "10172a71d9590960bf594fb397e65ee5ebb9fff5d08bd5d358ab047b0a6efff0",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Windowing.Common.dll",
+        "sha256": "2f0c74b795c664db5ca8a4d8d426efafda2fa48986ae5e2e0ee62dfaf1da660e",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Windowing.Desktop.dll",
+        "sha256": "cd759959d5924a44e5d943693ec63dd65dacbca5fe209546df1f932a0e3ae8ae",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Windowing.GraphicsLibraryFramework.dll",
+        "sha256": "b54ec149aa11635dcd09bcc2f0bd2acbd6584f67303b21065935e566d00605cb",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/ReFuel.StbImage.dll",
+        "sha256": "191b521ce25d03c73ae10b716b3e55b1a1fcca988201b50cbac9603fcee10ea3",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/SkiaSharp.dll",
+        "sha256": "aaaaa18c68ba1f3a3408b00dff28b11d5705198e17ba9d3aa59222bfd35407c8",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/SoundFlow.dll",
+        "sha256": "8e5224ef27f7cd518c22533fd3fbe745eded9da56b1ed4c2f9611dbbe92bb399",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/System.IO.Hashing.dll",
+        "sha256": "c7798d45633baaa0b0b53487d90b9b7f09d81fddfce681a7cd934cda82e7d18e",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Tmds.DBus.Protocol.dll",
+        "sha256": "60a1c5255731d8ac843cab53108be8ba1ed02759ce3db0da5b49939ebe97bd8a",
+        "role": "shared_dependency_donor"
+      }
+    ],
+    "error": "RuntimeError: External entry build failed or owned process group not closed",
+    "source_after": {
+      "head": "4b4b5c451a17430fcd6fadb2fe72c56b020bd570",
+      "tree": "9cd547a9f3f4cdcd5e87f2f6c2d6413c37e8a6c3",
+      "status_porcelain": ""
+    },
+    "qualified_binaries_after": {
+      "work/net04-evidence/candidate-4b4b5c45/runtime/ProjectPrime.dll": "ab231b0305f05ab02a0e44e1f424e12e97dee08cca37ba09aa5293a02b044764",
+      "work/net04-evidence/candidate-4b4b5c45/runtime/nettest.dll": "5cd1f48bf2676db1889ec25e077b57b1ed5c3ccba37161f48b02bb48bac37085"
+    },
+    "utc_ended": "2026-10-14T07:59:40.480186+00:00"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/native-fce73957-final/timed-shot-replay-scene.log",
+    "sha256": "314aae42896026e81a836554014e78ad9e4b68d7e53775b9501247146e926273",
+    "bytes": 13086
+  },
+  "treatment": "Selected diagnostic/summary lines only; ordinary progress and stack frames omitted. Path strings sanitized. This excerpt is not an original raw log.",
+  "payload": {
+    "selectedLines": [
+      "PASS: 118 authority-recorded timed fact fidelity assertions.",
+      "SCOPE: real accepted private drain/native terminals/first-store recorder callback/file reopen/private passive decoder/checkpoint restore/indexed file seek/archive full-file copy/range extraction with hidden lead-in. Seeded and genuine native-contact arms explicitly separated. NOT_RUN: PassiveReplayScene private world seek, Studio UI/private world clip playback, NativeBeam playback, graphics/audio, damage/payment, authenticated UDP, natural campaign."
+    ],
+    "originalLineCount": 146,
+    "selectedLineCount": 2
+  }
+}

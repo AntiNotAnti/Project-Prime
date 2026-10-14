@@ -185,6 +185,9 @@ public sealed class NetDynamicGeometryHistory
     internal static void ReconcileWorld(double frame)
     { if (ProductionEnabled) { if (_room == null) HistoryMiss++; else _room.Reconcile(frame); } }
     internal static void RestoreWorld() => _room?.Restore();
+    internal static bool HasHistoricalFrame(Scene scene, uint frame)
+        => ProductionEnabled && _room != null && _scene == scene
+            && _room._valid[frame % Depth] && _room._frames[frame % Depth] == frame;
 
     private sealed class DoorGeometry(int id, DoorEntity door) : INetRewindableGeometry
     {
@@ -241,6 +244,19 @@ public sealed class NetDynamicGeometryHistory
         using var scope = _room.Begin(frame);
         if (!scope.Applied) return false;
         closest = TraceDistance(scene, start, end);
+        return true;
+    }
+
+    // Use the native beam's exact wall/door/field winner, including its plane
+    // sidedness rules. The old distance diagnostic remains unchanged.
+    internal static bool TryNativeBeamObstacleAtFrame(Scene scene, Vector3 start, Vector3 end,
+        uint frame, out bool hit, out CollisionResult result)
+    {
+        hit = false; result = default;
+        if (_room == null || _scene != scene || frame > NetSession.NetFrame) return false;
+        using var scope = _room.Begin(frame);
+        if (!scope.Applied) return false;
+        hit = BeamProjectileEntity.TryBeamObstacle(start, end, scene, out result, out _);
         return true;
     }
 

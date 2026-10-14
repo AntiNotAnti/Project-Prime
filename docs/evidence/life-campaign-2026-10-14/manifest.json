@@ -1,0 +1,345 @@
+{
+  "schema": 1,
+  "createdUTC": "2026-10-14T09:33:31.397717+00:00",
+  "scope": "Sanitized immutable historical LIFE asset-backed and integration qualification evidence. No assets, binaries, Paths.txt contents, savedata or full source tree. Full plan remains NOT_ACCEPTED.",
+  "qualifiedSource": "38ae3ceb54b4f2ecf7c4c620a1f0542f42096305",
+  "entries": [
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/asset-smoke-10/asset-10.json",
+      "originalSHA256": "a2255a30aee379d7e3514e5f058c81c78de04732e8380525062aad9ceadf60b4",
+      "originalBytes": 34595,
+      "derivativePath": "qualified-38ae/asset-10.json",
+      "omittedTopLevelFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "d3e8bdb886bc00d755fba4e94bb50938017729ffd70eaed2d5e6c0083e087e07",
+      "derivativeSHA256": "a2255a30aee379d7e3514e5f058c81c78de04732e8380525062aad9ceadf60b4",
+      "derivativeBytes": 34595
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/asset-smoke-10/receipt.json",
+      "originalSHA256": "cc87d060814e7651dc45df9999e2cd9b6a6dbefbcf36f71713c0e199059b5985",
+      "originalBytes": 889903,
+      "derivativePath": "qualified-38ae/asset-10.receipt.json",
+      "omittedTopLevelFields": [
+        {
+          "name": "assetManifestBefore",
+          "canonicalValueSHA256": "0c64087bd90b3707e0013b2d31bfe85a35a6869717a83e924e08a1a56cac9743",
+          "canonicalValueBytes": 400788,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "entryCount": 3826
+        },
+        {
+          "name": "assetManifestAfter",
+          "canonicalValueSHA256": "0c64087bd90b3707e0013b2d31bfe85a35a6869717a83e924e08a1a56cac9743",
+          "canonicalValueBytes": 400788,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "entryCount": 3826
+        },
+        {
+          "name": "actualFixtureReceipt",
+          "canonicalValueSHA256": "733ca83f7bc868d61cda69ee5e7af2ea339d6c9b5af35e3750472f234ccd6ff3",
+          "canonicalValueBytes": 23469,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "entryCount": 18
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "9e1b9e5118cef905741e76f814fe19928216071fb1cf9f3c1eb8cbf48f188bd6",
+      "derivativeSHA256": "abdc8334573e0d0f2e2e024b7f3f95e17fd9ad224c3142db6bf73109f050274e",
+      "derivativeBytes": 4129
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/asset-smoke-100/asset-100.json",
+      "originalSHA256": "7bb5ee29b062c444d6601d9562f7b25ae0c3f2ea8434427921ba3b26e91bfa11",
+      "originalBytes": 281697,
+      "derivativePath": "qualified-38ae/asset-100.json",
+      "omittedTopLevelFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "8adc3f14afdd60859d31958d84ef29cc12ca35378d7daa2dac86e57e1d6b9ba4",
+      "derivativeSHA256": "7bb5ee29b062c444d6601d9562f7b25ae0c3f2ea8434427921ba3b26e91bfa11",
+      "derivativeBytes": 281697
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/asset-smoke-100/receipt.json",
+      "originalSHA256": "926dc9ee97149b345438abd85007f4b14da1f390e4cdf31e292a735fb955b2f8",
+      "originalBytes": 1158072,
+      "derivativePath": "qualified-38ae/asset-100.receipt.json",
+      "omittedTopLevelFields": [
+        {
+          "name": "assetManifestBefore",
+          "canonicalValueSHA256": "0c64087bd90b3707e0013b2d31bfe85a35a6869717a83e924e08a1a56cac9743",
+          "canonicalValueBytes": 400788,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "entryCount": 3826
+        },
+        {
+          "name": "assetManifestAfter",
+          "canonicalValueSHA256": "0c64087bd90b3707e0013b2d31bfe85a35a6869717a83e924e08a1a56cac9743",
+          "canonicalValueBytes": 400788,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "entryCount": 3826
+        },
+        {
+          "name": "actualFixtureReceipt",
+          "canonicalValueSHA256": "8630d5653ed3c4e7973c5c4250864e400f0095901e82aadff06088cf18e6eb17",
+          "canonicalValueBytes": 190651,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "entryCount": 18
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "45873262e82ac808e5bf97cb1f75f71651d712a0462fc168ed09e992b88eba30",
+      "derivativeSHA256": "9a5311e5e31d9de2b5d4a2b81704b54c282051f4b376a9614cdc07d95052cdd1",
+      "derivativeBytes": 4136
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/asset-smoke-500/asset-500.json",
+      "originalSHA256": "e3fbfd8a270fb4a800ab59851b13668315cff688d046ff31091ea397df2e3b45",
+      "originalBytes": 1383240,
+      "derivativePath": "qualified-38ae/asset-500.json",
+      "omittedTopLevelFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "780e94d1a5a5478c83219aa7bb136d6016b5e3c3ec4239992c52f719bdb1b4b8",
+      "derivativeSHA256": "e3fbfd8a270fb4a800ab59851b13668315cff688d046ff31091ea397df2e3b45",
+      "derivativeBytes": 1383240
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/asset-smoke-500/receipt.json",
+      "originalSHA256": "daef867ef015c9ff28223a42cc7a3ea03bfaf4eb029664caf0bc3a6bda65165d",
+      "originalBytes": 2353216,
+      "derivativePath": "qualified-38ae/asset-500.receipt.json",
+      "omittedTopLevelFields": [
+        {
+          "name": "assetManifestBefore",
+          "canonicalValueSHA256": "0c64087bd90b3707e0013b2d31bfe85a35a6869717a83e924e08a1a56cac9743",
+          "canonicalValueBytes": 400788,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "entryCount": 3826
+        },
+        {
+          "name": "assetManifestAfter",
+          "canonicalValueSHA256": "0c64087bd90b3707e0013b2d31bfe85a35a6869717a83e924e08a1a56cac9743",
+          "canonicalValueBytes": 400788,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "entryCount": 3826
+        },
+        {
+          "name": "actualFixtureReceipt",
+          "canonicalValueSHA256": "f979ef6c95c26f0d45af08b771a72055da089e812b835d8571fb95cc93d92fa2",
+          "canonicalValueBytes": 936994,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "entryCount": 18
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "7971b8754b418e366a2a762ed7415b8827ebca295ff35750c6fc6b5f85f973c1",
+      "derivativeSHA256": "4409990c23540d7cc14747b8aadb3d1e03226c22052e0106d7738e956d689d07",
+      "derivativeBytes": 4137
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/qualification-summary.json",
+      "originalSHA256": "e23fe685f7a0d5d4308ca27fc36714bf7fca1a2a9290c5a7d71d1ffdf0a16bff",
+      "originalBytes": 3812,
+      "derivativePath": "qualified-38ae/qualification-summary.json",
+      "omittedTopLevelFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "e863d29c6f366f2abd0addb5cae83d4d11f1b37978388c3fd77c82eb6d988fb7",
+      "derivativeSHA256": "7c0b5ad4bdc568abcfef6649a0b038977bb83da717b283f4ee1e9bf6f5514527",
+      "derivativeBytes": 3741
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/receipt.json",
+      "originalSHA256": "41313f609c2537964c1a1f0427a1940c218eedc8a8a166e4431aba753edcea7a",
+      "originalBytes": 257150,
+      "derivativePath": "qualified-38ae/build-identity.receipt.json",
+      "omittedTopLevelFields": [
+        {
+          "name": "sourceTreeLines",
+          "canonicalValueSHA256": "6a54cfaa5d23af337ab8dad46877a4087efa8879d20377e6381fc459aa09d510",
+          "canonicalValueBytes": 236616,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "lineCount": 2343
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "3621f76d318602250d15a7a17bacf0f970a9c1a3c9a31039dc907cc8fcb5f7fb",
+      "derivativeSHA256": "133d0c81b1ba0454d58d26cdf8b1f44e64135664033e8fc95a98d2c0d83d3059",
+      "derivativeBytes": 16508
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/extra-pure-receipt.json",
+      "originalSHA256": "081fc0fb27ebaea8863626f97ffa316e0a5821c12a3bb66b270e0cc404996871",
+      "originalBytes": 69700,
+      "derivativePath": "qualified-38ae/extra-pure.receipt.json",
+      "omittedTopLevelFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "3523e11c8180c1a997d6039e9041dd350a1a5a3b020ead5edf7986c78b2c4f7f",
+      "derivativeSHA256": "db75241bfbe80cbf29a24759c89ac073655af1c2b95d6bdc53029850a8872b7a",
+      "derivativeBytes": 54577
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/setup-closure/original-setup-receipt.json",
+      "originalSHA256": "365abad72aaefb325dbf53ea73d9b98e954693633ec8ee534ceb14319cc33f7c",
+      "originalBytes": 242669,
+      "derivativePath": "qualified-38ae/original-setup-closure-negative.json",
+      "omittedTopLevelFields": [
+        {
+          "name": "sourceTreeLines",
+          "canonicalValueSHA256": "6a54cfaa5d23af337ab8dad46877a4087efa8879d20377e6381fc459aa09d510",
+          "canonicalValueBytes": 236616,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "lineCount": 2343
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "fb98ae61d257d3988bd9c5cf028a32d71ddb09a736558bcdda70c2f92a66444d",
+      "derivativeSHA256": "ec0d6b488f7817a4ef95dc69b6408abf73bee345d7e5a4c1cabf2958fdab7b42",
+      "derivativeBytes": 5719
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/setup-closure/disposition.json",
+      "originalSHA256": "11d62d15fc96c49ced3936f124d31dcba0695b79bd2a0dd674cad54250acc938",
+      "originalBytes": 773,
+      "derivativePath": "qualified-38ae/setup-closure-disposition.json",
+      "omittedTopLevelFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "2b0cc30bf551561aa269cb4cda18530dd60da04588b95f7b4344aeb904f8958d",
+      "derivativeSHA256": "51cf466cec7effa0328b4fa04ed7e7e9579eb68774fb63f485628a43c719dcbf",
+      "derivativeBytes": 745
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/build.log",
+      "originalSHA256": "821eaf84b3c61ecee21ccab41f8b267b79dcd0a06a6f2cd7d1a8ffdb3d674b3b",
+      "originalBytes": 1646,
+      "derivativePath": "qualified-38ae/build.log",
+      "omittedTopLevelFields": [],
+      "kind": "text",
+      "derivativeSHA256": "9ff296a20396c076e2bd065039ff1ab599d97edf1f472e2b9984e288746dd409",
+      "derivativeBytes": 1078
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-b58377ab/receipt.json",
+      "originalSHA256": "6a0f04e76e8eddcbfc63da85de4e4e589c3ea265095593ea21767baae80a5373",
+      "originalBytes": 241428,
+      "derivativePath": "negatives/b583-build.receipt.json",
+      "omittedTopLevelFields": [
+        {
+          "name": "sourceTreeLines",
+          "canonicalValueSHA256": "c7e9de6124637ad19a8299985a1c7416125f9e41e6864c49e91cdd7c171c88b4",
+          "canonicalValueBytes": 236186,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "lineCount": 2339
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "75885055036cc5a1e9431a26303449119dcbbb38cf3938c83cb7ad1369560948",
+      "derivativeSHA256": "ba0acbf33d20026513c5112a4c56f512ab0b92fd8caf6e00b899744ee519fbe2",
+      "derivativeBytes": 4936
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-b58377ab/build-failure-closure.json",
+      "originalSHA256": "1ccb1c70a71edec9551ba5829700dbf56295c2256e4875f0617d58bd4d43111d",
+      "originalBytes": 256,
+      "derivativePath": "negatives/b583-build-closure.json",
+      "omittedTopLevelFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "30881fe55c9abf1300fc55b41bd7a9ecef36272b7894dc169061a0b25297c072",
+      "derivativeSHA256": "1ccb1c70a71edec9551ba5829700dbf56295c2256e4875f0617d58bd4d43111d",
+      "derivativeBytes": 256
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-b58377ab/build.log",
+      "originalSHA256": "244b8a9a3244114d9f413934819a7a2129660f1fcf84f81a106ef20821bf693e",
+      "originalBytes": 5186,
+      "derivativePath": "negatives/b583-build.log",
+      "omittedTopLevelFields": [],
+      "kind": "text",
+      "derivativeSHA256": "2c6de1caebc47c0c78a1e3e08f8f60d2c5c88b2aa242fee8cdb80b7dcd9cb207",
+      "derivativeBytes": 3553
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-ff16b44d/asset-smoke-10/asset-10.json",
+      "originalSHA256": "143afa56bfe37063de98132cc34c063514c2456626a287ea7bf849e75dda3ed6",
+      "originalBytes": 4838,
+      "derivativePath": "negatives/ff16-asset-10.json",
+      "omittedTopLevelFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "9de0693ec60f5ed475729f1aa8efa3691e03f2e9f9878cb30df98db63562a015",
+      "derivativeSHA256": "143afa56bfe37063de98132cc34c063514c2456626a287ea7bf849e75dda3ed6",
+      "derivativeBytes": 4838
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-ff16b44d/asset-smoke-10/receipt.json",
+      "originalSHA256": "40acef4604c8c209536d2cae7339fc0563f545e57f174b18140adc0302257312",
+      "originalBytes": 857562,
+      "derivativePath": "negatives/ff16-asset-10.receipt.json",
+      "omittedTopLevelFields": [
+        {
+          "name": "assetManifestBefore",
+          "canonicalValueSHA256": "0c64087bd90b3707e0013b2d31bfe85a35a6869717a83e924e08a1a56cac9743",
+          "canonicalValueBytes": 400788,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "entryCount": 3826
+        },
+        {
+          "name": "assetManifestAfter",
+          "canonicalValueSHA256": "0c64087bd90b3707e0013b2d31bfe85a35a6869717a83e924e08a1a56cac9743",
+          "canonicalValueBytes": 400788,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "entryCount": 3826
+        },
+        {
+          "name": "actualFixtureReceipt",
+          "canonicalValueSHA256": "f6e460f3ece1f7f54c0816d74b4456ce4fb6ed5228faf7c4360e96e0ce06422b",
+          "canonicalValueBytes": 3393,
+          "scope": "Bulk provenance or duplicate full result; not shipped. Original whole-file SHA binds source.",
+          "entryCount": 18
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "5a4361c55da2ec0a6f3b889cc5e0db6f450248466de0df813171a95c11a928e5",
+      "derivativeSHA256": "129e625213cf3c69068531fa1615df5004ca0584a5389c0d7907d33a3493eb80",
+      "derivativeBytes": 4097
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-ff16b44d/asset-smoke-10/asset-10.log",
+      "originalSHA256": "2e8b3236fce0f0712ca9ef034ce5ef5fdb71c70127470f0c0fc37d4dc8f3b7e9",
+      "originalBytes": 1459,
+      "derivativePath": "negatives/ff16-asset-10.log",
+      "omittedTopLevelFields": [],
+      "kind": "text",
+      "derivativeSHA256": "2ab7588f4d5f8491cc9615a4f6ea051ad78b6ebf0a5bdf338828526ae200e5b2",
+      "derivativeBytes": 1104
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/asset-smoke-10/asset-10.log",
+      "originalSHA256": "3c91fc6ad50b42ef66c843430e9cc51f533de6874a3623441b31a919d31da6cb",
+      "originalBytes": 800,
+      "derivativePath": "qualified-38ae/asset-10.log",
+      "kind": "text",
+      "omittedTopLevelFields": [],
+      "derivativeSHA256": "73ebd6a40b3ba8ed5c87a084ded679700710c0f593ba0603813c4fc349cda90b",
+      "derivativeBytes": 658
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/asset-smoke-100/asset-100.log",
+      "originalSHA256": "a3b2adfe2ef209e3e5848aba1aef4697e0df4d5e8c7c15e6c1b1708164dae190",
+      "originalBytes": 1274,
+      "derivativePath": "qualified-38ae/asset-100.log",
+      "kind": "text",
+      "omittedTopLevelFields": [],
+      "derivativeSHA256": "535ab9a39fc93b9c9110cdb0a9f2cb0f8896c3c08eb3b34166e31e84c5aff3a3",
+      "derivativeBytes": 1132
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-38ae3ceb/asset-smoke-500/asset-500.log",
+      "originalSHA256": "c828348376450faf2e6ae56a2d1315fc530bb8facec61c71254805752f39af79",
+      "originalBytes": 3469,
+      "derivativePath": "qualified-38ae/asset-500.log",
+      "kind": "text",
+      "omittedTopLevelFields": [],
+      "derivativeSHA256": "ad34c05596deefb3d3c0afe5099727373e9d19b6032c1cc1e64f2e0f81ab8aae",
+      "derivativeBytes": 3327
+    }
+  ]
+}

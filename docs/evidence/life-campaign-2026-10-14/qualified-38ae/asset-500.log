@@ -1,0 +1,55 @@
+COMPACT_LOADED_IDENTITY nettest location=${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/runtime/nettest.dll mvid=30f70f4a-2b20-4c0f-a7ff-cd0238bfc4ab
+COMPACT_LOADED_IDENTITY ProjectPrime location=${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/runtime/ProjectPrime.dll mvid=0727be91-ff32-463e-b0b8-431bcbb272e8
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+ASSET LIFE loads=10/500 steps=600 realSaveFiles=10
+ASSET LIFE loads=20/500 steps=1200 realSaveFiles=20
+ASSET LIFE loads=30/500 steps=1800 realSaveFiles=30
+ASSET LIFE loads=40/500 steps=2400 realSaveFiles=40
+ASSET LIFE loads=50/500 steps=3000 realSaveFiles=50
+ASSET LIFE loads=60/500 steps=3600 realSaveFiles=60
+ASSET LIFE loads=70/500 steps=4200 realSaveFiles=70
+ASSET LIFE loads=80/500 steps=4800 realSaveFiles=80
+ASSET LIFE loads=90/500 steps=5400 realSaveFiles=90
+ASSET LIFE loads=100/500 steps=6000 realSaveFiles=100
+ASSET LIFE loads=110/500 steps=6600 realSaveFiles=110
+ASSET LIFE loads=120/500 steps=7200 realSaveFiles=120
+ASSET LIFE loads=130/500 steps=7800 realSaveFiles=130
+ASSET LIFE loads=140/500 steps=8400 realSaveFiles=140
+ASSET LIFE loads=150/500 steps=9000 realSaveFiles=150
+ASSET LIFE loads=160/500 steps=9600 realSaveFiles=160
+ASSET LIFE loads=170/500 steps=10200 realSaveFiles=170
+ASSET LIFE loads=180/500 steps=10800 realSaveFiles=180
+ASSET LIFE loads=190/500 steps=11400 realSaveFiles=190
+ASSET LIFE loads=200/500 steps=12000 realSaveFiles=200
+ASSET LIFE loads=210/500 steps=12600 realSaveFiles=210
+ASSET LIFE loads=220/500 steps=13200 realSaveFiles=220
+ASSET LIFE loads=230/500 steps=13800 realSaveFiles=230
+ASSET LIFE loads=240/500 steps=14400 realSaveFiles=240
+ASSET LIFE loads=250/500 steps=15000 realSaveFiles=250
+ASSET LIFE loads=260/500 steps=15600 realSaveFiles=260
+ASSET LIFE loads=270/500 steps=16200 realSaveFiles=270
+ASSET LIFE loads=280/500 steps=16800 realSaveFiles=280
+ASSET LIFE loads=290/500 steps=17400 realSaveFiles=290
+ASSET LIFE loads=300/500 steps=18000 realSaveFiles=300
+ASSET LIFE loads=310/500 steps=18600 realSaveFiles=310
+ASSET LIFE loads=320/500 steps=19200 realSaveFiles=320
+ASSET LIFE loads=330/500 steps=19800 realSaveFiles=330
+ASSET LIFE loads=340/500 steps=20400 realSaveFiles=340
+ASSET LIFE loads=350/500 steps=21000 realSaveFiles=350
+ASSET LIFE loads=360/500 steps=21600 realSaveFiles=360
+ASSET LIFE loads=370/500 steps=22200 realSaveFiles=370
+ASSET LIFE loads=380/500 steps=22800 realSaveFiles=380
+ASSET LIFE loads=390/500 steps=23400 realSaveFiles=390
+ASSET LIFE loads=400/500 steps=24000 realSaveFiles=400
+ASSET LIFE loads=410/500 steps=24600 realSaveFiles=410
+ASSET LIFE loads=420/500 steps=25200 realSaveFiles=420
+ASSET LIFE loads=430/500 steps=25800 realSaveFiles=430
+ASSET LIFE loads=440/500 steps=26400 realSaveFiles=440
+ASSET LIFE loads=450/500 steps=27000 realSaveFiles=450
+ASSET LIFE loads=460/500 steps=27600 realSaveFiles=460
+ASSET LIFE loads=470/500 steps=28200 realSaveFiles=470
+ASSET LIFE loads=480/500 steps=28800 realSaveFiles=480
+ASSET LIFE loads=490/500 steps=29400 realSaveFiles=490
+ASSET LIFE loads=500/500 steps=30000 realSaveFiles=500
+ASSET LIFE PASS loads=500 rooms=2 hunters=7 steps=30000 saves=500 liveWorlds=0 simultaneousWorlds=3

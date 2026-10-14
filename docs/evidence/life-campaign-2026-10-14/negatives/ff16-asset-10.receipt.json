@@ -1,0 +1,70 @@
+{
+  "startedUtc": "2026-10-14T09:18:36.007512+00:00",
+  "scope": "10 loaded production worlds/save receipts + three simultaneous worlds with actual detached replay advance; headless native assets, GL/audio/UI/media NOT_RUN",
+  "sourceBefore": {
+    "commit": "ff16b44dd69af696d127fdfd7afa03a1162e5716",
+    "tree": "0389fc012c8bd4f2ac9dfab6be5fa45afea0372a",
+    "dirty": ""
+  },
+  "runtimeHashesBefore": {
+    "ProjectPrime.dll": "641acf17e7d839736af958a0ed330f3e4b6e26b376eda3f2c7dcf9866c2c0452",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "0828e8df141cd865dc741ea21021e0541948f6b06db8b9237fbae2c805d42f2c",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "actualLoadedClient": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-ff16b44d/runtime/ProjectPrime.dll",
+    "sha256": "641acf17e7d839736af958a0ed330f3e4b6e26b376eda3f2c7dcf9866c2c0452",
+    "mvid": "7e29de91-67e2-4d4d-8817-6434b99dc3be",
+    "buildId": "local+ff16b44dd69af696d127fdfd7afa03a1162e5716",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "replay": "${WORKSPACE}/work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo",
+  "replaySha256Before": "fb7c9a1761f60a94743c18db430f04b22278bb0668ee930692834307635e616f",
+  "assets": "${HOME}/Library/Application Support/Project Prime/files/AMHE1",
+  "profilePathsSha256": "d4d25dd7a09679be89c3859e652a9fd1e00e2c8b1397b46c5b4a4e7b9efa56ae",
+  "command": [
+    "${WORKSPACE}/work/dotnet/dotnet",
+    "${WORKSPACE}/work/plan-completion-evidence/candidate-ff16b44d/runtime/nettest.dll",
+    "--asset-lifecycle",
+    "${HOME}/Library/Application Support/Project Prime/files/AMHE1",
+    "10",
+    "${WORKSPACE}/work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo",
+    "${WORKSPACE}/work/plan-completion-evidence/candidate-ff16b44d/asset-smoke-10/asset-10.json"
+  ],
+  "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-ff16b44d/asset-smoke-10/profile",
+  "environmentOverrides": {
+    "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-ff16b44d/asset-smoke-10/profile",
+    "ALSOFT_DRIVERS": "null",
+    "DOTNET_STARTUP_HOOKS": "${WORKSPACE}/work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+  },
+  "pid": 46022,
+  "exit": 1,
+  "ownedSurvivors": [],
+  "sourceAfter": {
+    "commit": "ff16b44dd69af696d127fdfd7afa03a1162e5716",
+    "tree": "0389fc012c8bd4f2ac9dfab6be5fa45afea0372a",
+    "dirty": ""
+  },
+  "runtimeHashesAfter": {
+    "ProjectPrime.dll": "641acf17e7d839736af958a0ed330f3e4b6e26b376eda3f2c7dcf9866c2c0452",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "0828e8df141cd865dc741ea21021e0541948f6b06db8b9237fbae2c805d42f2c",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "replaySha256After": "fb7c9a1761f60a94743c18db430f04b22278bb0668ee930692834307635e616f",
+  "finishedUtc": "2026-10-14T09:18:38.363724+00:00",
+  "logSha256": "2e8b3236fce0f0712ca9ef034ce5ef5fdb71c70127470f0c0fc37d4dc8f3b7e9",
+  "qualified": false,
+  "status": "FAIL"
+}

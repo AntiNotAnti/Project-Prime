@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "sourceBefore": {
+    "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+    "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+    "dirty": ""
+  },
+  "startedUtc": "2026-10-14T10:58:02.185150+00:00",
+  "scope": "Fresh merged-main integration build and focused source/claim/replay checks; no native/performance campaign repetition",
+  "merges": [
+    {
+      "headRefOid": "c5d2b1136f4104a4b38abb3824c9a4617c002e36",
+      "mergeCommit": {
+        "oid": "b24f8dccebf18c23954816de3bc753856b3cdf6f"
+      },
+      "mergedAt": "2026-10-14T04:10:10Z",
+      "number": 472,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/472"
+    },
+    {
+      "headRefOid": "e8a8f58abe78293cd07f947981fd52de868783e2",
+      "mergeCommit": {
+        "oid": "b768c9bea10da3201960a2519effbdc260f14026"
+      },
+      "mergedAt": "2026-10-14T04:10:54Z",
+      "number": 473,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/473"
+    },
+    {
+      "headRefOid": "ec788c0bb2cd819ac29504279dd9ba16cd1363ec",
+      "mergeCommit": {
+        "oid": "f85def5bb8ab17a208717d9ad9990381ab142db2"
+      },
+      "mergedAt": "2026-10-14T04:11:06Z",
+      "number": 474,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/474"
+    }
+  ],
+  "steps": [
+    {
+      "name": "build",
+      "command": [
+        "<workspace>/work/dotnet/dotnet",
+        "build",
+        "tools/nettest/nettest.csproj",
+        "-c",
+        "Release",
+        "-o",
+        "<candidate>/runtime",
+        "-m:1",
+        "-p:UseSharedCompilation=false",
+        "-p:CopyLocalLockFileAssemblies=false",
+        "-nodeReuse:false"
+      ],
+      "cwd": "<workspace>/work/prime-plan-qualified-source",
+      "startedUtc": "2026-10-14T10:58:03.799049+00:00",
+      "pid": 52449,
+      "exit": 0,
+      "closureProbe": {
+        "closed": false,
+        "waitSeconds": 5.021478625,
+        "observations": [
+          {
+            "utc": "2026-10-14T10:58:49.510253+00:00",
+            "members": [
+              "52475     1 52449 S    dotnet exec --runtimeconfig <user-home>/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json <user-home>/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          },
+          {
+            "utc": "2026-10-14T10:58:50.362899+00:00",
+            "members": [
+              "52475     1 52449 R    dotnet exec --runtimeconfig <user-home>/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json <user-home>/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          },
+          {
+            "utc": "2026-10-14T10:58:50.446749+00:00",
+            "members": [
+              "52475     1 52449 S    dotnet exec --runtimeconfig <user-home>/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json <user-home>/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          }
+        ]
+      },
+      "finishedUtc": "2026-10-14T10:58:54.503405+00:00",
+      "logSha256": "358c7f560ac7aa411eb12a1410ce5e0d6fc62c2e7ab5d0d0f9508beb29dfb056",
+      "ownedProcessGroupClosed": false
+    }
+  ],
+  "runnerSha256": "c8397ce1654c59c014c63e48c7afe9aee2201431a40c2cbcfbcd6f4a5b390d89",
+  "donorSixBefore": {
+    "ProjectPrime.dll": "9e4cdb80cda4ad70c84145d6425eccd744e975ef8d64af575cc0d3013b9b62dc",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "88ba69a3869e19dda13ad9f21334e245437c85bb91426da9b2f5d5080965c082",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "sourceConstants": {
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10
+  },
+  "sourceTreeLines": {
+    "omittedBulk": true,
+    "canonicalSha256": "5a0fd14d544589cf3ff5c1628043f20d6918671a18dfa681c223ca6f9e0a6427",
+    "entries": 2518
+  }
+}

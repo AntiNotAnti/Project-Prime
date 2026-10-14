@@ -1,0 +1,352 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net03-evidence/classifier-ad65-benchmark1/receipt.json",
+    "sha256": "30760f201d68c149105dae60185771e1c351cc91d551dbeb53c379f60330b8c8",
+    "bytes": 20748
+  },
+  "treatment": "JSON reserialized with relative/sanitized path strings; full sourceTreeLines omitted with separate text digest. Numeric samples, SHA256, MVID, full commits, results and closure flags unchanged.",
+  "payload": {
+    "scope": "external frozen NET03 classifier and NativeValue DTO benchmark only; native/fullfixture identity is recorded, not executed",
+    "utc_started": "2026-10-14T08:31:57.340865+00:00",
+    "args": {
+      "repo": "work/prime-net03",
+      "runtime": "work/net03-evidence/candidate-ad65dcd3/runtime",
+      "donor": "work/net21-runtime/a3-replica-order-fixed",
+      "sdk": "work/dotnet/dotnet",
+      "head": "a9cc5ce8852f446e833c916676226d44c2d81325",
+      "classifier_revision": "ad65dcd39099764114b2b4d7f1147288987312e0",
+      "client_sha": "6c98d47c58d0645b0f9174e7fcc47d39dcd79e85c868e759471edf5761c3e018",
+      "client_mvid": "15183df3-7bd6-4d82-a30a-0cc6cd2eb02e",
+      "out": "work/net03-evidence/classifier-ad65-benchmark1",
+      "execution_slot_released": true
+    },
+    "success": true,
+    "processes": [
+      {
+        "command": [
+          "work/dotnet/dotnet",
+          "build",
+          "work/net03-evidence/classifier-ad65-benchmark1/external-entry-source/benchmark.csproj",
+          "-c",
+          "Release",
+          "-o",
+          "work/net03-evidence/classifier-ad65-benchmark1/runtime",
+          "--nologo",
+          "-p:UseSharedCompilation=false",
+          "-nodeReuse:false"
+        ],
+        "cwd": "work/net03-evidence/classifier-ad65-benchmark1/external-entry-source",
+        "pid": 42066,
+        "owned_pgid": 42066,
+        "returncode": 0,
+        "timeout": false,
+        "leftover_group_after_parent_exit": false,
+        "owned_group_closed": true,
+        "wall_seconds": 1.046481375,
+        "children_cpu_seconds": 1.2146130000000002,
+        "log": "work/net03-evidence/classifier-ad65-benchmark1/external-entry-build.log"
+      },
+      {
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net03-evidence/classifier-ad65-benchmark1/runtime/nettest.dll",
+          "work/net03-evidence/classifier-ad65-benchmark1/results.json",
+          "6c98d47c58d0645b0f9174e7fcc47d39dcd79e85c868e759471edf5761c3e018",
+          "15183df3-7bd6-4d82-a30a-0cc6cd2eb02e",
+          "work/net03-evidence/candidate-ad65dcd3/runtime/nettest.dll"
+        ],
+        "cwd": "work/net03-evidence/classifier-ad65-benchmark1/runtime",
+        "pid": 42073,
+        "owned_pgid": 42073,
+        "returncode": 0,
+        "timeout": false,
+        "leftover_group_after_parent_exit": false,
+        "owned_group_closed": true,
+        "wall_seconds": 0.8429704169999999,
+        "children_cpu_seconds": 0.8593929999999999,
+        "log": "work/net03-evidence/classifier-ad65-benchmark1/benchmark-raw.log"
+      }
+    ],
+    "source_before": {
+      "head": "a9cc5ce8852f446e833c916676226d44c2d81325",
+      "tree": "5d0a7c7f7c71faa33fac2e16e9391da235722ad7",
+      "status_porcelain": ""
+    },
+    "classifier_source": {
+      "path": "src/MphRead/Mods/Network/NetTimedSourceCapabilities.cs",
+      "frozen_revision": "ad65dcd39099764114b2b4d7f1147288987312e0",
+      "frozen_sha256": "8538b12727be8b3cf481f9b3095d42bf1a69c965ee1475d48025b6becdff4eca",
+      "current_sha256_before": "8538b12727be8b3cf481f9b3095d42bf1a69c965ee1475d48025b6becdff4eca",
+      "current_sha256_after": "8538b12727be8b3cf481f9b3095d42bf1a69c965ee1475d48025b6becdff4eca"
+    },
+    "qualified_binaries_before": {
+      "work/net03-evidence/candidate-ad65dcd3/runtime/ProjectPrime.dll": "6c98d47c58d0645b0f9174e7fcc47d39dcd79e85c868e759471edf5761c3e018",
+      "work/net03-evidence/candidate-ad65dcd3/runtime/nettest.dll": "c4e5a763aeedb5a92ffe77a1eefa2b30b1ae0821c767797165026d9b297a7890"
+    },
+    "references": [
+      {
+        "path": "work/net03-evidence/candidate-ad65dcd3/runtime/ProjectPrime.dll",
+        "sha256": "6c98d47c58d0645b0f9174e7fcc47d39dcd79e85c868e759471edf5761c3e018",
+        "role": "qualified_actual_client"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Base.dll",
+        "sha256": "39f7c973a20346b2a0c0e758b875749670a610d63863e9a85ffea22d5f320279",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Controls.dll",
+        "sha256": "909b7abd1e4b389b3372c4d1c0fcae1106f99ed783cc177fa0fa67ed1147ca24",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.DesignerSupport.dll",
+        "sha256": "ee57e6001029f66ff212f4b81024e51f3167abc9461b055f7c829ec617931a2a",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Desktop.dll",
+        "sha256": "2f3af65d2dace707ea07ad9723b4a4b849622ad9090533d44ac00ef4b0754241",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Dialogs.dll",
+        "sha256": "70aaeffbb3afcfafee5a5b1e19707e13b7ae5f293c4c157332693690e12e3598",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Fonts.Inter.dll",
+        "sha256": "332d53aa406bcecec75f498fb8c0a91eb3ac1dcddd34a0a1fbeba0b5ddf87585",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.FreeDesktop.AtSpi.dll",
+        "sha256": "217ee386cbccaece75184e2ac675dc0cfcd2fcf5a7f7bf4e689f401818c945cd",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.FreeDesktop.dll",
+        "sha256": "a0b0918cdeb2d1b34ba86a6f858d2a81180eca919e9b7c05e18f20a02a7ffd5c",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.HarfBuzz.dll",
+        "sha256": "77bbaad227444b7dbde768677b4dbfba28fec0365b9021d8f5803b23c1323eaa",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Headless.dll",
+        "sha256": "5806ec32049e9bbaae3673688c420ce8215ed84af19f1e30cb51edb5e6810200",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Markup.Xaml.dll",
+        "sha256": "1228b0a7359ebfa592408de8e20aa3b8a2775d27c36f19c1f7c8f1e9ff1e14a8",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Markup.dll",
+        "sha256": "ce634015611862dd6814355a4880c3c718782a017665445d232834615a6120cb",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Metal.dll",
+        "sha256": "d9efd4c5293f90239f2930ae688c98b2ef55925fc3de85c4a6b8422175bd78b9",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.MicroCom.dll",
+        "sha256": "63457674ab61566ea94a7a089044bb2be7d0cda1530085578109df953ef37d49",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Native.dll",
+        "sha256": "929bd4b42462a0cb9734ff49690dccf4b52a65e86892d23f2b1d60be56a1b913",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.OpenGL.dll",
+        "sha256": "365fc038f938088c913db7d067160f985a31f116961dbc527a38703c570119d3",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Remote.Protocol.dll",
+        "sha256": "080f6f41f70cfd4f98863deeb61d15d229aa7d9333e7a3eb17582efb19ed779c",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Skia.dll",
+        "sha256": "449a83a2d086a1cf255b69bc352136aa3a21b9f742bbb165ab9ba9178d28af78",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Themes.Fluent.dll",
+        "sha256": "71ff087f03da9f484f53ef1aea502eb19b015c8a6a1e8a9161b0d344053ed8ef",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Vulkan.dll",
+        "sha256": "ba98aeb0319a60c1de28b927c46fd94c75a6adc676dd160faae5bce14080e38d",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Win32.Automation.dll",
+        "sha256": "beba00c11bcfff73dd3228d7219c8d80e6a78aca4cb278a71c1122b1974633ec",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.Win32.dll",
+        "sha256": "511a118f48b8d029924f3720e62658df72ee7a99c5b810f37378514ad4ea0427",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.X11.dll",
+        "sha256": "cfce1f1ba8c47a0e303bd9e37da1908d665910b3818969264a3dd06d7014bfe2",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Avalonia.dll",
+        "sha256": "ac289895e7fa553ea6be420f9154c452bec6aebf64d0b344aa37827bd29d2fdb",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/CommunityToolkit.HighPerformance.dll",
+        "sha256": "196607c6d4d704b5ee95c80f8e3cd799595b7d8a08108701894c211b138d2839",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/HarfBuzzSharp.dll",
+        "sha256": "55e72ac23263f8e12484f3435e02ec22fac9eff6e6d169bb0a8c246be6b99d29",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Ktx2.NET.dll",
+        "sha256": "d7e87f619302fe22451b8d1e49feb8c98b918a095f0c6bf69992b0376dc2a90f",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/MicroCom.Runtime.dll",
+        "sha256": "2538ec6f3c24e901a90e33c37788b9a4e4b6ae8158cab7328a00a00bb28eab9e",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/MphRead.Protocol.Generator.dll",
+        "sha256": "da5c675754c258ccf1ea4cbcabb5c1ca472da8bc910f2afa3ef6f55373dcce3a",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/NcsfPlay.dll",
+        "sha256": "003a435aa8a89de856cb0660f184bf4ca1c3e9edf3af1bd5a517c9e7addbc3e1",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Audio.OpenAL.dll",
+        "sha256": "88968377988b018039adeeed92efbbe390ba836bfeaac1885ebccb9c86b0f20b",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Compute.dll",
+        "sha256": "8aa991eb9a7dfba704f562ef838162136b8dfa461ca7a234947ca8cace09f07c",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Core.dll",
+        "sha256": "00e86fd2aa3ec0a518294ac210f2377078570120dfc22889654843e5ccb9e71c",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Graphics.dll",
+        "sha256": "5b57957ca9e4c5f7bfb7ec495b991e6b88cfac52863a19e405492ab8c33cb1d2",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Input.dll",
+        "sha256": "0df16a0035a375313c1f5e0823972748b6d58bf717a08c36edd2cb1afe0f993a",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Mathematics.dll",
+        "sha256": "10172a71d9590960bf594fb397e65ee5ebb9fff5d08bd5d358ab047b0a6efff0",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Windowing.Common.dll",
+        "sha256": "2f0c74b795c664db5ca8a4d8d426efafda2fa48986ae5e2e0ee62dfaf1da660e",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Windowing.Desktop.dll",
+        "sha256": "cd759959d5924a44e5d943693ec63dd65dacbca5fe209546df1f932a0e3ae8ae",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/OpenTK.Windowing.GraphicsLibraryFramework.dll",
+        "sha256": "b54ec149aa11635dcd09bcc2f0bd2acbd6584f67303b21065935e566d00605cb",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/ReFuel.StbImage.dll",
+        "sha256": "191b521ce25d03c73ae10b716b3e55b1a1fcca988201b50cbac9603fcee10ea3",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/SkiaSharp.dll",
+        "sha256": "aaaaa18c68ba1f3a3408b00dff28b11d5705198e17ba9d3aa59222bfd35407c8",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/SoundFlow.dll",
+        "sha256": "8e5224ef27f7cd518c22533fd3fbe745eded9da56b1ed4c2f9611dbbe92bb399",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/System.IO.Hashing.dll",
+        "sha256": "c7798d45633baaa0b0b53487d90b9b7f09d81fddfce681a7cd934cda82e7d18e",
+        "role": "shared_dependency_donor"
+      },
+      {
+        "path": "work/net21-runtime/a3-replica-order-fixed/Tmds.DBus.Protocol.dll",
+        "sha256": "60a1c5255731d8ac843cab53108be8ba1ed02759ce3db0da5b49939ebe97bd8a",
+        "role": "shared_dependency_donor"
+      }
+    ],
+    "thin_entry_source_sha256": "7023ae9accad90a09e328b440803aa19e15960d97b4117d0164f30ab5ce91f60",
+    "thin_entry_sha256": "8d60c724df580fb477a1e83c6090c5c71df01cca53db67d3e5016c0ea83362ba",
+    "actual_client_runtime_sha256": "6c98d47c58d0645b0f9174e7fcc47d39dcd79e85c868e759471edf5761c3e018",
+    "identities": {
+      "QualifiedActualClient": {
+        "Path": "work/net03-evidence/classifier-ad65-benchmark1/runtime/ProjectPrime.dll",
+        "Name": "ProjectPrime",
+        "Sha256": "6c98d47c58d0645b0f9174e7fcc47d39dcd79e85c868e759471edf5761c3e018",
+        "Mvid": "15183df3-7bd6-4d82-a30a-0cc6cd2eb02e"
+      },
+      "ThinBenchmarkEntry": {
+        "Path": "work/net03-evidence/classifier-ad65-benchmark1/runtime/nettest.dll",
+        "Name": "nettest",
+        "Sha256": "8d60c724df580fb477a1e83c6090c5c71df01cca53db67d3e5016c0ea83362ba",
+        "Mvid": "cfea5e67-d212-46f1-bb57-b34181fa8384"
+      },
+      "FullNativeFixtureIdentityOnly": {
+        "Path": "work/net03-evidence/candidate-ad65dcd3/runtime/nettest.dll",
+        "Name": "nettest",
+        "Sha256": "c4e5a763aeedb5a92ffe77a1eefa2b30b1ae0821c767797165026d9b297a7890",
+        "Mvid": "b9904d7e-6ae1-4d74-9d73-123d70d66320"
+      }
+    },
+    "source_after": {
+      "head": "a9cc5ce8852f446e833c916676226d44c2d81325",
+      "tree": "5d0a7c7f7c71faa33fac2e16e9391da235722ad7",
+      "status_porcelain": ""
+    },
+    "qualified_binaries_after": {
+      "work/net03-evidence/candidate-ad65dcd3/runtime/ProjectPrime.dll": "6c98d47c58d0645b0f9174e7fcc47d39dcd79e85c868e759471edf5761c3e018",
+      "work/net03-evidence/candidate-ad65dcd3/runtime/nettest.dll": "c4e5a763aeedb5a92ffe77a1eefa2b30b1ae0821c767797165026d9b297a7890"
+    },
+    "source_clean_stable": true,
+    "classifier_source_unchanged": true,
+    "qualified_binaries_unchanged": true,
+    "utc_ended": "2026-10-14T08:31:59.401610+00:00"
+  }
+}

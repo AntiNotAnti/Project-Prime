@@ -430,3 +430,22 @@ Native capture acknowledgements hold `minimal-NNN-before-workload`, `after-workl
 `--minimal-gl-fail-at` supports `vertex-allocated`, `fragment-allocated`, `vertex-compiled`, `fragment-compiled`, `program-allocated`, `attached`, `linked`, `bound`, and `drawn`. Injected native failures intentionally produce unsuccessful receipts with completed rollback observations. Bind/draw stages require a drawing mode.
 
 Desktop map/source accounting also now observes existing opt-in thread-local callbacks in canonical scene/world variants, GraphicsPipeline, PlayerOutlines, launcher photo, launcher/thumbnail diagnostics, and desktop GraphicsApi wrappers (including OpenGlVisualCheck). Normal startup leaves callbacks null. Facade CompileShader/LinkProgram events count actual attempts and immediate status exactly once; owner hooks are source attribution only. Current sources are hashed at each compile, including repeated compilation and reused names. `--shader-source-ledger-selftest` verifies nested facade/owner hooks, source reassignment, recompilation/relinking, reused names, generic routes and disabled no-query behavior. Compile/link attempt counts are distinct from immediate GL success/failure status counts; incomplete status coverage is UNVERIFIED. Launcher/preview/diagnostic paths require separate positive workloads and are NOT_RUN when a map campaign does not execute them. GLES and third-party native UI shader creation are outside this ledger's scope. GL-name counts do not equal compilation attempts or native allocation groups.
+
+
+## Project Prime Next GL comparison controls
+
+`gl_comparison.py` verifies the committed path-sanitized historical GL-02 derivative receipts and
+recomputes per-run arrays/medians. Integrity PASS retains the measured performance
+REJECTED/default-off decision. Its native `run` defaults to a dry schedule;
+`--execute` is explicit. `--kind regression` performs only one same-binary
+PALETTE_PREP OFF/ON eight-player High capture pair with exact decoded RGBA and
+float32 depth comparison plus owned-name retirement. Timing, broader captures
+and profiles use separate kinds and fresh output directories. The required
+expected loaded MVID, physical harness/client files, before/after hashes and
+isolated asset-only settings prevent the earlier wrong-target launch problem.
+
+See [GL completion evidence and native recipes](../../docs/engineering-next/gl-completion.md).
+Unsupported Windows/Linux/GLES/device gates remain NOT_RUN; historical M4 Pro
+receipts do not certify a newly built integration binary.
+
+`sanitize_gl_evidence.py verify` checks derivative hashes/lengths and numeric projections. With `--original-root`, it also checks the external originals against their SHA256/lengths; neither mode depends on private host paths embedded in command labels.

@@ -1,0 +1,16 @@
+{
+  "group": 46369,
+  "observedUtc": "2026-10-14T09:24:13.338811+00:00",
+  "before": [
+    "46420     1 46369 S    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+  ],
+  "signals": [
+    {
+      "pid": 46420,
+      "identity": "46420     1 46369 S    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll",
+      "signal": "SIGTERM"
+    }
+  ],
+  "after": [],
+  "closed": true
+}

@@ -1,0 +1,6 @@
+COMPACT_LOADED_IDENTITY ProjectPrime location=<candidate>/runtime/ProjectPrime.dll mvid=5e534c23-57c6-4026-a55a-f8233293a732
+[replay] Recording interrupted; recover completed chunks from its .part file. Replay storage queue is full or closed.
+[replay] Recording interrupted; recover completed chunks from its .part file. Replay storage queue exceeded its byte budget.
+[net] server map: MP1 SANCTORUS (Battle, 300 s left)
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[replayformat] PASS 3041 checks (v2/v3/v4, order, metadata, CRC, recovery, extraction, malformed files)

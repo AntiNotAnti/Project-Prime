@@ -1,0 +1,158 @@
+{
+  "schema": 2,
+  "source": {
+    "sha": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "status": "",
+    "diffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "host": {
+    "os": "macOS-27.0-arm64-arm-64bit",
+    "architecture": "arm64",
+    "macOsBuild": {
+      "command": [
+        "sw_vers"
+      ],
+      "exitCode": 0,
+      "output": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0\nBuildVersion:\t\t26A428",
+      "error": null
+    },
+    "dotnet": {
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "--info"
+      ],
+      "exitCode": 0,
+      "output": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     Mac OS X\n OS Version:  27.0\n OS Platform: Darwin\n RID:         osx-arm64\n Base Path:   ${WORKSPACE}/work/dotnet/sdk/10.0.401/\n\n.NET workloads installed:\nThere are no installed workloads to display.\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: arm64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.401 [${WORKSPACE}/work/dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [${WORKSPACE}/work/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [${WORKSPACE}/work/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  Not set\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+      "error": null
+    },
+    "gpuIdentitySource": "Per-context GL vendor/renderer/version; driver build is macOS build.",
+    "otherProjectPrimeProcesses": {
+      "command": [
+        "pgrep",
+        "-x",
+        "ProjectPrime"
+      ],
+      "exitCode": 1,
+      "output": null,
+      "error": null
+    }
+  },
+  "identities": {
+    "nettest": "733c26053828d9725c1fee695ae86ef5ed4c25a6ed9da8b5d143f3e647a3dc9f",
+    "client": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "native": "6416dab4578f9b7e6495ccfc75446ef7c22e23b90f8239af7e732408dc092660",
+    "music": "dc861dbf91897dc78a8820e14685848d61610b4e6c6def5a3507d19f3a51e369",
+    "replay": "fb7c9a1761f60a94743c18db430f04b22278bb0668ee930692834307635e616f",
+    "paths_template": "5929f5ebdd10a06e8957daf923def3daea169a75883de1ee8f2add05d38d387f",
+    "qualification_receipt": "6536fc086ddf307295e36be68d3b1404bc8e4977897046dc926b1ec31f482e8e",
+    "nettestClient": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "nativeClient": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "musicClient": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "nettestDeps": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettestRuntimeConfig": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "clientDeps": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "clientRuntimeConfig": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nativeDeps": "6a9e8dcd0e378210a01c7e359d04f4cbe78ecb1f235e85c31443d629ff2691b3",
+    "nativeRuntimeConfig": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "musicDeps": "69ebd7a68f936a0bdd84169cca630d44140c5b22365f44a9d9cd56ad8f363297",
+    "musicRuntimeConfig": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "runner": "5207ae1596e3c1aaa7ab103fb8eb3f495537ab84e72ffa0431d60a01fffc60ea",
+    "identityHelper": "f81359a22aaf82ade46bbf18f44b1628b2bc98c04d57be07177d60a3f1c110ae",
+    "nativeRunner": "9926e11a54acfe69b17e35eb37bc3e06a7ee465515446a7656d0582746d10092",
+    "isolatedPaths": "a1ec237da1082ce17d2f10ee79cd5933e957ec210e8aafa7c7ab7b7dc03f9f8a"
+  },
+  "paths": {
+    "nettest": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+    "client": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+    "native": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-normal1-runtime/native-render-check.dll",
+    "music": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/music-lifecycle-check-normal1-runtime/music-lifecycle-check.dll",
+    "replay": "${WORKSPACE}/work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo",
+    "paths_template": "${WORKSPACE}/work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/paths.txt",
+    "qualification_receipt": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/receipt.json",
+    "nettestClient": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+    "nativeClient": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-normal1-runtime/ProjectPrime.dll",
+    "musicClient": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/music-lifecycle-check-normal1-runtime/ProjectPrime.dll",
+    "nettestDeps": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.deps.json",
+    "nettestRuntimeConfig": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.runtimeconfig.json",
+    "clientDeps": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.deps.json",
+    "clientRuntimeConfig": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.runtimeconfig.json",
+    "nativeDeps": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-normal1-runtime/native-render-check.deps.json",
+    "nativeRuntimeConfig": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-normal1-runtime/native-render-check.runtimeconfig.json",
+    "musicDeps": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/music-lifecycle-check-normal1-runtime/music-lifecycle-check.deps.json",
+    "musicRuntimeConfig": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/music-lifecycle-check-normal1-runtime/music-lifecycle-check.runtimeconfig.json",
+    "runner": "${WORKSPACE}/work/prime-plan-asset-lifecycle/tools/nettest/run_life_campaign.py",
+    "identityHelper": "${WORKSPACE}/work/prime-plan-integration/tools/native-render-check/campaign_identity.py",
+    "nativeRunner": "${WORKSPACE}/work/prime-plan-integration/tools/native-render-check/run_resource_arms.py",
+    "isolatedPaths": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/user-data/paths.txt"
+  },
+  "assetIdentity": {
+    "sha256": "53e7ab6e5c88e47772928ed217172d8ceafe35bbfbbd0f52502f2a86649b0274",
+    "fileCount": 3826,
+    "bytes": 837442548,
+    "roots": {
+      "AMHE1": "${HOME}/Library/Application Support/Project Prime/files/AMHE1"
+    }
+  },
+  "removedEnvironmentKeys": [],
+  "explicitEnvironment": {
+    "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/user-data"
+  },
+  "qualification": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+    "sha256": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15",
+    "buildId": "local+88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "dryRun": false,
+  "runs": [
+    {
+      "name": "shell",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+        "-noupdate",
+        "-debuglog",
+        "-shellshot",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures",
+        "-shelllifecycle",
+        "${WORKSPACE}/work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo"
+      ],
+      "status": "FAIL",
+      "pid": 48684,
+      "pgid": 48684,
+      "timedOut": false,
+      "exitCode": 1,
+      "ownership": {
+        "membersBeforeClose": [],
+        "signals": [],
+        "membersAfterClose": [],
+        "closed": true
+      },
+      "wallSeconds": 36.558004292,
+      "logSha256": "afd16adb1b672522695278a4c632cb5985b434611f89d32c601fc435bebfdf64"
+    },
+    {
+      "name": "respawn",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+        "-noupdate",
+        "-respawnrendercheck",
+        "MP3 PROVING GROUND",
+        "-cycles",
+        "9",
+        "-timeout",
+        "300"
+      ],
+      "status": "NOT_RUN"
+    }
+  ],
+  "scope": "Serial exact-build LIFE acceptance; platforms and UI/editor playtest not actually exercised remain NOT_RUN."
+}

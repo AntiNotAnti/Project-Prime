@@ -28,14 +28,14 @@ internal static class TimedShotNativeTests
     private static void Session(string property, object value)
         => typeof(NetSession).GetProperty(property)!.SetValue(null, value);
 
-    private readonly record struct Outcome(float Damage, float Lifespan, int Ammo, int Fired, int Semantic,
+    internal readonly record struct Outcome(float Damage, float Lifespan, int Ammo, int Fired, int Semantic,
         FireEventKind Kind, byte Weapon, byte Charge, string IntentBytes, string ReplayFacts,
         int ReplayWeaponFired, int ReplayShotFacts);
     private readonly record struct RecordedFact(ReplayFactKind Kind, uint RecordingFrame,
         uint ServerTick, ReplayMarker? Marker, string Payload);
-    private readonly record struct NativeShot(ShotKey Key, FireEvent Fire, Outcome Outcome);
+    internal readonly record struct NativeShot(ShotKey Key, FireEvent Fire, Outcome Outcome);
 
-    private sealed class Fixture : IDisposable
+    internal sealed class Fixture : IDisposable
     {
         private readonly ServerSim _sim = new();
         private readonly KeyboardState _keyboard;
@@ -43,7 +43,10 @@ internal static class TimedShotNativeTests
         private long _allowedStepFailures;
         internal readonly Scene Scene;
         internal readonly PlayerEntity Owner;
-        internal Fixture(string room, ShotProofMode oldMode, TimedGrantProofMode newMode)
+        // Optional declared body placement for asset-dependent timer tours.
+        // It cannot grant, admit or emit; those remain the normal player phases.
+        internal Action? BeforeStep { get; set; }
+        internal Fixture(string room, ShotProofMode oldMode, TimedGrantProofMode newMode, Hunter hunter = Hunter.Samus)
         {
             NetShotProof.Mode = oldMode;
             NetTimedShotProof.Mode = newMode;
@@ -52,7 +55,7 @@ internal static class TimedShotNativeTests
             var roster = RosterPacket.Create();
             roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1; roster.Count = 1;
             roster.Slots[0] = 0; roster.Generations[0] = 1;
-            roster.Hunters[0] = (byte)Hunter.Samus; roster.Names[0] = "Native timed source";
+            roster.Hunters[0] = (byte)hunter; roster.Names[0] = "Native timed source";
             try
             {
                 Check(_sim.Start(room, GameMode.Battle, 2, _ => { }, () => { }, roster: roster), "native room starts");
@@ -70,7 +73,7 @@ internal static class TimedShotNativeTests
                 var input = typeof(Scene).GetField("_inputMode", Hidden)!;
                 input.SetValue(Scene, Enum.Parse(input.FieldType, "All"));
                 Owner = Scene.Players.Items[0];
-                Check(!Owner.IsBot && Owner.Hunter == Hunter.Samus && NetSession.IsAuthority
+                Check(!Owner.IsBot && NetSession.IsAuthority
                     && !Scene.Services.IsReplica && MphRead.Mods.Headless.Active,
                     "declared headless native authority local-body fixture");
                 foreach (var control in Owner.Controls.All)
@@ -86,7 +89,7 @@ internal static class TimedShotNativeTests
                 // real native item factory and the complete player phase.
                 foreach (var item in Scene.GetItemInstanceEntities()) item.DespawnTimer = 0;
                 Steps(120);
-                Check(Owner.ModIsInPlay && Owner.Health > 0 && Owner.CurrentWeapon == BeamType.PowerBeam
+                Check(Owner.Hunter == hunter && Owner.ModIsInPlay && Owner.Health > 0 && Owner.CurrentWeapon == BeamType.PowerBeam
                     && NetPlayerLifecycle.Generation(0) != 0 && NetPlayerLifecycle.Get(0) != 0,
                     "native initial spawn owns ordinary PowerBeam and a real admitted life");
                 Check(Scene.CameraMode == CameraMode.Roam && NetHooks.LocalSlot == 0,
@@ -100,6 +103,7 @@ internal static class TimedShotNativeTests
             _setKey(_keyboard, Keys.Space, shoot);
             _setKey(_keyboard, Keys.M, missile);
             _setKey(_keyboard, Keys.P, powerBeam);
+            BeforeStep?.Invoke();
             uint prior = NetSession.NetFrame;
             long failures = _sim.StepFailures;
             Check(failures == _allowedStepFailures, "no unaccounted native simulation failures before step");
@@ -116,7 +120,7 @@ internal static class TimedShotNativeTests
             while (unchecked((int)(frame - NetSession.NetFrame)) > 0) Step();
             Check(Owner.Health > 0 && Owner.ModIsInPlay, "native actor remains alive through bounded timer steps");
         }
-        internal NativeShot Fire()
+        internal NativeShot Fire(Action? afterNativePress = null)
         {
             int ammo = Owner.EquipInfo.Ammo;
             int fired = NetDamage.Fired[0];
@@ -142,6 +146,7 @@ internal static class TimedShotNativeTests
             try
             {
                 Step(shoot: true);
+                afterNativePress?.Invoke();
                 Check(Owner.Controls.Shoot.IsPressed && Owner.Controls.Shoot.IsDown
                     && !Owner.Controls.Shoot.IsReleased && _keyboard.IsKeyDown(Keys.Space),
                     "real sampled rising keyboard edge");
@@ -181,7 +186,7 @@ internal static class TimedShotNativeTests
         public void Dispose() { _sim.Stop(); NetSession.Stop(); }
     }
 
-    private static TimedShotCertificate Certificate(NativeShot shot, TimedGrantKnowledge knowledge)
+    internal static TimedShotCertificate Certificate(NativeShot shot, TimedGrantKnowledge knowledge)
     {
         Check(NetTimedShotProof.TryGet(shot.Key, shot.Fire.SourceFrame, out var value), "actual native emitted certificate retained");
         Check(value.Key == shot.Key && value.Fire == shot.Fire && value.Components > 0

@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "kind": "portable_benchmark_source_derivative",
+  "measuredOperationsChanged": false,
+  "modifications": [
+    "Identity.Path stores assembly filename instead of absolute path.",
+    "Completion output stores result filename instead of absolute path.",
+    "Portable launcher adds qualified source receipt guard, configurable output/kind and labelled log sanitization."
+  ],
+  "sources": [
+    {
+      "kind": "net03",
+      "originalRelativePath": "work/net03-evidence/classifier-ad65-benchmark1/external-entry-source/Program.cs",
+      "originalSha256": "7023ae9accad90a09e328b440803aa19e15960d97b4117d0164f30ab5ce91f60",
+      "originalBytes": 10487,
+      "portableRelativePath": "tools/net-evidence-benchmark/net03/Program.cs",
+      "portableSha256": "499c20e35446bdeb96f37b4a0b03218ddc555e9c3d77212f3b616361909ba501",
+      "portableBytes": 10505
+    },
+    {
+      "kind": "net04",
+      "originalRelativePath": "work/net04-evidence/benchmark-4b4b5c45-repeat1/external-entry-source/Program.cs",
+      "originalSha256": "73e860203f6c9c2a57a6ca147bc143fa02588b600a94e47ffbcb7ccc31e24163",
+      "originalBytes": 14946,
+      "portableRelativePath": "tools/net-evidence-benchmark/net04/Program.cs",
+      "portableSha256": "35df5a49b2390db6d1574def4fbde587c84dbff8836c1107d16f755044c17e46",
+      "portableBytes": 14964
+    }
+  ]
+}

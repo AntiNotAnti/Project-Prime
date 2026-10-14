@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/replayformat-1ac71b12/original-fce-replayformat.log",
+    "sha256": "430654cf0f33e0fbc6176ec03907389046b29fc8fed1f6f1de95ed63d6a9f35f",
+    "bytes": 928
+  },
+  "treatment": "Selected identity/result/failure/scope lines; routine progress and stack frames omitted; not an original raw log.",
+  "payload": {
+    "selectedLines": [
+      "[replay] Recording interrupted; recover completed chunks from its .part file. Replay storage queue exceeded its byte budget.",
+      "[replayformat] FAIL: System.InvalidOperationException: container rejects unknown future versions"
+    ],
+    "originalLineCount": 7,
+    "selectedLineCount": 2
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "status": "EXCLUDED",
+  "reason": "All arms launched baseline-bin/native-render-check.dll; loaded MVID 3bfa7736-08ad-4ddf-89e6-91d3bfacdd01 is baseline. Candidate hash in receipt did not establish loaded client. No cache/performance inference permitted."
+}

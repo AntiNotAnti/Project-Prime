@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net02-evidence/candidate-1e6fea6b/old-285-config-falsifier.log",
+    "sha256": "04c959e315a78e07414fab1e41b2422dd5f1cc25a83822afd4b3f9733e6fcb5d",
+    "bytes": 738
+  },
+  "treatment": "Selected diagnostic/summary lines only; ordinary progress and stack frames omitted. Path strings sanitized. This excerpt is not an original raw log.",
+  "payload": {
+    "selectedLines": [
+      "{\"path\":\"work/net02-evidence/candidate-28599f6e/runtime/ProjectPrime.dll\",\"sha256\":\"0fbfc111344c5b444b8cd5aa28f5a3106e318158c574429f491aedc67860e6ef\",\"mvid\":\"6172abbe-73a6-4eac-bd60-1982f8cb9c04\",\"requested\":\"enforce-discrete\",\"actualMode\":\"Enforce\",\"expectedMode\":\"Off\",\"scope\":\"Actual managed configuration only; no gameplay/native/admission claim\"}",
+      "Unhandled exception. System.InvalidOperationException: Expected configured mode Off, observed Enforce"
+    ],
+    "originalLineCount": 3,
+    "selectedLineCount": 2
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "status": "PASS_BUILD_FOCUSED_AND_HEADLESS_ASSET_LIFECYCLE",
+  "source": {
+    "commit": "38ae3ceb54b4f2ecf7c4c620a1f0542f42096305",
+    "tree": "407a9960e49079e1611a72e46c93e2bbc7da4835",
+    "dirty": ""
+  },
+  "actualLoadedClient": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/runtime/ProjectPrime.dll",
+    "sha256": "2238516d0eee2976c49cff8f3e2eb59b180d0bb704b50ad63561235d9272a517",
+    "mvid": "0727be91-ff32-463e-b0b8-431bcbb272e8",
+    "buildId": "local+38ae3ceb54b4f2ecf7c4c620a1f0542f42096305",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "nettestMvid": "30f70f4a-2b20-4c0f-a7ff-cd0238bfc4ab",
+  "build": {
+    "exit": 0,
+    "initialClosure": false,
+    "validatedResumeClosure": true,
+    "physicalSixFiles": {
+      "ProjectPrime.dll": "2238516d0eee2976c49cff8f3e2eb59b180d0bb704b50ad63561235d9272a517",
+      "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "nettest.dll": "c3c80ca0bc3f2e264f6484aa7bc5a4b5f7140ecc54aca169efaf873f6574cdae",
+      "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    }
+  },
+  "focusedPureConfigRoutes": 31,
+  "allPureQualified": true,
+  "pythonTests": 123,
+  "assetRuns": [
+    {
+      "count": 10,
+      "status": "PASS",
+      "completedLoads": 10,
+      "observedLoaded": 13,
+      "actualFrames": 600,
+      "actualSaves": 10,
+      "simultaneousWorlds": 3,
+      "detachedReplica": "PASS",
+      "liveWorlds": 0,
+      "liveSimultaneous": 0,
+      "observationDropped": 0,
+      "sourceUnchanged": true,
+      "runtimeUnchanged": true,
+      "assetsUnchanged": true,
+      "recordingUnchanged": true,
+      "assetFileCount": 3826,
+      "ownedSurvivors": []
+    },
+    {
+      "count": 100,
+      "status": "PASS",
+      "completedLoads": 100,
+      "observedLoaded": 103,
+      "actualFrames": 6000,
+      "actualSaves": 100,
+      "simultaneousWorlds": 3,
+      "detachedReplica": "PASS",
+      "liveWorlds": 0,
+      "liveSimultaneous": 0,
+      "observationDropped": 0,
+      "sourceUnchanged": true,
+      "runtimeUnchanged": true,
+      "assetsUnchanged": true,
+      "recordingUnchanged": true,
+      "assetFileCount": 3826,
+      "ownedSurvivors": []
+    },
+    {
+      "count": 500,
+      "status": "PASS",
+      "completedLoads": 500,
+      "observedLoaded": 503,
+      "actualFrames": 30000,
+      "actualSaves": 500,
+      "simultaneousWorlds": 3,
+      "detachedReplica": "PASS",
+      "liveWorlds": 0,
+      "liveSimultaneous": 0,
+      "observationDropped": 0,
+      "sourceUnchanged": true,
+      "runtimeUnchanged": true,
+      "assetsUnchanged": true,
+      "recordingUnchanged": true,
+      "assetFileCount": 3826,
+      "ownedSurvivors": []
+    }
+  ],
+  "actualLoadTotal": 610,
+  "actualFrameTotal": 36600,
+  "actualSaveTotal": 610,
+  "sourceUnchanged": true,
+  "runtimeUnchanged": true,
+  "allOwnedGroupsClosed": true,
+  "heavySlot": "RELEASED",
+  "notRun": [
+    "native GL/audio",
+    "rendered world/HUD/depth/stencil fidelity",
+    "media export/UI/reconnect",
+    "paired performance campaigns"
+  ],
+  "preservedNegatives": [
+    "candidate-b58377ab compileFAIL",
+    "candidate-ff16b44d asset collision FAIL",
+    "candidate-38ae3ceb original collector closurefalse"
+  ]
+}

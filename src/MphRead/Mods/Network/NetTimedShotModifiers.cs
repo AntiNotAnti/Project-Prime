@@ -49,7 +49,8 @@ internal static class NetTimedShotModifiers
         => TryClaimLimit(slot, claim, retainedProfile, out limit, out _);
 
     internal static bool TryClaimLimit(int slot, in HitClaimPacket claim,
-        TimedVictimDamageProfile? retainedProfile, out uint limit, out bool headshot)
+        TimedVictimDamageProfile? retainedProfile, out uint limit, out bool headshot,
+        TimedImperialistImpact? retainedImpact = null)
     {
         limit = ushort.MaxValue;
         headshot = (claim.Flags & HitClaimPacket.FlagHeadshot) != 0;
@@ -63,25 +64,38 @@ internal static class NetTimedShotModifiers
         // Missing head geometry does not discard an otherwise admitted body
         // hit. Its actual body channel retains ordinary damage, without the
         // head amount, armour bypass, or headshot feedback.
-        if (headshot && NetShotProof.ValidateTimedHead(claim, shot) != ShotProofReason.Verified)
+        TimedImperialistImpact? exact = null;
+        if (claim.Beam == (byte)BeamType.Imperialist)
+        {
+            if (retainedImpact is { Valid: true } frozenImpact && frozenImpact.Payment == NetShotProof.PaymentKey(slot, claim)
+                && shot.Damage.FirstSegmentKnown && frozenImpact.Frame == shot.Damage.FirstCollisionFrame
+                && frozenImpact.NativeChannel <= int.MaxValue)
+                exact = frozenImpact;
+            else if (NetTimedImperialistImpact.TryResolve(shot, claim, out var resolved)) exact = resolved;
+            if (headshot && (exact is not { } known || !known.NativeHead))
+            { headshot = false; HeadFallback++; }
+        }
+        else if (headshot && NetShotProof.ValidateTimedHead(claim, shot) != ShotProofReason.Verified)
         { headshot = false; HeadFallback++; }
         const byte effects = HitClaimPacket.FlagFrozen | HitClaimPacket.FlagBurning | HitClaimPacket.FlagDisrupted;
         bool direct = (claim.Flags & HitClaimPacket.FlagDirect) != 0;
         byte allowedEffects = shot.Damage.EffectsFor(direct);
         if ((claim.Flags & effects & ~allowedEffects) != 0) return false;
         TimedVictimDamageProfile profile;
-        if (retainedProfile is { } retained) profile = retained;
+        uint profileFrame = exact?.Frame ?? claim.AckFrame;
+        if (retainedProfile is { } retained && (exact == null || retained.EffectFrame == profileFrame)) profile = retained;
         else if (!NetTimedDamageProfile.TryGet(claim.VictimSlot, claim.VictimGeneration,
-            claim.VictimLifeId, claim.AckFrame, out profile)) { ClaimUnavailable++; return false; }
+            claim.VictimLifeId, profileFrame, out profile)) { ClaimUnavailable++; return false; }
         if (profile.Key.AuthorityEpoch != key.AuthorityEpoch || profile.Key.MatchId != key.MatchId
             || profile.Key.ShooterSlot != claim.VictimSlot || profile.Key.Generation != claim.VictimGeneration
             || profile.Key.LifeId != claim.VictimLifeId) return false;
         var boundedClaim = claim;
         if (!headshot) boundedClaim.Flags &= unchecked((byte)~HitClaimPacket.FlagHeadshot);
         float channel = shot.Damage.Channel(boundedClaim, out bool nativeHead);
+        if (exact is { } impact) { channel = impact.NativeChannel; nativeHead = impact.NativeHead; }
         if (!float.IsFinite(channel) || channel < 0 || channel > int.MaxValue) return false;
         limit = profile.CompleteDamage(channel, (BeamType)claim.Beam, nativeHead, claim.VictimSlot == slot);
-        headshot = nativeHead;
+        headshot &= nativeHead;
         ClaimBounded++;
         return true;
     }

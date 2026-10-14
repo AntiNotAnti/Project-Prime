@@ -1,0 +1,18 @@
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[load] SFX device ready in 0.21s
+[glcapabilities] version=2.1 Metal - 91.7; vao=False; appleVao=True; desktopVaoApi=Apple; timer=False; disjointTimer=False; sync=True; ubo=False; storage=False; optimizations=capability-and-policy; forceLegacy=False
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.508
+[world-shaders] variant=plain elapsedMs=5.022
+[world-shaders] variant=plain-unlit elapsedMs=4.762
+NATIVERENDER appleVao advertised=True gen=True bind=True delete=True
+NATIVERENDER pid=22997 context room=MP3 PROVING GROUND pixels=(1920, 1080) cap=-1 shadows=High vendor=Apple renderer=Apple M4 Pro gl=2.1 Metal - 91.7 mvid=3bfa7736-08ad-4ddf-89e6-91d3bfacdd01
+[render] cel outline: the depth buffer is 24 bits
+UNSUPPORTED (log once): POSSIBLE ISSUE: unit 1 GLD_TEXTURE_INDEX_2D is unloadable and bound to sampler type (Float) - using zero texture because texture unloadable
+[input] gamepad mappings: 2275 from ${WORKSPACE}/work/baseline-bin/gamecontrollerdb.txt
+NATIVERENDER measurement-start (240 simulation steps warmup excluded)
+NATIVERENDER PASS ${WORKSPACE}/work/gl-evidence/gl02-ab/04-palette-1.json

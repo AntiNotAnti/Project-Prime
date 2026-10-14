@@ -1,0 +1,412 @@
+{
+  "schema": 1,
+  "sourceBefore": {
+    "commit": "38ae3ceb54b4f2ecf7c4c620a1f0542f42096305",
+    "tree": "407a9960e49079e1611a72e46c93e2bbc7da4835",
+    "dirty": ""
+  },
+  "startedUtc": "2026-10-14T09:23:04.872562+00:00",
+  "scope": "Fresh merged-main integration build and focused source/claim/replay checks; no native/performance campaign repetition",
+  "merges": [
+    {
+      "headRefOid": "c5d2b1136f4104a4b38abb3824c9a4617c002e36",
+      "mergeCommit": {
+        "oid": "b24f8dccebf18c23954816de3bc753856b3cdf6f"
+      },
+      "mergedAt": "2026-10-14T04:10:10Z",
+      "number": 472,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/472"
+    },
+    {
+      "headRefOid": "e8a8f58abe78293cd07f947981fd52de868783e2",
+      "mergeCommit": {
+        "oid": "b768c9bea10da3201960a2519effbdc260f14026"
+      },
+      "mergedAt": "2026-10-14T04:10:54Z",
+      "number": 473,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/473"
+    },
+    {
+      "headRefOid": "ec788c0bb2cd819ac29504279dd9ba16cd1363ec",
+      "mergeCommit": {
+        "oid": "f85def5bb8ab17a208717d9ad9990381ab142db2"
+      },
+      "mergedAt": "2026-10-14T04:11:06Z",
+      "number": 474,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/474"
+    }
+  ],
+  "steps": [
+    {
+      "name": "build",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "build",
+        "tools/nettest/nettest.csproj",
+        "-c",
+        "Release",
+        "-o",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/runtime",
+        "-m:1",
+        "-p:UseSharedCompilation=false",
+        "-p:CopyLocalLockFileAssemblies=false",
+        "-nodeReuse:false"
+      ],
+      "cwd": "${WORKSPACE}/work/prime-plan-integration",
+      "startedUtc": "2026-10-14T09:23:06.503930+00:00",
+      "pid": 46369,
+      "exit": 0,
+      "closureProbe": {
+        "closed": false,
+        "waitSeconds": 5.045774708000003,
+        "observations": [
+          {
+            "utc": "2026-10-14T09:23:50.382199+00:00",
+            "members": [
+              "46420     1 46369 S    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          },
+          {
+            "utc": "2026-10-14T09:23:50.728168+00:00",
+            "members": [
+              "46420     1 46369 R    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          },
+          {
+            "utc": "2026-10-14T09:23:50.812875+00:00",
+            "members": [
+              "46420     1 46369 S    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          },
+          {
+            "utc": "2026-10-14T09:23:51.236727+00:00",
+            "members": [
+              "46420     1 46369 R    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          },
+          {
+            "utc": "2026-10-14T09:23:51.320403+00:00",
+            "members": [
+              "46420     1 46369 S    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          },
+          {
+            "utc": "2026-10-14T09:23:52.776764+00:00",
+            "members": [
+              "46420     1 46369 R    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          },
+          {
+            "utc": "2026-10-14T09:23:52.862059+00:00",
+            "members": [
+              "46420     1 46369 S    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          }
+        ]
+      },
+      "finishedUtc": "2026-10-14T09:23:55.398210+00:00",
+      "logSha256": "821eaf84b3c61ecee21ccab41f8b267b79dcd0a06a6f2cd7d1a8ffdb3d674b3b",
+      "ownedProcessGroupClosed": false
+    },
+    {
+      "name": "build-identity",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "build",
+        "${WORKSPACE}/work/latest-main-verification/merged-main-preparation/MergedIdentity.csproj",
+        "-c",
+        "Release",
+        "-o",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/identity-tool",
+        "-m:1",
+        "-p:UseSharedCompilation=false",
+        "-nodeReuse:false"
+      ],
+      "cwd": "${WORKSPACE}/work/prime-plan-integration",
+      "startedUtc": "2026-10-14T09:24:13.636082+00:00",
+      "pid": 46565,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.8999999999945736e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:24:14.179878+00:00",
+      "logSha256": "fb124dd17b5d02ce93c995e9d6d86dce9b287395bfe8e90a6e4954c55683f0f5",
+      "ownedProcessGroupClosed": true
+    },
+    {
+      "name": "current-identity",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/identity-tool/MergedIdentity.dll",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/runtime",
+        "2238516d0eee2976c49cff8f3e2eb59b180d0bb704b50ad63561235d9272a517"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb",
+      "startedUtc": "2026-10-14T09:24:14.181089+00:00",
+      "pid": 46566,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.8833000000005882e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:24:14.253163+00:00",
+      "logSha256": "a5e6c61f02a29b09fa9b9faec47d2cebca026a429895eb6931ebf8a29f162c4c",
+      "ownedProcessGroupClosed": true
+    }
+  ],
+  "runnerSha256": "cf465aa46d80004d5adacb181b37c8cfe515ebc6efcc2b246d1ebc0b6999572e",
+  "donorSixBefore": {
+    "ProjectPrime.dll": "9e4cdb80cda4ad70c84145d6425eccd744e975ef8d64af575cc0d3013b9b62dc",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "88ba69a3869e19dda13ad9f21334e245437c85bb91426da9b2f5d5080965c082",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "sourceConstants": {
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10
+  },
+  "resume": {
+    "startedUtc": "2026-10-14T09:24:13.555205+00:00",
+    "runnerSha256": "cf465aa46d80004d5adacb181b37c8cfe515ebc6efcc2b246d1ebc0b6999572e",
+    "existingRuntimeHashes": {
+      "ProjectPrime.dll": "2238516d0eee2976c49cff8f3e2eb59b180d0bb704b50ad63561235d9272a517",
+      "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "nettest.dll": "c3c80ca0bc3f2e264f6484aa7bc5a4b5f7140ecc54aca169efaf873f6574cdae",
+      "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "originalImmediateClosure": false,
+    "originalBuildClosureNow": {
+      "closed": true,
+      "waitSeconds": 5.79200000000446e-06,
+      "observations": []
+    }
+  },
+  "physicalHashesBefore": {
+    "ProjectPrime.dll": "2238516d0eee2976c49cff8f3e2eb59b180d0bb704b50ad63561235d9272a517",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "c3c80ca0bc3f2e264f6484aa7bc5a4b5f7140ecc54aca169efaf873f6574cdae",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "sharedDependencies": [
+    {
+      "name": "Avalonia.Remote.Protocol.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Remote.Protocol.dll"
+    },
+    {
+      "name": "Tmds.DBus.Protocol.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Tmds.DBus.Protocol.dll"
+    },
+    {
+      "name": "Avalonia.Markup.Xaml.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Markup.Xaml.dll"
+    },
+    {
+      "name": "Avalonia.Themes.Fluent.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Themes.Fluent.dll"
+    },
+    {
+      "name": "Avalonia.Skia.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Skia.dll"
+    },
+    {
+      "name": "Avalonia.Native.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Native.dll"
+    },
+    {
+      "name": "Avalonia.Fonts.Inter.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Fonts.Inter.dll"
+    },
+    {
+      "name": "Avalonia.Markup.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Markup.dll"
+    },
+    {
+      "name": "Avalonia.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.dll"
+    },
+    {
+      "name": "SkiaSharp.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/SkiaSharp.dll"
+    },
+    {
+      "name": "Avalonia.OpenGL.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.OpenGL.dll"
+    },
+    {
+      "name": "ReFuel.StbImage.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/ReFuel.StbImage.dll"
+    },
+    {
+      "name": "Avalonia.Vulkan.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Vulkan.dll"
+    },
+    {
+      "name": "Avalonia.Desktop.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Desktop.dll"
+    },
+    {
+      "name": "OpenTK.Windowing.GraphicsLibraryFramework.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Windowing.GraphicsLibraryFramework.dll"
+    },
+    {
+      "name": "Avalonia.Metal.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Metal.dll"
+    },
+    {
+      "name": "CommunityToolkit.HighPerformance.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/CommunityToolkit.HighPerformance.dll"
+    },
+    {
+      "name": "OpenTK.Input.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Input.dll"
+    },
+    {
+      "name": "OpenTK.Core.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Core.dll"
+    },
+    {
+      "name": "runtimes",
+      "target": "${WORKSPACE}/work/baseline-bin/runtimes"
+    },
+    {
+      "name": "HarfBuzzSharp.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/HarfBuzzSharp.dll"
+    },
+    {
+      "name": "Avalonia.Win32.Automation.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Win32.Automation.dll"
+    },
+    {
+      "name": "System.IO.Hashing.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/System.IO.Hashing.dll"
+    },
+    {
+      "name": "SoundFlow.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/SoundFlow.dll"
+    },
+    {
+      "name": "Avalonia.MicroCom.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.MicroCom.dll"
+    },
+    {
+      "name": "Avalonia.Controls.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Controls.dll"
+    },
+    {
+      "name": "Avalonia.HarfBuzz.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.HarfBuzz.dll"
+    },
+    {
+      "name": "Avalonia.DesignerSupport.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.DesignerSupport.dll"
+    },
+    {
+      "name": "OpenTK.Audio.OpenAL.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Audio.OpenAL.dll"
+    },
+    {
+      "name": "OpenTK.Compute.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Compute.dll"
+    },
+    {
+      "name": "Ktx2.NET.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Ktx2.NET.dll"
+    },
+    {
+      "name": "Avalonia.Win32.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Win32.dll"
+    },
+    {
+      "name": "OpenTK.Mathematics.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Mathematics.dll"
+    },
+    {
+      "name": "Avalonia.X11.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.X11.dll"
+    },
+    {
+      "name": "OpenTK.Windowing.Common.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Windowing.Common.dll"
+    },
+    {
+      "name": "Avalonia.Base.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Base.dll"
+    },
+    {
+      "name": "OpenTK.Windowing.Desktop.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Windowing.Desktop.dll"
+    },
+    {
+      "name": "Avalonia.Dialogs.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Dialogs.dll"
+    },
+    {
+      "name": "MicroCom.Runtime.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/MicroCom.Runtime.dll"
+    },
+    {
+      "name": "Avalonia.FreeDesktop.AtSpi.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.FreeDesktop.AtSpi.dll"
+    },
+    {
+      "name": "Avalonia.FreeDesktop.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.FreeDesktop.dll"
+    },
+    {
+      "name": "OpenTK.Graphics.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Graphics.dll"
+    },
+    {
+      "name": "Avalonia.Headless.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Headless.dll"
+    }
+  ],
+  "actualLoadedClient": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/runtime/ProjectPrime.dll",
+    "sha256": "2238516d0eee2976c49cff8f3e2eb59b180d0bb704b50ad63561235d9272a517",
+    "mvid": "0727be91-ff32-463e-b0b8-431bcbb272e8",
+    "buildId": "local+38ae3ceb54b4f2ecf7c4c620a1f0542f42096305",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "finishedUtc": "2026-10-14T09:24:14.254920+00:00",
+  "sourceAfter": {
+    "commit": "38ae3ceb54b4f2ecf7c4c620a1f0542f42096305",
+    "tree": "407a9960e49079e1611a72e46c93e2bbc7da4835",
+    "dirty": ""
+  },
+  "physicalHashesAfter": {
+    "ProjectPrime.dll": "2238516d0eee2976c49cff8f3e2eb59b180d0bb704b50ad63561235d9272a517",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "c3c80ca0bc3f2e264f6484aa7bc5a4b5f7140ecc54aca169efaf873f6574cdae",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "donorSixAfter": {
+    "ProjectPrime.dll": "9e4cdb80cda4ad70c84145d6425eccd744e975ef8d64af575cc0d3013b9b62dc",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "88ba69a3869e19dda13ad9f21334e245437c85bb91426da9b2f5d5080965c082",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "focusedRoutes": 0,
+  "pythonModules": [],
+  "status": "PASS_BUILD_IDENTITY"
+}

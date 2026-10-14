@@ -1121,8 +1121,14 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Shot(w, "shell-create-lobby");
                 // Clean CI machines reach Game Files setup instead of Create Lobby.
-                if (GameFiles.Ready && (_front?.Prime.Overlays.IsOpen != true || Mods.Render.LauncherHunter.Drawn))
-                { ShotMisses++; Console.WriteLine("[shellshot] create lobby must cover the native hunter preview"); }
+                if (GameFiles.Ready)
+                {
+                    if (!ShellModalPreviewCheck.CreateLobby(UiSurface.Current?.Root as Control,
+                        _front?.Prime.Overlays.IsOpen == true, LauncherHunter.CanPresent,
+                        LauncherHunter.Wanted, LauncherHunter.Drawn, out string previewReason))
+                    { ShotMisses++; Console.WriteLine("[shellshot] " + previewReason); }
+                    else Console.WriteLine($"[shellshot] create lobby preview ownership PASS wanted={LauncherHunter.Wanted} drawn={LauncherHunter.Drawn} owner=active-modal");
+                }
                 Escape(); Wait(90);
             },
             w => { Shot(w, "shell-create-lobby-closed"); ClickIfReady(c => FrontAction(c, "OFFLINE")); Wait(15); },

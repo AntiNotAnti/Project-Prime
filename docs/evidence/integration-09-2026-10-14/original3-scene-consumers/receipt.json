@@ -1,0 +1,134 @@
+{
+  "sourceBefore": {
+    "commit": "09ada0ab153dd4c15f4ea3b55473772c64f75663",
+    "tree": "b3870370d453869460f0f3e139edb01e333ce054",
+    "dirty": ""
+  },
+  "qualifiedClient": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/ProjectPrime.dll",
+    "sha256": "323380522fb48d8d6903709f27f5f95ca8995aa26d625e1fa3bdfff0ef603647",
+    "mvid": "d6f53ab0-c704-4d18-8665-e83509063a09",
+    "buildId": "local+09ada0ab153dd4c15f4ea3b55473772c64f75663",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "historicalHelperProgramSha256": "06563c4aa9a61c6ba7395880e533ac06fe34994b2eca0398cf4e044d6d1c4179",
+  "currentHelperProgramSha256": "06563c4aa9a61c6ba7395880e533ac06fe34994b2eca0398cf4e044d6d1c4179",
+  "retargetedProjectSha256": "11b608ff5b2c175431ad85ca6461ab838d32ba64f9b93de28626015a0c74b0d3",
+  "scope": "Historical standalone friend probe recompiled against physical current09client; helperENTRY_SCOPE text describes code provenance, not currentclient qualification. Actual PassiveReplayScene.Step consumes original3recordings; no renderedpixel/UDP/nativeimpact claim. Thinentry separate from fullnettest.",
+  "steps": [
+    {
+      "name": "build",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "build",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/original3-scene-consumers/source/diagnostic.csproj",
+        "-c",
+        "Release",
+        "-o",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/original3-scene-consumers/runtime",
+        "-m:1",
+        "-p:UseSharedCompilation=false",
+        "-nodeReuse:false"
+      ],
+      "cwd": "${WORKSPACE}/work/prime-plan-integration",
+      "startedUtc": "2026-10-14T10:18:43.240858+00:00",
+      "pid": 50269,
+      "exit": 0,
+      "ownedSurvivors": [],
+      "logSha256": "e430a6978f3582f477c2710121e6b4565bdd9a48ac23a4a81407274764c48254",
+      "finishedUtc": "2026-10-14T10:18:44.403481+00:00"
+    },
+    {
+      "name": "authority",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/original3-scene-consumers/runtime/nettest.dll",
+        "${WORKSPACE}/work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo",
+        "--scene"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/original3-scene-consumers/authority-profile",
+      "startedUtc": "2026-10-14T10:18:44.437973+00:00",
+      "pid": 50286,
+      "exit": 0,
+      "ownedSurvivors": [],
+      "logSha256": "01ef9a7fd76e9200b2225de82f136374057d4cec46a390e7ec7df1f505a8c0a5",
+      "finishedUtc": "2026-10-14T10:18:46.037288+00:00",
+      "file": "${WORKSPACE}/work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo",
+      "fileSha256": "fb7c9a1761f60a94743c18db430f04b22278bb0668ee930692834307635e616f",
+      "loadedClientMatches": true,
+      "thinEntryMatches": true,
+      "finalEvidence": [
+        "IDENTITY ClientPath=${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/original3-scene-consumers/runtime/ProjectPrime.dll SHA256=323380522fb48d8d6903709f27f5f95ca8995aa26d625e1fa3bdfff0ef603647 MVID=d6f53ab0-c704-4d18-8665-e83509063a09",
+        "IDENTITY EntrySHA256=85f74891ebd7e6431b0a6eb81f7256b39abefff5a16a4745a86ed35ab742d909 MVID=256c4bdd-142b-45ea-827c-b23a4a3d0583",
+        "SCENE_FINAL frames=5690 sceneEvents=40553 certs=44 scopes=0 current=5690 result=Success error= warning= pendingBombs=0 activeNetSession=False authority=False"
+      ]
+    },
+    {
+      "name": "client0",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/original3-scene-consumers/runtime/nettest.dll",
+        "${WORKSPACE}/work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-183_0521a4adc4e34a5d87ffd01b063cbd52.ppdemo",
+        "--scene"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/original3-scene-consumers/client0-profile",
+      "startedUtc": "2026-10-14T10:18:46.040026+00:00",
+      "pid": 50291,
+      "exit": 0,
+      "ownedSurvivors": [],
+      "logSha256": "13a772970d38917c5b1d600c388d617fb318fa13b6a79497f6a34e0ef11a2f0c",
+      "finishedUtc": "2026-10-14T10:18:47.396420+00:00",
+      "file": "${WORKSPACE}/work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-183_0521a4adc4e34a5d87ffd01b063cbd52.ppdemo",
+      "fileSha256": "646deb8984787ecb7acd066e3258c4656e70bb6fa8456660b3ef31a1476dbaf9",
+      "loadedClientMatches": true,
+      "thinEntryMatches": true,
+      "finalEvidence": [
+        "IDENTITY ClientPath=${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/original3-scene-consumers/runtime/ProjectPrime.dll SHA256=323380522fb48d8d6903709f27f5f95ca8995aa26d625e1fa3bdfff0ef603647 MVID=d6f53ab0-c704-4d18-8665-e83509063a09",
+        "IDENTITY EntrySHA256=85f74891ebd7e6431b0a6eb81f7256b39abefff5a16a4745a86ed35ab742d909 MVID=256c4bdd-142b-45ea-827c-b23a4a3d0583",
+        "SCENE_FINAL frames=5597 sceneEvents=37334 certs=0 scopes=0 current=5597 result=Success error= warning= pendingBombs=0 activeNetSession=False authority=False"
+      ]
+    },
+    {
+      "name": "client1",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/original3-scene-consumers/runtime/nettest.dll",
+        "${WORKSPACE}/work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-1/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-151_62b2b85091114bcc8dde7bf59b0f6adc.ppdemo",
+        "--scene"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/original3-scene-consumers/client1-profile",
+      "startedUtc": "2026-10-14T10:18:47.399126+00:00",
+      "pid": 50294,
+      "exit": 0,
+      "ownedSurvivors": [],
+      "logSha256": "31688765da0793f6ad8fc45369fb33ff68711b32d98449fe29a9e588ca7abc9e",
+      "finishedUtc": "2026-10-14T10:18:48.787933+00:00",
+      "file": "${WORKSPACE}/work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-1/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-151_62b2b85091114bcc8dde7bf59b0f6adc.ppdemo",
+      "fileSha256": "f480e2e99fc9539fed0855e814ea859681ecbd13a2bfb479a8ad8390ea61f0b1",
+      "loadedClientMatches": true,
+      "thinEntryMatches": true,
+      "finalEvidence": [
+        "IDENTITY ClientPath=${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/original3-scene-consumers/runtime/ProjectPrime.dll SHA256=323380522fb48d8d6903709f27f5f95ca8995aa26d625e1fa3bdfff0ef603647 MVID=d6f53ab0-c704-4d18-8665-e83509063a09",
+        "IDENTITY EntrySHA256=85f74891ebd7e6431b0a6eb81f7256b39abefff5a16a4745a86ed35ab742d909 MVID=256c4bdd-142b-45ea-827c-b23a4a3d0583",
+        "SCENE_FINAL frames=5613 sceneEvents=37456 certs=0 scopes=0 current=5613 result=Success error= warning= pendingBombs=0 activeNetSession=False authority=False"
+      ]
+    }
+  ],
+  "physicalClientSha256": "323380522fb48d8d6903709f27f5f95ca8995aa26d625e1fa3bdfff0ef603647",
+  "physicalThinEntrySha256": "85f74891ebd7e6431b0a6eb81f7256b39abefff5a16a4745a86ed35ab742d909",
+  "sourceAfter": {
+    "commit": "09ada0ab153dd4c15f4ea3b55473772c64f75663",
+    "tree": "b3870370d453869460f0f3e139edb01e333ce054",
+    "dirty": ""
+  },
+  "physicalClientUnchanged": true,
+  "physicalThinEntryUnchanged": true,
+  "status": "PASS_CURRENT_PHYSICAL_CLIENT_3_NORMAL_SCENE_CONSUMERS",
+  "finishedUtc": "2026-10-14T10:18:48.836823+00:00"
+}

@@ -89,6 +89,8 @@ internal static class NetTimedSourceCapabilities
         var value = NativeValue(beam.ModLaunchKey, beam.ModComponentId, family, NetSession.NetFrame,
             NetTimedShotProof.Active && beam.OwningScene.GameState.Multiplayer, player, (byte)beam.Beam,
             NetPowerUpLedger.Ledger?.Room ?? 0);
+        NetTimedCampaignJoin.Component(value, player, beam.Owner is PlayerEntity owner
+            && NetFireEvents.TryAcceptedKey(owner, out var accepted) && accepted == beam.ModLaunchKey);
         Families[(int)family]++; _observed++;
         if (!ValidKey(value.Key) || value.Component == 0) return;
         int slot = value.Key.ShooterSlot, at = Next[slot];

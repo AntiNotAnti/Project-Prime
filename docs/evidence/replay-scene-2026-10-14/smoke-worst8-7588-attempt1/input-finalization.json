@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "originalCampaignReceiptRelativePath": "work/net-plan-campaigns/smoke-worst8-7588-attempt1/receipt.json",
+  "originalCampaignReceiptSha256": "fff6dfa71371bd9990c5d62e17ca85610e728fb33ac9d0465e9e7e34078411fa",
+  "originalCampaignReceiptBytes": 1014758,
+  "originalCampaignStatus": "FAIL",
+  "originalCampaignError": null,
+  "originalCampaignRunClosureAndFailures": [
+    {
+      "label": "campaign",
+      "ownedProcessGroup": 32088,
+      "exit": 0,
+      "ownedProcessGroupClosed": true,
+      "remainingOwnedGroupMembers": []
+    },
+    {
+      "label": "strict-auditor",
+      "ownedProcessGroup": 32342,
+      "exit": 1,
+      "ownedProcessGroupClosed": true,
+      "remainingOwnedGroupMembers": []
+    }
+  ],
+  "recordingsAfter": [
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke-worst8-7588-attempt1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_07-52-14-075_eaba0a89900f42d0a29951623719a69d.ppdemo",
+      "bytes": 7337602,
+      "sha256": "fc960467afeb87ac234933b912e2b70b1a354d3d6dbba02c14e87cac06d8270a",
+      "magic": "PPDM",
+      "format": 4,
+      "protocol": 56,
+      "finalName": true
+    },
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke-worst8-7588-attempt1/campaign/peer-1/exports/_demos/MP12 SIC TRANSIT_2026-10-14_07-52-13-976_9c46ab47968a45068de445f6956493cf.ppdemo",
+      "bytes": 7311861,
+      "sha256": "70f018bb247e12ce85f6ab5113aec3283538877d55eb6c25626a123aabd08119",
+      "magic": "PPDM",
+      "format": 4,
+      "protocol": 56,
+      "finalName": true
+    },
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke-worst8-7588-attempt1/campaign/peer-2/exports/_demos/MP12 SIC TRANSIT_2026-10-14_07-52-14-455_fc068886be094fa6a2312f9de06a2916.ppdemo",
+      "bytes": 7358258,
+      "sha256": "bcc190851e5be1900f306fdd057534718de7601029e246b464df9bd99bd33ea9",
+      "magic": "PPDM",
+      "format": 4,
+      "protocol": 56,
+      "finalName": true
+    },
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke-worst8-7588-attempt1/campaign/peer-3/exports/_demos/MP12 SIC TRANSIT_2026-10-14_07-52-15-050_19ca7bb149224df79f51cc45ccb04b1a.ppdemo",
+      "bytes": 7387205,
+      "sha256": "ccce7b7e40b6950a580ad29887a284d418431d4779ab158587bc472f7dae3dda",
+      "magic": "PPDM",
+      "format": 4,
+      "protocol": 56,
+      "finalName": true
+    },
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke-worst8-7588-attempt1/campaign/peer-4/exports/_demos/MP12 SIC TRANSIT_2026-10-14_07-52-14-821_efde9e9b2472406c97ec1c07ca7a7977.ppdemo",
+      "bytes": 7304419,
+      "sha256": "f14f445edddf294052b05d6d77abdcafdaac348395188c9aabba7e045d60b9ed",
+      "magic": "PPDM",
+      "format": 4,
+      "protocol": 56,
+      "finalName": true
+    },
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke-worst8-7588-attempt1/campaign/peer-5/exports/_demos/MP12 SIC TRANSIT_2026-10-14_07-52-15-018_8d5ebf3ba23b4cb78671d8ce3d77511f.ppdemo",
+      "bytes": 7352417,
+      "sha256": "c5700b9a3f77cd01ac0dae1a8ef27cb2246bf57d4bc6bcae0375329892ae2f99",
+      "magic": "PPDM",
+      "format": 4,
+      "protocol": 56,
+      "finalName": true
+    },
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke-worst8-7588-attempt1/campaign/peer-6/exports/_demos/MP12 SIC TRANSIT_2026-10-14_07-52-15-297_8ec959f40cf249d1a8e030ffe0baa1e1.ppdemo",
+      "bytes": 7352932,
+      "sha256": "f955b3c417d5bc0d044486597bf74e0e500b43d3b1008082978c223b615f6f1c",
+      "magic": "PPDM",
+      "format": 4,
+      "protocol": 56,
+      "finalName": true
+    },
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke-worst8-7588-attempt1/campaign/peer-7/exports/_demos/MP12 SIC TRANSIT_2026-10-14_07-52-15-628_8b898156972b44cdb4ecc340cbcc37f9.ppdemo",
+      "bytes": 7355716,
+      "sha256": "e997dca55c4bbca786b3e724170595eac0ea168ce7cdc421c0eefec9ff4eed06",
+      "magic": "PPDM",
+      "format": 4,
+      "protocol": 56,
+      "finalName": true
+    },
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke-worst8-7588-attempt1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_07-52-13-286_885ddcb25e7c4ed7b1d6de1b191e4bc4.ppdemo",
+      "bytes": 8092547,
+      "sha256": "837dc583abd24155156ac124bfde692d42d7f8b37a2a14afa7a6295b25071fe8",
+      "magic": "PPDM",
+      "format": 6,
+      "protocol": 56,
+      "finalName": true
+    }
+  ],
+  "ownedGroupAbsenceObservedUtc": "2026-10-14T13:04:57.048734+00:00",
+  "ownedGroupsChecked": [
+    32088,
+    32342
+  ],
+  "remainingOwnedGroupMembers": [],
+  "scope": "Finalized file identity and current group absence only; original campaign acceptance unchanged"
+}

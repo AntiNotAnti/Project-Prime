@@ -23,6 +23,7 @@ string output = Path.GetFullPath(args.Length > 0 ? args[0] : "artifacts/results-
 Directory.CreateDirectory(output);
 if (!GuiLauncher.EnsureSetup(requireDisplay: false)) return 2;
 Deck.Still = true;
+ModalPreviewChecks.Run();
 
 var scene = new Scene(default, null!, null!, _ => { }, () => { }, initializeRuntime: false);
 GameState.Current = scene.GameState;

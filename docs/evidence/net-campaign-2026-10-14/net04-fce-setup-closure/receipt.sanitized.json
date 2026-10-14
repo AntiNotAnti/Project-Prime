@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/candidate-fce73957/setup-closure/disposition.json",
+    "sha256": "b336158957b2e942791831691c6aa248b7b198f8a2b218a7292ac5ae28eee25d",
+    "bytes": 2163
+  },
+  "treatment": "JSON reserialized with relative/sanitized path strings; full sourceTreeLines omitted with separate text digest. Numeric samples, SHA256, MVID, full commits, results and closure flags unchanged.",
+  "payload": {
+    "utc": "2026-10-14T08:26:17.974346+00:00",
+    "recordedGroup": 41698,
+    "originalBuildExit": 0,
+    "originalClosureProbe": {
+      "closed": false,
+      "waitSeconds": 5.029292750000003,
+      "observations": [
+        {
+          "utc": "2026-10-14T08:24:59.565991+00:00",
+          "members": [
+            "41720     1 41698 S    dotnet exec --runtimeconfig <external-host-path> <external-host-path>"
+          ]
+        },
+        {
+          "utc": "2026-10-14T08:25:00.467229+00:00",
+          "members": [
+            "41720     1 41698 R    dotnet exec --runtimeconfig <external-host-path> <external-host-path>"
+          ]
+        },
+        {
+          "utc": "2026-10-14T08:25:00.551603+00:00",
+          "members": [
+            "41720     1 41698 S    dotnet exec --runtimeconfig <external-host-path> <external-host-path>"
+          ]
+        }
+      ]
+    },
+    "membersBeforeCleanup": [],
+    "actions": [],
+    "membersAfterCleanup": [],
+    "originalReceiptSha256": "fd262362320343cdaf131802a52f2199d775f886b7e5866fa669e5e2c8475a51",
+    "physicalHashes": {
+      "ProjectPrime.dll": "e27a23b63096cf7dec9f1c5443e21961d9aa2b8cc958652aafca1ee75dfab868",
+      "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "nettest.dll": "e2c884f74ae8ce34add86a9ab812c8bb556405bd707ce0d174fde3f9b28bab31",
+      "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "closureNow": true
+  }
+}

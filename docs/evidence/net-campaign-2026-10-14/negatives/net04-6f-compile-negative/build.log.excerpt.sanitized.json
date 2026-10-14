@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/candidate-6f5549c2/build.log",
+    "sha256": "977b087ec4601c99e3cc7d61b47334ec73e531306c5857e6087e045f56e7bb45",
+    "bytes": 2020
+  },
+  "treatment": "Selected diagnostic/summary lines only; ordinary progress and stack frames omitted. Path strings sanitized. This excerpt is not an original raw log.",
+  "payload": {
+    "selectedLines": [
+      "work/prime-net04/src/MphRead/Mods/Network/ReplayTimedShotFacts.cs(115,18): error CS0136: A local or parameter named 'now' cannot be declared in this scope because that name is used in an enclosing local scope to define a local or parameter [work/prime-net04/src/MphRead/MphRead.csproj]",
+      "Build FAILED.",
+      "work/prime-net04/src/MphRead/Mods/Network/ReplayTimedShotFacts.cs(115,18): error CS0136: A local or parameter named 'now' cannot be declared in this scope because that name is used in an enclosing local scope to define a local or parameter [work/prime-net04/src/MphRead/MphRead.csproj]"
+    ],
+    "originalLineCount": 16,
+    "selectedLineCount": 3
+  }
+}

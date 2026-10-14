@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net03-evidence/candidate-075e4887/build.log",
+    "sha256": "894715c14743b1f668363006fe6638e495bae2d29319a1f00cb61c1d134520b3",
+    "bytes": 3902
+  },
+  "treatment": "Selected diagnostic/summary lines only; ordinary progress and stack frames omitted. Path strings sanitized. This excerpt is not an original raw log.",
+  "payload": {
+    "selectedLines": [
+      "work/prime-net03/tools/nettest/NativeTimedGrantPresentationTests.cs(283,64): error CS0411: The type arguments for method 'ImmutableArrayExtensions.Where<T>(ImmutableArray<T>, Func<T, bool>)' cannot be inferred from the usage. Try specifying the type arguments explicitly. [work/prime-net03/tools/nettest/nettest.csproj]",
+      "work/prime-net03/tools/nettest/NativeTimedGrantPresentationTests.cs(288,51): error CS0411: The type arguments for method 'MemoryExtensions.Count<T>(Span<T>, T)' cannot be inferred from the usage. Try specifying the type arguments explicitly. [work/prime-net03/tools/nettest/nettest.csproj]",
+      "Build FAILED.",
+      "work/prime-net03/tools/nettest/NativeTimedGrantPresentationTests.cs(283,64): error CS0411: The type arguments for method 'ImmutableArrayExtensions.Where<T>(ImmutableArray<T>, Func<T, bool>)' cannot be inferred from the usage. Try specifying the type arguments explicitly. [work/prime-net03/tools/nettest/nettest.csproj]",
+      "work/prime-net03/tools/nettest/NativeTimedGrantPresentationTests.cs(288,51): error CS0411: The type arguments for method 'MemoryExtensions.Count<T>(Span<T>, T)' cannot be inferred from the usage. Try specifying the type arguments explicitly. [work/prime-net03/tools/nettest/nettest.csproj]"
+    ],
+    "originalLineCount": 21,
+    "selectedLineCount": 5
+  }
+}

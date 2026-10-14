@@ -35,6 +35,7 @@ namespace MphRead.NetTest
                     + "  --post-match-save                 Test post-match save byte parity, owner fencing and retry.\n"
                     + "  --foreground-binding              Test eligible facade release and cancelled room publication.\n"
                     + "  --lifecycle-soak                  Test 10/100/500 device-free save/bot-owner handoffs.\n"
+                    + "  --asset-lifecycle <filesystem> <count> <replay|-> <json> Test loaded world/save/replica ownership.\n"
                     + "  --shot-source-journal              Test independent authority resources and grant chronology.\n"
                     + "  --timed-grants                    Test authority timed pickup reservations and source history.\n"
                     + "  --timed-shot-certificates         Test bounded immutable timed shot storage.\n"
@@ -42,6 +43,7 @@ namespace MphRead.NetTest
                     + "  --timed-shot-replay-scene <assets> [room] Test actual authority launch fact persistence.\n"
                     + "  --timed-shot-certificate-benchmark [json] Measure certificate storage operations.\n"
                     + "  --timed-shot-native <assets> [room] Test real native shot certificates and Shadow parity.\n"
+                    + "  --native-grant-hunter-tour-arm <filesystem> <hunter> <item> <Off|Shadow> <room> <json> One fresh-process native timed item arm.\n"
                     + "  --timed-shot-accepted <assets> [room] Test admitted remote shot certificates.\n"
                     + "  --timed-damage-profiles           Test frozen native damage arithmetic.\n"
                     + "  --timed-damage-profile-scene <assets> [room] Test authority damage profile history.\n"
@@ -49,6 +51,7 @@ namespace MphRead.NetTest
                     + "  --timed-shot-rescue <assets> [room] Test controlled unpaid timed-modifier rescue.\n"
                     + "  --timed-shot-damage               Test immutable launch channel ceilings.\n"
                     + "  --timed-source-capabilities       Test source-family capability classification.\n"
+                    + "  --timed-campaign-joins           Test bounded process-owned join value storage.\n"
                     + "  --timed-shot-damage-benchmark [json] Measure launch channel/profile arithmetic.\n"
                     + "  --pickup-protocol                 Test pickup packet codecs, registry and budgets.\n"
                     + "  --pickup-claims                   Test authoritative pickup claim decisions.\n"
@@ -83,6 +86,24 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--post-match-save") return PostMatchSaveTests.Run();
             if (args.Length > 0 && args[0] == "--foreground-binding") return ForegroundBindingTests.Run();
             if (args.Length > 0 && args[0] == "--lifecycle-soak") return LifecycleSoakTests.Run();
+            if (args.Length > 0 && args[0] == "--asset-lifecycle")
+            {
+                if (args.Length != 5 || !int.TryParse(args[2], out int count) || count < 1 || count > 500)
+                {
+                    Console.Error.WriteLine("Usage: --asset-lifecycle <extracted AMHE1 filesystem> <count 1..500> <replay path|-> <output json>");
+                    return 1;
+                }
+                string assets = System.IO.Path.GetFullPath(args[1]);
+                string? replay = args[3] == "-" ? null : System.IO.Path.GetFullPath(args[3]);
+                string output = System.IO.Path.GetFullPath(args[4]);
+                if (!System.IO.Directory.Exists(assets) || replay != null && !System.IO.File.Exists(replay))
+                {
+                    Console.Error.WriteLine("Asset lifecycle requires an existing extracted filesystem and, when requested, a recording.");
+                    return 1;
+                }
+                Paths.MphKey = "AMHE1"; Paths.SetPath(Paths.MphKey, assets);
+                return AssetLifecycleTests.Run(count, replay, output);
+            }
             if (args.Length > 0 && args[0] == "--ai-client-driver") return NetAiClientTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-protocol") return PickupProtocolTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-claims") return PickupClaimTests.Run();
@@ -127,7 +148,23 @@ namespace MphRead.NetTest
                 return TimedShotRescueTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
             if (args.Length > 0 && args[0] == "--timed-shot-damage") return TimedShotDamageTests.Run();
+            if (args.Length > 0 && args[0] == "--native-impact-witness") return NativeImpactWitnessTests.Run();
+            if (args.Length > 0 && args[0] == "--timed-native-effects") return TimedNativeEffectTests.Run();
+            if (args.Length > 0 && args[0] == "--timed-imperialist-impact") return TimedImperialistImpactTests.Run();
+            if (args.Length > 1 && args[0] == "--timed-native-effect-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedNativeEffectTests.RunScene(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 1 && args[0] == "--timed-imperialist-impact-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedImperialistImpactTests.RunScene(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
             if (args.Length > 0 && args[0] == "--timed-source-capabilities") return TimedSourceCapabilityTests.Run();
+            if (args.Length > 0 && args[0] == "--timed-campaign-joins") return TimedCampaignJoinTests.Run();
             if (args.Length > 0 && args[0] == "--timed-shot-damage-benchmark") return TimedShotDamageTests.RunBenchmark(args);
             if (args.Length > 1 && args[0] == "--timed-shot-modifiers")
             {
@@ -141,6 +178,41 @@ namespace MphRead.NetTest
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return TimedShotNativeTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 0 && args[0] == "--native-grant-hunter-tour-arm")
+            {
+                if (args.Length != 7 || !Enum.TryParse<Hunter>(args[2], out var hunter)
+                    || !Enum.TryParse<ItemType>(args[3], out var item) || !Enum.TryParse<TimedGrantProofMode>(args[4], out var mode))
+                {
+                    Console.Error.WriteLine("Usage: --native-grant-hunter-tour-arm <filesystem> <hunter> <item> <Off|Shadow> <room> <fresh json>");
+                    return 1;
+                }
+                string assets = System.IO.Path.GetFullPath(args[1]);
+                if (!System.IO.Directory.Exists(assets)) { Console.Error.WriteLine("Native grant arm requires an extracted filesystem."); return 1; }
+                Paths.MphKey = "AMHE1"; Paths.SetPath(Paths.MphKey, assets);
+                return NativeGrantHunterTourTests.RunSingleArm(args[5], hunter, item, mode, System.IO.Path.GetFullPath(args[6]));
+            }
+            if (args.Length > 0 && args[0] == "--native-grant-hunter-tour")
+            {
+                Console.Error.WriteLine("Use tools/nettest/run_native_grant_hunter_tour.py for exact Off/Shadow parity in fresh processes. --native-grant-hunter-tour-in-process preserves the historical diagnostic.");
+                return 1;
+            }
+            if (args.Length > 0 && args[0] == "--native-grant-hunter-tour-in-process")
+            {
+                if (args.Length < 2 || args.Length > 4)
+                {
+                    Console.Error.WriteLine("Usage: --native-grant-hunter-tour <extracted AMHE1 filesystem> [room] [fresh json]");
+                    return 1;
+                }
+                string assets = System.IO.Path.GetFullPath(args[1]);
+                string? output = args.Length > 3 ? System.IO.Path.GetFullPath(args[3]) : null;
+                if (!System.IO.Directory.Exists(assets))
+                {
+                    Console.Error.WriteLine("Native grant hunter tour requires an existing extracted filesystem.");
+                    return 1;
+                }
+                Paths.MphKey = "AMHE1"; Paths.SetPath(Paths.MphKey, assets);
+                return NativeGrantHunterTourTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS", output);
             }
             if (args.Length > 1 && args[0] == "--timed-shot-accepted")
             {

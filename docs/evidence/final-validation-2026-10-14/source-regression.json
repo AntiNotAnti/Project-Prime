@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "status": "PASS_SOURCE_ONLY_REGRESSION",
+  "UTC": "2026-10-14T13:23:51.695654+00:00",
+  "executedCommand": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tools/nettest",
+    "-p",
+    "test_*.py",
+    "-q"
+  ],
+  "reportedTests": 561,
+  "existingSkipped": 1,
+  "reportedSeconds": 3.851,
+  "errors": 0,
+  "failures": 0,
+  "output": "Ran 561 tests in 3.851s\nOK (skipped=1)\n",
+  "scope": "Source-only regression after cleanup and exact self-death auditor fixes; no new native runtime qualification or FPS assertion.",
+  "unchangedTestedSourceFiles": {
+    "tools/nettest/net04_join_evidence.py": "d5747a51ba5466548b513fc6792da151829138c7828574a77a0fb2d948a66a90",
+    "tools/nettest/test_net04_join_evidence.py": "dd61631f7ba396c647bff47dc2acde1d4299df90750741bda1da8ad06e598112",
+    "tools/nettest/run_plan_campaign.py": "4bd81152b0a00abaee52afbb10eaef6dc973e3c28a06b062bed48d4defff48b2",
+    "tools/nettest/test_run_plan_campaign.py": "4f19427072ddeedda53688fecdaa6c88d9536ef648893aff0ee8e16b42177624"
+  },
+  "nativeRuntimeSource": "7588d98689899c9868e8a0105b78653c7a1db50d",
+  "auditorMethods": 27,
+  "wrapperMethods": 12,
+  "selfDeathFalsifiers": 20
+}

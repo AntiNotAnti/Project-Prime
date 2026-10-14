@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt2/external-entry-build.sanitized.log",
+    "sha256": "bfc3b0f627ed6dbec8c628d67c5c095102cd8c2a5c0c771a880bc2118698467c",
+    "bytes": 230
+  },
+  "policy": "Collector-sanitized build log selected unchanged; earlier original raw digest retained in receipt.",
+  "payload": {
+    "lines": [
+      "  Determining projects to restore...",
+      "  Restored $EVIDENCE/external-entry-source/benchmark.csproj (in 20 ms).",
+      "  benchmark -> $EVIDENCE/runtime/nettest.dll",
+      "",
+      "Build succeeded.",
+      "    0 Warning(s)",
+      "    0 Error(s)",
+      "",
+      "Time Elapsed 00:00:00.98"
+    ]
+  }
+}

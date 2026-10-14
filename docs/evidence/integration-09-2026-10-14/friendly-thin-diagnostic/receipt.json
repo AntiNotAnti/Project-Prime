@@ -1,0 +1,12 @@
+{
+  "command": [
+    "${WORKSPACE}/work/dotnet/dotnet",
+    "${WORKSPACE}/work/plan-completion-evidence/friendly-diagnostic-09ada0ab/runtime/nettest.dll"
+  ],
+  "pid": 50121,
+  "exit": 0,
+  "groupAbsentVerified": true,
+  "entrySHA256": "d5a6327bf5a5ffb8afb229b7fc223babe9bb6c8152d8f79191b8598521ff7e0b",
+  "clientSHA256": "323380522fb48d8d6903709f27f5f95ca8995aa26d625e1fa3bdfff0ef603647",
+  "scope": "External thin exact qualifiedclient/qualifiedfixture source with added readable diagnostics only. Not full nettest qualification."
+}

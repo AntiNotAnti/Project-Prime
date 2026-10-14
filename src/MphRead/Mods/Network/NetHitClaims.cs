@@ -706,6 +706,7 @@ namespace MphRead.Mods.Network
         private struct Pending
         {
             public TimedVictimDamageProfile? TimedProfile;
+            public TimedImperialistImpact? TimedImpact;
             public Telemetry.NetTelemetryEvent RescueStudy;
             public uint ContinuousPhase;
             public ushort MatchId;
@@ -1331,6 +1332,8 @@ namespace MphRead.Mods.Network
                 HitClaimPacket claim = HitClaimPacket.Read(payload[at..]);
                 Received++;
                 NetCampaignEvidence.ClaimReceived();
+                using var claimEvidence = NetCampaignEvidence.Enabled
+                    ? NetTimedCampaignJoin.Claim(shooterSlot, claim) : default;
                 if (claim.ShooterLifeId == 0 || claim.VictimLifeId == 0
                     || !NetSession.MatchesStream(claim.MatchId, claim.AuthorityEpoch)
                     || claim.ShooterGeneration == 0 || claim.ShooterGeneration != NetPlayerLifecycle.Generation(shooterSlot))
@@ -1840,7 +1843,7 @@ namespace MphRead.Mods.Network
             {
                 var claim = ProofClaim(entry);
                 if (!NetTimedShotModifiers.TryClaimLimit(shooterSlot, claim, entry.TimedProfile,
-                    out uint limit, out bool headshot) || !headshot) return;
+                    out uint limit, out bool headshot, entry.TimedImpact) || !headshot) return;
                 target = Math.Min(target, limit);
                 if (target <= resolved) return;
             }
@@ -1957,9 +1960,18 @@ namespace MphRead.Mods.Network
         private static void Park(int shooterSlot, in HitClaimPacket claim)
         {
             TimedVictimDamageProfile? timedProfile = null;
+            TimedImperialistImpact? timedImpact = null;
             if (NetTimedShotModifiers.Enforcing && NetTimedDamageProfile.TryGet(claim.VictimSlot,
                 claim.VictimGeneration, claim.VictimLifeId, claim.AckFrame, out var damageProfile))
                 timedProfile = damageProfile;
+            if (NetTimedShotModifiers.Enforcing
+                && NetTimedShotProof.TryGet(NetShotProof.Key(shooterSlot, claim), out var timedShot)
+                && NetTimedImperialistImpact.TryResolve(timedShot, claim, out var impact))
+            {
+                timedImpact = impact;
+                if (NetTimedDamageProfile.TryGet(claim.VictimSlot, claim.VictimGeneration,
+                    claim.VictimLifeId, impact.Frame, out var exactProfile)) timedProfile = exactProfile;
+            }
             int index = -1;
             int start = shooterSlot * PendingPerShooter;
             for (int pass = 0; pass < 2 && index < 0; pass++)
@@ -1980,6 +1992,7 @@ namespace MphRead.Mods.Network
             _pending[index] = new Pending
             {
                 TimedProfile = timedProfile,
+                TimedImpact = timedImpact,
                 // Capture at admission, before arbitration grace elapses or
                 // historical poses expire. Grace is not requested rewind.
                 RescueStudy = Telemetry.ProductionTelemetry.Enabled
@@ -2361,7 +2374,7 @@ namespace MphRead.Mods.Network
             if (NetTimedShotModifiers.Enforcing)
             {
                 if (!NetTimedShotModifiers.TryClaimLimit(shooterSlot, paidClaim, entry.TimedProfile,
-                    out uint limit, out bool headshot))
+                    out uint limit, out bool headshot, entry.TimedImpact))
                 { RefusedHere++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultDamageLimit); return; }
                 entry.Damage = (ushort)Math.Min(entry.Damage, limit);
                 if (!headshot) entry.Flags &= unchecked((byte)~HitClaimPacket.FlagHeadshot);
@@ -2548,7 +2561,12 @@ namespace MphRead.Mods.Network
                 }
                 if ((entry.Flags & HitClaimPacket.FlagDisrupted) != 0)
                 {
-                    victim.ModSetDisrupted(true);
+                    if (NetTimedShotModifiers.Enforcing)
+                    {
+                        if (NetTimedShotProof.TryGet(terminalKey, out var effectShot))
+                            NetTimedShotEffects.ApplyDisruption(victim, effectShot, proofClaim, entry.TimedProfile);
+                    }
+                    else victim.ModSetDisrupted(true);
                 }
             }
             Mods.EnhancedHunters.EnhancedHunters.OnConfirmedHit(shooter, victim,
@@ -2600,7 +2618,8 @@ namespace MphRead.Mods.Network
                 + $"{NetSession.NetFrame - entry.AckFrame} frames ago"
                 + (_dead[shooterSlot] ? " -- and was dead by the time it arrived" : ""));
             var outcome = CaptureOutcome(victim, (int)(before - victim.Health), _latestOutcome[victimSlot].Flags);
-            payment.Commit(outcome);
+            payment.Commit(outcome, NetCampaignEvidence.Enabled
+                ? Math.Max(0, turretBefore - (victim.Halfturret?.Health ?? 0)) : 0, entry.Id);
             if (continuous)
             {
                 int turretRemoved = Math.Max(0, turretBefore - (victim.Halfturret?.Health ?? 0));
@@ -2669,6 +2688,10 @@ namespace MphRead.Mods.Network
             Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.Claim, NetSession.NetFrame,
                 Player: (byte)slot, Victim: answer.VictimSlot, Id: id, Result: result, Flags: (int)answer.Flags,
                 A: answer.DamageApplied, B: answer.HealthAfter, ShotId: answer.ShotId));
+            if (NetCampaignEvidence.Enabled)
+                NetTimedCampaignJoin.Terminal(slot, NetTimedCampaignJoin.TryRequestKey(slot, id, out var requested)
+                    ? requested : remember && _seenIds[slot, at] == id
+                        && _seenKeys[slot, at].ShotId == answer.ShotId ? _seenKeys[slot, at] : null, answer);
             if (remember) { Remember(slot, id, result); _seenOutcomes[slot, at] = answer; }
             if (_verdictCount[slot] >= VerdictCapacity) return;
             _verdicts[slot, _verdictCount[slot]++] = answer;

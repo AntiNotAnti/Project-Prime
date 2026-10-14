@@ -1,0 +1,418 @@
+{
+  "startedUtc": "2026-10-14T11:02:31.178945+00:00",
+  "sourceBefore": {
+    "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+    "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+    "dirty": ""
+  },
+  "physicalHashesBefore": {
+    "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "actualLoadedClient": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "<candidate>/runtime/ProjectPrime.dll",
+    "sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+    "mvid": "5e534c23-57c6-4026-a55a-f8233293a732",
+    "buildId": "local+7588d98689899c9868e8a0105b78653c7a1db50d",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "assets": "<licensed-assets>",
+  "assetManifestBefore": {
+    "omittedBulk": true,
+    "canonicalSha256": "1b361cc4677101a54e83d1a597d21230dbaa835380e860851c1d5c25ce48bf28",
+    "entries": 3826
+  },
+  "runs": [
+    {
+      "name": "timed-native-effect-scene",
+      "command": [
+        "<workspace>/work/dotnet/dotnet",
+        "<candidate>/runtime/nettest.dll",
+        "--timed-native-effect-scene",
+        "<candidate>/net-assets/timed-native-effect-scene-profile",
+        "MP1 SANCTORUS"
+      ],
+      "cwd": "<candidate>/net-assets/timed-native-effect-scene-profile",
+      "startedUtc": "2026-10-14T11:02:32.056659+00:00",
+      "sourceBefore": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "physicalHashesBefore": {
+        "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+        "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      "profilePathsSha256": "032e6a0bdd758fe3eccdaa7bbec684c23ba198744a9857235661241d811b744f",
+      "pid": 52772,
+      "exit": 0,
+      "finishedUtc": "2026-10-14T11:02:32.747233+00:00",
+      "ownedSurvivors": [],
+      "sourceAfter": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "physicalHashesAfter": {
+        "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+        "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "<candidate>/runtime/nettest.dll",
+          "mvid": "0151d5f2-81b8-4566-96e3-aadf793388ee"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "<candidate>/runtime/ProjectPrime.dll",
+          "mvid": "5e534c23-57c6-4026-a55a-f8233293a732"
+        }
+      ],
+      "logSha256": "07d4729c875cf445088c308099543e560ae6ac0f7ab752858f1e22dca17cb037",
+      "assertionEvidence": [
+        "PASS: 450 asset-backed common-applier/profile assertions (<candidate>/net-assets/timed-native-effect-scene-profile)."
+      ],
+      "qualified": true
+    },
+    {
+      "name": "timed-imperialist-impact-scene",
+      "command": [
+        "<workspace>/work/dotnet/dotnet",
+        "<candidate>/runtime/nettest.dll",
+        "--timed-imperialist-impact-scene",
+        "<candidate>/net-assets/timed-imperialist-impact-scene-profile",
+        "MP1 SANCTORUS"
+      ],
+      "cwd": "<candidate>/net-assets/timed-imperialist-impact-scene-profile",
+      "startedUtc": "2026-10-14T11:02:32.822259+00:00",
+      "sourceBefore": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "physicalHashesBefore": {
+        "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+        "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      "profilePathsSha256": "1978a1e94bec45ff0ac20a530bb2af128e4f2e5da8e38d36abfe2a5831bc11cc",
+      "pid": 52783,
+      "exit": 0,
+      "finishedUtc": "2026-10-14T11:02:38.645071+00:00",
+      "ownedSurvivors": [],
+      "sourceAfter": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "physicalHashesAfter": {
+        "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+        "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "<candidate>/runtime/nettest.dll",
+          "mvid": "0151d5f2-81b8-4566-96e3-aadf793388ee"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "<candidate>/runtime/ProjectPrime.dll",
+          "mvid": "5e534c23-57c6-4026-a55a-f8233293a732"
+        }
+      ],
+      "logSha256": "5fa8073a11c7a4058911d3864e59266d3f177415c182f78a5aa25781a4b3f6ee",
+      "assertionEvidence": [
+        "PASS: 949 actual admitted native first-segment/profile assertions (<candidate>/net-assets/timed-imperialist-impact-scene-profile)."
+      ],
+      "qualified": true
+    },
+    {
+      "name": "timed-shot-native",
+      "command": [
+        "<workspace>/work/dotnet/dotnet",
+        "<candidate>/runtime/nettest.dll",
+        "--timed-shot-native",
+        "<candidate>/net-assets/timed-shot-native-profile",
+        "MP1 SANCTORUS"
+      ],
+      "cwd": "<candidate>/net-assets/timed-shot-native-profile",
+      "startedUtc": "2026-10-14T11:02:38.717927+00:00",
+      "sourceBefore": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "physicalHashesBefore": {
+        "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+        "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      "profilePathsSha256": "ce4075a9a91fd505f3f0d5a04ace87005597a052707919c805cb627cc8e30756",
+      "pid": 52799,
+      "exit": 0,
+      "finishedUtc": "2026-10-14T11:02:40.743232+00:00",
+      "ownedSurvivors": [],
+      "sourceAfter": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "physicalHashesAfter": {
+        "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+        "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "<candidate>/runtime/nettest.dll",
+          "mvid": "0151d5f2-81b8-4566-96e3-aadf793388ee"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "<candidate>/runtime/ProjectPrime.dll",
+          "mvid": "5e534c23-57c6-4026-a55a-f8233293a732"
+        }
+      ],
+      "logSha256": "14b783eb9820877e120f1c955f0f0ff453b2259482c1353e81362f2364d1e08e",
+      "assertionEvidence": [
+        "PASS: 6463 genuine native timed-shot assertions."
+      ],
+      "qualified": true
+    },
+    {
+      "name": "timed-shot-accepted",
+      "command": [
+        "<workspace>/work/dotnet/dotnet",
+        "<candidate>/runtime/nettest.dll",
+        "--timed-shot-accepted",
+        "<candidate>/net-assets/timed-shot-accepted-profile",
+        "MP1 SANCTORUS"
+      ],
+      "cwd": "<candidate>/net-assets/timed-shot-accepted-profile",
+      "startedUtc": "2026-10-14T11:02:40.821507+00:00",
+      "sourceBefore": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "physicalHashesBefore": {
+        "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+        "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      "profilePathsSha256": "2cc1df8f7953499314f1054a8362cdea29d06ffeeac8ea1199fe8721aa5636e4",
+      "pid": 52808,
+      "exit": 0,
+      "finishedUtc": "2026-10-14T11:02:44.729107+00:00",
+      "ownedSurvivors": [],
+      "sourceAfter": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "physicalHashesAfter": {
+        "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+        "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "<candidate>/runtime/nettest.dll",
+          "mvid": "0151d5f2-81b8-4566-96e3-aadf793388ee"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "<candidate>/runtime/ProjectPrime.dll",
+          "mvid": "5e534c23-57c6-4026-a55a-f8233293a732"
+        }
+      ],
+      "logSha256": "34a50bb04fa0692ccd71241de646605d669926a3634f3aa0cc510da4cf65b879",
+      "assertionEvidence": [
+        "PASS: 343 controlled admitted-remote timed-shot assertions."
+      ],
+      "qualified": true
+    },
+    {
+      "name": "timed-shot-rescue",
+      "command": [
+        "<workspace>/work/dotnet/dotnet",
+        "<candidate>/runtime/nettest.dll",
+        "--timed-shot-rescue",
+        "<candidate>/net-assets/timed-shot-rescue-profile",
+        "MP1 SANCTORUS"
+      ],
+      "cwd": "<candidate>/net-assets/timed-shot-rescue-profile",
+      "startedUtc": "2026-10-14T11:02:44.803309+00:00",
+      "sourceBefore": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "physicalHashesBefore": {
+        "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+        "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      "profilePathsSha256": "902dfa6bb1cf17d9dabadf75742ea6084874dac5ee867d19f1e07770c27a7d23",
+      "pid": 52820,
+      "exit": 0,
+      "finishedUtc": "2026-10-14T11:02:46.948936+00:00",
+      "ownedSurvivors": [],
+      "sourceAfter": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "physicalHashesAfter": {
+        "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+        "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "<candidate>/runtime/nettest.dll",
+          "mvid": "0151d5f2-81b8-4566-96e3-aadf793388ee"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "<candidate>/runtime/ProjectPrime.dll",
+          "mvid": "5e534c23-57c6-4026-a55a-f8233293a732"
+        }
+      ],
+      "logSha256": "5035745ee2788a4a4b6d5bb91dedaccbee0fecb6c4c16b9b2672671a55e70fa9",
+      "assertionEvidence": [
+        "PASS: 5673 actual unpaid rescued timed-shot assertions."
+      ],
+      "qualified": true
+    },
+    {
+      "name": "timed-shot-replay-scene",
+      "command": [
+        "<workspace>/work/dotnet/dotnet",
+        "<candidate>/runtime/nettest.dll",
+        "--timed-shot-replay-scene",
+        "<candidate>/net-assets/timed-shot-replay-scene-profile",
+        "MP1 SANCTORUS"
+      ],
+      "cwd": "<candidate>/net-assets/timed-shot-replay-scene-profile",
+      "startedUtc": "2026-10-14T11:02:47.025811+00:00",
+      "sourceBefore": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "physicalHashesBefore": {
+        "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+        "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      "profilePathsSha256": "ee82b7a1b42648b2055c282fac68fe0ffe91f46dca7f4e3b7af33f2534bd8520",
+      "pid": 52829,
+      "exit": 0,
+      "finishedUtc": "2026-10-14T11:02:48.345065+00:00",
+      "ownedSurvivors": [],
+      "sourceAfter": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "physicalHashesAfter": {
+        "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+        "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      },
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "<candidate>/runtime/nettest.dll",
+          "mvid": "0151d5f2-81b8-4566-96e3-aadf793388ee"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "<candidate>/runtime/ProjectPrime.dll",
+          "mvid": "5e534c23-57c6-4026-a55a-f8233293a732"
+        }
+      ],
+      "logSha256": "340c930173d358acc273301e7b02bc19a0242292d19fc0f60b8c7430dd23e570",
+      "assertionEvidence": [
+        "PASS: 118 authority-recorded timed fact fidelity assertions."
+      ],
+      "qualified": true
+    }
+  ],
+  "scope": "Full physical current nettest headless actual native simulation/items/impacts/admission/replay; no renderedGL/audio/UDP/performance claims",
+  "status": "PASS",
+  "assetManifestAfter": {
+    "omittedBulk": true,
+    "canonicalSha256": "1b361cc4677101a54e83d1a597d21230dbaa835380e860851c1d5c25ce48bf28",
+    "entries": 3826
+  },
+  "sourceAfter": {
+    "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+    "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+    "dirty": ""
+  },
+  "physicalHashesAfter": {
+    "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "finishedUtc": "2026-10-14T11:02:48.907524+00:00"
+}

@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/replay-diagnostic-4b-attempt1/ad65-client0.log",
+    "sha256": "7c4e4a7870e2a71f3a6cb3b7aedcf26b48602b119b3b437f3c83afc8256f08e0",
+    "bytes": 1623
+  },
+  "treatment": "Selected identity/result/failure/scope lines; routine progress and stack frames omitted; not an original raw log.",
+  "payload": {
+    "selectedLines": [
+      "IDENTITY ClientPath=work/net04-evidence/replay-diagnostic-4b-attempt1/runtime-ad65/ProjectPrime.dll SHA256=6c98d47c58d0645b0f9174e7fcc47d39dcd79e85c868e759471edf5761c3e018 MVID=15183df3-7bd6-4d82-a30a-0cc6cd2eb02e",
+      "IDENTITY EntrySHA256=e7f032ce0b5abdbc3ffa513fb709a3e9f385a4fd66defddadeab1ed5eddc794f MVID=f1279c2b-e2a2-4b04-8900-933e611d998a",
+      "FINAL pumps=786 events=5164 snapshots=707 current=785 result=Corrupt error=Replay stopped at frame 785: Replay bomb packet queue exceeded its budget. warning= nextIndex=5164",
+      "FAILED ordinal=5164 frame=785 tag=70 length=25 hex=4602002A50F776C929DF085703000000000000000000000100",
+      "DIRECT_EXCEPTION=System.IO.InvalidDataException: Replay bomb packet queue exceeded its budget."
+    ],
+    "originalLineCount": 11,
+    "selectedLineCount": 5
+  }
+}

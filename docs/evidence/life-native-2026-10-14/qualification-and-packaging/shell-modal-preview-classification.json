@@ -1,0 +1,65 @@
+{
+  "scope": "Source/capture classification only; no actual latest-main shell campaign",
+  "mainRef": "7dfaa6a74fa86fdbccef0de6162fb622ccc0e324",
+  "mainMatchedBlobs": {
+    "src/MphRead/Mods/Launcher/Gui/CreateServerScreen.cs": {
+      "88f9d29e58d0cf6254b2d33e682955bd432d0bd2": "0ec47c13b45ad6b145726f886617cdd0f2dae094",
+      "origin/main": "0ec47c13b45ad6b145726f886617cdd0f2dae094"
+    },
+    "src/MphRead/Mods/Launcher/Gui/HunterStand.cs": {
+      "88f9d29e58d0cf6254b2d33e682955bd432d0bd2": "0aafe6012544a3f68a9a53f506c6798123a7b103",
+      "origin/main": "0aafe6012544a3f68a9a53f506c6798123a7b103"
+    },
+    "src/MphRead/Mods/Render/LauncherHunter.cs": {
+      "88f9d29e58d0cf6254b2d33e682955bd432d0bd2": "ea788c7daf388058094d00830bdd44aa019b27b9",
+      "origin/main": "ea788c7daf388058094d00830bdd44aa019b27b9"
+    }
+  },
+  "actualFailure": {
+    "source": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "attempt": "life-native-attempt4",
+    "clientExit": 1,
+    "firstMessage": "[shellshot] create lobby must cover the native hunter preview",
+    "sourceAnchor": "Shell.cs1124–1125",
+    "condition": "GameFiles.Ready && (!Overlays.IsOpen || LauncherHunter.Drawn)",
+    "image": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-create-lobby.png",
+    "imageSHA256": "ba91850aa5d7092775916dd0ebd4164a860287016c6c46302d26bb4e369a8413"
+  },
+  "authoredContract": {
+    "owner": "CreateServerScreen owns HunterStand in HUNTER &HOST deployment panel (lines116,219–234)",
+    "presentation": "HunterStand.CanPresentPreview permits only effectively visible stand under active modal layer (lines336–345)",
+    "capture": "Create Lobby overlay present; intended native Samus appears inside its own deployment area"
+  },
+  "classification": "Inherited blanket QA-oracle contradicts authored active-modal preview ownership contract; retainedFAIL, no automatic waiver",
+  "nextVerification": "Test rejects background-owned stand presentation while requiring open CreateLobby overlay and permitting its own stand. Preserve actual mismatched-owner negative. Fresh source qualification/native shell run needed after any compiled oracle correction.",
+  "independentRespawn": {
+    "status": "PASS",
+    "exit": 0,
+    "ownership": {
+      "membersBeforeClose": [],
+      "signals": [],
+      "membersAfterClose": [],
+      "closed": true
+    },
+    "actualAcceptance": {
+      "summary": "RESPAWNRENDER PASS room=MP3 PROVING GROUND cycles=9/9 deaths=10 respawns=10 frames=4935 checked=3106 black=0 fadeExcluded=39 invariants=0 gl=0 rendererGl=0 failures=0 resize=18 scale=18 cel=18 controlComparisons=14 controlDraws=20 simulated=82.2s wall=9.9s",
+      "coverage": {
+        "opponent": "1",
+        "self": "1",
+        "environment": "1",
+        "beam-source": "1",
+        "rapid": "1",
+        "disruption": "1",
+        "whiteout": "1",
+        "scoreboard": "1",
+        "combined": "1"
+      }
+    }
+  },
+  "externalExecutor": {
+    "sourceCommit": "fdc82c23bdd4446b5d01753af0c5bc1548419b56",
+    "sha256": "5207ae1596e3c1aaa7ab103fb8eb3f495537ab84e72ffa0431d60a01fffc60ea",
+    "path": "${WORKSPACE}/work/prime-plan-asset-lifecycle/tools/nettest/run_life_campaign.py"
+  },
+  "heavySlot": "RELEASED"
+}

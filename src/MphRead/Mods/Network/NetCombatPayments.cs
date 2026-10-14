@@ -26,7 +26,7 @@ internal static class NetCombatPayments
     private static readonly HashSet<ShotKey> PaidEvidence = new();
     private static long EvidenceOverflow;
     internal static object Capture() => new { PaidShotKeys = PaidEvidence, EvidenceOverflow, LifetimePayments, LifetimeSuppressed,
-        LifetimeCapacityRefused, CapacityPerShooter, Retention };
+        LifetimeCapacityRefused, CapacityPerShooter, Retention, EvidenceCapacity = NetCampaignEvidence.EvidenceShotKeyLimit };
     private static bool Valid(in ShotPaymentKey key) => (uint)key.Shot.ShooterSlot < 8
         && key.Victim < 8 && key.Shot.ShotId != 0 && key.Component != 0
         && NetSession.MatchesStream(key.Shot.MatchId, key.Shot.AuthorityEpoch)
@@ -57,7 +57,7 @@ internal static class NetCombatPayments
         public bool Allowed { get; }
         internal Reservation(bool allowed, int slot = -1, int at = -1, ShotPaymentKey key = default)
         { Allowed = allowed; _slot = slot; _at = at; _key = key; }
-        internal void Commit(CombatAckEntry outcome)
+        internal void Commit(CombatAckEntry outcome, int actualTurretDamage = 0, ushort claimId = 0)
         {
             if (_at < 0) return;
             ref var entry = ref Entries[_slot, _at];
@@ -65,9 +65,19 @@ internal static class NetCombatPayments
             outcome.ShotId = _key.Shot.ShotId;
             entry.Outcome = outcome; entry.Paid = true; Payments++; LifetimePayments++;
             NetSelfSplash.RecordPayment(_key, outcome);
+            if (NetCampaignEvidence.Enabled)
+            {
+                NativeImpactWitness? witness = null;
+                if (claimId == 0 && (outcome.DamageApplied > 0 || actualTurretDamage > 0)
+                    && NetNativeImpactWitness.TryCapture(out var captured)
+                    && captured.Payment == _key && captured.Weapon == entry.Weapon)
+                    witness = captured.WithOutcome(outcome);
+                NetTimedCampaignJoin.Payment(_key, entry.Weapon, entry.Frame, outcome, actualTurretDamage,
+                    claimId, impact: witness);
+            }
             if (NetCampaignEvidence.Enabled && !PaidEvidence.Contains(_key.Shot))
             {
-                if (PaidEvidence.Count < 16384) PaidEvidence.Add(_key.Shot);
+                if (PaidEvidence.Count < NetCampaignEvidence.EvidenceShotKeyLimit) PaidEvidence.Add(_key.Shot);
                 else EvidenceOverflow++;
             }
         }
@@ -109,6 +119,9 @@ internal static class NetCombatPayments
         if (at < 0 || !Entries[key.Shot.ShooterSlot, at].Paid) return;
         outcome.ShotId = key.Shot.ShotId;
         Entries[key.Shot.ShooterSlot, at].Outcome = outcome;
+        if (NetCampaignEvidence.Enabled)
+            NetTimedCampaignJoin.Payment(key, Entries[key.Shot.ShooterSlot, at].Weapon,
+                Entries[key.Shot.ShooterSlot, at].Frame, outcome, 0, outcome.ClaimId, correction: true);
     }
     internal static void ForgetSlot(int slot, bool preserveFlights)
     {

@@ -1,0 +1,6 @@
+COMPACT_LOADED_IDENTITY nettest location=${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/runtime/nettest.dll mvid=30f70f4a-2b20-4c0f-a7ff-cd0238bfc4ab
+COMPACT_LOADED_IDENTITY ProjectPrime location=${WORKSPACE}/work/plan-completion-evidence/candidate-38ae3ceb/runtime/ProjectPrime.dll mvid=0727be91-ff32-463e-b0b8-431bcbb272e8
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+ASSET LIFE loads=10/10 steps=600 realSaveFiles=10
+ASSET LIFE PASS loads=10 rooms=2 hunters=7 steps=600 saves=10 liveWorlds=0 simultaneousWorlds=3

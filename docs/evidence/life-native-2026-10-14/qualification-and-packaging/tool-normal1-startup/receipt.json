@@ -1,0 +1,56 @@
+{
+  "engineIdentity": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+    "sha256": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15",
+    "buildId": "local+88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "runs": [
+    {
+      "name": "native-render-check",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-normal1-runtime/native-render-check.dll",
+        "--shader-source-ledger-selftest"
+      ],
+      "pid": 48182,
+      "exit": 0,
+      "ownedSurvivors": [],
+      "loadedModules": [
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-normal1-runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "logSha256": "e620fa079e57979f3d2907bf7a5fd27e128e01230fb0aac4104468ea1b3a28b5",
+      "qualified": true
+    },
+    {
+      "name": "music-lifecycle-check",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/music-lifecycle-check-normal1-runtime/music-lifecycle-check.dll"
+      ],
+      "pid": 48185,
+      "exit": 0,
+      "ownedSurvivors": [],
+      "loadedModules": [
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/music-lifecycle-check-normal1-runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "logSha256": "5d3a3bb49e3f8e199e2216597e6239d9cab6c7dbfbe991ab6bfdbd3f2ae0435d",
+      "qualified": true
+    }
+  ]
+}

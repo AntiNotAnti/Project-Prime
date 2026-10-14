@@ -10,6 +10,22 @@ namespace MphRead.Entities
         private byte _balancedLifeDrainWindowHeal;
 
         internal ushort ModBalancedDisruptImmunityTimer => _balancedDisruptImmunityTimer;
+        internal ushort ModDisruptedTimer => _disruptedTimer;
+
+        // Gameplay application shared by a native beam and the controlled
+        // timed rescue path. Snapshot projection keeps ModSetDisrupted's
+        // separate flag-following behavior.
+        internal bool ModApplyNativeDisruption(bool balancedKanden)
+        {
+            if (_health <= 0 || balancedKanden && !ModTryBalancedDisrupt()) return false;
+            if (!balancedKanden) _disruptedTimer = 60 * 2;
+            if (IsMainPlayer)
+            {
+                HudOnDisrupted();
+                _soundSource.PlaySfx(SfxId.LOB_DISRUPT);
+            }
+            return true;
+        }
 
         internal void ModResetBalancedAffinityState()
         {

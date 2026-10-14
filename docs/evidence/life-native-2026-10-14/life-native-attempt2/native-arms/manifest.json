@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "sourceSha": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+  "sourceDirty": false,
+  "binary": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-copylocal-runtime/native-render-check.dll",
+  "identity": {
+    "harnessSha256": "e78fe98df150555a658316ecacf5c40b5c66d40fe1f4c54204d4ee907b30aabc",
+    "clientSha256": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009"
+  },
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "runtimeInfo": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     Mac OS X\n OS Version:  27.0\n OS Platform: Darwin\n RID:         osx-arm64\n Base Path:   ${WORKSPACE}/work/dotnet/sdk/10.0.401/\n\n.NET workloads installed:\nThere are no installed workloads to display.\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: arm64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.401 [${WORKSPACE}/work/dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [${WORKSPACE}/work/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [${WORKSPACE}/work/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  Not set\n\nglobal.json file:\n  ${WORKSPACE}/work/prime-plan-integration/global.json\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+  "environment": {
+    "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt2/user-data"
+  },
+  "runOrder": [
+    "combined",
+    "map-gl",
+    "studio",
+    "audio"
+  ],
+  "dryRun": false,
+  "runs": [
+    {
+      "arm": "combined",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-copylocal-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-size",
+        "1920x1080",
+        "-hz",
+        "-1",
+        "-seconds",
+        "8",
+        "-shadows",
+        "High",
+        "-resource-audio-wait",
+        "-resourcestress",
+        "-resource-arm",
+        "combined",
+        "-resourcecycles",
+        "10",
+        "-resourceframes",
+        "120",
+        "-resource-drain",
+        "-resource-quiescent-samples",
+        "6",
+        "-resource-quiescent-ms",
+        "1000",
+        "-output",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt2/native-arms/00-combined.json"
+      ],
+      "result": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt2/native-arms/00-combined.json",
+      "exitCode": -6,
+      "wallSeconds": 0.262382667,
+      "logSha256": "d4be58e1ee0bfdf2c7c8bc13ef112efb45dfd4fc1458af9142120264de03510e",
+      "error": "missing result"
+    }
+  ],
+  "purpose": "Subsystem lifecycle attribution. Same-build arms; no FPS or native leak claim. Repeat with reverse order in a fresh output directory."
+}

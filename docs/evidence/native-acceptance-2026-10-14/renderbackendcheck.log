@@ -1,0 +1,66 @@
+COMPACT_LOADED_IDENTITY ProjectPrime location=<candidate>/runtime/ProjectPrime.dll mvid=5e534c23-57c6-4026-a55a-f8233293a732
+RENDERBACKENDS PASS Windows default = OpenGL (actual OpenGL)
+RENDERBACKENDS PASS Windows supports Auto
+RENDERBACKENDS PASS Windows supports OpenGL
+RENDERBACKENDS PASS Windows rejects DirectX12
+RENDERBACKENDS PASS Windows rejects Vulkan
+RENDERBACKENDS PASS Windows rejects Metal
+RENDERBACKENDS PASS Windows resolves Auto to OpenGL and exposes no modern choices
+RENDERBACKENDS PASS MacOS default = OpenGL (actual OpenGL)
+RENDERBACKENDS PASS MacOS supports Auto
+RENDERBACKENDS PASS MacOS supports OpenGL
+RENDERBACKENDS PASS MacOS rejects DirectX12
+RENDERBACKENDS PASS MacOS rejects Vulkan
+RENDERBACKENDS PASS MacOS rejects Metal
+RENDERBACKENDS PASS MacOS resolves Auto to OpenGL and exposes no modern choices
+RENDERBACKENDS PASS Linux default = OpenGL (actual OpenGL)
+RENDERBACKENDS PASS Linux supports Auto
+RENDERBACKENDS PASS Linux supports OpenGL
+RENDERBACKENDS PASS Linux rejects DirectX12
+RENDERBACKENDS PASS Linux rejects Vulkan
+RENDERBACKENDS PASS Linux rejects Metal
+RENDERBACKENDS PASS Linux resolves Auto to OpenGL and exposes no modern choices
+RENDERBACKENDS PASS Android default = OpenGL (actual OpenGL)
+RENDERBACKENDS PASS Android supports Auto
+RENDERBACKENDS PASS Android supports OpenGL
+RENDERBACKENDS PASS Android rejects DirectX12
+RENDERBACKENDS PASS Android rejects Vulkan
+RENDERBACKENDS PASS Android rejects Metal
+RENDERBACKENDS PASS Android resolves Auto to OpenGL and exposes no modern choices
+RENDERBACKENDS PASS Other default = OpenGL (actual OpenGL)
+RENDERBACKENDS PASS Other supports Auto
+RENDERBACKENDS PASS Other supports OpenGL
+RENDERBACKENDS PASS Other rejects DirectX12
+RENDERBACKENDS PASS Other rejects Vulkan
+RENDERBACKENDS PASS Other rejects Metal
+RENDERBACKENDS PASS Other resolves Auto to OpenGL and exposes no modern choices
+RENDERBACKENDS PASS 'auto' parses as Auto
+RENDERBACKENDS PASS 'd3d12' parses as DirectX12
+RENDERBACKENDS PASS 'directx12' parses as DirectX12
+RENDERBACKENDS PASS 'vk' parses as Vulkan
+RENDERBACKENDS PASS 'moltenvk' parses as Vulkan
+RENDERBACKENDS PASS 'metal' parses as Metal
+RENDERBACKENDS PASS 'opengl' parses as OpenGL
+RENDERBACKENDS PASS only OpenGL is exposed to the settings UI
+RENDERBACKENDS PASS retired renderer 'dx12' cannot become active
+RENDERBACKENDS PASS retired renderer 'vulkan' cannot become active
+RENDERBACKENDS PASS retired renderer 'metal' cannot become active
+RENDERBACKENDS PASS Auto and stale startup guards cannot select a modern renderer
+RENDERBACKENDS PASS legacy quad becomes two indexed triangles
+RENDERBACKENDS PASS legacy vertex layout is stable
+RENDERBACKENDS PASS triangle strip preserves alternating winding
+RENDERBACKENDS PASS line loop closes explicitly
+RENDERBACKENDS PASS independent lines ignore incomplete trailing vertex
+RENDERBACKENDS PASS zero-sized/unavailable surfaces suspend configuration until restore
+RENDERBACKENDS PASS surface success presents and transient timeout skips one frame
+RENDERBACKENDS PASS outdated surface gets one bounded reconfigure attempt
+RENDERBACKENDS PASS lost surface gets one bounded recreation attempt
+RENDERBACKENDS PASS present-mode changes reconfigure only a live drawable surface
+RENDERBACKENDS PASS backend-neutral latency provider receives one ordered marker vocabulary
+RENDERBACKENDS PASS out-of-order latency markers are contained without touching gameplay
+RENDERBACKENDS PASS unsupported low-latency provider degrades to a no-op
+RENDERBACKENDS PASS legacy GL cache suppresses exact scalar/vector/matrix duplicates and measures arrays
+RENDERBACKENDS PASS runtime scalar counts exclude uncached array writes without losing skipped requests
+RENDERBACKENDS PASS array uploads invalidate overlapping cached single uniform values
+RENDERBACKENDS PASS legacy GL cache is program-local and invalidates safely at ownership boundaries
+RENDERBACKENDS all policy cases pass

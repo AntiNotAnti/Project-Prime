@@ -256,6 +256,7 @@ internal static class NetTimedShotProof
         // recorded this spend. No admission or failed/partial spawn spends here.
         NetShotSourceJournal.Fired(value.Key, value.Fire, emission.AmmoType, emission.Cost, value.Source.Cooldown);
         var result = (_store ??= new()).Remember(final, NetSession.NetFrame);
+        if (NetCampaignEvidence.Enabled) NetTimedCampaignJoin.Certificate(final, result);
         if (result != TimedShotRetention.Stored) return;
         if (NetCampaignEvidence.Enabled) NetTimedSourceCapabilities.Completed(final);
         Stored++;

@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "sourceBefore": {
+    "commit": "b58377ab2ad6b678c6690f3687b69d68683ab8b5",
+    "tree": "652497542bcd1ed156e4a21389e439b50003644b",
+    "dirty": ""
+  },
+  "startedUtc": "2026-10-14T09:13:47.603098+00:00",
+  "scope": "Fresh merged-main integration build and focused source/claim/replay checks; no native/performance campaign repetition",
+  "merges": [
+    {
+      "headRefOid": "c5d2b1136f4104a4b38abb3824c9a4617c002e36",
+      "mergeCommit": {
+        "oid": "b24f8dccebf18c23954816de3bc753856b3cdf6f"
+      },
+      "mergedAt": "2026-10-14T04:10:10Z",
+      "number": 472,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/472"
+    },
+    {
+      "headRefOid": "e8a8f58abe78293cd07f947981fd52de868783e2",
+      "mergeCommit": {
+        "oid": "b768c9bea10da3201960a2519effbdc260f14026"
+      },
+      "mergedAt": "2026-10-14T04:10:54Z",
+      "number": 473,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/473"
+    },
+    {
+      "headRefOid": "ec788c0bb2cd819ac29504279dd9ba16cd1363ec",
+      "mergeCommit": {
+        "oid": "f85def5bb8ab17a208717d9ad9990381ab142db2"
+      },
+      "mergedAt": "2026-10-14T04:11:06Z",
+      "number": 474,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/474"
+    }
+  ],
+  "steps": [
+    {
+      "name": "build",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "build",
+        "tools/nettest/nettest.csproj",
+        "-c",
+        "Release",
+        "-o",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-b58377ab/runtime",
+        "-m:1",
+        "-p:UseSharedCompilation=false",
+        "-p:CopyLocalLockFileAssemblies=false",
+        "-nodeReuse:false"
+      ],
+      "cwd": "${WORKSPACE}/work/prime-plan-integration",
+      "startedUtc": "2026-10-14T09:13:49.032862+00:00",
+      "pid": 44929,
+      "exit": 1,
+      "closureProbe": {
+        "closed": false,
+        "waitSeconds": 5.0782041669999956,
+        "observations": [
+          {
+            "utc": "2026-10-14T09:14:36.380395+00:00",
+            "members": [
+              "45051     1 44929 S    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          },
+          {
+            "utc": "2026-10-14T09:14:37.390271+00:00",
+            "members": [
+              "45051     1 44929 R    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          },
+          {
+            "utc": "2026-10-14T09:14:37.474893+00:00",
+            "members": [
+              "45051     1 44929 S    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          },
+          {
+            "utc": "2026-10-14T09:14:38.937370+00:00",
+            "members": [
+              "45051     1 44929 R    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          },
+          {
+            "utc": "2026-10-14T09:14:39.023854+00:00",
+            "members": [
+              "45051     1 44929 S    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          }
+        ]
+      },
+      "finishedUtc": "2026-10-14T09:14:41.431666+00:00",
+      "logSha256": "244b8a9a3244114d9f413934819a7a2129660f1fcf84f81a106ef20821bf693e",
+      "ownedProcessGroupClosed": false
+    }
+  ],
+  "runnerSha256": "c8397ce1654c59c014c63e48c7afe9aee2201431a40c2cbcfbcd6f4a5b390d89",
+  "donorSixBefore": {
+    "ProjectPrime.dll": "9e4cdb80cda4ad70c84145d6425eccd744e975ef8d64af575cc0d3013b9b62dc",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "88ba69a3869e19dda13ad9f21334e245437c85bb91426da9b2f5d5080965c082",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "sourceConstants": {
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10
+  }
+}

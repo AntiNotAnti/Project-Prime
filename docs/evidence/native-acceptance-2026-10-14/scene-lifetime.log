@@ -1,0 +1,26 @@
+COMPACT_LOADED_IDENTITY nettest location=<candidate>/runtime/nettest.dll mvid=0151d5f2-81b8-4566-96e3-aadf793388ee
+COMPACT_LOADED_IDENTITY ProjectPrime location=<candidate>/runtime/ProjectPrime.dll mvid=5e534c23-57c6-4026-a55a-f8233293a732
+LIFETIME PASS ordinary execution starts without lifecycle observation
+LIFETIME PASS snapshot contains only values and cannot retain a world or callback
+[transitiongccheck] PASS: inactive observer cannot change SceneLoad collection policy
+[transitiongccheck] PASS: inactive observer cannot change SceneEnd collection policy
+[transitiongccheck] PASS: diagnostic control observes both calls and skips only requested phase: Keep
+[transitiongccheck] PASS: diagnostic control observes both calls and skips only requested phase: SkipLoad
+[transitiongccheck] PASS: diagnostic control observes both calls and skips only requested phase: SkipEnd
+[transitiongccheck] PASS: diagnostic control observes both calls and skips only requested phase: SkipBoth
+[transitiongccheck] PASS: removed observer invalidates an outstanding stage scope
+LIFETIME PASS existing transition controls preserve inactive default GC policy
+LIFETIME PASS real content-free cleanup records ordered lifecycle boundaries once
+LIFETIME PASS ended live world reports the legitimate foreground facade roots
+LIFETIME PASS untracked external owners remain unknown rather than reported as zero
+LIFETIME PASS live scene remains reachable while compatibility save owner is bound
+LIFETIME PASS eligible scene is collected after explicit diagnostic owner release despite retained snapshots
+LIFETIME PASS detached private replica is collected without touching foreground facades
+LIFETIME PASS replica diagnostics distinguish isolated policy and absence of facade bindings
+LIFETIME PASS local generations are monotonic across independent scene owners
+LIFETIME PASS content-free resource counters remain accurate
+LIFETIME PASS overflow drops value records with an explicit count and fixed storage bound
+LIFETIME PASS nested observation restores the outer owner without publishing into it
+LIFETIME PASS unrelated worker thread cannot append to scene-thread diagnostics
+LIFETIME PASS disposal disables publication and retained value records remain stable
+LIFETIME summary checks=16 scope=device-free eligible-owner diagnostic; no native leak claim

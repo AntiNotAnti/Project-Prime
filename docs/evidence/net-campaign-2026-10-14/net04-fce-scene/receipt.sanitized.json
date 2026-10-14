@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/replay-scene-fce73957-final/receipt.json",
+    "sha256": "22b99a49d906c917dedb8c8f09d4aca7f5e9d0f813e9dae129c4a0ecf1b29b2a",
+    "bytes": 5104
+  },
+  "treatment": "JSON reserialized with relative/sanitized path strings; full sourceTreeLines omitted with separate text digest. Numeric samples, SHA256, MVID, full commits, results and closure flags unchanged.",
+  "payload": {
+    "scope": "Actual compiled final fce headless PassiveReplayScene normal simulation consumer; no pixels/Studio/native timedbeam reconstruction/paid impact acceptance",
+    "sourceBefore": {
+      "commit": "fce73957396ab916cfa7ce6a462f76e3e66d24e1",
+      "tree": "392fe6f6979b063b67a3db062ac0d5e5d96e3454",
+      "dirty": ""
+    },
+    "physicalClientSHA256": "e27a23b63096cf7dec9f1c5443e21961d9aa2b8cc958652aafca1ee75dfab868",
+    "thinEntrySHA256": "0de9692a538c1aac30762826a6eed73aa1c8795acfabdaa3693cc4ce9cffe8c7",
+    "originalPathsSHA256": "60c7944f2f5add1751503005a8e326d86f6779b99287029173d23073a109a189",
+    "results": [
+      {
+        "file": "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo",
+        "fileSHA256": "fb7c9a1761f60a94743c18db430f04b22278bb0668ee930692834307635e616f",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net04-evidence/replay-scene-fce73957-final/runtime/nettest.dll",
+          "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo",
+          "--scene"
+        ],
+        "cwd": "work/net04-evidence/replay-scene-fce73957-final/profile",
+        "pid": 42025,
+        "exit": 0,
+        "seconds": 1.532628059387207,
+        "groupAbsentVerified": true,
+        "logSHA256": "223d9dac1a6c452090d5a137663549f9307f1377915d5ec48666f8510cc6d066",
+        "loadedClientVerified": true,
+        "thinEntryVerified": true
+      },
+      {
+        "file": "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-183_0521a4adc4e34a5d87ffd01b063cbd52.ppdemo",
+        "fileSHA256": "646deb8984787ecb7acd066e3258c4656e70bb6fa8456660b3ef31a1476dbaf9",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net04-evidence/replay-scene-fce73957-final/runtime/nettest.dll",
+          "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-183_0521a4adc4e34a5d87ffd01b063cbd52.ppdemo",
+          "--scene"
+        ],
+        "cwd": "work/net04-evidence/replay-scene-fce73957-final/profile",
+        "pid": 42026,
+        "exit": 0,
+        "seconds": 1.2743289470672607,
+        "groupAbsentVerified": true,
+        "logSHA256": "087ac8850337d438049c80cb37501f1a87f6ddaa4afe57a358921a344a4cbb84",
+        "loadedClientVerified": true,
+        "thinEntryVerified": true
+      },
+      {
+        "file": "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-1/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-151_62b2b85091114bcc8dde7bf59b0f6adc.ppdemo",
+        "fileSHA256": "f480e2e99fc9539fed0855e814ea859681ecbd13a2bfb479a8ad8390ea61f0b1",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net04-evidence/replay-scene-fce73957-final/runtime/nettest.dll",
+          "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-1/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-151_62b2b85091114bcc8dde7bf59b0f6adc.ppdemo",
+          "--scene"
+        ],
+        "cwd": "work/net04-evidence/replay-scene-fce73957-final/profile",
+        "pid": 42028,
+        "exit": 0,
+        "seconds": 1.3331258296966553,
+        "groupAbsentVerified": true,
+        "logSHA256": "6ad85076a9ba9ba1f346724d17cc5472588b7703a1dc2f99216fcd7f73ece990",
+        "loadedClientVerified": true,
+        "thinEntryVerified": true
+      }
+    ],
+    "sourceAfter": {
+      "commit": "fce73957396ab916cfa7ce6a462f76e3e66d24e1",
+      "tree": "392fe6f6979b063b67a3db062ac0d5e5d96e3454",
+      "dirty": ""
+    },
+    "candidateClientUnchanged": true,
+    "loadedCopyUnchanged": true,
+    "originalPathsUnchanged": true,
+    "sourceUnchanged": true,
+    "allGroupsClosed": true,
+    "status": "PASS_SCOPED_SCENE_ADAPTER_ONLY"
+  }
+}
