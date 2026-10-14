@@ -3046,8 +3046,32 @@ namespace MphRead.Entities
             }
         }
 
+        // The objective strip is scoped to the story HUD, not the shared MP
+        // HUD or historic replay output. Compute text only when StorySave
+        // changes; high-refresh draw calls reuse the cached string.
+        private ushort _campaignHudFoundOctoliths = ushort.MaxValue;
+        private int _campaignHudScanCount = -1;
+        private string _campaignHudStatus = "";
+
+        private void DrawCampaignHudStatus()
+        {
+            if (_scene.Services.IsReplica || Mods.Network.DemoPlayback.IsActive)
+                return;
+            StorySave save = _scene.GameState.StorySave;
+            if (_campaignHudFoundOctoliths != save.FoundOctoliths
+                || _campaignHudScanCount != save.ScanCount)
+            {
+                _campaignHudFoundOctoliths = save.FoundOctoliths;
+                _campaignHudScanCount = save.ScanCount;
+                _campaignHudStatus = Mods.Campaign.CampaignJournal.CompactHud(save);
+            }
+            DrawText2D(128 + _objShiftX, 12 + _objShiftY,
+                Align.Center, 0, _campaignHudStatus);
+        }
+
         private void DrawHudAdventure()
         {
+            DrawCampaignHudStatus();
             if (ScanVisor)
             {
                 if (_scanning)
