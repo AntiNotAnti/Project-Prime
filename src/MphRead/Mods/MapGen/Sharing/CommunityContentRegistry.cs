@@ -108,6 +108,21 @@ public sealed class CommunityContentRegistry
                 && metadata.ExpectedParentHash != current.LatestHash)
                 throw new InvalidDataException("Stale v3 content parent; reload before publishing.");
 
+            // A published typed item cannot advertise a private or unresolved
+            // dependency hash. PR-10 will generalize this into a lockfile DAG;
+            // PR-08 safely permits only already-published generic dependencies.
+            if (metadata.Visibility == CommunityContentVisibility.Published)
+                foreach (var dependency in metadata.Dependencies ?? Array.Empty<CommunityContentDependency>())
+                {
+                    if (dependency.Kind == CommunityContentKinds.Map
+                        || !_projects.TryGetValue(
+                            (dependency.Kind, dependency.ContentId), out var upstream)
+                        || !upstream.Revisions.Any(r => r.ContentHash == dependency.Hash
+                            && r.Visibility == CommunityContentVisibility.Published))
+                        throw new InvalidDataException(
+                            "Published v3 content cannot expose a private or unresolved dependency.");
+                }
+
             // Immutable objects are persisted before the metadata pointer.
             // If metadata persistence fails, an unreferenced blob is harmless,
             // while no catalog revision ever points to an unwritten object.
@@ -121,10 +136,18 @@ public sealed class CommunityContentRegistry
                 ParentHash: current?.LatestHash,
                 ReleaseNotes: metadata.ReleaseNotes,
                 Dependencies: metadata.Dependencies?.ToArray());
+            // The project-level presentation is public when CurrentHash is
+            // published. A later draft must not overwrite and leak unpublished
+            // title, description or tags through that public current pointer.
+            bool publishPresentation = current == null
+                || metadata.Visibility == CommunityContentVisibility.Published;
             var next = new CommunityContentStoredProject(
                 metadata.Kind, metadata.ContentId, metadata.OwnerId,
-                metadata.Name, metadata.DisplayName, metadata.Author,
-                metadata.Description, metadata.Tags.ToArray(),
+                publishPresentation ? metadata.Name : current!.Name,
+                publishPresentation ? metadata.DisplayName : current!.DisplayName,
+                publishPresentation ? metadata.Author : current!.Author,
+                publishPresentation ? metadata.Description : current!.Description,
+                publishPresentation ? metadata.Tags.ToArray() : current!.Tags.ToArray(),
                 CurrentHash: metadata.Visibility == CommunityContentVisibility.Published
                     ? hash : current?.CurrentHash,
                 LatestHash: hash,
@@ -233,8 +256,7 @@ public sealed class CommunityContentRegistry
             .Where(r => owner || r.Visibility == CommunityContentVisibility.Published)
             .ToArray();
         if (visible.Length == 0) return null;
-        CommunityContentRevision latest = owner
-            ? visible[^1] : visible[^1];
+        CommunityContentRevision latest = visible[^1];
         CommunityContentRevision? current = data.CurrentHash != null
             ? visible.FirstOrDefault(r => r.ContentHash == data.CurrentHash)
             : null;
