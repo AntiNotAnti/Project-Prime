@@ -116,6 +116,9 @@ namespace MphRead.Mods.Launcher
         /// <summary>Adventure only: start over rather than resume the slot.</summary>
         public bool NewGame { get; init; }
 
+        /// <summary>Only a verified ship boarding may choose a new landing.</summary>
+        public Campaign.CampaignPlanet? AdventureDestination { get; init; }
+
         /// <summary>Demo only: the recorded file to play back.</summary>
         public string DemoPath { get; init; }
     }
