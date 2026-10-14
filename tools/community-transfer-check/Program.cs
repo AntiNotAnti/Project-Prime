@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Text.Json;
 using System.Threading.Tasks;
 using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
@@ -111,6 +112,50 @@ try
             "repeat map selection does not re-download verified bytes");
     }
 
+    // Rehydrate interrupted private bytes and metadata exactly as if the
+    // process had exited while the HTTP Range request was active. Restart is
+    // allowed to resume a Retryable job, not one deliberately paused by a user.
+    string indexFile = Path.Combine(jobsDir, "jobs-v1.json");
+    void SimulateInterrupted(CommunityTransferState state, int prefixBytes)
+    {
+        string archive = Path.Combine(jobsDir, "archives", hash + ".ppmap");
+        File.Delete(archive);
+        File.WriteAllBytes(Path.Combine(jobsDir, "partials", hash + ".part"),
+            bytes.AsSpan(0, prefixBytes).ToArray());
+        var index = JsonSerializer.Deserialize<TransferIndexFixture>(
+            File.ReadAllText(indexFile), MapPackageReader.JsonOptions)
+            ?? throw new InvalidDataException("Missing durable transfer index.");
+        CommunityTransferJob[] recovered = index.Jobs.Select(job => job.Id == downloadId
+            ? job with { State = state, AcknowledgedBytes = prefixBytes }
+            : job).ToArray();
+        File.WriteAllText(indexFile, JsonSerializer.Serialize(
+            new TransferIndexFixture(index.Schema, recovered), MapPackageReader.JsonOptions));
+    }
+
+    SimulateInterrupted(CommunityTransferState.Paused, Math.Min(64, bytes.Length / 2));
+    await using (var paused = new CommunityTransferManager(jobsDir, credentials))
+    {
+        Check(paused.GetJob(downloadId).State == CommunityTransferState.Paused,
+            "user pause survives restart without auto-resume");
+        paused.StartPending();
+        Check(paused.GetJob(downloadId).State == CommunityTransferState.Paused,
+            "restart does not override an intentional pause");
+        paused.Resume(downloadId);
+        Check((await paused.WaitAsync(downloadId)).State == CommunityTransferState.Completed,
+            "manually resumed download reaches exact verified archive");
+    }
+    SimulateInterrupted(CommunityTransferState.Downloading, Math.Min(64, bytes.Length / 2));
+    await using (var interrupted = new CommunityTransferManager(jobsDir, credentials))
+    {
+        Check(interrupted.GetJob(downloadId).State == CommunityTransferState.Retryable,
+            "crashed in-progress transfer is recovered as Retryable");
+        interrupted.StartPending();
+        Check((await interrupted.WaitAsync(downloadId)).State == CommunityTransferState.Completed,
+            "restart resumes interrupted HTTP Range without republishing an archive");
+        Check(File.ReadAllBytes(interrupted.VerifiedArchivePath(downloadId)!)
+            .SequenceEqual(bytes), "recovered archive is SHA-256/byte exact");
+    }
+
     // Auth is not persisted: reopening without credentials cannot create new
     // authenticated upload operations, but already completed receipts remain.
     await using (var noCredentials = new CommunityTransferManager(jobsDir))
@@ -130,3 +175,5 @@ finally
     try { Directory.Delete(root, recursive: true); }
     catch (IOException) { }
 }
+
+internal sealed record TransferIndexFixture(int Schema, CommunityTransferJob[] Jobs);
