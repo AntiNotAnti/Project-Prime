@@ -48,6 +48,10 @@ public partial class PlayerEntity
         => ModSpawnAcceptedShot(fire, out _);
 
     internal BeamResultFlags ModSpawnAcceptedShot(in FireEvent fire, out TimedShotEmission emission)
+        => ModSpawnAcceptedShot(fire, out emission, default);
+
+    internal BeamResultFlags ModSpawnAcceptedShot(in FireEvent fire, out TimedShotEmission emission,
+        TimedShotModifierDecision modifiers)
     {
         emission = default;
         bool continuous = fire.Kind == FireEventKind.ContinuousTick;
@@ -59,6 +63,7 @@ public partial class PlayerEntity
                 _scene.GameState.InstaGib, _scene.GameState.NoImperialist)) return BeamResultFlags.NoSpawn;
         bool affinity = continuous ? Weapons.GetAffinityBeam(Hunter) == BeamType.ShockCoil || (fire.HasContinuousContext ? fire.ContinuousPrime : IsPrimeHunter)
             : fire.PrimeAtFire || fire.AffinityAtFire;
+        if (modifiers.Applied) affinity = modifiers.Affinity;
         var weapon = _scene.WeaponRules[fire.Weapon + (affinity ? 9 : 0)];
         if (weapon.Flags.TestFlag(WeaponFlags.Continuous) != continuous) return BeamResultFlags.NoSpawn;
         // Each flight retains its own equipment (including ricochet/cluster
@@ -66,8 +71,12 @@ public partial class PlayerEntity
         var equip = new EquipInfo(weapon, EquipInfo.Beams)
         { ChargeLevel = fire.Charge, Zoomed = fire.ScopedAtFire, InfiniteAmmo = true };
         var flags = BeamSpawnFlags.NoMuzzle;
-        if (continuous ? (fire.HasContinuousContext ? fire.ContinuousDouble : DoubleDamage) : fire.DoubleAtFire) flags |= BeamSpawnFlags.DoubleDamage;
-        else if (continuous ? (fire.HasContinuousContext ? fire.ContinuousPrime : IsPrimeHunter) : fire.PrimeAtFire) flags |= BeamSpawnFlags.PrimeHunter;
+        bool doubled = modifiers.Applied ? modifiers.Double
+            : continuous ? (fire.HasContinuousContext ? fire.ContinuousDouble : DoubleDamage) : fire.DoubleAtFire;
+        bool prime = modifiers.Applied ? modifiers.Prime
+            : continuous ? (fire.HasContinuousContext ? fire.ContinuousPrime : IsPrimeHunter) : fire.PrimeAtFire;
+        if (doubled) flags |= BeamSpawnFlags.DoubleDamage;
+        else if (prime) flags |= BeamSpawnFlags.PrimeHunter;
         var direction = fire.Direction.Normalized();
         BeamResultFlags result;
         try

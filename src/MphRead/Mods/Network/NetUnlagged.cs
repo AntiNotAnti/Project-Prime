@@ -428,6 +428,7 @@ namespace MphRead.Mods.Network
             // call, once a frame, and a no-op on all but the pathological one.
             Restore();
             _inProgress = false;
+            if (NetTimedShotProof.Active) NetTimedDamageProfile.Record(frame);
             NetDynamicGeometryHistory.RecordWorld(frame);
             int index = (int)(frame % HistoryFrames);
             _stamp[index] = frame;
