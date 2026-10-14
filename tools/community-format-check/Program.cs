@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MphRead.Mods.MapGen;
 
 string root = Path.Combine(Path.GetTempPath(),
@@ -125,10 +126,13 @@ try
         File.ReadAllText(sidecar), MapPackageReader.JsonOptions)!;
     string badScaleSidecar = Path.Combine(root, "invalid-scale.json");
     File.WriteAllText(badScaleSidecar, JsonSerializer.Serialize(
-        goodSidecar with { UnitsPerPrimeUnit = float.NaN }));
+        goodSidecar with { UnitsPerPrimeUnit = float.NaN },
+        new JsonSerializerOptions
+        { NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals }));
     refused = false;
     try { QuakeMapInterchange.Import(path, badScaleSidecar); }
-    catch (InvalidDataException) { refused = true; }
+    catch (Exception ex) when (ex is InvalidDataException or JsonException)
+    { refused = true; }
     Check(refused, "nonfinite sidecar scale cannot poison imported world coordinates");
 
     File.WriteAllText(badScaleSidecar, JsonSerializer.Serialize(
@@ -141,11 +145,7 @@ try
     string unknownWorldspawn = Path.Combine(root, "worldspawn-metadata.map");
     File.WriteAllText(unknownWorldspawn, File.ReadAllText(path).Replace(
         "\"classname\" \"worldspawn\"",
-        "\"classname\" \"worldspawn\"\\n\"message\" \"DO NOT DROP\"", StringComparison.Ordinal));
-    // The literal replacement above inserts an escaped newline only; normalize
-    // to a physical line so the parser exercises the unknown source key.
-    File.WriteAllText(unknownWorldspawn,
-        File.ReadAllText(unknownWorldspawn).Replace("\\n", "\n", StringComparison.Ordinal));
+        "\"classname\" \"worldspawn\"\n\"message\" \"DO NOT DROP\"", StringComparison.Ordinal));
     refused = false;
     try { QuakeMapInterchange.Import(unknownWorldspawn); }
     catch (QuakeMapInterchangeException ex)
