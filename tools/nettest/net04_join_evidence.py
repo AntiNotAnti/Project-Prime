@@ -48,6 +48,49 @@ def outcome_signature(value):
         'DamageApplied', 'HealthAfter', 'HalfturretHealthAfter', 'DamageSequence', 'Flags'))
 
 
+def originating_native_self_death(record, grant, components, payments):
+    """Prove a synchronous originating component killed its source before completion.
+
+    Funding is captured before spawning; the completion certificate is exported
+    after native collisions. Final Death rows can therefore close that very shot's
+    grant within the same frame. No claim/correction or unrelated death proves it.
+    """
+    shot = record['Shot']; identity = key(shot['Key']); funding = shot['Funding']
+    frame = funding['ObservationAuthorityFrame']
+    if (grant['EndReason'] != 'Death' or frame != grant['EndFrame']
+            or signed_delta(frame, funding['ExpiresAtFrame']) >= 0
+            or shot['AuthorityFrame'] != frame or record['ObservedFrame'] != frame
+            or shot['Source']['Source'] not in (0, 'Verified')
+            or shot['Source']['Pose'] not in (0, 'Verified')
+            or shot['Unavailable'] not in (0, 'None')):
+        return False
+    for paid in payments.values():
+        pk = payment_key(paid['Key']); outcome = paid['Outcome']; witness = paid.get('Impact')
+        component = components.get((identity, shot['Room'], paid['Key']['Component']))
+        if (pk[:6] != identity or pk[6:9] != identity[2:5] or pk[10] not in (1, 2)
+                or not 1 <= pk[9] <= shot['Components'] or component is None
+                or paid['Lane'] not in (0, 'Native') or paid['Correction'] or paid['ClaimId']
+                or paid['Weapon'] != shot['Fire']['Weapon'] or paid['ActualTurretDamage'] != 0
+                or paid['ReservationFrame'] != frame or paid['PaymentFrame'] != frame
+                or outcome['ShotId'] != identity[5] or outcome['ClaimId']
+                or tuple(outcome[n] for n in ('VictimSlot', 'VictimGeneration', 'VictimLife')) != identity[2:5]
+                or outcome['DamageApplied'] <= 0 or outcome['HealthAfter'] != 0
+                or outcome['Result'] not in (0, 1) or outcome['Flags'] & 66 != 66
+                or witness is None):
+            continue
+        if (not component['PlayerSource']
+                or component['AcceptedPlayback'] != (shot['Lane'] in (1, 'AcceptedFire'))
+                or component['Value'].get('AuthorityFrame') != frame
+                or not component['Ordinal'] < paid['Ordinal'] < record['Ordinal']
+                or payment_key(witness['Payment']) != pk or witness['Weapon'] != paid['Weapon']
+                or witness['Frame'] != frame or not witness['Completed']
+                or witness['NativeChannel'] <= 0 or witness['Outcome'] != outcome
+                or witness['Direct'] != (pk[10] == 1)):
+            continue
+        return True
+    return False
+
+
 def audit(server, clients):
     failures, incomplete = [], []
     metrics = dict(fundedOrdinaryCertificates=0, verifiedSourceCertificates=0,
@@ -226,8 +269,15 @@ def audit(server, clients):
                     fail(f'{identity}: frozen funding differs from actual A1 grant')
                 if (signed_delta(fire['SourceFrame'], funding['SourceContactFrame']) <= 0
                         or signed_delta(funding['ObservationAuthorityFrame'], funding['ContactFrame']) <= 0
-                        or signed_delta(funding['ObservationAuthorityFrame'], grant['EndFrame']) >= 0):
+                        or signed_delta(funding['ObservationAuthorityFrame'], funding['ExpiresAtFrame']) >= 0):
                     fail(f'{identity}: source observation is outside actual contact+1/end interval')
+                elif signed_delta(funding['ObservationAuthorityFrame'], grant['EndFrame']) >= 0:
+                    if (funding['ObservationAuthorityFrame'] == grant['EndFrame']
+                            and grant['EndReason'] == 'Death'):
+                        if not originating_native_self_death(record, grant, components, payments):
+                            local_missing.append('equal-frame Death requires exact originating native self-death proof')
+                    else:
+                        fail(f'{identity}: source observation is outside actual contact+1/end interval')
             source = shot['Source']
             verified = source['Source'] in (0, 'Verified') and source['Pose'] in (0, 'Verified') and shot['Unavailable'] in (0, 'None')
             if verified:

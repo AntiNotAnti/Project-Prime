@@ -1,7 +1,7 @@
 """Constructed join falsifiers; not native emissions or campaign positives."""
 import copy
 import unittest
-from net04_join_evidence import audit
+from net04_join_evidence import audit, originating_native_self_death
 
 
 def fixture():
@@ -53,7 +53,72 @@ def rebudget(server):
                            for name, rows in evidence.items() if isinstance(rows, list)}
 
 
+def self_death_fixture():
+    """Constructed synchronous self-splash boundary, never native evidence."""
+    server, clients = fixture(); rows = server['TimedCaseJoins']
+    record = rows['Certificates'][0]; record['Ordinal'] = 7
+    rows['Components'][0]['Value']['AuthorityFrame'] = 120
+    server['TimedGrants'][0].update(EndFrame=120, EndReason='Death')
+    paid = copy.deepcopy(rows['Payments'][0])
+    paid.update(Ordinal=6, ReservationFrame=120, PaymentFrame=120, Lane=0, ClaimId=0)
+    paid['Key'].update(Victim=0, Generation=1, Life=1, Kind=2)
+    paid['Outcome'].update(VictimSlot=0, VictimGeneration=1, VictimLife=1,
+                           DamageApplied=31, HealthAfter=0, Flags=66)
+    paid['Impact'] = dict(Payment=copy.deepcopy(paid['Key']), Weapon=0, Frame=120,
+        NativeChannel=64, Direct=False, Completed=True, Outcome=copy.deepcopy(paid['Outcome']))
+    rows['Payments'].append(paid); rebudget(server)
+    return server, clients
+
+
 class JoinTests(unittest.TestCase):
+    def test_exact_originating_self_death_preserves_pre_spawn_funding(self):
+        server, clients = self_death_fixture()
+        result = audit(server, clients)
+        self.assertEqual(result['status'], 'PASS', result)
+
+    def test_self_death_proof_falsifiers_never_waive_boundary(self):
+        mutations = {
+            'other shot': lambda p, c, r, g: p['Key']['Shot'].update(ShotId=99),
+            'other source life': lambda p, c, r, g: p['Key']['Shot'].update(LifeId=99),
+            'other victim life': lambda p, c, r, g: p['Key'].update(Life=99),
+            'other component': lambda p, c, r, g: p['Key'].update(Component=2),
+            'claimed lane': lambda p, c, r, g: p.update(Lane=1, ClaimId=6),
+            'correction lane': lambda p, c, r, g: p.update(Lane=2, Correction=True),
+            'missing witness': lambda p, c, r, g: p.update(Impact=None),
+            'nonlethal': lambda p, c, r, g: p['Outcome'].update(HealthAfter=1),
+            'zero reduction': lambda p, c, r, g: p['Outcome'].update(DamageApplied=0),
+            'wrong witness identity': lambda p, c, r, g: p['Impact']['Payment'].update(Life=99),
+            'wrong witness outcome': lambda p, c, r, g: p['Impact']['Outcome'].update(DamageSequence=99),
+            'wrong witness frame': lambda p, c, r, g: p['Impact'].update(Frame=119),
+            'wrong payment frame': lambda p, c, r, g: p.update(PaymentFrame=121),
+            'wrong reservation frame': lambda p, c, r, g: p.update(ReservationFrame=119),
+            'wrong component frame': lambda p, c, r, g: c['Value'].update(AuthorityFrame=119),
+            'component after payment': lambda p, c, r, g: c.update(Ordinal=8),
+            'payment after completion': lambda p, c, r, g: p.update(Ordinal=8),
+            'certificate later frame': lambda p, c, r, g: r.update(ObservedFrame=121),
+            'expiry boundary': lambda p, c, r, g: r['Shot']['Funding'].update(ExpiresAtFrame=120),
+            'after end': lambda p, c, r, g: g.update(EndFrame=119),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name=name):
+                server, _ = self_death_fixture(); rows = server['TimedCaseJoins']
+                mutate(rows['Payments'][-1], rows['Components'][0], rows['Certificates'][0], server['TimedGrants'][0])
+                components = {(tuple(rows['Certificates'][0]['Shot']['Key'].values()), 3, 1): rows['Components'][0]}
+                self.assertFalse(originating_native_self_death(rows['Certificates'][0], server['TimedGrants'][0],
+                    components, {1: rows['Payments'][-1]}))
+
+    def test_equal_death_without_witness_is_incomplete_and_expiry_after_end_fail(self):
+        server, clients = self_death_fixture()
+        server['TimedCaseJoins']['Payments'][-1]['Impact'] = None
+        self.assertEqual(audit(server, clients)['status'], 'INCOMPLETE')
+        for end, reason in ((119, 'Death'), (120, 'Expired'), (120, 'Active')):
+            server, clients = self_death_fixture(); server['TimedGrants'][0].update(EndFrame=end, EndReason=reason)
+            self.assertEqual(audit(server, clients)['status'], 'FAIL')
+        server, clients = self_death_fixture()
+        server['TimedGrants'][0]['ExpiresAtFrame'] = 120
+        server['TimedCaseJoins']['Certificates'][0]['Shot']['Funding']['ExpiresAtFrame'] = 120
+        self.assertEqual(audit(server, clients)['status'], 'FAIL')
+
     def run_case(self, mutation=None):
         server, clients = fixture()
         if mutation:
