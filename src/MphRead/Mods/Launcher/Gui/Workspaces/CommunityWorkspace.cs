@@ -392,6 +392,21 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
             _details.Children.Add(PrimeChrome.Text(
                 "Verified archive saved. Select the map from Discover to install it.",
                 PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+        if (job.State is CommunityTransferState.Completed
+            or CommunityTransferState.Cancelled or CommunityTransferState.Failed
+            or CommunityTransferState.Paused or CommunityTransferState.NeedsReview)
+        {
+            var forget = new PrimeButton("REMOVE FROM HISTORY", () =>
+            {
+                try { _transfers?.Forget(job.Id); RenderList(); }
+                catch (InvalidOperationException)
+                {
+                    _status.Text = "This transfer is still finishing. Retry after it stops.";
+                }
+            }, compact: true);
+            ControllerNav.Identify(forget, "community.transfer.forget");
+            _details.Children.Add(forget);
+        }
     }
 
     private void ShowEmptyDetails(string title, string description)
