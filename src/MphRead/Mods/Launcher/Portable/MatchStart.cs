@@ -1,5 +1,6 @@
 using System;
 using MphRead.Entities;
+using MphRead.Formats;
 using MphRead.Mods.Campaign;
 using MphRead.Mods.Network;
 
@@ -376,6 +377,15 @@ namespace MphRead.Mods.Launcher
             window.Scene.GameState.Mode = GameMode.SinglePlayer;
             window.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: LauncherPrefs.LastColor, team: -1);
             window.AddRoom(roomKey, GameMode.SinglePlayer);
+            if (plan.NewGame && !Cheats.SkipPlanetIntros)
+            {
+                // The original new-file story movie precedes the landing
+                // sequence. AddRoom's ordinary landing film is replaced by
+                // one chained intro + landing with the same native renderer.
+                window.Scene.StartMovies(Movie.StoryIntro, Movie.CALanding,
+                    FadeType.FadeOutInBlack, 0, FadeType.FadeOutWhite,
+                    5 / 30f, AfterMovie.StartGame);
+            }
             window.LoadScene();
             return true;
         }
