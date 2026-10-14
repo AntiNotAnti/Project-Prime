@@ -183,7 +183,7 @@ public static class QuakeMapInterchange
                         Error("FP-RADIANT-WORLDSPAWN", lineNo,
                             "Unrepresented worldspawn key " + key + " requires explicit preservation.");
             }
-            else if (Q3Gameplay.IsPlayerStart(type))
+            else if (type.Equals("info_player_deathmatch", StringComparison.OrdinalIgnoreCase))
             {
                 if (!Q3Gameplay.TryVector(entity.GetValueOrDefault("origin"), out var xyz))
                 { Error("FP-RADIANT-SPAWN", lineNo, "Spawn requires a valid Quake origin."); return; }
@@ -224,6 +224,10 @@ public static class QuakeMapInterchange
             else if (Q3Gameplay.MapPickupType(type) is ItemType pickupType
                 && pickupType != ItemType.None)
             {
+                if (!string.Equals(Q3Gameplay.CanonicalQuakePickup(pickupType.ToString()),
+                    type, StringComparison.OrdinalIgnoreCase))
+                    Error("FP-RADIANT-ITEM", lineNo,
+                        "Noncanonical Quake pickup alias would lose its source classname on export.");
                 if (!Q3Gameplay.TryVector(entity.GetValueOrDefault("origin"), out var xyz))
                 {
                     Error("FP-RADIANT-ITEM", lineNo, "Pickup requires finite Quake origin.");
@@ -284,6 +288,8 @@ public static class QuakeMapInterchange
             lineNo++;
             if (lineNo > 200000)
                 throw new InvalidDataException("Quake map contains too many lines.");
+            if (raw.Length > 4096)
+                throw new InvalidDataException("Quake map has an oversized source line.");
             string line = raw.Trim();
             if (line.StartsWith("// PRIME_ID=", StringComparison.OrdinalIgnoreCase)
                 && depth == 2)
@@ -377,7 +383,10 @@ public static class QuakeMapInterchange
                         "Nondefault UV projection/surface flags cannot be represented losslessly yet.");
                     continue;
                 }
-                faces.Add(new Face(points, args[0], lineNo));
+                if (faces.Count >= 32)
+                    Error("FP-RADIANT-BRUSH", lineNo,
+                        "Convex brush exceeds the 32-plane authoring limit.");
+                else faces.Add(new Face(points, args[0], lineNo));
                 continue;
             }
             Error("FP-RADIANT-SYNTAX", lineNo,
