@@ -21,7 +21,7 @@ namespace MphRead.Mods.Launcher.Gui
             Padding = new Thickness(24, 12);
             var identity = PrimeChrome.Stack(PrimeChrome.Title("PROJECT PRIME"), _status);
             identity.Spacing = 4;
-            var nav = new Grid { ColumnDefinitions = new("0.8*,0.8*,1.45*,1.2*,1.05*,0.9*,0.95*"), ColumnSpacing = 4 };
+            var nav = new Grid { ColumnDefinitions = new("0.75*,0.7*,1.0*,1.0*,1.0*,1.05*,0.85*,0.85*"), ColumnSpacing = 3 };
             int index = 0;
             foreach (var route in PrimeRouter.Tabs)
             {
@@ -29,8 +29,9 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     PrimeRoute.News => "HOME",
                     PrimeRoute.Play => "PLAY",
-                    PrimeRoute.HunterLicense => "HUNTER LICENSE",
-                    PrimeRoute.Theatre => "REPLAY STUDIO",
+                    PrimeRoute.Community => "COMMUNITY",
+                    PrimeRoute.HunterLicense => "HUNTER",
+                    PrimeRoute.Theatre => "REPLAYS",
                     PrimeRoute.Forge => "MAP STUDIO",
                     PrimeRoute.Offline => "OFFLINE",
                     PrimeRoute.Settings => "SETTINGS",
