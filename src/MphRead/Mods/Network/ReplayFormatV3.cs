@@ -19,7 +19,10 @@ namespace MphRead.Mods.Network
         internal const uint TrailerMagic = 0x33444E45; // END3
         internal const uint HashMagic = 0x33485348; // HSH3, optional footer extension
         internal const int MaxHeader = 128 * 1024;
-        internal const int MaxWorldHeader = MaxHeader + 12 + Replay.ReplayWorldCheckpoint.MaximumBytes + 6;
+        internal const int MaxWorldHeader = MaxHeader + 12 + Replay.ReplayWorldCheckpoint.MaximumBytes + 5;
+        internal const int MaxTimedConstruction = ReplayReplicaCheckpoint.MaximumBytes + 65536 + 1;
+        internal const int MaxTimedHeader = MaxHeader + MaxTimedConstruction + 128;
+        internal const int MaxTimedWorldHeader = MaxTimedHeader + 12 + Replay.ReplayWorldCheckpoint.MaximumBytes + 6;
         private const uint FireContinuationMagic = 0x31504650; // PFP1
         private const uint TimedShotCapabilityMagic = 0x31544350; // PCT1
         internal const int MaxChunk = 2 * 1024 * 1024;
@@ -110,10 +113,17 @@ namespace MphRead.Mods.Network
             writer.Write((byte)metadata.Bootstrap.Packets.Count);
             foreach (byte[] packet in metadata.Bootstrap.Packets)
             {
-                if (packet.Length is < 1 or > NetConfig.MaxSnapshotSize) throw new InvalidDataException("Invalid bootstrap packet.");
-                writer.Write((ushort)packet.Length); writer.Write(packet);
+                int limit = metadata.FormatVersion == 6 && packet.Length > 0 && packet[0] == 253
+                    ? MaxTimedConstruction : NetConfig.MaxSnapshotSize;
+                if (packet.Length < 1 || packet.Length > limit
+                    || metadata.FormatVersion == 6 && buffer.Length + packet.Length + 4 > MaxTimedHeader)
+                    throw new InvalidDataException("Invalid bootstrap packet.");
+                if (metadata.FormatVersion == 6) writer.Write((uint)packet.Length);
+                else writer.Write((ushort)packet.Length);
+                writer.Write(packet);
             }
-            if (buffer.Length > MaxHeader) throw new InvalidDataException("Metadata too large.");
+            if (buffer.Length > (metadata.FormatVersion == 6 ? MaxTimedHeader : MaxHeader))
+                throw new InvalidDataException("Metadata too large.");
             if (metadata.FormatVersion >= 4)
             {
                 if (metadata.WorldCheckpoint.Length > Replay.ReplayWorldCheckpoint.MaximumBytes || metadata.LeadInFrames > MaxFrame)
@@ -171,9 +181,15 @@ namespace MphRead.Mods.Network
             var packets = new List<byte[]>(packetCount);
             for (int i = 0; i < packetCount; i++)
             {
-                int length = reader.ReadUInt16();
-                if (length is < 1 or > NetConfig.MaxSnapshotSize) throw new InvalidDataException("Invalid bootstrap packet length.");
+                uint declaredLength = version == 6 ? reader.ReadUInt32() : reader.ReadUInt16();
+                int limit = version == 6 ? MaxTimedConstruction : NetConfig.MaxSnapshotSize;
+                if (declaredLength < 1 || declaredLength > limit
+                    || version == 6 && reader.BaseStream.Position + declaredLength > MaxTimedHeader)
+                    throw new InvalidDataException("Invalid bootstrap packet length.");
+                int length = (int)declaredLength;
                 byte[] packet = ReadBytes(reader, length);
+                if (length > NetConfig.MaxSnapshotSize && packet[0] != 253)
+                    throw new InvalidDataException("Only a format6 construction bootstrap may exceed the wire packet budget.");
                 if (!ValidBootstrap(packet, protocol, version)) throw new InvalidDataException("Invalid bootstrap packet.");
                 packets.Add(packet);
             }
@@ -510,7 +526,8 @@ namespace MphRead.Mods.Network
             _reader = new BinaryReader(stream, Encoding.UTF8, true);
             int size = _reader.ReadInt32();
             uint crc = _reader.ReadUInt32();
-            if (size < 1 || size > (version >= 4 ? ReplayFormatV3.MaxWorldHeader : ReplayFormatV3.MaxHeader))
+            if (size < 1 || size > (version == 6 ? ReplayFormatV3.MaxTimedWorldHeader
+                : version >= 4 ? ReplayFormatV3.MaxWorldHeader : ReplayFormatV3.MaxHeader))
                 throw new InvalidDataException("Invalid metadata length.");
             byte[] header = ReplayFormatV3.ReadBytes(_reader, size);
             if (ReplayFormatV3.Crc(header) != crc) throw new InvalidDataException("Metadata checksum failed.");

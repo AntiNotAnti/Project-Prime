@@ -32,6 +32,29 @@ def server_flags(args):
     return ["-powerups"] if args.powerups else []
 
 
+def child_environment(args, name, profile, inherited=None):
+    """Only declared campaign flags survive the reproducible child boundary."""
+    inherited = os.environ if inherited is None else inherited
+    env = {key: value for key, value in inherited.items()
+           if not key.startswith(("PRIME_", "MPHREAD_", "PROJECT_PRIME_"))}
+    env.update(PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS="null",
+               MPHREAD_PHASE_SECONDS="2", PRIME_NET2_EVIDENCE=str(args.out / f"{name}.json"),
+               PRIME_SHOT_PROOF=args.shot_proof)
+    if args.timed_grant_proof != "off":
+        env["PRIME_TIMED_GRANT_PROOF"] = args.timed_grant_proof
+    if args.timed_replay_facts and name == "server":
+        env["PRIME_TIMED_REPLAY_FACTS"] = "1"
+    return env
+
+
+def authority_arguments(args, rotation):
+    # Client --record remains independent. Only the explicit archival option
+    # enables authority files, whose certificates cannot be produced remotely.
+    replay = [] if args.timed_replay_facts else ["-noserverreplays"]
+    return ["-server", "-port", str(args.port), "-players", str(args.players + int(args.server_bot)),
+            "-nomaster", *replay, "-rotation", str(rotation), "-netdebug", *server_flags(args)]
+
+
 def current_protocol():
     """Read the checkout contract; historical binaries need --protocol explicitly."""
     source = Path(__file__).resolve().parents[2] / "src/MphRead/Mods/Network/NetProtocol.cs"
@@ -264,11 +287,7 @@ def run(args):
         maps.mkdir()
         # Do not silently inherit a developer's experimental/test flags into a
         # supposedly reproducible control. Keep ordinary OS/runtime environment.
-        env = {key: value for key, value in os.environ.items()
-               if not key.startswith(("PRIME_", "MPHREAD_", "PROJECT_PRIME_"))}
-        env.update(PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS="null",
-                   MPHREAD_PHASE_SECONDS="2", PRIME_NET2_EVIDENCE=str(args.out / f"{name}.json"),
-                   PRIME_SHOT_PROOF=args.shot_proof)
+        env = child_environment(args, name, profile)
         if args.server_bot and name == "server":
             env["PRIME_NET_AI_SERVER_BOT"] = str(args.players)
         if args.server_operator and name == "server":
@@ -308,6 +327,9 @@ def run(args):
             "environment": {k: env[k] for k in ("PROJECT_PRIME_USER_DATA", "ALSOFT_DRIVERS", "MPHREAD_PHASE_SECONDS", "PRIME_NET2_EVIDENCE", "PRIME_SHOT_PROOF")},
             "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
             "soak": args.soak})
+        for key in ("PRIME_TIMED_GRANT_PROOF", "PRIME_TIMED_REPLAY_FACTS"):
+            if key in env:
+                manifest["commands"][-1]["environment"][key] = env[key]
         if args.server_operator and name == "server":
             manifest["commands"][-1]["environment"]["PRIME_SERVER_OPERATOR_OUTPUT"] = env["PRIME_SERVER_OPERATOR_OUTPUT"]
         if args.movement_validation_shadow:
@@ -332,8 +354,7 @@ def run(args):
         return process, record
 
     try:
-        server, server_record = launch("server", ["-server", "-port", str(args.port), "-players", str(args.players + int(args.server_bot)),
-            "-nomaster", "-noserverreplays", "-rotation", str(rotation), "-netdebug", *server_flags(args)], args.seconds, False)
+        server, server_record = launch("server", authority_arguments(args, rotation), args.seconds, False)
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
             if server.poll() is not None:
@@ -567,6 +588,10 @@ def parse_args(argv=None):
     p.add_argument("--protocol", type=int, help="Expected evidence protocol; defaults to checkout, set explicitly for historical binaries")
     p.add_argument("--shot-proof", choices=("off", "shadow", "enforce"), default="shadow",
                    help="Record and apply the explicit N4 admission mode")
+    p.add_argument("--timed-grant-proof", choices=("off", "shadow"), default="off",
+                   help="Explicit NET-01 timed certificate observation; independent of legacy --shot-proof")
+    p.add_argument("--timed-replay-facts", action="store_true",
+                   help="Enable authority archival timed facts and server recordings; requires timed Shadow")
     p.add_argument("--players", type=int, choices=(2, 3, 4, 8), default=2)
     p.add_argument("--ai-net-client", type=int, nargs="?", const=2, choices=range(4),
                    help="Drive ordinary local clients with native tactical AI, level 0..3")
@@ -604,6 +629,8 @@ def parse_args(argv=None):
     p.add_argument("--record", action="store_true")
     p.add_argument("--soak", action="store_true")
     args = p.parse_args(argv)
+    if args.timed_replay_facts and args.timed_grant_proof != "shadow":
+        p.error("--timed-replay-facts requires --timed-grant-proof shadow")
     if args.pacing_lobby_client and (not args.pacing_lobby_client.is_file() or args.players != 8
             or args.ai_net_client is None or not args.powerups or args.server_bot or args.rendered
             or args.soak or args.observer_delay or args.scenario != "tour" or "," in args.rooms):

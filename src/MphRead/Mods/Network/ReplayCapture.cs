@@ -161,9 +161,7 @@ namespace MphRead.Mods.Network
             // list when up to 2048 retained launches precede recording start.
             if (Recorder.HasTimedShotCertificates)
             {
-                var seed = new ReplayReplicaState();
-                Recorder.SeedWorld(record => { if (!record.Payload.IsEmpty) seed.Accept(record.Payload, record.RecordingFrame); });
-                packets = new() { ReplayTimelineArchive.Construction(seed) };
+                packets = new() { ReplayTimelineArchive.Construction(Recorder.CaptureTimedShotSeed(NetSession.NetFrame)) };
             }
             return new ReplayMetadata
             {

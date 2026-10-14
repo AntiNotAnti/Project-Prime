@@ -100,6 +100,22 @@ internal sealed partial class ReplayRecorder
             try { accept(record); } finally { record.Release(); }
         });
     }
+    internal ReplayReplicaCheckpoint CaptureTimedShotSeed(uint frame)
+    {
+        if (!_timedShots.Enabled) throw new InvalidDataException("No timed shot seed capability.");
+        var seed = new ReplayReplicaState();
+        uint frontier = frame;
+        SeedWorld(record =>
+        {
+            if (record.RecordingFrame > frontier) frontier = record.RecordingFrame;
+            if (!record.Payload.IsEmpty) seed.Accept(record.Payload, record.RecordingFrame);
+        });
+        // SeedWorld also supplies presentation baselines whose carrier can be
+        // older than the match. Commit one monotonic recording frontier after
+        // the complete seed; original authority/source clocks stay untouched.
+        seed.Advance(frontier);
+        return seed.CaptureCheckpoint();
+    }
 }
 
 internal sealed partial class ReplayReplicaState

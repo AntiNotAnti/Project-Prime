@@ -34,8 +34,12 @@ complete detached candidates before commit. The existing world capsule embeds
 the decoder; no native object schema/appendix or live-wire change is added.
 Format1–5 readers and historical checkpoint layouts remain supported without
 invented timed proof. Old builds reject format6/checkpoint13. Existing byte
-budgets remain enforced; an oversized seed/checkpoint cannot silently claim
-complete coverage. Toggling this opt-in during an active recording is not an
+budgets remain enforced. Format6 alone uses uint bootstrap lengths and a
+separate bounded construction allowance (512KiB plus65536 compression bytes),
+while format3/4/5 retain ushort/4096 bootstrap contracts and live packets stay
+4096. Seed construction commits a monotonic recording frontier after cached
+baseline carriers without rewriting source/authority clocks. An oversized
+seed/checkpoint cannot silently claim complete coverage. Toggling this opt-in during an active recording is not an
 upgrade path: the writer refuses facts/checkpoints inconsistent with its header.
 
 A3 grant presentation/bootstrap and canonical authored fire are reused.
@@ -54,6 +58,8 @@ Prepared checks:
 ```text
 dotnet tools/nettest/bin/Release/net10.0/nettest.dll --timed-shot-replay
 dotnet tools/nettest/bin/Release/net10.0/nettest.dll --timed-shot-replay-scene <assets> [room]
+python3 tools/nettest/run-net2.py --help
+python3 tools/nettest/run-net2.py --timed-grant-proof shadow --timed-replay-facts <existing runner session options>
 ```
 
 The pure suite declares constructed storage fixtures and covers canonical
@@ -65,9 +71,21 @@ declared resources/A1-reservation pipeline fixture. Actual accepted private
 drains and native emission terminals are followed
 by real file reopen, private passive decode/checkpoint/indexed reader seek,
 archive copy and range extraction. It separately tests Off/no opt-in,
-Shadow/no opt-in and Shadow/opt-in. No graphics/payment/native-pickup proof is
-claimed. Tests have been prepared but not run in this implementation commit;
-runtime acceptance is pending the exclusive execution slot.
+Shadow/no opt-in and Shadow/opt-in. The runner's timed replay flag requires
+Shadow and enables authority recording; ordinary child processes do not inherit
+unrequested timed flags. No graphics/payment/natural campaign/Studio proof is
+claimed. Test and runtime results are published separately in the PR body and external receipts
+with exact code/DLL identities. Prepared checks alone are not runtime acceptance.
+
+Full acceptance remains blocked by concrete audit gaps: aggregate paid keys do
+not join component/victim/kind/outcome, and ReplayShotFact has no ComponentId.
+The source capability ring retains only the last 256 entries per shooter,
+including replaced entries; it is not a complete funding-sequence/contact
+incarnation report. Ordinary exact impact remains unavailable; homing and
+ricochet sources remain Shadow-only. The new runner supplies an authority
+archive prerequisite, while positive authenticated UDP/campaign coverage is
+still separate. A 20–30 minute run alone cannot establish 99.9% supported-positive
+proof. Archived channels stay read-only, with production Enforce disabled.
 
 Rollback: unset `PRIME_TIMED_REPLAY_FACTS`, leave production timed proof Off or
 ordinary Shadow, or revert the NET-04 commit set. Existing recordings remain

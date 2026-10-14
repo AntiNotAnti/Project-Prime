@@ -288,10 +288,94 @@ internal static class TimedShotReplayTests
             Check(refused, "old format cannot advertise timed certificates");
         }
     }
+    private static MatchStatePacket SeedMatch() => new()
+        { AuthorityEpoch = 23, MatchId = 7, RoomKey = "fixture-room", Mode = (byte)GameMode.Battle };
+    private static void ConstructionSeeds()
+    {
+        var recorder = new ReplayRecorder(); recorder.AcceptMatch(SeedMatch(), 1000);
+        recorder.EnableTimedShotCertificates(41, TimedGrantProofMode.Shadow, 1000);
+        var broken = new ReplayReplicaState();
+        recorder.SeedWorld(record => { if (!record.Payload.IsEmpty) broken.Accept(record.Payload, record.RecordingFrame); });
+        Check(broken.MatchRecordingFrame == 1000 && broken.RecordingFrame == 0,
+            "regression reproduces older presentation carrier after newer match in a real recorder seed");
+        bool refused = false;
+        try { new ReplayReplicaState().RestoreCheckpoint(broken.CaptureCheckpoint()); }
+        catch (InvalidDataException) { refused = true; }
+        Check(refused, "malformed recording frontier is rejected rather than weakening checkpoint validation");
+        var repaired = new ReplayReplicaState(); repaired.RestoreCheckpoint(recorder.CaptureTimedShotSeed(1000));
+        Check(repaired.RecordingFrame == 1000 && repaired.MatchRecordingFrame == 1000
+            && repaired.TimedShots.Enabled && repaired.TimedShots.AuthorityFrame == 1000,
+            "actual seed helper commits monotonic recording frontier without rewriting authority clock");
+        var atBootstrap = new ReplayReplicaState();
+        atBootstrap.Accept(ReplayTimelineArchive.Construction(repaired), 0);
+        var bootstrapCopy = new ReplayReplicaState(); bootstrapCopy.RestoreCheckpoint(atBootstrap.CaptureCheckpoint());
+        Check(bootstrapCopy.RecordingFrame == 1000 && bootstrapCopy.MatchRecordingFrame == 1000
+            && bootstrapCopy.TimedShots.AuthorityFrame == 1000,
+            "frame-zero construction injection retains a complete valid seed and its original authority clock");
+        recorder.Reset();
+
+        var state = new ReplayReplicaState();
+        var match = SeedMatch(); var matchBytes = new byte[1 + MatchStatePacket.Size];
+        matchBytes[0] = (byte)PacketType.MatchState; match.Write(matchBytes.AsSpan(1)); state.Accept(matchBytes, 0);
+        state.TimedShots.Begin(23, 7, 41, TimedGrantProofMode.Shadow);
+        var entropy = new Random(0x21613);
+        for (int slot = 0; slot < 8; slot++) for (uint shot = 1; shot <= 256; shot++)
+        {
+            var certificate = Certificate(shot, slot, authority: 1000);
+            certificate = certificate with { Fire = certificate.Fire with {
+                SourceFrame = (uint)entropy.NextInt64(0, uint.MaxValue), AckFrame = (uint)entropy.NextInt64(0, uint.MaxValue),
+                Origin = new((float)(entropy.NextDouble() * 10000), (float)(entropy.NextDouble() * 10000), (float)(entropy.NextDouble() * 10000)),
+                Aim = new((float)(entropy.NextDouble() * 10000), (float)(entropy.NextDouble() * 10000), (float)(entropy.NextDouble() * 10000)),
+                Reticle = new((float)entropy.NextDouble(), (float)entropy.NextDouble()),
+                Charge = (byte)entropy.Next(256) },
+                Damage = certificate.Damage with { Body = (float)(entropy.NextDouble() * 5000),
+                    Head = (float)(entropy.NextDouble() * 5000), Splash = (float)(entropy.NextDouble() * 5000) } };
+            var fact = ReplayTimedShotFact.From(certificate, TimedGrantProofMode.Shadow);
+            Check(state.TimedShots.Remember(fact, 1000) == TimedShotRetention.Stored,
+                "high-entropy seed fills each real fixed cell without eviction");
+        }
+        state.Advance(1000);
+        var checkpoint = state.CaptureCheckpoint();
+        Check(checkpoint.Bytes.Length <= ReplayReplicaCheckpoint.MaximumBytes,
+            "complete 2048 fact fixture remains within unchanged512KiB detached checkpoint limit");
+        var construction = ReplayTimelineArchive.Construction(checkpoint);
+        Check(construction.Length > ushort.MaxValue && construction.Length <= ReplayFormatV3.MaxTimedConstruction,
+            "high-entropy2048 construction genuinely requires uint length beyond65535 and stays within separate v6 bound");
+        var metadata = new ReplayMetadata { FormatVersion = 6, TimedShotCertificates = true, RoomKey = match.RoomKey,
+            Mode = GameMode.Battle, Bootstrap = new() { Packets = new[] { construction } } };
+        var encoded = ReplayFormatV3.EncodeMetadata(metadata);
+        var decoded = ReplayFormatV3.DecodeMetadata(56, encoded, 6);
+        Check(decoded.Bootstrap.Packets.Count == 1 && decoded.Bootstrap.Packets[0].AsSpan().SequenceEqual(construction),
+            "actual metadata codec preserves larger construction with v6 uint lengths");
+        var restored = new ReplayReplicaState(); restored.Accept(decoded.Bootstrap.Packets[0], 0);
+        Check(restored.TimedShots.Count == 2048 && restored.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes),
+            "actual construction decoder retains exact full high-entropy private state");
+        string path = Path.Combine(Path.GetTempPath(), "prime-v6-full-seed-" + Guid.NewGuid().ToString("N") + DemoFile.Extension);
+        try
+        {
+            using (var writer = new ReplayWriterV3(path, metadata)) ReplayTimelineArchive.EndFrame(writer, 0);
+            using var reader = DemoReader.Open(path) ?? throw new InvalidDataException("Large v6 seed did not reopen.");
+            var reopened = new ReplayReplicaState(); reopened.Accept(reader.Metadata!.Bootstrap.Packets[0], 0);
+            Check(reader.FormatVersion == 6 && reopened.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes),
+                "actual file writer/reader preserves all2048 facts and complete detached seed");
+        }
+        finally { if (File.Exists(path)) File.Delete(path); if (File.Exists(path + ".part")) File.Delete(path + ".part"); }
+        bool oldRefused = false;
+        try { ReplayFormatV3.EncodeMetadata(new ReplayMetadata { FormatVersion = 5, IndexedFireContinuation = true,
+            Bootstrap = new() { Packets = new[] { construction } } }); }
+        catch (InvalidDataException) { oldRefused = true; }
+        Check(oldRefused, "old published formats retain4096 bootstrap budget and ushort contract");
+        bool nonConstructionRefused = false;
+        var oversizedScope = new byte[NetConfig.MaxSnapshotSize + 1]; oversizedScope[0] = ReplayTimedShotScope.Tag;
+        try { ReplayFormatV3.EncodeMetadata(new ReplayMetadata { FormatVersion = 6, TimedShotCertificates = true,
+            Bootstrap = new() { Packets = new[] { oversizedScope } } }); }
+        catch (InvalidDataException) { nonConstructionRefused = true; }
+        Check(nonConstructionRefused, "larger v6 exception cannot expand ordinary or live packet budget");
+    }
     internal static int Run()
     {
         _checks = 0;
-        try { Codec(); Retention(); Checkpoints(); ScopeRecords(); MetadataCodec(); Console.WriteLine($"PASS: {_checks} pure timed-shot archival assertions. SCOPE: explicit storage fixtures; no native admission or visual fidelity claim."); return 0; }
+        try { Codec(); Retention(); Checkpoints(); ScopeRecords(); MetadataCodec(); ConstructionSeeds(); Console.WriteLine($"PASS: {_checks} pure timed-shot archival assertions. SCOPE: explicit storage fixtures; no native admission or visual fidelity claim."); return 0; }
         catch (Exception error) { Console.Error.WriteLine(error); Console.Error.WriteLine("Completed checks: " + _checks); return 1; }
     }
 }
