@@ -21,12 +21,16 @@ internal sealed partial class MapStudioScreen
                     // Never save the Project Prime JSON back over the external
                     // Quake .map source. Authors select a normal .json save path.
                     WithUnsaved(() => Load(new MapProject(result.Definition)));
+                    string warnings = string.Join("; ", result.Diagnostics
+                        .Where(d => !d.Error).Take(2)
+                        .Select(d => d.Code + ": " + d.Message));
                     _status.Text = "Imported " + result.Definition.Geometry.Count
                         + " editable box/convex brush(es), "
                         + result.Definition.Spawns.Count + " spawn(s), and "
                         + result.Definition.Items.Count + " pickup(s). "
                         + "Scale factor " + result.Definition.ScaleFactor
-                        + ". Save to a new .json project before building.";
+                        + ". Save to a new .json project before building."
+                        + (warnings.Length > 0 ? " " + warnings : "");
                 }
                 catch (QuakeMapInterchangeException ex)
                 {
