@@ -41,6 +41,7 @@ namespace MphRead.NetTest
                     + "  --campaign-presentation           Test native campaign HUD, scan journal, and map framing.\n"
                     + "  --campaign-audio                  Test original gunship/credits audio and ownership fencing.\n"
                     + "  --campaign-journey                Simulate complete 3-slot journey with actual native save IO.\n"
+                    + "  --campaign-native-scene <assets> <json> Load actual single-player room, simulate, verify save.\n"
                     + "  --foreground-binding              Test eligible facade release and cancelled room publication.\n"
                     + "  --lifecycle-soak                  Test 10/100/500 device-free save/bot-owner handoffs.\n"
                     + "  --asset-lifecycle <filesystem> <count> <replay|-> <json> Test loaded world/save/replica ownership.\n"
@@ -102,6 +103,20 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--campaign-journey") return CampaignJourneyTests.Run();
             if (args.Length > 0 && args[0] == "--foreground-binding") return ForegroundBindingTests.Run();
             if (args.Length > 0 && args[0] == "--lifecycle-soak") return LifecycleSoakTests.Run();
+            if (args.Length > 0 && args[0] == "--campaign-native-scene")
+            {
+                if (args.Length != 3 || !System.IO.Directory.Exists(args[1])
+                    || System.IO.File.Exists(args[2]))
+                {
+                    Console.Error.WriteLine("Usage: --campaign-native-scene <extracted AMHE1 filesystem> <fresh result.json>");
+                    return 1;
+                }
+                string assets = System.IO.Path.GetFullPath(args[1]);
+                string result = System.IO.Path.GetFullPath(args[2]);
+                Paths.MphKey = "AMHE1";
+                Paths.SetPath(Paths.MphKey, assets);
+                return CampaignNativeSceneTests.Run(result);
+            }
             if (args.Length > 0 && args[0] == "--asset-lifecycle")
             {
                 if (args.Length != 5 || !int.TryParse(args[2], out int count) || count < 1 || count > 500)
