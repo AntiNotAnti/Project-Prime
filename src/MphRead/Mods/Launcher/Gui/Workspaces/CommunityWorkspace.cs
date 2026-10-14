@@ -23,7 +23,7 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     private readonly PrimeOverlayHost _overlays;
     private readonly CommunityMapProject[]? _fixture;
     private readonly UiTabs _tabs = new(new[] { "DISCOVER", "INSTALLED", "FAVORITES", "DOWNLOADS" });
-    private readonly UiList _list = new() { AutoSelectFirst = false, SpacingEms = 0.25 };
+    private readonly UiList _list = new() { AutoSelectFirst = true, SpacingEms = 0.25 };
     private readonly StackPanel _details = new() { Spacing = 8 };
     private readonly TextBox _search = new() { PlaceholderText = "Search maps or creators" };
     private readonly PrimeStatePanel _state = new(PrimeStateKind.Loading, "CONTACTING COMMUNITY",
@@ -216,6 +216,7 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     private void RenderList()
     {
         if (_disposed) return;
+        Guid? previousSelection = _selected?.MapId;
         _list.Clear();
         _list.IsVisible = _tabs.Index != 3;
         _state.IsVisible = false;
@@ -278,17 +279,15 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
             return;
         }
         _state.IsVisible = false;
-        CommunityMapProject? keep = _selected;
-        if (keep != null && _tabs.Index != 1 && _projects.Any(p => p.MapId == keep.MapId))
+        if (previousSelection is Guid remembered && _tabs.Index != 1
+            && _projects.FirstOrDefault(p => p.MapId == remembered) is { } keep)
         {
-            _list.SelectTag(keep.MapId);
+            _list.SelectTag(remembered);
             ShowProject(keep);
         }
-        else
-        {
-            ShowEmptyDetails("SELECT A MAP",
-                "Choose a map to view its author, supported modes, installed revision and download actions.");
-        }
+        // UiList.AutoSelectFirst already populates the details for the first
+        // row, including an offline local map, without a second selection.
+
     }
 
     private void ShowEmptyDetails(string title, string description)
