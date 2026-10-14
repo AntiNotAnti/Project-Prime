@@ -51,6 +51,7 @@ namespace MphRead.Mods.Launcher.Gui
         public event EventHandler? RecordToggleRequested;
         public event EventHandler? VoteMapRequested;
         public event EventHandler? ReplayControlsRequested;
+        public event EventHandler? CampaignJournalRequested;
 
         private readonly HubNavButton _resume;
         private readonly HubNavButton _voteYes;
@@ -61,7 +62,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// Show the fullscreen/windowed entry. False on a phone, which has one
         /// window, it is already the whole screen, and there is no F11.
         /// </param>
-        public PauseMenuView(bool offerWindowMode)
+        public PauseMenuView(bool offerWindowMode, bool campaignAvailable = false)
         {
             Background = Brushes.Transparent;
             Focusable = true;
@@ -119,6 +120,14 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     Add(menu, "SPECTATE", () => SpectateRequested?.Invoke(this, EventArgs.Empty));
                 }
+            }
+
+            if (campaignAvailable && !DemoPlayback.IsActive && !NetSession.Active)
+            {
+                var journal = Add(menu, "MISSION MAP / SCAN LOGBOOK",
+                    () => CampaignJournalRequested?.Invoke(this, EventArgs.Empty),
+                    HubTheme.Accent);
+                ControllerNav.Identify(journal, "pause.campaign.journal");
             }
 
             if (offerWindowMode)

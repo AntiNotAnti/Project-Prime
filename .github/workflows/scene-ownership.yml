@@ -42,6 +42,8 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-movies
       - name: Verify both Gorea endings and save completion handoff
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-endings
+      - name: Verify campaign journal, scan HUD and map projection
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-presentation
       - name: Fence foreground release and cancelled room completion
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --foreground-binding
       - name: Soak 10, 100 and 500 device-free owner/save handoffs

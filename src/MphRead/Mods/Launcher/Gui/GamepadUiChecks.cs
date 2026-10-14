@@ -378,6 +378,15 @@ namespace MphRead.Mods.Launcher.Gui
                     .Any(block => block.Text == "SESSION & SYSTEM")
                 && ControllerNav.Find(pause, "pause.resume") is { IsEffectivelyVisible: true },
                 "pause separates primary resume context from session and system actions");
+            GamepadChecks.Check(ControllerNav.Find(pause, "pause.campaign.journal") == null,
+                "ordinary pause menus never expose campaign navigation");
+            var storyPause = new PauseMenuView(false, campaignAvailable: true);
+            window.Content = storyPause; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var journalButton = ControllerNav.Find(storyPause, "pause.campaign.journal");
+            GamepadChecks.Check(journalButton is { IsEffectivelyVisible: true }
+                && journalButton.Focusable,
+                "story pause menu exposes controller-focusable mission journal");
+            window.Content = pause; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
             // Android hosts PauseMenuView in StartScreen rather than InGameMenu,
             // so Back must reach the view's resume callback without a desktop host.
             int resumed = 0;

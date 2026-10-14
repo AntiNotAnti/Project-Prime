@@ -95,7 +95,8 @@ namespace MphRead.Mods.Launcher.Gui
         {
             // The window mode is offered here and not on Android for the
             // reason it always was: there is a window to change.
-            var view = new PauseMenuView(offerWindowMode: true);
+            var view = new PauseMenuView(offerWindowMode: true,
+                campaignAvailable: CampaignJournalView.Available(_players));
             view.Resumed += (_, _) => Pop();
             view.FullscreenRequested += (_, _) =>
             {
@@ -103,6 +104,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Pop();
             };
             view.SettingsRequested += (_, _) => OpenSettings();
+            view.CampaignJournalRequested += (_, _) => OpenCampaignJournal();
             view.ReplayControlsRequested += (_, _) => OpenReplayControls();
             view.VoteMapRequested += (_, _) => OpenVote();
             view.SpectateRequested += (_, _) => { SpectatorMode.Start(); Pop(); };
@@ -148,6 +150,14 @@ namespace MphRead.Mods.Launcher.Gui
                 Pop(); // pause menu
             };
             Push(view);
+        }
+
+        private void OpenCampaignJournal()
+        {
+            CampaignJournalView? journal = CampaignJournalView.OpenFor(_players);
+            if (journal == null) return;
+            journal.Closed += (_, _) => Pop();
+            Push(journal);
         }
 
         private void OpenSettings()
