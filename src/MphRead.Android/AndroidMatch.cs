@@ -1,6 +1,7 @@
 using System;
 using MphRead.Entities;
 using MphRead.Mods.Launcher;
+using MphRead.Mods.Campaign;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
@@ -134,6 +135,16 @@ namespace MphRead.Droid
         private static Scene BuildAdventure(AndroidInput input, Vector2i size,
             LaunchPlan plan, Action close)
         {
+            string? landingRoom = null;
+            CampaignDockReceipt? checkedDock = MatchStart.RecentShipDock;
+            if (plan.AdventureDestination is { } destination)
+            {
+                if (!CampaignShipTravel.TryChooseLanding(GameState.PeekSave(plan.SaveSlot),
+                    checkedDock, plan.SaveSlot, plan.NewGame, destination,
+                    out string room, out string reason))
+                    throw new ProgramException(reason);
+                landingRoom = room;
+            }
             // Match the desktop ordering: the Adventure save belongs to the
             // scene that will run it. Preparing GameState before constructing
             // the scene lets the constructor's reset reload the old slot and
@@ -144,6 +155,12 @@ namespace MphRead.Droid
 
             string roomKey = AdventureSave.Begin(
                 scene.GameState, plan.SaveSlot, plan.NewGame);
+            if (landingRoom != null && checkedDock is { } dock
+                && plan.AdventureDestination is { } landing)
+            {
+                CampaignShipTravel.PrepareLandingSpawn(scene.GameState.StorySave, dock, landing);
+                roomKey = landingRoom;
+            }
             if (roomKey.Length == 0)
             {
                 throw new ProgramException("That save slot does not name a room to load.");
@@ -152,6 +169,7 @@ namespace MphRead.Droid
             scene.GameState.Mode = GameMode.SinglePlayer;
             scene.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: 0, team: -1);
             scene.AddRoom(roomKey, GameMode.SinglePlayer);
+            MatchStart.ClearRecentShipDock();
             Console.WriteLine($"[match] adventure, slot {plan.SaveSlot}, "
                 + $"{(plan.NewGame ? "new game" : "continued")}, room {roomKey}");
             return scene;

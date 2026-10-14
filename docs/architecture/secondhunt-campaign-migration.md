@@ -52,7 +52,7 @@ Acceptance: byte-identical copy; backups never clobbered; empty/missing/bad slot
 - Classify ship-entry, normal quit, bad/good ending and return to menu from established scene state and `Menu.NeededSave`; guard pending commits.
 - Add fast asset-free and asset-backed parity fixtures for all five planets, checkpoint/teleport transitions, and ending flags.
 
-### CAMP-03: Gunship cockpit, star map, and file select flow
+### CAMP-03: Gunship cockpit, star map, and file select flow (guarded launcher console implemented; 3D rendering/media still pending)
 
 - Adapt SecondHunt `CampaignShip.cs` and native frontend interactions to Project Prime's active UI/scene service, rather than importing SecondHunt's Android/Windows GL shell.
 - Build and verify planet-select transitions, cockpit sequence IDs, landing-site launches, locked destinations, scanning/navigation, file A/B/C, ship returns and cancel/back behavior.
@@ -104,3 +104,13 @@ CAMP-01 can be reverted without migrating `StorySave` or modifying any previous 
 The campaign planet catalog lives in `src/MphRead/Mods/Campaign/CampaignNavigation.cs` and projects the native `StorySave` area bits, checkpoint, area states and collectible counts. It carries the original cockpit camera-sequence IDs as metadata, not rendering code. `Classify` is intentionally pure: callers must supply a verified ship-entry signal, rather than guessing based on `Menu.NeededSave` policy, because the user may configure the same policy for normal quit and ship entry. The default game-save serializer and current scene ownership remain unchanged. The asset-free `--campaign-navigation` test is included in the existing scene-ownership workflow.
 
 Next, CAMP-03 may consume this projection in the existing hub without duplicating `CampaignHost`, `Scene`, or MphRead's native save format. A full 3D in-ship cockpit and actual takeoff/landing movies remain coupled to the existing renderer and media lifecycle; adding names and camera-sequence IDs alone does not prove those features.
+
+## CAMP-03 integration status
+
+- The original `Scene.QuitGame(enteringShip:true)` is the authority for whether the player actually boarded a gunship. Captured departure reason and room ID are value-only fields on its `SceneGameState`. The existing immutable `PostMatchCommitContext` carries those values across teardown, and `MatchStart` publishes an ephemeral `CampaignDockReceipt` **only after a successful native Adventure save commit**. A normal quit, an ending, an unrecognized room or a save policy of Never never authorizes travel.
+- The active `OfflineWorkspace` offers a new gunship console / star map modal once the receipt's save slot is selected. It presents all five destinations, lock/visit/clear state, Octolith and artifact counts, and original cockpit camera-sequence IDs; selection controls Exit Ship and Land Ship. `StartScreen.OpenCampaignShip()` returns to this UI after real ship boarding on desktop and Android.
+- `AdventureLaunch.Create` and `LaunchPlan.AdventureDestination` carry an optional destination. `MatchStart.BeginAdventure` and `AndroidMatch.BuildAdventure` independently check the selected slot, the trusted in-process ship ticket and the latest saved planet unlock before overriding the launch's initial room. The native `StorySave` checkpoint remains untouched by this choice; entry into the real landing room uses the existing MphRead scene pipeline.
+- **Important distinction:** the current cockpit is a functional Project Prime **UI navigation console**, not SecondHunt's 3D `CampaignShip.cs` view or original cutscene/menu texture renderer. Those visual/media assets and their lifecycle are deferred to CAMP-04. The functional gunship transition is now connected without bringing a second GL renderer, audio backend, movie player, or `CampaignHost` into Project Prime.
+- The `--campaign-ship-flow` acceptance command exercises zero-ticket/locked/fresh/mismatched-slot refusals, both valid planet visits, successful commit publication, identical-policy normal quit, Never policy, Gorea ending, and invalid ship room. It runs with CAMP-01 and CAMP-02 contracts in scene-ownership CI.
+
+Before merging CAMP-03, verify actual desktop and Android campaign boarding, file select, controller/touch focus, and planet loading with licensed user game files. This is a stacked draft until CAMP-01 and CAMP-02 are accepted. Do not claim rendered in-ship cockpit or movie acceptance on the strength of the headless tests alone.

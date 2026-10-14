@@ -265,6 +265,16 @@ namespace MphRead.Mods.Launcher.Gui
             if (_prime.Router.Current == PrimeRoute.Lobby) _prime.Router.Navigate(PrimeRoute.Play);
             if (!GameFiles.Ready) OpenSetup();
         }
+        /// <summary>Return straight to the ship console after a real, saved
+        /// story boarding. The modal reads the same save slot the scene left.</summary>
+        public void OpenCampaignShip()
+        {
+            if (MatchStart.RecentShipDock == null) return;
+            _prime.Router.Navigate(PrimeRoute.Offline);
+            if (_prime.Workspaces.Get(PrimeRoute.Offline) is OfflineWorkspace offline)
+                offline.OpenCampaignShip();
+        }
+
         public void OpenTraining(bool focusTrainer = true)
         {
             _prime.Router.Navigate(PrimeRoute.Offline);

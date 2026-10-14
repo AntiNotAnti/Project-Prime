@@ -8,6 +8,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using MphRead.Entities;
 using MphRead.Mods.Network;
+using MphRead.Mods.Campaign;
 namespace MphRead.Mods.Launcher.Gui
 {
     internal sealed class OfflineWorkspace : UserControl, IPrimeWorkspace
@@ -17,7 +18,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly IReadOnlyList<string> _rooms;
         private readonly PrimeOverlayHost _overlays;
         private readonly ChoiceRow _hunter, _suit, _mode, _format, _bots, _skill;
-        private readonly PrimeButton _map, _resume, _newRun, _start;
+        private readonly PrimeButton _map, _resume, _newRun, _start, _ship;
         private readonly TextBlock _saveDetail;
         private readonly PrimeButton[] _slots = new PrimeButton[AdventureSave.SlotCount];
         private readonly Image _preview = new() { Height = 120, Stretch = Stretch.UniformToFill };
@@ -141,6 +142,8 @@ namespace MphRead.Mods.Launcher.Gui
             _saveDetail = PrimeChrome.Text("", 13, PrimeTheme.TextSecondaryBrush);
             _resume = new PrimeButton("▷ RESUME", () => Adventure(false), true);
             ControllerNav.Identify(_resume, "offline.adventure.resume");
+            _ship = new PrimeButton("OPEN GUNSHIP / STAR MAP", OpenCampaignShip);
+            ControllerNav.Identify(_ship, "offline.adventure.ship");
             var adventureBody = PrimeChrome.Stack(
                 new PrimeBadge("MODE 03 // NARRATIVE CAMPAIGN", PrimeTheme.GreenBrush),
                 PrimeChrome.Title("ADVENTURE RUNS"),
@@ -156,6 +159,7 @@ namespace MphRead.Mods.Launcher.Gui
                 adventureBody.Children.Add(button);
             }
             adventureBody.Children.Add(_saveDetail);
+            adventureBody.Children.Add(_ship);
             _newRun = new PrimeButton("+ NEW RUN", () => Adventure(true));
             ControllerNav.Identify(_newRun, "offline.adventure.new");
             var adventure = WithAction(adventureBody,
@@ -335,14 +339,102 @@ namespace MphRead.Mods.Launcher.Gui
             for (byte i = 1; i <= _slots.Length; i++)
             {
                 var info = AdventureSave.Read(i);
-                _slots[i - 1].Label = $"SLOT {i:00} // " + (info.Used ? info.Area.ToUpperInvariant() : "EMPTY");
+                _slots[i - 1].Label = $"SLOT {i:00} // " + (info.Used ? info.Area.ToUpperInvariant()
+                    : info.Unreadable ? "UNREADABLE" : "EMPTY");
                 _slots[i - 1].Selected = i == slot;
             }
             var save = AdventureSave.Read(slot);
             _resume.IsEnabled = save.Used;
+            bool docked = MatchStart.RecentShipDock is { } dock && dock.Slot == slot && save.Used;
+            _ship.IsEnabled = docked;
             _saveDetail.Text = save.Used ? $"{save.Area}\nOCTOLITHS: {save.Octoliths} / 8\nENERGY: {save.Health} / {save.HealthMax}"
+                + (docked ? "\nGUNSHIP DOCKED // STAR MAP READY" : "")
+                : save.Unreadable ? "This slot contains unreadable data. Archive the save before starting over."
                 : "Initialize a fresh expedition from Celestial Archives.";
         }
+        /// <summary>
+        /// Star-map and ship actions shown only after a real ship boarding
+        /// which has completed the native save handoff. GameState remains the
+        /// sole owner of campaign progression and its JSON serializer.
+        /// The cockpit here is a native UI console: 3D gunship movies and the
+        /// original in-ship screens are separate CAMP-04 media work.
+        /// </summary>
+        internal void OpenCampaignShip()
+        {
+            if (MatchStart.RecentShipDock is not { } dock || dock.Slot is < 1 or > AdventureSave.SlotCount)
+                return;
+            StorySave? save = GameState.PeekSave(dock.Slot);
+            if (save == null) return;
+            SelectSlot(dock.Slot);
+            var statuses = CampaignNavigation.StarMap(save);
+            CampaignPlanet selected = dock.Planet;
+            var readout = PrimeChrome.Text("", 14, PrimeTheme.TextSecondaryBrush);
+            var planetRows = new StackPanel { Spacing = 7 };
+            var buttons = new Dictionary<CampaignPlanet, PrimeButton>();
+            PrimeButton? land = null;
+
+            void SelectPlanet(CampaignPlanet planet)
+            {
+                selected = planet;
+                foreach (var (id, button) in buttons) button.Selected = id == planet;
+                var status = statuses[(int)planet];
+                string condition = status.Unlocked ? (status.Cleared ? "CLEARED" : "ACCESS GRANTED") : "LOCKED";
+                readout.Text = $"{status.Planet.Name}  //  {condition}\n"
+                    + $"OCTOLITHS {status.Octoliths}/{status.OctolithTotal}   "
+                    + $"ARTIFACTS {status.Artifacts}/{status.ArtifactTotal}\n"
+                    + $"SECTOR {(status.Visited ? "VISITED" : "UNEXPLORED")}  //  "
+                    + $"SHIP CAMERA {status.Planet.Cockpit.Loop}";
+                if (land != null) land.IsEnabled = status.Unlocked;
+            }
+
+            foreach (var status in statuses)
+            {
+                CampaignPlanet planet = status.Planet.Id;
+                var button = new PrimeButton(status.Planet.Name + (status.Unlocked ? "" : " // LOCKED"),
+                    () => SelectPlanet(planet));
+                ControllerNav.Identify(button, $"offline.ship.planet{(int)planet}");
+                buttons.Add(planet, button);
+                planetRows.Children.Add(button);
+            }
+
+            void Launch(CampaignPlanet planet)
+            {
+                // Repeat the check immediately before launching: changing the
+                // selected slot or a stale/locked planet cannot bypass it.
+                if (!CampaignShipTravel.TryChooseLanding(GameState.PeekSave(dock.Slot),
+                    MatchStart.RecentShipDock, dock.Slot, newGame: false, planet,
+                    out _, out string reason))
+                {
+                    readout.Text = reason;
+                    return;
+                }
+                _overlays.Close();
+                Launched?.Invoke(this, AdventureLaunch.Create(dock.Slot, false, SelectedHunter(), planet));
+            }
+
+            land = new PrimeButton("▷ LAND SHIP", () => Launch(selected), true);
+            ControllerNav.Identify(land, "offline.ship.land");
+            var leave = new PrimeButton("EXIT SHIP / RETURN TO SURFACE", () => Launch(dock.Planet));
+            ControllerNav.Identify(leave, "offline.ship.exit");
+            var pane = PrimeChrome.Stack(
+                new PrimeBadge("CAMPAIGN // GUNSHIP CONSOLE", PrimeTheme.GreenBrush),
+                PrimeChrome.Title("ALIMBIC CLUSTER // STAR MAP"),
+                PrimeChrome.Text("Choose a discovered planet. The ship uses only the progress in this save. "
+                    + "Locked destinations cannot launch; entering a landing does not rewrite the last checkpoint.",
+                    13, PrimeTheme.TextSecondaryBrush),
+                readout,
+                planetRows,
+                PrimeChrome.Columns("*,*", leave, land),
+                new PrimeButton("RETURN TO FILE SELECT", _overlays.Close));
+            _overlays.Show(new PrimePanel(new ScrollViewer
+                {
+                    Content = pane,
+                    HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                    VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
+                }), PrimeModalSize.Medium);
+            SelectPlanet(dock.Planet);
+        }
+
         private Hunter SelectedHunter()
         {
             return Enum.TryParse(_hunter.Value, ignoreCase: true, out Hunter hunter)
@@ -351,6 +443,14 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void Adventure(bool fresh)
         {
+            if (AdventureSave.Read(_slot).Unreadable)
+            {
+                _overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("UNREADABLE CAMPAIGN SAVE"),
+                    PrimeChrome.Text("This file is unreadable. Archive it using the Story file manager before "
+                        + "starting a new run, so the original bytes are recoverable."),
+                    new PrimeButton("BACK", _overlays.Close))), PrimeModalSize.Small);
+                return;
+            }
             void Launch() => Launched?.Invoke(this,
                 AdventureLaunch.Create(_slot, fresh, SelectedHunter()));
             if (fresh && AdventureSave.Read(_slot).Used)

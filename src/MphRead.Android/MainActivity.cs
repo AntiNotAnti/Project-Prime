@@ -1293,6 +1293,8 @@ namespace MphRead.Droid
             {
                 NetSession.Stop(); NetHostSession.Stop();
                 ResetLauncher();
+                if (MatchStart.RecentShipDock != null)
+                    AndroidApp.Home?.OpenCampaignShip();
             }
             // A demo feeds NetSession from a file rather than a socket, so
             // stopping the session is not what closes it.
