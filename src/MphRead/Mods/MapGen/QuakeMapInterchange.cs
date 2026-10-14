@@ -20,7 +20,7 @@ public sealed record QuakeMapSidecar(
     string SourceSha256);
 
 public sealed class QuakeMapInterchangeException(
-    QuakeMapDiagnostic[] diagnostics) : InvalidDataException(
+    QuakeMapDiagnostic[] diagnostics) : IOException(
         string.Join("; ", diagnostics.Select(x => x.Code + " line "
             + x.Line + ": " + x.Message)))
 {
