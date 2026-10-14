@@ -1208,8 +1208,8 @@ try
     {
         var buildField=typeof(PreparedMapInstallation).GetField("_build",
             System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)!;
-        var built=(MapBuildResult)buildField.GetValue(revision)!;
-        string sourceModel=built.Outputs!.Model;
+        var revisionBuild=(MapBuildResult)buildField.GetValue(revision)!;
+        string sourceModel=revisionBuild.Outputs!.Model;
         var runtimeBefore=MphRead.Paths.AllPaths[MphRead.Paths.MphKey];
         try
         {
