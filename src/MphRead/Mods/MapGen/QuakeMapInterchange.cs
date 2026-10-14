@@ -71,7 +71,14 @@ public static class QuakeMapInterchange
                 throw new InvalidDataException("Unsupported or invalid map identity sidecar.");
             inferred = sidecar.RoomName;
             unitsPerPrimeUnit = sidecar.UnitsPerPrimeUnit;
+            if (sidecar.SourceSha256 is not { Length: 64 }
+                || sidecar.SourceSha256.Any(c => !Uri.IsHexDigit(c)))
+                throw new InvalidDataException("Identity sidecar must pin a valid SHA-256 source fingerprint.");
         }
+        // Sidecars are untrusted input. Revalidate after applying their scale:
+        // otherwise zero, NaN or infinity can enter gameplay coordinates.
+        if (!float.IsFinite(unitsPerPrimeUnit) || unitsPerPrimeUnit is < 1f or > 1024f)
+            throw new InvalidDataException("Quake map sidecar scale must be finite and between 1 and 1024.");
         MapValidator.RequireRuntimeName(inferred);
         Guid mapId = sidecar?.MapId ?? GuidFrom("prime-map:" + inferred);
         string sourceHash = MapBuildFingerprint.HashFile(full);
@@ -91,7 +98,9 @@ public static class QuakeMapInterchange
         var faces = new List<Face>();
         Guid brushId = Guid.Empty;
         int depth = 0;
-        int lineNo = 0, brushIndex = 0, spawnIndex = 0;
+        int lineNo = 0, brushIndex = 0, spawnIndex = 0, worldspawnCount = 0;
+        var seenBrushIds = new HashSet<Guid>();
+        var seenSpawnIds = new HashSet<Guid>();
 
         void CloseBrush()
         {
@@ -164,11 +173,19 @@ public static class QuakeMapInterchange
             var extent = new[] { (hi[0]-lo[0]) / unitsPerPrimeUnit,
                 (hi[2]-lo[2]) / unitsPerPrimeUnit,
                 (hi[1]-lo[1]) / unitsPerPrimeUnit };
+            Guid id = brushId != Guid.Empty ? brushId
+                : GuidFrom("prime-brush:" + mapId + ":" + brushIndex + ":"
+                    + string.Join(",", lo.Select(v => v.ToString("R", CultureInfo.InvariantCulture)))
+                    + ":" + string.Join(",", hi.Select(v => v.ToString("R", CultureInfo.InvariantCulture)))
+                    + ":" + shader);
+            if (!seenBrushIds.Add(id))
+            {
+                Error("FP-RADIANT-ID", lineNo, "Duplicate brush identity; map authoring IDs must be unique.");
+                return;
+            }
             definition.Geometry.Add(new MapBox
             {
-                Id = brushId != Guid.Empty ? brushId
-                    : GuidFrom("prime-brush:" + mapId + ":" + brushIndex + ":"
-                        + string.Join(",", lo) + ":" + string.Join(",", hi) + ":" + shader),
+                Id = id,
                 Label = "Quake brush " + (brushIndex + 1),
                 Material = material,
                 Transform = new MapTransform { Position = center, Scale = extent }
@@ -181,12 +198,17 @@ public static class QuakeMapInterchange
         void CloseEntity()
         {
             string type = entity.GetValueOrDefault("classname") ?? "";
-            if (type == "worldspawn")
+            if (type.Equals("worldspawn", StringComparison.OrdinalIgnoreCase))
             {
+                worldspawnCount++;
+                if (worldspawnCount != 1)
+                    Error("FP-RADIANT-WORLDSPAWN", lineNo, "Exactly one worldspawn is required.");
+                // The native MapDefinition currently has no source-key metadata.
+                // Even apparently cosmetic keys cannot be discarded silently.
                 foreach (string key in entity.Keys)
-                    if (key is not ("classname" or "message" or "_color"))
+                    if (!key.Equals("classname", StringComparison.OrdinalIgnoreCase))
                         Error("FP-RADIANT-WORLDSPAWN", lineNo,
-                            "Unsupported worldspawn key " + key + "; preserve it in authoring or sidecar.");
+                            "Unrepresented worldspawn key " + key + " requires explicit preservation.");
             }
             else if (Q3Gameplay.IsPlayerStart(type))
             {
@@ -196,13 +218,25 @@ public static class QuakeMapInterchange
                     if (key is not ("classname" or "origin" or "angle" or "prime_id"))
                         Error("FP-RADIANT-ENTITY", lineNo, "Unsupported spawn key: " + key);
                 float angle = 0;
-                if (entity.TryGetValue("angle", out string? value) &&
-                    !float.TryParse(value, NumberStyles.Float,
-                        CultureInfo.InvariantCulture, out angle))
+                if (entity.TryGetValue("angle", out string? value)
+                    && (!float.TryParse(value, NumberStyles.Float,
+                        CultureInfo.InvariantCulture, out angle) || !float.IsFinite(angle)))
                     Error("FP-RADIANT-SPAWN", lineNo, "Invalid spawn heading.");
-                Guid id = entity.TryGetValue("prime_id", out var idText)
-                    && Guid.TryParse(idText, out Guid parsed)
-                    ? parsed : GuidFrom("prime-spawn:" + mapId + ":" + spawnIndex);
+                Guid id;
+                if (entity.TryGetValue("prime_id", out var idText))
+                {
+                    if (!Guid.TryParse(idText, out id) || id == Guid.Empty)
+                    {
+                        Error("FP-RADIANT-ID", lineNo, "Spawn prime_id must be a nonempty GUID.");
+                        return;
+                    }
+                }
+                else id = GuidFrom("prime-spawn:" + mapId + ":" + spawnIndex);
+                if (!seenSpawnIds.Add(id))
+                {
+                    Error("FP-RADIANT-ID", lineNo, "Duplicate spawn prime_id is not allowed.");
+                    return;
+                }
                 definition.Spawns.Add(new MapSpawn
                 {
                     Id = id, Position = new[]
@@ -261,7 +295,12 @@ public static class QuakeMapInterchange
             if (depth == 1)
             {
                 Match kv = EntityPattern.Match(line);
-                if (kv.Success) entity[kv.Groups["key"].Value] = kv.Groups["value"].Value;
+                if (kv.Success)
+                {
+                    if (!entity.TryAdd(kv.Groups["key"].Value, kv.Groups["value"].Value))
+                        Error("FP-RADIANT-ENTITY", lineNo,
+                            "Duplicate entity key; silently replacing metadata is unsafe.");
+                }
                 else Error("FP-RADIANT-ENTITY", lineNo,
                     "Unsupported entity syntax or escaped key/value.");
                 continue;
@@ -269,10 +308,15 @@ public static class QuakeMapInterchange
             if (depth == 2)
             {
                 MatchCollection matches = PointPattern.Matches(line);
-                if (matches.Count != 3)
+                if (matches.Count != 3
+                    || (matches.Count == 3 && (matches[0].Index != 0
+                        || !string.IsNullOrWhiteSpace(line[
+                            (matches[0].Index + matches[0].Length)..matches[1].Index])
+                        || !string.IsNullOrWhiteSpace(line[
+                            (matches[1].Index + matches[1].Length)..matches[2].Index]))))
                 {
                     Error("FP-RADIANT-FACE", lineNo,
-                        "Expected three Quake brush plane points; patches and brushDef3 unsupported.");
+                        "Expected exactly three Quake plane points without unsupported prefixes.");
                     continue;
                 }
                 var points = new Vector3[3];
@@ -283,6 +327,12 @@ public static class QuakeMapInterchange
                         float.Parse(m.Groups["x"].Value, CultureInfo.InvariantCulture),
                         float.Parse(m.Groups["y"].Value, CultureInfo.InvariantCulture),
                         float.Parse(m.Groups["z"].Value, CultureInfo.InvariantCulture));
+                }
+                if (points.Any(p => !float.IsFinite(p.X)
+                    || !float.IsFinite(p.Y) || !float.IsFinite(p.Z)))
+                {
+                    Error("FP-RADIANT-PLANE", lineNo, "Nonfinite brush plane coordinate.");
+                    continue;
                 }
                 string tail = line[(matches[2].Index + matches[2].Length)..].Trim();
                 string[] args = tail.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
@@ -310,6 +360,11 @@ public static class QuakeMapInterchange
         }
         if (depth != 0)
             Error("FP-RADIANT-BRACE", lineNo, "Unclosed Quake map entity or brush.");
+        if (worldspawnCount != 1)
+            Error("FP-RADIANT-WORLDSPAWN", lineNo, "Expected exactly one worldspawn.");
+        if (MapBuildFingerprint.HashFile(full) != sourceHash)
+            Error("FP-RADIANT-SOURCE-RACE", lineNo,
+                "The .map source changed while being read; retry from a frozen source.");
         if (!definition.Geometry.Any())
             Error("FP-RADIANT-GEOMETRY", lineNo, "No supported editable world brushes found.");
         if (diagnostics.Any(d => d.Error))
@@ -324,6 +379,8 @@ public static class QuakeMapInterchange
         if (!float.IsFinite(unitsPerPrimeUnit) || unitsPerPrimeUnit <= 0)
             throw new ArgumentOutOfRangeException(nameof(unitsPerPrimeUnit));
         MapValidator.RequireRuntimeName(map.Name);
+        if (map.MapId == Guid.Empty)
+            throw new InvalidDataException("Cannot export an identity-less map; assign a MapId first.");
         var errors = new List<QuakeMapDiagnostic>();
         if (map.Import != null || map.NativeRoom != null || map.Collision != null
             || map.Brushes.Count > 0 || map.Items.Count > 0 || map.JumpPads.Count > 0
@@ -425,9 +482,32 @@ public static class QuakeMapInterchange
             sb.AppendLine("}");
         }
         string full = Path.GetFullPath(output);
+        if (!Path.GetExtension(full).Equals(".map", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Quake source exports require a .map destination.");
+        string sidecar = Path.GetFullPath(sidecarPath ?? Path.Combine(
+            Path.GetDirectoryName(full)!, "project-prime.json"));
+        if (string.Equals(full, sidecar, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Quake source and identity sidecar must be distinct files.");
+        if (File.Exists(sidecar))
+        {
+            QuakeMapSidecar? previous;
+            try
+            {
+                if (new FileInfo(sidecar).Length > 65536)
+                    throw new InvalidDataException("Existing Quake sidecar is oversized.");
+                previous = JsonSerializer.Deserialize<QuakeMapSidecar>(
+                    File.ReadAllBytes(sidecar), MapPackageReader.JsonOptions);
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException("Refusing to overwrite an unrelated identity sidecar.", ex);
+            }
+            if (previous?.MapId != map.MapId || previous.SchemaVersion != 1)
+                throw new InvalidDataException(
+                    "Refusing to overwrite a sidecar belonging to a different map identity.");
+        }
+        // Refuse identity conflicts before modifying either source or sidecar.
         AtomicFile.Write(full, Encoding.UTF8.GetBytes(sb.ToString()));
-        string sidecar = sidecarPath ?? Path.Combine(
-            Path.GetDirectoryName(full)!, "project-prime.json");
         AtomicFile.Write(sidecar, JsonSerializer.SerializeToUtf8Bytes(
             new QuakeMapSidecar(1, map.MapId, map.Name, unitsPerPrimeUnit,
                 MapBuildFingerprint.HashFile(full)), MapPackageReader.JsonOptions));
