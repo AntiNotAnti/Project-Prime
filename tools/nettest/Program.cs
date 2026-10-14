@@ -35,6 +35,7 @@ namespace MphRead.NetTest
                     + "  --post-match-save                 Test post-match save byte parity, owner fencing and retry.\n"
                     + "  --foreground-binding              Test eligible facade release and cancelled room publication.\n"
                     + "  --lifecycle-soak                  Test 10/100/500 device-free save/bot-owner handoffs.\n"
+                    + "  --asset-lifecycle <filesystem> <count> <replay|-> <json> Test loaded world/save/replica ownership.\n"
                     + "  --shot-source-journal              Test independent authority resources and grant chronology.\n"
                     + "  --timed-grants                    Test authority timed pickup reservations and source history.\n"
                     + "  --timed-shot-certificates         Test bounded immutable timed shot storage.\n"
@@ -83,6 +84,24 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--post-match-save") return PostMatchSaveTests.Run();
             if (args.Length > 0 && args[0] == "--foreground-binding") return ForegroundBindingTests.Run();
             if (args.Length > 0 && args[0] == "--lifecycle-soak") return LifecycleSoakTests.Run();
+            if (args.Length > 0 && args[0] == "--asset-lifecycle")
+            {
+                if (args.Length != 5 || !int.TryParse(args[2], out int count) || count < 1 || count > 500)
+                {
+                    Console.Error.WriteLine("Usage: --asset-lifecycle <extracted AMHE1 filesystem> <count 1..500> <replay path|-> <output json>");
+                    return 1;
+                }
+                string assets = System.IO.Path.GetFullPath(args[1]);
+                string? replay = args[3] == "-" ? null : System.IO.Path.GetFullPath(args[3]);
+                string output = System.IO.Path.GetFullPath(args[4]);
+                if (!System.IO.Directory.Exists(assets) || replay != null && !System.IO.File.Exists(replay))
+                {
+                    Console.Error.WriteLine("Asset lifecycle requires an existing extracted filesystem and, when requested, a recording.");
+                    return 1;
+                }
+                Paths.MphKey = "AMHE1"; Paths.SetPath(Paths.MphKey, assets);
+                return AssetLifecycleTests.Run(count, replay, output);
+            }
             if (args.Length > 0 && args[0] == "--ai-client-driver") return NetAiClientTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-protocol") return PickupProtocolTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-claims") return PickupClaimTests.Run();
