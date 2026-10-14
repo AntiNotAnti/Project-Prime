@@ -34,6 +34,11 @@ def positive_and_funded_keys(server):
                    if c['Shot']['Source']['Source'] == 0 or c['Shot']['Funding'] is not None})
 
 
+def funded_keys(server):
+    return sorted({key_tuple(c['Shot']['Key']) for c in server['TimedCaseJoins']['Certificates']
+                   if c['Shot']['Funding'] is not None})
+
+
 def metric_table(values, columns):
     rows = []
     for value in values:
@@ -47,9 +52,11 @@ def metric_table(values, columns):
     return {'schema': 1, 'columns': columns, 'rows': rows}
 
 
-def project_role(document, keys, chronology):
+def project_role(document, keys, chronology, key_scope=None):
     metadata = {'rule': 'bounded-proof-projection-v1', 'qualifyingShotKeys': keys,
                 'chronology': chronology, 'fields': []}
+    if key_scope is not None:
+        metadata.update(rule='bounded-proof-projection-v2', keySelectionScope=key_scope)
     for field, columns in [('Windows', WINDOW_PATHS), ('TransportWindows', TRANSPORT_PATHS)]:
         original = document[field]
         info = {'path': [field], 'selection': 'every original row, fixed declared metric columns',
@@ -70,6 +77,8 @@ def project_role(document, keys, chronology):
             'countsByStage': dict(sorted(Counter(str(r['Stage']) for r in original).items())),
             'countsByReason': dict(sorted(Counter(str(r['Reason']) for r in original).items())),
             'countsByWeaponKind': dict(sorted(Counter(str((r['Weapon'], r['Kind'])) for r in original).items()))}
+    if key_scope is not None:
+        info['selection'] = 'all complete Shot rows for every funded certificate key; all other positive/contradictory authority certificate and ShotProof rows retained in full'
     document['Shots'] = kept; metadata['fields'].append(info)
     original = document.pop('Facts')
     metadata['fields'].append({'path': ['Facts'], 'selection': 'complete unrelated semantic payload field omitted',
@@ -78,7 +87,8 @@ def project_role(document, keys, chronology):
 
 
 def apply_declared_role_projection(document, specification):
-    actual = project_role(document, specification['qualifyingShotKeys'], specification['chronology'])
+    actual = project_role(document, specification['qualifyingShotKeys'], specification['chronology'],
+                          specification.get('keySelectionScope'))
     if actual != specification:
         raise ValueError('exact original field/indices/counts/metric selection')
     return document

@@ -5,7 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 from chunks import read_chunks
-from compact_projection import apply_declared_role_projection, positive_and_funded_keys, project_log
+from compact_projection import apply_declared_role_projection, positive_and_funded_keys, funded_keys, project_log
 
 _helpers = Path(__file__).resolve().parents[1] / 'life-evidence' / 'verify.py'
 _spec = importlib.util.spec_from_file_location('portable_helpers', _helpers)
@@ -35,6 +35,13 @@ def remove(document, path):
     for key in path[:-1]:
         parent = parent[key]
     return parent.pop(path[-1])
+
+
+def role_specification(entry, manifest):
+    spec = dict(entry['roleProjection'])
+    if 'roleSelectionContext' in entry:
+        spec['qualifyingShotKeys'] = manifest['roleSelectionContexts'][entry['roleSelectionContext']]
+    return spec
 
 
 def verify(evidence, originals=None):
@@ -77,7 +84,7 @@ def verify(evidence, originals=None):
                             len(canonical(value)) == omission['canonicalValueBytes'] and
                             len(value) == omission['entryCount'], 'omitted complete-field identity')
                 if 'roleProjection' in entry:
-                    spec = entry['roleProjection']
+                    spec = role_specification(entry, manifest)
                     apply_declared_role_projection(source, spec)
                 require(portable(source, originals) == document and
                         projection(source) == projection(document), 'exact preserved semantic/numeric/array equality')
@@ -93,12 +100,14 @@ def verify(evidence, originals=None):
     role_entries = [e for e in manifest['entries'] if 'roleProjection' in e]
     if role_entries:
         server = documents['campaign/server.json']
-        keys = positive_and_funded_keys(server)
-        funded = next(c['Shot']['Key'] for c in server['TimedCaseJoins']['Certificates']
-                      if c['Shot']['Funding'] is not None)
-        chronology = {'life': [funded[k] for k in ['AuthorityEpoch', 'MatchId', 'ShooterSlot', 'Generation', 'LifeId']],
-                      'firstShot': 1646, 'lastShot': 1676}
-        require(all(e['roleProjection']['qualifyingShotKeys'] == [list(k) for k in keys] and
+        keys = funded_keys(server) if receipt['case'] == 'long8' or receipt['case'].startswith('smoke-') else positive_and_funded_keys(server)
+        chronology = None
+        if receipt['case'] == 'long2':
+            funded = next(c['Shot']['Key'] for c in server['TimedCaseJoins']['Certificates']
+                          if c['Shot']['Funding'] is not None)
+            chronology = {'life': [funded[k] for k in ['AuthorityEpoch', 'MatchId', 'ShooterSlot', 'Generation', 'LifeId']],
+                          'firstShot': 1646, 'lastShot': 1676}
+        require(all(role_specification(e, manifest)['qualifyingShotKeys'] == [list(k) for k in keys] and
                     e['roleProjection']['chronology'] == chronology for e in role_entries),
                 'all source-positive/funded keys and invalidity chronology retained')
     if manifest.get('completionMode') == 'interrupted':
@@ -132,16 +141,29 @@ def verify(evidence, originals=None):
     client = receipt['qualifiedLoadedClient']
     require(client['sha256'] == manifest['qualifiedClientSHA256'] and
             client['mvid'] == manifest['qualifiedClientMVID'], 'source-qualified client')
-    require(all(r['ownedProcessGroupClosed'] for r in receipt['runs']) and
-            receipt['joinedAuditRun']['ownedProcessGroupClosed'], 'completed process groups')
-    summary, ai = documents['campaign/summary.json'], documents['campaign/ai-summary.json']
-    require(summary['status'] == ai['status'] == 'PASS' and not summary['failures'] and
-            not ai['failures'], 'transport/activity scope')
+    recovered_failure = manifest.get('completionMode') == 'recovered-failed-wrapper'
+    if recovered_failure:
+        recovery = documents['recovery-validation-receipt.json']
+        original_entry = next(e for e in manifest['entries'] if e.get('logicalPath', e['derivativePath']) == 'receipt.json')
+        require(recovery['originalWrapperReceiptSha256'] == original_entry['originalSHA256'] and
+                recovery['originalWrapperStatus'] == receipt['status'] == 'FAIL_PRECONDITION_OR_PARTIAL' and
+                recovery['liveOwnedGroupMembers'] == [] and not recovery['reportMutation'], 'failed wrapper, post-hoc closure only')
+        summary, ai = documents['recovery-generic-summary.json'], documents['recovery-ai-summary.json']
+        require(summary['status'] == ai['status'] == 'FAIL' and
+                all(p['exit'] is None for p in summary['processes']), 'unknown native exits not recovered as PASS')
+    else:
+        require(all(r['ownedProcessGroupClosed'] for r in receipt['runs']) and
+                receipt['joinedAuditRun']['ownedProcessGroupClosed'], 'completed process groups')
+        summary, ai = documents['campaign/summary.json'], documents['campaign/ai-summary.json']
+        require(summary['status'] == ai['status'] == 'PASS' and not summary['failures'] and
+                not ai['failures'], 'transport/activity scope')
     require(documents['campaign/manifest.json']['drain']['status'] == 'PASS', 'bounded drain')
-    for role in ['server'] + ['peer-' + str(i) for i in range(receipt['manifest']['settings']['players'])]:
+    run_manifest = documents['campaign/manifest.json']
+    for role in ['server'] + ['peer-' + str(i) for i in range(run_manifest['settings']['players'])]:
         d = documents['campaign/' + role + '.json']
         require(d['Version'] == client['buildId'] and d['Protocol'] == 56 and
-                d['Overflow'] == 0 and d['Transport']['QueueDrops'] == 0, 'role identity/overflow')
+                d['Overflow'] == (6660 if recovered_failure and role == 'server' else 0) and
+                d['Transport']['QueueDrops'] == 0, 'role identity/explicit overflow outcome')
         require(d['ShotProof']['Mode'] == 'Shadow' and not d['TimedModifiers']['Enforcing'], 'no Enforce')
         require(len(d['Windows'].get('rows', [])) > 0 if isinstance(d['Windows'], dict) else len(d['Windows']) > 0,
                 'declared chronology retained')
@@ -183,6 +205,61 @@ def verify(evidence, originals=None):
                 [1193, 1191, 1191], 'long2 complete chronological presentation windows')
         require([assessment['roles'][r]['presentationCountersSummary']['maximumStalledFrames']
                  for r in ['peer-0', 'peer-1']] == [69744, 70042], 'presentation distinct from simulation counters')
+    elif receipt['case'] == 'long8':
+        server = documents['campaign/server.json']; joins = server['TimedCaseJoins']
+        counts = {'Certificates': 8683, 'Components': 10979, 'Claims': 4936,
+                  'Terminals': 4651, 'Payments': 3639, 'Continuous': 374}
+        require(all(len(joins[k]) == n and joins['Budgets'][k]['Count'] == n and
+                    joins['Budgets'][k]['Dropped'] == 0 for k, n in counts.items()), 'long8 complete proof rows')
+        audit = documents['recovery-strict-joined-evidence.json']
+        require(audit['status'] == 'INCOMPLETE' and not audit['failures'] and
+                audit['sourceVerifiedFraction'] == 0.296875, 'long8 strict canary, no full acceptance')
+        metrics = audit['metrics']
+        require([metrics[k] for k in ['fundedOrdinaryCertificates', 'verifiedSourceCertificates',
+                'nativeComponents', 'fundedPayments', 'fullyJoinedPaidCases', 'nativePaidWithoutOwnerClaim']] ==
+                [64, 19, 64, 29, 6, 1], 'genuine bounded positive joins')
+        require(server['Frames'] == 72820 and server['ServerSegments'][0]['DroppedSteps'] == 8 and
+                server['ServerSegments'][0]['Stalls'] == 1, 'long8 simulation negative scope')
+        forms = next(o for e in role_entries if e.get('logicalPath') == 'campaign/server.json'
+                     for o in e['omittedFields'] if o['path'] == ['Forms'])
+        require(forms['entryCount'] == 1048576 and server['Overflow'] == 6660, 'legacy Forms overflow retained')
+        partial = documents['partial-final-assessment.json']
+        require(partial['guardFailure'].startswith('free disk below') and
+                receipt['error'] == partial['error'] == '[Errno 1] Operation not permitted' and
+                partial['liveOwnedMembers'] == [], 'primary guard plus masked cleanup failure preserved')
+        selected = documents['selected-invalidcharge-source-rows.json']
+        server_entry = next(e for e in role_entries if e.get('logicalPath') == 'campaign/server.json')
+        require(selected['originalSha256'] == server_entry['originalSHA256'] and
+                selected['originalBytes'] == server_entry['originalBytes'], 'selected report original source identity')
+        first_invalid = [i for i, c in enumerate(server['TimedCaseJoins']['Certificates'])
+                         if c['Shot']['Knowledge'] == 2 and c['Shot']['Source']['Source'] == 10][:3]
+        require([r['certificateIndex'] for r in selected['selected']] == first_invalid, 'declared first-three selection')
+        kept_indices = next(f['selectedOriginalIndices'] for f in server_entry['roleProjection']['fields']
+                            if f['path'] == ['Shots'])
+        for selection in selected['selected']:
+            require(server['TimedCaseJoins']['Certificates'][selection['certificateIndex']] == selection['certificate'],
+                    'actual selected invalid-charge certificate index')
+            for row in selection['matchingEmissionRows']:
+                require(server['ShotProof']['EmissionRows'][row['index']] == row['row'], 'actual matching emission index')
+            for row in selection['matchingLegacyProofRows']:
+                require(server['ShotProof']['Rows'][row['index']] == row['row'], 'actual matching legacy proof index')
+            for row in selection['matchingShotRows']:
+                require(server['Shots'][kept_indices.index(row['index'])] == row['row'], 'actual matching original shot index')
+    elif receipt['case'].startswith('smoke-'):
+        assessment = documents['final-assessment.json']; audit = documents['strict-joined-evidence.json']
+        server = documents['campaign/server.json']; joins = server['TimedCaseJoins']
+        require(assessment['wrapperStatus'] == receipt['status'] and assessment['strict']['status'] == audit['status'],
+                'original matrix verdict unchanged')
+        require(all(len(joins[k]) == joins['Budgets'][k]['Count'] and joins['Budgets'][k]['Dropped'] == 0
+                    for k in ['Certificates', 'Components', 'Claims', 'Terminals', 'Payments', 'Continuous']),
+                'matrix complete proof rows')
+        require(server['Frames'] == assessment['authorityFrames'] and
+                server['ServerSegments'][0]['DroppedSteps'] == assessment['authorityDroppedSteps'] and
+                server['ServerSegments'][0]['Stalls'] == assessment['authorityStalls'], 'matrix pacing negatives')
+        if receipt['case'] == 'smoke-worst8':
+            require(audit['status'] == receipt['status'] == 'FAIL' and len(audit['failures']) == 1,
+                    'original worst8 strict failure retained')
+            require('selected-endframe-selfdeath-rows.json' in documents, 'causal self-death sample retained')
     print(f'PASS: {len(manifest["entries"])} immutable completed derivatives; full NET NOT_ACCEPTED.')
     if originals is not None:
         print('PASS: every original SHA/bytes, complete omission identity, exact preserved values/array order/text.')
