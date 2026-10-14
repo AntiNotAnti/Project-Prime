@@ -86,6 +86,22 @@ try
     var required=new MapContentIdentity(maps[0].MapId,maps[0].Name,MapHash256.Parse(maps[0].ContentHash),MapHash256.Parse(maps[0].Hash),true);
     foreach(var bad in new[]{required with{PackageHash=MapHash256.Parse(new string('e',64))},required with{ContentHash=MapHash256.Parse(new string('f',64))}})
     {bool rejected=false;try{using var prepared=await client.PrepareExactAsync(bad,default);}catch(Exception ex)when(ex is HttpRequestException or InvalidDataException or IOException){rejected=true;}Check(rejected,"incorrect package/content hash rejected");}
+    // HTTP downloads are uniquely-owned private files. The prepare path
+    // transfers that file rather than making a second full archive snapshot.
+    string ownedPath;
+    using(var downloaded=await client.PrepareExactAsync(required,default))
+    {
+        Check(downloaded.ArchiveIo.PreparationCopyBytes == 0,
+            "exact Community network prepare does not copy downloaded archive twice");
+        var sourceField=typeof(PreparedMapInstallation).GetField("_source",
+            System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)!;
+        ownedPath=(string)sourceField.GetValue(downloaded)!;
+        Check(File.Exists(ownedPath),
+            "downloaded exact private archive remains available through prepared lifetime");
+    }
+    Check(!File.Exists(ownedPath),
+        "disposing prepared download releases only the privately-owned archive");
+
     byte[] archive=File.ReadAllBytes(v1);string truncated=Path.Combine(root,"truncated.ppmap");File.WriteAllBytes(truncated,archive[..(archive.Length/2)]);
     bool invalid=false;try{using var prepared=await MapPackageInstaller.PrepareAsync(truncated,required);}catch(Exception ex)when(ex is InvalidDataException or IOException){invalid=true;}Check(invalid,"truncated archive rejected");
     using(var cancelled=new CancellationTokenSource()){cancelled.Cancel();bool stopped=false;try{using var prepared=await client.PrepareExactAsync(required,cancelled.Token);}catch(OperationCanceledException){stopped=true;}Check(stopped,"pre-cancelled download cannot install");}
