@@ -9,19 +9,40 @@ namespace MphRead.Mods.Network;
 // scope and trusted modifiers. No owner, equipment or pooled beam is retained.
 internal readonly record struct TimedShotDamageTemplate(float Body, float Head, float Splash,
     Vector3 Origin, Vector3 Direction, float Radius, float Speed, float Reach, int Curve,
-    bool Balanced, byte Effects, bool Present)
+    bool Balanced, byte Effects, bool Present, byte DirectOnlyEffects = 0)
 {
     internal static TimedShotDamageTemplate From(BeamProjectileEntity beam)
-        => new(beam.Damage, beam.HeadshotDamage, beam.SplashDamage, beam.SpawnPosition,
+    {
+        bool balanced = beam.OwningScene.GameState.BalancedMode;
+        byte effects = FilterEffects(beam.ModOwnerHunter, beam.Beam, balanced,
+            beam.Flags.TestFlag(BeamFlags.Charged), NetHitClaims.AfflictionClaimFlags(beam.Afflictions),
+            out byte directOnly);
+        return new(beam.Damage, beam.HeadshotDamage, beam.SplashDamage, beam.SpawnPosition,
             beam.Velocity.LengthSquared > .000001f ? beam.Velocity.Normalized() : beam.Direction,
             beam.CylinderRadius, beam.Speed, beam.MaxDistance, beam.DamageInterpolation,
-            beam.OwningScene.GameState.BalancedMode,
-            NetHitClaims.AfflictionClaimFlags(beam.Afflictions), true);
+            balanced, effects, true, directOnly);
+    }
+
+    internal static byte FilterEffects(Hunter hunter, BeamType beam, bool balanced, bool charged,
+        byte effects, out byte directOnly)
+    {
+        directOnly = 0;
+        if (balanced && hunter == Hunter.Kanden && beam == BeamType.VoltDriver)
+            directOnly |= HitClaimPacket.FlagDisrupted;
+        if (balanced && hunter == Hunter.Spire && beam == BeamType.Magmaul)
+            directOnly |= HitClaimPacket.FlagBurning;
+        directOnly &= effects;
+        if (!charged) { effects &= unchecked((byte)~directOnly); directOnly = 0; }
+        return effects;
+    }
+
+    internal byte EffectsFor(bool direct)
+        => direct ? Effects : (byte)(Effects & ~DirectOnlyEffects);
 
     internal bool SameChannels(in TimedShotDamageTemplate other) => Body == other.Body
         && Head == other.Head && Splash == other.Splash && Origin == other.Origin
         && Reach == other.Reach && Curve == other.Curve && Balanced == other.Balanced
-        && Effects == other.Effects && Present == other.Present;
+        && Effects == other.Effects && DirectOnlyEffects == other.DirectOnlyEffects && Present == other.Present;
 
     internal float Channel(in HitClaimPacket claim, out bool nativeHead)
     {
