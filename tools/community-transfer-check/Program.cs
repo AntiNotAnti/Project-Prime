@@ -184,6 +184,57 @@ try
             "corrupted bytes are quarantined, never accepted as installed content");
     }
 
+    // PR-14: publication from a frozen Studio intent shares the durable
+    // upload manager and never retains the changing editor document.
+    await using (var creatorTransfers = new CommunityTransferManager(
+        Path.Combine(root, "creator-intent-jobs"), credentials))
+    {
+        MapDefinition mutable = MapTemplates.Create("CREATOR_HANDOFF", true).Definition;
+        mutable.MapId = Guid.Parse("96f0d5ca-7255-45ec-a6b6-7c0e12fc327d");
+        mutable.Name = "CREATOR_HANDOFF";
+        CommunityStudioPublishIntent intent = CommunityStudioPublishIntent.Capture(mutable);
+        Guid frozenMapId = intent.MapId;
+        mutable.MapId = Guid.NewGuid();
+        mutable.Name = "MUTATED_AFTER_HANDOFF";
+        var operations = new CommunityMapOperations(endpoint, credentials);
+        CommunityStudioPublishReceipt receipt = await intent.QueueAsync(
+            endpoint, operations, creatorTransfers,
+            CommunityPublishVisibility.Draft, "First creator draft");
+        Check(receipt.MapId == frozenMapId && receipt.RuntimeName == "CREATOR_HANDOFF"
+            && !receipt.IsRevision && receipt.ExpectedParentHash == null
+            && receipt.Visibility == CommunityPublishVisibility.Draft,
+            "creator intent captures one immutable map identity and begins a new draft");
+        CommunityTransferJob creatorJob = await creatorTransfers.WaitAsync(receipt.JobId);
+        Check(creatorJob.State == CommunityTransferState.Completed
+            && creatorJob.PackageHash == receipt.PackageHash
+            && creatorJob.Publish == new CommunityPublishRequest(false, null,
+                "First creator draft", false),
+            "creator publish handoff reaches authenticated durable exact-hash queue");
+        CommunityMapProject[] mine = await operations.BrowseProjectsAsync(
+            mine: true, favorites: false, sort: "updated",
+            cancellation: CancellationToken.None);
+        Check(mine.Any(p => p.MapId == frozenMapId)
+            && mine.All(p => p.MapId != mutable.MapId),
+            "published creator-owned draft has captured MapId, not subsequent editor changes");
+
+        MapDefinition noId = MapProjectSerializer.Clone(mutable);
+        noId.MapId = Guid.Empty;
+        bool idRefused = false;
+        try { CommunityStudioPublishIntent.Capture(noId); }
+        catch (InvalidDataException) { idRefused = true; }
+        Check(idRefused, "creator publication refuses identity-less source projects");
+
+        var frozenAgain = CommunityStudioPublishIntent.Capture(mutable);
+        bool notesRefused = false;
+        try
+        {
+            await frozenAgain.QueueAsync(endpoint, operations, creatorTransfers,
+                CommunityPublishVisibility.Published, new string('x', 2001));
+        }
+        catch (ArgumentOutOfRangeException) { notesRefused = true; }
+        Check(notesRefused, "oversized creator release notes are rejected before network or package writes");
+    }
+
     // Auth is not persisted: reopening without credentials cannot create new
     // authenticated upload operations, but already completed receipts remain.
     await using (var noCredentials = new CommunityTransferManager(jobsDir))
