@@ -1,0 +1,148 @@
+V19 PASS current version and eight-player fast packet budget
+V19 PASS turret/jump-pad canonical codec 0
+V19 PASS turret/jump-pad canonical codec 1
+V19 PASS turret/jump-pad canonical codec 37
+V19 PASS turret/jump-pad canonical codec 100
+V19 PASS turret/jump-pad canonical codec 65535
+V19 PASS CombatAck exact little-endian outcome 0
+V19 PASS CombatAck exact little-endian outcome 1
+V19 PASS CombatAck exact little-endian outcome 2
+V19 PASS CombatAck exact little-endian outcome 3
+V19 PASS CombatAck exact little-endian outcome 4
+V19 PASS CombatAck exact little-endian outcome 5
+V19 PASS CombatAck exact little-endian outcome 6
+V19 PASS CombatAck exact little-endian outcome 7
+V19 PASS CombatAck exact little-endian outcome 8
+V19 PASS CombatAck exact little-endian outcome 9
+V19 PASS CombatAck exact little-endian outcome 10
+V19 PASS CombatAck exact little-endian outcome 11
+V19 PASS CombatAck exact little-endian outcome 12
+V19 PASS CombatAck exact little-endian outcome 13
+V19 PASS eight maximum Weavel states fit realtime MTU
+V19 PASS animation flicker frame 1
+V19 PASS animation flicker frame 2
+V19 PASS animation flicker frame 3
+V19 PASS animation flicker frame 4
+V19 PASS animation flicker frame 5
+V19 PASS animation flicker frame 6
+V19 PASS animation flicker frame 7
+V19 PASS animation flicker frame 8
+V19 PASS animation flicker frame 9
+V19 PASS animation flicker frame 10
+V19 PASS animation flicker frame 11
+V19 PASS animation flicker frame 12
+V19 PASS animation flicker frame 13
+V19 PASS animation flicker frame 14
+V19 PASS animation flicker frame 15
+V19 PASS animation flicker frame 16
+V19 PASS animation flicker frame 17
+V19 PASS animation flicker frame 18
+V19 PASS animation flicker frame 19
+V19 PASS animation flicker frame 20
+V19 PASS animation flicker frame 21
+V19 PASS animation flicker frame 22
+V19 PASS animation flicker frame 23
+V19 PASS animation flicker frame 24
+V19 PASS animation flicker frame 25
+V19 PASS animation flicker frame 26
+V19 PASS animation flicker frame 27
+V19 PASS animation flicker frame 28
+V19 PASS animation flicker frame 29
+V19 PASS animation flicker frame 30
+V19 PASS animation flicker frame 31
+V19 PASS animation flicker frame 32
+V19 PASS animation flicker frame 33
+V19 PASS animation flicker frame 34
+V19 PASS animation flicker frame 35
+V19 PASS animation flicker frame 36
+V19 PASS animation flicker frame 37
+V19 PASS animation flicker frame 38
+V19 PASS animation flicker frame 39
+V19 PASS animation flicker frame 40
+V19 PASS animation flicker frame 41
+V19 PASS animation flicker frame 42
+V19 PASS animation flicker frame 43
+V19 PASS animation flicker frame 44
+V19 PASS animation flicker frame 45
+V19 PASS animation flicker frame 46
+V19 PASS animation flicker frame 47
+V19 PASS animation flicker frame 48
+V19 PASS animation flicker frame 49
+V19 PASS animation flicker frame 50
+V19 PASS animation flicker frame 51
+V19 PASS animation flicker frame 52
+V19 PASS animation flicker frame 53
+V19 PASS animation flicker frame 54
+V19 PASS animation flicker frame 55
+V19 PASS animation flicker frame 56
+V19 PASS animation flicker frame 57
+V19 PASS animation flicker frame 58
+V19 PASS animation flicker frame 59
+V19 PASS animation flicker frame 60
+V19 PASS animation flicker frame 61
+V19 PASS animation flicker frame 62
+V19 PASS animation flicker frame 63
+V19 PASS animation flicker frame 64
+V19 PASS animation flicker frame 65
+V19 PASS animation flicker frame 66
+V19 PASS animation flicker frame 67
+V19 PASS animation flicker frame 68
+V19 PASS animation flicker frame 69
+V19 PASS animation flicker frame 70
+V19 PASS animation flicker frame 71
+V19 PASS animation flicker frame 72
+V19 PASS animation flicker frame 73
+V19 PASS animation flicker frame 74
+V19 PASS animation flicker frame 75
+V19 PASS animation flicker frame 76
+V19 PASS animation flicker frame 77
+V19 PASS animation flicker frame 78
+V19 PASS animation flicker frame 79
+V19 PASS animation flicker frame 80
+V19 PASS animation flicker frame 81
+V19 PASS animation flicker frame 82
+V19 PASS animation flicker frame 83
+V19 PASS animation flicker frame 84
+V19 PASS animation flicker frame 85
+V19 PASS animation flicker frame 86
+V19 PASS animation flicker frame 87
+V19 PASS animation flicker frame 88
+V19 PASS animation flicker frame 89
+V19 PASS animation flicker frame 90
+V19 PASS absolute mismatch survives animation flicker
+V19 PASS desired form changes episode identity
+V19 PASS matching form ends episode
+V19 PASS stricter enforcement remains disabled
+V19 PASS shared evaluator preserves 45-frame production ceiling and fractional ACK
+V19 PASS study bucket boundaries
+V19 PASS unknown timing excluded from distributions and explicitly bucketed
+V19 PASS connection totals are deltas fenced across slot generations
+V19 PASS ready event preserves monotonic join, load, bootstrap and rejoin durations
+V19 PASS exact/corrected/rejected settlements have distinct counters
+V19 PASS CombatAck analytics retain weapon, terminal result, latency and correction reason combination
+V19 PASS transport contention aggregates cumulative counters into interval samples
+V19 PASS impact observations do not inflate shots or invent misses
+V19 PASS partial JSON preserves all defaults including token environment, queue, retention and upload bounds
+V19 PASS explicit false and capacity overrides survive partial config
+V19 PASS allocation warmup writer starts off simulation thread
+V19 PASS separate bounded warmup exercises accepted and full/drop paths
+V19 PASS allocation warmup writer drains independently
+V19 PASS writer starts off simulation thread
+V19 PASS Emit zero allocations with blocked writer (0 bytes)
+V19 MEASURE bounded Emit: 24.1 ns/attempt (accepted + dropped, blocked writer)
+V19 PASS queue pressure drops telemetry at fixed capacity
+V19 PASS shutdown request never waits on writer
+V19 PASS match end drains pending queue before summary
+V19 PASS storage unavailable preserves event consumption
+V19 PASS storage full preserves event consumption
+V19 PASS storage write-exception preserves event consumption
+V19 PASS write/flush disk-full exception is isolated
+V19 PASS malformed directory cannot escape worker
+V19 PASS real gzip writer completes
+V19 PASS versioned compressed header/events and privacy-safe schema
+V19 PASS HTTP 500 retains local summary with exponential retry
+V19 PASS slow HTTP timeout retains retry without simulation work
+V19 PASS offline upload retains bounded batch and retry deadline
+V19 PASS next match records while previous writer drains
+V19 PASS two stalled writers cap match rollover without waiting
+PASS: 146 Protocol 19 combat/telemetry checks

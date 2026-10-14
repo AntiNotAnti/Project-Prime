@@ -1,0 +1,6 @@
+COMPACT_LOADED_IDENTITY nettest location=<candidate>/runtime/nettest.dll mvid=0151d5f2-81b8-4566-96e3-aadf793388ee
+COMPACT_LOADED_IDENTITY ProjectPrime location=<candidate>/runtime/ProjectPrime.dll mvid=5e534c23-57c6-4026-a55a-f8233293a732
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+LIMITATION: Channel is a legal per-launch ceiling, not impact-exact damage. Claim.HitPoint is body origin; native direct interpolation uses projectile position, Balanced uses collision position, splash uses blast centre/radius. NET02 full acceptance remains gated on trusted trajectory/explosion facts.
+PASS: 82 pure constructed frozen-channel/ceiling assertions; no native/admission/impact proof.

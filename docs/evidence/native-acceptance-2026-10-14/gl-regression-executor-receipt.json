@@ -1,0 +1,2206 @@
+{
+  "schema": 1,
+  "scope": "Two same-build OFF/ON High1080p/eight-player exact capture/native-name retirement controls; no unprofiled performance campaign or FPS claim",
+  "sourceBefore": {
+    "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+    "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+    "dirty": ""
+  },
+  "qualificationSha256": "6c7e0d1d6207058e02d8b27d74eebd6444ce7b140d66358affc250a63da97757",
+  "officialBuildReceiptSha256": "c898a2c6a0a696cd7ce87488f068dfc426e7939f4037a7d8701d3754a2a9f00c",
+  "qualifiedClient": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "<candidate>/runtime/ProjectPrime.dll",
+    "sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+    "mvid": "5e534c23-57c6-4026-a55a-f8233293a732",
+    "buildId": "local+7588d98689899c9868e8a0105b78653c7a1db50d",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "runnerSha256": "4db29d3abb1de19254fb243a305e3b9fc0f54007259b3c7acd587af8c277c445",
+  "startupIdentityHookSha256": "a44682c826c0031bc7c4bf3ea87d46dec064da294de906ff249234821148cd81",
+  "pathsTemplateSha256": "a1ec237da1082ce17d2f10ee79cd5933e957ec210e8aafa7c7ab7b7dc03f9f8a",
+  "physicalRuntimeFilesBefore": {
+    "Avalonia.Base.dll": {
+      "sha256": "39f7c973a20346b2a0c0e758b875749670a610d63863e9a85ffea22d5f320279",
+      "bytes": 2355200,
+      "physical": true
+    },
+    "Avalonia.Controls.dll": {
+      "sha256": "909b7abd1e4b389b3372c4d1c0fcae1106f99ed783cc177fa0fa67ed1147ca24",
+      "bytes": 1347072,
+      "physical": true
+    },
+    "Avalonia.DesignerSupport.dll": {
+      "sha256": "ee57e6001029f66ff212f4b81024e51f3167abc9461b055f7c829ec617931a2a",
+      "bytes": 214528,
+      "physical": true
+    },
+    "Avalonia.Desktop.dll": {
+      "sha256": "2f3af65d2dace707ea07ad9723b4a4b849622ad9090533d44ac00ef4b0754241",
+      "bytes": 15360,
+      "physical": true
+    },
+    "Avalonia.Dialogs.dll": {
+      "sha256": "70aaeffbb3afcfafee5a5b1e19707e13b7ae5f293c4c157332693690e12e3598",
+      "bytes": 242688,
+      "physical": true
+    },
+    "Avalonia.Fonts.Inter.dll": {
+      "sha256": "332d53aa406bcecec75f498fb8c0a91eb3ac1dcddd34a0a1fbeba0b5ddf87585",
+      "bytes": 1892864,
+      "physical": true
+    },
+    "Avalonia.FreeDesktop.AtSpi.dll": {
+      "sha256": "217ee386cbccaece75184e2ac675dc0cfcd2fcf5a7f7bf4e689f401818c945cd",
+      "bytes": 562688,
+      "physical": true
+    },
+    "Avalonia.FreeDesktop.dll": {
+      "sha256": "a0b0918cdeb2d1b34ba86a6f858d2a81180eca919e9b7c05e18f20a02a7ffd5c",
+      "bytes": 253952,
+      "physical": true
+    },
+    "Avalonia.HarfBuzz.dll": {
+      "sha256": "77bbaad227444b7dbde768677b4dbfba28fec0365b9021d8f5803b23c1323eaa",
+      "bytes": 22016,
+      "physical": true
+    },
+    "Avalonia.Headless.dll": {
+      "sha256": "5806ec32049e9bbaae3673688c420ce8215ed84af19f1e30cb51edb5e6810200",
+      "bytes": 71680,
+      "physical": true
+    },
+    "Avalonia.Markup.Xaml.dll": {
+      "sha256": "1228b0a7359ebfa592408de8e20aa3b8a2775d27c36f19c1f7c8f1e9ff1e14a8",
+      "bytes": 74752,
+      "physical": true
+    },
+    "Avalonia.Markup.dll": {
+      "sha256": "ce634015611862dd6814355a4880c3c718782a017665445d232834615a6120cb",
+      "bytes": 45568,
+      "physical": true
+    },
+    "Avalonia.Metal.dll": {
+      "sha256": "d9efd4c5293f90239f2930ae688c98b2ef55925fc3de85c4a6b8422175bd78b9",
+      "bytes": 15360,
+      "physical": true
+    },
+    "Avalonia.MicroCom.dll": {
+      "sha256": "63457674ab61566ea94a7a089044bb2be7d0cda1530085578109df953ef37d49",
+      "bytes": 15360,
+      "physical": true
+    },
+    "Avalonia.Native.dll": {
+      "sha256": "929bd4b42462a0cb9734ff49690dccf4b52a65e86892d23f2b1d60be56a1b913",
+      "bytes": 351232,
+      "physical": true
+    },
+    "Avalonia.OpenGL.dll": {
+      "sha256": "365fc038f938088c913db7d067160f985a31f116961dbc527a38703c570119d3",
+      "bytes": 128512,
+      "physical": true
+    },
+    "Avalonia.Remote.Protocol.dll": {
+      "sha256": "080f6f41f70cfd4f98863deeb61d15d229aa7d9333e7a3eb17582efb19ed779c",
+      "bytes": 75776,
+      "physical": true
+    },
+    "Avalonia.Skia.dll": {
+      "sha256": "449a83a2d086a1cf255b69bc352136aa3a21b9f742bbb165ab9ba9178d28af78",
+      "bytes": 125440,
+      "physical": true
+    },
+    "Avalonia.Themes.Fluent.dll": {
+      "sha256": "71ff087f03da9f484f53ef1aea502eb19b015c8a6a1e8a9161b0d344053ed8ef",
+      "bytes": 733184,
+      "physical": true
+    },
+    "Avalonia.Vulkan.dll": {
+      "sha256": "ba98aeb0319a60c1de28b927c46fd94c75a6adc676dd160faae5bce14080e38d",
+      "bytes": 191488,
+      "physical": true
+    },
+    "Avalonia.Win32.Automation.dll": {
+      "sha256": "beba00c11bcfff73dd3228d7219c8d80e6a78aca4cb278a71c1122b1974633ec",
+      "bytes": 123904,
+      "physical": true
+    },
+    "Avalonia.Win32.dll": {
+      "sha256": "511a118f48b8d029924f3720e62658df72ee7a99c5b810f37378514ad4ea0427",
+      "bytes": 943104,
+      "physical": true
+    },
+    "Avalonia.X11.dll": {
+      "sha256": "cfce1f1ba8c47a0e303bd9e37da1908d665910b3818969264a3dd06d7014bfe2",
+      "bytes": 408064,
+      "physical": true
+    },
+    "Avalonia.dll": {
+      "sha256": "ac289895e7fa553ea6be420f9154c452bec6aebf64d0b344aa37827bd29d2fdb",
+      "bytes": 4096,
+      "physical": true
+    },
+    "CommunityToolkit.HighPerformance.dll": {
+      "sha256": "196607c6d4d704b5ee95c80f8e3cd799595b7d8a08108701894c211b138d2839",
+      "bytes": 153928,
+      "physical": true
+    },
+    "HarfBuzzSharp.dll": {
+      "sha256": "55e72ac23263f8e12484f3435e02ec22fac9eff6e6d169bb0a8c246be6b99d29",
+      "bytes": 122400,
+      "physical": true
+    },
+    "Ktx2.NET.dll": {
+      "sha256": "d7e87f619302fe22451b8d1e49feb8c98b918a095f0c6bf69992b0376dc2a90f",
+      "bytes": 26624,
+      "physical": true
+    },
+    "MicroCom.Runtime.dll": {
+      "sha256": "2538ec6f3c24e901a90e33c37788b9a4e4b6ae8158cab7328a00a00bb28eab9e",
+      "bytes": 15360,
+      "physical": true
+    },
+    "MphRead.Protocol.Generator.deps.json": {
+      "sha256": "08c2787d35a49738d19a495b180a81b7a13d0140adb37ee43735a2c7b3a8f525",
+      "bytes": 11110,
+      "physical": true
+    },
+    "MphRead.Protocol.Generator.dll": {
+      "sha256": "9e224fb2e96d4bd127c3df05b8b68ceb5d627d09f0eda52289bf168ca952bb13",
+      "bytes": 29184,
+      "physical": true
+    },
+    "MphRead.Protocol.Generator.pdb": {
+      "sha256": "19dc04ca3ae212a988d738a07e9dc32c1406abf84bb3462f59045014bfd6dd4e",
+      "bytes": 12348,
+      "physical": true
+    },
+    "NcsfPlay.deps.json": {
+      "sha256": "00b9355daf760b4a6a53169861bcf7cfe69ca777d1da65fb981ed8b7ba8cf59b",
+      "bytes": 4862,
+      "physical": true
+    },
+    "NcsfPlay.dll": {
+      "sha256": "2d4d4906b7dc61eda6ba51acd2210034243edf0bb17aecd330e61507eed3a288",
+      "bytes": 166400,
+      "physical": true
+    },
+    "OpenTK.Audio.OpenAL.dll": {
+      "sha256": "88968377988b018039adeeed92efbbe390ba836bfeaac1885ebccb9c86b0f20b",
+      "bytes": 92672,
+      "physical": true
+    },
+    "OpenTK.Compute.dll": {
+      "sha256": "8aa991eb9a7dfba704f562ef838162136b8dfa461ca7a234947ca8cace09f07c",
+      "bytes": 46592,
+      "physical": true
+    },
+    "OpenTK.Core.dll": {
+      "sha256": "00e86fd2aa3ec0a518294ac210f2377078570120dfc22889654843e5ccb9e71c",
+      "bytes": 8704,
+      "physical": true
+    },
+    "OpenTK.Graphics.dll": {
+      "sha256": "5b57957ca9e4c5f7bfb7ec495b991e6b88cfac52863a19e405492ab8c33cb1d2",
+      "bytes": 5087232,
+      "physical": true
+    },
+    "OpenTK.Input.dll": {
+      "sha256": "0df16a0035a375313c1f5e0823972748b6d58bf717a08c36edd2cb1afe0f993a",
+      "bytes": 8704,
+      "physical": true
+    },
+    "OpenTK.Mathematics.dll": {
+      "sha256": "10172a71d9590960bf594fb397e65ee5ebb9fff5d08bd5d358ab047b0a6efff0",
+      "bytes": 355840,
+      "physical": true
+    },
+    "OpenTK.Windowing.Common.dll": {
+      "sha256": "2f0c74b795c664db5ca8a4d8d426efafda2fa48986ae5e2e0ee62dfaf1da660e",
+      "bytes": 13824,
+      "physical": true
+    },
+    "OpenTK.Windowing.Desktop.dll": {
+      "sha256": "cd759959d5924a44e5d943693ec63dd65dacbca5fe209546df1f932a0e3ae8ae",
+      "bytes": 59904,
+      "physical": true
+    },
+    "OpenTK.Windowing.GraphicsLibraryFramework.dll": {
+      "sha256": "b54ec149aa11635dcd09bcc2f0bd2acbd6584f67303b21065935e566d00605cb",
+      "bytes": 51200,
+      "physical": true
+    },
+    "ProjectPrime": {
+      "sha256": "d61eaf484edf5b1b62ec0e4f0355317aac05f1c4aca4b0df981a74df1dcfbe9e",
+      "bytes": 124712,
+      "physical": true
+    },
+    "ProjectPrime.deps.json": {
+      "sha256": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "bytes": 42297,
+      "physical": true
+    },
+    "ProjectPrime.dll": {
+      "sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+      "bytes": 33332224,
+      "physical": true
+    },
+    "ProjectPrime.runtimeconfig.json": {
+      "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "bytes": 330,
+      "physical": true
+    },
+    "ReFuel.StbImage.dll": {
+      "sha256": "191b521ce25d03c73ae10b716b3e55b1a1fcca988201b50cbac9603fcee10ea3",
+      "bytes": 19968,
+      "physical": true
+    },
+    "SkiaSharp.dll": {
+      "sha256": "aaaaa18c68ba1f3a3408b00dff28b11d5705198e17ba9d3aa59222bfd35407c8",
+      "bytes": 489824,
+      "physical": true
+    },
+    "SoundFlow.dll": {
+      "sha256": "8e5224ef27f7cd518c22533fd3fbe745eded9da56b1ed4c2f9611dbbe92bb399",
+      "bytes": 968192,
+      "physical": true
+    },
+    "System.IO.Hashing.dll": {
+      "sha256": "c7798d45633baaa0b0b53487d90b9b7f09d81fddfce681a7cd934cda82e7d18e",
+      "bytes": 56144,
+      "physical": true
+    },
+    "Tmds.DBus.Protocol.dll": {
+      "sha256": "60a1c5255731d8ac843cab53108be8ba1ed02759ce3db0da5b49939ebe97bd8a",
+      "bytes": 232960,
+      "physical": true
+    },
+    "fidelity-baselines/alt.kanden.json": {
+      "sha256": "e9d84b1a9ba5befac6765b6aa4bf17ed26703eedcfe71cdcbfb51bec48b487e4",
+      "bytes": 315504,
+      "physical": true
+    },
+    "fidelity-baselines/alt.noxus.json": {
+      "sha256": "c3ef788a25bd645ec7efd93f4ab7ec3c8d64ea498200bebf28f154374509bbb2",
+      "bytes": 283783,
+      "physical": true
+    },
+    "fidelity-baselines/alt.samus.json": {
+      "sha256": "ab234957db4780769937dc9ac0a799c026718d4aabb14e0b9f1e7bb4379e1c3f",
+      "bytes": 325887,
+      "physical": true
+    },
+    "fidelity-baselines/alt.spire.json": {
+      "sha256": "cb8d411ef6fde2f1fc402c1a437c34de1dafd00740eb7005587e0bd12e5abd97",
+      "bytes": 285351,
+      "physical": true
+    },
+    "fidelity-baselines/alt.sylux.json": {
+      "sha256": "796d959da5ba8ca06489df5a33b1c1ccff1586bd6782408ea384da2adae6d971",
+      "bytes": 371583,
+      "physical": true
+    },
+    "fidelity-baselines/alt.trace.json": {
+      "sha256": "7aa0dc638eb60405a980db7f61ff2dc7c04afec31ad98f781ac100f116779d7b",
+      "bytes": 284532,
+      "physical": true
+    },
+    "fidelity-baselines/alt.weavel.json": {
+      "sha256": "33e581ce2a44cd0e2b71b1e8e8df2b20ac8f8772ac088c69a078c754732b4164",
+      "bytes": 345868,
+      "physical": true
+    },
+    "fidelity-baselines/identity.disconnect-resume.json": {
+      "sha256": "7d3ac6661473109dbffd672975853f3cee8e45eaca97b312f2fcbb202d6268a9",
+      "bytes": 1337,
+      "physical": true
+    },
+    "fidelity-baselines/identity.match-epoch.json": {
+      "sha256": "af1b9c3a820ce6dce0b7eaa51205acb0dedf33d0659064e0a2c65e474b2aa9fc",
+      "bytes": 1546,
+      "physical": true
+    },
+    "fidelity-baselines/identity.slot-reuse.json": {
+      "sha256": "6f6bf658ae026c201cb6faca58e101e5b963783b49ce427a35137078b8ffdcad",
+      "bytes": 1264,
+      "physical": true
+    },
+    "fidelity-baselines/identity.spawn-life.json": {
+      "sha256": "4205100c3e6a2ad13b84338ebaa434bf919d5ec1a3dfc55324cb449471b01f93",
+      "bytes": 1265,
+      "physical": true
+    },
+    "fidelity-baselines/match.battle.json": {
+      "sha256": "07f810efa39086ca74e0b90f75ff84bf5b4347eef63b29c554a246e569f4d72a",
+      "bytes": 52913,
+      "physical": true
+    },
+    "fidelity-baselines/match.capture.json": {
+      "sha256": "c303e50bfc716af627c73306ac477009985777ff465d15eb34a049ada60f61d8",
+      "bytes": 56890,
+      "physical": true
+    },
+    "fidelity-baselines/match.nodes.json": {
+      "sha256": "ec9e00c07036d2c84a7184bfd36b4252b1573cae7bfa73f67a7de1e1b5b205c6",
+      "bytes": 59470,
+      "physical": true
+    },
+    "fidelity-baselines/match.prime.json": {
+      "sha256": "6ca5b59109b59271f0ce18c670645b824cc0fa651bd839025b0ef47aa25a318a",
+      "bytes": 53341,
+      "physical": true
+    },
+    "fidelity-baselines/match.survival.json": {
+      "sha256": "df3dc8271f956fa7a5275d0bb4e8dddc95aa30c0c829e6fa91c91356273939d2",
+      "bytes": 53438,
+      "physical": true
+    },
+    "fidelity-baselines/movement.air-control.json": {
+      "sha256": "3ff5de157e4206e6fe44ebbd0d4a2b480ca60a2ddde7d3a435ec790756b96ad9",
+      "bytes": 89705,
+      "physical": true
+    },
+    "fidelity-baselines/movement.collision-corner.json": {
+      "sha256": "e54da04ec392b1216632a5a454b71e4bb8dc248485a01c47d16adf6fbf3f2098",
+      "bytes": 93271,
+      "physical": true
+    },
+    "fidelity-baselines/movement.jump.json": {
+      "sha256": "b238b5529a614db9195670ac1193a32f88da466842c589260feaa777f77e511a",
+      "bytes": 88596,
+      "physical": true
+    },
+    "fidelity-baselines/movement.knockback.json": {
+      "sha256": "6d5ef226524b31e4d659fda1062f6ddcca763db3eee57f1c60d528d11b2905ce",
+      "bytes": 88543,
+      "physical": true
+    },
+    "fidelity-baselines/movement.platform.json": {
+      "sha256": "ae8ce22b86b3e9450544ad8c346eaee6fdae0b140c006d99fa8b6368d310516b",
+      "bytes": 291365,
+      "physical": true
+    },
+    "fidelity-baselines/movement.slope.json": {
+      "sha256": "5c2b3068512a9975bd2b5746969f8567144bff3aa9774d793923ce637690ab8b",
+      "bytes": 93288,
+      "physical": true
+    },
+    "fidelity-baselines/movement.walk.json": {
+      "sha256": "70e886efd041e165b443b6b760747fa08ac387839d87e417a9c1a75fc34eb1e9",
+      "bytes": 89174,
+      "physical": true
+    },
+    "fidelity-baselines/simulation.fixed-step.json": {
+      "sha256": "bf2ed3e323835328bf62996218279886f496f2ee550d47fdafc2514fc44b5aa1",
+      "bytes": 94617,
+      "physical": true
+    },
+    "fidelity-baselines/simulation.match-transition.json": {
+      "sha256": "d552c1a5b82c8a25cbe93636bf0b50e1af909031e433cd1e8d7857c0ef5b6a70",
+      "bytes": 99910,
+      "physical": true
+    },
+    "fidelity-baselines/simulation.pause-resume.json": {
+      "sha256": "5c16bd6dd84f40607960d3a4fae74f2c9f20b85640eb7c6aebe1d6394b5642a9",
+      "bytes": 1779,
+      "physical": true
+    },
+    "fidelity-baselines/simulation.respawn.json": {
+      "sha256": "0cde4a54c9687632bb432bbd6bd638422e3c822629c5d1e04ab3e60522aff43b",
+      "bytes": 232514,
+      "physical": true
+    },
+    "fidelity-baselines/simulation.rng.json": {
+      "sha256": "a2468001a544bc10b911ab76b2ff4a7f2fd0f59e896a74b99c2f09a02df80827",
+      "bytes": 94565,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.battlehammer.hit.json": {
+      "sha256": "a595f4e901f50c2cd6a4fc0896aa5c5ca59f73afe868d6bae3813d4d064e860f",
+      "bytes": 356898,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.battlehammer.json": {
+      "sha256": "c499742f5d918a31f0818aa097ec22a75f8be998cc6220e3f4986544e9f58e8f",
+      "bytes": 170107,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.continuous-phase.json": {
+      "sha256": "b7da76e9c1f989c980254a6dce93f329caa7b29c50fd2760f97fc5b5065e79c2",
+      "bytes": 1637,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.imperialist.headshot.json": {
+      "sha256": "bd711e67bb63d677d64fb4d5679046254c72050e007f6c6b246b7d08667787f3",
+      "bytes": 266033,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.imperialist.hit.json": {
+      "sha256": "e5fce5210861eb17c621836e5f61f802484b434509ccaad463b6c981c514c843",
+      "bytes": 266349,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.imperialist.json": {
+      "sha256": "6576cde96875bf38eaa406880bada8a9b9a749325a2a57a5dff4efdf189521b0",
+      "bytes": 97573,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.judicator.hit.json": {
+      "sha256": "8b0d60514a1a247d4acd6d2f97dde2e9b57ecfe0ee9b2d16a7e6dde519f330e1",
+      "bytes": 326278,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.judicator.json": {
+      "sha256": "b401a4eba442ecaf72c2bc28d21b98863b6e4716a5a9fa95e07ce9cac36ef353",
+      "bytes": 261155,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.magmaul.hit.json": {
+      "sha256": "6cd2906f323bfb045362c2030b691effae0584b69b6e4b4e8efdd89dd1e859d5",
+      "bytes": 310557,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.magmaul.json": {
+      "sha256": "64677933917673549aa3c6aab43997255f5d1abe2fc5f67195ea776147604a90",
+      "bytes": 211244,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.missile.hit.json": {
+      "sha256": "04f3630fef67f43b370427b7c340ecdb36ae93c5b4a91c9964ecf0e4332dc89a",
+      "bytes": 319066,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.missile.json": {
+      "sha256": "d82cebc3ea15fbee997fa29ea6f787b69fc10a8d99febaf692c261796baa7fde",
+      "bytes": 184890,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.missile.splash.json": {
+      "sha256": "76221eedb8bbb1bb17095a498b5c073914f43e08638eceeb43fcdfdf112083fb",
+      "bytes": 319695,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.powerbeam.hit.json": {
+      "sha256": "8b89b0eebc6216c398fee949a8f3c59abb06fd6eb87fe7c769bc180c84047cff",
+      "bytes": 374095,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.powerbeam.json": {
+      "sha256": "27e3fe54dc10acdd073ef4589f1d5c03e4a2c0d721a8dd5b4049833605179ff8",
+      "bytes": 284970,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.shockcoil.hit.json": {
+      "sha256": "55b767f894f6492401a6d184fb8ca6f4d778fca1eca319aee8f964a1bd509ac3",
+      "bytes": 319881,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.shockcoil.json": {
+      "sha256": "c2eaab1c23b82edb5afaa40df743b6b96fda4548560a30c6cc602dc28673597e",
+      "bytes": 121681,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.voltdriver.hit.json": {
+      "sha256": "954d4e30bfd504976fb2a73e0eea0eb2383e1e3784fc0a64f5b4ebeff16c9d93",
+      "bytes": 308189,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.voltdriver.json": {
+      "sha256": "aebca9f42cf617fd402733f263f510fa0f343d2971ef4cc4da37b3ad2d80b8c0",
+      "bytes": 161347,
+      "physical": true
+    },
+    "gamecontrollerdb.LICENSE": {
+      "sha256": "7826eca0a0f7e591f38dd844e207a200aac81a59b20d8a30c3af8c6282af13e6",
+      "bytes": 878,
+      "physical": true
+    },
+    "gamecontrollerdb.txt": {
+      "sha256": "07ec5b753e685c4829987919b27905cc3c45c8e18c11b3046e275fcf38b0f3cb",
+      "bytes": 608491,
+      "physical": true
+    },
+    "libopenal.1.dylib": {
+      "sha256": "85c3fffe4a246315b28ba07346d0e14bfa46c265cf130e2c9c0092421b5b707c",
+      "bytes": 873880,
+      "physical": true
+    },
+    "maps/aimlab/aimlab.json": {
+      "sha256": "9d421d7dbc718f78c6720f8e013811b37e963e00eb71e75f876cfef33f670ff6",
+      "bytes": 4568,
+      "physical": true
+    },
+    "maps/arena/arena.json": {
+      "sha256": "f27f5164f72b4f4175fda9e245d2b72aefa7d5cd5abfd6910311a58c7239e4ef",
+      "bytes": 4526,
+      "physical": true
+    },
+    "maps/arena.ppmap": {
+      "sha256": "725783058af9fec9640c6dae505726a7fad1ec64e41e897029f5984d4b1293ea",
+      "bytes": 1247,
+      "physical": true
+    },
+    "maps/dust2/df_dust2.pk3": {
+      "sha256": "a44551879f6f8ad64ff2e65966458abc24f0f1328efc14b97c28b3e945201b9f",
+      "bytes": 2709119,
+      "physical": true
+    },
+    "maps/dust2/dust2.json": {
+      "sha256": "52de9ece0c4ea7aa522efa869da3bbeb14e3b9c2cdb3c2e77060d956c431ac14",
+      "bytes": 5371,
+      "physical": true
+    },
+    "maps/dust2/dust2_collision.mtl": {
+      "sha256": "ec380fa8c7a659d9cb6709ad5ad2c5ecadb72993006e1008cfa2b358ff74080a",
+      "bytes": 780,
+      "physical": true
+    },
+    "maps/dust2/dust2_collision.obj": {
+      "sha256": "07884819f933584d6d50fe1003e1c106dd14e4807063edb0bd232848f037ccce",
+      "bytes": 201770,
+      "physical": true
+    },
+    "maps/dust2.ppmap": {
+      "sha256": "f5db2002dd721cb9db6744c94d3164d3f89573127e13e822da54b658eaba8b28",
+      "bytes": 430300,
+      "physical": true
+    },
+    "maps/mk_blockfort/mk_blockfort.json": {
+      "sha256": "d29d02dcf2e62a79b44d027f2896716823113440f7712ac048fa0ed6e3867b84",
+      "bytes": 6604,
+      "physical": true
+    },
+    "maps/mk_blockfort/mk_blockfort_collision.mtl": {
+      "sha256": "8a2b7316887c30856d2ef71c67e6fdcde912553c5fd1a2f240e514b03a05fcdc",
+      "bytes": 251,
+      "physical": true
+    },
+    "maps/mk_blockfort/mk_blockfort_collision.obj": {
+      "sha256": "1decf75e762da5ce7d6d07aabdaf61a4aae3ffa04c68d432164d28d507e9a740",
+      "bytes": 13615,
+      "physical": true
+    },
+    "maps/pads/pads.json": {
+      "sha256": "c3ae291c85c7540bbe0c980bcb6f1c9f5fd1fe2ccf75bef38c6bca4418cb6f2a",
+      "bytes": 5304,
+      "physical": true
+    },
+    "maps/pads.ppmap": {
+      "sha256": "29ff0f4f35bd8b2b7b311f3f2add7a8ad184564b577f61ca3220e8c15e851140",
+      "bytes": 1344,
+      "physical": true
+    },
+    "native-render-check": {
+      "sha256": "c22e02fbd6be86d586bea1ea8fc9789ac3388353e31bd7cb31bbaafdf7ecf101",
+      "bytes": 124712,
+      "physical": true
+    },
+    "native-render-check.deps.json": {
+      "sha256": "6a9e8dcd0e378210a01c7e359d04f4cbe78ecb1f235e85c31443d629ff2691b3",
+      "bytes": 43020,
+      "physical": true
+    },
+    "native-render-check.dll": {
+      "sha256": "d2fc93a3b11b09e68f70e875174fd9eecd6fdf4fb0fe89cff1afb50ec01131c6",
+      "bytes": 375296,
+      "physical": true
+    },
+    "native-render-check.pdb": {
+      "sha256": "bd52432ece05483e9f1ad272d8f1fd4786e1647963c9cbb2366d625d6444105a",
+      "bytes": 52672,
+      "physical": true
+    },
+    "native-render-check.runtimeconfig.json": {
+      "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "bytes": 330,
+      "physical": true
+    },
+    "nettest": {
+      "sha256": "fa671fe95b404f919229ffd4aa8911d1a029fac5e269585ad7dcb533b801da5f",
+      "bytes": 124712,
+      "physical": true
+    },
+    "nettest.deps.json": {
+      "sha256": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "bytes": 42984,
+      "physical": true
+    },
+    "nettest.dll": {
+      "sha256": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+      "bytes": 1470976,
+      "physical": true
+    },
+    "nettest.pdb": {
+      "sha256": "520dbaa410c609522f10328c5207af85e3f1062c2dda0be8a972074dd4a0c7d8",
+      "bytes": 283900,
+      "physical": true
+    },
+    "nettest.runtimeconfig.json": {
+      "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "bytes": 330,
+      "physical": true
+    },
+    "runtimes/android-arm/native/libminiaudio.so": {
+      "sha256": "fd070a3a005b2af77f076fb8c395ac7a3be6a0401bed92b11df518afdedaa7fa",
+      "bytes": 2879332,
+      "physical": true
+    },
+    "runtimes/android-arm64/native/libminiaudio.so": {
+      "sha256": "fe320a65ba0f0009687ccccdd0082054fa95b6eb2936c51dfbf31978d830eda3",
+      "bytes": 3858696,
+      "physical": true
+    },
+    "runtimes/android-x64/native/libminiaudio.so": {
+      "sha256": "0d8a91ee8b25e7ca4f483cb93976d02017ce4ec1fc765b2c82445b9119408892",
+      "bytes": 3668200,
+      "physical": true
+    },
+    "runtimes/freebsd-arm64/native/libminiaudio.so": {
+      "sha256": "ccc8b130613c37664c4da4c8f8dde7481df1ac8dd08aedf6c0c2ef947017a93c",
+      "bytes": 756192,
+      "physical": true
+    },
+    "runtimes/freebsd-x64/native/libminiaudio.so": {
+      "sha256": "dda9900adb1f16e01de7d95ef13ad605d1a42c90837c58d165b5fa58eb6f2a34",
+      "bytes": 784384,
+      "physical": true
+    },
+    "runtimes/ios-arm64/native/miniaudio.framework/Info.plist": {
+      "sha256": "4ced590b9348d5d0270b6f4de40c3c9905507769cd35f70da359b3286d1dea31",
+      "bytes": 796,
+      "physical": true
+    },
+    "runtimes/ios-arm64/native/miniaudio.framework/miniaudio": {
+      "sha256": "10970a746e81ab54e310a4fd41dbdc4848f39f5ef1a2ef6a52199c9d9ff0c509",
+      "bytes": 1031760,
+      "physical": true
+    },
+    "runtimes/linux-arm/native/libHarfBuzzSharp.so": {
+      "sha256": "7a7bafe7d89c5d361a3890e044bdc5993b234831e5c8c1f768260828969ec007",
+      "bytes": 1988676,
+      "physical": true
+    },
+    "runtimes/linux-arm/native/libSkiaSharp.so": {
+      "sha256": "7896ca61cbb9fe9f4f9f7669595329d8a688f9ea60ef8d103701b7b9441b7699",
+      "bytes": 8008960,
+      "physical": true
+    },
+    "runtimes/linux-arm/native/libminiaudio.so": {
+      "sha256": "7c40ea6fb61b509a8a48f8042437588c7b71cd721216d61c66119bac1a983628",
+      "bytes": 550048,
+      "physical": true
+    },
+    "runtimes/linux-arm/native/libstbi.so": {
+      "sha256": "b68a43e2a312dc3ffc380b795216e9d8c98aa38a58eb8787b225831e8f6c095e",
+      "bytes": 145108,
+      "physical": true
+    },
+    "runtimes/linux-arm64/native/libHarfBuzzSharp.so": {
+      "sha256": "68fc5ef842ac0dbd57e8063a11de5bb2f3c2b5af530a2d4fa07a7cf5d6ea4259",
+      "bytes": 2657280,
+      "physical": true
+    },
+    "runtimes/linux-arm64/native/libSkiaSharp.so": {
+      "sha256": "87d2d56c49a9b1d1da618dfa20994ee213f752f9ada04e085703115162997aef",
+      "bytes": 10848184,
+      "physical": true
+    },
+    "runtimes/linux-arm64/native/libminiaudio.so": {
+      "sha256": "73c81804e118cc6eb95bfd8fed1fb19128532b4a98dac7aca899e681a078c825",
+      "bytes": 808536,
+      "physical": true
+    },
+    "runtimes/linux-arm64/native/libstbi.so": {
+      "sha256": "8ded9a778aa69eb8fa16e86fe9601385a15e9ee94e3f00bd4e38cdd723f882b1",
+      "bytes": 209848,
+      "physical": true
+    },
+    "runtimes/linux-bionic-arm64/native/libSkiaSharp.so": {
+      "sha256": "03ff0a09dc95d92b85c91cfbd87567793fe095f2fb1566f6b21bf6ae048c7ea4",
+      "bytes": 11319400,
+      "physical": true
+    },
+    "runtimes/linux-bionic-x64/native/libSkiaSharp.so": {
+      "sha256": "db79508d5c6c6234b127f4948b64b96e7ddcb08e6495fe4dfda70ea187137af6",
+      "bytes": 11068032,
+      "physical": true
+    },
+    "runtimes/linux-loongarch64/native/libHarfBuzzSharp.so": {
+      "sha256": "e3f25c2a81f919fd0297023504bf0655b626d5d47e569724827cca7d06f9c3d7",
+      "bytes": 2721088,
+      "physical": true
+    },
+    "runtimes/linux-loongarch64/native/libSkiaSharp.so": {
+      "sha256": "94f65c8536514d4fd2f78568b634bf73acfde22e4dd427615584f58d8e05ca30",
+      "bytes": 10483856,
+      "physical": true
+    },
+    "runtimes/linux-musl-arm/native/libHarfBuzzSharp.so": {
+      "sha256": "fa511560f4420e0b420eb73fa8339af5c6683d71403c611af8ca6ce366f01494",
+      "bytes": 3017916,
+      "physical": true
+    },
+    "runtimes/linux-musl-arm/native/libSkiaSharp.so": {
+      "sha256": "ebc2baff6958516a8d16818af690c61678d7cfe4af8322a35b33d9f8d08f2b0f",
+      "bytes": 14668520,
+      "physical": true
+    },
+    "runtimes/linux-musl-arm64/native/libHarfBuzzSharp.so": {
+      "sha256": "aa71a80195e31d55b7045bafdc6ec5895b69785cd4b39a249309d3c9fde3e280",
+      "bytes": 3880784,
+      "physical": true
+    },
+    "runtimes/linux-musl-arm64/native/libSkiaSharp.so": {
+      "sha256": "6b5b1a4f4ee4def48fc4a50f9c5a686c47661b5acaf0150dc0b462b30070b925",
+      "bytes": 18546520,
+      "physical": true
+    },
+    "runtimes/linux-musl-loongarch64/native/libHarfBuzzSharp.so": {
+      "sha256": "82befae55055053a65fc66366b2c75081c28463058c79295d0ef38c6ec2df97d",
+      "bytes": 3577960,
+      "physical": true
+    },
+    "runtimes/linux-musl-loongarch64/native/libSkiaSharp.so": {
+      "sha256": "9ac3dd56dfd62b2f767767f28ace0b8125680dfab0838193de2864e094299ed9",
+      "bytes": 11909704,
+      "physical": true
+    },
+    "runtimes/linux-musl-riscv64/native/libHarfBuzzSharp.so": {
+      "sha256": "1d0c376dae6362986a294737cb7b2580e6416c007d4cc25aba8c9eac916ffc10",
+      "bytes": 2586112,
+      "physical": true
+    },
+    "runtimes/linux-musl-riscv64/native/libSkiaSharp.so": {
+      "sha256": "a8eb81e33709fc19003e16d65129f3dec54b6bd46304115b695fb9cac1887342",
+      "bytes": 9977720,
+      "physical": true
+    },
+    "runtimes/linux-musl-x64/native/libHarfBuzzSharp.so": {
+      "sha256": "f4b0c632dd41e8000b647dbc463e77602d915ab99914239c8c25a1858430c83f",
+      "bytes": 3908472,
+      "physical": true
+    },
+    "runtimes/linux-musl-x64/native/libSkiaSharp.so": {
+      "sha256": "59039b2548e3a3f563fa247f582c62d280c2015df78316fcab62e383d7ae9d4f",
+      "bytes": 18453464,
+      "physical": true
+    },
+    "runtimes/linux-riscv64/native/libHarfBuzzSharp.so": {
+      "sha256": "b0a7dfafd7edfecce56819026741e56c8e46b7e8a422a1a1935d392bb8fc3c39",
+      "bytes": 2318920,
+      "physical": true
+    },
+    "runtimes/linux-riscv64/native/libSkiaSharp.so": {
+      "sha256": "e6dc641e3b049261c9d3d402660ff31e3a23160b1498081a4cec63feb9249c21",
+      "bytes": 8627760,
+      "physical": true
+    },
+    "runtimes/linux-x64/native/libHarfBuzzSharp.so": {
+      "sha256": "1d5c3afef13545bf34bf8f068b14e25ee619c3b6dee235c44e260fe61cb24018",
+      "bytes": 2808040,
+      "physical": true
+    },
+    "runtimes/linux-x64/native/libSkiaSharp.so": {
+      "sha256": "66c856eaf1a47a00b23204c30c6ee407987bf5086ecc0a1a6b4fd67526b0cd02",
+      "bytes": 11170296,
+      "physical": true
+    },
+    "runtimes/linux-x64/native/libglfw.so.3": {
+      "sha256": "d22d2cc22cae6e65e155a8f06b2d293cf6b3e9b9ee505c4df1d928625c29698d",
+      "bytes": 438408,
+      "physical": true
+    },
+    "runtimes/linux-x64/native/libktx.so": {
+      "sha256": "6ab3b9b3a2d52e1293be319815d1030eb34815286979ba4919a1e5552f7edcff",
+      "bytes": 3506936,
+      "physical": true
+    },
+    "runtimes/linux-x64/native/libminiaudio.so": {
+      "sha256": "4a506093784b6370d08f60e83ba9afe0694799d1f57d3acecf24a057bd8d90f3",
+      "bytes": 859496,
+      "physical": true
+    },
+    "runtimes/linux-x64/native/libstbi.so": {
+      "sha256": "0c240231f8520a1f53f114c8f06f2f3e35bd0e66eec52ae1ad2e7c2208f1eeec",
+      "bytes": 282584,
+      "physical": true
+    },
+    "runtimes/linux-x86/native/libHarfBuzzSharp.so": {
+      "sha256": "9171121cc7c5f76d13e3458ea17e9eb6afc74f38ad0e6e2290f050e3557afb42",
+      "bytes": 2735488,
+      "physical": true
+    },
+    "runtimes/linux-x86/native/libSkiaSharp.so": {
+      "sha256": "5984f467bc1a867543ea3bbb1d0913053b88ae52c4afca21a6412816be30d045",
+      "bytes": 10358832,
+      "physical": true
+    },
+    "runtimes/osx/native/libAvaloniaNative.dylib": {
+      "sha256": "495b8b80a17f3cfe0d5c7d4362561780f6b730f77eeb6c31adc875fb6845d52f",
+      "bytes": 1549888,
+      "physical": true
+    },
+    "runtimes/osx/native/libHarfBuzzSharp.dylib": {
+      "sha256": "b2d7d39a46954b3d7310540bdf393f398ac4194ee029b995deeb1db0c161c43d",
+      "bytes": 2922800,
+      "physical": true
+    },
+    "runtimes/osx/native/libSkiaSharp.dylib": {
+      "sha256": "e09f07ae1df62ded475351f56d8dc8366cd679043f28b65d9dee597a5fd0da6c",
+      "bytes": 15201456,
+      "physical": true
+    },
+    "runtimes/osx-arm64/native/libglfw.3.dylib": {
+      "sha256": "409f1c5acc4f512c448f8297a5a7e8f8a1d41fcc90e065d1ba25b4a25508d19a",
+      "bytes": 263308,
+      "physical": true
+    },
+    "runtimes/osx-arm64/native/libminiaudio.dylib": {
+      "sha256": "6c60b60da06d04b8fd1d26d9a5fd081e2615923bc1d19dc9151b65c6e058c72e",
+      "bytes": 665120,
+      "physical": true
+    },
+    "runtimes/osx-arm64/native/libstbi.dylib": {
+      "sha256": "4846bfc05ee2d3af9581c29ab2e0c8f4fe756b8de94452f43b03de83cdbf2d6d",
+      "bytes": 191578,
+      "physical": true
+    },
+    "runtimes/osx-x64/native/libglfw.3.dylib": {
+      "sha256": "fb9ad11c34932b51be9f37923e4a1fc23c0cb5600450bb0501c524a978f00bfc",
+      "bytes": 252272,
+      "physical": true
+    },
+    "runtimes/osx-x64/native/libminiaudio.dylib": {
+      "sha256": "b0961b64ac2b2e9384e0fb9ebf189123b9af4ae47574ffdba4075f46146341be",
+      "bytes": 701648,
+      "physical": true
+    },
+    "runtimes/osx-x64/native/libstbi.dylib": {
+      "sha256": "5b658b34b3739cec5e6253f96e570da960b4382c41db6051901a6521a8f8e5e4",
+      "bytes": 177984,
+      "physical": true
+    },
+    "runtimes/win-arm64/native/av_libglesv2.dll": {
+      "sha256": "85e3b1103246320a4243d327d678e749a2831675ff24793ce0c0f6697150a6e7",
+      "bytes": 5145776,
+      "physical": true
+    },
+    "runtimes/win-arm64/native/libHarfBuzzSharp.dll": {
+      "sha256": "be8e25fcfaf44eb89a9bd62a0595eee006d832069c636a384b7b6b70e3c398ab",
+      "bytes": 1924640,
+      "physical": true
+    },
+    "runtimes/win-arm64/native/libHarfBuzzSharp.pdb": {
+      "sha256": "289947fd566b17a80e39d934ace98092cf81220b278e15c75b1ac4cc5ce729b2",
+      "bytes": 20967424,
+      "physical": true
+    },
+    "runtimes/win-arm64/native/libSkiaSharp.dll": {
+      "sha256": "f7409fcfc3557e272d3e8df2dcd6f737ee5a68b09fdbc6d6ff8c9a3c24b2e36a",
+      "bytes": 10411360,
+      "physical": true
+    },
+    "runtimes/win-arm64/native/libSkiaSharp.pdb": {
+      "sha256": "068c4b775d2bfce0d377762fa4d283f4111769fa3cef1c089ea18e12249f03ca",
+      "bytes": 84938752,
+      "physical": true
+    },
+    "runtimes/win-arm64/native/miniaudio.dll": {
+      "sha256": "5f9d962a9b2547629b809dd389fed1dbe2a5c44262785ac2faca95084599c4d8",
+      "bytes": 576512,
+      "physical": true
+    },
+    "runtimes/win-x64/native/av_libglesv2.dll": {
+      "sha256": "53191a77fe783cd757ca7767077c2a64a662e7043777a5b4ab74980d4a0b73e3",
+      "bytes": 5394096,
+      "physical": true
+    },
+    "runtimes/win-x64/native/glfw3.dll": {
+      "sha256": "3dcbeae25f5a38935f00056e14b4a64815a81dd2f14e5a10701be13ca6a56bc3",
+      "bytes": 369664,
+      "physical": true
+    },
+    "runtimes/win-x64/native/ktx.dll": {
+      "sha256": "28fc3827812c9d9bc91da10dbd7529830cbd3a929a1964ea6cbe28f7911eee3e",
+      "bytes": 2021888,
+      "physical": true
+    },
+    "runtimes/win-x64/native/libHarfBuzzSharp.dll": {
+      "sha256": "145ade963eba427027d5e1381db5d51a0ef9e98e9fef9efbfa6074ca20da246f",
+      "bytes": 1816088,
+      "physical": true
+    },
+    "runtimes/win-x64/native/libHarfBuzzSharp.pdb": {
+      "sha256": "4300d75d5af09fbb79d565d9a18573243a93214c811d4f24a33f11f0d4242d93",
+      "bytes": 20918272,
+      "physical": true
+    },
+    "runtimes/win-x64/native/libSkiaSharp.dll": {
+      "sha256": "7dec3ba900ab353491e6446f0083739924c6f8dd668832e2f09d38ebffdbbe1c",
+      "bytes": 11628896,
+      "physical": true
+    },
+    "runtimes/win-x64/native/libSkiaSharp.pdb": {
+      "sha256": "9fa70aeff3122bcceae15cd89d9d2f3c88c8d382122ef70ad694a76d119dcc6e",
+      "bytes": 84033536,
+      "physical": true
+    },
+    "runtimes/win-x64/native/libstbi.dll": {
+      "sha256": "eddfcf56f6c5af6e579a84cc219aca5fc3ce18ed433b74a9549414d4250ca616",
+      "bytes": 380440,
+      "physical": true
+    },
+    "runtimes/win-x64/native/miniaudio.dll": {
+      "sha256": "67e53a4404f570f8f0f5ee0c47ed67b84eba9424a15bda8f06a17a3ec60b6a6b",
+      "bytes": 700416,
+      "physical": true
+    },
+    "runtimes/win-x86/native/av_libglesv2.dll": {
+      "sha256": "1e4df6ab43cc25cdaa5405048cb1088b5ca26660adfdddaeaf88c8954464244a",
+      "bytes": 4794032,
+      "physical": true
+    },
+    "runtimes/win-x86/native/glfw3.dll": {
+      "sha256": "041c560a6dc9800fbf49473cf6f4b7dbc2fcc14172a4877ffe8e2a2c09a30136",
+      "bytes": 340992,
+      "physical": true
+    },
+    "runtimes/win-x86/native/libHarfBuzzSharp.dll": {
+      "sha256": "99a97ab4b2b4b60f37930584d79849bd3ef2d1252c51ac47df9805deb08912af",
+      "bytes": 1518624,
+      "physical": true
+    },
+    "runtimes/win-x86/native/libHarfBuzzSharp.pdb": {
+      "sha256": "d830a0134f7dbb1cc6002542fd874d87edb415de3e8e3e841d1306ec6f528a54",
+      "bytes": 20705280,
+      "physical": true
+    },
+    "runtimes/win-x86/native/libSkiaSharp.dll": {
+      "sha256": "2e49b47ff56a0f6ccf61932d33e01e9046c319da35bbb16f9ec9572a9dcf675f",
+      "bytes": 10124128,
+      "physical": true
+    },
+    "runtimes/win-x86/native/libSkiaSharp.pdb": {
+      "sha256": "0636110c85e35a4acabd8df236e4a9410c2ab65258a929b92864817ee790f2a8",
+      "bytes": 86761472,
+      "physical": true
+    },
+    "runtimes/win-x86/native/libstbi.dll": {
+      "sha256": "fcc2702946268fc0064e88ebd66b3e8e350803853b8080e571f49c5974ad0d9e",
+      "bytes": 266405,
+      "physical": true
+    },
+    "runtimes/win-x86/native/miniaudio.dll": {
+      "sha256": "515a199d69e7ba93edcddfea049b5b29610bde54e6c837f1401a51c6bc8f50d0",
+      "bytes": 575488,
+      "physical": true
+    }
+  },
+  "startedUtc": "2026-10-14T11:16:16.359355+00:00",
+  "command": [
+    "<user-home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "<workspace>/work/prime-plan-qualified-source/tools/native-render-check/gl_comparison.py",
+    "run",
+    "--source-root",
+    "<workspace>/work/prime-plan-qualified-source",
+    "--dotnet",
+    "<workspace>/work/dotnet/dotnet",
+    "--binary",
+    "<candidate>/official-native-gl-runtime/native-render-check.dll",
+    "--client-mvid",
+    "5e534c23-57c6-4026-a55a-f8233293a732",
+    "--user-data",
+    "<workspace>/work/gl-evidence/gl02-corrected/user-data",
+    "--output",
+    "<candidate>/gl-regression-attempt1",
+    "--kind",
+    "regression",
+    "--idle-note",
+    "Game closed; sole native slot; local builds/tests held; Apple M4 Pro/macOS actual host; original preset; no profiled/FPS campaign",
+    "--execute"
+  ],
+  "process": {
+    "pid": 53897,
+    "pgid": 53897,
+    "timedOut": false,
+    "exitCode": 0,
+    "ownership": {
+      "membersBeforeClose": [],
+      "signals": [],
+      "membersAfterClose": [],
+      "closed": true
+    },
+    "wallSeconds": 20.379383,
+    "logSha256": "6369a812e8d388eb195d7c5c4eb8b20c0dcc0aee35faa2a6407d38b5f895c207",
+    "status": "PASS"
+  },
+  "nativeManifestSha256": "afd5b82d61227abb4523d094faaf9d05e4ee0a99080d480ae45ec7b3b8ee324d",
+  "paritySha256": "97bb6cec35876a59bfb12686e977bb040e8716ebd8c597b2d5ce4fd6f4897206",
+  "validationSha256": "aaca597b544a88ba1b02570b16ff42d45a3608f23b5132bf307c8bfebd0f5b9e",
+  "comparisonCount": 15,
+  "exactRGBA": 9,
+  "exactDepth": 6,
+  "allExact": true,
+  "fixtureSha256": "53e7ab6e5c88e47772928ed217172d8ceafe35bbfbbd0f52502f2a86649b0274",
+  "fixtureIdentityMatches": true,
+  "contexts": [
+    {
+      "arm": 0,
+      "actualLoadedClient": [
+        [
+          "<candidate>/official-native-gl-runtime/ProjectPrime.dll",
+          "5e534c23-57c6-4026-a55a-f8233293a732"
+        ]
+      ],
+      "actualLoadedPhysicalClientMatches": true,
+      "assemblyMvid": "5e534c23-57c6-4026-a55a-f8233293a732",
+      "simulationFrames": [
+        240,
+        540,
+        840,
+        1140
+      ],
+      "renderer": "Apple M4 Pro",
+      "glVersion": "2.1 Metal - 91.7",
+      "renderSize": [
+        1920,
+        1080
+      ],
+      "cleanup": {
+        "detailedRetirement": {
+          "legacyListNamesBefore": 450,
+          "legacyListsRecognizedBefore": 450,
+          "legacyListsRecognizedAfter": 0,
+          "meshListFieldsAfter": 0,
+          "sceneModelLeasesAfter": 0,
+          "bufferNamesBefore": 264,
+          "buffersRecognizedBefore": 264,
+          "bufferNamesRecognizedAfter": 0,
+          "vertexArrayNamesBefore": 132,
+          "vertexArraysRecognizedBefore": 132,
+          "vertexArraysRecognizedAfter": 0,
+          "programNamesBefore": 8,
+          "programsRecognizedBefore": 8,
+          "programsRecognizedAfter": 0,
+          "deletionPendingProgramsAfter": 0,
+          "attachedShaderNamesBefore": 2,
+          "shadersRecognizedAfter": 0,
+          "deletionPendingShadersAfter": 0,
+          "textureNamesBefore": 772,
+          "texturesRecognizedAfter": 0,
+          "framebufferNamesBefore": 3,
+          "framebuffersRecognizedAfter": 0,
+          "renderbufferNamesBefore": 1,
+          "renderbuffersRecognizedAfter": 0,
+          "scope": "Retail model leases, current character/editor lists, retained/combined VBO/IBO/APPLE or core VAO names, scene texture/FBO/RBO/program fields and world variants, attached shaders. Owner/name retirement, not driver residency or a complete context object enumeration; disabled procedural/depth-specific owners retain separate existing counters."
+        },
+        "ownedTexturesBefore": 767,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 676272,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1094088,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 78,
+        "glyphBytesBefore": 19968,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "resultSha256": "30d8bd3bb351382ae6a2963a622b2d70839a869ff7e008cf73478a9b2b4e805c",
+      "logSha256": "bfaf8063f4eb0e1ef45abd4e1c6ada36daef9723cd49d1ad69a0bf5442dffab1"
+    },
+    {
+      "arm": 1,
+      "actualLoadedClient": [
+        [
+          "<candidate>/official-native-gl-runtime/ProjectPrime.dll",
+          "5e534c23-57c6-4026-a55a-f8233293a732"
+        ]
+      ],
+      "actualLoadedPhysicalClientMatches": true,
+      "assemblyMvid": "5e534c23-57c6-4026-a55a-f8233293a732",
+      "simulationFrames": [
+        240,
+        540,
+        840,
+        1140
+      ],
+      "renderer": "Apple M4 Pro",
+      "glVersion": "2.1 Metal - 91.7",
+      "renderSize": [
+        1920,
+        1080
+      ],
+      "cleanup": {
+        "detailedRetirement": {
+          "legacyListNamesBefore": 450,
+          "legacyListsRecognizedBefore": 450,
+          "legacyListsRecognizedAfter": 0,
+          "meshListFieldsAfter": 0,
+          "sceneModelLeasesAfter": 0,
+          "bufferNamesBefore": 264,
+          "buffersRecognizedBefore": 264,
+          "bufferNamesRecognizedAfter": 0,
+          "vertexArrayNamesBefore": 132,
+          "vertexArraysRecognizedBefore": 132,
+          "vertexArraysRecognizedAfter": 0,
+          "programNamesBefore": 8,
+          "programsRecognizedBefore": 8,
+          "programsRecognizedAfter": 0,
+          "deletionPendingProgramsAfter": 0,
+          "attachedShaderNamesBefore": 2,
+          "shadersRecognizedAfter": 0,
+          "deletionPendingShadersAfter": 0,
+          "textureNamesBefore": 772,
+          "texturesRecognizedAfter": 0,
+          "framebufferNamesBefore": 3,
+          "framebuffersRecognizedAfter": 0,
+          "renderbufferNamesBefore": 1,
+          "renderbuffersRecognizedAfter": 0,
+          "scope": "Retail model leases, current character/editor lists, retained/combined VBO/IBO/APPLE or core VAO names, scene texture/FBO/RBO/program fields and world variants, attached shaders. Owner/name retirement, not driver residency or a complete context object enumeration; disabled procedural/depth-specific owners retain separate existing counters."
+        },
+        "ownedTexturesBefore": 767,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 676272,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1094088,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 78,
+        "glyphBytesBefore": 19968,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "resultSha256": "180f611b3ca41c576ec645c5328cec77edf100a54f0a640ba83b024e5c036490",
+      "logSha256": "4c27e1af84c00385b77fa40d3cbd1fecb8cc1f0a39dd27b5739416b23a5e92a5"
+    }
+  ],
+  "status": "PASS_SCOPED_EXACT_NATIVE_FIDELITY_AND_NAME_RETIREMENT",
+  "physicalRuntimeFilesAfter": {
+    "Avalonia.Base.dll": {
+      "sha256": "39f7c973a20346b2a0c0e758b875749670a610d63863e9a85ffea22d5f320279",
+      "bytes": 2355200,
+      "physical": true
+    },
+    "Avalonia.Controls.dll": {
+      "sha256": "909b7abd1e4b389b3372c4d1c0fcae1106f99ed783cc177fa0fa67ed1147ca24",
+      "bytes": 1347072,
+      "physical": true
+    },
+    "Avalonia.DesignerSupport.dll": {
+      "sha256": "ee57e6001029f66ff212f4b81024e51f3167abc9461b055f7c829ec617931a2a",
+      "bytes": 214528,
+      "physical": true
+    },
+    "Avalonia.Desktop.dll": {
+      "sha256": "2f3af65d2dace707ea07ad9723b4a4b849622ad9090533d44ac00ef4b0754241",
+      "bytes": 15360,
+      "physical": true
+    },
+    "Avalonia.Dialogs.dll": {
+      "sha256": "70aaeffbb3afcfafee5a5b1e19707e13b7ae5f293c4c157332693690e12e3598",
+      "bytes": 242688,
+      "physical": true
+    },
+    "Avalonia.Fonts.Inter.dll": {
+      "sha256": "332d53aa406bcecec75f498fb8c0a91eb3ac1dcddd34a0a1fbeba0b5ddf87585",
+      "bytes": 1892864,
+      "physical": true
+    },
+    "Avalonia.FreeDesktop.AtSpi.dll": {
+      "sha256": "217ee386cbccaece75184e2ac675dc0cfcd2fcf5a7f7bf4e689f401818c945cd",
+      "bytes": 562688,
+      "physical": true
+    },
+    "Avalonia.FreeDesktop.dll": {
+      "sha256": "a0b0918cdeb2d1b34ba86a6f858d2a81180eca919e9b7c05e18f20a02a7ffd5c",
+      "bytes": 253952,
+      "physical": true
+    },
+    "Avalonia.HarfBuzz.dll": {
+      "sha256": "77bbaad227444b7dbde768677b4dbfba28fec0365b9021d8f5803b23c1323eaa",
+      "bytes": 22016,
+      "physical": true
+    },
+    "Avalonia.Headless.dll": {
+      "sha256": "5806ec32049e9bbaae3673688c420ce8215ed84af19f1e30cb51edb5e6810200",
+      "bytes": 71680,
+      "physical": true
+    },
+    "Avalonia.Markup.Xaml.dll": {
+      "sha256": "1228b0a7359ebfa592408de8e20aa3b8a2775d27c36f19c1f7c8f1e9ff1e14a8",
+      "bytes": 74752,
+      "physical": true
+    },
+    "Avalonia.Markup.dll": {
+      "sha256": "ce634015611862dd6814355a4880c3c718782a017665445d232834615a6120cb",
+      "bytes": 45568,
+      "physical": true
+    },
+    "Avalonia.Metal.dll": {
+      "sha256": "d9efd4c5293f90239f2930ae688c98b2ef55925fc3de85c4a6b8422175bd78b9",
+      "bytes": 15360,
+      "physical": true
+    },
+    "Avalonia.MicroCom.dll": {
+      "sha256": "63457674ab61566ea94a7a089044bb2be7d0cda1530085578109df953ef37d49",
+      "bytes": 15360,
+      "physical": true
+    },
+    "Avalonia.Native.dll": {
+      "sha256": "929bd4b42462a0cb9734ff49690dccf4b52a65e86892d23f2b1d60be56a1b913",
+      "bytes": 351232,
+      "physical": true
+    },
+    "Avalonia.OpenGL.dll": {
+      "sha256": "365fc038f938088c913db7d067160f985a31f116961dbc527a38703c570119d3",
+      "bytes": 128512,
+      "physical": true
+    },
+    "Avalonia.Remote.Protocol.dll": {
+      "sha256": "080f6f41f70cfd4f98863deeb61d15d229aa7d9333e7a3eb17582efb19ed779c",
+      "bytes": 75776,
+      "physical": true
+    },
+    "Avalonia.Skia.dll": {
+      "sha256": "449a83a2d086a1cf255b69bc352136aa3a21b9f742bbb165ab9ba9178d28af78",
+      "bytes": 125440,
+      "physical": true
+    },
+    "Avalonia.Themes.Fluent.dll": {
+      "sha256": "71ff087f03da9f484f53ef1aea502eb19b015c8a6a1e8a9161b0d344053ed8ef",
+      "bytes": 733184,
+      "physical": true
+    },
+    "Avalonia.Vulkan.dll": {
+      "sha256": "ba98aeb0319a60c1de28b927c46fd94c75a6adc676dd160faae5bce14080e38d",
+      "bytes": 191488,
+      "physical": true
+    },
+    "Avalonia.Win32.Automation.dll": {
+      "sha256": "beba00c11bcfff73dd3228d7219c8d80e6a78aca4cb278a71c1122b1974633ec",
+      "bytes": 123904,
+      "physical": true
+    },
+    "Avalonia.Win32.dll": {
+      "sha256": "511a118f48b8d029924f3720e62658df72ee7a99c5b810f37378514ad4ea0427",
+      "bytes": 943104,
+      "physical": true
+    },
+    "Avalonia.X11.dll": {
+      "sha256": "cfce1f1ba8c47a0e303bd9e37da1908d665910b3818969264a3dd06d7014bfe2",
+      "bytes": 408064,
+      "physical": true
+    },
+    "Avalonia.dll": {
+      "sha256": "ac289895e7fa553ea6be420f9154c452bec6aebf64d0b344aa37827bd29d2fdb",
+      "bytes": 4096,
+      "physical": true
+    },
+    "CommunityToolkit.HighPerformance.dll": {
+      "sha256": "196607c6d4d704b5ee95c80f8e3cd799595b7d8a08108701894c211b138d2839",
+      "bytes": 153928,
+      "physical": true
+    },
+    "HarfBuzzSharp.dll": {
+      "sha256": "55e72ac23263f8e12484f3435e02ec22fac9eff6e6d169bb0a8c246be6b99d29",
+      "bytes": 122400,
+      "physical": true
+    },
+    "Ktx2.NET.dll": {
+      "sha256": "d7e87f619302fe22451b8d1e49feb8c98b918a095f0c6bf69992b0376dc2a90f",
+      "bytes": 26624,
+      "physical": true
+    },
+    "MicroCom.Runtime.dll": {
+      "sha256": "2538ec6f3c24e901a90e33c37788b9a4e4b6ae8158cab7328a00a00bb28eab9e",
+      "bytes": 15360,
+      "physical": true
+    },
+    "MphRead.Protocol.Generator.deps.json": {
+      "sha256": "08c2787d35a49738d19a495b180a81b7a13d0140adb37ee43735a2c7b3a8f525",
+      "bytes": 11110,
+      "physical": true
+    },
+    "MphRead.Protocol.Generator.dll": {
+      "sha256": "9e224fb2e96d4bd127c3df05b8b68ceb5d627d09f0eda52289bf168ca952bb13",
+      "bytes": 29184,
+      "physical": true
+    },
+    "MphRead.Protocol.Generator.pdb": {
+      "sha256": "19dc04ca3ae212a988d738a07e9dc32c1406abf84bb3462f59045014bfd6dd4e",
+      "bytes": 12348,
+      "physical": true
+    },
+    "NcsfPlay.deps.json": {
+      "sha256": "00b9355daf760b4a6a53169861bcf7cfe69ca777d1da65fb981ed8b7ba8cf59b",
+      "bytes": 4862,
+      "physical": true
+    },
+    "NcsfPlay.dll": {
+      "sha256": "2d4d4906b7dc61eda6ba51acd2210034243edf0bb17aecd330e61507eed3a288",
+      "bytes": 166400,
+      "physical": true
+    },
+    "OpenTK.Audio.OpenAL.dll": {
+      "sha256": "88968377988b018039adeeed92efbbe390ba836bfeaac1885ebccb9c86b0f20b",
+      "bytes": 92672,
+      "physical": true
+    },
+    "OpenTK.Compute.dll": {
+      "sha256": "8aa991eb9a7dfba704f562ef838162136b8dfa461ca7a234947ca8cace09f07c",
+      "bytes": 46592,
+      "physical": true
+    },
+    "OpenTK.Core.dll": {
+      "sha256": "00e86fd2aa3ec0a518294ac210f2377078570120dfc22889654843e5ccb9e71c",
+      "bytes": 8704,
+      "physical": true
+    },
+    "OpenTK.Graphics.dll": {
+      "sha256": "5b57957ca9e4c5f7bfb7ec495b991e6b88cfac52863a19e405492ab8c33cb1d2",
+      "bytes": 5087232,
+      "physical": true
+    },
+    "OpenTK.Input.dll": {
+      "sha256": "0df16a0035a375313c1f5e0823972748b6d58bf717a08c36edd2cb1afe0f993a",
+      "bytes": 8704,
+      "physical": true
+    },
+    "OpenTK.Mathematics.dll": {
+      "sha256": "10172a71d9590960bf594fb397e65ee5ebb9fff5d08bd5d358ab047b0a6efff0",
+      "bytes": 355840,
+      "physical": true
+    },
+    "OpenTK.Windowing.Common.dll": {
+      "sha256": "2f0c74b795c664db5ca8a4d8d426efafda2fa48986ae5e2e0ee62dfaf1da660e",
+      "bytes": 13824,
+      "physical": true
+    },
+    "OpenTK.Windowing.Desktop.dll": {
+      "sha256": "cd759959d5924a44e5d943693ec63dd65dacbca5fe209546df1f932a0e3ae8ae",
+      "bytes": 59904,
+      "physical": true
+    },
+    "OpenTK.Windowing.GraphicsLibraryFramework.dll": {
+      "sha256": "b54ec149aa11635dcd09bcc2f0bd2acbd6584f67303b21065935e566d00605cb",
+      "bytes": 51200,
+      "physical": true
+    },
+    "ProjectPrime": {
+      "sha256": "d61eaf484edf5b1b62ec0e4f0355317aac05f1c4aca4b0df981a74df1dcfbe9e",
+      "bytes": 124712,
+      "physical": true
+    },
+    "ProjectPrime.deps.json": {
+      "sha256": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "bytes": 42297,
+      "physical": true
+    },
+    "ProjectPrime.dll": {
+      "sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+      "bytes": 33332224,
+      "physical": true
+    },
+    "ProjectPrime.runtimeconfig.json": {
+      "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "bytes": 330,
+      "physical": true
+    },
+    "ReFuel.StbImage.dll": {
+      "sha256": "191b521ce25d03c73ae10b716b3e55b1a1fcca988201b50cbac9603fcee10ea3",
+      "bytes": 19968,
+      "physical": true
+    },
+    "SkiaSharp.dll": {
+      "sha256": "aaaaa18c68ba1f3a3408b00dff28b11d5705198e17ba9d3aa59222bfd35407c8",
+      "bytes": 489824,
+      "physical": true
+    },
+    "SoundFlow.dll": {
+      "sha256": "8e5224ef27f7cd518c22533fd3fbe745eded9da56b1ed4c2f9611dbbe92bb399",
+      "bytes": 968192,
+      "physical": true
+    },
+    "System.IO.Hashing.dll": {
+      "sha256": "c7798d45633baaa0b0b53487d90b9b7f09d81fddfce681a7cd934cda82e7d18e",
+      "bytes": 56144,
+      "physical": true
+    },
+    "Tmds.DBus.Protocol.dll": {
+      "sha256": "60a1c5255731d8ac843cab53108be8ba1ed02759ce3db0da5b49939ebe97bd8a",
+      "bytes": 232960,
+      "physical": true
+    },
+    "fidelity-baselines/alt.kanden.json": {
+      "sha256": "e9d84b1a9ba5befac6765b6aa4bf17ed26703eedcfe71cdcbfb51bec48b487e4",
+      "bytes": 315504,
+      "physical": true
+    },
+    "fidelity-baselines/alt.noxus.json": {
+      "sha256": "c3ef788a25bd645ec7efd93f4ab7ec3c8d64ea498200bebf28f154374509bbb2",
+      "bytes": 283783,
+      "physical": true
+    },
+    "fidelity-baselines/alt.samus.json": {
+      "sha256": "ab234957db4780769937dc9ac0a799c026718d4aabb14e0b9f1e7bb4379e1c3f",
+      "bytes": 325887,
+      "physical": true
+    },
+    "fidelity-baselines/alt.spire.json": {
+      "sha256": "cb8d411ef6fde2f1fc402c1a437c34de1dafd00740eb7005587e0bd12e5abd97",
+      "bytes": 285351,
+      "physical": true
+    },
+    "fidelity-baselines/alt.sylux.json": {
+      "sha256": "796d959da5ba8ca06489df5a33b1c1ccff1586bd6782408ea384da2adae6d971",
+      "bytes": 371583,
+      "physical": true
+    },
+    "fidelity-baselines/alt.trace.json": {
+      "sha256": "7aa0dc638eb60405a980db7f61ff2dc7c04afec31ad98f781ac100f116779d7b",
+      "bytes": 284532,
+      "physical": true
+    },
+    "fidelity-baselines/alt.weavel.json": {
+      "sha256": "33e581ce2a44cd0e2b71b1e8e8df2b20ac8f8772ac088c69a078c754732b4164",
+      "bytes": 345868,
+      "physical": true
+    },
+    "fidelity-baselines/identity.disconnect-resume.json": {
+      "sha256": "7d3ac6661473109dbffd672975853f3cee8e45eaca97b312f2fcbb202d6268a9",
+      "bytes": 1337,
+      "physical": true
+    },
+    "fidelity-baselines/identity.match-epoch.json": {
+      "sha256": "af1b9c3a820ce6dce0b7eaa51205acb0dedf33d0659064e0a2c65e474b2aa9fc",
+      "bytes": 1546,
+      "physical": true
+    },
+    "fidelity-baselines/identity.slot-reuse.json": {
+      "sha256": "6f6bf658ae026c201cb6faca58e101e5b963783b49ce427a35137078b8ffdcad",
+      "bytes": 1264,
+      "physical": true
+    },
+    "fidelity-baselines/identity.spawn-life.json": {
+      "sha256": "4205100c3e6a2ad13b84338ebaa434bf919d5ec1a3dfc55324cb449471b01f93",
+      "bytes": 1265,
+      "physical": true
+    },
+    "fidelity-baselines/match.battle.json": {
+      "sha256": "07f810efa39086ca74e0b90f75ff84bf5b4347eef63b29c554a246e569f4d72a",
+      "bytes": 52913,
+      "physical": true
+    },
+    "fidelity-baselines/match.capture.json": {
+      "sha256": "c303e50bfc716af627c73306ac477009985777ff465d15eb34a049ada60f61d8",
+      "bytes": 56890,
+      "physical": true
+    },
+    "fidelity-baselines/match.nodes.json": {
+      "sha256": "ec9e00c07036d2c84a7184bfd36b4252b1573cae7bfa73f67a7de1e1b5b205c6",
+      "bytes": 59470,
+      "physical": true
+    },
+    "fidelity-baselines/match.prime.json": {
+      "sha256": "6ca5b59109b59271f0ce18c670645b824cc0fa651bd839025b0ef47aa25a318a",
+      "bytes": 53341,
+      "physical": true
+    },
+    "fidelity-baselines/match.survival.json": {
+      "sha256": "df3dc8271f956fa7a5275d0bb4e8dddc95aa30c0c829e6fa91c91356273939d2",
+      "bytes": 53438,
+      "physical": true
+    },
+    "fidelity-baselines/movement.air-control.json": {
+      "sha256": "3ff5de157e4206e6fe44ebbd0d4a2b480ca60a2ddde7d3a435ec790756b96ad9",
+      "bytes": 89705,
+      "physical": true
+    },
+    "fidelity-baselines/movement.collision-corner.json": {
+      "sha256": "e54da04ec392b1216632a5a454b71e4bb8dc248485a01c47d16adf6fbf3f2098",
+      "bytes": 93271,
+      "physical": true
+    },
+    "fidelity-baselines/movement.jump.json": {
+      "sha256": "b238b5529a614db9195670ac1193a32f88da466842c589260feaa777f77e511a",
+      "bytes": 88596,
+      "physical": true
+    },
+    "fidelity-baselines/movement.knockback.json": {
+      "sha256": "6d5ef226524b31e4d659fda1062f6ddcca763db3eee57f1c60d528d11b2905ce",
+      "bytes": 88543,
+      "physical": true
+    },
+    "fidelity-baselines/movement.platform.json": {
+      "sha256": "ae8ce22b86b3e9450544ad8c346eaee6fdae0b140c006d99fa8b6368d310516b",
+      "bytes": 291365,
+      "physical": true
+    },
+    "fidelity-baselines/movement.slope.json": {
+      "sha256": "5c2b3068512a9975bd2b5746969f8567144bff3aa9774d793923ce637690ab8b",
+      "bytes": 93288,
+      "physical": true
+    },
+    "fidelity-baselines/movement.walk.json": {
+      "sha256": "70e886efd041e165b443b6b760747fa08ac387839d87e417a9c1a75fc34eb1e9",
+      "bytes": 89174,
+      "physical": true
+    },
+    "fidelity-baselines/simulation.fixed-step.json": {
+      "sha256": "bf2ed3e323835328bf62996218279886f496f2ee550d47fdafc2514fc44b5aa1",
+      "bytes": 94617,
+      "physical": true
+    },
+    "fidelity-baselines/simulation.match-transition.json": {
+      "sha256": "d552c1a5b82c8a25cbe93636bf0b50e1af909031e433cd1e8d7857c0ef5b6a70",
+      "bytes": 99910,
+      "physical": true
+    },
+    "fidelity-baselines/simulation.pause-resume.json": {
+      "sha256": "5c16bd6dd84f40607960d3a4fae74f2c9f20b85640eb7c6aebe1d6394b5642a9",
+      "bytes": 1779,
+      "physical": true
+    },
+    "fidelity-baselines/simulation.respawn.json": {
+      "sha256": "0cde4a54c9687632bb432bbd6bd638422e3c822629c5d1e04ab3e60522aff43b",
+      "bytes": 232514,
+      "physical": true
+    },
+    "fidelity-baselines/simulation.rng.json": {
+      "sha256": "a2468001a544bc10b911ab76b2ff4a7f2fd0f59e896a74b99c2f09a02df80827",
+      "bytes": 94565,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.battlehammer.hit.json": {
+      "sha256": "a595f4e901f50c2cd6a4fc0896aa5c5ca59f73afe868d6bae3813d4d064e860f",
+      "bytes": 356898,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.battlehammer.json": {
+      "sha256": "c499742f5d918a31f0818aa097ec22a75f8be998cc6220e3f4986544e9f58e8f",
+      "bytes": 170107,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.continuous-phase.json": {
+      "sha256": "b7da76e9c1f989c980254a6dce93f329caa7b29c50fd2760f97fc5b5065e79c2",
+      "bytes": 1637,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.imperialist.headshot.json": {
+      "sha256": "bd711e67bb63d677d64fb4d5679046254c72050e007f6c6b246b7d08667787f3",
+      "bytes": 266033,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.imperialist.hit.json": {
+      "sha256": "e5fce5210861eb17c621836e5f61f802484b434509ccaad463b6c981c514c843",
+      "bytes": 266349,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.imperialist.json": {
+      "sha256": "6576cde96875bf38eaa406880bada8a9b9a749325a2a57a5dff4efdf189521b0",
+      "bytes": 97573,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.judicator.hit.json": {
+      "sha256": "8b0d60514a1a247d4acd6d2f97dde2e9b57ecfe0ee9b2d16a7e6dde519f330e1",
+      "bytes": 326278,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.judicator.json": {
+      "sha256": "b401a4eba442ecaf72c2bc28d21b98863b6e4716a5a9fa95e07ce9cac36ef353",
+      "bytes": 261155,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.magmaul.hit.json": {
+      "sha256": "6cd2906f323bfb045362c2030b691effae0584b69b6e4b4e8efdd89dd1e859d5",
+      "bytes": 310557,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.magmaul.json": {
+      "sha256": "64677933917673549aa3c6aab43997255f5d1abe2fc5f67195ea776147604a90",
+      "bytes": 211244,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.missile.hit.json": {
+      "sha256": "04f3630fef67f43b370427b7c340ecdb36ae93c5b4a91c9964ecf0e4332dc89a",
+      "bytes": 319066,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.missile.json": {
+      "sha256": "d82cebc3ea15fbee997fa29ea6f787b69fc10a8d99febaf692c261796baa7fde",
+      "bytes": 184890,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.missile.splash.json": {
+      "sha256": "76221eedb8bbb1bb17095a498b5c073914f43e08638eceeb43fcdfdf112083fb",
+      "bytes": 319695,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.powerbeam.hit.json": {
+      "sha256": "8b89b0eebc6216c398fee949a8f3c59abb06fd6eb87fe7c769bc180c84047cff",
+      "bytes": 374095,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.powerbeam.json": {
+      "sha256": "27e3fe54dc10acdd073ef4589f1d5c03e4a2c0d721a8dd5b4049833605179ff8",
+      "bytes": 284970,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.shockcoil.hit.json": {
+      "sha256": "55b767f894f6492401a6d184fb8ca6f4d778fca1eca319aee8f964a1bd509ac3",
+      "bytes": 319881,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.shockcoil.json": {
+      "sha256": "c2eaab1c23b82edb5afaa40df743b6b96fda4548560a30c6cc602dc28673597e",
+      "bytes": 121681,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.voltdriver.hit.json": {
+      "sha256": "954d4e30bfd504976fb2a73e0eea0eb2383e1e3784fc0a64f5b4ebeff16c9d93",
+      "bytes": 308189,
+      "physical": true
+    },
+    "fidelity-baselines/weapon.voltdriver.json": {
+      "sha256": "aebca9f42cf617fd402733f263f510fa0f343d2971ef4cc4da37b3ad2d80b8c0",
+      "bytes": 161347,
+      "physical": true
+    },
+    "gamecontrollerdb.LICENSE": {
+      "sha256": "7826eca0a0f7e591f38dd844e207a200aac81a59b20d8a30c3af8c6282af13e6",
+      "bytes": 878,
+      "physical": true
+    },
+    "gamecontrollerdb.txt": {
+      "sha256": "07ec5b753e685c4829987919b27905cc3c45c8e18c11b3046e275fcf38b0f3cb",
+      "bytes": 608491,
+      "physical": true
+    },
+    "libopenal.1.dylib": {
+      "sha256": "85c3fffe4a246315b28ba07346d0e14bfa46c265cf130e2c9c0092421b5b707c",
+      "bytes": 873880,
+      "physical": true
+    },
+    "maps/aimlab/aimlab.json": {
+      "sha256": "9d421d7dbc718f78c6720f8e013811b37e963e00eb71e75f876cfef33f670ff6",
+      "bytes": 4568,
+      "physical": true
+    },
+    "maps/arena/arena.json": {
+      "sha256": "f27f5164f72b4f4175fda9e245d2b72aefa7d5cd5abfd6910311a58c7239e4ef",
+      "bytes": 4526,
+      "physical": true
+    },
+    "maps/arena.ppmap": {
+      "sha256": "725783058af9fec9640c6dae505726a7fad1ec64e41e897029f5984d4b1293ea",
+      "bytes": 1247,
+      "physical": true
+    },
+    "maps/dust2/df_dust2.pk3": {
+      "sha256": "a44551879f6f8ad64ff2e65966458abc24f0f1328efc14b97c28b3e945201b9f",
+      "bytes": 2709119,
+      "physical": true
+    },
+    "maps/dust2/dust2.json": {
+      "sha256": "52de9ece0c4ea7aa522efa869da3bbeb14e3b9c2cdb3c2e77060d956c431ac14",
+      "bytes": 5371,
+      "physical": true
+    },
+    "maps/dust2/dust2_collision.mtl": {
+      "sha256": "ec380fa8c7a659d9cb6709ad5ad2c5ecadb72993006e1008cfa2b358ff74080a",
+      "bytes": 780,
+      "physical": true
+    },
+    "maps/dust2/dust2_collision.obj": {
+      "sha256": "07884819f933584d6d50fe1003e1c106dd14e4807063edb0bd232848f037ccce",
+      "bytes": 201770,
+      "physical": true
+    },
+    "maps/dust2.ppmap": {
+      "sha256": "f5db2002dd721cb9db6744c94d3164d3f89573127e13e822da54b658eaba8b28",
+      "bytes": 430300,
+      "physical": true
+    },
+    "maps/mk_blockfort/mk_blockfort.json": {
+      "sha256": "d29d02dcf2e62a79b44d027f2896716823113440f7712ac048fa0ed6e3867b84",
+      "bytes": 6604,
+      "physical": true
+    },
+    "maps/mk_blockfort/mk_blockfort_collision.mtl": {
+      "sha256": "8a2b7316887c30856d2ef71c67e6fdcde912553c5fd1a2f240e514b03a05fcdc",
+      "bytes": 251,
+      "physical": true
+    },
+    "maps/mk_blockfort/mk_blockfort_collision.obj": {
+      "sha256": "1decf75e762da5ce7d6d07aabdaf61a4aae3ffa04c68d432164d28d507e9a740",
+      "bytes": 13615,
+      "physical": true
+    },
+    "maps/pads/pads.json": {
+      "sha256": "c3ae291c85c7540bbe0c980bcb6f1c9f5fd1fe2ccf75bef38c6bca4418cb6f2a",
+      "bytes": 5304,
+      "physical": true
+    },
+    "maps/pads.ppmap": {
+      "sha256": "29ff0f4f35bd8b2b7b311f3f2add7a8ad184564b577f61ca3220e8c15e851140",
+      "bytes": 1344,
+      "physical": true
+    },
+    "native-render-check": {
+      "sha256": "c22e02fbd6be86d586bea1ea8fc9789ac3388353e31bd7cb31bbaafdf7ecf101",
+      "bytes": 124712,
+      "physical": true
+    },
+    "native-render-check.deps.json": {
+      "sha256": "6a9e8dcd0e378210a01c7e359d04f4cbe78ecb1f235e85c31443d629ff2691b3",
+      "bytes": 43020,
+      "physical": true
+    },
+    "native-render-check.dll": {
+      "sha256": "d2fc93a3b11b09e68f70e875174fd9eecd6fdf4fb0fe89cff1afb50ec01131c6",
+      "bytes": 375296,
+      "physical": true
+    },
+    "native-render-check.pdb": {
+      "sha256": "bd52432ece05483e9f1ad272d8f1fd4786e1647963c9cbb2366d625d6444105a",
+      "bytes": 52672,
+      "physical": true
+    },
+    "native-render-check.runtimeconfig.json": {
+      "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "bytes": 330,
+      "physical": true
+    },
+    "nettest": {
+      "sha256": "fa671fe95b404f919229ffd4aa8911d1a029fac5e269585ad7dcb533b801da5f",
+      "bytes": 124712,
+      "physical": true
+    },
+    "nettest.deps.json": {
+      "sha256": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "bytes": 42984,
+      "physical": true
+    },
+    "nettest.dll": {
+      "sha256": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+      "bytes": 1470976,
+      "physical": true
+    },
+    "nettest.pdb": {
+      "sha256": "520dbaa410c609522f10328c5207af85e3f1062c2dda0be8a972074dd4a0c7d8",
+      "bytes": 283900,
+      "physical": true
+    },
+    "nettest.runtimeconfig.json": {
+      "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "bytes": 330,
+      "physical": true
+    },
+    "runtimes/android-arm/native/libminiaudio.so": {
+      "sha256": "fd070a3a005b2af77f076fb8c395ac7a3be6a0401bed92b11df518afdedaa7fa",
+      "bytes": 2879332,
+      "physical": true
+    },
+    "runtimes/android-arm64/native/libminiaudio.so": {
+      "sha256": "fe320a65ba0f0009687ccccdd0082054fa95b6eb2936c51dfbf31978d830eda3",
+      "bytes": 3858696,
+      "physical": true
+    },
+    "runtimes/android-x64/native/libminiaudio.so": {
+      "sha256": "0d8a91ee8b25e7ca4f483cb93976d02017ce4ec1fc765b2c82445b9119408892",
+      "bytes": 3668200,
+      "physical": true
+    },
+    "runtimes/freebsd-arm64/native/libminiaudio.so": {
+      "sha256": "ccc8b130613c37664c4da4c8f8dde7481df1ac8dd08aedf6c0c2ef947017a93c",
+      "bytes": 756192,
+      "physical": true
+    },
+    "runtimes/freebsd-x64/native/libminiaudio.so": {
+      "sha256": "dda9900adb1f16e01de7d95ef13ad605d1a42c90837c58d165b5fa58eb6f2a34",
+      "bytes": 784384,
+      "physical": true
+    },
+    "runtimes/ios-arm64/native/miniaudio.framework/Info.plist": {
+      "sha256": "4ced590b9348d5d0270b6f4de40c3c9905507769cd35f70da359b3286d1dea31",
+      "bytes": 796,
+      "physical": true
+    },
+    "runtimes/ios-arm64/native/miniaudio.framework/miniaudio": {
+      "sha256": "10970a746e81ab54e310a4fd41dbdc4848f39f5ef1a2ef6a52199c9d9ff0c509",
+      "bytes": 1031760,
+      "physical": true
+    },
+    "runtimes/linux-arm/native/libHarfBuzzSharp.so": {
+      "sha256": "7a7bafe7d89c5d361a3890e044bdc5993b234831e5c8c1f768260828969ec007",
+      "bytes": 1988676,
+      "physical": true
+    },
+    "runtimes/linux-arm/native/libSkiaSharp.so": {
+      "sha256": "7896ca61cbb9fe9f4f9f7669595329d8a688f9ea60ef8d103701b7b9441b7699",
+      "bytes": 8008960,
+      "physical": true
+    },
+    "runtimes/linux-arm/native/libminiaudio.so": {
+      "sha256": "7c40ea6fb61b509a8a48f8042437588c7b71cd721216d61c66119bac1a983628",
+      "bytes": 550048,
+      "physical": true
+    },
+    "runtimes/linux-arm/native/libstbi.so": {
+      "sha256": "b68a43e2a312dc3ffc380b795216e9d8c98aa38a58eb8787b225831e8f6c095e",
+      "bytes": 145108,
+      "physical": true
+    },
+    "runtimes/linux-arm64/native/libHarfBuzzSharp.so": {
+      "sha256": "68fc5ef842ac0dbd57e8063a11de5bb2f3c2b5af530a2d4fa07a7cf5d6ea4259",
+      "bytes": 2657280,
+      "physical": true
+    },
+    "runtimes/linux-arm64/native/libSkiaSharp.so": {
+      "sha256": "87d2d56c49a9b1d1da618dfa20994ee213f752f9ada04e085703115162997aef",
+      "bytes": 10848184,
+      "physical": true
+    },
+    "runtimes/linux-arm64/native/libminiaudio.so": {
+      "sha256": "73c81804e118cc6eb95bfd8fed1fb19128532b4a98dac7aca899e681a078c825",
+      "bytes": 808536,
+      "physical": true
+    },
+    "runtimes/linux-arm64/native/libstbi.so": {
+      "sha256": "8ded9a778aa69eb8fa16e86fe9601385a15e9ee94e3f00bd4e38cdd723f882b1",
+      "bytes": 209848,
+      "physical": true
+    },
+    "runtimes/linux-bionic-arm64/native/libSkiaSharp.so": {
+      "sha256": "03ff0a09dc95d92b85c91cfbd87567793fe095f2fb1566f6b21bf6ae048c7ea4",
+      "bytes": 11319400,
+      "physical": true
+    },
+    "runtimes/linux-bionic-x64/native/libSkiaSharp.so": {
+      "sha256": "db79508d5c6c6234b127f4948b64b96e7ddcb08e6495fe4dfda70ea187137af6",
+      "bytes": 11068032,
+      "physical": true
+    },
+    "runtimes/linux-loongarch64/native/libHarfBuzzSharp.so": {
+      "sha256": "e3f25c2a81f919fd0297023504bf0655b626d5d47e569724827cca7d06f9c3d7",
+      "bytes": 2721088,
+      "physical": true
+    },
+    "runtimes/linux-loongarch64/native/libSkiaSharp.so": {
+      "sha256": "94f65c8536514d4fd2f78568b634bf73acfde22e4dd427615584f58d8e05ca30",
+      "bytes": 10483856,
+      "physical": true
+    },
+    "runtimes/linux-musl-arm/native/libHarfBuzzSharp.so": {
+      "sha256": "fa511560f4420e0b420eb73fa8339af5c6683d71403c611af8ca6ce366f01494",
+      "bytes": 3017916,
+      "physical": true
+    },
+    "runtimes/linux-musl-arm/native/libSkiaSharp.so": {
+      "sha256": "ebc2baff6958516a8d16818af690c61678d7cfe4af8322a35b33d9f8d08f2b0f",
+      "bytes": 14668520,
+      "physical": true
+    },
+    "runtimes/linux-musl-arm64/native/libHarfBuzzSharp.so": {
+      "sha256": "aa71a80195e31d55b7045bafdc6ec5895b69785cd4b39a249309d3c9fde3e280",
+      "bytes": 3880784,
+      "physical": true
+    },
+    "runtimes/linux-musl-arm64/native/libSkiaSharp.so": {
+      "sha256": "6b5b1a4f4ee4def48fc4a50f9c5a686c47661b5acaf0150dc0b462b30070b925",
+      "bytes": 18546520,
+      "physical": true
+    },
+    "runtimes/linux-musl-loongarch64/native/libHarfBuzzSharp.so": {
+      "sha256": "82befae55055053a65fc66366b2c75081c28463058c79295d0ef38c6ec2df97d",
+      "bytes": 3577960,
+      "physical": true
+    },
+    "runtimes/linux-musl-loongarch64/native/libSkiaSharp.so": {
+      "sha256": "9ac3dd56dfd62b2f767767f28ace0b8125680dfab0838193de2864e094299ed9",
+      "bytes": 11909704,
+      "physical": true
+    },
+    "runtimes/linux-musl-riscv64/native/libHarfBuzzSharp.so": {
+      "sha256": "1d0c376dae6362986a294737cb7b2580e6416c007d4cc25aba8c9eac916ffc10",
+      "bytes": 2586112,
+      "physical": true
+    },
+    "runtimes/linux-musl-riscv64/native/libSkiaSharp.so": {
+      "sha256": "a8eb81e33709fc19003e16d65129f3dec54b6bd46304115b695fb9cac1887342",
+      "bytes": 9977720,
+      "physical": true
+    },
+    "runtimes/linux-musl-x64/native/libHarfBuzzSharp.so": {
+      "sha256": "f4b0c632dd41e8000b647dbc463e77602d915ab99914239c8c25a1858430c83f",
+      "bytes": 3908472,
+      "physical": true
+    },
+    "runtimes/linux-musl-x64/native/libSkiaSharp.so": {
+      "sha256": "59039b2548e3a3f563fa247f582c62d280c2015df78316fcab62e383d7ae9d4f",
+      "bytes": 18453464,
+      "physical": true
+    },
+    "runtimes/linux-riscv64/native/libHarfBuzzSharp.so": {
+      "sha256": "b0a7dfafd7edfecce56819026741e56c8e46b7e8a422a1a1935d392bb8fc3c39",
+      "bytes": 2318920,
+      "physical": true
+    },
+    "runtimes/linux-riscv64/native/libSkiaSharp.so": {
+      "sha256": "e6dc641e3b049261c9d3d402660ff31e3a23160b1498081a4cec63feb9249c21",
+      "bytes": 8627760,
+      "physical": true
+    },
+    "runtimes/linux-x64/native/libHarfBuzzSharp.so": {
+      "sha256": "1d5c3afef13545bf34bf8f068b14e25ee619c3b6dee235c44e260fe61cb24018",
+      "bytes": 2808040,
+      "physical": true
+    },
+    "runtimes/linux-x64/native/libSkiaSharp.so": {
+      "sha256": "66c856eaf1a47a00b23204c30c6ee407987bf5086ecc0a1a6b4fd67526b0cd02",
+      "bytes": 11170296,
+      "physical": true
+    },
+    "runtimes/linux-x64/native/libglfw.so.3": {
+      "sha256": "d22d2cc22cae6e65e155a8f06b2d293cf6b3e9b9ee505c4df1d928625c29698d",
+      "bytes": 438408,
+      "physical": true
+    },
+    "runtimes/linux-x64/native/libktx.so": {
+      "sha256": "6ab3b9b3a2d52e1293be319815d1030eb34815286979ba4919a1e5552f7edcff",
+      "bytes": 3506936,
+      "physical": true
+    },
+    "runtimes/linux-x64/native/libminiaudio.so": {
+      "sha256": "4a506093784b6370d08f60e83ba9afe0694799d1f57d3acecf24a057bd8d90f3",
+      "bytes": 859496,
+      "physical": true
+    },
+    "runtimes/linux-x64/native/libstbi.so": {
+      "sha256": "0c240231f8520a1f53f114c8f06f2f3e35bd0e66eec52ae1ad2e7c2208f1eeec",
+      "bytes": 282584,
+      "physical": true
+    },
+    "runtimes/linux-x86/native/libHarfBuzzSharp.so": {
+      "sha256": "9171121cc7c5f76d13e3458ea17e9eb6afc74f38ad0e6e2290f050e3557afb42",
+      "bytes": 2735488,
+      "physical": true
+    },
+    "runtimes/linux-x86/native/libSkiaSharp.so": {
+      "sha256": "5984f467bc1a867543ea3bbb1d0913053b88ae52c4afca21a6412816be30d045",
+      "bytes": 10358832,
+      "physical": true
+    },
+    "runtimes/osx/native/libAvaloniaNative.dylib": {
+      "sha256": "495b8b80a17f3cfe0d5c7d4362561780f6b730f77eeb6c31adc875fb6845d52f",
+      "bytes": 1549888,
+      "physical": true
+    },
+    "runtimes/osx/native/libHarfBuzzSharp.dylib": {
+      "sha256": "b2d7d39a46954b3d7310540bdf393f398ac4194ee029b995deeb1db0c161c43d",
+      "bytes": 2922800,
+      "physical": true
+    },
+    "runtimes/osx/native/libSkiaSharp.dylib": {
+      "sha256": "e09f07ae1df62ded475351f56d8dc8366cd679043f28b65d9dee597a5fd0da6c",
+      "bytes": 15201456,
+      "physical": true
+    },
+    "runtimes/osx-arm64/native/libglfw.3.dylib": {
+      "sha256": "409f1c5acc4f512c448f8297a5a7e8f8a1d41fcc90e065d1ba25b4a25508d19a",
+      "bytes": 263308,
+      "physical": true
+    },
+    "runtimes/osx-arm64/native/libminiaudio.dylib": {
+      "sha256": "6c60b60da06d04b8fd1d26d9a5fd081e2615923bc1d19dc9151b65c6e058c72e",
+      "bytes": 665120,
+      "physical": true
+    },
+    "runtimes/osx-arm64/native/libstbi.dylib": {
+      "sha256": "4846bfc05ee2d3af9581c29ab2e0c8f4fe756b8de94452f43b03de83cdbf2d6d",
+      "bytes": 191578,
+      "physical": true
+    },
+    "runtimes/osx-x64/native/libglfw.3.dylib": {
+      "sha256": "fb9ad11c34932b51be9f37923e4a1fc23c0cb5600450bb0501c524a978f00bfc",
+      "bytes": 252272,
+      "physical": true
+    },
+    "runtimes/osx-x64/native/libminiaudio.dylib": {
+      "sha256": "b0961b64ac2b2e9384e0fb9ebf189123b9af4ae47574ffdba4075f46146341be",
+      "bytes": 701648,
+      "physical": true
+    },
+    "runtimes/osx-x64/native/libstbi.dylib": {
+      "sha256": "5b658b34b3739cec5e6253f96e570da960b4382c41db6051901a6521a8f8e5e4",
+      "bytes": 177984,
+      "physical": true
+    },
+    "runtimes/win-arm64/native/av_libglesv2.dll": {
+      "sha256": "85e3b1103246320a4243d327d678e749a2831675ff24793ce0c0f6697150a6e7",
+      "bytes": 5145776,
+      "physical": true
+    },
+    "runtimes/win-arm64/native/libHarfBuzzSharp.dll": {
+      "sha256": "be8e25fcfaf44eb89a9bd62a0595eee006d832069c636a384b7b6b70e3c398ab",
+      "bytes": 1924640,
+      "physical": true
+    },
+    "runtimes/win-arm64/native/libHarfBuzzSharp.pdb": {
+      "sha256": "289947fd566b17a80e39d934ace98092cf81220b278e15c75b1ac4cc5ce729b2",
+      "bytes": 20967424,
+      "physical": true
+    },
+    "runtimes/win-arm64/native/libSkiaSharp.dll": {
+      "sha256": "f7409fcfc3557e272d3e8df2dcd6f737ee5a68b09fdbc6d6ff8c9a3c24b2e36a",
+      "bytes": 10411360,
+      "physical": true
+    },
+    "runtimes/win-arm64/native/libSkiaSharp.pdb": {
+      "sha256": "068c4b775d2bfce0d377762fa4d283f4111769fa3cef1c089ea18e12249f03ca",
+      "bytes": 84938752,
+      "physical": true
+    },
+    "runtimes/win-arm64/native/miniaudio.dll": {
+      "sha256": "5f9d962a9b2547629b809dd389fed1dbe2a5c44262785ac2faca95084599c4d8",
+      "bytes": 576512,
+      "physical": true
+    },
+    "runtimes/win-x64/native/av_libglesv2.dll": {
+      "sha256": "53191a77fe783cd757ca7767077c2a64a662e7043777a5b4ab74980d4a0b73e3",
+      "bytes": 5394096,
+      "physical": true
+    },
+    "runtimes/win-x64/native/glfw3.dll": {
+      "sha256": "3dcbeae25f5a38935f00056e14b4a64815a81dd2f14e5a10701be13ca6a56bc3",
+      "bytes": 369664,
+      "physical": true
+    },
+    "runtimes/win-x64/native/ktx.dll": {
+      "sha256": "28fc3827812c9d9bc91da10dbd7529830cbd3a929a1964ea6cbe28f7911eee3e",
+      "bytes": 2021888,
+      "physical": true
+    },
+    "runtimes/win-x64/native/libHarfBuzzSharp.dll": {
+      "sha256": "145ade963eba427027d5e1381db5d51a0ef9e98e9fef9efbfa6074ca20da246f",
+      "bytes": 1816088,
+      "physical": true
+    },
+    "runtimes/win-x64/native/libHarfBuzzSharp.pdb": {
+      "sha256": "4300d75d5af09fbb79d565d9a18573243a93214c811d4f24a33f11f0d4242d93",
+      "bytes": 20918272,
+      "physical": true
+    },
+    "runtimes/win-x64/native/libSkiaSharp.dll": {
+      "sha256": "7dec3ba900ab353491e6446f0083739924c6f8dd668832e2f09d38ebffdbbe1c",
+      "bytes": 11628896,
+      "physical": true
+    },
+    "runtimes/win-x64/native/libSkiaSharp.pdb": {
+      "sha256": "9fa70aeff3122bcceae15cd89d9d2f3c88c8d382122ef70ad694a76d119dcc6e",
+      "bytes": 84033536,
+      "physical": true
+    },
+    "runtimes/win-x64/native/libstbi.dll": {
+      "sha256": "eddfcf56f6c5af6e579a84cc219aca5fc3ce18ed433b74a9549414d4250ca616",
+      "bytes": 380440,
+      "physical": true
+    },
+    "runtimes/win-x64/native/miniaudio.dll": {
+      "sha256": "67e53a4404f570f8f0f5ee0c47ed67b84eba9424a15bda8f06a17a3ec60b6a6b",
+      "bytes": 700416,
+      "physical": true
+    },
+    "runtimes/win-x86/native/av_libglesv2.dll": {
+      "sha256": "1e4df6ab43cc25cdaa5405048cb1088b5ca26660adfdddaeaf88c8954464244a",
+      "bytes": 4794032,
+      "physical": true
+    },
+    "runtimes/win-x86/native/glfw3.dll": {
+      "sha256": "041c560a6dc9800fbf49473cf6f4b7dbc2fcc14172a4877ffe8e2a2c09a30136",
+      "bytes": 340992,
+      "physical": true
+    },
+    "runtimes/win-x86/native/libHarfBuzzSharp.dll": {
+      "sha256": "99a97ab4b2b4b60f37930584d79849bd3ef2d1252c51ac47df9805deb08912af",
+      "bytes": 1518624,
+      "physical": true
+    },
+    "runtimes/win-x86/native/libHarfBuzzSharp.pdb": {
+      "sha256": "d830a0134f7dbb1cc6002542fd874d87edb415de3e8e3e841d1306ec6f528a54",
+      "bytes": 20705280,
+      "physical": true
+    },
+    "runtimes/win-x86/native/libSkiaSharp.dll": {
+      "sha256": "2e49b47ff56a0f6ccf61932d33e01e9046c319da35bbb16f9ec9572a9dcf675f",
+      "bytes": 10124128,
+      "physical": true
+    },
+    "runtimes/win-x86/native/libSkiaSharp.pdb": {
+      "sha256": "0636110c85e35a4acabd8df236e4a9410c2ab65258a929b92864817ee790f2a8",
+      "bytes": 86761472,
+      "physical": true
+    },
+    "runtimes/win-x86/native/libstbi.dll": {
+      "sha256": "fcc2702946268fc0064e88ebd66b3e8e350803853b8080e571f49c5974ad0d9e",
+      "bytes": 266405,
+      "physical": true
+    },
+    "runtimes/win-x86/native/miniaudio.dll": {
+      "sha256": "515a199d69e7ba93edcddfea049b5b29610bde54e6c837f1401a51c6bc8f50d0",
+      "bytes": 575488,
+      "physical": true
+    }
+  },
+  "sourceAfter": {
+    "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+    "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+    "dirty": ""
+  },
+  "inputsUnchanged": true,
+  "finishedUtc": "2026-10-14T11:16:37.040435+00:00"
+}

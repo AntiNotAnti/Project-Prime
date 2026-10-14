@@ -1,0 +1,3 @@
+COMPACT_LOADED_IDENTITY nettest location=<candidate>/runtime/nettest.dll mvid=0151d5f2-81b8-4566-96e3-aadf793388ee
+COMPACT_LOADED_IDENTITY ProjectPrime location=<candidate>/runtime/ProjectPrime.dll mvid=5e534c23-57c6-4026-a55a-f8233293a732
+PASS: 4668 pure timed-shot archival assertions. SCOPE: explicit storage fixtures; no native admission or visual fidelity claim.

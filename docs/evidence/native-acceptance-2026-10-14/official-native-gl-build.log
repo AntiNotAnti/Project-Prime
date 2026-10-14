@@ -1,0 +1,13 @@
+  Determining projects to restore...
+  Restored <workspace>/work/prime-plan-qualified-source/tools/native-render-check/native-render-check.csproj (in 110 ms).
+  3 of 4 projects are up-to-date for restore.
+  NcsfPlay -> <candidate>/official-native-gl-runtime/NcsfPlay.dll
+  MphRead.Protocol.Generator -> <candidate>/official-native-gl-runtime/MphRead.Protocol.Generator.dll
+  MphRead -> <candidate>/official-native-gl-runtime/ProjectPrime.dll
+  native-render-check -> <candidate>/official-native-gl-runtime/native-render-check.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:42.00

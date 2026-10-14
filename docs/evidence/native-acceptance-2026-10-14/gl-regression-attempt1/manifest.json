@@ -1,0 +1,222 @@
+{
+  "schema": 1,
+  "complete": true,
+  "source": "7588d98689899c9868e8a0105b78653c7a1db50d",
+  "sourceDirty": false,
+  "binary": {
+    "clientSha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+    "harnessSha256": "d2fc93a3b11b09e68f70e875174fd9eecd6fdf4fb0fe89cff1afb50ec01131c6",
+    "expectedLoadedClientMvid": "5e534c23-57c6-4026-a55a-f8233293a732"
+  },
+  "fixtureIdentityMatches": true,
+  "records": [
+    {
+      "category": "parity",
+      "index": 0,
+      "arm": 0,
+      "fixture": "eight-high",
+      "result": "00-eight-high-palette-0.json",
+      "log": "00-eight-high-palette-0.log",
+      "exitCode": 0,
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "0"
+      },
+      "command": [
+        "<workspace>/work/dotnet/dotnet",
+        "<candidate>/official-native-gl-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-hunter",
+        "Samus",
+        "-output",
+        "<candidate>/gl-regression-attempt1/00-eight-high-palette-0.json",
+        "-shots",
+        "<candidate>/gl-regression-attempt1/00-eight-high-palette-0-shots",
+        "-stablehud"
+      ],
+      "startedUtc": "2026-10-14T11:16:17.277773+00:00",
+      "finishedUtc": "2026-10-14T11:16:27.055451+00:00",
+      "logSha256": "bfaf8063f4eb0e1ef45abd4e1c6ada36daef9723cd49d1ad69a0bf5442dffab1",
+      "resultSha256": "30d8bd3bb351382ae6a2963a622b2d70839a869ff7e008cf73478a9b2b4e805c"
+    },
+    {
+      "category": "parity",
+      "index": 1,
+      "arm": 1,
+      "fixture": "eight-high",
+      "result": "01-eight-high-palette-1.json",
+      "log": "01-eight-high-palette-1.log",
+      "exitCode": 0,
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "1"
+      },
+      "command": [
+        "<workspace>/work/dotnet/dotnet",
+        "<candidate>/official-native-gl-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-hunter",
+        "Samus",
+        "-output",
+        "<candidate>/gl-regression-attempt1/01-eight-high-palette-1.json",
+        "-shots",
+        "<candidate>/gl-regression-attempt1/01-eight-high-palette-1-shots",
+        "-stablehud"
+      ],
+      "startedUtc": "2026-10-14T11:16:27.081346+00:00",
+      "finishedUtc": "2026-10-14T11:16:35.653896+00:00",
+      "logSha256": "4c27e1af84c00385b77fa40d3cbd1fecb8cc1f0a39dd27b5739416b23a5e92a5",
+      "resultSha256": "180f611b3ca41c576ec645c5328cec77edf100a54f0a640ba83b024e5c036490"
+    }
+  ],
+  "files": [
+    {
+      "file": "00-eight-high-palette-0-shots/frame-0-hud.png",
+      "sha256": "144c98fd9238f8f3747c10a359bb5d50cbd62f7e49b066120c12e8485a424d4d"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-0-hud.png",
+      "sha256": "144c98fd9238f8f3747c10a359bb5d50cbd62f7e49b066120c12e8485a424d4d"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/frame-0-world-depth-float32.bin",
+      "sha256": "aed06f1fa437cb19e9c80c82cddf5ccce1d92602758113830a7efae75d35d23a"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-0-world-depth-float32.bin",
+      "sha256": "aed06f1fa437cb19e9c80c82cddf5ccce1d92602758113830a7efae75d35d23a"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/frame-0-world-depth-repeat-float32.bin",
+      "sha256": "aed06f1fa437cb19e9c80c82cddf5ccce1d92602758113830a7efae75d35d23a"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-0-world-depth-repeat-float32.bin",
+      "sha256": "aed06f1fa437cb19e9c80c82cddf5ccce1d92602758113830a7efae75d35d23a"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/frame-0-world-repeat.png",
+      "sha256": "a2de6fcccde3ab19fa4a30b20a7ea0b81045e6b96ee420adcf4d63c6e8715368"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-0-world-repeat.png",
+      "sha256": "a2de6fcccde3ab19fa4a30b20a7ea0b81045e6b96ee420adcf4d63c6e8715368"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/frame-0-world.png",
+      "sha256": "a2de6fcccde3ab19fa4a30b20a7ea0b81045e6b96ee420adcf4d63c6e8715368"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-0-world.png",
+      "sha256": "a2de6fcccde3ab19fa4a30b20a7ea0b81045e6b96ee420adcf4d63c6e8715368"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/frame-1-hud.png",
+      "sha256": "f31a92c3b7f7b089212512d9d70dcf39b26b5880c3fca483b8ec943dd2c0774d"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-1-hud.png",
+      "sha256": "f31a92c3b7f7b089212512d9d70dcf39b26b5880c3fca483b8ec943dd2c0774d"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/frame-1-world-depth-float32.bin",
+      "sha256": "44af17a3ad31c536cc32cb99491db1c80ef010e2de464bbfa0bdba56469c00f8"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-1-world-depth-float32.bin",
+      "sha256": "44af17a3ad31c536cc32cb99491db1c80ef010e2de464bbfa0bdba56469c00f8"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/frame-1-world.png",
+      "sha256": "0987fa1ca29bd7e5b1ae252fc3c741496642fb0b53afb5cae36df7c4f216a558"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-1-world.png",
+      "sha256": "0987fa1ca29bd7e5b1ae252fc3c741496642fb0b53afb5cae36df7c4f216a558"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/frame-2-hud.png",
+      "sha256": "11b9608a3cd4a35c4a2f3976f069eb1616c8a2ba90382b23296096762e140cb7"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-2-hud.png",
+      "sha256": "11b9608a3cd4a35c4a2f3976f069eb1616c8a2ba90382b23296096762e140cb7"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/frame-2-world-depth-float32.bin",
+      "sha256": "f36f92d64721b77ac86723f6287b8652f198cdf08382c9bdd5f9704d68661f1f"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-2-world-depth-float32.bin",
+      "sha256": "f36f92d64721b77ac86723f6287b8652f198cdf08382c9bdd5f9704d68661f1f"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/frame-2-world.png",
+      "sha256": "c2298563d7482d06c1cc7e1c061e804db784068005a3ab5868b9760463eec9d1"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-2-world.png",
+      "sha256": "c2298563d7482d06c1cc7e1c061e804db784068005a3ab5868b9760463eec9d1"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/frame-3-hud.png",
+      "sha256": "ca3997c1d7b7a5dc43902d6674b9495597b40c77594f272d88f0b5e6036ff538"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-3-hud.png",
+      "sha256": "ca3997c1d7b7a5dc43902d6674b9495597b40c77594f272d88f0b5e6036ff538"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/frame-3-world-depth-float32.bin",
+      "sha256": "30162c81b4e06fbea41408088d986aee9f3f6e95a16e1424513f22fad2c57ecc"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-3-world-depth-float32.bin",
+      "sha256": "30162c81b4e06fbea41408088d986aee9f3f6e95a16e1424513f22fad2c57ecc"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/frame-3-world.png",
+      "sha256": "e41bcbb994e464098890d6fcc5522dee9285424d0a64df99872aea15b2b2192e"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/frame-3-world.png",
+      "sha256": "e41bcbb994e464098890d6fcc5522dee9285424d0a64df99872aea15b2b2192e"
+    },
+    {
+      "file": "00-eight-high-palette-0-shots/shadow-depth-float32.bin",
+      "sha256": "5ca20f4604cb91a06105920d69eae895043d0565bc9a26de7fbc0ff40a9f5187"
+    },
+    {
+      "file": "01-eight-high-palette-1-shots/shadow-depth-float32.bin",
+      "sha256": "5ca20f4604cb91a06105920d69eae895043d0565bc9a26de7fbc0ff40a9f5187"
+    }
+  ],
+  "kind": "regression",
+  "host": {
+    "os": "macOS-27.0-arm64-arm-64bit",
+    "architecture": "arm64"
+  },
+  "idleMachine": "Game closed; sole native slot; local builds/tests held; Apple M4 Pro/macOS actual host; original preset; no profiled/FPS campaign",
+  "purpose": "same-binary serial GL control; not a device rollout certificate",
+  "fixtureSha256": "53e7ab6e5c88e47772928ed217172d8ceafe35bbfbbd0f52502f2a86649b0274"
+}

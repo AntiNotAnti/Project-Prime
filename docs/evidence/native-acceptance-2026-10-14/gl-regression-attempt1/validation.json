@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "status": "VALID",
+  "acceptedSamplesPerArm": {
+    "0": 0,
+    "1": 0
+  },
+  "sampleArrays": {},
+  "medianPerRun": {},
+  "candidatePercentChange": {},
+  "performanceDisposition": "REQUIRES_REMAINING_GATES",
+  "defaultPolicy": "PALETTE_PREP_OFF",
+  "gpuTiming": "UNVERIFIED",
+  "scope": "Receipt integrity and descriptive timing only; recorded parity requires original capture files for a new pixel comparison."
+}
