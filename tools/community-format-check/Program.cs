@@ -114,6 +114,13 @@ try
     Check(Math.Abs(exactUv.X - 13f) < 0.001f
         && Math.Abs(exactUv.Y + 15f) < 0.001f,
         "Quake floor texture shift and negative scale follow q3map projection axes");
+    var turnedUv = QuakeClassicTexture.Calculate(
+        new System.Numerics.Vector3(1, 0, 2),
+        System.Numerics.Vector3.UnitY,
+        new MapQuakeFace { Material = 0, Rotation = 90, UnitsPerPrimeUnit = 16 });
+    Check(Math.Abs(turnedUv.X + 32f) < 0.001f
+        && Math.Abs(turnedUv.Y - 16f) < 0.001f,
+        "Quake 90-degree face rotation preserves original q3map UV orientation");
 
     string uv = Path.Combine(root, "uv-supported.map");
     File.WriteAllText(uv, File.ReadAllText(path).Replace(
@@ -170,6 +177,15 @@ try
     catch (QuakeMapInterchangeException ex)
     { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-UV"); }
     Check(refused, "unknown Quake surface flags remain explicitly unsupported");
+    string unsafeShader = Path.Combine(root, "unsafe-shader.map");
+    File.WriteAllText(unsafeShader, original.Replace(
+        "textures/common/caulk", "textures/../foreign/asset",
+        StringComparison.Ordinal));
+    refused = false;
+    try { QuakeMapInterchange.Import(unsafeShader); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-UV"); }
+    Check(refused, "untrusted shader traversal path is rejected before material registration");
 
     string patch = Path.Combine(root, "patch-unsupported.map");
     File.WriteAllText(patch, "{\n\"classname\" \"worldspawn\"\n{\npatchDef2\n{\n}\n}\n}\n");
