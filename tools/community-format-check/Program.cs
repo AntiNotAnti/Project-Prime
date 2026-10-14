@@ -1,0 +1,135 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using MphRead.Mods.MapGen;
+
+string root = Path.Combine(Path.GetTempPath(),
+    "prime-map-interchange-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(root);
+int checks = 0;
+void Check(bool valid, string label)
+{
+    if (!valid) throw new InvalidDataException(label);
+    checks++;
+    Console.WriteLine("PASS " + label);
+}
+try
+{
+    Guid mapId = Guid.Parse("578e96bb-c99a-491c-a47a-923d0d2849bc");
+    Guid firstId = Guid.Parse("e97a2995-4597-4edf-8cd2-00839424d7a3");
+    Guid spawnId = Guid.Parse("744d9a23-5825-4648-90ae-506ab6a3e6fe");
+    var map = new MapDefinition
+    {
+        FormatVersion = 2, MapId = mapId,
+        Name = "AXIAL_DUEL", InGameName = "Axial Duel", Version = "1"
+    };
+    map.Materials.Add(new MapMaterial
+    {
+        Id = Guid.Parse("c983cb13-f253-4baa-aa33-3dd93a831b78"),
+        Name = "textures/common/caulk", SourceMaterial = 2
+    });
+    map.Geometry.Add(new MapBox
+    {
+        Id = firstId, Material = 0,
+        Transform = new MapTransform
+        {
+            Position = new[] { 0f, -2f, 0f },
+            Scale = new[] { 12f, 2f, 16f }
+        }
+    });
+    map.Geometry.Add(new MapBox
+    {
+        Id = Guid.Parse("843e73c7-e89e-4014-8ae2-313128478119"),
+        Material = 0,
+        Transform = new MapTransform
+        {
+            Position = new[] { 4f, 1f, -3f },
+            Scale = new[] { 2f, 3f, 5f }
+        }
+    });
+    map.Spawns.Add(new MapSpawn
+    {
+        Id = spawnId, Position = new[] { 1f, 2f, -2f }, Yaw = 45f
+    });
+    string path = Path.Combine(root, "editable.map");
+    string sidecar = Path.Combine(root, "project-prime.json");
+    QuakeMapInterchange.Export(map, path, sidecar, 16f);
+    Check(File.Exists(path) && File.Exists(sidecar)
+        && File.ReadAllText(path).Contains("PRIME_ID=" + firstId),
+        "source exporter retains brush GUID and external identity sidecar");
+
+    var imported = QuakeMapInterchange.Import(path, sidecar);
+    Check(imported.Definition.MapId == mapId
+        && imported.Definition.Geometry.Count == 2
+        && imported.Definition.Spawns.Count == 1
+        && imported.Definition.Spawns[0].Id == spawnId
+        && imported.Definition.Geometry[0].Id == firstId,
+        "direct import preserves map/brush/spawn stable identities");
+
+    for (int i = 0; i < map.Geometry.Count; i++)
+    {
+        MapBox expected = (MapBox)map.Geometry[i], actual = (MapBox)imported.Definition.Geometry[i];
+        Check(expected.Transform.Position.Zip(actual.Transform.Position,
+                (x, y) => Math.Abs(x-y)).All(x => x <= 0.0001f)
+            && expected.Transform.Scale.Zip(actual.Transform.Scale,
+                (x, y) => Math.Abs(x-y)).All(x => x <= 0.0001f),
+            "round-trip axial bounds preserve native geometry/collision coordinates");
+    }
+    Check(Math.Abs(map.Spawns[0].Yaw - imported.Definition.Spawns[0].Yaw) < 0.001f
+        && map.Spawns[0].Position.Zip(imported.Definition.Spawns[0].Position,
+            (x, y) => Math.Abs(x-y)).All(x => x < 0.001f),
+        "Q3 (x,z,-y) transform and spawn height/angle survive round-trip");
+
+    string again = Path.Combine(root, "again.map");
+    QuakeMapInterchange.Export(imported.Definition, again,
+        Path.Combine(root, "again-sidecar.json"), 16f);
+    var importedAgain = QuakeMapInterchange.Import(
+        again, Path.Combine(root, "again-sidecar.json"));
+    Check(importedAgain.Definition.MapId == mapId
+        && importedAgain.Definition.Geometry.Select(x => x.Id)
+            .SequenceEqual(imported.Definition.Geometry.Select(x => x.Id)),
+        "second export/import is stable for supported source geometry");
+
+    string uv = Path.Combine(root, "uv-unsupported.map");
+    File.WriteAllText(uv, File.ReadAllText(path).Replace(
+        " 0 0 0 1 1 0 0 0", " 4 0 0 1 1 0 0 0", StringComparison.Ordinal));
+    bool refused = false;
+    try { QuakeMapInterchange.Import(uv); }
+    catch (QuakeMapInterchangeException ex)
+    {
+        refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-UV");
+    }
+    Check(refused, "non-default UV projection cannot silently flatten to an untextured box");
+
+    string patch = Path.Combine(root, "patch-unsupported.map");
+    File.WriteAllText(patch, "{\n\"classname\" \"worldspawn\"\n{\npatchDef2\n{\n}\n}\n}\n");
+    refused = false;
+    try { QuakeMapInterchange.Import(patch); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-PATCH"); }
+    Check(refused, "unsupported Bezier patch emits a concrete error instead of losing geometry");
+
+    string unknown = Path.Combine(root, "entity-unsupported.map");
+    File.WriteAllText(unknown, File.ReadAllText(path)
+        + "\n{\n\"classname\" \"func_door\"\n}\n");
+    refused = false;
+    try { QuakeMapInterchange.Import(unknown); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-ENTITY"); }
+    Check(refused, "unsupported gameplay entity cannot disappear without diagnostics");
+
+    map.Geometry.Add(new MapWedge());
+    refused = false;
+    try { QuakeMapInterchange.Export(map, Path.Combine(root, "refused.map")); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-EXPORT-GEOMETRY"); }
+    Check(refused && !File.Exists(Path.Combine(root, "refused.map")),
+        "native non-axial authoring is not destructively exported as a fake box");
+
+    Console.WriteLine($"Quake editable interchange checks: {checks} PASS.");
+}
+finally
+{
+    try { Directory.Delete(root, true); } catch (IOException) { }
+}
