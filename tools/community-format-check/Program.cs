@@ -358,9 +358,10 @@ try
     string portable = Path.Combine(root, "ramp-portable.json");
     rampParsed.Definition.Save(portable);
     MapDefinition reloaded = MapDefinition.Load(portable);
-    Check(reloaded.Geometry[0].QuakeFaces?.Count == 5
-        && reloaded.Geometry[0].QuakeFaces
-            .Select(f => reloaded.Materials[f.Material].Name).Distinct().Count() == 2,
+    var reloadedFaces = reloaded.Geometry[0].QuakeFaces;
+    Check(reloadedFaces is { Count: 5 }
+        && reloadedFaces.Select(f => reloaded.Materials[f.Material].Name)
+            .Distinct().Count() == 2,
         "deterministic JSON save remaps Quake face materials without changing shader identity");
     Check(convertedRamp.Id == rampId
         && convertedRamp.Vertices.Count == 6
