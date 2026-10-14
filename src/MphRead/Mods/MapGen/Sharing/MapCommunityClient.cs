@@ -841,6 +841,7 @@ public sealed class MapCommunityClient : IDisposable
         if (!required.IsCustom || required.MapId == Guid.Empty || required.ContentHash.IsZero || required.PackageHash.IsZero)
             throw new InvalidDataException("Invalid required map identity.");
         string temporary = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".ppmap");
+        bool ownershipTransferred = false;
         try
         {
             stage?.Invoke("Downloading");
@@ -848,11 +849,20 @@ public sealed class MapCommunityClient : IDisposable
                 required.PackageHash.ToString(), token,
                 (received, total) => progress?.Invoke(total > 0 ? Math.Clamp((float)received / total, 0, 1) : 0)).ConfigureAwait(false);
             stage?.Invoke("Verifying");
-            if (!MapContentIdentity.FromPackage(temporary).Matches(required)) throw new InvalidDataException("The community returned a different map package.");
-            stage?.Invoke("Building");
-            return await MapPackageInstaller.PrepareAsync(temporary, required, token).ConfigureAwait(false);
+            // The downloaded file is already privately owned by this request.
+            // Transfer it to PreparedMapInstallation instead of copying every
+            // package into another temporary snapshot before compilation.
+            // PrepareOwnedAsync still validates MapId, content and package hash
+            // and builds in private; Commit remains owner-thread guarded.
+            var prepared = await MapPackageInstaller.PrepareOwnedAsync(temporary, required,
+                token, () => stage?.Invoke("Building")).ConfigureAwait(false);
+            ownershipTransferred = true;
+            return prepared;
         }
-        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        finally
+        {
+            if (!ownershipTransferred && File.Exists(temporary)) File.Delete(temporary);
+        }
     }
 
     // Host services cache archives without publishing into their own running match.
