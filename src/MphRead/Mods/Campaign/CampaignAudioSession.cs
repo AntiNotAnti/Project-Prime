@@ -99,14 +99,30 @@ namespace MphRead.Mods.Campaign
         public void Tick()
         {
             if (_disposed || _sequence == SeqId.None) return;
-            if (_sink.Owns(_sequence, _epoch)) _sink.Tick();
-            else { _sequence = SeqId.None; _epoch = 0; }
+            if (!_sink.Owns(_sequence, _epoch))
+            {
+                _sequence = SeqId.None;
+                _epoch = 0;
+                return;
+            }
+            try { _sink.Tick(); }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[campaign] menu music update failed: " + ex.Message);
+                ReleaseTrack();
+            }
         }
 
         private void ReleaseTrack()
         {
             if (_sequence != SeqId.None && _sink.Owns(_sequence, _epoch))
-                _sink.Stop(_sequence, _epoch);
+            {
+                try { _sink.Stop(_sequence, _epoch); }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("[campaign] menu music stop failed: " + ex.Message);
+                }
+            }
             _sequence = SeqId.None;
             _epoch = 0;
         }
@@ -129,8 +145,21 @@ namespace MphRead.Mods.Campaign
 
                 // MusicPlayer uses the *existing* SoundFlow output. It loads
                 // asynchronously; the UI's animation heartbeat pumps it.
-                Music.PlaySeq(sequence, notReady: true);
-                return Music.PlaybackEpoch;
+                long prior = Music.PlaybackEpoch;
+                try
+                {
+                    Music.PlaySeq(sequence, notReady: true);
+                    return Music.PlaybackEpoch;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("[campaign] menu music unavailable: " + ex.Message);
+                    if (Music.PlaybackEpoch != prior && Music.ActiveSequence == sequence)
+                    {
+                        try { Music.Stop(); } catch { }
+                    }
+                    return 0;
+                }
             }
 
             public bool Owns(SeqId sequence, long epoch) => epoch != 0
