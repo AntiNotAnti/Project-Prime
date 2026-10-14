@@ -1,5 +1,13 @@
 # A3 timed grant reconciliation — source-qualified gates
 
+**Current status: MERGED.** [PR #474](https://github.com/AntiNotAnti/Project-Prime/pull/474) merged at `f85def5bb8ab17a208717d9ad9990381ab142db2`. The user explicitly directed merging A1–A3 without waiting for builds. Afterwards, exact source head `ec788c0bb2cd819ac29504279dd9ba16cd1363ec` completed all **31 checks SUCCESS** (29 build jobs and two semantic checks); [build matrix](https://github.com/AntiNotAnti/Project-Prime/actions/runs/38508544735). The waiting exception and historical failures remain recorded, rather than being relabeled as prior success.
+
+Fresh actual merged main `f85def5bb8ab17a208717d9ad9990381ab142db2` passes 15 focused routes and 119 Python tests. Its physical client SHA-256 is `8b40e1147024da5572c55129f4bd5e1370d5b9d0c5dc6c9e59dbceb9ffcb13b6`, MVID `31857e76-2804-4cc3-a228-ecb7030a2947`, compiled BuildId `local+f85def5bb8ab17a208717d9ad9990381ab142db2`, protocol 56 / PPRC12 / world10. This qualifies the merged source integration; the earlier native/render/performance campaigns below retain their original source identities and limitations. The initial process-closure setup failure and verified resume remain preserved in the external evidence receipt. NET-01 proceeds from this accepted bounded prerequisite; full A4 damage enforcement and release acceptance do not follow from these results.
+
+## Historical qualification before merge
+
+The following snapshot records the original gates and measurements before the final reconciliation and merges. Its pending/unmerged statements describe that earlier state; the current state is recorded above. Raw receipts remain in `work/net01-evidence/merged-main-f85def5b/receipt.json` and `work/latest-main-verification/ci-current-head-watch/final-all-green.json` in the implementation task evidence bundle.
+
 **Status: bounded local A3 prerequisite gates COMPLETE; FINAL-HEAD CI REQUIRED BEFORE MERGE.** Fresh source 0c8108ba passes all 44 routes, 500 Python tests with one skip, three current-producer Studio/private capsule cases, native implemented 347 and actual UDP 303. All 18 foreground reports/nine unchanged comparator checks pass. Private Submission CPU +10–15% remains an accepted necessary correctness tradeoff within bounded private fidelity scope, not an optimization success; descriptive network tail non-regression remains unestablished. All owned processes closed. Acceptance requires successful exact final-documentation-head CI recorded in the PR before merge; no merged acceptance or complete external-scope PASS is claimed.
 
 ## Hypothesis and scope

@@ -1,5 +1,13 @@
 # A1 authority-owned timed power-up grants
 
+**Current status: MERGED.** [PR #472](https://github.com/AntiNotAnti/Project-Prime/pull/472) merged at `b24f8dccebf18c23954816de3bc753856b3cdf6f`. The user explicitly directed merging A1–A3 without waiting for builds. Afterwards, exact source head `c5d2b1136f4104a4b38abb3824c9a4617c002e36` completed all **31 checks SUCCESS** (29 build jobs and two semantic checks); [build matrix](https://github.com/AntiNotAnti/Project-Prime/actions/runs/38508541766). The waiting exception and historical failures remain recorded, rather than being relabeled as prior success.
+
+Fresh actual merged main `f85def5bb8ab17a208717d9ad9990381ab142db2` passes 15 focused routes and 119 Python tests. Its physical client SHA-256 is `8b40e1147024da5572c55129f4bd5e1370d5b9d0c5dc6c9e59dbceb9ffcb13b6`, MVID `31857e76-2804-4cc3-a228-ecb7030a2947`, compiled BuildId `local+f85def5bb8ab17a208717d9ad9990381ab142db2`, protocol 56 / PPRC12 / world10. This qualifies the merged source integration; the earlier native/render/performance campaigns below retain their original source identities and limitations. The initial process-closure setup failure and verified resume remain preserved in the external evidence receipt. NET-01 proceeds from this accepted bounded prerequisite; full A4 damage enforcement and release acceptance do not follow from these results.
+
+## Historical qualification before merge
+
+The following snapshot records the original gates and measurements before the final reconciliation and merges. Its pending/unmerged statements describe that earlier state; the current state is recorded above. Raw receipts remain in `work/net01-evidence/merged-main-f85def5b/receipt.json` and `work/latest-main-verification/ci-current-head-watch/final-all-green.json` in the implementation task evidence bundle.
+
 **Status: bounded local A1 prerequisite gates COMPLETE; FINAL-HEAD CI REQUIRED BEFORE MERGE.** Runtime evidence is bound to clean code source `a8f309e5761246410d378c88f5a2aa608a436238`, client SHA-256 `ea36e81251e992995c0eef39e8fa93b62b1d67469bed563b37543a2d0dc8ab24`, loaded client MVID `7c75a8cf-3af2-4517-865e-6154602cef44`, and protocol **53** inherited from current main. This document update changes no runtime code. The original a8 runtime was not freshly rebuilt locally for this final checkpoint; unchanged authority source remains qualified to its original binary. Final documentation-head CI must pass and be recorded in the PR before merge. A1 establishes bounded native reservation/source-history evidence. It does not establish A2 claim acceptance, A3 reconciliation acceptance, A4 shot-time authorization or release readiness.
 
 ## Current reconciled acceptance
