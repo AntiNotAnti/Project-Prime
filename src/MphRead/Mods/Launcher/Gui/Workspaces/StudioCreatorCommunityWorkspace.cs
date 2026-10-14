@@ -36,7 +36,7 @@ internal sealed class StudioCreatorCommunityWorkspace : UserControl, IDisposable
         PrimeTheme.TextSecondaryBrush);
     private readonly TextBox _notes = new()
     {
-        AcceptsReturn = true, Height = 72, MaxLength = 2000,
+        AcceptsReturn = true, Height = 72, MaxLength = 4000,
         PlaceholderText = "Release notes (optional)"
     };
     private CommunityMapProject[] _projects = Array.Empty<CommunityMapProject>();
