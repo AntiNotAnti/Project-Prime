@@ -102,7 +102,7 @@ try
             SupportsGenericContentCatalog: false }
             && caps.MaxArchiveBytes == MapPackageReader.MaxArchiveBytes
             && caps.MaxUploadChunkBytes == MapCommunityClient.UploadChunkBytes
-            && caps.MaxConcurrentUploads == 3 && caps.MaxConcurrentDownloads == 8,
+            && caps.MaxConcurrentUploads == 3 && caps.MaxConcurrentDownloads == 16,
             "v3 preflight advertises actual legacy/resumable limits without enabling generic v3 content");
 
         using (var anonymous = new HttpClient { BaseAddress = new Uri(firstAddress) })
