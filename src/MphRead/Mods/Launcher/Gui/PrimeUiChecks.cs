@@ -35,6 +35,8 @@ namespace MphRead.Mods.Launcher.Gui
                         new ServerStatus { Online = true, Protocol = NetConfig.ProtocolVersion, RoomKey = rooms[1],
                             Mode = GameMode.BattleTeams, Players = 8, MaxPlayers = 8, Latency = 42, WaitlistSupported = true, WaitlistCount = 3 })
                 }) { Overlays = shell!.Overlays },
+                PrimeRoute.Community => new CommunityWorkspace(shell!.Overlays,
+                    fixture: CommunitySample()),
                 PrimeRoute.HunterLicense => new LicenseWorkspace(loadProfile: false),
                 PrimeRoute.Settings => new SettingsView(settings, shell: true),
                 PrimeRoute.Offline => new OfflineWorkspace(settings, rooms, shell!.Overlays),
@@ -45,6 +47,24 @@ namespace MphRead.Mods.Launcher.Gui
             };
             shell = new PrimeShell(Create, () => { }); shell.Start(); return shell;
         }
+        private static MphRead.Mods.MapGen.CommunityMapProject[] CommunitySample()
+        {
+            Guid id = Guid.Parse("2766f10f-e6c2-4dbd-98c0-f3e38a2dfd51");
+            var map = new MphRead.Mods.MapGen.CommunityMap(
+                new string('a', 64), id, new string('b', 64),
+                "COMMUNITY_FIXTURE", "Community Fixture", "Fixture Creator", "1", 2048)
+            { SupportedModes = new[] { "Battle" }, MinPlayers = 2, MaxPlayers = 8 };
+            var revision = new MphRead.Mods.MapGen.CommunityMapRevision(
+                1, map.Hash, null, null, DateTimeOffset.UnixEpoch, map);
+            return new[]
+            {
+                new MphRead.Mods.MapGen.CommunityMapProject(
+                    id, "fixture-author", map.Name, map.DisplayName, map.Author,
+                    map.Hash, map.Hash, 1, DateTimeOffset.UnixEpoch,
+                    DateTimeOffset.UnixEpoch, revision, revision)
+            };
+        }
+
         private static LobbyScreen LobbyFixture(string[] rooms, PrimeOverlayHost overlays)
         {
             var lobby = new LobbyScreen(rooms) { Overlays = overlays };
@@ -556,6 +576,17 @@ namespace MphRead.Mods.Launcher.Gui
                     shell.Router.Navigate(PrimeRoute.News); shell.Router.PreviousRoute();
                     Check(shell.Router.Current == PrimeRoute.Settings, "previous tab wraps");
                     shell.Router.NextRoute(); Check(shell.Router.Current == PrimeRoute.News, "next tab wraps");
+
+                    shell.Router.Navigate(PrimeRoute.Community); Drain(window);
+                    var community = shell.Workspaces.Get(PrimeRoute.Community);
+                    Check(ControllerNav.Find(shell.Header, "prime.nav.Community") != null
+                        && ControllerNav.Find(community, "community.refresh") != null
+                        && ControllerNav.Find(community, "community.install") != null
+                        && ControllerNav.Find(community, "community.favorite") != null,
+                        "Community browser is independently navigable without opening Map Studio");
+                    Check(community.GetVisualDescendants().OfType<UiListRow>()
+                        .Any(row => Equals(row.Choice, CommunitySample()[0].MapId)),
+                        "Community fixture map is presented in independent browse list");
 
                     shell.Router.Navigate(PrimeRoute.Forge); Drain(window);
                     var mapStudio = shell.Workspaces.Get(PrimeRoute.Forge);
