@@ -440,8 +440,16 @@ public static class NetFireEvents
             var key = ShotKey.For(player.SlotIndex, fire.ShotId) with { LifeId = fire.SourceLife };
             if (fire.SourceLife != NetPlayerLifecycle.Get(player.SlotIndex) || player.Health <= 0)
                 CompleteUnavailableContinuous(player, key, fire);
-            else if (PlayAccepted(player, key, fire) == BeamResultFlags.NoSpawn)
-                NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Rejected, "continuous tick spawn refused");
+            else
+            {
+                try
+                {
+                    if (PlayAccepted(player, key, fire) == BeamResultFlags.NoSpawn)
+                        NetCampaignEvidence.Disposition(new(key, fire), ShotDisposition.Rejected, "continuous tick spawn refused");
+                    else NetTimedShotProof.UnsupportedSource(player, key);
+                }
+                catch { NetTimedShotProof.UnsupportedSource(player, key); throw; }
+            }
             state.Incoming.Consume(fire.ShotId);
             state.Selected = false; state.Active = default;
         }
@@ -479,6 +487,7 @@ public static class NetFireEvents
         if (state.PlayingAccepted) throw new InvalidOperationException("Nested accepted shot playback.");
         FireEvent saved = state.Active;
         state.Active = fire; state.ActiveKey = key; state.PlayingAccepted = true;
+        TimedShotCertificate? timedAttempt = null;
         try
         {
             // Protocol 52 peers present only published native emissions here.
@@ -490,7 +499,7 @@ public static class NetFireEvents
             if (NetHitClaims.Arbitrating && NetShotProof.Mode == ShotProofMode.Enforce
                 && admission != ShotProofReason.Verified)
                 return BeamResultFlags.NoSpawn;
-            var timedAttempt = admittedDiscrete ? NetTimedShotProof.AcceptedAttempt(player, key, fire) : null;
+            timedAttempt = admittedDiscrete ? NetTimedShotProof.AcceptedAttempt(player, key, fire) : null;
             var result = player.ModSpawnAcceptedShot(fire, out var timedEmission);
             if (result != BeamResultFlags.NoSpawn)
             {
@@ -499,6 +508,7 @@ public static class NetFireEvents
             }
             return result;
         }
+        catch { NetTimedShotProof.Abort(timedAttempt); throw; }
         finally { state.PlayingAccepted = false; state.ActiveKey = default; state.Active = saved; }
     }
     internal static void ForgetSlot(int slot)

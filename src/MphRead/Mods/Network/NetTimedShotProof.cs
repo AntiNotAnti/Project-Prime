@@ -105,6 +105,7 @@ internal static class NetTimedShotProof
     internal static bool Eligible(PlayerEntity player) => Active && !player.SceneServices.IsReplica
         && player.OwningScene.GameState.Multiplayer && (uint)player.SlotIndex < 8;
     private static TimedShotCertificateStore? _store;
+    private static readonly ShotKey[,] _unavailableSourceLives = new ShotKey[8, 8];
     private static ShotKey _nativeLife;
     private static uint _nativeFrame;
     private static bool _nativeInput;
@@ -146,10 +147,18 @@ internal static class NetTimedShotProof
     {
         if (fire.Kind is FireEventKind.ContinuousTick or FireEventKind.TurretFire
             || fire.Weapon is (byte)BeamType.Judicator or (byte)BeamType.OmegaCannon
-            || fire.Weapon > (byte)BeamType.OmegaCannon) { Unsupported++; return null; }
+            || fire.Weapon > (byte)BeamType.OmegaCannon)
+        {
+            Unsupported++;
+            return new(key, fire, NetPowerUpLedger.Ledger?.Room ?? 0, NetSession.NetFrame,
+                lane, default, new(TimedGrantKnowledge.Unavailable), TimedGrantKnowledge.Unavailable,
+                null, TimedShotUnavailable.Unsupported, 0);
+        }
         uint now = NetSession.NetFrame;
         var source = NetShotProof.EvaluateSource(player, key, fire, ignoreDoubleHint: true,
             nativeInput: lane == TimedShotSource.NativeInput);
+        if (_unavailableSourceLives[key.ShooterSlot, key.LifeId % 8] == (key with { ShotId = 0 }))
+            source = source with { Source = ShotProofReason.SourceChanged };
         var ledger = NetPowerUpLedger.Ledger;
         var answer = new TimedGrantAnswer(TimedGrantKnowledge.Unavailable);
         var knowledge = TimedGrantKnowledge.Unavailable;
@@ -184,15 +193,38 @@ internal static class NetTimedShotProof
             || source.Pose != ShotProofReason.Verified)) reason = TimedShotUnavailable.Source;
         return new(key, fire, room, now, lane, source, answer, knowledge, funding, reason, 0);
     }
+    private static bool Admitted(in TimedShotCertificate value)
+        => CurrentStream(value.Key) && (value.Lane == TimedShotSource.NativeInput
+            ? _nativeInput && _nativeFrame == value.Fire.SourceFrame
+                && _nativeLife == (value.Key with { ShotId = 0 })
+            : value.Lane == TimedShotSource.AcceptedFire && NetFireEvents.PendingAccepted(value.Key, value.Fire));
+    private static void InvalidateSource(ShotKey key)
+    {
+        if ((uint)key.ShooterSlot < 8)
+            _unavailableSourceLives[key.ShooterSlot, key.LifeId % 8] = key with { ShotId = 0 };
+    }
+    // Unknown expenditure cannot fund later timed certificates. Keep this bounded
+    // uncertainty private to timed Shadow so legacy enforcement stays unchanged.
+    // Previously retained certificates remain immutable.
+    internal static void Abort(TimedShotCertificate? attempt)
+    {
+        if (Active && attempt is { } value && Admitted(value)) InvalidateSource(value.Key);
+    }
+    // Called only after the existing admitted continuous lane emits or aborts.
+    // NET-03 will provide its accounting; NET-01 cannot invent that evidence.
+    internal static void UnsupportedSource(PlayerEntity player, ShotKey key)
+    {
+        if (Eligible(player) && CurrentStream(key) && key.ShooterSlot == player.SlotIndex
+            && key.Generation == NetPlayerLifecycle.Generation(player.SlotIndex))
+            InvalidateSource(key);
+    }
     internal static void Complete(TimedShotCertificate? attempt, in TimedShotEmission emission)
     {
         if (!Active || attempt is not { } value) return;
-        bool admitted = value.Lane == TimedShotSource.NativeInput
-            ? _nativeInput && _nativeFrame == value.Fire.SourceFrame
-                && _nativeLife == (value.Key with { ShotId = 0 })
-            : value.Lane == TimedShotSource.AcceptedFire && NetFireEvents.PendingAccepted(value.Key, value.Fire);
-        if (!admitted || !CurrentStream(value.Key)) { NoEmission++; return; }
-        if (emission.Conflict || !emission.HasSpend || emission.Components == 0 || emission.Key != value.Key) { NoEmission++; return; }
+        if (!Admitted(value)) { NoEmission++; return; }
+        if (value.Unavailable == TimedShotUnavailable.Unsupported || emission.Conflict
+            || !emission.HasSpend || emission.Components == 0 || emission.Key != value.Key)
+        { NoEmission++; Abort(attempt); return; }
         var final = value with { Components = emission.Components };
         if (value.Source.Cost != emission.Cost || value.Source.AmmoType != emission.AmmoType)
             final = final with { Source = final.Source with { Source = ShotProofReason.SourceChanged },
@@ -218,6 +250,6 @@ internal static class NetTimedShotProof
             && _store.TryGet(key, sourceFrame, ledger.Room, NetSession.NetFrame, out certificate);
     }
     internal static void Reset()
-    { _store = null; _nativeInput = false; _nativeLife = default;
+    { _store = null; Array.Clear(_unavailableSourceLives); _nativeInput = false; _nativeLife = default;
       Stored = Granted = NotGranted = Unavailable = HintMismatch = NoEmission = Unsupported = 0; }
 }
