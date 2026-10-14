@@ -136,10 +136,11 @@ namespace MphRead.Droid
             LaunchPlan plan, Action close)
         {
             string? landingRoom = null;
+            CampaignDockReceipt? checkedDock = MatchStart.RecentShipDock;
             if (plan.AdventureDestination is { } destination)
             {
                 if (!CampaignShipTravel.TryChooseLanding(GameState.PeekSave(plan.SaveSlot),
-                    MatchStart.RecentShipDock, plan.SaveSlot, plan.NewGame, destination,
+                    checkedDock, plan.SaveSlot, plan.NewGame, destination,
                     out string room, out string reason))
                     throw new ProgramException(reason);
                 landingRoom = room;
@@ -154,7 +155,12 @@ namespace MphRead.Droid
 
             string roomKey = AdventureSave.Begin(
                 scene.GameState, plan.SaveSlot, plan.NewGame);
-            if (landingRoom != null) roomKey = landingRoom;
+            if (landingRoom != null && checkedDock is { } dock
+                && plan.AdventureDestination is { } landing)
+            {
+                CampaignShipTravel.PrepareLandingSpawn(scene.GameState.StorySave, dock, landing);
+                roomKey = landingRoom;
+            }
             if (roomKey.Length == 0)
             {
                 throw new ProgramException("That save slot does not name a room to load.");
