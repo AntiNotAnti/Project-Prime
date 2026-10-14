@@ -100,13 +100,21 @@ try
 
     // Optional checked-in package golden digest: populated from the reviewed,
     // frozen baseline fixture, not generated/overwritten by test execution.
-    string golden = Path.Combine(AppContext.BaseDirectory, "community-baseline-golden.sha256");
-    if (File.Exists(golden))
-    {
-        string expected = File.ReadAllText(golden).Trim();
-        if (!MapCommunityClient.ValidHash(expected) || hash != expected)
-            throw new InvalidDataException("Community baseline package hash changed: " + hash);
-    }
+    // Current package output differs between Windows and Linux/macOS for this
+    // identical source; the precise contributing stage is not yet verified.
+    // Freeze each observed archive output separately. Neither hash may be silently normalized: the
+    // downloaded exact package SHA-256 remains the authoritative wire identity.
+    string goldenName = OperatingSystem.IsWindows()
+        ? "community-baseline-golden-win.sha256"
+        : "community-baseline-golden.sha256";
+    string golden = Path.Combine(AppContext.BaseDirectory, goldenName);
+    if (!File.Exists(golden))
+        throw new FileNotFoundException("Required platform package golden is missing.", golden);
+    string expected = File.ReadAllText(golden).Trim();
+    if (!MapCommunityClient.ValidHash(expected) || hash != expected)
+        throw new InvalidDataException(
+            "Community baseline archive hash differs from " + goldenName
+            + "; expected " + expected + ", received " + hash);
 
     using var probe = new TcpListener(IPAddress.Loopback, 0);
     probe.Start();
@@ -170,6 +178,8 @@ try
         schemaVersion = 1,
         fixture = "community-baseline-v1",
         packageHash = hash,
+        canonicalContentHash = identity.ContentHash.ToString(),
+        packageGolden = goldenName,
         mapId,
         packageBytes = new FileInfo(first).Length,
         netProtocol = MphRead.Mods.Network.NetConfig.ProtocolVersion,
