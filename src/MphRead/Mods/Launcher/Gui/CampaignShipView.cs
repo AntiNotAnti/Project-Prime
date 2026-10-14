@@ -70,7 +70,7 @@ namespace MphRead.Mods.Launcher.Gui
                 rows.Children.Add(button);
             }
             _land = new PrimeButton("LAND SHIP", () => Launch(_selected), primary: true);
-            var returnDock = new PrimeButton("RETURN TO COCKPIT", ShowDock);
+            var returnDock = new PrimeButton("RETURN TO COCKPIT", () => ShowDock());
             ControllerNav.Identify(_land, "campaign.ship.land");
             ControllerNav.Identify(returnDock, "campaign.ship.return");
             _starMapPage = PrimeChrome.Stack(
