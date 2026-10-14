@@ -10,6 +10,8 @@ namespace MphRead.Mods.MapGen
     {
         public static IReadOnlyList<BuiltFace> Compile(MapGeometry geometry, float texScale, int materialOffset = 0)
         {
+            if (geometry is MapBezierPatch patch)
+                return BezierPatchCompiler.Compile(patch, texScale, materialOffset);
             var vertices = new List<Vector3>();
             var indices = new List<int[]>();
             if (geometry is MapBox)
