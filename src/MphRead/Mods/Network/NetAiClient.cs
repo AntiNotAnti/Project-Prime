@@ -13,6 +13,7 @@ internal static class NetAiClient
     internal static int Level { get; private set; }
     internal static uint Seed { get; private set; }
     private static Scene? _scene;
+    internal static bool IsBoundTo(Scene scene) => ReferenceEquals(_scene, scene);
     private static uint _initialRng1, _initialRng2, _rng1, _rng2;
     private static int _randomDepth;
     private static long _inputs, _decisions, _altFrames, _spawns;

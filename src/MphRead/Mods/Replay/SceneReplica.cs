@@ -15,9 +15,7 @@ namespace MphRead
             PlayerReplication = new Mods.Network.PlayerReplicationBridge(Services.PlayerReplication);
             IsReplayLab = true;
             Players.MainPlayerIndex = slot;
-            PlayerEntity.LegacyRegistry = Players;
-            global::MphRead.GameState.Current = GameState;
-            Rng.Current = Random;
+            BindForegroundFacades();
             foreach (var player in Players.Items)
             {
                 player.Controls.ClearAll(); player.ModForgetInputDeltas();

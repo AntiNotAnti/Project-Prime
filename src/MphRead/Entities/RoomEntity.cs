@@ -580,19 +580,41 @@ namespace MphRead.Entities
             _scene.AreaId = Metadata.GetAreaInfo(_scene.GameState.TransitionRoomId);
             if (fromDoor)
             {
-                Task.Run(() => ProcessTransition(_cts.Token), _cts.Token);
+                _transitionWorker = Task.Run(() => ProcessTransition(_cts.Token), _cts.Token);
             }
         }
 
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        private readonly object _transitionPublicationGate = new();
+        private Task? _transitionWorker;
+        internal bool TransitionWorkerPending => _transitionWorker?.IsCompleted == false;
 
         public void CancelTransition()
         {
-            _cts.Cancel();
+            lock (_transitionPublicationGate) _cts.Cancel();
+        }
+
+        private bool MayPublishTransition(long generation, CancellationToken token)
+            => generation == _scene.LifetimeGeneration && !_scene.Exiting
+                && !_cts.IsCancellationRequested && !token.IsCancellationRequested;
+
+        // Cancellation and publication share a small boundary. In particular,
+        // CancellationToken.None on synchronous loads cannot bypass owner exit.
+        internal bool TryCompleteTransition(long generation, CancellationToken token)
+        {
+            lock (_transitionPublicationGate)
+            {
+                if (!MayPublishTransition(generation, token)) return false;
+                _scene.GameState.TransitionState = TransitionState.End;
+                return true;
+            }
         }
 
         private void ProcessTransition(CancellationToken token)
         {
+            long generation = _scene.LifetimeGeneration;
+            lock (_transitionPublicationGate)
+                if (!MayPublishTransition(generation, token)) return;
             Debug.Assert(_scene.GameState.TransitionRoomId != -1);
             RoomMetadata? roomMeta = Metadata.GetRoomById(_scene.GameState.TransitionRoomId);
             Debug.Assert(roomMeta != null);
@@ -633,21 +655,22 @@ namespace MphRead.Entities
             {
                 return;
             }
-            SetNodeData(SceneSetup.LoadNodeData(roomMeta.NodePath, roomMeta.Id, _scene.GameState.Mode, entities, roomMeta.FirstHunt, _scene));
-            PlayerEntity.PlayerAiData.InitializeGlobals();
-            if (token.IsCancellationRequested)
+            NodeData? nodeData = SceneSetup.LoadNodeData(roomMeta.NodePath, roomMeta.Id, _scene.GameState.Mode, entities, roomMeta.FirstHunt, _scene);
+            lock (_transitionPublicationGate)
             {
-                return;
+                if (!MayPublishTransition(generation, token)) return;
+                SetNodeData(nodeData);
+                ForegroundSceneBinding.TryResetLegacyAiGlobals(_scene);
             }
             for (int i = 0; i < entities.Count; i++)
             {
                 EntityBase entity = entities[i];
-                entity.Initialized = false;
-                _scene.InsertEntity(entity);
-                _scene.LoadedEntities.Enqueue(entity);
-                if (token.IsCancellationRequested)
+                lock (_transitionPublicationGate)
                 {
-                    return;
+                    if (!MayPublishTransition(generation, token)) return;
+                    entity.Initialized = false;
+                    _scene.InsertEntity(entity);
+                    _scene.LoadedEntities.Enqueue(entity);
                 }
             }
             if (LoaderDoor == null)
@@ -672,13 +695,13 @@ namespace MphRead.Entities
                     continue;
                 }
                 Debug.Assert(door.LoaderDoor != null);
-                door.LoaderDoor.NodeRef = AddDoorPortal(door);
-                if (token.IsCancellationRequested)
+                lock (_transitionPublicationGate)
                 {
-                    return;
+                    if (!MayPublishTransition(generation, token)) return;
+                    door.LoaderDoor.NodeRef = AddDoorPortal(door);
                 }
             }
-            _scene.GameState.TransitionState = TransitionState.End;
+            TryCompleteTransition(generation, token);
         }
 
         private Model? _unloadModel = null;
