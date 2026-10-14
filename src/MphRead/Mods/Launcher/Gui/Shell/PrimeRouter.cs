@@ -2,13 +2,14 @@ using System;
 using System.Collections.Generic;
 namespace MphRead.Mods.Launcher.Gui
 {
-    internal enum PrimeRoute { News, Play, HunterLicense, Theatre, Forge, Offline, Settings, Lobby }
+    internal enum PrimeRoute { News, Play, HunterLicense, Theatre, Forge, Offline, Settings, Lobby, Community }
 
     // Navigation policy contains no rendering or session ownership.
     internal sealed class PrimeRouter
     {
         public static readonly PrimeRoute[] Tabs = { PrimeRoute.News, PrimeRoute.Play,
-            PrimeRoute.HunterLicense, PrimeRoute.Theatre, PrimeRoute.Forge, PrimeRoute.Offline, PrimeRoute.Settings };
+            PrimeRoute.Community, PrimeRoute.HunterLicense, PrimeRoute.Theatre,
+            PrimeRoute.Forge, PrimeRoute.Offline, PrimeRoute.Settings };
         private readonly List<PrimeRoute> _history = new();
         public PrimeRoute Current { get; private set; } = PrimeRoute.News;
         public PrimeRoute? Previous => _history.Count == 0 ? null : _history[^1];
