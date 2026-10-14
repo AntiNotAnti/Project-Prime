@@ -26,7 +26,12 @@ public sealed record MapCommunityServiceCapabilities
     public int MaxConcurrentMetadataRequests { get; init; } =
         MapCommunityServiceAdmission.MetadataConcurrency;
     public int MaxConcurrentTransfers { get; init; } =
-        MapCommunityServiceAdmission.TransferConcurrency;
+        MapCommunityServiceAdmission.UploadConcurrency
+        + MapCommunityServiceAdmission.DownloadConcurrency;
+    public int MaxConcurrentUploads { get; init; } =
+        MapCommunityServiceAdmission.UploadConcurrency;
+    public int MaxConcurrentDownloads { get; init; } =
+        MapCommunityServiceAdmission.DownloadConcurrency;
     public int MaxConcurrentVerificationJobs { get; init; } =
         MapCommunityServiceAdmission.VerificationConcurrency;
     public int MaximumPreviewBytes { get; init; } = 1024 * 1024;
