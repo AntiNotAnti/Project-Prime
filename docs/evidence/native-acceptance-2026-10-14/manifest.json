@@ -937,12 +937,15 @@
       "derivativeBytes": 1003
     },
     {
-      "file": "net-assets/timed-shot-accepted.log",
-      "transformation": "text-projection",
+      "file": "net-assets/timed-shot-accepted.log.json",
+      "transformation": "text-envelope",
       "originalSha256": "34a50bb04fa0692ccd71241de646605d669926a3634f3aa0cc510da4cf65b879",
       "originalBytes": 37694,
-      "derivativeSha256": "e6beebfe0bfe89c9d80cc0418d9a13902062ed394c64593345a4e37a792e0b10",
-      "derivativeBytes": 37452
+      "derivativeSha256": "91196acf82adf4206e159c304959479e68f3dc493749751bd5cb268240425f19",
+      "derivativeBytes": 38275,
+      "originalFile": "net-assets/timed-shot-accepted.log",
+      "decoder": "utf-8-json-string-v1",
+      "semanticSha256": "9b36244afec9f3c62224f07ee8a068277f8725327b5988e1384e216a7322bc3d"
     },
     {
       "file": "net-assets/timed-shot-native.log",
@@ -953,12 +956,15 @@
       "derivativeBytes": 20863
     },
     {
-      "file": "net-assets/timed-shot-replay-scene.log",
-      "transformation": "text-projection",
+      "file": "net-assets/timed-shot-replay-scene.log.json",
+      "transformation": "text-envelope",
       "originalSha256": "340c930173d358acc273301e7b02bc19a0242292d19fc0f60b8c7430dd23e570",
       "originalBytes": 13106,
-      "derivativeSha256": "e0355a4c880f697c19f8d2ac2aa97e420f0ff2d1cb5e6764a080edd2e1a96439",
-      "derivativeBytes": 12864
+      "derivativeSha256": "843889f273b089d1d3b0f9041b4108ebdc2a36f4da4915811cbf6809d249f2a6",
+      "derivativeBytes": 13336,
+      "originalFile": "net-assets/timed-shot-replay-scene.log",
+      "decoder": "utf-8-json-string-v1",
+      "semanticSha256": "072b501704457532716acd336b2409aa85a22b91ed192c5e8c6b762c293bc744"
     },
     {
       "file": "net-assets/timed-shot-rescue.log",
@@ -1313,7 +1319,7 @@
       "semanticSha256": "96150dd1dd29311d2d27c5de71c342200ff38326d7f27760cdf5ec7fab960cf9"
     }
   ],
-  "bulkPolicy": "Only complete source tree and retail asset manifest objects are replaced by exact canonical hashes/counts. All other structured fields are retained; private path prefixes use role aliases. All 42 scalar arm JSON files are verbatim original bytes.",
+  "bulkPolicy": "Only complete source tree and retail asset manifest objects are replaced by exact canonical hashes/counts. All other structured fields are retained; private path prefixes use role aliases. All 42 scalar arm JSON files are verbatim original bytes. Two logs with original trailing spaces use lossless JSON string envelopes; decode UTF-8 text exactly, including those spaces, and verify decoded SHA/bytes.",
   "captureFiles": [
     {
       "file": "gl-regression-attempt1/00-eight-high-palette-0-shots/frame-0-hud.png",

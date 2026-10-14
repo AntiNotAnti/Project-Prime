@@ -19,6 +19,7 @@ THIN = 'd5018508916afbbb243902a8ebb562cf6f2af0bd3cfefe9e9b6757d5acd067b2'
 COUNTS = {'timed-native-effect-scene': 450, 'timed-imperialist-impact-scene': 949,
           'timed-shot-native': 6463, 'timed-shot-accepted': 343,
           'timed-shot-rescue': 5673, 'timed-shot-replay-scene': 118}
+ENVELOPED_LOGS = {'net-assets/timed-shot-accepted.log', 'net-assets/timed-shot-replay-scene.log'}
 BULK = {'sourceTreeLines', 'assetManifestBefore', 'assetManifestAfter', 'assetsBefore', 'assetsAfter'}
 
 
@@ -76,6 +77,12 @@ def projection(value, replacements):
 def transform(raw, kind, replacements):
     if kind == 'verbatim':
         return raw
+    if kind == 'text-envelope':
+        decoded = text_projection(raw.decode('utf-8'), replacements).encode('utf-8')
+        return (json.dumps({'schema': 1, 'kind': 'lossless-log-text', 'decoder': 'utf-8-json-string-v1',
+                           'originalSha256': sha(raw), 'originalBytes': len(raw),
+                           'decodedSha256': sha(decoded), 'decodedBytes': len(decoded),
+                           'text': decoded.decode('utf-8')}, indent=2, ensure_ascii=False) + '\n').encode('utf-8')
     if kind == 'json-projection':
         return (json.dumps(projection(json.loads(raw), replacements), indent=2, ensure_ascii=False) + '\n').encode()
     return text_projection(raw.decode(), replacements).encode()
@@ -101,6 +108,8 @@ def selection(originals):
         files[str(arm.with_name('arm.log').relative_to(originals))] = 'text-projection'
     for name in ['official-native-gl-build.log', 'gl-regression-executor.log', 'gl-regression-attempt1/00-eight-high-palette-0.log', 'gl-regression-attempt1/01-eight-high-palette-1.log']:
         files[name] = 'text-projection'
+    for name in ENVELOPED_LOGS:
+        files[name] = 'text-envelope'
     return files
 
 
@@ -122,13 +131,16 @@ def package(originals):
     for name, kind in sorted(selection(originals).items()):
         raw = (originals / name).read_bytes()
         derivative = transform(raw, kind, replacements)
-        target = PACKAGE / name
+        target_name = name + '.json' if kind == 'text-envelope' else name
+        target = PACKAGE / target_name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(derivative)
-        record = {'file': name, 'transformation': kind,
+        record = {'file': target_name, 'transformation': kind,
                   'originalSha256': sha(raw), 'originalBytes': len(raw),
                   'derivativeSha256': sha(derivative), 'derivativeBytes': len(derivative)}
-        if name.endswith('.json'):
+        if kind == 'text-envelope':
+            record.update(originalFile=name, decoder='utf-8-json-string-v1')
+        if target_name.endswith('.json'):
             record['semanticSha256'] = sha(canonical(json.loads(derivative)))
         records.append(record)
     manifest = {'schema': 1, 'sourceCommit': SOURCE, 'originalRootRole': 'candidate-7588d986',
@@ -136,6 +148,20 @@ def package(originals):
                 'fullPlanStatus': 'NOT_ACCEPTED', 'files': records, 'captureFiles': capture_inventory(originals),
                 'bulkPolicy': 'Only complete source tree and retail asset manifest objects are replaced by exact canonical hashes/counts. All other structured fields are retained; private path prefixes use role aliases. All 42 scalar arm JSON files are verbatim original bytes.'}
     (PACKAGE / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+
+
+def decode_log_envelope(envelope):
+    require(envelope.get('schema') == 1 and envelope.get('kind') == 'lossless-log-text' and envelope.get('decoder') == 'utf-8-json-string-v1', 'log envelope decoder metadata invalid')
+    text = envelope.get('text')
+    require(isinstance(text, str), 'log envelope JSON string required')
+    decoded = text.encode('utf-8')
+    require(sha(decoded) == envelope['decodedSha256'] and len(decoded) == envelope['decodedBytes'], 'log envelope decoded SHA/bytes mismatch')
+    return text
+
+
+def log_text(directory, name):
+    path = directory / name
+    return path.read_text() if path.is_file() else decode_log_envelope(load(path.with_name(path.name + '.json')))
 
 
 def tour_checker():
@@ -173,7 +199,7 @@ def semantics(directory):
     for run in assets['runs']:
         require(run['exit'] == 0 and run['qualified'] and run['ownedSurvivors'] == [] and run['sourceBefore'] == run['sourceAfter'] == qualifier['sourceBefore'] and run['physicalHashesBefore'] == run['physicalHashesAfter'] == qualifier['physicalHashesAfter'], 'native fixture incomplete/unstable')
         require([(m['name'], m['mvid']) for m in run['loadedModules']] == [('nettest', ENTRY_MVID), ('ProjectPrime', ENGINE_MVID)], 'native loaded identity mismatch')
-        log = (directory / 'net-assets' / (run['name'] + '.log')).read_text()
+        log = log_text(directory, 'net-assets/' + run['name'] + '.log')
         require(re.search(r'PASS: ' + str(COUNTS[run['name']]) + r'\b', log), 'native raw positive assertion denominator missing')
     checker = tour_checker()
     tour = load(directory / 'native-tour-42/receipt.json')
@@ -264,19 +290,29 @@ def verify(directory=PACKAGE, originals=None):
     for item in files:
         relative = Path(item['file'])
         require(not relative.is_absolute() and '..' not in relative.parts, 'unsafe package member')
+        require(item['transformation'] in ('verbatim', 'json-projection', 'text-projection', 'text-envelope'), 'unknown artifact decoder')
+        require(item['transformation'] == 'text-envelope' or 'originalFile' not in item, 'unexpected original filename override')
         data = (directory / relative).read_bytes()
         require(sha(data) == item['derivativeSha256'] and len(data) == item['derivativeBytes'], 'derivative digest/bytes mismatch: ' + str(relative))
         require(b'/Users/' not in data and b'Library/Application Support' not in data, 'private path leaked')
         if relative.suffix == '.json':
             require(sha(canonical(json.loads(data))) == item['semanticSha256'], 'semantic hash changed')
+        if item['transformation'] == 'text-envelope':
+            envelope = json.loads(data)
+            decoded = decode_log_envelope(envelope)
+            require(item.get('decoder') == envelope['decoder'] and envelope['originalSha256'] == item['originalSha256'] and envelope['originalBytes'] == item['originalBytes'], 'log envelope manifest/original metadata differs')
+            require(item.get('originalFile') in ENVELOPED_LOGS and relative.as_posix() == item['originalFile'] + '.json', 'log envelope original filename invalid')
+            if originals:
+                raw_text = (originals / item['originalFile']).read_text()
+                require(decoded == text_projection(raw_text, replacements), 'decoded envelope/source text differs')
         if item['transformation'] == 'verbatim':
             require(item['originalSha256'] == item['derivativeSha256'] and item['originalBytes'] == item['derivativeBytes'], 'verbatim evidence changed')
         if originals:
-            raw = (originals / relative).read_bytes()
+            raw = (originals / item.get('originalFile', relative)).read_bytes()
             require(sha(raw) == item['originalSha256'] and len(raw) == item['originalBytes'], 'immutable original changed: ' + str(relative))
             reproduced = transform(raw, item['transformation'], replacements)
             require(reproduced == data, 'original/derivative projection unequal: ' + str(relative))
-    by_name = {item['file']: item for item in files}
+    by_name = {item.get('originalFile', item['file']): item for item in files}
     for receipt, field, prefix in [('receipt.json', 'steps', ''), ('extra-pure-receipt.json', 'results', ''), ('net-assets/receipt.json', 'runs', 'net-assets/'), ('original3-scene-consumers/receipt.json', 'steps', 'original3-scene-consumers/')]:
         for step in load(directory / receipt)[field]:
             require(step['logSha256'] == by_name[prefix + step['name'] + '.log']['originalSha256'], 'receipt/original log hash link changed')

@@ -37,6 +37,26 @@ class NativeAcceptanceTests(unittest.TestCase):
         self.assertEqual((result['genuineContacts'], result['nativeShots'], result['exactPairs'], result['nativeFrames']), (42, 42, 21, 75656))
         self.assertEqual(result['fullPlanStatus'], 'NOT_ACCEPTED')
 
+    def test_log_envelopes_preserve_exact_trailing_space(self):
+        for name, marker in [('timed-shot-accepted', 'TIMED ACCEPTED PASS \n'), ('timed-shot-replay-scene', 'TIMED REPLAY SCENE PASS \n')]:
+            envelope = evidence.load(self.directory / ('net-assets/' + name + '.log.json'))
+            decoded = evidence.decode_log_envelope(envelope)
+            self.assertIn(marker, decoded)
+            self.assertEqual(evidence.log_text(self.directory, 'net-assets/' + name + '.log'), decoded)
+            self.assertEqual(envelope['decodedBytes'], len(decoded.encode('utf-8')))
+
+    def test_log_envelope_cannot_normalize_trailing_space(self):
+        envelope = evidence.load(self.directory / 'net-assets/timed-shot-accepted.log.json')
+        envelope['text'] = envelope['text'].replace('TIMED ACCEPTED PASS \n', 'TIMED ACCEPTED PASS\n')
+        with self.assertRaisesRegex(ValueError, 'decoded SHA/bytes mismatch'):
+            evidence.decode_log_envelope(envelope)
+
+    def test_log_envelope_decoder_corruption_rejected(self):
+        envelope = evidence.load(self.directory / 'net-assets/timed-shot-accepted.log.json')
+        envelope['decoder'] = 'trimmed-text'
+        with self.assertRaisesRegex(ValueError, 'decoder metadata invalid'):
+            evidence.decode_log_envelope(envelope)
+
     def test_immutable_derivative_bytes(self):
         path = self.directory / 'native-tour-42/00-Samus-DoubleDamage-Off/arm.json'
         path.write_bytes(path.read_bytes() + b' ')
