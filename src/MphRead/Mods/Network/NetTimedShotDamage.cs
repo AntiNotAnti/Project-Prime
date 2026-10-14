@@ -29,11 +29,14 @@ internal readonly record struct TimedShotDamageTemplate(float Body, float Head, 
         bool head = direct && (claim.Flags & HitClaimPacket.FlagHeadshot) != 0;
         nativeHead = head && MathF.Abs(Body - Head) > 1 / 4096f;
         float damage = direct ? head ? Head : Body : Splash;
-        float distance = Vector3.Distance(Origin, claim.HitPoint);
-        if (direct && Reach > 0)
-            damage = BeamProjectileEntity.GetInterpolatedValue(Curve, damage, 0, distance / Reach);
+        // HitPoint is the claimant's body origin, not an authority collision
+        // point or explosion centre. It cannot reconstruct native falloff.
+        // Retain the legal per-launch channel ceiling; do not reject base
+        // damage using a guessed distance. General enforcement remains gated
+        // until impact/trajectory facts make an exact payout bound possible.
         if (Balanced && BalancedModeRules.HasRangeDamageCurve((BeamType)claim.Beam))
-            damage = BalancedModeRules.ScaleRangeDamage((BeamType)claim.Beam, damage, distance);
+            damage = Math.Max(BalancedModeRules.ScaleRangeDamage((BeamType)claim.Beam, damage, 0),
+                BalancedModeRules.ScaleRangeDamage((BeamType)claim.Beam, damage, float.MaxValue));
         return Math.Max(0, damage);
     }
 }

@@ -10,7 +10,7 @@ internal readonly record struct TimedShotModifierDecision(bool Applied, bool Dou
 // authored FireEvent remains presentation evidence and is never rewritten.
 internal static class NetTimedShotModifiers
 {
-    internal static long Trusted, BaseFallback, ShadowOnly;
+    internal static long Trusted, BaseFallback, ShadowOnly, ClaimBounded, ClaimUnavailable, HeadFallback;
     internal static bool Enforcing => NetTimedShotProof.Mode == TimedGrantProofMode.Enforce
         && NetSession.Active && NetSession.IsAuthority;
     internal static bool Ordinary(byte weapon) => weapon <= (byte)BeamType.OmegaCannon
@@ -36,32 +36,49 @@ internal static class NetTimedShotModifiers
         return new(true, shot.AuthorizedDouble, prime, affinity, fallback);
     }
 
-    internal static void Reset() => Trusted = BaseFallback = ShadowOnly = 0;
+    internal static void Reset()
+        => Trusted = BaseFallback = ShadowOnly = ClaimBounded = ClaimUnavailable = HeadFallback = 0;
+
+    internal static object Capture() => new { Policy = NetTimedShotProof.Mode.ToString(),
+        Enforcing, Trusted, BaseFallback, ShadowOnly, ClaimBounded, ClaimUnavailable, HeadFallback };
 
     internal static bool TryClaimLimit(int slot, in HitClaimPacket claim,
         TimedVictimDamageProfile? retainedProfile, out uint limit)
+        => TryClaimLimit(slot, claim, retainedProfile, out limit, out _);
+
+    internal static bool TryClaimLimit(int slot, in HitClaimPacket claim,
+        TimedVictimDamageProfile? retainedProfile, out uint limit, out bool headshot)
     {
         limit = ushort.MaxValue;
+        headshot = (claim.Flags & HitClaimPacket.FlagHeadshot) != 0;
         if (!Enforcing || !Ordinary(claim.Beam)) return true;
         var key = NetShotProof.Key(slot, claim);
         if (!NetTimedShotProof.TryGet(key, out var shot) || !shot.Damage.Present
             || shot.Fire.Weapon != claim.Beam || shot.Fire.AckFrame != claim.LaunchFrame
             || claim.ComponentId == 0 || claim.ComponentId > shot.Components
             || !float.IsFinite(claim.HitPoint.X) || !float.IsFinite(claim.HitPoint.Y)
-            || !float.IsFinite(claim.HitPoint.Z)) return false;
-        if (NetShotProof.ValidateTimedHead(claim, shot) != ShotProofReason.Verified) return false;
+            || !float.IsFinite(claim.HitPoint.Z)) { ClaimUnavailable++; return false; }
+        // Missing head geometry does not discard an otherwise admitted body
+        // hit. Its actual body channel retains ordinary damage, without the
+        // head amount, armour bypass, or headshot feedback.
+        if (headshot && NetShotProof.ValidateTimedHead(claim, shot) != ShotProofReason.Verified)
+        { headshot = false; HeadFallback++; }
         const byte effects = HitClaimPacket.FlagFrozen | HitClaimPacket.FlagBurning | HitClaimPacket.FlagDisrupted;
         if ((claim.Flags & effects & ~shot.Damage.Effects) != 0) return false;
         TimedVictimDamageProfile profile;
         if (retainedProfile is { } retained) profile = retained;
         else if (!NetTimedDamageProfile.TryGet(claim.VictimSlot, claim.VictimGeneration,
-            claim.VictimLifeId, claim.AckFrame, out profile)) return false;
+            claim.VictimLifeId, claim.AckFrame, out profile)) { ClaimUnavailable++; return false; }
         if (profile.Key.AuthorityEpoch != key.AuthorityEpoch || profile.Key.MatchId != key.MatchId
             || profile.Key.ShooterSlot != claim.VictimSlot || profile.Key.Generation != claim.VictimGeneration
             || profile.Key.LifeId != claim.VictimLifeId) return false;
-        float channel = shot.Damage.Channel(claim, out bool nativeHead);
+        var boundedClaim = claim;
+        if (!headshot) boundedClaim.Flags &= unchecked((byte)~HitClaimPacket.FlagHeadshot);
+        float channel = shot.Damage.Channel(boundedClaim, out bool nativeHead);
         if (!float.IsFinite(channel) || channel < 0 || channel > int.MaxValue) return false;
         limit = profile.CompleteDamage(channel, (BeamType)claim.Beam, nativeHead, claim.VictimSlot == slot);
+        headshot = nativeHead;
+        ClaimBounded++;
         return true;
     }
 }

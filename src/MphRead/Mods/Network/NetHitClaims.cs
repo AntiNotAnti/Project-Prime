@@ -1839,7 +1839,8 @@ namespace MphRead.Mods.Network
             if (NetTimedShotModifiers.Enforcing)
             {
                 var claim = ProofClaim(entry);
-                if (!NetTimedShotModifiers.TryClaimLimit(shooterSlot, claim, entry.TimedProfile, out uint limit)) return;
+                if (!NetTimedShotModifiers.TryClaimLimit(shooterSlot, claim, entry.TimedProfile,
+                    out uint limit, out bool headshot) || !headshot) return;
                 target = Math.Min(target, limit);
                 if (target <= resolved) return;
             }
@@ -2359,9 +2360,11 @@ namespace MphRead.Mods.Network
             var paidClaim = ProofClaim(entry);
             if (NetTimedShotModifiers.Enforcing)
             {
-                if (!NetTimedShotModifiers.TryClaimLimit(shooterSlot, paidClaim, entry.TimedProfile, out uint limit))
+                if (!NetTimedShotModifiers.TryClaimLimit(shooterSlot, paidClaim, entry.TimedProfile,
+                    out uint limit, out bool headshot))
                 { RefusedHere++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultDamageLimit); return; }
                 entry.Damage = (ushort)Math.Min(entry.Damage, limit);
+                if (!headshot) entry.Flags &= unchecked((byte)~HitClaimPacket.FlagHeadshot);
                 if (entry.Damage == 0)
                 { RefusedHere++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultDamageLimit); return; }
             }

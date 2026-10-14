@@ -114,8 +114,9 @@ internal static class NetTimedShotProof
 {
     internal static TimedGrantProofMode Mode { get; set; } =
         Environment.GetEnvironmentVariable("PRIME_TIMED_GRANT_PROOF") switch
-        { "shadow" => TimedGrantProofMode.Shadow, "enforce-discrete" => TimedGrantProofMode.Enforce,
-            _ => TimedGrantProofMode.Off };
+        // Enforcement is exercised by controlled fixtures only until the
+        // per-family fallback and live/replay acceptance gates are closed.
+        { "shadow" => TimedGrantProofMode.Shadow, _ => TimedGrantProofMode.Off };
     internal static bool Active => Mode != TimedGrantProofMode.Off && NetSession.Active && NetSession.IsAuthority;
     internal static bool Eligible(PlayerEntity player) => Active && !player.SceneServices.IsReplica
         && player.OwningScene.GameState.Multiplayer && (uint)player.SlotIndex < 8;
