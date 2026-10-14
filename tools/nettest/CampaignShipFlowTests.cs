@@ -86,7 +86,7 @@ internal static class CampaignShipFlowTests
             Check(MatchStart.RecentShipDock is { Slot: 1, Planet: CampaignPlanet.CelestialArchives }
                 && File.Exists(Path.Combine("Savedata", "save001.json")),
                 "committed ship departure publishes scoped ticket");
-            Check(CampaignShipTravel.TryChooseLanding(GameState.PeekSave(1), MatchStart.RecentShipDock,
+            Check(CampaignShipTravel.TryChooseLanding(save, MatchStart.RecentShipDock,
                 1, false, CampaignPlanet.Alinos, out land, out _)
                 && land == "UNIT1_LAND", "saved native bytes support authorized planet select");
 
