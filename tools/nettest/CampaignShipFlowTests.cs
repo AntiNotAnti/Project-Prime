@@ -61,6 +61,17 @@ internal static class CampaignShipFlowTests
                 CampaignPlanet.Alinos, out land, out _)
                 && land == "UNIT1_LAND", "newly unlocked planet is selectable");
             Check(save.CheckpointRoomId == 45, "travel query never rewrites checkpoint");
+            save.CheckpointEntityId = 77; // an entity from the old planet
+            CampaignShipTravel.PrepareLandingSpawn(save, ticket.Value, CampaignPlanet.Alinos);
+            Check(save.CheckpointRoomId == 27 && save.CheckpointEntityId == -1,
+                "new planet clears foreign checkpoint entity and selects landing");
+            save.CheckpointRoomId = 45;
+            save.CheckpointEntityId = 77;
+            CampaignShipTravel.PrepareLandingSpawn(save, ticket.Value, CampaignPlanet.CelestialArchives);
+            Check(save.CheckpointRoomId == 45 && save.CheckpointEntityId == 77,
+                "Exit Ship keeps the original hatch checkpoint");
+            save.CheckpointEntityId = -1;
+
             Check(!CampaignShipTravel.TryChooseLanding(null, ticket, 1, false,
                 CampaignPlanet.Alinos, out _, out _), "missing save refused");
 
