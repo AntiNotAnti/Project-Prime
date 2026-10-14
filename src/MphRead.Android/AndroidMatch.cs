@@ -169,6 +169,13 @@ namespace MphRead.Droid
             scene.GameState.Mode = GameMode.SinglePlayer;
             scene.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: 0, team: -1);
             scene.AddRoom(roomKey, GameMode.SinglePlayer);
+            if (plan.NewGame && !Cheats.SkipPlanetIntros)
+            {
+                scene.StartMovies(Movie.StoryIntro, Movie.CALanding,
+                    MphRead.Formats.FadeType.FadeOutInBlack, 0,
+                    MphRead.Formats.FadeType.FadeOutWhite, 5 / 30f,
+                    AfterMovie.StartGame);
+            }
             MatchStart.ClearRecentShipDock();
             MatchStart.ClearRecentCampaignEnding();
             Console.WriteLine($"[match] adventure, slot {plan.SaveSlot}, "
