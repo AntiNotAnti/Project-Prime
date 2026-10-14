@@ -168,6 +168,14 @@ try
     Check(mixedAgain.Definition.Geometry[0].QuakeFaces?.Any(face =>
         face.Rotation == 90 && face.ShiftU == 32 && face.ScaleV == 2) == true,
         "mixed shader and rotated Quake texdefs survive source export and reimport");
+    var portableBoxProject = MapProjectSerializer.Clone(mixedMap.Definition);
+    Check(MapPackageGeometryCompatibility.LowerInPlace(portableBoxProject)
+        && portableBoxProject.Geometry[0] is MapMesh portableBox
+        && portableBox.Vertices.Count == 8
+        && portableBox.Faces.Count == 6
+        && portableBox.FaceMaterials.Distinct().Count() == 2
+        && portableBox.FaceTexcoords.Count == 6,
+        "portable mixed-face box preserves shared topology, per-face shaders and UVs");
 
     bool refused = false;
     string badUv = Path.Combine(root, "uv-unsupported-flags.map");
@@ -561,6 +569,7 @@ try
         && lowered.Geometry.Single() is MapMesh portablePatch
         && portablePatch.FaceTexcoords.Count == 8
         && portablePatch.Faces.Count == 8
+        && portablePatch.Vertices.Count < portablePatch.Faces.Count * 3
         && !portablePatch.Solid
         && lowered.Serialize().Contains("\"kind\": \"mesh\"", StringComparison.Ordinal)
         && !lowered.Serialize().Contains("bezier-patch",StringComparison.Ordinal)
