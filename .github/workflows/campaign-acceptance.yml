@@ -40,6 +40,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
@@ -51,7 +53,7 @@ jobs:
       - name: Build independent campaign contract runner
         run: dotnet build tools/nettest/nettest.csproj -c Release
       - name: Run original saves, campaign journey, film, audio and protocol isolation
-        run: python tools/campaign-acceptance/run.py --output artifacts/campaign-acceptance --include-guardrails
+        run: python tools/campaign-acceptance/run.py --output artifacts/campaign-acceptance --include-guardrails --expected-commit "${{ github.event.pull_request.head.sha || github.sha }}"
       - name: Preserve independent machine-readable acceptance evidence
         if: always()
         uses: actions/upload-artifact@v6
