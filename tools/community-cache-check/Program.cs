@@ -203,6 +203,17 @@ try
         Check(evicted == null && !File.Exists(cachedB),
             "restarting a cache never resurrects an evicted archive");
 
+    // Explicitly re-import B's original immutable bytes before testing B
+    // recovery. This must not bypass the prior eviction/absence assertions.
+    cache.Promote(second, b);
+    using (var reopened = new CommunityArchiveCache(store, max).TryAcquire(b))
+    {
+        Check(reopened != null && reopened.Identity.Matches(b),
+            "verified re-imported archive can be recovered across cache instances");
+        Check(File.ReadAllBytes(reopened!.Path).SequenceEqual(File.ReadAllBytes(second)),
+            "restarted cache preserves exact re-imported archive bytes");
+    }
+
     Check(Directory.EnumerateFiles(Path.Combine(store, "archives"), "*.ppmap")
         .All(p => Path.GetFileNameWithoutExtension(p).Length == 64),
         "content-addressed filenames never use user-supplied map names");
