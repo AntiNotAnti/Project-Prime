@@ -1,0 +1,23 @@
+  Determining projects to restore...
+  Restored ${WORKSPACE}/work/prime-plan-integration/src/NcsfPlay/NcsfPlay.csproj (in 753 ms).
+  Restored ${WORKSPACE}/work/prime-plan-integration/src/MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj (in 771 ms).
+  Restored ${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj (in 775 ms).
+  Restored ${WORKSPACE}/work/prime-plan-integration/src/MphRead/MphRead.csproj (in 780 ms).
+  NcsfPlay -> ${WORKSPACE}/work/plan-completion-evidence/candidate-b58377ab/runtime/NcsfPlay.dll
+  MphRead.Protocol.Generator -> ${WORKSPACE}/work/plan-completion-evidence/candidate-b58377ab/runtime/MphRead.Protocol.Generator.dll
+  MphRead -> ${WORKSPACE}/work/plan-completion-evidence/candidate-b58377ab/runtime/ProjectPrime.dll
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/PlayerNameChatTests.cs(7,7): warning CS0105: The using directive for 'System.Text' appeared previously in this namespace [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/AssetLifecycleTests.cs(124,39): error CS0411: The type arguments for method 'Enumerable.Count<TSource>(IEnumerable<TSource>)' cannot be inferred from the usage. Try specifying the type arguments explicitly. [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/AssetLifecycleTests.cs(173,30): error CS1929: 'LinkedListIterator<EntityBase>' does not contain a definition for 'OfType' and the best extension method overload 'AsyncEnumerable.OfType<RoomEntity>(IAsyncEnumerable<object?>)' requires a receiver of type 'System.Collections.Generic.IAsyncEnumerable<object?>' [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/AssetLifecycleTests.cs(216,91): error CS0411: The type arguments for method 'Enumerable.Count<TSource>(IEnumerable<TSource>)' cannot be inferred from the usage. Try specifying the type arguments explicitly. [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+
+Build FAILED.
+
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/PlayerNameChatTests.cs(7,7): warning CS0105: The using directive for 'System.Text' appeared previously in this namespace [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/AssetLifecycleTests.cs(124,39): error CS0411: The type arguments for method 'Enumerable.Count<TSource>(IEnumerable<TSource>)' cannot be inferred from the usage. Try specifying the type arguments explicitly. [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/AssetLifecycleTests.cs(173,30): error CS1929: 'LinkedListIterator<EntityBase>' does not contain a definition for 'OfType' and the best extension method overload 'AsyncEnumerable.OfType<RoomEntity>(IAsyncEnumerable<object?>)' requires a receiver of type 'System.Collections.Generic.IAsyncEnumerable<object?>' [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/AssetLifecycleTests.cs(216,91): error CS0411: The type arguments for method 'Enumerable.Count<TSource>(IEnumerable<TSource>)' cannot be inferred from the usage. Try specifying the type arguments explicitly. [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+    1 Warning(s)
+    3 Error(s)
+
+Time Elapsed 00:00:47.17

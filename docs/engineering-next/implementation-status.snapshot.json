@@ -149,9 +149,9 @@
       "prs": [
         532
       ],
-      "status": "Constructed610-owner soak PASS; loaded-world fixture prepared",
+      "status": "Constructed and headless asset-backed 610-world scope PASS; full native/UI campaign NOT_ACCEPTED",
       "sourceDocument": "../audits/engineering-consolidation/lifecycle-controlled-soak.md",
-      "scope": "New e2d0 asset-backed fixture is NOT_RUN at this snapshot; source/test presence is not native campaign acceptance."
+      "scope": "Actual 38ae 10/100/500 loaded worlds: 36,600 sequential steps and 610 saves; three simultaneous worlds per arm, weak observations 0/0. Current native GL/audio/UI and new NET semantics remain NOT_RUN."
     }
   ],
   "programAcceptance": "NOT_ACCEPTED",
@@ -167,11 +167,28 @@
     "exact-source combined qualification",
     "native effect/impact qualification",
     "independent component/victim/payment join",
-    "loaded-world lifecycle fixture execution",
     "long two/eight-player impaired campaign",
-    "private visual/Studio/export/audio and platform gates"
+    "private visual/Studio/export/audio and platform gates",
+    "rendered/nativeGL/audio/UI lifecycle and supported exit paths"
   ],
   "normalizedDerivativeSHA256": "9e82d4aedd63b21c565d3627724134361f54950141643e83aa963043641788ff",
   "normalizedDerivativeBytes": 50935,
-  "planNormalizationReceipt": "implementation-plan-normalization.json"
+  "planNormalizationReceipt": "implementation-plan-normalization.json",
+  "lifeEvidenceUpdateUTC": "2026-10-14T09:37:18.590781+00:00",
+  "lifeEvidencePackagingParent": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+  "assetBackedLifecycle": {
+    "qualifiedSource": "38ae3ceb54b4f2ecf7c4c620a1f0542f42096305",
+    "status": "PASS_HEADLESS_ASSET_WORLD_SAVE_OWNERSHIP_ONLY",
+    "loads": 610,
+    "sequentialSteps": 36600,
+    "saves": 610,
+    "perArmSimultaneousWorlds": 3,
+    "weakWorlds": 0,
+    "weakSimultaneous": 0,
+    "clientSHA256": "2238516d0eee2976c49cff8f3e2eb59b180d0bb704b50ad63561235d9272a517",
+    "clientMVID": "0727be91-ff32-463e-b0b8-431bcbb272e8",
+    "package": "../evidence/life-campaign-2026-10-14/README.md",
+    "nativeGlAudio": "NOT_RUN",
+    "lobbyReconnectUiMedia": "NOT_RUN"
+  }
 }

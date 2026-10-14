@@ -1,0 +1,11 @@
+{
+  "observedUtc": "2026-10-14T09:15:47.011709+00:00",
+  "group": 44929,
+  "before": [],
+  "signals": [],
+  "originalBuildExit": 1,
+  "resumeEligible": false,
+  "after": [],
+  "ownedGroupClosed": true,
+  "finishedUtc": "2026-10-14T09:15:47.101882+00:00"
+}

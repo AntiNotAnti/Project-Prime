@@ -1,0 +1,8 @@
+COMPACT_LOADED_IDENTITY nettest location=${WORKSPACE}/work/plan-completion-evidence/candidate-ff16b44d/runtime/nettest.dll mvid=76a07be9-0eae-4cdf-984a-432f60acc013
+COMPACT_LOADED_IDENTITY ProjectPrime location=${WORKSPACE}/work/plan-completion-evidence/candidate-ff16b44d/runtime/ProjectPrime.dll mvid=7e29de91-67e2-4d4d-8817-6434b99dc3be
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+System.InvalidOperationException: Loaded scene yielded no native collision candidates.
+   at MphRead.NetTest.AssetLifecycleTests.Candidates(Scene scene) in ${WORKSPACE}/work/prime-plan-integration/tools/nettest/AssetLifecycleTests.cs:line 205
+   at MphRead.NetTest.AssetLifecycleTests.EndSimultaneous(String replayPath) in ${WORKSPACE}/work/prime-plan-integration/tools/nettest/AssetLifecycleTests.cs:line 179
+   at MphRead.NetTest.AssetLifecycleTests.Run(Int32 count, String replayPath, String output) in ${WORKSPACE}/work/prime-plan-integration/tools/nettest/AssetLifecycleTests.cs:line 58
