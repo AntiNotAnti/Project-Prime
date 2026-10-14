@@ -471,6 +471,121 @@ try
     Check(refused && !File.Exists(unsafeRewrite),
         "refuse to replace a richer sidecar without mutating the Quake source");
 
+    // This is an independently authored, valid NetRadiant patchDef2 grid,
+    // not text round-tripped from our own exporter. Columns come first.
+    string patchSource = Path.Combine(root, "netradiant-quadratic.map");
+    File.WriteAllText(patchSource, """
+    {
+    "classname" "worldspawn"
+    {
+    // PRIME_ID=18365f80-bc63-4e93-a798-3b52ab89e4e5
+    // PRIME_PATCH_SOLID=false
+    // PRIME_PATCH_TESSELLATION=2
+    patchDef2
+    {
+    textures/arena/curve
+    ( 3 3 0 0 0 )
+    (
+    ( ( 0 0 0 0 0 ) ( 0 16 0 0 0.5 ) ( 0 32 0 0 1 ) )
+    ( ( 16 0 0 0.5 0 ) ( 16 16 16 0.5 0.5 ) ( 16 32 0 0.5 1 ) )
+    ( ( 32 0 0 1 0 ) ( 32 16 0 1 0.5 ) ( 32 32 0 1 1 ) )
+    )
+    }
+    }
+    }
+    {
+    "classname" "info_player_deathmatch"
+    "origin" "128 128 64"
+    "angle" "90"
+    }
+    """);
+    var curved = QuakeMapInterchange.Import(patchSource, roomName: "CURVE_TEST");
+    Check(curved.Definition.Geometry.Count == 1
+        && curved.Definition.Geometry[0] is MapBezierPatch,
+        "native .map import retains quadratic control grid rather than a baked BSP");
+    var patch = (MapBezierPatch)curved.Definition.Geometry.Single();
+    Check(patch.Columns == 3 && patch.Rows == 3 && patch.ControlPoints.Count == 9
+        && patch.Id == Guid.Parse("18365f80-bc63-4e93-a798-3b52ab89e4e5")
+        && patch.Tessellation == 2 && !patch.Solid
+        && patch.Material == 0
+        && patch.ControlPoints[4][1] == 1
+        && patch.ControlPoints[4][3] == 0.5f
+        && patch.ControlPoints[4][4] == 0.5f,
+        "patchDef2 preserves source column/row order, control height, UVs, identity and flags");
+    var patchFaces = GeometryCompiler.Compile(patch, 16f);
+    Check(patchFaces.Count == 8
+        && patchFaces.SelectMany(face => face.Points).Any(p =>
+            Math.Abs(p.X - 1) < .0001 && Math.Abs(p.Y - .25f) < .0001
+                && Math.Abs(p.Z + 1) < .0001)
+        && patchFaces.SelectMany(face => face.Texcoords).Any(p =>
+            Math.Abs(p.X - 8) < .0001 && Math.Abs(p.Y - 8) < .0001),
+        "biquadratic curve, tangent geometry and UVs evaluate at the exact midpoint");
+    var renderOnly = new BuiltMap(curved.Definition);
+    GeometryCompiler.Add(renderOnly, curved.Definition);
+    Check(renderOnly.Faces.Count == 8 && renderOnly.Solid.Count == 0,
+        "explicit render-only Quake patch does not accidentally create gameplay collision");
+    patch.Solid = true;
+    var collisionEnabled = new BuiltMap(curved.Definition);
+    GeometryCompiler.Add(collisionEnabled, curved.Definition);
+    Check(collisionEnabled.Solid.Count == collisionEnabled.Faces.Count
+        && collisionEnabled.Solid.Count == 8,
+        "opted-in patch collision uses the exact rendered tessellation triangles");
+    patch.Solid = false;
+
+    string patchNative = Path.Combine(root, "quad-native.json");
+    curved.Definition.Save(patchNative);
+    var nativeReloaded = MapDefinition.Load(patchNative);
+    Check(nativeReloaded.Geometry.Single() is MapBezierPatch savedPatch
+        && savedPatch.Columns == 3 && savedPatch.ControlPoints.Count == 9
+        && savedPatch.ControlPoints[4][1] == 1 && !savedPatch.Solid,
+        "native JSON save/load keeps all editable patch controls instead of triangulating");
+
+    string patchAgainSource = Path.Combine(root, "curve-export.map");
+    string patchAgainSidecar = Path.Combine(root, "curve-export-sidecar.json");
+    QuakeMapInterchange.Export(curved.Definition, patchAgainSource,
+        patchAgainSidecar, 16);
+    var patchAgain = QuakeMapInterchange.Import(patchAgainSource, patchAgainSidecar);
+    var patchReimported = (MapBezierPatch)patchAgain.Definition.Geometry.Single();
+    Check(patchReimported.Id == patch.Id
+        && patchAgain.Definition.MapId == curved.Definition.MapId
+        && patchReimported.Columns == patch.Columns
+        && patchReimported.Rows == patch.Rows
+        && patchReimported.Tessellation == patch.Tessellation
+        && patchReimported.Solid == patch.Solid
+        && patchReimported.ControlPoints.Zip(patch.ControlPoints,
+            (a,b) => a.Zip(b,(x,y) => Math.Abs(x-y)).All(delta => delta < .00001f)).All(x=>x),
+        "patchDef2 export/import retains MapId, control points, UVs, collision and tessellation");
+
+    var lowered = MapProjectSerializer.Clone(curved.Definition);
+    Check(MapPackageGeometryCompatibility.LowerInPlace(lowered)
+        && lowered.Geometry.Single() is MapMesh portablePatch
+        && portablePatch.FaceTexcoords.Count == 8
+        && portablePatch.Faces.Count == 8
+        && !portablePatch.Solid
+        && lowered.Serialize().Contains("\"kind\": \"mesh\"", StringComparison.Ordinal)
+        && !lowered.Serialize().Contains("bezier-patch",StringComparison.Ordinal)
+        && curved.Definition.Geometry.Single() is MapBezierPatch,
+        ".ppmap compatibility adapter lowers to existing explicit-UV MapMesh without modifying source");
+    Check(!MapPackageGeometryCompatibility.LowerInPlace(lowered),
+        "legacy-compatible package geometry is stable without a second conversion");
+
+    string patch3Source = Path.Combine(root, "unsupported-patchdef3.map");
+    File.WriteAllText(patch3Source, File.ReadAllText(patchSource)
+        .Replace("patchDef2", "patchDef3", StringComparison.Ordinal));
+    refused = false;
+    try { QuakeMapInterchange.Import(patch3Source); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-PATCH"); }
+    Check(refused, "unsupported patchDef3 is visibly refused instead of silently flattened");
+    string invalidGrid = Path.Combine(root, "even-patch-grid.map");
+    File.WriteAllText(invalidGrid, File.ReadAllText(patchSource)
+        .Replace("( 3 3 0 0 0 )", "( 4 3 0 0 0 )", StringComparison.Ordinal));
+    refused = false;
+    try { QuakeMapInterchange.Import(invalidGrid); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-PATCH"); }
+    Check(refused, "malformed even-sized control grids are refused before geometry publication");
+
     map.Geometry.Add(new MapWedge());
     refused = false;
     try { QuakeMapInterchange.Export(map, Path.Combine(root, "refused.map")); }
