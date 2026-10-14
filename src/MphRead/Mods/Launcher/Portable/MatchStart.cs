@@ -329,6 +329,13 @@ namespace MphRead.Mods.Launcher
         {
             string? landingRoom = null;
             CampaignDockReceipt? checkedDock = RecentShipDock;
+            if (plan.ExitShipToSurface &&
+                (plan.AdventureDestination is not { } exitDestination
+                    || checkedDock is not { } currentDock || exitDestination != currentDock.Planet))
+            {
+                LastError = "Exit Ship is only available at the current docked planet.";
+                return false;
+            }
             if (plan.AdventureDestination is { } destination)
             {
                 if (!CampaignShipTravel.TryChooseLanding(GameState.PeekSave(plan.SaveSlot),
@@ -376,6 +383,7 @@ namespace MphRead.Mods.Launcher
 
             window.Scene.GameState.Mode = GameMode.SinglePlayer;
             window.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: LauncherPrefs.LastColor, team: -1);
+            window.Scene.SuppressNextCampaignLandingMovie = plan.ExitShipToSurface;
             window.AddRoom(roomKey, GameMode.SinglePlayer);
             if (plan.NewGame && !Cheats.SkipPlanetIntros)
             {
