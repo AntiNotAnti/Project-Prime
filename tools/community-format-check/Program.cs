@@ -307,6 +307,36 @@ try
     { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-ITEM"); }
     Check(refused, "pickup timing cannot overflow/underflow native ushort metadata");
 
+    var expansive = new MapDefinition
+    {
+        FormatVersion = 2, MapId = Guid.NewGuid(), Name = "WIDE_ARENA"
+    };
+    expansive.Materials.Add(new MapMaterial
+    {
+        Id = Guid.NewGuid(), Name = "textures/common/caulk", SourceMaterial = 2
+    });
+    expansive.Geometry.Add(new MapBox
+    {
+        Id = Guid.NewGuid(), Material = 0,
+        Transform = new MapTransform
+        {
+            Position = new[] { 300f, 2f, 0f },
+            Scale = new[] { 4f, 4f, 4f }
+        }
+    });
+    expansive.Spawns.Add(new MapSpawn
+    {
+        Id = Guid.NewGuid(), Position = new[] { 300f, 5f, 6f }
+    });
+    string wideSource = Path.Combine(root, "wide.map");
+    string wideSidecar = Path.Combine(root, "wide-sidecar.json");
+    QuakeMapInterchange.Export(expansive, wideSource, wideSidecar);
+    var wideImported = QuakeMapInterchange.Import(wideSource, wideSidecar);
+    Check(wideImported.Definition.ScaleFactor >= 6
+        && wideImported.Definition.Geometry.Single() is MapBox wideBox
+        && Math.Abs(wideBox.Transform.Position[0] - 300f) <= 0.001f,
+        "fixed-point scale increases for a wide Quake arena without moving geometry");
+
     map.Geometry.Add(new MapWedge());
     refused = false;
     try { QuakeMapInterchange.Export(map, Path.Combine(root, "refused.map")); }
