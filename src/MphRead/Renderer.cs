@@ -346,6 +346,7 @@ namespace MphRead
             if (!Services.IsReplica && initializeRuntime) GameState.Reset();
             Players.Construct(this);
             if (Services.AllowsPresentationSideEffects && initializeRuntime) Music.Init();
+            ObserveLifetime(Mods.Diagnostics.SceneLifetimeStage.Constructed);
         }
 
         // called before load
@@ -576,6 +577,7 @@ namespace MphRead
         public void OnLoad()
         {
             using var transitionStage = Mods.Render.TransitionGcDiagnostics.MeasureStage("Scene.OnLoad");
+            ObserveLifetime(Mods.Diagnostics.SceneLifetimeStage.Loading);
             // What the driver calls itself, once, at the only moment there is
             // certainly a context current. Everything about a picture being
             // wrong on somebody else's machine starts with these three lines,
@@ -681,6 +683,7 @@ namespace MphRead
             {
                 GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
             }
+            ObserveLifetime(Mods.Diagnostics.SceneLifetimeStage.Loaded);
         }
 
         private int _frameBuffer = 0;
@@ -5471,6 +5474,7 @@ namespace MphRead
             if (!_exiting)
             {
                 _exiting = true;
+                ObserveLifetime(Mods.Diagnostics.SceneLifetimeStage.CleanupStarted);
                 _room?.CancelTransition();
                 Mods.Network.DemoPlayback.Release(this);
                 if (!Services.IsReplica && !SideScene && ReferenceEquals(MphRead.GameState.Current, this.GameState))
@@ -5484,6 +5488,7 @@ namespace MphRead
                 OutputStop();
                 _decoderCts?.Cancel();
                 Selection.Clear();
+                ObserveLifetime(Mods.Diagnostics.SceneLifetimeStage.CleanupComplete);
             }
         }
 
@@ -5514,6 +5519,7 @@ namespace MphRead
             ReleaseReplayOutput();
             if (Mods.Headless.Active)
             {
+                ObserveLifetime(Mods.Diagnostics.SceneLifetimeStage.VisualResourcesReleased);
                 return;
             }
 #if !MPHREAD_SERVER
@@ -5564,6 +5570,7 @@ namespace MphRead
             DisposeFrameTransientTextures();
             ReleaseSceneShaderInitialization();
             Mods.MapGen.MapRuntimeUsage.Release(this);
+            ObserveLifetime(Mods.Diagnostics.SceneLifetimeStage.VisualResourcesReleased);
         }
 
         private static void DeleteTexture(ref int texture)

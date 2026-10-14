@@ -62,6 +62,7 @@ namespace MphRead.NetTest
             }
             if (args.Length > 0 && args[0] == "--scene-setup-ownership")
                 return SceneSetupOwnershipTests.Run(Array.IndexOf(args, "--baseline") >= 0);
+            if (args.Length > 0 && args[0] == "--scene-lifetime") return SceneLifetimeTests.Run();
             if (args.Length > 0 && args[0] == "--ai-client-driver") return NetAiClientTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-protocol") return PickupProtocolTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-claims") return PickupClaimTests.Run();
