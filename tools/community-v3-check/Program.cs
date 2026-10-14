@@ -244,6 +244,30 @@ try
             && revisions[0].ArchiveHash == map.Hash,
             "v3 map revision history matches authoritative v2 archive hashes");
 
+        // A newer private map revision is owned by v2, not by v3 storage.
+        // The v3 adapter must preserve public current vs owner latest pointers.
+        MapDefinition revisionDraft = MapProjectSerializer.Clone(mapDefinition);
+        revisionDraft.Version = "2";
+        revisionDraft.Description = "Private work-in-progress map revision";
+        string revisionPath = MapPackageBuilder.Build(revisionDraft,
+            Path.Combine(root, "map-draft.ppmap"));
+        CommunityMap draftMap = await publisher.UploadAsync(
+            revisionPath, CancellationToken.None, draft: true);
+        var mapOwner = await publisher.GetContentAsync(
+            CommunityContentKinds.Map, mapId, CancellationToken.None);
+        var mapVisitor = await viewer.GetContentAsync(
+            CommunityContentKinds.Map, mapId, CancellationToken.None);
+        Check(mapOwner?.CurrentHash == map.Hash
+            && mapOwner.LatestHash == draftMap.Hash
+            && mapOwner.RevisionCount == 2
+            && mapVisitor?.CurrentHash == map.Hash
+            && mapVisitor.LatestHash == map.Hash
+            && mapVisitor.RevisionCount == 1,
+            "v3 map projections preserve draft latest vs public current pointer without leaks");
+        Check(!File.ReadAllText(Path.Combine(store, "content_catalog_v3.json"))
+            .Contains(mapId.ToString(), StringComparison.OrdinalIgnoreCase),
+            "v3 registry stores no copy of authoritative v2 map revision identity");
+
         CommunityContentProject? privateResult = await viewer.GetContentAsync(
             CommunityContentKinds.Prefab, prefabId, CancellationToken.None);
         Check(privateResult == null,
