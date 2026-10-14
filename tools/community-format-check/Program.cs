@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using MphRead.Mods.MapGen;
 
 string root = Path.Combine(Path.GetTempPath(),
@@ -118,6 +119,68 @@ try
     catch (QuakeMapInterchangeException ex)
     { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-ENTITY"); }
     Check(refused, "unsupported gameplay entity cannot disappear without diagnostics");
+
+    // Untrusted sidecars cannot override the validated import scale.
+    var goodSidecar = JsonSerializer.Deserialize<QuakeMapSidecar>(
+        File.ReadAllText(sidecar), MapPackageReader.JsonOptions)!;
+    string badScaleSidecar = Path.Combine(root, "invalid-scale.json");
+    File.WriteAllText(badScaleSidecar, JsonSerializer.Serialize(
+        goodSidecar with { UnitsPerPrimeUnit = float.NaN }));
+    refused = false;
+    try { QuakeMapInterchange.Import(path, badScaleSidecar); }
+    catch (InvalidDataException) { refused = true; }
+    Check(refused, "nonfinite sidecar scale cannot poison imported world coordinates");
+
+    File.WriteAllText(badScaleSidecar, JsonSerializer.Serialize(
+        goodSidecar with { UnitsPerPrimeUnit = 0f }));
+    refused = false;
+    try { QuakeMapInterchange.Import(path, badScaleSidecar); }
+    catch (InvalidDataException) { refused = true; }
+    Check(refused, "zero sidecar scale is rejected after sidecar resolution");
+
+    string unknownWorldspawn = Path.Combine(root, "worldspawn-metadata.map");
+    File.WriteAllText(unknownWorldspawn, File.ReadAllText(path).Replace(
+        "\"classname\" \"worldspawn\"",
+        "\"classname\" \"worldspawn\"\\n\"message\" \"DO NOT DROP\"", StringComparison.Ordinal));
+    // The literal replacement above inserts an escaped newline only; normalize
+    // to a physical line so the parser exercises the unknown source key.
+    File.WriteAllText(unknownWorldspawn,
+        File.ReadAllText(unknownWorldspawn).Replace("\\n", "\n", StringComparison.Ordinal));
+    refused = false;
+    try { QuakeMapInterchange.Import(unknownWorldspawn); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-WORLDSPAWN"); }
+    Check(refused, "unrepresented worldspawn properties are not silently discarded");
+
+    string badGuid = Path.Combine(root, "bad-spawn-id.map");
+    File.WriteAllText(badGuid, File.ReadAllText(path).Replace(
+        "\"prime_id\" \"" + spawnId + "\"",
+        "\"prime_id\" \"not-a-guid\"", StringComparison.Ordinal));
+    refused = false;
+    try { QuakeMapInterchange.Import(badGuid); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-ID"); }
+    Check(refused, "invalid authored spawn GUID is an error, not a silent replacement");
+
+    string duplicateGuid = Path.Combine(root, "duplicate-brush-id.map");
+    File.WriteAllText(duplicateGuid, File.ReadAllText(path).Replace(
+        "PRIME_ID=843e73c7-e89e-4014-8ae2-313128478119",
+        "PRIME_ID=" + firstId, StringComparison.Ordinal));
+    refused = false;
+    try { QuakeMapInterchange.Import(duplicateGuid); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-ID"); }
+    Check(refused, "duplicate brush GUID cannot silently overwrite authoring identity");
+
+    string conflictSidecar = Path.Combine(root, "other-map-sidecar.json");
+    File.WriteAllText(conflictSidecar, JsonSerializer.Serialize(
+        goodSidecar with { MapId = Guid.NewGuid() }));
+    string conflictOutput = Path.Combine(root, "source-must-remain-untouched.map");
+    refused = false;
+    try { QuakeMapInterchange.Export(map, conflictOutput, conflictSidecar); }
+    catch (InvalidDataException) { refused = true; }
+    Check(refused && !File.Exists(conflictOutput),
+        "export rejects unrelated sidecar identity without modifying source");
 
     map.Geometry.Add(new MapWedge());
     refused = false;
