@@ -134,6 +134,19 @@ class CampaignTests(unittest.TestCase):
         self.save_receipts()
         self.assert_invalid("execution")
 
+    def test_observed_compile_link_status_counts_and_unknown_coverage(self):
+        ledger = self.workload["shaderSourceLedger"]
+        ledger.update(compileStatusCallbacks=4, compileSuccesses=4, compileFailures=0,
+                      linkStatusCallbacks=2, linkSuccesses=2, linkFailures=0)
+        self.save_receipts()
+        self.assertEqual(self.validate()["status"], "VALID")
+        ledger.update(compileStatusCallbacks=3, compileSuccesses=3)
+        self.save_receipts()
+        self.assertEqual(self.validate()["status"], "UNVERIFIED")
+        ledger.update(compileStatusCallbacks=4, compileSuccesses=3, compileFailures=1)
+        self.save_receipts()
+        self.assert_invalid("shaderSources")
+
     def test_shader_duplicate_collision_and_callback_gap_invalid(self):
         original = copy.deepcopy(self.workload["shaderSourceLedger"])
         for variant in ("duplicate", "collision", "gap"):

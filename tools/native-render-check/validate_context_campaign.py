@@ -423,6 +423,19 @@ def _check_sources(ledger, requested, report, index):
     if not isinstance(ledger, dict):
         report("shaderSources", "INVALID" if requested else "UNVERIFIED", label + "shader source ledger unavailable")
         return
+    if ledger.get("unexpectedStatusCallbacks", 0) != 0:
+        report("shaderSources", "INVALID", label + "unexpected/duplicate status callbacks")
+    for prefix, attempts in (("compile", "compileAttemptCallbacks"), ("link", "linkAttemptCallbacks")):
+        status_key = prefix + "StatusCallbacks"
+        if status_key not in ledger:
+            continue  # Historical attempt-only schema makes no success assertion.
+        count, successes, failures = ledger.get(status_key), ledger.get(prefix + "Successes"), ledger.get(prefix + "Failures")
+        if not all(_integer(value) and value >= 0 for value in (count, successes, failures)) or count != successes + failures:
+            report("shaderSources", "INVALID", label + prefix + " status counts are inconsistent")
+        elif failures:
+            report("shaderSources", "INVALID", label + prefix + " reports failed GL status")
+        elif count != ledger.get(attempts):
+            report("shaderSources", "UNVERIFIED", label + prefix + " status coverage is incomplete")
     sources = _rows(ledger.get("sources"))
     keys, declared_keys, hashes, callbacks = [], {}, set(), 0
     for source in sources:

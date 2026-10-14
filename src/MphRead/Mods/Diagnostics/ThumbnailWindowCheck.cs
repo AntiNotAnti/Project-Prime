@@ -94,6 +94,7 @@ namespace MphRead.Mods.Diagnostics
             {
                 vertex = GL.CreateShader(ShaderType.VertexShader);
                 GL.ShaderSource(vertex, vertexSource);
+                MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("thumbnail-check-vertex", vertex);
                 GL.CompileShader(vertex);
                 GL.GetShader(vertex, ShaderParameter.CompileStatus, out int vertexOk);
                 if (vertexOk == 0)
@@ -101,6 +102,7 @@ namespace MphRead.Mods.Diagnostics
 
                 fragment = GL.CreateShader(ShaderType.FragmentShader);
                 GL.ShaderSource(fragment, fragmentSource);
+                MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("thumbnail-check-fragment", fragment);
                 GL.CompileShader(fragment);
                 GL.GetShader(fragment, ShaderParameter.CompileStatus, out int fragmentOk);
                 if (fragmentOk == 0)
@@ -109,6 +111,7 @@ namespace MphRead.Mods.Diagnostics
                 program = GL.CreateProgram();
                 GL.AttachShader(program, vertex);
                 GL.AttachShader(program, fragment);
+                MphRead.Mods.Render.OpenGlFailureInjection.ShaderObject("thumbnail-check-program", program);
                 GL.LinkProgram(program);
                 GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int linked);
                 if (linked == 0)
