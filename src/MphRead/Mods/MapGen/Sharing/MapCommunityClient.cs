@@ -173,7 +173,7 @@ public sealed class MapCommunityClient : IDisposable
             || result.Items == null || result.Items.Length > pageSize
             || result.Items.Any(item => item == null
                 || item.ContentId == Guid.Empty
-                || !CommunityContentKinds.Supported.Contains(item.Kind, StringComparer.Ordinal)))
+                || !CommunityContentKinds.IsSupported(item.Kind)))
             throw new InvalidDataException("Community v3 catalog violates typed content bounds.");
         return result;
     }
