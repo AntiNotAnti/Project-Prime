@@ -509,9 +509,11 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         // full immutable identity after copying across any volume boundary.
         _archiveCache.Promote(partial, exact);
         if (File.Exists(partial)) File.Delete(partial);
-        _archiveCache.Prune();
+        // Pin the just-finished download while trimming older objects so it
+        // cannot be evicted before this job becomes Completed.
         using var verified = _archiveCache.TryAcquire(exact)
-            ?? throw new IOException("Verified archive was evicted before completion.");
+            ?? throw new IOException("Verified archive disappeared before completion.");
+        _archiveCache.Prune();
         Update(job.Id, j => j with { State = CommunityTransferState.Completed,
             AcknowledgedBytes = map.Bytes, Error = null });
     }
