@@ -112,6 +112,10 @@ try
 
     var privateTexture = registry.RegisterVerifiedBlob(image, textureMeta with
     {
+        Name = "UNPUBLISHED SECRET TEXTURE",
+        DisplayName = "Secret draft name",
+        Description = "Secret unreleased change",
+        Tags = new[] { "draft-secret" },
         Visibility = CommunityContentVisibility.Draft,
         ExpectedParentHash = firstTextureHash,
         ReleaseNotes = "Draft retouch"
@@ -123,7 +127,10 @@ try
     Check(registry.GetVisible(CommunityContentKinds.Texture, textureId, null) is { } pub
         && pub.LatestHash == firstTextureHash
         && pub.RevisionCount == 1 && !pub.CanManage
-        && pub.OwnerId == null,
+        && pub.OwnerId == null
+        && pub.Name == textureMeta.Name
+        && pub.Description == textureMeta.Description
+        && !pub.Tags.Contains("draft-secret"),
         "anonymous readers cannot discover or infer an owner's draft revision");
     Check(registry.GetVisible(CommunityContentKinds.Texture, textureId,
         MapCreatorCatalog.ServiceOwner) is { } own && own.CanManage
@@ -148,6 +155,25 @@ try
     Check(material.CurrentRevision?.Dependencies is { Length: 1 }
         && material.CurrentRevision.Dependencies[0].Hash == firstTextureHash,
         "generic dependencies pin immutable upstream content hashes");
+
+    bool privateDependencyRejected = false;
+    try
+    {
+        registry.RegisterVerifiedBlob(materialFile,
+            new CommunityContentRegistration(CommunityContentKinds.Material,
+                Guid.NewGuid(), MapCreatorCatalog.ServiceOwner, "Unsafe dependency",
+                null, null, null, Array.Empty<string>(),
+                "application/vnd.projectprime.material+json",
+                CommunityContentVisibility.Published,
+                Dependencies: new[]
+                {
+                    new CommunityContentDependency(CommunityContentKinds.Texture,
+                        textureId, privateHash)
+                }));
+    }
+    catch (InvalidDataException) { privateDependencyRejected = true; }
+    Check(privateDependencyRejected,
+        "published content cannot leak or depend on an unpublished draft asset");
 
     Guid prefabId = Guid.Parse("a58e3ce6-ae4a-43e8-af17-302691a2f51f");
     string prefabFile = Path.Combine(root, "prefab.json");
