@@ -368,9 +368,12 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
                     if (_disposed || cancel.IsCancellationRequested) return;
                     _status.Text = $"Downloading {received / 1048576.0:0.0}/{total / 1048576.0:0.0} MiB";
                 }));
-            if (cancel.IsCancellationRequested || _disposed) return;
+            // InstallAsync may finish its atomic commit just before navigation
+            // cancels the transfer. Always register a successfully committed
+            // archive; otherwise the on-disk install and room index diverge.
             Metadata.RegisterDownloadedMap(installed);
-            _status.Text = $"{project.DisplayName ?? project.Name} installed and registered.";
+            if (!_disposed)
+                _status.Text = $"{project.DisplayName ?? project.Name} installed and registered.";
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested)
         {
