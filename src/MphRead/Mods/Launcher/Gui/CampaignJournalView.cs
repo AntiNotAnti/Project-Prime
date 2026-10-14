@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using MphRead.Mods.Campaign;
 using MphRead.Mods.Network;
+using MphRead.Formats;
 using MphRead.Text;
 
 namespace MphRead.Mods.Launcher.Gui
