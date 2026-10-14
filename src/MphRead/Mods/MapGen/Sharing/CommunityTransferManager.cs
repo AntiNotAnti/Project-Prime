@@ -390,9 +390,10 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         {
             var prior = await Task.Run(() => MapBuildFingerprint.HashFile(destination),
                 cancellation).ConfigureAwait(false);
-            if (prior == map.Hash
-                && new FileInfo(destination).Length == map.Bytes
-                && MapContentIdentity.FromPackage(destination).MapId == map.MapId)
+            if (prior == map.Hash && new FileInfo(destination).Length == map.Bytes
+                && MapContentIdentity.FromPackage(destination) is { } cached
+                && cached.MapId == map.MapId && cached.ContentHash.ToString() == map.ContentHash
+                && cached.RoomKey == map.Name)
             {
                 Update(job.Id, j => j with { State = CommunityTransferState.Completed,
                     AcknowledgedBytes = map.Bytes, Error = null });
@@ -440,8 +441,9 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             };
             _jobs[id] = next;
             PersistLocked();
-            Changed?.Invoke(next);
         }
+        // Event notifications must not run inside the durable-index lock.
+        Changed?.Invoke(GetJob(id));
     }
 
     private void Stop(Guid id, bool cancel)
@@ -462,7 +464,9 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             PersistLocked();
             if (_running.TryGetValue(id, out var running)) signal = running.Cancellation;
         }
-        signal?.Cancel();
+        try { signal?.Cancel(); }
+        catch (ObjectDisposedException) { } // Worker may have just finished.
+        Changed?.Invoke(GetJob(id));
     }
 
     private void Update(Guid id, Func<CommunityTransferJob, CommunityTransferJob> change,
@@ -489,7 +493,10 @@ public sealed class CommunityTransferManager : IAsyncDisposable
 
     private void ValidateRecord(CommunityTransferJob job)
     {
-        if (job.Id == Guid.Empty || !MapCommunityClient.ValidHash(job.PackageHash)
+        if (job.Id == Guid.Empty || !Enum.IsDefined(job.Kind)
+            || !Enum.IsDefined(job.State)
+            || string.IsNullOrWhiteSpace(job.Endpoint)
+            || !MapCommunityClient.ValidHash(job.PackageHash)
             || job.TotalBytes is <= 0 or > MapPackageReader.MaxArchiveBytes
             || job.AcknowledgedBytes < 0 || job.AcknowledgedBytes > job.TotalBytes)
             throw new InvalidDataException("Invalid stored transfer identity or byte limits.");
