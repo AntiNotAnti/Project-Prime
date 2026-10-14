@@ -166,7 +166,10 @@ internal static class TimedShotDamageTests
     }
     public static int Run()
     {
-        try { _checks = 0; ChannelsAndArmour(); EffectMasks(); FrozenRowFacts(); LegalCeilingsAndDistanceCounterexample(); ZeroAndMalformed();
+        try { _checks = 0;
+            Check(NetTimedShotProof.Mode is TimedGrantProofMode.Off or TimedGrantProofMode.Shadow,
+                "production configuration cannot select unqualified enforcement");
+            ChannelsAndArmour(); EffectMasks(); FrozenRowFacts(); LegalCeilingsAndDistanceCounterexample(); ZeroAndMalformed();
             Console.WriteLine($"PASS: {_checks} pure constructed frozen-channel/ceiling assertions; no native/admission/impact proof."); return 0; }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
     }

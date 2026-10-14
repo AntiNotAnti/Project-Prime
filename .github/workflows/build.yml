@@ -622,6 +622,7 @@ jobs:
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --timed-shot-certificates
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --timed-damage-profiles
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --timed-shot-damage
+          PRIME_TIMED_GRANT_PROOF=enforce-discrete dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --timed-shot-damage
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --timed-source-capabilities
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --pickup-protocol
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --pickup-claims

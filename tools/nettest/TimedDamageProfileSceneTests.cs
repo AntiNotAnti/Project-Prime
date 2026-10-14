@@ -62,7 +62,7 @@ internal static class TimedDamageProfileSceneTests
         {
             uint next = unchecked(NetSession.NetFrame + 1);
             long failures = _sim.StepFailures;
-            Frame(next); _sim.Step();
+            _sim.Step();
             Check(_sim.StepFailures == failures && failures == 0 && NetSession.NetFrame == next,
                 "one complete declared authority simulation tick without a swallowed failure");
             return next;
