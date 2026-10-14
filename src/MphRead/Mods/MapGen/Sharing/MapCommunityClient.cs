@@ -125,6 +125,108 @@ public sealed class MapCommunityClient : IDisposable
             ?? throw new InvalidDataException("Community capabilities document is invalid.");
     }
 
+    /// <summary>
+    /// Typed content discovery with safe fallback to old map-only v2 servers.
+    /// This is presentation metadata: installing maps still uses the exact
+    /// v2 package hash and the existing runtime preparation barrier.
+    /// </summary>
+    public async Task<CommunityContentPage> BrowseContentAsync(
+        CancellationToken token, string? kind = null, bool mine = false,
+        string? query = null, string? sort = null, int page = 1, int pageSize = 24)
+    {
+        if (kind != null) kind = CommunityContentKinds.Normalize(kind);
+        page = Math.Clamp(page, 1, 2000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        string resource = "v3/content?mine=" + mine.ToString().ToLowerInvariant()
+            + "&page=" + page + "&pageSize=" + pageSize
+            + "&sort=" + Uri.EscapeDataString(sort ?? "name");
+        if (kind != null) resource += "&kind=" + Uri.EscapeDataString(kind);
+        if (!string.IsNullOrWhiteSpace(query))
+            resource += "&query=" + Uri.EscapeDataString(query);
+
+        using var response = await GetReadAsync(resource,
+            HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed)
+        {
+            if (kind != null && kind != CommunityContentKinds.Map)
+                return new CommunityContentPage(3, 0, page, pageSize,
+                    Array.Empty<CommunityContentProject>());
+            IEnumerable<CommunityContentProject> legacy =
+                (await BrowseProjectsAsync(token, mine, sort: sort).ConfigureAwait(false))
+                    .Select(CommunityContentProjection.FromMap);
+            if (!string.IsNullOrWhiteSpace(query))
+                legacy = legacy.Where(p => (p.Name + " " + p.DisplayName + " " + p.Author)
+                    .Contains(query, StringComparison.OrdinalIgnoreCase));
+            CommunityContentProject[] all = legacy.ToArray();
+            return new CommunityContentPage(3, all.Length, page, pageSize,
+                all.Skip((page - 1) * pageSize).Take(pageSize).ToArray());
+        }
+
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false),
+            data, 4 * 1024 * 1024, token).ConfigureAwait(false);
+        CommunityContentPage result = JsonSerializer.Deserialize<CommunityContentPage>(
+            data.ToArray(), MapPackageReader.JsonOptions)
+            ?? throw new InvalidDataException("Community v3 content catalog is invalid.");
+        if (result.SchemaVersion != 3 || result.Total < 0
+            || result.Items == null || result.Items.Length > pageSize
+            || result.Items.Any(item => item == null
+                || item.ContentId == Guid.Empty
+                || !CommunityContentKinds.Supported.Contains(item.Kind, StringComparer.Ordinal)))
+            throw new InvalidDataException("Community v3 catalog violates typed content bounds.");
+        return result;
+    }
+
+    public async Task<CommunityContentProject?> GetContentAsync(
+        string kind, Guid contentId, CancellationToken token)
+    {
+        kind = CommunityContentKinds.Normalize(kind);
+        if (contentId == Guid.Empty)
+            throw new ArgumentException("A stable content ID is required.", nameof(contentId));
+        using var response = await GetReadAsync("v3/content/" + kind + "/" + contentId,
+            HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed)
+        {
+            if (kind != CommunityContentKinds.Map) return null;
+            CommunityMapProject? map = await GetProjectAsync(contentId, token).ConfigureAwait(false);
+            return map == null ? null : CommunityContentProjection.FromMap(map);
+        }
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false),
+            data, 1024 * 1024, token).ConfigureAwait(false);
+        CommunityContentProject result = JsonSerializer.Deserialize<CommunityContentProject>(
+            data.ToArray(), MapPackageReader.JsonOptions)
+            ?? throw new InvalidDataException("Community v3 detail is invalid.");
+        if (result.ContentId != contentId || result.Kind != kind)
+            throw new InvalidDataException("Community v3 detail changed content identity.");
+        return result;
+    }
+
+    public async Task<CommunityContentRevision[]> GetContentRevisionsAsync(
+        string kind, Guid contentId, CancellationToken token)
+    {
+        kind = CommunityContentKinds.Normalize(kind);
+        if (contentId == Guid.Empty)
+            throw new ArgumentException("A stable content ID is required.", nameof(contentId));
+        using var response = await GetReadAsync(
+            "v3/content/" + kind + "/" + contentId + "/revisions",
+            HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed)
+            return kind == CommunityContentKinds.Map
+                ? (await GetRevisionsAsync(contentId, token).ConfigureAwait(false))
+                    .Select(CommunityContentProjection.FromMap).ToArray()
+                : Array.Empty<CommunityContentRevision>();
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false),
+            data, 4 * 1024 * 1024, token).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<CommunityContentRevision[]>(
+            data.ToArray(), MapPackageReader.JsonOptions)
+            ?? throw new InvalidDataException("Community v3 revisions are invalid.");
+    }
+
     public async Task<CommunityMap[]> BrowseAsync(CancellationToken token, bool mine = false, bool favorites = false, string? sort = null)
     {
         using var response = await GetReadAsync("maps?mine="+mine.ToString().ToLowerInvariant()+"&favorites="+favorites.ToString().ToLowerInvariant()+"&sort="+Uri.EscapeDataString(sort??"name"), HttpCompletionOption.ResponseHeadersRead, token);
