@@ -97,6 +97,27 @@ try
         Position=new[]{3f,1f,0f}
     });
 
+    // Exercise the actual user-facing bridge before packaging. The source
+    // remains editable .map plus a pinned identity sidecar; package input is
+    // a newly imported Project Prime definition, not a handcrafted mesh.
+    string radiantSource = Path.Combine(root, "radiant-authoring.map");
+    string radiantIdentity = Path.Combine(root, "project-prime.json");
+    QuakeMapInterchange.Export(source, radiantSource, radiantIdentity, 16f);
+    var imported = QuakeMapInterchange.Import(radiantSource, radiantIdentity);
+    Check(imported.Definition.MapId == mapId
+        && imported.Definition.Geometry.Single(x=>x.Id==boxId) is MapBox box
+        && box.QuakeFaces is {Count:6}
+        && imported.Definition.Geometry.Single(x=>x.Id==patchId) is MapBezierPatch originalCurve
+        && originalCurve.ControlPoints.Count==9 && !originalCurve.Solid,
+        "real .map import retains editable source geometry, face projection and MapId");
+    source = imported.Definition;
+    foreach(MapMaterial mat in source.Materials)
+    {
+        mat.Texture = "tile.tex";
+        mat.TexScale = 16f;
+    }
+    source.Assets.Add(new MapAsset{Path="tile.tex",Kind="texture"});
+    source.BaseDirectory = root;
     string authored = source.Serialize();
     string authoredHash = Convert.ToHexString(SHA256.HashData(
         Encoding.UTF8.GetBytes(authored)));
@@ -118,6 +139,8 @@ try
         Check(reader.Manifest?.MapId == mapId
             && packaged.MapId == mapId && packaged.Name == source.Name,
             "strict reader retains original immutable MapId and room metadata");
+        Check(!reader.ReadProject().Contains(root,StringComparison.OrdinalIgnoreCase),
+            "packaged metadata does not leak author's absolute filesystem paths");
         Check(packaged.Geometry.Count == 2
             && packaged.Geometry.All(x=>x is MapMesh)
             && packaged.Geometry.All(x=>x.QuakeFaces==null)
@@ -162,7 +185,8 @@ try
     try { await MapBuildScheduler.Shared.PackageAsync(
         MapBuildSnapshot.Capture(invalid),first); }
     catch(Exception ex) when (ex is IOException or InvalidOperationException
-        or ArgumentException or MapAuthoringException) { rejected=true; }
+        or ArgumentException or MapAuthoringException or JsonException
+        or NotSupportedException) { rejected=true; }
     Check(rejected && MapBuildFingerprint.HashFile(first)==firstSha,
         "invalid patch source fails closed without replacing an installed exact archive");
     Check(Convert.ToHexString(SHA256.HashData(
