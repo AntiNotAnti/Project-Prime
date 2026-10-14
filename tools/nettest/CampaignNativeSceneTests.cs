@@ -33,7 +33,7 @@ internal static class CampaignNativeSceneTests
             "prime-camp07-native-" + Guid.NewGuid().ToString("N"));
         SceneGameState originalState = GameState.Current;
         ScenePlayerRegistry originalPlayers = PlayerEntity.LegacyRegistry;
-        Rng originalRng = Rng.Current;
+        var originalRng = Rng.Current;
         byte originalSlot = Menu.SaveSlot;
         SaveWhen originalWhen = Menu.NeededSave;
         bool originalSkip = Cheats.SkipPlanetIntros;
