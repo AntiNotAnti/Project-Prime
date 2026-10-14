@@ -55,6 +55,14 @@ namespace MphRead
         private static SeqId _currentMusicSeq = SeqId.None;
         private static SeqId _nextMusicSeq = SeqId.None;
 
+        /// <summary>
+        /// Read-only sequence ownership for the campaign launcher. A closed
+        /// game scene resets the player on the next Music.Init; older menus
+        /// must never Stop a different scene's new music.
+        /// </summary>
+        public static SeqId ActiveSequence => _playing ? _currentMusicSeq : SeqId.None;
+        public static bool Initialized => _musicInfo != null && _roomMusic != null;
+
         private static int _musicEncounterSuspension = 0;
         public static int MusicEncounterSuspension => _musicEncounterSuspension;
         public static MusicId MusicToResume { get; set; } = MusicId.None;
