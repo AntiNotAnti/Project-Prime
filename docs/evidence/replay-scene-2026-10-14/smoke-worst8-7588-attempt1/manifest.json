@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "scope": "Actual original-file PassiveReplayScene.Step only; full plan NOT_ACCEPTED",
+  "files": [
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-worst8-7588-attempt1-attempt1/receipt.json",
+      "originalSha256": "a8fde7157a1057ee1f09764b64b52224c3c4542e904bb50ccd0e40e9d629e240",
+      "originalBytes": 927210,
+      "derivativePath": "receipt.json",
+      "derivativeSha256": "482e8faad5aece5e8d35ff3774676a708882c4e9ca72c0374ba34b56905b5dca",
+      "derivativeBytes": 918406,
+      "treatment": "Exact workspace/home prefix replacement; complete JSON retained"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-worst8-7588-attempt1-attempt1/build.log",
+      "originalSha256": "9cfd65849a597313a2de65ad4fca55cfc03e6cf166c56983d6c928c0cc644c89",
+      "originalBytes": 506,
+      "derivativePath": "build.log.json",
+      "derivativeSha256": "f656d50f3fe8e3a2168e53c6b214535c394cdc775fc0cfb0fe35123b5346025a",
+      "derivativeBytes": 390,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-worst8-7588-attempt1-attempt1/replay-00.log",
+      "originalSha256": "7d6987e401b476586a2502accb1b6b3289d5e10ea7539e2589a1bb6ca03204b4",
+      "originalBytes": 1233,
+      "derivativePath": "replay-00.log.json",
+      "derivativeSha256": "f650ec06c212c7be9956c4220968dd27f75ae54f788bd96f4f47b53bddeed258",
+      "derivativeBytes": 1191,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-worst8-7588-attempt1-attempt1/replay-01.log",
+      "originalSha256": "081fe623ac0312970b4e8824943cfd731694bf80bb5f039d21f5f4e1e7804008",
+      "originalBytes": 1233,
+      "derivativePath": "replay-01.log.json",
+      "derivativeSha256": "c44c6ff744d42ceb1d47853aca4e556d10ce1dd8b12bc7727a1d52d4a513e5f1",
+      "derivativeBytes": 1191,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-worst8-7588-attempt1-attempt1/replay-02.log",
+      "originalSha256": "6e85ca7164c6339b3a82a32f720a9b4902e01c83be64283c4840a60223e491e9",
+      "originalBytes": 1233,
+      "derivativePath": "replay-02.log.json",
+      "derivativeSha256": "15a662d56db9c1f31306664305f62ae2f530d938f5a8c48b71d4ece7a9f04056",
+      "derivativeBytes": 1191,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-worst8-7588-attempt1-attempt1/replay-03.log",
+      "originalSha256": "ed4cfd30182f008b10dcc74e042db6bac76927ae089bc8c53d9a4edbc2176645",
+      "originalBytes": 1233,
+      "derivativePath": "replay-03.log.json",
+      "derivativeSha256": "75db028b64e4f189fd3ffca0a5a0e98ac25bcf25d4ac5b782b9391affb103609",
+      "derivativeBytes": 1191,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-worst8-7588-attempt1-attempt1/replay-04.log",
+      "originalSha256": "56a9eb30b9fe9a8058b80f252fcf6e239f0701c3a13d85e732c9859999391820",
+      "originalBytes": 1233,
+      "derivativePath": "replay-04.log.json",
+      "derivativeSha256": "8c4406a9f102c35b4bf520807f3d3c9771a85007e19acec3bd386cbfd81fdbed",
+      "derivativeBytes": 1191,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-worst8-7588-attempt1-attempt1/replay-05.log",
+      "originalSha256": "d57ac6b7cfe5b4ebcb16fafb62be393f5f162eff99be0accfa3ff00f2cc46880",
+      "originalBytes": 1233,
+      "derivativePath": "replay-05.log.json",
+      "derivativeSha256": "adc93d12e935908d4b969f3391746fe34ce31cdb0511716bbc8fb7bfbea8b202",
+      "derivativeBytes": 1191,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-worst8-7588-attempt1-attempt1/replay-06.log",
+      "originalSha256": "abe3649b10cdcccb9d6a96b1e03f87e61a3c63c6ee491c1231f1b527964eb338",
+      "originalBytes": 1233,
+      "derivativePath": "replay-06.log.json",
+      "derivativeSha256": "597b594f4d8db58af41704c4ca38f0cf987843016eea50c8de97dab83bbeae42",
+      "derivativeBytes": 1191,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-worst8-7588-attempt1-attempt1/replay-07.log",
+      "originalSha256": "ac6dfba278130b90e2cf327946741a926c1aba3561bc9d0a48fac812cdcf2d4b",
+      "originalBytes": 1233,
+      "derivativePath": "replay-07.log.json",
+      "derivativeSha256": "7c5e63ed7a5e7f1f2226434d5c2568194c5dd1a16bc54b1436c1e395b7f89a02",
+      "derivativeBytes": 1191,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/scene-smoke-worst8-7588-attempt1-attempt1/replay-08.log",
+      "originalSha256": "d1a55c9ee235429a4dda2566f4dff97c5846ff0656a6cfeb7a99d7af106aed4a",
+      "originalBytes": 1244,
+      "derivativePath": "replay-08.log.json",
+      "derivativeSha256": "579c7e2aacb60fdcd59c681d0bec5f9bb2de0c9951f0d9f10088e5f498cfb8cc",
+      "derivativeBytes": 1202,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    }
+  ],
+  "inputFinalizationDerivative": {
+    "path": "input-finalization.json",
+    "sha256": "e9aa3a0667e53ec00014724273aa330f90305d1ad31e0e2f665ab1ee14d56233",
+    "bytes": 4653
+  }
+}

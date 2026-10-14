@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "originalCampaignReceiptRelativePath": "work/net-plan-campaigns/smoke-lan2-7588-attempt1/receipt.json",
+  "originalCampaignReceiptSha256": "7e5c2758f259ffa2efe7e13446f085bf790ddd0fdb7938655ba6b5f11f76761d",
+  "originalCampaignReceiptBytes": 110490,
+  "originalCampaignStatus": "INCOMPLETE",
+  "originalCampaignError": null,
+  "originalCampaignRunClosureAndFailures": [
+    {
+      "label": "campaign",
+      "ownedProcessGroup": 31503,
+      "exit": 0,
+      "ownedProcessGroupClosed": true,
+      "remainingOwnedGroupMembers": []
+    },
+    {
+      "label": "strict-auditor",
+      "ownedProcessGroup": 31836,
+      "exit": 2,
+      "ownedProcessGroupClosed": true,
+      "remainingOwnedGroupMembers": []
+    }
+  ],
+  "recordingsAfter": [
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke-lan2-7588-attempt1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_07-48-13-550_fcb6f3a2397347e7afd08cc23bd578ec.ppdemo",
+      "bytes": 3476533,
+      "sha256": "557ed82c9ccc7d642ae3adacbe5c0bfb5af40d06ac3901e623bf944036efe33b",
+      "magic": "PPDM",
+      "format": 4,
+      "protocol": 56,
+      "finalName": true
+    },
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke-lan2-7588-attempt1/campaign/peer-1/exports/_demos/MP12 SIC TRANSIT_2026-10-14_07-48-13-544_43ac252f040e4a34acc95be28ba3208a.ppdemo",
+      "bytes": 3478910,
+      "sha256": "b1796933d087d0b1503b155b9253d7b64aa32512049bb101bd7c85c4633dfdf0",
+      "magic": "PPDM",
+      "format": 4,
+      "protocol": 56,
+      "finalName": true
+    },
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke-lan2-7588-attempt1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_07-48-13-379_9d5036552c394aa9acc45d1f041f3c8b.ppdemo",
+      "bytes": 3547672,
+      "sha256": "e351e10b86f7e4bfd71cb9b329eb9542b4aa6015e5b875bdfc4d67c6c4c889d4",
+      "magic": "PPDM",
+      "format": 6,
+      "protocol": 56,
+      "finalName": true
+    }
+  ],
+  "ownedGroupAbsenceObservedUtc": "2026-10-14T13:04:57.028577+00:00",
+  "ownedGroupsChecked": [
+    31503,
+    31836
+  ],
+  "remainingOwnedGroupMembers": [],
+  "scope": "Finalized file identity and current group absence only; original campaign acceptance unchanged"
+}
