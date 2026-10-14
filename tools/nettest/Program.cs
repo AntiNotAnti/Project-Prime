@@ -314,6 +314,8 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--allocations") return NetworkAllocationTests.Run(Array.IndexOf(args, "--report-only") >= 0);
             if (args.Length > 0 && args[0] == "--protocol17") return Protocol17Tests.Run();
             if (args.Length > 0 && args[0] == "--reliable") return ReliableTests.Run();
+            if (args.Length > 0 && args[0] == "--reliable-rate-refusal")
+                return RateRefusalReliableTests.CheckRun(Array.IndexOf(args, "--falsify-early-ack") >= 0);
             if (args.Length > 0 && args[0] == "--queue-budget") return QueueBudgetTests.Run();
             if (args.Length > 0 && args[0] == "--confirmed-impacts") return ConfirmedImpactTests.Run();
             if (args.Length > 0 && args[0] == "--load-lifecycle") return LoadLifecycleTests.Run();

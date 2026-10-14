@@ -17,6 +17,7 @@ internal static class ReliableTests
             FullStateStartupBurst();
             BackgroundInboxRetry();
             AuthorityFactBudget();
+            RateRefusalReliableTests.Run();
             RetiredPeerAcknowledgesBye();
             RetiredPeerRetriesLostByeAck();
             var endpoint = new IPEndPoint(IPAddress.Loopback, 42);

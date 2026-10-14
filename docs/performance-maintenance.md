@@ -90,6 +90,14 @@ The JSON records average, p50/p95/p99/p99.9 draw work, derived 1% and 0.1% low F
 simulation p99, managed bytes allocated per draw, GC counts, workload identity,
 and build version.
 
+`DrawIntervalsMs` and `SimulationIntervalsMs` retain every collected duration in
+chronological order. They serialize the original lists after the timed loops;
+the existing percentile calculations sort separate copies. The existing bounds
+of 5–120 seconds and 60–240 Hz presentation cap a complete run at 7,200 simulation
+samples and 28,800 draw samples. Draw durations exclude Present/Swap, and the
+derived low-FPS fields describe draw work rather than observed presentation
+cadence.
+
 For both standard runs:
 
 ```bash
