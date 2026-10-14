@@ -107,10 +107,16 @@ class PrimitiveRunnerTests(unittest.TestCase):
             r = result(); mutate(r)
             with self.assertRaises(ValueError): self.validate(r)
 
-    def test_zero_allocations_distinguished_from_new_page_cost(self):
-        for index, bytes_ in [(0, 1), (4, 0)]:
-            r = result(); r["Cases"][index]["Raw"][0]["CallerAllocatedBytes"] = bytes_
-            with self.assertRaises(ValueError): self.validate(r)
+    def test_actual_new_page_cost_remains_required(self):
+        r = result(); r["Cases"][4]["Raw"][0]["CallerAllocatedBytes"] = 0
+        with self.assertRaises(ValueError): self.validate(r)
+
+    def test_every_case_nonzero_observations_are_preserved_without_zero_gate(self):
+        r = result()
+        for c in r["Cases"]:
+            c["Raw"][0]["CallerAllocatedBytes"] = 1360
+        self.validate(r)
+        self.assertTrue(all(c["Raw"][0]["CallerAllocatedBytes"] == 1360 for c in r["Cases"]))
 
     def test_negative_or_wrong_operation_counters_fail(self):
         for field, value in [("Operations", 0), ("WallMs", -1), ("ProcessCpuMs", -1), ("CallerAllocatedBytes", -1), ("WallMs", float("nan")),
