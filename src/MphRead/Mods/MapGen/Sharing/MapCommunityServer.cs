@@ -65,6 +65,9 @@ public static class MapCommunityServer
             catch (Exception ex) { Console.Error.WriteLine("[maphub] Skipped package: " + ex.Message); }
         }
         var revisionCatalog = new MapCommunityRevisionCatalog(storage, maps.Values);
+        // Non-map v3 metadata is deliberately separate. Maps are projected
+        // from the existing v2 revision catalog on every read, never dual-written.
+        var contentRegistry = new CommunityContentRegistry(storage);
         long publishedBytes = maps.Values.Sum(m => m.Bytes);
         DateTimeOffset nextLifecycleSweep = DateTimeOffset.UtcNow.AddHours(1);
         object lifecycleSweepGate = new();
@@ -452,6 +455,149 @@ public static class MapCommunityServer
                     }, deadline.Token);
                     return;
                 }
+                if (parts.Length >= 2 && parts[0] == "v3"
+                    && parts[1] == "content" && context.Request.HttpMethod == "GET")
+                {
+                    string? viewer = creator?.CreatorId;
+                    var query = context.Request.QueryString;
+
+                    CommunityMapProject[] VisibleMaps(bool own)
+                    {
+                        CommunityMap[] visible = maps.Values.Where(m =>
+                            own ? creator != null && catalog.CanPublish(creator.CreatorId, m)
+                            : m.Listed && !m.Draft
+                                && revisionCatalog.IsProjectDiscoverable(m.MapId)
+                                && !revisionCatalog.IsRevisionDeleted(m.Hash))
+                            .Select(m => catalog.Decorate(m, viewer))
+                            .ToArray();
+                        return visible.GroupBy(m => m.MapId)
+                            .Select(g => revisionCatalog.BuildProject(g.Key, g,
+                                revealCreatorIdentity: own,
+                                includeDeleted: own,
+                                canManageLifecycle: own && creator != null
+                                    && g.Any(m => catalog.CanPublish(creator.CreatorId, m))))
+                            .OfType<CommunityMapProject>().ToArray();
+                    }
+
+                    CommunityContentProject? Lookup(string kind, Guid id)
+                    {
+                        if (kind != CommunityContentKinds.Map)
+                            return contentRegistry.GetVisible(kind, id, viewer);
+                        CommunityMap[] versions = maps.Values.Where(m => m.MapId == id).ToArray();
+                        if (versions.Length == 0) return null;
+                        bool owned = creator != null
+                            && versions.Any(m => catalog.CanPublish(creator.CreatorId, m));
+                        if (!owned && !revisionCatalog.IsProjectDiscoverable(id)) return null;
+                        CommunityMap[] visible = versions
+                            .Where(m => owned || m.Listed && !m.Draft
+                                && !revisionCatalog.IsRevisionDeleted(m.Hash))
+                            .Select(m => catalog.Decorate(m, viewer))
+                            .ToArray();
+                        var project = revisionCatalog.BuildProject(id, visible,
+                            revealCreatorIdentity: owned,
+                            includeDeleted: owned, canManageLifecycle: owned);
+                        return project == null ? null : CommunityContentProjection.FromMap(project);
+                    }
+
+                    if (parts.Length == 2)
+                    {
+                        bool mine = query["mine"] == "true";
+                        if (mine && creator == null)
+                        { context.Response.StatusCode = 401; return; }
+                        string? kind = query["kind"];
+                        if (kind != null)
+                        {
+                            try { kind = CommunityContentKinds.Normalize(kind); }
+                            catch (ArgumentException)
+                            { context.Response.StatusCode = 400; return; }
+                        }
+                        string search = query["query"] ?? "";
+                        string tag = query["tag"] ?? "";
+                        if (search.Length > 128 || tag.Length > 32)
+                        { context.Response.StatusCode = 400; return; }
+
+                        var all = new List<CommunityContentProject>();
+                        if (kind == null || kind == CommunityContentKinds.Map)
+                            all.AddRange(VisibleMaps(mine).Select(CommunityContentProjection.FromMap));
+                        if (kind == null || kind != CommunityContentKinds.Map)
+                            all.AddRange(contentRegistry.ListVisible(mine ? viewer : null)
+                                .Where(item => !mine || item.CanManage)
+                                .Where(item => kind == null || item.Kind == kind));
+                        if (!string.IsNullOrWhiteSpace(search))
+                            all = all.Where(item =>
+                                (item.Name + " " + item.DisplayName + " " + item.Author
+                                    + " " + item.Description)
+                                .Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+                        if (!string.IsNullOrWhiteSpace(tag))
+                            all = all.Where(item => item.Tags.Contains(
+                                tag, StringComparer.OrdinalIgnoreCase)).ToList();
+                        if (query["author"] is { } author)
+                            all = all.Where(item => string.Equals(item.Author, author,
+                                StringComparison.OrdinalIgnoreCase)).ToList();
+
+                        IEnumerable<CommunityContentProject> ordered =
+                            query["sort"] is "new" or "updated"
+                                ? all.OrderByDescending(item => item.UpdatedAt)
+                                : all.OrderBy(item => item.DisplayName ?? item.Name,
+                                    StringComparer.OrdinalIgnoreCase);
+                        ordered = ordered.ThenBy(item => item.Kind, StringComparer.Ordinal)
+                            .ThenBy(item => item.ContentId);
+                        int total = all.Count;
+                        int page = int.TryParse(query["page"], out int p) ? Math.Clamp(p, 1, 2000) : 1;
+                        int size = int.TryParse(query["pageSize"], out int n)
+                            ? Math.Clamp(n, 1, 100) : 24;
+                        var result = new CommunityContentPage(3, total, page, size,
+                            ordered.Skip((page - 1) * size).Take(size).ToArray());
+                        context.Response.Headers["X-Total-Count"] =
+                            total.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        await CatalogJson(context, result, deadline.Token,
+                            privateResult: creator != null);
+                        return;
+                    }
+
+                    if ((parts.Length is 4 or 5)
+                        && Guid.TryParse(parts[3], out Guid contentId))
+                    {
+                        string kind;
+                        try { kind = CommunityContentKinds.Normalize(parts[2]); }
+                        catch (ArgumentException)
+                        { context.Response.StatusCode = 400; return; }
+                        CommunityContentProject? project = Lookup(kind, contentId);
+                        if (project == null) { context.Response.StatusCode = 404; return; }
+
+                        if (parts.Length == 4)
+                        {
+                            await CatalogJson(context, project, deadline.Token,
+                                privateResult: creator != null);
+                            return;
+                        }
+                        if (parts[4] == "revisions")
+                        {
+                            CommunityContentRevision[] revisions;
+                            if (kind == CommunityContentKinds.Map)
+                            {
+                                bool own = project.CanManage;
+                                CommunityMap[] eligible = maps.Values
+                                    .Where(m => m.MapId == contentId
+                                        && (own || m.Listed && !m.Draft
+                                            && !revisionCatalog.IsRevisionDeleted(m.Hash)))
+                                    .Select(m => catalog.Decorate(m, viewer)).ToArray();
+                                revisions = revisionCatalog.BuildRevisions(
+                                    contentId, eligible, revealCreatorIdentity: own,
+                                    includeDeleted: own)
+                                    .Select(CommunityContentProjection.FromMap).ToArray();
+                            }
+                            else
+                                revisions = contentRegistry.RevisionsVisible(kind, contentId, viewer);
+                            await CatalogJson(context, revisions, deadline.Token,
+                                privateResult: creator != null);
+                            return;
+                        }
+                    }
+                    context.Response.StatusCode = 404;
+                    return;
+                }
+
                 if (route == root + "/v2/metrics" && context.Request.HttpMethod == "GET")
                 {
                     if (creator?.Moderator != true)
