@@ -116,11 +116,89 @@ internal static class TimedDamageProfileTests
         catch (ArgumentOutOfRangeException) { invalidBeam = true; }
         Check(invalidBeam, "no-beam attack cannot borrow a packed beam susceptibility");
     }
+    private static void NativeArithmeticVectorsAcrossEveryBeam()
+    {
+        // Independently tabulated values retain staged truncation, unlike a
+        // combined scale or comparison against the same helper under test.
+        // .75/1.25 are declared metadata arithmetic variants; the current native
+        // GameState getter fixes actual match DamageLevel to its normal index1.
+        var vectors = new (float Channel, Effectiveness Susceptibility, float Level,
+            byte Handicap, uint Expected)[] {
+            (0, Effectiveness.Double, 1.25f, 0, 0),
+            (.99f, Effectiveness.Double, 1.25f, 0, 0),
+            (1.99f, Effectiveness.Half, .75f, 50, 1),
+            (7.9f, Effectiveness.Half, 1.25f, 0, 3),
+            (14, Effectiveness.Half, 1.25f, 0, 8),
+            (32, Effectiveness.Half, 1.25f, 0, 20),
+            (56, Effectiveness.Half, 1.25f, 0, 35),
+            (72, Effectiveness.Half, 1.25f, 0, 45),
+            (200, Effectiveness.Half, 1.25f, 0, 125),
+            (7.9f, Effectiveness.Normal, .75f, 30, 3),
+            (14, Effectiveness.Normal, .75f, 30, 7),
+            (32, Effectiveness.Normal, .75f, 30, 16),
+            (56, Effectiveness.Normal, .75f, 30, 29),
+            (72, Effectiveness.Normal, .75f, 30, 37),
+            (200, Effectiveness.Normal, .75f, 30, 105),
+            (7.9f, Effectiveness.Double, 1.25f, 50, 8),
+            (14, Effectiveness.Double, 1.25f, 50, 17),
+            (32, Effectiveness.Double, 1.25f, 50, 40),
+            (56, Effectiveness.Double, 1.25f, 50, 70),
+            (72, Effectiveness.Double, 1.25f, 50, 90),
+            (200, Effectiveness.Double, 1.25f, 50, 250),
+            (200, Effectiveness.Zero, .75f, 50, 0),
+            (200, Effectiveness.Zero, 1, 0, 0),
+            (200, Effectiveness.Zero, 1.25f, 10, 0)
+        };
+        foreach (var vector in vectors)
+        {
+            var profile = Profile(vector.Susceptibility, vector.Level, vector.Handicap);
+            for (int beam = 0; beam < 9; beam++)
+                Check(profile.CompleteDamage(vector.Channel, (BeamType)beam, false, false) == vector.Expected,
+                    $"tabulated native staged arithmetic beam={beam} channel={vector.Channel} susceptibility={vector.Susceptibility} level={vector.Level} handicap={vector.Handicap}");
+        }
+        var handicaps = new (byte Reduction, uint Expected)[] {
+            (0, 101), (10, 90), (20, 80), (30, 70), (40, 60), (50, 50) };
+        foreach (var handicap in handicaps)
+        {
+            var profile = Profile(handicap: handicap.Reduction);
+            for (int beam = 0; beam < 9; beam++)
+                Check(profile.CompleteDamage(101, (BeamType)beam, false, false) == handicap.Expected,
+                    "all six roster handicap values retain integer-percent behavior for every beam");
+        }
+        var weavel = Profile(hunter: Hunter.Weavel, balanced: true, transitioning: true);
+        foreach (var edge in new (uint Channel, uint Body)[] {
+            (2, 2), (6, 4), (10, 8), (14, 10), (18, 14), (22, 16), (30, 22) })
+            for (int beam = 0; beam < 9; beam++)
+            {
+                Check(weavel.CompleteDamage(edge.Channel, (BeamType)beam, false, false) == edge.Body,
+                    "Weavel transition half-integer rounds to even, including downward edges");
+                Check(weavel.CompleteDamage(edge.Channel, (BeamType)beam, true, false) == edge.Channel,
+                    "native headshot flag bypasses transition reduction for every packed susceptibility channel");
+                Check(weavel.CompleteDamage(edge.Channel, (BeamType)beam, false, true) == edge.Channel,
+                    "self identity bypasses enemy transition armour for every beam");
+            }
+        foreach (var hunter in new[] { Hunter.Samus, Hunter.Kanden, Hunter.Spire, Hunter.Noxus,
+            Hunter.Weavel, Hunter.Trace, Hunter.Sylux })
+        {
+            var profile = Profile(hunter: hunter, balanced: true);
+            uint body = hunter is Hunter.Spire or Hunter.Noxus ? 13u : 14u;
+            for (int beam = 0; beam < 9; beam++)
+            {
+                Check(profile.CompleteDamage(14, (BeamType)beam, false, false) == body,
+                    "all seven captured native hunters select the correct Balanced body profile");
+                Check(profile.CompleteDamage(14, (BeamType)beam, true, false) == 14,
+                    "genuine native head flag preserves precision channel through all hunter profiles");
+                Check(profile.CompleteDamage(14, (BeamType)beam, false, true) == 14,
+                    "self damage is independent of enemy hunter durability");
+            }
+        }
+    }
     public static int Run()
     {
         try
         {
             _checks = 0; PackingAndMissing(); SerialRoundingAndZero(); BalancedVictimFacts(); InvalidArithmeticInputs();
+            NativeArithmeticVectorsAcrossEveryBeam();
             Console.WriteLine($"PASS: {_checks} pure constructed timed victim-damage assertions; no native recording/admission proof");
             return 0;
         }
