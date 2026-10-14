@@ -125,6 +125,7 @@ namespace MphRead.Entities
             ModResolvedHitPoint = impactPoint;
             ModResolvedHitPointValid = Single.IsFinite(impactPoint.X)
                 && Single.IsFinite(impactPoint.Y) && Single.IsFinite(impactPoint.Z);
+            using var nativeImpact = NetNativeImpactWitness.Enter(player, this, damage, flags, impactPoint);
             try { player.TakeDamage(damage, flags, direction, this); }
             finally { ModResolvedHitPoint = priorPoint; ModResolvedHitPointValid = priorValid; }
         }
