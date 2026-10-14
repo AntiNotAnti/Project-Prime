@@ -59,6 +59,7 @@ internal sealed class StudioCreatorCommunityWorkspace : UserControl, IDisposable
                 HunterLicenseClient.GetCommunityMapTicketAsync,
                 HunterLicenseClient.RefreshCommunityMapTicketAsync));
         _queue.Changed += OnJobChanged;
+        _queue.StartPending(); // Retry interrupted jobs, never user-paused jobs.
         DetachedFromVisualTree += (_, _) => Dispose();
 
         var root = new Grid
@@ -250,6 +251,10 @@ internal sealed class StudioCreatorCommunityWorkspace : UserControl, IDisposable
                 PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
             return;
         }
+        _list.Add(new UiListRow(_intent.RuntimeName,
+            "Captured immutable source · new package on queue", spacious: true)
+            { Choice = _intent.MapId },
+            _ => { /* Publish options stay visible in the detail pane. */ });
         _details.Children.Add(PrimeChrome.Title(_intent.RuntimeName));
         _details.Children.Add(PrimeChrome.Text(
             "Frozen authoring snapshot · MapId " + _intent.MapId,
