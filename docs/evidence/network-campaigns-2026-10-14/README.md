@@ -1,6 +1,6 @@
 # Completed network campaign evidence
 
-Each subdirectory preserves one completed attempt and its exact source/client identity. An INCOMPLETE or FAIL attempt remains such when later attempts are added. Running artifacts are not published as final results. Full NET acceptance remains NOT_ACCEPTED; production Enforce is unavailable.
+Each subdirectory preserves a closed workload or an explicitly interrupted/failed attempt and its exact source/client identity. An INCOMPLETE or FAIL attempt remains such when later attempts are added. The interrupted predecessor's original RUNNING receipt is retained as partial evidence; it is never published as a final successful result. Full NET acceptance remains NOT_ACCEPTED; production Enforce is unavailable.
 
 | Attempt | Exact source | Recorded outcome |
 | --- | --- | --- |
@@ -10,8 +10,8 @@ Each subdirectory preserves one completed attempt and its exact source/client id
 
 Portable verifier: `python3 tools/network-evidence/verify.py --evidence <completed-attempt-directory>`. Original-file verification additionally takes `--original-workspace-root "$TASK_WORKSPACE"`. Verifier falsifiers run with `python3 -m unittest discover -s tools/network-evidence -p 'test_*.py' -v`; all twelve pass, including refusal of forged original indices/reordered metric columns, refusal to package running/missing-original attempts, exact deterministic Unicode recomposition, missing/altered/reordered chunk refusal and refusal of a falsely rewritten PASS even when derivative hashes are updated.
 
-See [current758 native acceptance](../native-acceptance-2026-10-14/README.md) for its separate engine/rendered fixture scope. Neither native correctness nor this bounded transport smoke establishes a joined live authority/payment claim or a performance rollout.
+See [current758 native acceptance](../native-acceptance-2026-10-14/README.md) for its separate engine/rendered fixture scope. Native correctness and transport activity alone establish neither missing authority/payment joins nor a performance rollout. The separately corrected audits report their actual bounded joins.
 
 The reusable `tools/network-evidence/pack.py` requires finalized process closure or a separate recovered interrupted-attempt receipt, refuses existing immutable output directories and missing declared inputs before writing, preserves complete selected originals, and automatically uses bounded lossless chunks. New source/case metrics require explicit review; packing is not acceptance.
 
-Completed remaining cases: [long8 failed wrapper/recovery](long8-7588-attempt1/README.md), [LAN2](smoke-lan2-7588-attempt1/README.md), [moderate4](smoke-moderate4-7588-attempt1/README.md), [worst8 original FAIL](smoke-worst8-7588-attempt1/README.md), and [separate corrected read-only audits](corrected-audits-a74d1575/README.md). Corrected outcomes are1 boundedPASS and5INCOMPLETE; producer758 and auditora74 identities remain distinct. No original interruption/guard/overflow/strict failure is overwritten. Full NET remains NOT_ACCEPTED.
+Completed remaining cases: [long8 failed wrapper/recovery](long8-7588-attempt1/README.md), [LAN2](smoke-lan2-7588-attempt1/README.md), [moderate4](smoke-moderate4-7588-attempt1/README.md), [worst8 original FAIL](smoke-worst8-7588-attempt1/README.md), and [separate corrected read-only audits](corrected-audits-a74d1575/README.md). Corrected outcomes are one bounded PASS and five INCOMPLETE; producer 7588 and auditor a74 identities remain distinct. No original interruption/guard/overflow/strict failure is overwritten. Full NET remains NOT_ACCEPTED.
