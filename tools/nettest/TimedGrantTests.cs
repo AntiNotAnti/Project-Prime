@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using MphRead.Mods.Network;
 
 namespace MphRead.NetTest;
@@ -40,6 +41,147 @@ internal static class TimedGrantTests
         var answer = ledger.GrantedAt(life, source, type, now);
         Check(answer.Knowledge == expected && (sequence == 0 || answer.Sequence == sequence),
             $"{name}: expected {expected}/{sequence}, got {answer}");
+        bool observed = ledger.TryReadObservation(life, source, type, out var cached, out _);
+        Check(cached == answer && (observed || expected == TimedGrantKnowledge.Unavailable),
+            name + ": raw lookup agrees with unchanged legacy result after legacy advancement");
+    }
+
+    private static void ReadAnswer(NetTimedGrants ledger, ShotKey life, uint source,
+        TimedPowerUp type, TimedGrantKnowledge knowledge, uint authority, ulong sequence = 0)
+    {
+        Check(ledger.TryReadObservation(life, source, type, out var answer, out uint frame)
+            && answer == new TimedGrantAnswer(knowledge, sequence) && frame == authority,
+            $"raw retained answer {type}/{knowledge}/{sequence} preserves authority frame {authority}");
+    }
+
+    private static void Missing(NetTimedGrants ledger, ShotKey life, uint source,
+        TimedPowerUp type = TimedPowerUp.DoubleDamage)
+    {
+        Check(!ledger.TryReadObservation(life, source, type, out var answer, out uint frame)
+            && answer == new TimedGrantAnswer(TimedGrantKnowledge.Unavailable) && frame == 0,
+            "missing/invalid raw lookup returns false with unavailable answer and no authority frame");
+    }
+
+    private static void ReadOnlyObservations()
+    {
+        {
+            var life = Life(); var ledger = Ledger(life);
+            ledger.ObserveInput(life, 0, 0);
+            ReadAnswer(ledger, life, 0, TimedPowerUp.DoubleDamage, TimedGrantKnowledge.NotGranted, 0);
+            Missing(ledger, life, 1); // frame zero is valid observed data, not the absence flag
+        }
+        foreach (var type in Enum.GetValues<TimedPowerUp>())
+        {
+            var life = Life(); var ledger = Ledger(life);
+            Missing(ledger, life, 0, type); // must not seed the first source clock
+            var first = Grant(ledger, life, 100, 5000, type);
+            ledger.ObserveInput(life, 5000, 100);
+            ReadAnswer(ledger, life with { ShotId = 55 }, 5000, type, TimedGrantKnowledge.NotGranted, 100);
+            ledger.ObserveInput(life, 5001, 101);
+            ReadAnswer(ledger, life, 5001, type, TimedGrantKnowledge.Granted, 101, first.Sequence);
+            var renewal = Grant(ledger, life, 102, 5002, type);
+            ledger.ObserveInput(life, 5001, 103);
+            ReadAnswer(ledger, life, 5001, type, TimedGrantKnowledge.Granted, 101, first.Sequence);
+            ledger.ObserveInput(life, 5003, 103);
+            ReadAnswer(ledger, life, 5003, type, TimedGrantKnowledge.Granted, 103, renewal.Sequence);
+            ledger.RetireSlot(0, 103, TimedGrantEnd.Death);
+            ReadAnswer(ledger, life with { ShotId = 999 }, 5003, type,
+                TimedGrantKnowledge.Granted, 103, renewal.Sequence);
+            var next = Life(life: 2); ledger.BeginLife(next, 104); ledger.ObserveInput(next, 5003, 104);
+            ReadAnswer(ledger, next, 5003, type, TimedGrantKnowledge.NotGranted, 104);
+            var replacement = Life(generation: 2, life: 2);
+            ledger.BeginLife(replacement, 105); ledger.ObserveInput(replacement, 5003, 105);
+            ReadAnswer(ledger, replacement, 5003, type, TimedGrantKnowledge.NotGranted, 105);
+            ReadAnswer(ledger, next, 5003, type, TimedGrantKnowledge.NotGranted, 104);
+            ReadAnswer(ledger, life, 5003, type, TimedGrantKnowledge.Granted, 103, renewal.Sequence);
+            foreach (var wrong in new[] { life with { AuthorityEpoch = 12 }, life with { MatchId = 8 },
+                life with { ShooterSlot = -1 }, life with { ShooterSlot = 8 },
+                life with { Generation = 0 }, life with { LifeId = 0 }, life with { LifeId = 3 } })
+                Missing(ledger, wrong, 5003, type);
+            Missing(ledger, life, 5004, type);
+            Missing(ledger, life, 5003, (TimedPowerUp)3);
+            Missing(ledger, life, 5003, (TimedPowerUp)255);
+            var otherRoom = new NetTimedGrants(11, 7, 4);
+            Check(ledger.Room == 3 && otherRoom.Room == 4, "raw lookup exposes immutable owning room scope");
+            Missing(otherRoom, life, 5003, type);
+        }
+        {
+            var life = Life(); var ledger = Ledger(life); Grant(ledger, life, 100, null);
+            ledger.ObserveInput(life, 9000, 101);
+            ReadAnswer(ledger, life, 9000, TimedPowerUp.DoubleDamage, TimedGrantKnowledge.Unavailable, 101);
+            Missing(ledger, life, 9001);
+            ledger.ObserveInput(life, 9034, 102);
+            ReadAnswer(ledger, life, 9034, TimedPowerUp.Cloak, TimedGrantKnowledge.Unavailable, 102);
+        }
+        {
+            var life = Life(); var ledger = Ledger(life);
+            uint contact = uint.MaxValue - 900;
+            var grant = Grant(ledger, life, contact, uint.MaxValue);
+            ledger.ObserveInput(life, 0, unchecked(contact + 1));
+            ReadAnswer(ledger, life, 0, TimedPowerUp.DoubleDamage,
+                TimedGrantKnowledge.Granted, unchecked(contact + 1), grant.Sequence);
+            ledger.Advance(unchecked(contact + 1 + NetTimedGrants.Retention));
+            ReadAnswer(ledger, life, 0, TimedPowerUp.DoubleDamage,
+                TimedGrantKnowledge.Granted, unchecked(contact + 1), grant.Sequence);
+            ledger.Advance(unchecked(contact + 2 + NetTimedGrants.Retention));
+            Missing(ledger, life, 0);
+        }
+    }
+
+    private static void ReadOnlyPublicationSilence()
+    {
+        var frameProperty = typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!;
+        uint savedFrame = NetSession.NetFrame;
+        var revisionField = typeof(NetGrantNetwork).GetField("_revision", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var advancedField = typeof(NetTimedGrants).GetField("_advancedFrame", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var clocksField = typeof(NetTimedGrants).GetField("_clocks", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        NetGrantNetwork.Reset();
+        try
+        {
+            frameProperty.SetValue(null, 100u);
+            var peer = NetGrantNetwork.Join();
+            int callbacks = 0;
+            var ledger = new NetTimedGrants(11, 7, 3, grant =>
+            { callbacks++; NetGrantNetwork.Changed(grant); });
+            var life = Life(); ledger.BeginLife(life, 100);
+            var grant = Grant(ledger, life, 100, 5000);
+            ledger.ObserveInput(life, 5001, 101);
+            uint revision = (uint)revisionField.GetValue(null)!;
+            var clocks = ((Array)clocksField.GetValue(ledger)!).Cast<object>().ToArray();
+            var counts = (ledger.SpawnCount, ledger.HistoryCount, ledger.ObservationCount, ledger.CapacityRefused);
+            byte[] before = Array.Empty<byte>();
+            Check(NetGrantNetwork.Pump(peer, (_, bytes) => { before = bytes.ToArray(); return false; })
+                && before.Length == TimedGrantFact.Size && callbacks == 1,
+                "real production callback publishes one retained grant packet before raw-query witness");
+            // An elapsed external clock does not impose a TTL on raw cached
+            // truth or advance the authority ledger as a side effect of reading.
+            frameProperty.SetValue(null, 3000u);
+            for (int i = 0; i < 32; i++)
+            {
+                ReadAnswer(ledger, life with { ShotId = (uint)(i + 1) }, 5001,
+                    TimedPowerUp.DoubleDamage, TimedGrantKnowledge.Granted, 101, grant.Sequence);
+                ReadAnswer(ledger, life, 5001, TimedPowerUp.Cloak, TimedGrantKnowledge.NotGranted, 101);
+                Missing(ledger, life, 5002);
+                Missing(ledger, life, 5001, (TimedPowerUp)255);
+            }
+            byte[] after = Array.Empty<byte>();
+            Check(NetGrantNetwork.Pump(peer, (_, bytes) => { after = bytes.ToArray(); return false; })
+                && before.SequenceEqual(after) && NetGrantNetwork.Pending(peer) == 1
+                && (uint)revisionField.GetValue(null)! == revision && callbacks == 1,
+                "raw lookup preserves actual production revision, retained packet bytes and callback count");
+            Check(counts == (ledger.SpawnCount, ledger.HistoryCount, ledger.ObservationCount, ledger.CapacityRefused)
+                && (uint)advancedField.GetValue(ledger)! == 101
+                && clocks.SequenceEqual(((Array)clocksField.GetValue(ledger)!).Cast<object>())
+                && grant.EndReason == TimedGrantEnd.Active && grant.EndFrame == grant.ExpiresAtFrame,
+                "raw lookup never advances expiry, evicts records, seeds clocks or mutates ledger counts");
+            var legacy = ledger.GrantedAt(life, 5001, (TimedPowerUp)255, grant.ExpiresAtFrame);
+            Check(legacy.Knowledge == TimedGrantKnowledge.Unavailable && callbacks == 2
+                && (uint)revisionField.GetValue(null)! == revision + 1
+                && NetGrantNetwork.Pending(peer) == 2 && grant.EndReason == TimedGrantEnd.Expired,
+                "unchanged legacy invalid-type query still advances expiry and publishes its original transition");
+            Missing(ledger, life, 5001);
+        }
+        finally { NetGrantNetwork.Reset(); frameProperty.SetValue(null, savedFrame); }
     }
 
     private static void BoundariesAndClocks()
@@ -277,6 +419,7 @@ internal static class TimedGrantTests
         {
             _checks = 0;
             BoundariesAndClocks(); RenewalContentionAndTypes(); RetirementAndFences(); RolloverAndRetention(); EightSlots(); AuditTransitions(); Capacity();
+            ReadOnlyObservations(); ReadOnlyPublicationSilence();
             Console.WriteLine($"PASS: {_checks} pure timed grant assertions");
             return 0;
         }

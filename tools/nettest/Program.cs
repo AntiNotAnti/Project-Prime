@@ -37,6 +37,10 @@ namespace MphRead.NetTest
                     + "  --lifecycle-soak                  Test 10/100/500 device-free save/bot-owner handoffs.\n"
                     + "  --shot-source-journal              Test independent authority resources and grant chronology.\n"
                     + "  --timed-grants                    Test authority timed pickup reservations and source history.\n"
+                    + "  --timed-shot-certificates         Test bounded immutable timed shot storage.\n"
+                    + "  --timed-shot-certificate-benchmark [json] Measure certificate storage operations.\n"
+                    + "  --timed-shot-native <assets> [room] Test real native shot certificates and Shadow parity.\n"
+                    + "  --timed-shot-accepted <assets> [room] Test admitted remote shot certificates.\n"
                     + "  --pickup-protocol                 Test pickup packet codecs, registry and budgets.\n"
                     + "  --pickup-claims                   Test authoritative pickup claim decisions.\n"
                     + "  --pickup-claim-scene <assets> [room] Test native pickup claim settlement and timer phases.\n"
@@ -92,6 +96,20 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--grant-replay") return GrantReplayTests.Run();
             if (args.Length > 0 && args[0] == "--grant-network") return GrantNetworkTests.Run();
             if (args.Length > 0 && args[0] == "--terminal-retries") return TerminalRetryTests.Run(Array.IndexOf(args, "--lost-terminal-only") >= 0);
+            if (args.Length > 0 && args[0] == "--timed-shot-certificates") return TimedShotCertificateTests.Run();
+            if (args.Length > 0 && args[0] == "--timed-shot-certificate-benchmark") return TimedShotCertificateTests.RunBenchmark(args);
+            if (args.Length > 1 && args[0] == "--timed-shot-native")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedShotNativeTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 1 && args[0] == "--timed-shot-accepted")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedShotAcceptedTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
             if (args.Length > 0 && args[0] == "--timed-grants") return TimedGrantTests.Run();
             if (args.Length > 0 && args[0] == "--timed-grant-codec") return TimedGrantFactTests.Run();
             if (args.Length > 1 && args[0] == "--powerup-ledger-scene")

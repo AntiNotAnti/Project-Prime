@@ -24,6 +24,8 @@ public readonly record struct ShotProofDecision(ShotProofStatus Status, ShotProo
 public readonly record struct ShotProofSource(ushort Weapons, ushort Charges, int Ammo0, int Ammo1,
     bool Infinite, Hunter Hunter, bool Prime, bool Double, bool Supported = true,
     int AmmoMax0 = int.MaxValue, int AmmoMax1 = int.MaxValue);
+internal readonly record struct ShotSourceEvidence(ShotProofReason Source, ShotProofReason Pose,
+    bool? DoubleHintAgrees, int AmmoType, int Cost, int Cooldown);
 public readonly record struct ShotPaymentKey(ShotKey Shot, byte Victim, ushort Generation,
     ushort Life, uint Component, byte Kind);
 
@@ -79,6 +81,8 @@ public static class NetShotProof
     public static float RadiusMax;
     private static readonly long[] _radiusBuckets = new long[9];
     private static bool Active => Mode != ShotProofMode.Off && NetHitClaims.Arbitrating;
+    internal static bool SourceObserving => Active || NetTimedShotProof.Active;
+    internal static bool SourceInterested(PlayerEntity player) => Active || NetTimedShotProof.Eligible(player);
     private static bool Finite(Vector3 v) => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
     private static bool Expired(uint frame) => unchecked(NetSession.NetFrame - frame) > Retention;
     private static bool SameLife(ShotKey a, ShotKey b) => a with { ShotId = 0 } == b with { ShotId = 0 };
@@ -104,7 +108,7 @@ public static class NetShotProof
     internal static void SourceChanged(PlayerEntity player) => NetShotSourceJournal.Invalidate(player);
     internal static void ObservePose(PlayerEntity player, in IntentPacket intent)
     {
-        if (!Active || (uint)player.SlotIndex>=8 || !player.ModIsInPlay) return;
+        if (!SourceInterested(player) || (uint)player.SlotIndex>=8 || !player.ModIsInPlay) return;
         var stream=ShotKey.For(player.SlotIndex,0) with { LifeId=0 };
         ref var clock=ref _clocks[player.SlotIndex];
         if(!clock.Live || clock.Stream!=stream)
@@ -128,6 +132,17 @@ public static class NetShotProof
                 || !NetSession.MatchesStream(_shots[key.ShooterSlot,i].Key.MatchId,_shots[key.ShooterSlot,i].Key.AuthorityEpoch)
                 || _shots[key.ShooterSlot,i].Key.Generation != key.Generation) { free=i;break; }
         if(free<0) { CapacityRefused++; return; }
+        var source = EvaluateSource(player, key, fire);
+        _shots[key.ShooterSlot,free]=new Shot { Live=true,Key=key,Fire=fire,Observed=NetSession.NetFrame,
+            Cost=source.Cost,AmmoType=source.AmmoType,Cooldown=source.Cooldown,
+            Pose=source.Pose, Source=source.Source };
+    }
+    // One evaluator and one observation owner. The legacy caller preserves its
+    // original ordering, including Double hint rejection; timed Shadow alone
+    // ignores that hint while retaining Prime, affinity, scope and input checks.
+    internal static ShotSourceEvidence EvaluateSource(PlayerEntity player, in ShotKey key,
+        in FireEvent fire, bool ignoreDoubleHint = false, bool nativeInput = false)
+    {
         int weapon=Math.Min((int)fire.Weapon,8);
         bool known = NetShotSourceJournal.TryState(key, fire.SourceFrame, out var sourceState);
         bool affinity = known && (sourceState.Prime || Weapons.GetAffinityBeam(sourceState.Hunter) == (BeamType)weapon);
@@ -151,6 +166,7 @@ public static class NetShotProof
         ref var pose=ref _poses[key.ShooterSlot,fire.SourceFrame%128];
         if(!fire.HasPose || !Finite(fire.Origin) || !Finite(fire.Direction)
             || Math.Abs(fire.Direction.LengthSquared-1)>0.02f) poseReason=ShotProofReason.InvalidRay;
+        else if (nativeInput) poseReason = ShotProofReason.Verified;
         else if(pose.Live && pose.SourceFrame==fire.SourceFrame && SameLife(pose.Life,key))
         {
             // ACK is the opponents' read point, not the shooter's source clock.
@@ -177,7 +193,7 @@ public static class NetShotProof
                 || fire.Charge > inputMechanics.FullCharge * 2 && inputMechanics.Flags.TestFlag(WeaponFlags.CanCharge)
                 || charged && (sourceState.Charges & (1 << weapon)) == 0)
                 sourceReason = ShotProofReason.InvalidCharge;
-            else if (fire.HasEnhancedContext || fire.PrimeAtFire != sourceState.Prime || fire.DoubleAtFire != sourceState.Double
+            else if (fire.HasEnhancedContext || fire.PrimeAtFire != sourceState.Prime || (!ignoreDoubleHint && fire.DoubleAtFire != sourceState.Double)
                 || fire.AffinityAtFire != affinity) sourceReason = ShotProofReason.ModifierMismatch;
             // Selecting another affinity slot can consume Omega even without a shot.
             // Until those transitions have independent evidence, its source is unavailable.
@@ -187,9 +203,8 @@ public static class NetShotProof
             else sourceReason = NetShotInputProof.Inspect(player, key, fire,
                 charged || fire.Kind == FireEventKind.ReleaseFire);
         }
-        _shots[key.ShooterSlot,free]=new Shot { Live=true,Key=key,Fire=fire,Observed=NetSession.NetFrame,
-            Cost=cost,AmmoType=mechanics.AmmoType,Cooldown=cooldown,
-            Pose=poseReason, Source=sourceReason };
+        return new(sourceReason, poseReason, known ? fire.DoubleAtFire == sourceState.Double : null,
+            mechanics.AmmoType, cost, cooldown);
     }
     internal static void Fired(in ShotKey key)
     {

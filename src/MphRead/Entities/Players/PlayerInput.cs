@@ -1390,15 +1390,24 @@ namespace MphRead.Entities
             _scene.AimTrainer?.BeginShot(this);
             bool replayAmmoBypass = exactReplayFire && !EquipInfo.InfiniteAmmo;
             if (replayAmmoBypass) EquipInfo.InfiniteAmmo = true;
+            TimedShotCertificate? timedAttempt = null;
             try
             {
                 NetFireEvents.Begin(this, shotOrigin, shotVec, shotAim,
                     shotView, shotReticle, shotReticleValid);
                 Mods.Network.NetUnlagged.BeginShot(this, shotOrigin, shotVec);
-                result = BeamProjectileEntity.Spawn(this, EquipInfo, shotOrigin, shotVec, flags, NodeRef, _scene);
-                if (result != BeamResultFlags.NoSpawn) NetFireEvents.Commit(this);
+                timedAttempt = NetTimedShotProof.NativeAttempt(this);
+                result = BeamProjectileEntity.SpawnWithEmission(this, EquipInfo, shotOrigin, shotVec,
+                    flags, NodeRef, _scene, out var timedEmission);
+                if (result != BeamResultFlags.NoSpawn)
+                {
+                    NetFireEvents.Commit(this);
+                    NetTimedShotProof.Complete(timedAttempt, timedEmission);
+                }
+                else if (timedEmission.HasSpend) NetTimedShotProof.Abort(timedAttempt);
                 Mods.Network.NetUnlagged.EndShot(this);
             }
+            catch { NetTimedShotProof.Abort(timedAttempt); throw; }
             finally
             {
                 if (replayAmmoBypass) EquipInfo.InfiniteAmmo = false;
