@@ -54,7 +54,7 @@ namespace MphRead.Mods.Campaign
             if (String.IsNullOrWhiteSpace(extractedRoot)
                 || index < 0 || index >= Metadata.MovieFiles.Length)
                 return false;
-            MovieInfo? info = Metadata.MovieFiles[index];
+            Metadata.MovieInfo? info = Metadata.MovieFiles[index];
             if (info == null || String.IsNullOrWhiteSpace(info.TopScreenPath)) return false;
             top = Paths.Combine(extractedRoot, info.TopScreenPath);
             if (!String.IsNullOrWhiteSpace(info.BottomScreenPath))
