@@ -483,7 +483,10 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
             // The queue owns download bytes and persists its partials. Leaving
             // the page cancels only this foreground install handoff, never the
             // durable content job. No worker can report network map Ready.
-            Guid id = _transfers.EnqueueDownload(NetworkMapIdentity.ConfiguredDownloadSource(), map);
+            // Strict cache probes may hash hundreds of MiB. Keep this work
+            // off the UI owner thread even when an exact receipt already exists.
+            Guid id = await Task.Run(() => _transfers.EnqueueDownload(
+                NetworkMapIdentity.ConfiguredDownloadSource(), map), cancel.Token);
             _activeJobId = id;
             _cancel.IsVisible = true;
             CommunityTransferJob result = await _transfers.WaitAsync(id);
@@ -504,10 +507,13 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
                 return;
             }
 
-            string archive = _transfers.VerifiedArchivePath(id)
-                ?? throw new IOException("Verified Community archive is missing.");
+            // The read lease protects the immutable cache entry from another
+            // process's LRU cleanup throughout the private map install.
+            using var archive = await Task.Run(() => _transfers.LeaseVerifiedArchive(id),
+                cancel.Token)
+                ?? throw new IOException("Verified Community archive is missing or changed.");
             MapDefinition installed = await Task.Run(() =>
-                MapPackageInstaller.Install(archive, map.MapId, map.ContentHash, map.Hash,
+                MapPackageInstaller.Install(archive.Path, map.MapId, map.ContentHash, map.Hash,
                     CustomRooms.UserMapDirectory), cancel.Token);
 
             // Commit may finish just before navigation changes. Registration

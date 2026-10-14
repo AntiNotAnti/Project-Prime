@@ -417,6 +417,9 @@ jobs:
       - name: durable Community transfer resume and exact archive checks
         run: dotnet run --project tools/community-transfer-check -c Release
 
+      - name: immutable Community cache, lease and quota acceptance
+        run: dotnet run --project tools/community-cache-check -c Release
+
       - name: encoder worker exit and inherited-pipe cancellation
         run: dotnet run --project tools/encoder-pipe-check -c Release
 

@@ -156,6 +156,34 @@ try
             .SequenceEqual(bytes), "recovered archive is SHA-256/byte exact");
     }
 
+    // An old Completed receipt must not suppress download when LRU removed the
+    // private archive, or when a local file was damaged between app sessions.
+    await using (var cacheRecovery = new CommunityTransferManager(jobsDir, credentials))
+    {
+        string exact = Path.Combine(jobsDir, "archives", hash + ".ppmap");
+        File.Delete(exact);
+        Guid afterEviction = cacheRecovery.EnqueueDownload(endpoint, published);
+        Check(afterEviction == downloadId, "evicted archive reuses its stable job identity");
+        Check((await cacheRecovery.WaitAsync(afterEviction)).State ==
+            CommunityTransferState.Completed
+            && File.ReadAllBytes(cacheRecovery.VerifiedArchivePath(downloadId)!)
+                .SequenceEqual(bytes),
+            "missing completed archive is downloaded and verified again");
+
+        File.WriteAllBytes(exact, new byte[] { 1, 2, 3, 4 });
+        Guid afterCorruption = cacheRecovery.EnqueueDownload(endpoint, published);
+        Check(afterCorruption == downloadId,
+            "corrupt archive reuses its stable job identity");
+        Check((await cacheRecovery.WaitAsync(afterCorruption)).State ==
+            CommunityTransferState.Completed
+            && File.ReadAllBytes(cacheRecovery.VerifiedArchivePath(downloadId)!)
+                .SequenceEqual(bytes),
+            "corrupted completed cache is repaired before reuse");
+        Check(Directory.GetFiles(Path.Combine(jobsDir, "quarantine"),
+            "*.corrupt").Length >= 1,
+            "corrupted bytes are quarantined, never accepted as installed content");
+    }
+
     // Auth is not persisted: reopening without credentials cannot create new
     // authenticated upload operations, but already completed receipts remain.
     await using (var noCredentials = new CommunityTransferManager(jobsDir))
