@@ -152,6 +152,23 @@ try
                 && (await preview.Content.ReadAsByteArrayAsync()).SequenceEqual(png),
                 "bounded preview fetch avoids a complete .ppmap download");
 
+        var oversizedPreviewMap = MapTemplates.Create("SERVICE_BIG_PREVIEW", true).Definition;
+        oversizedPreviewMap.BaseDirectory = root;
+        byte[] bigPreview = new byte[1024 * 1024 + 1];
+        Array.Copy(png, bigPreview, png.Length);
+        File.WriteAllBytes(Path.Combine(root, "preview", "oversized.png"), bigPreview);
+        oversizedPreviewMap.Assets.Add(new MapAsset
+        {
+            Kind = "preview", Path = "preview/oversized.png"
+        });
+        string secondPackage = MapPackageBuilder.Build(oversizedPreviewMap,
+            Path.Combine(root, "oversized-preview.ppmap"));
+        CommunityMap oversized = await api.UploadAsync(secondPackage,
+            CancellationToken.None);
+        using (var limited = await http.GetAsync("packages/" + oversized.Hash + "/preview"))
+            Check(limited.StatusCode == HttpStatusCode.RequestEntityTooLarge,
+                "embedded previews above 1 MiB are refused before client display");
+
         const long quotaSlice = 512L * 1024 * 1024;
         using (var first = await BeginAsync(http, 'a', quotaSlice))
             Check(first.IsSuccessStatusCode, "first 512 MiB session reserves future upload bytes");
