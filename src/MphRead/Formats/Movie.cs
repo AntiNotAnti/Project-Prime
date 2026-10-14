@@ -135,12 +135,25 @@ namespace MphRead
             _movieBottomDecode = botDecode;
             if (!_dualScreenMovie) Array.Fill<byte>(_botImageBuffer, 0);
             TimeSpan limit = TimeSpan.FromSeconds(3);
-            if (!Mods.Campaign.CampaignMovieCatalog.WaitForWarmup(topDecode,
+            bool ready = Mods.Campaign.CampaignMovieCatalog.WaitForWarmup(topDecode,
                     () => VxDecoder.Instance1.FramesQueued, limit, token)
-                || botDecode != null && !Mods.Campaign.CampaignMovieCatalog.WaitForWarmup(
-                    botDecode, () => VxDecoder.Instance2.FramesQueued, limit, token)
-                || !VxDecoder.Instance1.GetImage(frameIndex: 0, _topImageBuffer)
-                || _dualScreenMovie && !VxDecoder.Instance2.GetImage(frameIndex: 0, _botImageBuffer))
+                && (botDecode == null || Mods.Campaign.CampaignMovieCatalog.WaitForWarmup(
+                    botDecode, () => VxDecoder.Instance2.FramesQueued, limit, token));
+            if (ready)
+            {
+                try
+                {
+                    ready = VxDecoder.Instance1.GetImage(frameIndex: 0, _topImageBuffer)
+                        && (!_dualScreenMovie || VxDecoder.Instance2.GetImage(frameIndex: 0, _botImageBuffer));
+                }
+                catch (Exception ex) when (ex is IndexOutOfRangeException
+                    or ArgumentException or InvalidOperationException or NullReferenceException)
+                {
+                    Console.WriteLine($"[campaign] movie {movieId}: decoded frame invalid ({ex.Message})");
+                    ready = false;
+                }
+            }
+            if (!ready)
             {
                 Console.WriteLine($"[campaign] movie {movieId}: decode failed or timed out; continuing");
                 StopMovie();
