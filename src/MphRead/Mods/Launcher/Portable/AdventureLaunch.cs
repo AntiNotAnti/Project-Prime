@@ -7,8 +7,11 @@ namespace MphRead.Mods.Launcher
     /// </summary>
     public static class AdventureLaunch
     {
-        public static LaunchPlan Create(byte slot, bool newGame, Hunter hunter)
+        public static LaunchPlan Create(byte slot, bool newGame, Hunter hunter,
+            Campaign.CampaignPlanet? destination = null)
         {
+            if (newGame && destination.HasValue)
+                throw new System.ArgumentException("A new game cannot bypass its starting planet.", nameof(destination));
             LauncherPrefs.LastHunter = hunter;
             LauncherPrefs.LastKind = (int)LaunchKind.Adventure;
             LauncherPrefs.Save();
@@ -19,7 +22,8 @@ namespace MphRead.Mods.Launcher
                 PlayerName = LauncherPrefs.PlayerName,
                 RoomKey = "",
                 SaveSlot = slot,
-                NewGame = newGame
+                NewGame = newGame,
+                AdventureDestination = destination
             };
         }
     }
