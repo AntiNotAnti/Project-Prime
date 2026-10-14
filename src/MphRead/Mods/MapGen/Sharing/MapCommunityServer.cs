@@ -88,7 +88,7 @@ public static class MapCommunityServer
         var uploadLocks = new System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim>(StringComparer.Ordinal);
         var running = new List<Task>();
         using var mirrorLane = new SemaphoreSlim(1);
-        var mirrorTasks = new System.Collections.Concurrent.ConcurrentDictionary<string, Task>(
+        var mirrorTasks = new System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<Task>>(
             StringComparer.Ordinal);
         long completedDownloadBytes = 0;
 
@@ -101,11 +101,14 @@ public static class MapCommunityServer
             if (!mirrorEnabled || !map.Listed || map.Draft
                 || revisionCatalog.IsProjectDeleted(map.MapId)
                 || !revisionCatalog.IsProjectDiscoverable(map.MapId)
-                || revisionCatalog.IsRevisionDeleted(map.Hash)
-                || mirrorTasks.ContainsKey(map.Hash))
+                || revisionCatalog.IsRevisionDeleted(map.Hash))
                 return;
 
-            Task job = Task.Run(async () =>
+            // Publishing threads race with request readers. Lazily create one
+            // task only after the concurrent dictionary owns its key. That
+            // avoids retaining a completed placeholder or double-mirroring
+            // a hash when the first copy finishes quickly.
+            var proposed = new Lazy<Task>(() => Task.Run(async () =>
             {
                 try
                 {
@@ -133,8 +136,9 @@ public static class MapCommunityServer
                         + ". Origin remains authoritative.");
                 }
                 finally { mirrorTasks.TryRemove(map.Hash, out _); }
-            });
-            mirrorTasks.TryAdd(map.Hash, job);
+            }), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+            Lazy<Task> claimed = mirrorTasks.GetOrAdd(map.Hash, proposed);
+            if (ReferenceEquals(claimed, proposed)) _ = claimed.Value;
         }
 
         // Reconcile once at startup, after abandoned upload cleanup. Full
@@ -204,7 +208,7 @@ public static class MapCommunityServer
         finally
         {
             await Task.WhenAll(running).ConfigureAwait(false);
-            await Task.WhenAll(mirrorTasks.Values).ConfigureAwait(false);
+            await Task.WhenAll(mirrorTasks.Values.Select(x => x.Value)).ConfigureAwait(false);
         }
 
         string UploadKey(string creatorId, string hash)
