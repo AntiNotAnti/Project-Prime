@@ -39,7 +39,6 @@ internal sealed class StudioCreatorCommunityWorkspace : UserControl, IDisposable
         AcceptsReturn = true, Height = 72, MaxLength = 4000,
         PlaceholderText = "Release notes (optional)"
     };
-    private CommunityMapProject[] _projects = Array.Empty<CommunityMapProject>();
     private CancellationTokenSource? _operation;
     private bool _disposed;
 
@@ -141,7 +140,6 @@ internal sealed class StudioCreatorCommunityWorkspace : UserControl, IDisposable
                 mine: true, favorites: false, sort: "updated",
                 cancellation: cancel.Token);
             if (cancel.IsCancellationRequested || _disposed) return;
-            _projects = maps;
             if (maps.Length == 0)
             {
                 _details.Children.Add(PrimeChrome.Title("NO CREATOR MAPS"));
