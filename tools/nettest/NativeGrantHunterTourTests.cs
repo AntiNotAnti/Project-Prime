@@ -27,7 +27,8 @@ internal static class NativeGrantHunterTourTests
         PowerUpSpawnKey Spawn, ShotKey Life, ulong GrantSequence, uint ContactFrame,
         uint EffectiveFrame, uint ExpiryFrame, int ContactTimer, int EffectiveTimer,
         int LastActiveTimer, int ExpiredTimer, TimedShotNativeTests.NativeShot Shot,
-        ulong NativeFrames, bool NativePresentation, string? CertificateKnowledge);
+        ulong NativeFrames, bool NativePresentation, string? CertificateKnowledge,
+        TimedShotCertificate? Certificate);
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true,
         Converters = { new JsonStringEnumConverter() } };
     private static void Check(bool value, string label)
@@ -65,8 +66,24 @@ internal static class NativeGrantHunterTourTests
         Spawn = SpawnDto(arm.Spawn), Life = KeyDto(arm.Life), arm.GrantSequence, arm.ContactFrame,
         arm.EffectiveFrame, arm.ExpiryFrame, arm.ContactTimer, arm.EffectiveTimer,
         arm.LastActiveTimer, arm.ExpiredTimer, arm.NativeFrames, arm.NativePresentation,
-        arm.CertificateKnowledge, Shot = new { Key = KeyDto(arm.Shot.Key),
+        arm.CertificateKnowledge, Certificate = arm.Certificate is { } certificate ? CertificateDto(certificate) : null,
+        Shot = new { Key = KeyDto(arm.Shot.Key),
             Fire = FireDto(arm.Shot.Fire), arm.Shot.Outcome } };
+    private static object CertificateDto(TimedShotCertificate certificate) => new {
+        Key = KeyDto(certificate.Key), Fire = FireDto(certificate.Fire), certificate.Room,
+        certificate.AuthorityFrame, certificate.Lane, certificate.Knowledge, certificate.Unavailable,
+        certificate.Components, certificate.TrustedSource, certificate.AuthorizedDouble,
+        certificate.Source, certificate.LedgerAnswer, certificate.CaptureMode,
+        Funding = certificate.Funding is { } funding ? new { funding.Sequence,
+            Spawn = SpawnDto(funding.Spawn), Life = KeyDto(funding.Life), funding.Type,
+            funding.ContactFrame, funding.SourceContactFrame, funding.ExpiresAtFrame,
+            funding.ObservationAuthorityFrame } : null,
+        Damage = new { certificate.Damage.Body, certificate.Damage.Head, certificate.Damage.Splash,
+            Origin = new[] { certificate.Damage.Origin.X, certificate.Damage.Origin.Y, certificate.Damage.Origin.Z },
+            Direction = new[] { certificate.Damage.Direction.X, certificate.Damage.Direction.Y, certificate.Damage.Direction.Z },
+            certificate.Damage.Radius, certificate.Damage.Speed, certificate.Damage.Reach, certificate.Damage.Curve,
+            certificate.Damage.Balanced, certificate.Damage.Effects, certificate.Damage.Present,
+            certificate.Damage.DirectOnlyEffects } };
 
     private static object ByteDifference(byte[] off, byte[] shadow)
     {
@@ -215,10 +232,12 @@ internal static class NativeGrantHunterTourTests
             && shot.Outcome.ReplayWeaponFired == 1 && shot.Outcome.IntentBytes.Length > 0 && shot.Outcome.ReplayFacts.Length > 0,
             "native keyboard/spawn/commit/semantic/intent/replay positive shot denominators");
         string? certificateKnowledge = null;
+        TimedShotCertificate? capturedCertificate = null;
         if (mode == TimedGrantProofMode.Shadow)
         {
             var expected = type == TimedPowerUp.DoubleDamage ? TimedGrantKnowledge.Granted : TimedGrantKnowledge.NotGranted;
             var certificate = TimedShotNativeTests.Certificate(shot, expected);
+            capturedCertificate = certificate;
             certificateKnowledge = certificate.Knowledge.ToString();
             Check(certificate.Components > 0 && certificate.Lane == TimedShotSource.NativeInput && certificate.TrustedSource,
                 "actual successful native component owns a trusted shot certificate");
@@ -257,7 +276,50 @@ internal static class NativeGrantHunterTourTests
         Check(frames == (type == TimedPowerUp.DeathAlt ? 1802u : 1801u) && owner.Health > 0 && owner.ModIsInPlay,
             "every ordinary native phase advances and the real admitted actor remains alive");
         return new(hunter, itemType, mode, spawn, life, completedGrant.Sequence, contact, completedGrant.EffectiveFrame,
-            completedGrant.ExpiresAtFrame, contactTimer, effectiveTimer, last, expired, shot, frames, true, certificateKnowledge);
+            completedGrant.ExpiresAtFrame, contactTimer, effectiveTimer, last, expired, shot, frames, true, certificateKnowledge, capturedCertificate);
+    }
+
+    // One fresh process owns one authentic first-world incarnation. The parent
+    // executor compares complete untouched records across equally initialized
+    // processes; it never resets a production room counter or rewrites bytes.
+    internal static int RunSingleArm(string room, Hunter hunter, ItemType item, TimedGrantProofMode mode, string output)
+    {
+        if (!Hunters.Contains(hunter) || !Types.Contains(item) || mode is not (TimedGrantProofMode.Off or TimedGrantProofMode.Shadow)
+            || File.Exists(output))
+        { Console.Error.WriteLine("Native grant arm requires a supported hunter/item, Off/Shadow and fresh output."); return 1; }
+        _checks = 0;
+        var oldProof = NetShotProof.Mode; var oldTimed = NetTimedShotProof.Mode; bool script = NetTestScript.Enabled;
+        Arm? arm = null;
+        string status = "FAIL"; string? failure = null;
+        try
+        {
+            Check(ServerSim.Available(out string reason), reason);
+            arm = RunArm(room, hunter, item, mode);
+            status = "PASS";
+            Console.WriteLine($"NATIVE GRANT ARM PASS hunter={hunter} item={item} mode={mode} contacts=1 nativeShots=1 nativeFrames={arm.NativeFrames} checks={_checks}");
+            return 0;
+        }
+        catch (Exception error)
+        { failure = error.GetType().Name + ": " + error.Message; Console.Error.WriteLine("NATIVE GRANT ARM FAIL " + error); return 1; }
+        finally
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+                string assembly = typeof(Scene).Assembly.Location;
+                string entry = typeof(NativeGrantHunterTourTests).Assembly.Location;
+                File.WriteAllText(output, JsonSerializer.Serialize(new { schema = 3, status, failure, room, hunter, item, mode,
+                    assemblySha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assembly))).ToLowerInvariant(),
+                    assemblyMvid = typeof(Scene).Module.ModuleVersionId,
+                    entryAssemblySha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(entry))).ToLowerInvariant(),
+                    entryAssemblyMvid = typeof(NativeGrantHunterTourTests).Module.ModuleVersionId,
+                    checks = _checks, completedArms = arm == null ? 0 : 1, arm = arm == null ? null : ArmDto(arm),
+                    scope = "one fresh-process native factory/contact/input arm with declared stationary authority body/item placement",
+                    authoredUdp = "NOT_RUN", targetImpactDamage = "NOT_RUN", glAudioPixels = "NOT_RUN",
+                    specialFamilyAcceptance = "NOT_RUN", naturalMovement = "NOT_RUN" }, Json) + Environment.NewLine);
+            }
+            finally { NetSession.Stop(); NetShotProof.Mode = oldProof; NetTimedShotProof.Mode = oldTimed; NetTestScript.Enabled = script; }
+        }
     }
 
     internal static int Run(string room, string? output)

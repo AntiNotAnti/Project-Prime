@@ -43,7 +43,7 @@ namespace MphRead.NetTest
                     + "  --timed-shot-replay-scene <assets> [room] Test actual authority launch fact persistence.\n"
                     + "  --timed-shot-certificate-benchmark [json] Measure certificate storage operations.\n"
                     + "  --timed-shot-native <assets> [room] Test real native shot certificates and Shadow parity.\n"
-                    + "  --native-grant-hunter-tour <filesystem> [room] [json] Test seven hunters/three genuine native timed items.\n"
+                    + "  --native-grant-hunter-tour-arm <filesystem> <hunter> <item> <Off|Shadow> <room> <json> One fresh-process native timed item arm.\n"
                     + "  --timed-shot-accepted <assets> [room] Test admitted remote shot certificates.\n"
                     + "  --timed-damage-profiles           Test frozen native damage arithmetic.\n"
                     + "  --timed-damage-profile-scene <assets> [room] Test authority damage profile history.\n"
@@ -179,7 +179,25 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return TimedShotNativeTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
+            if (args.Length > 0 && args[0] == "--native-grant-hunter-tour-arm")
+            {
+                if (args.Length != 7 || !Enum.TryParse<Hunter>(args[2], out var hunter)
+                    || !Enum.TryParse<ItemType>(args[3], out var item) || !Enum.TryParse<TimedGrantProofMode>(args[4], out var mode))
+                {
+                    Console.Error.WriteLine("Usage: --native-grant-hunter-tour-arm <filesystem> <hunter> <item> <Off|Shadow> <room> <fresh json>");
+                    return 1;
+                }
+                string assets = System.IO.Path.GetFullPath(args[1]);
+                if (!System.IO.Directory.Exists(assets)) { Console.Error.WriteLine("Native grant arm requires an extracted filesystem."); return 1; }
+                Paths.MphKey = "AMHE1"; Paths.SetPath(Paths.MphKey, assets);
+                return NativeGrantHunterTourTests.RunSingleArm(args[5], hunter, item, mode, System.IO.Path.GetFullPath(args[6]));
+            }
             if (args.Length > 0 && args[0] == "--native-grant-hunter-tour")
+            {
+                Console.Error.WriteLine("Use tools/nettest/run_native_grant_hunter_tour.py for exact Off/Shadow parity in fresh processes. --native-grant-hunter-tour-in-process preserves the historical diagnostic.");
+                return 1;
+            }
+            if (args.Length > 0 && args[0] == "--native-grant-hunter-tour-in-process")
             {
                 if (args.Length < 2 || args.Length > 4)
                 {
