@@ -56,7 +56,7 @@ namespace MphRead.Mods.Campaign
             return new CampaignEndingSummary(slot,
                 roomId == CampaignNavigation.GoreaSecondRoomId
                     ? CampaignEndingKind.Complete : CampaignEndingKind.Incomplete,
-                SaveCommitted: false, completion, save.CountFoundOctoliths(),
+                false, completion, save.CountFoundOctoliths(),
                 save.Stats?.Deaths ?? 0, save.Stats?.HunterKills ?? 0,
                 save.Stats?.EnemyKills ?? 0);
         }
