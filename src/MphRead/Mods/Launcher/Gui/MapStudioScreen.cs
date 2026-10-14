@@ -157,6 +157,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             MenuGroup("File",("Source changes…",ShowSourceChanges),("Library",ShowLibrary),("New",NewMap),("Clone built-in",CloneBuiltIn),
                 ("Open…",()=>Browse("Open project",false,Open,".json",".ppmap")),("Import Q3…",Import),
+                ("Edit current in NetRadiant…",EditCurrentInNetRadiant),
                 ("Open in NetRadiant…",LaunchNetRadiant),("Compile NetRadiant Source…",CompileNetRadiantSource),
                 ("Import editable .map…",ImportEditableQuakeMap),("Export editable .map…",ExportEditableQuakeMap),
                 ("Import 3D Model…",ImportModel),("Model Sources / Reimport…",ManageModelSources),
@@ -174,6 +175,8 @@ namespace MphRead.Mods.Launcher.Gui
                 ("Export .ppmap",()=>_=Build(true)),("Playtest",PlaytestInspector),("Run map audit",()=>_=Audit()));
             MenuGroup("Online",("Community maps…",ShowCommunity),("Host current map…",()=>_=PrepareOnline()));
             AddButton(toolbar, "LIBRARY", ShowLibrary);
+            if (CommunityCutoverPolicy.NetRadiantDefault)
+                AddButton(toolbar, "EDIT IN NETRADIANT", EditCurrentInNetRadiant);
             AddButton(toolbar, "IMPORT MODEL", ImportModel);
             AddButton(toolbar, "ASSETS", () => ShowInspectorPage("Assets & music"));
             AddButton(toolbar, "POP OUT", () => _ = PopOut());

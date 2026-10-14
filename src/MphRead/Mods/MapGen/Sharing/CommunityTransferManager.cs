@@ -621,12 +621,10 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         await operations.UseClientAsync(map.Draft,
             async client =>
             {
-                string? trustedHosts = Environment.GetEnvironmentVariable(
-                    "PROJECT_PRIME_TRUSTED_CDN_HOSTS");
-                if (!string.IsNullOrWhiteSpace(trustedHosts))
+                string[] trustedHosts = CommunityCutoverPolicy.TrustedCdnHosts;
+                if (trustedHosts.Length > 0)
                     await client.DownloadViaTrustedCdnOrOriginAsync(
-                        map, partial, new CommunityCdnPolicy(
-                            trustedHosts.Split(',', StringSplitOptions.RemoveEmptyEntries)),
+                        map, partial, new CommunityCdnPolicy(trustedHosts),
                         cancellation,
                         (received, total) => Progress(job.Id, received, total))
                         .ConfigureAwait(false);

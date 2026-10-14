@@ -65,6 +65,46 @@ try
     catch (FileNotFoundException) { rejected = true; }
     Check(rejected, "missing external editor fails with a clear file error");
 
+    // The preferred external editor activates only for an explicitly
+    // configured *regular* desktop binary. Tests never execute the fake file.
+    string? previousEditor = Environment.GetEnvironmentVariable(
+        CommunityCutoverPolicy.NetRadiantExecutableVariable);
+    string? previousDefault = Environment.GetEnvironmentVariable(
+        CommunityCutoverPolicy.NetRadiantDefaultVariable);
+    try
+    {
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.NetRadiantExecutableVariable, null);
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.NetRadiantDefaultVariable, null);
+        Check(!CommunityCutoverPolicy.NetRadiantDefault,
+            "native Studio remains available when NetRadiant is not installed");
+        string testExecutable = Path.Combine(directory, "local-radiant-tool");
+        File.WriteAllText(testExecutable, "test binary locator only");
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.NetRadiantExecutableVariable, testExecutable);
+        Check(CommunityCutoverPolicy.NetRadiantDefault
+            && CommunityCutoverPolicy.NetRadiantExecutable == testExecutable,
+            "configured fully-qualified local NetRadiant becomes the preferred editor");
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.NetRadiantDefaultVariable, "0");
+        Check(!CommunityCutoverPolicy.NetRadiantDefault,
+            "the native editor can be restored using the original NetRadiant default rollback flag");
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.NetRadiantDefaultVariable, null);
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.NetRadiantExecutableVariable, "radiant");
+        Check(!CommunityCutoverPolicy.NetRadiantDefault,
+            "PATH-only executable strings never silently activate third-party programs");
+    }
+    finally
+    {
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.NetRadiantExecutableVariable, previousEditor);
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.NetRadiantDefaultVariable, previousDefault);
+    }
+
     string? compiler = Environment.GetEnvironmentVariable("PROJECT_PRIME_Q3MAP2_EXE");
     if (!string.IsNullOrWhiteSpace(compiler) && File.Exists(compiler))
         Console.WriteLine("External q3map2 configured: run separate real BSP gamepack acceptance.");

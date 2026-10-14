@@ -23,10 +23,29 @@ void Check(bool valid, string label)
 string? prevEnabled = Environment.GetEnvironmentVariable(
     "PROJECT_PRIME_MAP_OBJECT_MIRROR_ENABLED");
 string? prevBase = Environment.GetEnvironmentVariable("PROJECT_PRIME_MAP_CDN_BASE");
+string? prevHosts = Environment.GetEnvironmentVariable("PROJECT_PRIME_TRUSTED_CDN_HOSTS");
 using var stop = new CancellationTokenSource();
 Task? server = null;
 try
 {
+    Environment.SetEnvironmentVariable("PROJECT_PRIME_MAP_OBJECT_MIRROR_ENABLED", null);
+    Check(CommunityCutoverPolicy.ObjectMirrorEnabled,
+        "verified public object mirror is enabled by default when not explicitly disabled");
+    Environment.SetEnvironmentVariable("PROJECT_PRIME_MAP_OBJECT_MIRROR_ENABLED", "off");
+    Check(!CommunityCutoverPolicy.ObjectMirrorEnabled,
+        "server public object mirror can be rolled back with an explicit off setting");
+    Environment.SetEnvironmentVariable("PROJECT_PRIME_MAP_OBJECT_MIRROR_ENABLED", null);
+    Environment.SetEnvironmentVariable("PROJECT_PRIME_TRUSTED_CDN_HOSTS", null);
+    Environment.SetEnvironmentVariable("PROJECT_PRIME_MAP_CDN_BASE",
+        "https://cdn.projectprime.example/public/");
+    Check(CommunityCutoverPolicy.TrustedCdnHosts.Contains("cdn.projectprime.example"),
+        "locally configured HTTPS CDN base automatically trusts only that operator hostname");
+    Environment.SetEnvironmentVariable("PROJECT_PRIME_MAP_CDN_BASE",
+        "http://not-trusted.example");
+    Check(!CommunityCutoverPolicy.TrustedCdnHosts.Contains("not-trusted.example"),
+        "insecure HTTP CDN base is not silently trusted");
+    Environment.SetEnvironmentVariable("PROJECT_PRIME_MAP_CDN_BASE", prevBase);
+
     string serviceRoot = Path.Combine(root, "service");
     Directory.CreateDirectory(serviceRoot);
     var map = MapTemplates.Create("CDN_ARENA", true).Definition;
@@ -80,7 +99,9 @@ try
     probe.Stop();
     string address = $"http://127.0.0.1:{port}/hub/";
     const string ticket = "community-cdn-staging-test-secret";
-    Environment.SetEnvironmentVariable("PROJECT_PRIME_MAP_OBJECT_MIRROR_ENABLED", "1");
+    // Leave mirror unset: the default-on activation, not an opt-in flag,
+    // must initialize verified public mirroring for this service.
+    Environment.SetEnvironmentVariable("PROJECT_PRIME_MAP_OBJECT_MIRROR_ENABLED", null);
     Environment.SetEnvironmentVariable("PROJECT_PRIME_MAP_CDN_BASE",
         "https://cdn.projectprime.example/public/");
     server = MapCommunityServer.ServeAsync(address, serviceRoot, ticket, stop.Token);
@@ -91,6 +112,30 @@ try
     Check(location?.PackageHash == publicMap.Hash
         && location.PublicCdnUrl == valid?.ToString(),
         "service advertises only the verified published mirror object");
+
+    // Unlike the earlier manual MirrorPublic unit check, this archive is
+    // first published through the real server with NO prewritten mirror.
+    // Its non-authoritative background copy must eventually become eligible
+    // for an exact public CDN location, without blocking the origin publish.
+    var freshPublic = MapTemplates.Create("CDN_AUTOMIRROR", true).Definition;
+    string freshPackage = MapPackageBuilder.Build(freshPublic,
+        Path.Combine(root, "auto-public.ppmap"));
+    var freshPublished = await creator.UploadAsync(freshPackage, CancellationToken.None);
+    CommunityPackageDistribution? freshDistribution = null;
+    using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
+    {
+        while (!timeout.IsCancellationRequested)
+        {
+            freshDistribution = await creator.GetMapDistributionAsync(
+                freshPublished.Hash, timeout.Token);
+            if (freshDistribution?.CdnEnabled == true) break;
+            await Task.Delay(100, timeout.Token);
+        }
+    }
+    Check(freshDistribution?.CdnEnabled == true
+        && freshDistribution.PublicCdnUrl?.EndsWith(
+            freshPublished.Hash + ".ppmap", StringComparison.Ordinal) == true,
+        "newly published public map is mirrored automatically without changing its origin identity");
 
     using var client = new MapCommunityClient(address);
     string fallbackPath = Path.Combine(root, "origin-fallback.ppmap");
@@ -114,6 +159,7 @@ finally
 {
     Environment.SetEnvironmentVariable("PROJECT_PRIME_MAP_OBJECT_MIRROR_ENABLED", prevEnabled);
     Environment.SetEnvironmentVariable("PROJECT_PRIME_MAP_CDN_BASE", prevBase);
+    Environment.SetEnvironmentVariable("PROJECT_PRIME_TRUSTED_CDN_HOSTS", prevHosts);
     stop.Cancel();
     if (server != null)
     {

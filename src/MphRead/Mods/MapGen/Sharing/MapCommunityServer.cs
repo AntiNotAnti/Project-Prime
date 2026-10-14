@@ -70,8 +70,7 @@ public static class MapCommunityServer
         var contentRegistry = new CommunityContentRegistry(storage);
         // CDN exposure is explicit operator configuration. No draft content is
         // mirrored or given a globally readable URL.
-        bool mirrorEnabled = Environment.GetEnvironmentVariable(
-            "PROJECT_PRIME_MAP_OBJECT_MIRROR_ENABLED") == "1";
+        bool mirrorEnabled = CommunityCutoverPolicy.ObjectMirrorEnabled;
         var objectStore = new CommunityObjectStore(storage, mirrorEnabled
             ? Environment.GetEnvironmentVariable("PROJECT_PRIME_MAP_CDN_BASE")
             : null);
@@ -88,7 +87,59 @@ public static class MapCommunityServer
         using var publication = new SemaphoreSlim(1);
         var uploadLocks = new System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim>(StringComparer.Ordinal);
         var running = new List<Task>();
+        using var mirrorLane = new SemaphoreSlim(1);
+        var mirrorTasks = new System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<Task>>(
+            StringComparer.Ordinal);
         long completedDownloadBytes = 0;
+
+        // A public package mirror is a non-authoritative optimization. Queue
+        // one checksum-verified copy per immutable SHA, never in the upload or
+        // metadata admission lane. Origin remains usable throughout failure,
+        // cancellation, slow storage and initial backfill.
+        void QueuePublicMirror(CommunityMap map)
+        {
+            if (!mirrorEnabled || !map.Listed || map.Draft
+                || revisionCatalog.IsProjectDeleted(map.MapId)
+                || !revisionCatalog.IsProjectDiscoverable(map.MapId)
+                || revisionCatalog.IsRevisionDeleted(map.Hash))
+                return;
+
+            // Publishing threads race with request readers. Lazily create one
+            // task only after the concurrent dictionary owns its key. That
+            // avoids retaining a completed placeholder or double-mirroring
+            // a hash when the first copy finishes quickly.
+            var proposed = new Lazy<Task>(() => Task.Run(async () =>
+            {
+                try
+                {
+                    await mirrorLane.WaitAsync(token).ConfigureAwait(false);
+                    try
+                    {
+                        if (!maps.TryGetValue(map.Hash, out var current)
+                            || !current.Listed || current.Draft
+                            || revisionCatalog.IsProjectDeleted(current.MapId)
+                            || !revisionCatalog.IsProjectDiscoverable(current.MapId)
+                            || revisionCatalog.IsRevisionDeleted(current.Hash))
+                            return;
+                        objectStore.MirrorPublic(
+                            Path.Combine(storage, current.Hash + ".ppmap"),
+                            current.Hash, current.Bytes);
+                    }
+                    finally { mirrorLane.Release(); }
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                    or InvalidDataException)
+                {
+                    Console.Error.WriteLine("[maphub] Optional public map mirror "
+                        + map.Hash[..8] + " unavailable: " + ex.Message
+                        + ". Origin remains authoritative.");
+                }
+                finally { mirrorTasks.TryRemove(map.Hash, out _); }
+            }), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+            Lazy<Task> claimed = mirrorTasks.GetOrAdd(map.Hash, proposed);
+            if (ReferenceEquals(claimed, proposed)) _ = claimed.Value;
+        }
 
         // Reconcile once at startup, after abandoned upload cleanup. Full
         // expected bytes are reserved by upload session rather than rescanning
@@ -154,7 +205,11 @@ public static class MapCommunityServer
                 }));
             }
         }
-        finally { await Task.WhenAll(running); }
+        finally
+        {
+            await Task.WhenAll(running).ConfigureAwait(false);
+            await Task.WhenAll(mirrorTasks.Values.Select(x => x.Value)).ConfigureAwait(false);
+        }
 
         string UploadKey(string creatorId, string hash)
             => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(creatorId + "\n" + hash))).ToLowerInvariant();
@@ -410,6 +465,7 @@ public static class MapCommunityServer
                 revisionUpload?.ExpectedParentHash,
                 revisionUpload?.ReleaseNotes,
                 useProvidedParent: revisionUpload?.ExistingMap != null);
+            QueuePublicMirror(entry);
             return new PublishResult(201, entry);
         }
 
@@ -471,6 +527,7 @@ public static class MapCommunityServer
                     Uri? cdn = mirrorEnabled
                         ? objectStore.PublicLocation(hash, distributed.Bytes, published: true)
                         : null;
+                    if (cdn == null) QueuePublicMirror(distributed);
                     await Json(context.Response, new CommunityPackageDistribution(
                         1, hash, distributed.Bytes,
                         "packages/" + hash, cdn?.ToString(),
@@ -1029,6 +1086,7 @@ public static class MapCommunityServer
                         AtomicFile.Write(Path.Combine(storage,map.Hash+".catalog.json"),JsonSerializer.SerializeToUtf8Bytes(updated,MapPackageReader.JsonOptions));
                         maps[map.Hash]=updated;
                         revisionCatalog.ApplyVisibility(updated,maps.Values);
+                        QueuePublicMirror(updated);
                         context.Response.StatusCode=204;
                     }
                     finally{publication.Release();}return;
@@ -1216,6 +1274,7 @@ public static class MapCommunityServer
                             JsonSerializer.SerializeToUtf8Bytes(updated,MapPackageReader.JsonOptions));
                         maps[updated.Hash]=updated;
                         revisionCatalog.Promote(promoteMapId,updated.Hash);
+                        QueuePublicMirror(updated);
                         CommunityMap[] visible=maps.Values.Where(m=>m.MapId==promoteMapId)
                             .Select(m=>catalog.Decorate(m,creator.CreatorId)).ToArray();
                         var project=revisionCatalog.BuildProject(

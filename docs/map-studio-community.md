@@ -5,14 +5,14 @@
 - **Game:** Select the top-level **Community** tab for Discover, Installed,
   Favorites and Downloads. This does not require opening Map Studio. Existing
   Create Lobby -> Map Rotation -> Source: Community remains available directly.
-- **Map Studio, default:** **Online -> Community maps** opens the established
-  creator dashboard with My Maps/revisions/rollback and publication. **Online
-  -> Host current map** stays separate; local playtesting never requires a
-  Community upload.
-- **Optional creator preview:** A QA build can set
-  `PROJECT_PRIME_STUDIO_COMMUNITY_HUB_PREVIEW=1` before launching Studio.
-  The Online -> Community maps command then opens a separate Creator Community
-  workspace with **My Uploads**, **Transfers** and **Publish**. It captures a
+- **Map Studio, default:** **Online -> Community maps** opens the independent
+  creator workspace with My Uploads, Transfers and Publish. The **Advanced
+  Revisions** action still opens the established creator dashboard for My Maps,
+  revision rollback and visibility controls. **Online -> Host current map**
+  stays separate; local playtesting never requires a Community upload.
+- **Creator hub activation:** The new workspace is available by default
+  in current builds. Set `PROJECT_PRIME_STUDIO_COMMUNITY_HUB_PREVIEW=0` before
+  launching Studio to restore the previous dashboard. It captures a
   frozen current project and queues a self-contained verified `.ppmap` via
   the shared durable transfer queue. Public, unlisted and private draft
   publication are explicit actions; a newer server revision triggers review
@@ -43,8 +43,11 @@
   A real NetRadiant/q3map2/gameplay validation and license review are still
   required before that can change.
 
-The creator preview is a staged PR-14 feature, not enabled by default.
-Full platform/gameplay/replay testing is deferred and must not be assumed.
+Creator Hub is enabled in new builds but does not bypass validation of
+live gameplay maps. CDN and external NetRadiant require locally configured
+trusted hosts or installed binaries. Full platform/gameplay/replay manual
+testing is deferred and must not be assumed. See
+[feature activation and rollback](architecture/community-hub-feature-activation.md).
 See [the cutover readiness and rollback plan](architecture/community-hub-pr14-cutover.md).
 
 
