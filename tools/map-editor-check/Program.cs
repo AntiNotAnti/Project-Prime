@@ -1235,6 +1235,39 @@ try
         catch(OperationCanceledException) {stopped=true;}
         Check(stopped,"cancelled preparation never reaches publication");
     }
+    // Streaming runtime publication uses one bounded buffer, not
+    // File.ReadAllBytes for every generated binary. The same-volume rename
+    // must also leave the old destination intact if source open fails.
+    var atomicType=typeof(MapBuildFingerprint).Assembly.GetType("MphRead.Mods.MapGen.AtomicFile")!;
+    var atomicMethod=atomicType.GetMethod("Copy",
+        System.Reflection.BindingFlags.Public|System.Reflection.BindingFlags.Static)!;
+    var atomicCopy=(Func<string,string,long>)atomicMethod
+        .CreateDelegate(typeof(Func<string,string,long>));
+    string largeSource=Path.Combine(root,"streaming-large-source.bin");
+    string atomicTarget=Path.Combine(root,"streaming-large-destination.bin");
+    using(var output=new FileStream(largeSource,FileMode.CreateNew,FileAccess.Write))
+    {
+        var chunk=new byte[65536];
+        var random=new Random(20261013);
+        for(int i=0;i<192;i++)
+        {
+            random.NextBytes(chunk);
+            output.Write(chunk);
+        }
+    }
+    File.WriteAllText(atomicTarget,"old content");
+    long copiedBytes=atomicCopy(largeSource,atomicTarget);
+    Check(copiedBytes==12L*1024*1024
+        && MapBuildFingerprint.HashFile(largeSource)==MapBuildFingerprint.HashFile(atomicTarget),
+        "12 MiB binary runtime output streams byte-exact through atomic destination replacement");
+    bool missingRefused=false;
+    try { atomicCopy(Path.Combine(root,"missing-source.bin"),atomicTarget); }
+    catch(FileNotFoundException) { missingRefused=true; }
+    Check(missingRefused
+        && MapBuildFingerprint.HashFile(largeSource)==MapBuildFingerprint.HashFile(atomicTarget)
+        && !Directory.EnumerateFiles(root,"streaming-large-destination.bin.*.tmp").Any(),
+        "failed streamed runtime copy preserves previous destination and cleans staging");
+
     var changedScheduler=new MapBuildScheduler(Path.Combine(root,"changed-cache"),build:(map,directory)=>
     {
         File.AppendAllText(texturePath,"changed while building");
