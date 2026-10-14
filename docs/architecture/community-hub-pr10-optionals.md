@@ -1,0 +1,12 @@
+# Community Hub PR-10 | Optional Visual Assets and Exact Dependency Lockfiles
+
+- Defines explicit dependency roles `optional-visual` and `editor-only`. `required-gameplay` dependencies are rejected: no network protocol, collision, map Ready or historical replay change.
+- Publishing enforces already-published dependency identities, a bounded acyclic dependency graph and exact immutable SHA-256 edges.
+- Adds deterministic canonical optional-resource lockfiles keyed to an **exact map package SHA-256**, with separate quality tiers (Standard/Hd/Ultra), a missing-optional result, bounded depth/count/bytes, and no mutable latest-version resolution.
+- Adds independent content-addressed visual blob cache. Two maps requesting the same SHA-256 reuse one archive, and corruption triggers fresh integrity-checked download rather than silent use.
+- This remains authoring/optional display metadata. The engine's core gameplay assets remain self-contained in `.ppmap`; maps do not require HD content to enter multiplayer. Real shader/texture replacement must be separately staged and verified to avoid rendering regressions.
+- `tools/community-dependency-check` tests exact role enforcement, deterministic lockfile, cache dedup, corruption repair, absent-pack nonblocking semantics.
+- A map may be pinned to an **older published asset revision**, not just the latest and current catalog entries. `CommunityDependencyResolver.Resolve` optionally accepts `CommunityAuthorizedRevision` entries obtained from the existing `GET /v3/content/{kind}/{id}/revisions` endpoint; it resolves the exact SHA-256 and never substitutes a newer revision. Unpublished revisions are rejected, and inputs are capped at 2,048 history entries.
+- The historical revision list must cover **each dependency encountered**, including nested dependency kinds. When an exact revision is not supplied and is absent from the current/latest envelope, the lockfile records it as missing optional rather than rewriting the map's pin or blocking gameplay.
+
+**Limits:** Full live shader/LOD application and Android GPU-budget tuning are deferred, because the PR cannot legitimately claim renderer integration without hardware tests. Cache admission is per-process; object hashes enforce byte identity. PR-10 uses its own exact-head CI matrix before merging, including the existing historical replay and package hash gates. The later final integration suite remains a separate gate. Rollback removes optional metadata/cache without touching installed maps or replays.

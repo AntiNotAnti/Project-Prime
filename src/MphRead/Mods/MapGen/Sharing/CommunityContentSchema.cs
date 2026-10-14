@@ -49,7 +49,9 @@ public static class CommunityContentVisibility
 /// A content dependency is pinned by the exact immutable SHA-256 identity.
 /// PR-10 will implement dependency resolution and cross-content lockfiles.
 /// </summary>
-public sealed record CommunityContentDependency(string Kind, Guid ContentId, string Hash);
+public sealed record CommunityContentDependency(
+    string Kind, Guid ContentId, string Hash,
+    string Role = CommunityDependencyRoles.OptionalVisual);
 
 /// <summary>
 /// A particular immutable asset or map archive, with a content digest that
