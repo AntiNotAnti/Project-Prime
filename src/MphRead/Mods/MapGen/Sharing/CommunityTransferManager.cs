@@ -117,7 +117,6 @@ public sealed class CommunityTransferManager : IAsyncDisposable
 
     public IReadOnlyList<CommunityTransferJob> ListJobs()
     {
-        ThrowIfDisposed();
         lock (_gate)
         {
             using var gate = LockAndReloadLocked();
@@ -127,7 +126,6 @@ public sealed class CommunityTransferManager : IAsyncDisposable
 
     public CommunityTransferJob GetJob(Guid id)
     {
-        ThrowIfDisposed();
         lock (_gate)
         {
             using var gate = LockAndReloadLocked();
@@ -644,7 +642,9 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     /// </summary>
     private FileStream LockAndReloadLocked()
     {
-        FileStream gate = _coordination.LockIndex(_lifetime.Token);
+        // A retiring worker must still flush cancellation state after the
+        // lifetime token has been cancelled during DisposeAsync.
+        FileStream gate = _coordination.LockIndex();
         try
         {
             ReloadIndexLocked();
