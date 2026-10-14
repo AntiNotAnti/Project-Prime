@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/replay-diagnostic-4b-attempt1/scene-receipt2.json",
+    "sha256": "49b534ba101a412b9463e51ff3268b13d1a441bae3edeff084b0fa4dd340fd2b",
+    "bytes": 3485
+  },
+  "treatment": "Sanitized JSON derivative; original full commit/SHA/MVID/result/closure fields retained; source tree listing omitted with digest.",
+  "payload": {
+    "sourceWorktreeUnchanged": true,
+    "headless": true,
+    "results": [
+      {
+        "file": "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo",
+        "fileSHA256": "fb7c9a1761f60a94743c18db430f04b22278bb0668ee930692834307635e616f",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net04-evidence/replay-diagnostic-4b-attempt1/scene-runtime2/nettest.dll",
+          "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo",
+          "--scene"
+        ],
+        "pid": 41261,
+        "exitCode": 0,
+        "seconds": 1.4713091850280762,
+        "groupClosed": true,
+        "groupAbsentVerified": true
+      },
+      {
+        "file": "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-183_0521a4adc4e34a5d87ffd01b063cbd52.ppdemo",
+        "fileSHA256": "646deb8984787ecb7acd066e3258c4656e70bb6fa8456660b3ef31a1476dbaf9",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net04-evidence/replay-diagnostic-4b-attempt1/scene-runtime2/nettest.dll",
+          "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-183_0521a4adc4e34a5d87ffd01b063cbd52.ppdemo",
+          "--scene"
+        ],
+        "pid": 41263,
+        "exitCode": 0,
+        "seconds": 1.2982401847839355,
+        "groupClosed": true,
+        "groupAbsentVerified": true
+      },
+      {
+        "file": "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-1/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-151_62b2b85091114bcc8dde7bf59b0f6adc.ppdemo",
+        "fileSHA256": "f480e2e99fc9539fed0855e814ea859681ecbd13a2bfb479a8ad8390ea61f0b1",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net04-evidence/replay-diagnostic-4b-attempt1/scene-runtime2/nettest.dll",
+          "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-1/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-151_62b2b85091114bcc8dde7bf59b0f6adc.ppdemo",
+          "--scene"
+        ],
+        "pid": 41266,
+        "exitCode": 0,
+        "seconds": 1.2524211406707764,
+        "groupClosed": true,
+        "groupAbsentVerified": true
+      }
+    ],
+    "finalSourceHEAD": "4b4b5c451a17430fcd6fadb2fe72c56b020bd570",
+    "finalSourceGitStatus": ""
+  }
+}

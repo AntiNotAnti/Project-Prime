@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/replayformat-1ac71b12/receipt.json",
+    "sha256": "e434b5f96836c1c316a26f2d96bbc54473bc39ec979ce78729995bf45d8653a2",
+    "bytes": 6716
+  },
+  "treatment": "Sanitized JSON derivative; original full commit/SHA/MVID/result/closure fields retained; source tree listing omitted with digest.",
+  "payload": {
+    "sourceBefore": {
+      "commit": "1ac71b12f7744e836c6e655d9e8fe74144920c24",
+      "tree": "7e1150991d2d266bd4a6037689717e5f29fda264",
+      "dirty": ""
+    },
+    "startedUtc": "2026-10-14T08:59:18.877745+00:00",
+    "steps": [
+      {
+        "name": "original-fce-replayformat",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net04-evidence/candidate-fce73957/runtime/ProjectPrime.dll",
+          "-replayformatcheck"
+        ],
+        "cwd": "work/net04-evidence/replayformat-1ac71b12/old-profile",
+        "startedUtc": "2026-10-14T08:59:18.878061+00:00",
+        "pid": 43613,
+        "exit": 1,
+        "finishedUtc": "2026-10-14T08:59:19.405564+00:00",
+        "ownedSurvivors": [],
+        "logSha256": "430654cf0f33e0fbc6176ec03907389046b29fc8fed1f6f1de95ed63d6a9f35f"
+      },
+      {
+        "name": "build",
+        "command": [
+          "work/dotnet/dotnet",
+          "build",
+          "tools/nettest/nettest.csproj",
+          "-c",
+          "Release",
+          "-o",
+          "work/net04-evidence/replayformat-1ac71b12/runtime",
+          "-m:1",
+          "-p:UseSharedCompilation=false",
+          "-p:CopyLocalLockFileAssemblies=false",
+          "-nodeReuse:false"
+        ],
+        "cwd": "work/prime-net04",
+        "startedUtc": "2026-10-14T08:59:19.431964+00:00",
+        "pid": 43616,
+        "exit": 0,
+        "finishedUtc": "2026-10-14T09:00:21.542850+00:00",
+        "ownedSurvivors": [
+          "43751     1 43616 S    dotnet exec --runtimeconfig <external-host-path> <external-host-path>"
+        ],
+        "logSha256": "7324af9d6bbf9ed784ed119b6de787306c05e4eec402b4056e9ae6797d265f06"
+      },
+      {
+        "name": "current-identity",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net04-evidence/candidate-fce73957/identity-tool/MergedIdentity.dll",
+          "work/net04-evidence/replayformat-1ac71b12/runtime",
+          "7079214e4c4f8e26e7d7eeaffd8ddbd6a79050f365db5edbdc6b1657fedd3dca"
+        ],
+        "cwd": "work/net04-evidence/replayformat-1ac71b12/current-identity-profile",
+        "startedUtc": "2026-10-14T09:01:32.410010+00:00",
+        "pid": 44057,
+        "exit": 0,
+        "ownedSurvivors": [],
+        "finishedUtc": "2026-10-14T09:01:32.537924+00:00",
+        "logSha256": "4c253d4a9d89386ae650d80d7390642c2cf893e3953c0aba412b1f3ad9edb86d"
+      },
+      {
+        "name": "fixed-replayformat",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net04-evidence/replayformat-1ac71b12/runtime/ProjectPrime.dll",
+          "-replayformatcheck"
+        ],
+        "cwd": "work/net04-evidence/replayformat-1ac71b12/fixed-replayformat-profile",
+        "startedUtc": "2026-10-14T09:01:32.538388+00:00",
+        "pid": 44065,
+        "exit": 0,
+        "ownedSurvivors": [],
+        "finishedUtc": "2026-10-14T09:01:33.138554+00:00",
+        "logSha256": "0b2f490f99d475365b91d5b4e156c5e6beefabf9d0146785861594a4ae865e8b"
+      }
+    ],
+    "scope": "Narrow actual replayformatcheck CI reproduction and corrected fixture; no native/GPU/performance",
+    "resume": {
+      "closureDisposition": {
+        "group": 43616,
+        "observedUtc": "2026-10-14T09:01:02.109861+00:00",
+        "before": [],
+        "signals": [],
+        "after": [],
+        "closed": true
+      },
+      "buildLogSha256": "7324af9d6bbf9ed784ed119b6de787306c05e4eec402b4056e9ae6797d265f06",
+      "physicalHashesBefore": {
+        "ProjectPrime.dll": "7079214e4c4f8e26e7d7eeaffd8ddbd6a79050f365db5edbdc6b1657fedd3dca",
+        "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "nettest.dll": "d985412a652d2fe35895d822be4c9882d964ed1e3100147ef6fb90f8cfeaeb10",
+        "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+        "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+      }
+    },
+    "actualLoadedClient": {
+      "sourceQualifiedPhysicalClient": true,
+      "path": "work/net04-evidence/replayformat-1ac71b12/runtime/ProjectPrime.dll",
+      "sha256": "7079214e4c4f8e26e7d7eeaffd8ddbd6a79050f365db5edbdc6b1657fedd3dca",
+      "mvid": "ef17fe13-d44b-475a-ac41-df9e2328f978",
+      "buildId": "local+1ac71b12f7744e836c6e655d9e8fe74144920c24",
+      "protocol": 56,
+      "replicaCheckpoint": 13,
+      "worldCheckpoint": 10,
+      "timedGrantPacket": 77,
+      "timedGrantBootstrapPacket": 79,
+      "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+    },
+    "sourceAfter": {
+      "commit": "1ac71b12f7744e836c6e655d9e8fe74144920c24",
+      "tree": "7e1150991d2d266bd4a6037689717e5f29fda264",
+      "dirty": ""
+    },
+    "physicalHashesAfter": {
+      "ProjectPrime.dll": "7079214e4c4f8e26e7d7eeaffd8ddbd6a79050f365db5edbdc6b1657fedd3dca",
+      "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "nettest.dll": "d985412a652d2fe35895d822be4c9882d964ed1e3100147ef6fb90f8cfeaeb10",
+      "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "finishedUtc": "2026-10-14T09:01:33.184801+00:00",
+    "status": "PASS_CORRECTED_COMPATIBILITY_WITH_PRESERVED_NEGATIVE_AND_INITIAL_CLOSURE_GUARD"
+  }
+}

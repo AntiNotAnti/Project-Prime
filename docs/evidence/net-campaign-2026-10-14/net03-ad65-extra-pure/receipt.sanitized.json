@@ -1,0 +1,233 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net03-evidence/candidate-ad65dcd3/extra-pure-receipt.json",
+    "sha256": "e056db9314dd026f8be0f65c0a428c8242bee67ac11f5be88132314f0dfaa7ca",
+    "bytes": 11622
+  },
+  "treatment": "JSON reserialized with relative/sanitized path strings; full sourceTreeLines omitted with separate text digest. Numeric samples, SHA256, MVID, full commits, results and closure flags unchanged.",
+  "payload": {
+    "startedUtc": "2026-10-14T07:18:09.495684+00:00",
+    "sourceBefore": {
+      "commit": "ad65dcd39099764114b2b4d7f1147288987312e0",
+      "tree": "9ee0fd94cf53d683dccf5cd673e56d39a866c6e3",
+      "dirty": ""
+    },
+    "physicalHashesBefore": {
+      "ProjectPrime.dll": "6c98d47c58d0645b0f9174e7fcc47d39dcd79e85c868e759471edf5761c3e018",
+      "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "nettest.dll": "c4e5a763aeedb5a92ffe77a1eefa2b30b1ae0821c767797165026d9b297a7890",
+      "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "verifiedClient": {
+      "sourceQualifiedPhysicalClient": true,
+      "path": "work/net03-evidence/candidate-ad65dcd3/runtime/ProjectPrime.dll",
+      "sha256": "6c98d47c58d0645b0f9174e7fcc47d39dcd79e85c868e759471edf5761c3e018",
+      "mvid": "15183df3-7bd6-4d82-a30a-0cc6cd2eb02e",
+      "buildId": "local+ad65dcd39099764114b2b4d7f1147288987312e0",
+      "protocol": 56,
+      "replicaCheckpoint": 12,
+      "worldCheckpoint": 10,
+      "timedGrantPacket": 77,
+      "timedGrantBootstrapPacket": 79,
+      "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+    },
+    "fixtureSourceHashes": {
+      "TimedDamageProfileTests.cs": "82e3c4e7b314217ec4ae2acc29ea30c81840fe814de4f151017f1c4c34b27f10",
+      "TimedShotCertificateTests.cs": "c2c152799d7c1ca7f8a6fee46175f908d5fd593f6cadb09ee2aa0cd0f5508006",
+      "TimedShotDamageTests.cs": "389791292a612765aae4f21f0193d51ffbdcddbe1fd23ec6f70a185439ff89e5",
+      "TimedSourceCapabilityTests.cs": "19e6c84ac97d833eaa4e6c1fbe0bfcf71ed9ca1cfe7ab0a8eef0682aa26e6fed"
+    },
+    "results": [
+      {
+        "name": "timed-damage-profiles",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net03-evidence/candidate-ad65dcd3/runtime/nettest.dll",
+          "--timed-damage-profiles"
+        ],
+        "cwd": "work/net03-evidence/candidate-ad65dcd3/timed-damage-profiles-profile",
+        "startUtc": "2026-10-14T07:18:09.540660+00:00",
+        "endUtc": "2026-10-14T07:18:09.734879+00:00",
+        "pid": 38443,
+        "exit": 0,
+        "expectedExit": 0,
+        "timedOut": false,
+        "closureProbe": {
+          "closed": true,
+          "waitSeconds": 2.724999999997868e-05,
+          "observations": []
+        },
+        "environmentOverrides": {
+          "PROJECT_PRIME_USER_DATA": "work/net03-evidence/candidate-ad65dcd3/timed-damage-profiles-profile",
+          "ALSOFT_DRIVERS": "null",
+          "DOTNET_STARTUP_HOOKS": "work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+        },
+        "logSha256": "cc59d778fdb134af98739bb34eebc1e7bc11bdc06af8c5e57273cf3320a75c08",
+        "loadedModules": [
+          {
+            "name": "nettest",
+            "path": "work/net03-evidence/candidate-ad65dcd3/runtime/nettest.dll",
+            "mvid": "b9904d7e-6ae1-4d74-9d73-123d70d66320"
+          },
+          {
+            "name": "ProjectPrime",
+            "path": "work/net03-evidence/candidate-ad65dcd3/runtime/ProjectPrime.dll",
+            "mvid": "15183df3-7bd6-4d82-a30a-0cc6cd2eb02e"
+          }
+        ],
+        "qualified": true,
+        "assertionEvidence": [
+          "PASS: 739 pure constructed timed victim-damage assertions; no native recording/admission proof"
+        ]
+      },
+      {
+        "name": "timed-shot-certificates",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net03-evidence/candidate-ad65dcd3/runtime/nettest.dll",
+          "--timed-shot-certificates"
+        ],
+        "cwd": "work/net03-evidence/candidate-ad65dcd3/timed-shot-certificates-profile",
+        "startUtc": "2026-10-14T07:18:09.735343+00:00",
+        "endUtc": "2026-10-14T07:18:09.817965+00:00",
+        "pid": 38444,
+        "exit": 0,
+        "expectedExit": 0,
+        "timedOut": false,
+        "closureProbe": {
+          "closed": true,
+          "waitSeconds": 3.2250000000011436e-05,
+          "observations": []
+        },
+        "environmentOverrides": {
+          "PROJECT_PRIME_USER_DATA": "work/net03-evidence/candidate-ad65dcd3/timed-shot-certificates-profile",
+          "ALSOFT_DRIVERS": "null",
+          "DOTNET_STARTUP_HOOKS": "work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+        },
+        "logSha256": "53a832e71c8467d6f97c7c68fc12fb041ec30764fe9d3e4727f3cb9a6edd914e",
+        "loadedModules": [
+          {
+            "name": "nettest",
+            "path": "work/net03-evidence/candidate-ad65dcd3/runtime/nettest.dll",
+            "mvid": "b9904d7e-6ae1-4d74-9d73-123d70d66320"
+          },
+          {
+            "name": "ProjectPrime",
+            "path": "work/net03-evidence/candidate-ad65dcd3/runtime/ProjectPrime.dll",
+            "mvid": "15183df3-7bd6-4d82-a30a-0cc6cd2eb02e"
+          }
+        ],
+        "qualified": true,
+        "assertionEvidence": [
+          "PASS: 5238 pure constructed timed-shot certificate storage assertions; no authenticated/native admission claim"
+        ]
+      },
+      {
+        "name": "timed-shot-damage",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net03-evidence/candidate-ad65dcd3/runtime/nettest.dll",
+          "--timed-shot-damage"
+        ],
+        "cwd": "work/net03-evidence/candidate-ad65dcd3/timed-shot-damage-profile",
+        "startUtc": "2026-10-14T07:18:09.818411+00:00",
+        "endUtc": "2026-10-14T07:18:10.019664+00:00",
+        "pid": 38447,
+        "exit": 0,
+        "expectedExit": 0,
+        "timedOut": false,
+        "closureProbe": {
+          "closed": true,
+          "waitSeconds": 3.595899999997432e-05,
+          "observations": []
+        },
+        "environmentOverrides": {
+          "PROJECT_PRIME_USER_DATA": "work/net03-evidence/candidate-ad65dcd3/timed-shot-damage-profile",
+          "ALSOFT_DRIVERS": "null",
+          "DOTNET_STARTUP_HOOKS": "work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+        },
+        "logSha256": "a7303823dd40634167fa99ff562637d554b37589e3c6944e25bb9f2af51f7304",
+        "loadedModules": [
+          {
+            "name": "nettest",
+            "path": "work/net03-evidence/candidate-ad65dcd3/runtime/nettest.dll",
+            "mvid": "b9904d7e-6ae1-4d74-9d73-123d70d66320"
+          },
+          {
+            "name": "ProjectPrime",
+            "path": "work/net03-evidence/candidate-ad65dcd3/runtime/ProjectPrime.dll",
+            "mvid": "15183df3-7bd6-4d82-a30a-0cc6cd2eb02e"
+          }
+        ],
+        "qualified": true,
+        "assertionEvidence": [
+          "PASS: 82 pure constructed frozen-channel/ceiling assertions; no native/admission/impact proof."
+        ]
+      },
+      {
+        "name": "timed-source-capabilities",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net03-evidence/candidate-ad65dcd3/runtime/nettest.dll",
+          "--timed-source-capabilities"
+        ],
+        "cwd": "work/net03-evidence/candidate-ad65dcd3/timed-source-capabilities-profile",
+        "startUtc": "2026-10-14T07:18:10.020207+00:00",
+        "endUtc": "2026-10-14T07:18:10.066830+00:00",
+        "pid": 38448,
+        "exit": 0,
+        "expectedExit": 0,
+        "timedOut": false,
+        "closureProbe": {
+          "closed": true,
+          "waitSeconds": 2.566599999997976e-05,
+          "observations": []
+        },
+        "environmentOverrides": {
+          "PROJECT_PRIME_USER_DATA": "work/net03-evidence/candidate-ad65dcd3/timed-source-capabilities-profile",
+          "ALSOFT_DRIVERS": "null",
+          "DOTNET_STARTUP_HOOKS": "work/integration-evidence/compact-identity-hook/out/CompactIdentityHook.dll"
+        },
+        "logSha256": "decb7289fea333aa7bf5deb40fa9d04e84144f7dbc7e88466b6c826dae9c6f1b",
+        "loadedModules": [
+          {
+            "name": "nettest",
+            "path": "work/net03-evidence/candidate-ad65dcd3/runtime/nettest.dll",
+            "mvid": "b9904d7e-6ae1-4d74-9d73-123d70d66320"
+          },
+          {
+            "name": "ProjectPrime",
+            "path": "work/net03-evidence/candidate-ad65dcd3/runtime/ProjectPrime.dll",
+            "mvid": "15183df3-7bd6-4d82-a30a-0cc6cd2eb02e"
+          }
+        ],
+        "qualified": true,
+        "assertionEvidence": [
+          "PASS: 31 pure timed source capability assertions."
+        ]
+      }
+    ],
+    "preservedCompileFailure": "work/net03-evidence/candidate-075e4887; original FAIL not relabeled",
+    "sourceAfter": {
+      "commit": "ad65dcd39099764114b2b4d7f1147288987312e0",
+      "tree": "9ee0fd94cf53d683dccf5cd673e56d39a866c6e3",
+      "dirty": ""
+    },
+    "physicalHashesAfter": {
+      "ProjectPrime.dll": "6c98d47c58d0645b0f9174e7fcc47d39dcd79e85c868e759471edf5761c3e018",
+      "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "nettest.dll": "c4e5a763aeedb5a92ffe77a1eefa2b30b1ae0821c767797165026d9b297a7890",
+      "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "finishedUtc": "2026-10-14T07:18:10.112892+00:00",
+    "sourceUnchanged": true,
+    "runtimeUnchanged": true,
+    "qualified": true
+  }
+}

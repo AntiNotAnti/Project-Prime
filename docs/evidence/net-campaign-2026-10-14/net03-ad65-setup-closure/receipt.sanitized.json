@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net03-evidence/candidate-ad65dcd3/setup-closure/disposition.json",
+    "sha256": "79eefe537bfda4778642403120a4d4854bbca461b12d07a4eba816543e4d68d6",
+    "bytes": 2062
+  },
+  "treatment": "JSON reserialized with relative/sanitized path strings; full sourceTreeLines omitted with separate text digest. Numeric samples, SHA256, MVID, full commits, results and closure flags unchanged.",
+  "payload": {
+    "utc": "2026-10-14T07:17:01.181857+00:00",
+    "recordedGroup": 38256,
+    "originalBuildExit": 0,
+    "originalClosureProbe": {
+      "closed": false,
+      "waitSeconds": 5.018028750000006,
+      "observations": [
+        {
+          "utc": "2026-10-14T07:16:32.234110+00:00",
+          "members": [
+            "38301     1 38256 S    dotnet exec --runtimeconfig <external-host-path> <external-host-path>"
+          ]
+        }
+      ]
+    },
+    "membersBeforeCleanup": [
+      "38301     1 38256 S    dotnet exec --runtimeconfig <external-host-path> <external-host-path>"
+    ],
+    "actions": [
+      {
+        "pid": 38301,
+        "signal": "SIGTERM",
+        "group": 38256,
+        "verifiedIdentity": "38301     1 38256 S    dotnet exec --runtimeconfig <external-host-path> <external-host-path>"
+      }
+    ],
+    "membersAfterCleanup": [],
+    "originalReceiptSha256": "5fc94d1bbc02616bff7554950bc4e80b140270da2739088290cb6919661d3c73",
+    "physicalHashes": {
+      "ProjectPrime.dll": "6c98d47c58d0645b0f9174e7fcc47d39dcd79e85c868e759471edf5761c3e018",
+      "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "nettest.dll": "c4e5a763aeedb5a92ffe77a1eefa2b30b1ae0821c767797165026d9b297a7890",
+      "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "closureNow": true
+  }
+}

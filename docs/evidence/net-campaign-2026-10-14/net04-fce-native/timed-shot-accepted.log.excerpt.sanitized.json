@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/native-fce73957-final/timed-shot-accepted.log",
+    "sha256": "c71e8e441941533a30bd000313f059c11718228f5a83c6b8bf80a65fc04b8b30",
+    "bytes": 37674
+  },
+  "treatment": "Selected diagnostic/summary lines only; ordinary progress and stack frames omitted. Path strings sanitized. This excerpt is not an original raw log.",
+  "payload": {
+    "selectedLines": [
+      "PASS: 343 controlled admitted-remote timed-shot assertions.",
+      "SCOPE: actual asset authority body/lifecycle carrier/accepted ledger/private drain/projectile terminals/A1 input adapter/production replay packets. Explicit resource/reservation seeds and fixed carrier chronology. NOT_RUN: native pickup proof, authenticated UDP, GL/audio, partial-spawn exception injection, natural campaign."
+    ],
+    "originalLineCount": 467,
+    "selectedLineCount": 2
+  }
+}

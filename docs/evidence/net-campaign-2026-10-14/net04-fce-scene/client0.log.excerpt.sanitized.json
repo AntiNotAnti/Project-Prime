@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/replay-scene-fce73957-final/client0.log",
+    "sha256": "087ac8850337d438049c80cb37501f1a87f6ddaa4afe57a358921a344a4cbb84",
+    "bytes": 1034
+  },
+  "treatment": "Selected diagnostic/summary lines only; ordinary progress and stack frames omitted. Path strings sanitized. This excerpt is not an original raw log.",
+  "payload": {
+    "selectedLines": [
+      "SCENE_FINAL frames=5597 sceneEvents=37334 certs=0 scopes=0 current=5597 result=Success error= warning= pendingBombs=0 activeNetSession=False authority=False"
+    ],
+    "originalLineCount": 10,
+    "selectedLineCount": 1
+  }
+}

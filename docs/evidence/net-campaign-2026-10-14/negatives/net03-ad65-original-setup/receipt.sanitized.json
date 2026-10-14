@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net03-evidence/candidate-ad65dcd3/setup-closure/original-setup-receipt.json",
+    "sha256": "5fc94d1bbc02616bff7554950bc4e80b140270da2739088290cb6919661d3c73",
+    "bytes": 226793
+  },
+  "treatment": "JSON reserialized with relative/sanitized path strings; full sourceTreeLines omitted with separate text digest. Numeric samples, SHA256, MVID, full commits, results and closure flags unchanged.",
+  "payload": {
+    "schema": 1,
+    "sourceBefore": {
+      "commit": "ad65dcd39099764114b2b4d7f1147288987312e0",
+      "tree": "9ee0fd94cf53d683dccf5cd673e56d39a866c6e3",
+      "dirty": ""
+    },
+    "startedUtc": "2026-10-14T07:15:49.096995+00:00",
+    "scope": "Fresh merged-main integration build and focused source/claim/replay checks; no native/performance campaign repetition",
+    "merges": [
+      {
+        "headRefOid": "c5d2b1136f4104a4b38abb3824c9a4617c002e36",
+        "mergeCommit": {
+          "oid": "b24f8dccebf18c23954816de3bc753856b3cdf6f"
+        },
+        "mergedAt": "2026-10-14T04:10:10Z",
+        "number": 472,
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/472"
+      },
+      {
+        "headRefOid": "e8a8f58abe78293cd07f947981fd52de868783e2",
+        "mergeCommit": {
+          "oid": "b768c9bea10da3201960a2519effbdc260f14026"
+        },
+        "mergedAt": "2026-10-14T04:10:54Z",
+        "number": 473,
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/473"
+      },
+      {
+        "headRefOid": "ec788c0bb2cd819ac29504279dd9ba16cd1363ec",
+        "mergeCommit": {
+          "oid": "f85def5bb8ab17a208717d9ad9990381ab142db2"
+        },
+        "mergedAt": "2026-10-14T04:11:06Z",
+        "number": 474,
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/474"
+      }
+    ],
+    "steps": [
+      {
+        "name": "build",
+        "command": [
+          "work/dotnet/dotnet",
+          "build",
+          "tools/nettest/nettest.csproj",
+          "-c",
+          "Release",
+          "-o",
+          "work/net03-evidence/candidate-ad65dcd3/runtime",
+          "-m:1",
+          "-p:UseSharedCompilation=false",
+          "-p:CopyLocalLockFileAssemblies=false",
+          "-nodeReuse:false"
+        ],
+        "cwd": "work/prime-net03",
+        "startedUtc": "2026-10-14T07:15:50.784642+00:00",
+        "pid": 38256,
+        "exit": 0,
+        "closureProbe": {
+          "closed": false,
+          "waitSeconds": 5.018028750000006,
+          "observations": [
+            {
+              "utc": "2026-10-14T07:16:32.234110+00:00",
+              "members": [
+                "38301     1 38256 S    dotnet exec --runtimeconfig <external-host-path> <external-host-path>"
+              ]
+            }
+          ]
+        },
+        "finishedUtc": "2026-10-14T07:16:37.220232+00:00",
+        "logSha256": "b5c26533ab63648b29c611d33ebce80daa1375d795074c5b44656a413692c223",
+        "ownedProcessGroupClosed": false
+      }
+    ],
+    "runnerSha256": "4b3e3a12be7889266ff55d1af5304d7db6ad30603d175f2d38190ccd5d248dc4",
+    "donorSixBefore": {
+      "ProjectPrime.dll": "9e4cdb80cda4ad70c84145d6425eccd744e975ef8d64af575cc0d3013b9b62dc",
+      "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "nettest.dll": "88ba69a3869e19dda13ad9f21334e245437c85bb91426da9b2f5d5080965c082",
+      "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "sourceConstants": {
+      "protocol": 56,
+      "replicaCheckpoint": 12,
+      "worldCheckpoint": 10
+    },
+    "omittedSourceTreeListing": {
+      "original_utf8_sha256": "281b27dffaf240c0d369b520fa97264548129d87f7e91bdaced9a7157bcae5e4",
+      "original_utf8_bytes": 218732,
+      "policy": "full listing omitted; commit/tree identities retained"
+    }
+  }
+}

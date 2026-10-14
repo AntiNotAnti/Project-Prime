@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/replayformat-1ac71b12/fixed-replayformat.log",
+    "sha256": "0b2f490f99d475365b91d5b4e156c5e6beefabf9d0146785861594a4ae865e8b",
+    "bytes": 690
+  },
+  "treatment": "Selected identity/result/failure/scope lines; routine progress and stack frames omitted; not an original raw log.",
+  "payload": {
+    "selectedLines": [
+      "COMPACT_LOADED_IDENTITY ProjectPrime location=work/net04-evidence/replayformat-1ac71b12/runtime/ProjectPrime.dll mvid=ef17fe13-d44b-475a-ac41-df9e2328f978",
+      "[replay] Recording interrupted; recover completed chunks from its .part file. Replay storage queue exceeded its byte budget.",
+      "[replayformat] PASS 3041 checks (v2/v3/v4, order, metadata, CRC, recovery, extraction, malformed files)"
+    ],
+    "originalLineCount": 6,
+    "selectedLineCount": 3
+  }
+}

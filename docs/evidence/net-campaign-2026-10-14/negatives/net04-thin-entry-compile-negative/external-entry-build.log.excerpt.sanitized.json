@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/benchmark-4b4b5c45/external-entry-build.log",
+    "sha256": "2e56d131eebeef798c8bb7bf4508ed7ced9febf42d97b4709dd6e4f987f3d794",
+    "bytes": 1896
+  },
+  "treatment": "Selected diagnostic/summary lines only; ordinary progress and stack frames omitted. Path strings sanitized. This excerpt is not an original raw log.",
+  "payload": {
+    "selectedLines": [
+      "work/net04-evidence/benchmark-4b4b5c45/external-entry-source/Program.cs(42,44): error CS0103: The name 'BeamType' does not exist in the current context [work/net04-evidence/benchmark-4b4b5c45/external-entry-source/benchmark.csproj]",
+      "work/net04-evidence/benchmark-4b4b5c45/external-entry-source/Program.cs(71,26): error CS0103: The name 'GameMode' does not exist in the current context [work/net04-evidence/benchmark-4b4b5c45/external-entry-source/benchmark.csproj]",
+      "Build FAILED.",
+      "work/net04-evidence/benchmark-4b4b5c45/external-entry-source/Program.cs(42,44): error CS0103: The name 'BeamType' does not exist in the current context [work/net04-evidence/benchmark-4b4b5c45/external-entry-source/benchmark.csproj]",
+      "work/net04-evidence/benchmark-4b4b5c45/external-entry-source/Program.cs(71,26): error CS0103: The name 'GameMode' does not exist in the current context [work/net04-evidence/benchmark-4b4b5c45/external-entry-source/benchmark.csproj]"
+    ],
+    "originalLineCount": 13,
+    "selectedLineCount": 5
+  }
+}

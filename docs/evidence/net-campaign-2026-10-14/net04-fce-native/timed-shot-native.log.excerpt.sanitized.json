@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/native-fce73957-final/timed-shot-native.log",
+    "sha256": "005eb58b36308b12093c7c74ce04cbb994162faf6e8e9ba6de33dfb172c288e1",
+    "bytes": 21757
+  },
+  "treatment": "Selected diagnostic/summary lines only; ordinary progress and stack frames omitted. Path strings sanitized. This excerpt is not an original raw log.",
+  "payload": {
+    "selectedLines": [
+      "TIMED NATIVE ZERO BANK {\"FiredDelta\":1,\"StoredDelta\":1,\"MissileNoAmmoDelta\":0,\"CurrentWeapon\":0,\"Charge\":1,\"ShotAge\":0,\"AutofireCooldown\":10,\"GunAnimation\":12,\"Outcomes\":[{\"Result\":\"Spawned\",\"Missile\":0,\"PowerBeam\":1},{\"Result\":\"AttachedEnemy\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"Cooldown\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"AutofireCooldown\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"GunLowered\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"NoAmmo\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"NoProjectileSlot\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"DeadOrNotInPlay\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"StaleLife\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"InvalidSpatialState\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"OtherNoSpawn\",\"Missile\":0,\"PowerBeam\":0}]}",
+      "TIMED NATIVE CONTROLLED AMMO FAULT {\"FiredDelta\":0,\"StoredDelta\":0,\"MissileNoAmmoDelta\":1,\"CurrentWeapon\":2,\"Charge\":0,\"ShotAge\":437,\"AutofireCooldown\":40,\"GunAnimation\":8,\"Outcomes\":[{\"Result\":\"Spawned\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"AttachedEnemy\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"Cooldown\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"AutofireCooldown\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"GunLowered\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"NoAmmo\",\"Missile\":1,\"PowerBeam\":0},{\"Result\":\"NoProjectileSlot\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"DeadOrNotInPlay\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"StaleLife\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"InvalidSpatialState\",\"Missile\":0,\"PowerBeam\":0},{\"Result\":\"OtherNoSpawn\",\"Missile\":0,\"PowerBeam\":0}]} reads=[{\"Value\":100,\"Calls\":[\"\\u003CMidFrameAmmoFault\\u003Eb__0\",\"get_Ammo\",\"ProcessPlayer\",\"Process\",\"UpdateScene\",\"RunSimulationFrame\",\"OnSimulationFrame\",\"Step\",\"Step\",\"MidFrameAmmoFault\",\"Run\",\"Main\"]},{\"Value\":0,\"Calls\":[\"\\u003CMidFrameAmmoFault\\u003Eb__0\",\"get_Ammo\",\"ProcessBiped\",\"ProcessInput\",\"ProcessPlayer\",\"Process\",\"UpdateScene\",\"RunSimulationFrame\",\"OnSimulationFrame\",\"Step\",\"Step\",\"MidFrameAmmoFault\",\"Run\",\"Main\"]},{\"Value\":0,\"Calls\":[\"\\u003CMidFrameAmmoFault\\u003Eb__0\",\"get_Ammo\",\"SpawnWithEmission\",\"TryFireWeapon\",\"ProcessBiped\",\"ProcessInput\",\"ProcessPlayer\",\"Process\",\"UpdateScene\",\"RunSimulationFrame\",\"OnSimulationFrame\",\"Step\",\"Step\",\"MidFrameAmmoFault\",\"Run\",\"Main\"]}]",
+      "TIMED NATIVE POST-SPEND RESULT {\"bankBefore\":100,\"bankAfter\":90,\"setterCalls\":1,\"calls\":[\"\\u003CPostSpendException\\u003Eb__0\",\"set_Ammo\",\"SpawnWithEmission\",\"TryFireWeapon\",\"ProcessBiped\",\"ProcessInput\",\"ProcessPlayer\",\"Process\",\"UpdateScene\",\"RunSimulationFrame\",\"OnSimulationFrame\",\"Step\",\"Step\",\"PostSpendException\",\"Run\",\"Main\"],\"failedKey\":{\"AuthorityEpoch\":1,\"MatchId\":1,\"ShooterSlot\":0,\"Generation\":1,\"LifeId\":1,\"ShotId\":2},\"SourceFrame\":184,\"Key\":{\"AuthorityEpoch\":1,\"MatchId\":1,\"ShooterSlot\":0,\"Generation\":1,\"LifeId\":1,\"ShotId\":3},\"Source\":8,\"Unavailable\":6,\"ExpectedStepFailures\":1}",
+      "PASS: 6463 genuine native timed-shot assertions.",
+      "SCOPE: actual headless keyboard/player/spawn/contact/commit and unmodified canonical intent/accepted replay bytes; fixture Host/local0 and item placement. No-target firing may have zero impact ReplayShotFacts; actual WeaponFired replay fact is required. NOT_RUN: GL/audio, natural AI, authenticated UDP, special-family acceptance."
+    ],
+    "originalLineCount": 64,
+    "selectedLineCount": 5
+  }
+}

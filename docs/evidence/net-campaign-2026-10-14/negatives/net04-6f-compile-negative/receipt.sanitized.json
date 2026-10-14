@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/candidate-6f5549c2/receipt.json",
+    "sha256": "b1c8b1e933f8ea1f3f260aa55e863639c679b17e7e1d6114aa98af0be7cefe4f",
+    "bytes": 226981
+  },
+  "treatment": "JSON reserialized with relative/sanitized path strings; full sourceTreeLines omitted with separate text digest. Numeric samples, SHA256, MVID, full commits, results and closure flags unchanged.",
+  "payload": {
+    "schema": 1,
+    "sourceBefore": {
+      "commit": "6f5549c2ee2b9a1de45ebfa693363ecb9317d57e",
+      "tree": "5bbeba5e2af46d7c4769c627124ce5b06dc4e612",
+      "dirty": ""
+    },
+    "startedUtc": "2026-10-14T07:26:09.848177+00:00",
+    "scope": "Fresh merged-main integration build and focused source/claim/replay checks; no native/performance campaign repetition",
+    "merges": [
+      {
+        "headRefOid": "c5d2b1136f4104a4b38abb3824c9a4617c002e36",
+        "mergeCommit": {
+          "oid": "b24f8dccebf18c23954816de3bc753856b3cdf6f"
+        },
+        "mergedAt": "2026-10-14T04:10:10Z",
+        "number": 472,
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/472"
+      },
+      {
+        "headRefOid": "e8a8f58abe78293cd07f947981fd52de868783e2",
+        "mergeCommit": {
+          "oid": "b768c9bea10da3201960a2519effbdc260f14026"
+        },
+        "mergedAt": "2026-10-14T04:10:54Z",
+        "number": 473,
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/473"
+      },
+      {
+        "headRefOid": "ec788c0bb2cd819ac29504279dd9ba16cd1363ec",
+        "mergeCommit": {
+          "oid": "f85def5bb8ab17a208717d9ad9990381ab142db2"
+        },
+        "mergedAt": "2026-10-14T04:11:06Z",
+        "number": 474,
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/474"
+      }
+    ],
+    "steps": [
+      {
+        "name": "build",
+        "command": [
+          "work/dotnet/dotnet",
+          "build",
+          "tools/nettest/nettest.csproj",
+          "-c",
+          "Release",
+          "-o",
+          "work/net04-evidence/candidate-6f5549c2/runtime",
+          "-m:1",
+          "-p:UseSharedCompilation=false",
+          "-p:CopyLocalLockFileAssemblies=false",
+          "-nodeReuse:false"
+        ],
+        "cwd": "work/prime-net04",
+        "startedUtc": "2026-10-14T07:26:11.347886+00:00",
+        "pid": 38728,
+        "exit": 1,
+        "closureProbe": {
+          "closed": true,
+          "waitSeconds": 3.291700000573883e-05,
+          "observations": []
+        },
+        "finishedUtc": "2026-10-14T07:26:50.202660+00:00",
+        "logSha256": "977b087ec4601c99e3cc7d61b47334ec73e531306c5857e6087e045f56e7bb45",
+        "ownedProcessGroupClosed": true
+      }
+    ],
+    "runnerSha256": "c8397ce1654c59c014c63e48c7afe9aee2201431a40c2cbcfbcd6f4a5b390d89",
+    "donorSixBefore": {
+      "ProjectPrime.dll": "9e4cdb80cda4ad70c84145d6425eccd744e975ef8d64af575cc0d3013b9b62dc",
+      "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "nettest.dll": "88ba69a3869e19dda13ad9f21334e245437c85bb91426da9b2f5d5080965c082",
+      "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "sourceConstants": {
+      "protocol": 56,
+      "replicaCheckpoint": 13,
+      "worldCheckpoint": 10
+    },
+    "omittedSourceTreeListing": {
+      "original_utf8_sha256": "665081f33918df62dab530339f8e10011a1a4237d8bf4647405f9cac895d3e29",
+      "original_utf8_bytes": 219320,
+      "policy": "full listing omitted; commit/tree identities retained"
+    }
+  }
+}

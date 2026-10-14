@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/net04-evidence/replay-diagnostic-4b-attempt1/receipt.json",
+    "sha256": "791eaf1faa53dd3400a1a75147f2dfe151fb51a6e1fd278972896ee47f676b9e",
+    "bytes": 4941
+  },
+  "treatment": "Sanitized JSON derivative; original full commit/SHA/MVID/result/closure fields retained; source tree listing omitted with digest.",
+  "payload": {
+    "sourceWorktreeUnchanged": true,
+    "results": [
+      {
+        "candidate": "4b",
+        "file": "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-183_0521a4adc4e34a5d87ffd01b063cbd52.ppdemo",
+        "fileSHA256": "646deb8984787ecb7acd066e3258c4656e70bb6fa8456660b3ef31a1476dbaf9",
+        "clientSHA256": "ab231b0305f05ab02a0e44e1f424e12e97dee08cca37ba09aa5293a02b044764",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net04-evidence/replay-diagnostic-4b-attempt1/runtime-4b/nettest.dll",
+          "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-183_0521a4adc4e34a5d87ffd01b063cbd52.ppdemo"
+        ],
+        "pid": 41134,
+        "exitCode": 1,
+        "seconds": 0.27861905097961426,
+        "groupClosed": true,
+        "groupAbsentVerified": true
+      },
+      {
+        "candidate": "4b",
+        "file": "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo",
+        "fileSHA256": "fb7c9a1761f60a94743c18db430f04b22278bb0668ee930692834307635e616f",
+        "clientSHA256": "ab231b0305f05ab02a0e44e1f424e12e97dee08cca37ba09aa5293a02b044764",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net04-evidence/replay-diagnostic-4b-attempt1/runtime-4b/nettest.dll",
+          "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_03-02-19-751_fc38ebc507fc4ca2b1f65ec98dd04e6a.ppdemo"
+        ],
+        "pid": 41135,
+        "exitCode": 1,
+        "seconds": 0.2640798091888428,
+        "groupClosed": true,
+        "groupAbsentVerified": true
+      },
+      {
+        "candidate": "ad65",
+        "file": "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-183_0521a4adc4e34a5d87ffd01b063cbd52.ppdemo",
+        "fileSHA256": "646deb8984787ecb7acd066e3258c4656e70bb6fa8456660b3ef31a1476dbaf9",
+        "clientSHA256": "6c98d47c58d0645b0f9174e7fcc47d39dcd79e85c868e759471edf5761c3e018",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net04-evidence/replay-diagnostic-4b-attempt1/runtime-ad65/nettest.dll",
+          "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-183_0521a4adc4e34a5d87ffd01b063cbd52.ppdemo"
+        ],
+        "pid": 41139,
+        "exitCode": 1,
+        "seconds": 0.27243709564208984,
+        "groupClosed": true,
+        "groupAbsentVerified": true
+      },
+      {
+        "candidate": "dc5",
+        "file": "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-183_0521a4adc4e34a5d87ffd01b063cbd52.ppdemo",
+        "fileSHA256": "646deb8984787ecb7acd066e3258c4656e70bb6fa8456660b3ef31a1476dbaf9",
+        "clientSHA256": "5404aaf4c35cff36a04d2c3a86bfcbef0a0ef4b327521f8139c662bea6f3999c",
+        "command": [
+          "work/dotnet/dotnet",
+          "work/net04-evidence/replay-diagnostic-4b-attempt1/runtime-dc5/nettest.dll",
+          "work/net04-evidence/udp2-timed-shadow-4b4b5c45-smoke1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_03-02-20-183_0521a4adc4e34a5d87ffd01b063cbd52.ppdemo"
+        ],
+        "pid": 41141,
+        "exitCode": 1,
+        "seconds": 0.2678649425506592,
+        "groupClosed": true,
+        "groupAbsentVerified": true
+      }
+    ],
+    "finalSourceHEAD": "4b4b5c451a17430fcd6fadb2fe72c56b020bd570",
+    "finalSourceGitStatus": ""
+  }
+}
