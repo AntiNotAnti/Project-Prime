@@ -216,56 +216,66 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         ValidateEndpoint(endpoint);
         ValidateMap(map);
         CommunityTransferJob? existing;
+        CommunityTransferJob? added = null;
         lock (_gate)
         {
+            using var gate = LockAndReloadLocked();
+            // Deduplicate against every live process, never a stale per-process
+            // dictionary. The exact archive hash and service remain the key.
             existing = _jobs.Values.FirstOrDefault(j =>
                 j.Kind == CommunityTransferKind.Download
                 && j.PackageHash == map.Hash
                 && j.Endpoint == endpoint && j.State != CommunityTransferState.Cancelled);
-            if (existing == null) RequireCapacityLocked();
-        }
-        if (existing != null)
-        {
-            if (existing.Download == null || existing.Download.MapId != map.MapId
-                || existing.Download.ContentHash != map.ContentHash
-                || !StringComparer.OrdinalIgnoreCase.Equals(existing.Download.Name, map.Name)
-                || existing.TotalBytes != map.Bytes)
-                throw new InvalidDataException(
-                    "Stored transfer conflicts with the selected exact map revision.");
-
-            if (existing.State == CommunityTransferState.Completed)
+            if (existing == null)
             {
-                // A terminal receipt is not an archive lease. The CAS may have
-                // been evicted or damaged since this job finished, and the same
-                // selection must fetch verified bytes again rather than failing
-                // its install handoff.
-                var exact = new MapContentIdentity(map.MapId, map.Name,
-                    MapHash256.Parse(map.ContentHash), MapHash256.Parse(map.Hash), true);
-                using var cached = _archiveCache.TryAcquire(exact);
-                if (cached == null)
-                {
-                    Update(existing.Id, job => job with
-                    {
-                        State = CommunityTransferState.Retryable,
-                        Download = map,
-                        AcknowledgedBytes = 0,
-                        Error = "Cached archive missing or invalid; recovering exact revision."
-                    });
-                    Schedule(existing.Id);
-                }
+                RequireCapacityLocked();
+                added = new CommunityTransferJob(Guid.NewGuid(),
+                    CommunityTransferKind.Download, CommunityTransferState.Queued,
+                    endpoint, map.Hash, map.Bytes, 0, DateTimeOffset.UtcNow,
+                    Download: map);
+                _jobs.Add(added.Id, added);
+                PersistLocked();
             }
-            else if (existing.State is CommunityTransferState.Retryable
-                or CommunityTransferState.Failed)
-                Schedule(existing.Id);
-            return existing.Id;
         }
+        if (added != null)
+        {
+            Changed?.Invoke(added);
+            Schedule(added.Id);
+            return added.Id;
+        }
+        if (existing == null)
+            throw new InvalidOperationException("Community download admission failed.");
 
-        Guid id = Guid.NewGuid();
-        AddJob(new CommunityTransferJob(id, CommunityTransferKind.Download,
-            CommunityTransferState.Queued, endpoint, map.Hash, map.Bytes, 0,
-            DateTimeOffset.UtcNow, Download: map));
-        Schedule(id);
-        return id;
+        if (existing.Download == null || existing.Download.MapId != map.MapId
+            || existing.Download.ContentHash != map.ContentHash
+            || !StringComparer.OrdinalIgnoreCase.Equals(existing.Download.Name, map.Name)
+            || existing.TotalBytes != map.Bytes)
+            throw new InvalidDataException(
+                "Stored transfer conflicts with the selected exact map revision.");
+
+        if (existing.State == CommunityTransferState.Completed)
+        {
+            // A terminal receipt is not an archive lease. If CAS was evicted or
+            // corrupted, one process claims the retry under the index gate.
+            var exact = new MapContentIdentity(map.MapId, map.Name,
+                MapHash256.Parse(map.ContentHash), MapHash256.Parse(map.Hash), true);
+            using var cached = _archiveCache.TryAcquire(exact);
+            if (cached == null)
+            {
+                Update(existing.Id, job => job with
+                {
+                    State = CommunityTransferState.Retryable,
+                    Download = map,
+                    AcknowledgedBytes = 0,
+                    Error = "Cached archive missing or invalid; recovering exact revision."
+                });
+                Schedule(existing.Id);
+            }
+        }
+        else if (existing.State is CommunityTransferState.Retryable
+            or CommunityTransferState.Failed or CommunityTransferState.Queued)
+            Schedule(existing.Id);
+        return existing.Id;
     }
 
     public void Resume(Guid id)
@@ -382,6 +392,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         // in-progress or paused receipt is never silently discarded.
         CommunityTransferJob? oldest = _jobs.Values
             .Where(j => !_running.ContainsKey(j.Id)
+                && !_coordination.IsJobOwned(j.Id)
                 && (j.State is CommunityTransferState.Completed
                     or CommunityTransferState.Cancelled))
             .OrderBy(j => j.UpdatedAt).FirstOrDefault();
@@ -399,25 +410,48 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     {
         lock (_gate)
         {
-            if (_running.ContainsKey(id)) return;
+            if (_disposed || _running.ContainsKey(id)) return;
+            using var index = LockAndReloadLocked();
             if (!_jobs.TryGetValue(id, out var job))
                 throw new KeyNotFoundException("Unknown Community job.");
             if (job.State is CommunityTransferState.Completed
-                or CommunityTransferState.Cancelled) return;
-            var cancel = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
-            _jobs[id] = job with { State = CommunityTransferState.Queued,
-                UpdatedAt = DateTimeOffset.UtcNow, Error = null };
-            PersistLocked();
-            Task running = Task.Run(async () =>
+                or CommunityTransferState.Cancelled
+                or CommunityTransferState.Paused
+                or CommunityTransferState.NeedsReview) return;
+
+            // Lifetime exclusive across separate Game/Studio processes.
+            // A second scheduler leaves the first owner untouched.
+            FileStream? jobLease = _coordination.TryLeaseJob(id);
+            if (jobLease == null) return;
+
+            CancellationTokenSource? cancel = null;
+            try
             {
-                try { await RunAsync(id, cancel.Token).ConfigureAwait(false); }
-                finally
+                cancel = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+                _jobs[id] = job with { State = CommunityTransferState.Queued,
+                    UpdatedAt = DateTimeOffset.UtcNow, Error = null };
+                PersistLocked();
+                CancellationTokenSource ownerCancel = cancel;
+                Task running = Task.Run(async () =>
                 {
-                    lock (_gate) _running.Remove(id);
-                    cancel.Dispose();
-                }
-            });
-            _running.Add(id, (cancel, running));
+                    try { await RunAsync(id, ownerCancel.Token).ConfigureAwait(false); }
+                    finally
+                    {
+                        // Only dispose the job lease after the HTTP worker has
+                        // stopped writing offsets and persisted terminal state.
+                        lock (_gate) _running.Remove(id);
+                        jobLease.Dispose();
+                        ownerCancel.Dispose();
+                    }
+                });
+                _running.Add(id, (ownerCancel, running));
+            }
+            catch
+            {
+                jobLease.Dispose();
+                cancel?.Dispose();
+                throw;
+            }
         }
     }
 
@@ -471,7 +505,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             // Pause/cancel state was written before cancellation, or Dispose
             // has cancelled an in-progress worker. Do not discard partial bytes.
             Update(id, j => j.State is CommunityTransferState.Cancelled
-                or CommunityTransferState.Paused ? j
+                or CommunityTransferState.Paused or CommunityTransferState.Queued ? j
                 : j with { State = CommunityTransferState.Retryable,
                     Error = "Interrupted; transfer bytes were retained." }, force: true);
         }
