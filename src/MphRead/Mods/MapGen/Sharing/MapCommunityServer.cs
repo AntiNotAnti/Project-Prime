@@ -1155,7 +1155,9 @@ public static class MapCommunityServer
                 {
                     if (creator==null) { context.Response.StatusCode = 401; return; }
                     if (context.Request.ContentLength64 > MapPackageReader.MaxArchiveBytes) { context.Response.StatusCode = 413; return; }
-                    if (!await publication.WaitAsync(0, deadline.Token)) { context.Response.StatusCode = 429; return; }
+                    // Legacy one-shot uploads remain supported. Do not hold
+                    // the catalog publication lock while awaiting network body
+                    // bytes, even if the sender is slow or disconnects.
                     string temporary = Path.Combine(storage, Guid.NewGuid().ToString("N") + ".upload");
                     try
                     {
@@ -1168,13 +1170,20 @@ public static class MapCommunityServer
                             { context.Response.StatusCode = 400; return; }
                             expected = mapId;
                         }
-                        var result = PublishTemporary(temporary, creator,
-                            context.Request.QueryString["listed"] != "false",
-                            context.Request.QueryString["draft"] == "true", expected);
-                        context.Response.StatusCode = result.Status;
-                        if (result.Entry != null) await Json(context.Response, result.Entry, deadline.Token);
+                        if (!await publication.WaitAsync(0, deadline.Token))
+                        { context.Response.StatusCode = 429; return; }
+                        try
+                        {
+                            var result = PublishTemporary(temporary, creator,
+                                context.Request.QueryString["listed"] != "false",
+                                context.Request.QueryString["draft"] == "true", expected);
+                            context.Response.StatusCode = result.Status;
+                            if (result.Entry != null)
+                                await Json(context.Response, result.Entry, deadline.Token);
+                        }
+                        finally { publication.Release(); }
                     }
-                    finally { if (File.Exists(temporary)) File.Delete(temporary); publication.Release(); }
+                    finally { if (File.Exists(temporary)) File.Delete(temporary); }
                 }
                 else context.Response.StatusCode = 404;
             }
