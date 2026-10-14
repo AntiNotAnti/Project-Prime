@@ -87,6 +87,67 @@ try
     string restored = await cache.GetOrDownloadAsync(publicClient, b.Items[0], default);
     Check(restored == pathA && File.ReadAllBytes(restored).SequenceEqual(png),
         "corrupt optional cache is repaired from exact public hash");
+    // The public project envelope includes only Current/Latest revisions.
+    // Preserve exact older published SHA pins by using the authorized v3
+    // revision history, rather than silently following mutable latest.
+    string secondFile = Path.Combine(root, "hd-v2.png");
+    File.WriteAllBytes(secondFile, png.Concat(new byte[] { 2 }).ToArray());
+    var versionTwo = await creator.PublishContentAsync(secondFile,
+        new CommunityContentRegistration(CommunityContentKinds.Texture, id,
+            MapCreatorCatalog.ServiceOwner, "Optional HD", null, null, null,
+            new[] { "high-res" }, "image/png",
+            CommunityContentVisibility.Published,
+            ExpectedParentHash: uploaded.CurrentHash), default);
+    string thirdFile = Path.Combine(root, "hd-v3.png");
+    File.WriteAllBytes(thirdFile, png.Concat(new byte[] { 3 }).ToArray());
+    var versionThree = await creator.PublishContentAsync(thirdFile,
+        new CommunityContentRegistration(CommunityContentKinds.Texture, id,
+            MapCreatorCatalog.ServiceOwner, "Optional HD", null, null, null,
+            new[] { "high-res" }, "image/png",
+            CommunityContentVisibility.Published,
+            ExpectedParentHash: versionTwo.CurrentHash), default);
+    CommunityContentProject? currentProject = await publicClient.GetContentAsync(
+        CommunityContentKinds.Texture, id, default);
+    CommunityContentRevision[] publicHistory =
+        await publicClient.GetContentRevisionsAsync(CommunityContentKinds.Texture,
+            id, default);
+    Check(currentProject?.CurrentHash == versionThree.CurrentHash
+        && publicHistory.Length == 3,
+        "service retains historical public optional revisions after publishing updates");
+    var history = publicHistory.Select(rev => new CommunityAuthorizedRevision(
+        CommunityContentKinds.Texture, id, rev)).ToArray();
+    var oldWithoutHistory = CommunityDependencyResolver.Resolve(first,
+        new string('a', 64), CommunityVisualQuality.Hd,
+        new[] { pointer }, new[] { currentProject! });
+    Check(oldWithoutHistory.Items.Length == 0
+        && oldWithoutHistory.MissingOptional.Length == 1,
+        "lightweight latest-only catalog cannot falsely resolve an older exact revision");
+    var oldWithHistory = CommunityDependencyResolver.Resolve(first,
+        new string('a', 64), CommunityVisualQuality.Hd,
+        new[] { pointer }, new[] { currentProject! }, history);
+    Check(oldWithHistory.Items.Length == 1
+        && oldWithHistory.Items[0].Hash == uploaded.CurrentHash
+        && oldWithHistory.MissingOptional.Length == 0,
+        "authorized older revision history retains immutable map visual SHA pin");
+    string historicFile = await cache.GetOrDownloadAsync(publicClient,
+        oldWithHistory.Items[0], default);
+    Check(File.ReadAllBytes(historicFile).SequenceEqual(png),
+        "historical exact published optional blob is still downloadable for cache reuse");
+    bool refusedPrivate = false;
+    try
+    {
+        CommunityDependencyResolver.Resolve(first, new string('a', 64),
+            CommunityVisualQuality.Hd, new[] { pointer }, new[] { currentProject! },
+            new[] { history[^1] with
+            {
+                Revision = history[^1].Revision with
+                { Visibility = CommunityContentVisibility.Draft }
+            } });
+    }
+    catch (InvalidDataException) { refusedPrivate = true; }
+    Check(refusedPrivate,
+        "optional resolver rejects unpublished revision metadata supplied as history");
+
     Console.WriteLine($"Community optional resource checks: {checks} PASS.");
 }
 finally
