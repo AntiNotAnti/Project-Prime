@@ -105,6 +105,26 @@ public sealed class MapCommunityClient : IDisposable
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", uploadToken.Trim());
         return client;
     }
+    /// <summary>
+    /// Read additive v3 capabilities when available; a legacy Community
+    /// service legitimately returns 404. Do not alter old chunk sizes, upload
+    /// offsets, or publication semantics solely because this endpoint exists.
+    /// </summary>
+    public async Task<MapCommunityServiceCapabilities?> GetCapabilitiesAsync(
+        CancellationToken token = default)
+    {
+        using var response = await GetReadAsync("v3/capabilities",
+            HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false),
+            data, 65536, token).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<MapCommunityServiceCapabilities>(
+            data.ToArray(), MapPackageReader.JsonOptions)
+            ?? throw new InvalidDataException("Community capabilities document is invalid.");
+    }
+
     public async Task<CommunityMap[]> BrowseAsync(CancellationToken token, bool mine = false, bool favorites = false, string? sort = null)
     {
         using var response = await GetReadAsync("maps?mine="+mine.ToString().ToLowerInvariant()+"&favorites="+favorites.ToString().ToLowerInvariant()+"&sort="+Uri.EscapeDataString(sort??"name"), HttpCompletionOption.ResponseHeadersRead, token);
@@ -478,6 +498,16 @@ public sealed class MapCommunityClient : IDisposable
                         length = Math.Max(MinimumAdaptiveChunkBytes, length / 2);
                         continue;
                     }
+                    // A separate creator upload lane may be full while
+                    // players continue downloading. Respect temporary server
+                    // admission responses without discarding this frozen
+                    // package or restarting the authoritative offset.
+                    if (IsTransientAdmission(response.StatusCode) && recoveries++ < 8)
+                    {
+                        await Task.Delay(AdmissionRetryDelay(response, recoveries), token)
+                            .ConfigureAwait(false);
+                        continue;
+                    }
                     if (response.StatusCode == HttpStatusCode.Conflict)
                     {
                         state = await GetUploadStateAsync(hash, token).ConfigureAwait(false);
@@ -509,24 +539,40 @@ public sealed class MapCommunityClient : IDisposable
 
         if (!state.Complete)
         {
-            using var complete = await _http.PostAsync("uploads/" + hash + "/complete",
-                new ByteArrayContent(Array.Empty<byte>()), token).ConfigureAwait(false);
-            if (complete.StatusCode == HttpStatusCode.Conflict)
+            HttpResponseMessage complete;
+            int verificationRetries = 0;
+            while (true)
             {
-                CommunityRevisionConflict? conflict =
-                    await ReadRevisionConflictAsync(complete, token).ConfigureAwait(false);
-                if (conflict != null) throw new CommunityRevisionConflictException(conflict);
-                throw new HttpRequestException(
-                    "This map version already has different published contents. Increase the project's Version before publishing.",
-                    null, complete.StatusCode);
+                using var emptyBody = new ByteArrayContent(Array.Empty<byte>());
+                complete = await _http.PostAsync("uploads/" + hash + "/complete",
+                    emptyBody, token).ConfigureAwait(false);
+                if (!IsTransientAdmission(complete.StatusCode) || verificationRetries++ >= 8)
+                    break;
+                using (complete)
+                    await Task.Delay(AdmissionRetryDelay(complete, verificationRetries), token)
+                        .ConfigureAwait(false);
             }
-            EnsureSuccess(complete);
-            using var data = new MemoryStream();
-            await CopyBoundedAsync(await complete.Content.ReadAsStreamAsync(token), data, 64 * 1024, token).ConfigureAwait(false);
-            var published = JsonSerializer.Deserialize<CommunityMap>(data.ToArray(), MapPackageReader.JsonOptions)
-                ?? throw new InvalidDataException("The community returned no map identity.");
-            progress?.Invoke(bytes, bytes);
-            return ConfirmUpload(path, published);
+            using (complete)
+            {
+                if (complete.StatusCode == HttpStatusCode.Conflict)
+                {
+                    CommunityRevisionConflict? conflict =
+                        await ReadRevisionConflictAsync(complete, token).ConfigureAwait(false);
+                    if (conflict != null) throw new CommunityRevisionConflictException(conflict);
+                    throw new HttpRequestException(
+                        "This map version already has different published contents. Increase the project's Version before publishing.",
+                        null, complete.StatusCode);
+                }
+                EnsureSuccess(complete);
+                using var data = new MemoryStream();
+                await CopyBoundedAsync(await complete.Content.ReadAsStreamAsync(token), data,
+                    64 * 1024, token).ConfigureAwait(false);
+                var published = JsonSerializer.Deserialize<CommunityMap>(
+                    data.ToArray(), MapPackageReader.JsonOptions)
+                    ?? throw new InvalidDataException("The community returned no map identity.");
+                progress?.Invoke(bytes, bytes);
+                return ConfirmUpload(path, published);
+            }
         }
 
         var existing = await GetPackageAsync(hash, token).ConfigureAwait(false)
@@ -664,6 +710,7 @@ public sealed class MapCommunityClient : IDisposable
         const int maximumRetries = 4;
         long expected = expectedBytes ?? -1;
         int failures = 0;
+        int admissionRetries = 0;
         while (true)
         {
             token.ThrowIfCancellationRequested();
@@ -684,6 +731,16 @@ public sealed class MapCommunityClient : IDisposable
                 using var request = new HttpRequestMessage(HttpMethod.Get, resource);
                 if (offset > 0) request.Headers.Range = new RangeHeaderValue(offset, null);
                 using var response = await SendReadAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+
+                if (IsTransientAdmission(response.StatusCode) && admissionRetries++ < 20)
+                {
+                    // A busy service does not own new bytes from this attempt.
+                    // Retain the verified local Range prefix while waiting for
+                    // a download slot; do not restart at byte zero.
+                    await Task.Delay(AdmissionRetryDelay(response, admissionRetries), token)
+                        .ConfigureAwait(false);
+                    continue;
+                }
 
                 if (offset > 0 && response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
                 {
@@ -954,6 +1011,18 @@ public sealed class MapCommunityClient : IDisposable
             + "Check VPN/proxy settings, antivirus HTTPS inspection, captive-portal login, or network filtering, then retry. "
             + "TLS certificate validation remains enabled. Direct error: " + directFailure.GetBaseException().Message,
             new AggregateException(routedFailure, directFailure));
+    }
+
+    private static bool IsTransientAdmission(HttpStatusCode status)
+        => status is HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable;
+
+    private static TimeSpan AdmissionRetryDelay(HttpResponseMessage response, int attempt)
+    {
+        TimeSpan delay = response.Headers.RetryAfter?.Delta
+            ?? TimeSpan.FromMilliseconds(Math.Min(3000, 250 * attempt * attempt));
+        if (response.Headers.RetryAfter?.Date is { } until)
+            delay = until - DateTimeOffset.UtcNow;
+        return TimeSpan.FromMilliseconds(Math.Clamp(delay.TotalMilliseconds, 200, 3000));
     }
 
     private static void EnsureSuccess(HttpResponseMessage response)
