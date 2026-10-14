@@ -84,6 +84,9 @@ namespace MphRead
     public partial class Scene
     {
         public Vector2i Size { get; set; }
+        /// <summary>Only a verified ship EXIT action suppresses one landing
+        /// movie. Ordinary landings and original intros remain unchanged.</summary>
+        public bool SuppressNextCampaignLandingMovie { get; set; }
         private Matrix4 _viewMatrix = Matrix4.Identity;
         private Matrix4 _viewInvRotMatrix = Matrix4.Identity;
         private Matrix4 _viewInvRotYMatrix = Matrix4.Identity;
@@ -431,7 +434,10 @@ namespace MphRead
             _cameraMode = Services.IsReplica || Mods.Headless.Active ? CameraMode.Roam
                 : this.Players.Main.LoadFlags.TestFlag(LoadFlags.Active) ? CameraMode.Player : CameraMode.Roam;
             _inputMode = _cameraMode == CameraMode.Player ? InputMode.All : InputMode.CameraOnly;
-            if (this.GameState.SinglePlayer && !meta.FirstHunt && this.Players.PlayerCount > 0 && !Cheats.SkipPlanetIntros)
+            bool suppressLanding = SuppressNextCampaignLandingMovie;
+            SuppressNextCampaignLandingMovie = false;
+            if (!suppressLanding && this.GameState.SinglePlayer && !meta.FirstHunt
+                && this.Players.PlayerCount > 0 && !Cheats.SkipPlanetIntros)
             {
                 Movie movieId = Mods.Campaign.CampaignMovieCatalog.Landing(_room.RoomId);
                 if (movieId != Movie.None)
