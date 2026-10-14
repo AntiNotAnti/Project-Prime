@@ -189,12 +189,30 @@ try
     using var next = await waiting.WaitAsync(TimeSpan.FromSeconds(10));
     Check(next != null, "second downloader can resume after first releases gate");
 
-    // The preceding quota prune intentionally evicted B while preserving A.
-    // Re-import the exact immutable bytes before testing restart recovery;
-    // recovery cannot succeed against a deliberately deleted archive.
+    // The download-gate check above deliberately evicted B and preserved A.
+    // A new cache instance must recover that exact survivor, not resurrect B.
+    var restarted = new CommunityArchiveCache(store, max);
+    using (var reopened = restarted.TryAcquire(a))
+    {
+        Check(reopened != null && reopened.Identity.Matches(a),
+            "verified surviving archive can be recovered across cache instances");
+        Check(File.ReadAllBytes(reopened!.Path).SequenceEqual(File.ReadAllBytes(first)),
+            "restarted cache preserves exact surviving archive bytes");
+    }
+    using (var evicted = restarted.TryAcquire(b))
+        Check(evicted == null && !File.Exists(cachedB),
+            "restarting a cache never resurrects an evicted archive");
+
+    // Explicitly re-import B's original immutable bytes before testing B
+    // recovery. This must not bypass the prior eviction/absence assertions.
     cache.Promote(second, b);
     using (var reopened = new CommunityArchiveCache(store, max).TryAcquire(b))
-        Check(reopened != null, "verified archive can be recovered across cache instances");
+    {
+        Check(reopened != null && reopened.Identity.Matches(b),
+            "verified re-imported archive can be recovered across cache instances");
+        Check(File.ReadAllBytes(reopened!.Path).SequenceEqual(File.ReadAllBytes(second)),
+            "restarted cache preserves exact re-imported archive bytes");
+    }
 
     Check(Directory.EnumerateFiles(Path.Combine(store, "archives"), "*.ppmap")
         .All(p => Path.GetFileNameWithoutExtension(p).Length == 64),

@@ -32,6 +32,8 @@ namespace MphRead.NetTest
             {
                 Console.WriteLine("Usage: nettest [host] [port]\n"
                     + "  --shot-source-journal              Test independent authority resources and grant chronology.\n"
+                    + "  --timed-grants                    Test authority timed pickup reservations and source history.\n"
+                    + "  --powerup-ledger-scene <assets> [profile] [room] Test native timed pickups and timer phases.\n"
                     + "  --shot-inputs                     Test live physical-input codec and bounded sender history.\n"
                     + "  --compact-intents                 Test compact live intent transport and replay compatibility.\n"
                     + "  --shot-proof-scene <assets> [room] Test shot proof with real scene assets.\n"
@@ -53,6 +55,14 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--scene-setup-ownership")
                 return SceneSetupOwnershipTests.Run(Array.IndexOf(args, "--baseline") >= 0);
             if (args.Length > 0 && args[0] == "--ai-client-driver") return NetAiClientTests.Run();
+            if (args.Length > 0 && args[0] == "--timed-grants") return TimedGrantTests.Run();
+            if (args.Length > 1 && args[0] == "--powerup-ledger-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return PowerUpLedgerSceneTests.Run(args.Length > 2 ? args[2] : "prime",
+                    args.Length > 3 ? args[3] : "MP1 SANCTORUS");
+            }
             if (args.Length > 0 && args[0] == "--campaign-claims") return CampaignClaimEvidenceTests.Run();
             if (args.Length > 0 && args[0] == "--replay-form-history") return ReplayFormHistoryTests.Run();
             if (args.Length > 0 && args[0] == "--turret-fire-outcome-codec") return TurretFireOutcomeTests.Run();
@@ -286,6 +296,8 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--allocations") return NetworkAllocationTests.Run(Array.IndexOf(args, "--report-only") >= 0);
             if (args.Length > 0 && args[0] == "--protocol17") return Protocol17Tests.Run();
             if (args.Length > 0 && args[0] == "--reliable") return ReliableTests.Run();
+            if (args.Length > 0 && args[0] == "--reliable-rate-refusal")
+                return RateRefusalReliableTests.CheckRun(Array.IndexOf(args, "--falsify-early-ack") >= 0);
             if (args.Length > 0 && args[0] == "--queue-budget") return QueueBudgetTests.Run();
             if (args.Length > 0 && args[0] == "--confirmed-impacts") return ConfirmedImpactTests.Run();
             if (args.Length > 0 && args[0] == "--load-lifecycle") return LoadLifecycleTests.Run();

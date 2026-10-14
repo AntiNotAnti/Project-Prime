@@ -26,6 +26,17 @@ internal static class NetCampaignEvidence
         ? 1048576 : 262144;
     private static readonly List<Shot> Shots = new();
     private static readonly List<object> TurretOutcomes = new();
+    private static readonly List<object> TimedGrants = new();
+    internal static void TimedGrant(TimedGrantRecord grant)
+    {
+        if (!Enabled) return;
+        // Copy each transition now: the retained authority record later closes.
+        // Process ownership preserves these facts through empty-server teardown.
+        Add(TimedGrants, new { grant.Sequence, grant.Spawn, grant.Life,
+            Type = grant.Type.ToString(), grant.ContactFrame, grant.SourceContactFrame,
+            grant.EffectiveFrame, grant.SourceEffectiveFrame, grant.ExpiresAtFrame,
+            grant.EndFrame, EndReason = grant.EndReason.ToString() });
+    }
     internal static void TurretOutcome(in TurretFireOutcome fact, string stage, int cancelled = 0)
     {
         if (!Enabled) return;
@@ -364,6 +375,7 @@ internal static class NetCampaignEvidence
                 CombatPayments = NetCombatPayments.Capture(),
                 AiClient = NetAiClient.Capture(),
                 TurretOutcomes,
+                TimedGrants,
                 CampaignClaims = CaptureClaims(),
                 HitClaims = new { NetHitClaims.Declared, NetHitClaims.Applied, NetHitClaims.Duplicate,
                     NetHitClaims.RefusedDeadShooter, NetHitClaims.RefusedDeadVictim, NetHitClaims.RefusedOther,

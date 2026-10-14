@@ -46,7 +46,7 @@ namespace MphRead.Mods.Network
             TimeLimitSeconds = (ushort)Math.Clamp(entry.TimeLimit, 0, ushort.MaxValue),
             PointGoal = (ushort)Math.Clamp(entry.PointGoal, 0, ushort.MaxValue),
             FriendlyFire = FriendlyFire, AffinityWeapons = AffinityWeapons, ShadowFreeze = ShadowFreeze,
-            HideOpponentHealth = true, DisablePowerups = true, SpawnProtection = SpawnProtection,
+            HideOpponentHealth = true, DisablePowerups = !EnablePowerups, SpawnProtection = SpawnProtection,
             Fiesta = Fiesta, OneInTheChamber = OneInTheChamber, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist,
             BalancedMode = BalancedMode,
             OctolithAutoReset = Mods.Multiplayer.MatchModifierRules.UsesOctolith(entry.Mode) && OctolithAutoReset

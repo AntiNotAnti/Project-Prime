@@ -59,6 +59,7 @@ existing systemd unit or launch script keeps working unchanged.
 | `-servername "NAME"` | the name shown in the browser |
 | `-rotation FILE` | default `maprotation.txt`, written beside the binary on first run |
 | `-friendlyfire` | team damage on |
+| `-powerups` | enable native power-up pickups in server rotation defaults; disabled when omitted |
 | `-nomaster` | stay off every server list |
 | `-master HOST` `-masterport N` | use a server list other than `51.161.113.128:27889` |
 | `-serverreplays on\|off` | canonical authoritative replay recording. Default on |

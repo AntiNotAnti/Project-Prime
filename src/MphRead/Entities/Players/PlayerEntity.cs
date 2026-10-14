@@ -2269,6 +2269,8 @@ namespace MphRead.Entities
                 _doubleDmgTimer = 0;
                 _deathaltTimer = 0;
                 _cloakTimer = 0;
+                if (!_scene.Services.IsReplica && Mods.Network.NetSession.IsAuthority)
+                    Mods.Network.NetPowerUpLedger.RetireSlot(SlotIndex, Mods.Network.TimedGrantEnd.Death);
                 Flags2 &= ~PlayerFlags2.Cloaking;
                 _scene.GameState.KillStreak[SlotIndex] = 0;
                 if (IsMainPlayer)

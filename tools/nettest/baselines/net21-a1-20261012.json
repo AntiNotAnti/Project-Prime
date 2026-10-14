@@ -1,0 +1,4300 @@
+{
+  "schema": 1,
+  "slice": "A1",
+  "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+  "engineSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+  "protocol": 52,
+  "status": "PASS",
+  "failures": [],
+  "missing": [],
+  "scope": "Authority native timed-item reservations, single awards, exact lifetime and resets. No pickup anti-cheat, client reconciliation, or damage-authorization acceptance.",
+  "liveGrants": {
+    "DoubleDamage": {
+      "observed": 6,
+      "status": "PASS"
+    },
+    "Cloak": {
+      "observed": 0,
+      "status": "NOT_RUN"
+    },
+    "DeathAlt": {
+      "observed": 0,
+      "status": "NOT_RUN"
+    }
+  },
+  "liveGrantTotal": 6,
+  "campaigns": [
+    {
+      "name": "udp-2-bot-powerups-3ba799ab",
+      "campaignStatus": "PASS",
+      "aiStatus": "PASS",
+      "grantAudit": {
+        "status": "PASS",
+        "failures": [],
+        "grants": 2,
+        "byType": {
+          "DoubleDamage": 2,
+          "Cloak": 0,
+          "DeathAlt": 0
+        },
+        "closures": 2,
+        "byEndReason": {
+          "Expired": 0,
+          "Renewed": 0,
+          "Death": 2,
+          "Retired": 0,
+          "Room": 0,
+          "Session": 0
+        },
+        "openAtCapture": 0,
+        "unknownSourceBoundary": 0,
+        "scope": "Native authority reservations/transition conservation; no client reconciliation or shot authorization proof"
+      },
+      "campaignSummary": {
+        "coverage": {
+          "renderedProjectileAgreement": "NOT_RUN",
+          "botFills": "PASS",
+          "spectator": "NOT_RUN",
+          "mapRotation": "NOT_RUN",
+          "shockCoilDrainKillParity": "NOT_RUN",
+          "imperialistSpawnTrapCoverage": "NOT_RUN",
+          "sustained20Minutes": "NOT_RUN",
+          "turretEmissions": "NOT_RUN",
+          "turretRefusals": "NOT_RUN",
+          "turretOutcomeReceipts": "NOT_RUN",
+          "turretRefusalApplications": "NOT_RUN",
+          "turretCancelledFlights": "NOT_RUN",
+          "boundedHeadlessDrain": "PASS"
+        },
+        "failures": [],
+        "incomplete": [],
+        "observations": {
+          "server": {
+            "Frames": 3930,
+            "AliveFrames": [
+              3391,
+              3204,
+              3359,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "OfferedCarriers": 0,
+            "AcceptedCarriers": 7783,
+            "AllocatedBytes": 5980684376,
+            "HeapBytes": 77279584,
+            "WorkingSet": 276348928,
+            "Transport": {
+              "PacketsReceived": 9056,
+              "PacketsSent": 51748,
+              "BytesReceived": 1392559,
+              "BytesSent": 9762752,
+              "Invalid": 0,
+              "Oversized": 0,
+              "QueueCurrent": 0,
+              "QueueHighWater": 7,
+              "QueueDrops": 0,
+              "Coalesced": 0,
+              "Processed": 8210,
+              "ProcessingMilliseconds": 1075.409315,
+              "SocketErrors": 0
+            },
+            "ServerSegments": [
+              {
+                "Room": "MP5 FUEL SLUICE",
+                "AuthorityEpoch": 639273714115139720,
+                "CurrentMatchId": 2,
+                "Frames": 3930,
+                "StepFailures": 0,
+                "DroppedSteps": 6,
+                "Stalls": 1,
+                "StepAllocatedBytes": 93077832,
+                "MeanMs": 0.6485863867684505,
+                "P50Ms": 0.47,
+                "P95Ms": 1.48,
+                "P99Ms": 2.54,
+                "P999Ms": 10.5,
+                "WorstMs": 191.09290000000001
+              }
+            ],
+            "shotCounts": {
+              "committed": 352,
+              "accepted": 46,
+              "fired": 46
+            },
+            "continuousTerminalRejectedCount": 0,
+            "continuousTerminalRejectedKeys": [],
+            "authorityRetiredTurretCount": 0,
+            "authorityRetiredTurretKeys": [],
+            "authorityUnavailableTurretCount": 0,
+            "authorityUnavailableTurretKeys": []
+          },
+          "peer-0": {
+            "Frames": 3894,
+            "AliveFrames": [
+              3354,
+              3173,
+              2858,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "OfferedCarriers": 3894,
+            "AcceptedCarriers": 7765,
+            "AllocatedBytes": 289193416,
+            "HeapBytes": 143370792,
+            "WorkingSet": 297353216,
+            "Transport": {
+              "PacketsReceived": 25869,
+              "PacketsSent": 4533,
+              "BytesReceived": 4894024,
+              "BytesSent": 684467,
+              "Invalid": 0,
+              "Oversized": 0,
+              "QueueCurrent": 5,
+              "QueueHighWater": 62,
+              "QueueDrops": 0,
+              "Coalesced": 47,
+              "Processed": 21870,
+              "ProcessingMilliseconds": 394.375114,
+              "SocketErrors": 0
+            },
+            "ServerSegments": [],
+            "shotCounts": {
+              "accepted": 334,
+              "committed": 352,
+              "fired": 88,
+              "offered": 18
+            },
+            "turretRequiredOutcomeReceipts": 0,
+            "turretCancelledFlights": 0,
+            "turretOutcomeReceipts": 0,
+            "turretRefusalsApplied": 0
+          },
+          "peer-1": {
+            "Frames": 3889,
+            "AliveFrames": [
+              3349,
+              3169,
+              2853,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "OfferedCarriers": 3889,
+            "AcceptedCarriers": 7759,
+            "AllocatedBytes": 289028872,
+            "HeapBytes": 144321400,
+            "WorkingSet": 300367872,
+            "Transport": {
+              "PacketsReceived": 25830,
+              "PacketsSent": 4521,
+              "BytesReceived": 4860557,
+              "BytesSent": 708036,
+              "Invalid": 0,
+              "Oversized": 0,
+              "QueueCurrent": 1,
+              "QueueHighWater": 62,
+              "QueueDrops": 0,
+              "Coalesced": 50,
+              "Processed": 21840,
+              "ProcessingMilliseconds": 431.195578,
+              "SocketErrors": 0
+            },
+            "ServerSegments": [],
+            "shotCounts": {
+              "accepted": 324,
+              "committed": 352,
+              "fired": 78,
+              "offered": 28
+            },
+            "turretRequiredOutcomeReceipts": 0,
+            "turretCancelledFlights": 0,
+            "turretOutcomeReceipts": 0,
+            "turretRefusalsApplied": 0
+          }
+        },
+        "parity": {
+          "peer-0": {
+            "healthSamplesCompared": 1943,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 727,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 18,
+            "acceptedShots": 18,
+            "committedShots": 18,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 404,
+            "viewExpectedCommits": 46,
+            "viewMissingCommits": 0,
+            "viewBeforeInitialAdmissionCount": 0,
+            "viewBeforeInitialAdmissionKeys": [],
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 404,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-1": {
+            "healthSamplesCompared": 1934,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 725,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 28,
+            "acceptedShots": 28,
+            "committedShots": 28,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 404,
+            "viewExpectedCommits": 46,
+            "viewMissingCommits": 0,
+            "viewBeforeInitialAdmissionCount": 0,
+            "viewBeforeInitialAdmissionKeys": [],
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 404,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          }
+        },
+        "campaignDrainEvidenceGaps": []
+      },
+      "aiMetrics": {
+        "declaredClientClaims": 14,
+        "authorityClaimReceiptsIncludingRetries": 14,
+        "authorityAppliedClaims": 0,
+        "componentPayments": 52,
+        "ownerNativePickupConsumptions": 11,
+        "paidAiSourceShotKeys": 23,
+        "canonicalLifecycle": {
+          "deathEvents": {
+            "observed": 10,
+            "status": "OBSERVED"
+          },
+          "spawnEvents": {
+            "observed": 14,
+            "status": "OBSERVED"
+          },
+          "respawnEvents": {
+            "observed": 10,
+            "status": "OBSERVED"
+          }
+        },
+        "serverBotSlots": [
+          2
+        ],
+        "serverBotShotKeys": 306
+      },
+      "aiCoverage": null,
+      "elapsedSeconds": 68.9898565,
+      "configuration": {
+        "build": "src/MphRead/bin/Release/net10.0",
+        "paths": "/private/tmp/prime-polish-netprofile/paths.txt",
+        "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+        "out": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab",
+        "dotnet": "/Users/jarrett/.dotnet/dotnet",
+        "protocol": 52,
+        "shot_proof": "shadow",
+        "players": 2,
+        "ai_net_client": 2,
+        "ai_seed": 1729,
+        "server_bot": true,
+        "powerups": true,
+        "seconds": 60.0,
+        "drain_seconds": 35.0,
+        "port": 27991,
+        "seed": 8128,
+        "profile": "lan",
+        "rtt_ms": null,
+        "jitter_ms": null,
+        "loss_percent": null,
+        "reorder_percent": null,
+        "duplicate_percent": null,
+        "scenario": "ai",
+        "observer_delay": 0,
+        "rooms": "MP5 FUEL SLUICE",
+        "round_minutes": 30,
+        "rendered": false,
+        "server_operator": true,
+        "movement_validation_shadow": false,
+        "confirmed_impacts": false,
+        "bomb_visibility": false,
+        "bomb_triangle_fixture": false,
+        "server_performance": false,
+        "record": true,
+        "soak": false
+      },
+      "faultProfile": {
+        "rtt_ms": 0,
+        "jitter_ms": 0,
+        "loss_percent": 0,
+        "reorder_percent": 0,
+        "duplicate_percent": 0,
+        "scope": "each client, inbound and outbound",
+        "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+        "seedRule": "base seed + client launch index"
+      },
+      "commands": [
+        {
+          "name": "server",
+          "argv": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/server/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-server",
+            "-port",
+            "27991",
+            "-players",
+            "3",
+            "-nomaster",
+            "-noserverreplays",
+            "-rotation",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/rotation.txt",
+            "-netdebug",
+            "-powerups"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/server",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/server.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_SERVER_OPERATOR_OUTPUT": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/server.operator.json",
+            "PRIME_NET2_DRAIN_SECONDS": "35.0",
+            "PRIME_NET2_DRAIN_ROLE": "server",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/server.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/drain.server-release.json",
+            "PRIME_NET_AI_SERVER_BOT": "2"
+          }
+        },
+        {
+          "name": "peer-0",
+          "argv": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-0/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "27991",
+            "-name",
+            "peer-0",
+            "-hunter",
+            "Samus",
+            "-seconds",
+            "60.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "0:0",
+            "-netloss",
+            "0%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8128",
+            "-ai-net-client",
+            "2",
+            "-ai-seed",
+            "1729",
+            "-nographics",
+            "-recorddemo"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-0",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-0.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "35.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-0.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/drain.release.json"
+          }
+        },
+        {
+          "name": "peer-1",
+          "argv": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-1/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "27991",
+            "-name",
+            "peer-1",
+            "-hunter",
+            "Kanden",
+            "-seconds",
+            "60.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "0:0",
+            "-netloss",
+            "0%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8129",
+            "-ai-net-client",
+            "2",
+            "-ai-seed",
+            "1730",
+            "-nographics",
+            "-recorddemo"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-1",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-1.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "35.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-1.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/drain.release.json"
+          }
+        }
+      ],
+      "provenance": {
+        "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+        "assemblySha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+        "assemblyAfterSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+        "platform": "macOS-27.0-arm64-arm-64bit",
+        "startedUtc": "2026-10-12T03:10:11Z",
+        "harnessSha256": {
+          "run-net2.py": "b0a31baf0a17041ba0cc713f76dcf0a5695014792b097ebdbd207065803a639e",
+          "net2_evidence.py": "cbd9770d920d5bb9dcd7a5e2c0c78f73897083d4dda1c2b5171164498ab6ba35",
+          "net_ai_evidence.py": "afcbb2192093f978c0697ef7ce590eb0f44e4727dc56b7615ae848aa514b3ed3"
+        },
+        "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095"
+      },
+      "staging": {
+        "stagingAdapterSha256": "46c0cd258ff671c9308699158d24327400004aef67590a83959e874dea7b244d",
+        "stagingMethod": "APFS copy-on-write clone; symlinks dereferenced; game bytes unchanged",
+        "removedDuplicateStagingSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9"
+      },
+      "stagingAdapter": {
+        "path": "artifacts/net21-g1/run-with-clone-staging.py",
+        "sha256": "46c0cd258ff671c9308699158d24327400004aef67590a83959e874dea7b244d",
+        "bytes": 809
+      },
+      "nativeConsumptionJoin": {
+        "status": "PASS",
+        "failures": [],
+        "grantCreations": 2,
+        "nativeTimedConsumptions": 2,
+        "matched": 2,
+        "unmatchedGrantCreations": 0,
+        "unmatchedNativeConsumptions": 0,
+        "dynamicConsumptions": 0,
+        "limitation": "Dynamic spawner -1 contacts match as a multiset of stream/frame/player/type; individual dynamic item identity is unavailable. Native SpawnCount is quota and is excluded."
+      }
+    },
+    {
+      "name": "udp-8-impaired-powerups-3ba799ab",
+      "campaignStatus": "PASS",
+      "aiStatus": "PASS",
+      "grantAudit": {
+        "status": "PASS",
+        "failures": [],
+        "grants": 4,
+        "byType": {
+          "DoubleDamage": 4,
+          "Cloak": 0,
+          "DeathAlt": 0
+        },
+        "closures": 4,
+        "byEndReason": {
+          "Expired": 0,
+          "Renewed": 0,
+          "Death": 4,
+          "Retired": 0,
+          "Room": 0,
+          "Session": 0
+        },
+        "openAtCapture": 0,
+        "unknownSourceBoundary": 0,
+        "scope": "Native authority reservations/transition conservation; no client reconciliation or shot authorization proof"
+      },
+      "campaignSummary": {
+        "coverage": {
+          "renderedProjectileAgreement": "NOT_RUN",
+          "botFills": "NOT_RUN",
+          "spectator": "NOT_RUN",
+          "mapRotation": "NOT_RUN",
+          "shockCoilDrainKillParity": "NOT_RUN",
+          "imperialistSpawnTrapCoverage": "NOT_RUN",
+          "sustained20Minutes": "NOT_RUN",
+          "turretEmissions": "OBSERVED",
+          "turretRefusals": "OBSERVED",
+          "turretOutcomeReceipts": "OBSERVED",
+          "turretRefusalApplications": "OBSERVED",
+          "turretCancelledFlights": "NOT_RUN",
+          "boundedHeadlessDrain": "PASS"
+        },
+        "failures": [],
+        "incomplete": [],
+        "observations": {
+          "server": {
+            "Frames": 11293,
+            "AliveFrames": [
+              8766,
+              9139,
+              9316,
+              8772,
+              8561,
+              8376,
+              8352,
+              8889
+            ],
+            "OfferedCarriers": 0,
+            "AcceptedCarriers": 84445,
+            "AllocatedBytes": 23801395920,
+            "HeapBytes": 167407312,
+            "WorkingSet": 183746560,
+            "Transport": {
+              "PacketsReceived": 91318,
+              "PacketsSent": 1016465,
+              "BytesReceived": 17143625,
+              "BytesSent": 262108095,
+              "Invalid": 0,
+              "Oversized": 0,
+              "QueueCurrent": 0,
+              "QueueHighWater": 39,
+              "QueueDrops": 0,
+              "Coalesced": 0,
+              "Processed": 89286,
+              "ProcessingMilliseconds": 7468.697851,
+              "SocketErrors": 0
+            },
+            "ServerSegments": [
+              {
+                "Room": "MP5 FUEL SLUICE",
+                "AuthorityEpoch": 639273715066134990,
+                "CurrentMatchId": 2,
+                "Frames": 11293,
+                "StepFailures": 0,
+                "DroppedSteps": 6,
+                "Stalls": 1,
+                "StepAllocatedBytes": 347832160,
+                "MeanMs": 0.5380158593819169,
+                "P50Ms": 0.41,
+                "P95Ms": 1.21,
+                "P99Ms": 1.73,
+                "P999Ms": 7.09,
+                "WorstMs": 192.5765
+              }
+            ],
+            "shotCounts": {
+              "accepted": 1342,
+              "committed": 1315,
+              "fired": 1285,
+              "expired": 1,
+              "rejected": 26
+            },
+            "continuousTerminalRejectedCount": 21,
+            "continuousTerminalRejectedKeys": [
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                55
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                56
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                57
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                58
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                59
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                60
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                61
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                62
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                63
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                64
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                65
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                66
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                67
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                68
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                69
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                70
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                71
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                72
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                73
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                74
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                75
+              ]
+            ],
+            "authorityRetiredTurretCount": 6,
+            "authorityRetiredTurretKeys": [
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                6,
+                63
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                7,
+                85
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                7,
+                88
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                7,
+                89
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                15,
+                160
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                15,
+                161
+              ]
+            ],
+            "authorityUnavailableTurretCount": 0,
+            "authorityUnavailableTurretKeys": []
+          },
+          "peer-0": {
+            "Frames": 11145,
+            "AliveFrames": [
+              8639,
+              8997,
+              9175,
+              8623,
+              8459,
+              8243,
+              8262,
+              8807
+            ],
+            "OfferedCarriers": 11145,
+            "AcceptedCarriers": 66536,
+            "AllocatedBytes": 774734376,
+            "HeapBytes": 303467760,
+            "WorkingSet": 312213504,
+            "Transport": {
+              "PacketsReceived": 127202,
+              "PacketsSent": 11447,
+              "BytesReceived": 32944661,
+              "BytesSent": 1978270,
+              "Invalid": 0,
+              "Oversized": 0,
+              "QueueCurrent": 0,
+              "QueueHighWater": 56,
+              "QueueDrops": 0,
+              "Coalesced": 0,
+              "Processed": 114463,
+              "ProcessingMilliseconds": 2129.709016,
+              "SocketErrors": 0
+            },
+            "ServerSegments": [],
+            "shotCounts": {
+              "accepted": 1213,
+              "committed": 1318,
+              "fired": 1191,
+              "offered": 94,
+              "rejected": 18
+            },
+            "turretRequiredOutcomeReceipts": 35,
+            "turretCancelledFlights": 0,
+            "turretOutcomeReceipts": 35,
+            "turretRefusalsApplied": 6
+          },
+          "peer-1": {
+            "Frames": 11146,
+            "AliveFrames": [
+              8633,
+              8994,
+              9176,
+              8642,
+              8455,
+              8261,
+              8263,
+              8814
+            ],
+            "OfferedCarriers": 11146,
+            "AcceptedCarriers": 66607,
+            "AllocatedBytes": 778257400,
+            "HeapBytes": 292238208,
+            "WorkingSet": 305922048,
+            "Transport": {
+              "PacketsReceived": 127289,
+              "PacketsSent": 11461,
+              "BytesReceived": 32619018,
+              "BytesSent": 2326703,
+              "Invalid": 0,
+              "Oversized": 0,
+              "QueueCurrent": 0,
+              "QueueHighWater": 47,
+              "QueueDrops": 0,
+              "Coalesced": 0,
+              "Processed": 114623,
+              "ProcessingMilliseconds": 1401.759771,
+              "SocketErrors": 0
+            },
+            "ServerSegments": [],
+            "shotCounts": {
+              "committed": 1318,
+              "offered": 242,
+              "accepted": 1065,
+              "fired": 1043,
+              "rejected": 18
+            },
+            "turretRequiredOutcomeReceipts": 35,
+            "turretCancelledFlights": 0,
+            "turretOutcomeReceipts": 35,
+            "turretRefusalsApplied": 6
+          },
+          "peer-2": {
+            "Frames": 11147,
+            "AliveFrames": [
+              8640,
+              8996,
+              9178,
+              8621,
+              8462,
+              8246,
+              8264,
+              8803
+            ],
+            "OfferedCarriers": 11147,
+            "AcceptedCarriers": 66609,
+            "AllocatedBytes": 775287424,
+            "HeapBytes": 301790528,
+            "WorkingSet": 306741248,
+            "Transport": {
+              "PacketsReceived": 127208,
+              "PacketsSent": 11446,
+              "BytesReceived": 32804673,
+              "BytesSent": 2130019,
+              "Invalid": 36,
+              "Oversized": 0,
+              "QueueCurrent": 0,
+              "QueueHighWater": 72,
+              "QueueDrops": 0,
+              "Coalesced": 0,
+              "Processed": 114373,
+              "ProcessingMilliseconds": 1477.333902,
+              "SocketErrors": 0
+            },
+            "ServerSegments": [],
+            "shotCounts": {
+              "committed": 1318,
+              "offered": 158,
+              "accepted": 1149,
+              "fired": 1127,
+              "rejected": 18
+            },
+            "turretRequiredOutcomeReceipts": 35,
+            "turretCancelledFlights": 0,
+            "turretOutcomeReceipts": 35,
+            "turretRefusalsApplied": 6
+          },
+          "peer-3": {
+            "Frames": 11139,
+            "AliveFrames": [
+              8622,
+              8987,
+              9170,
+              8617,
+              8451,
+              8253,
+              8277,
+              8796
+            ],
+            "OfferedCarriers": 11139,
+            "AcceptedCarriers": 66425,
+            "AllocatedBytes": 782047248,
+            "HeapBytes": 321971880,
+            "WorkingSet": 287916032,
+            "Transport": {
+              "PacketsReceived": 127123,
+              "PacketsSent": 11398,
+              "BytesReceived": 32799524,
+              "BytesSent": 2112018,
+              "Invalid": 0,
+              "Oversized": 0,
+              "QueueCurrent": 0,
+              "QueueHighWater": 61,
+              "QueueDrops": 0,
+              "Coalesced": 0,
+              "Processed": 114117,
+              "ProcessingMilliseconds": 1286.364418,
+              "SocketErrors": 0
+            },
+            "ServerSegments": [],
+            "shotCounts": {
+              "committed": 1336,
+              "offered": 166,
+              "accepted": 1141,
+              "fired": 1141
+            },
+            "turretRequiredOutcomeReceipts": 35,
+            "turretCancelledFlights": 0,
+            "turretOutcomeReceipts": 35,
+            "turretRefusalsApplied": 6
+          },
+          "peer-4": {
+            "Frames": 11016,
+            "AliveFrames": [
+              8506,
+              8871,
+              9046,
+              8493,
+              8327,
+              8114,
+              8132,
+              8671
+            ],
+            "OfferedCarriers": 11016,
+            "AcceptedCarriers": 65983,
+            "AllocatedBytes": 769411512,
+            "HeapBytes": 296584720,
+            "WorkingSet": 322502656,
+            "Transport": {
+              "PacketsReceived": 126060,
+              "PacketsSent": 11307,
+              "BytesReceived": 32496295,
+              "BytesSent": 2176795,
+              "Invalid": 0,
+              "Oversized": 0,
+              "QueueCurrent": 0,
+              "QueueHighWater": 51,
+              "QueueDrops": 0,
+              "Coalesced": 0,
+              "Processed": 113309,
+              "ProcessingMilliseconds": 1130.695821,
+              "SocketErrors": 0
+            },
+            "ServerSegments": [],
+            "shotCounts": {
+              "accepted": 1089,
+              "committed": 1287,
+              "fired": 1067,
+              "offered": 187,
+              "rejected": 18
+            },
+            "turretRequiredOutcomeReceipts": 35,
+            "turretCancelledFlights": 0,
+            "turretOutcomeReceipts": 35,
+            "turretRefusalsApplied": 6
+          },
+          "peer-5": {
+            "Frames": 11073,
+            "AliveFrames": [
+              8564,
+              8925,
+              9104,
+              8546,
+              8386,
+              8171,
+              8194,
+              8732
+            ],
+            "OfferedCarriers": 11073,
+            "AcceptedCarriers": 66476,
+            "AllocatedBytes": 780068688,
+            "HeapBytes": 325254368,
+            "WorkingSet": 292700160,
+            "Transport": {
+              "PacketsReceived": 126580,
+              "PacketsSent": 11326,
+              "BytesReceived": 32694179,
+              "BytesSent": 2078683,
+              "Invalid": 0,
+              "Oversized": 0,
+              "QueueCurrent": 0,
+              "QueueHighWater": 57,
+              "QueueDrops": 0,
+              "Coalesced": 0,
+              "Processed": 113963,
+              "ProcessingMilliseconds": 1362.477288,
+              "SocketErrors": 0
+            },
+            "ServerSegments": [],
+            "shotCounts": {
+              "accepted": 1153,
+              "committed": 1305,
+              "fired": 1131,
+              "offered": 144,
+              "rejected": 21
+            },
+            "turretRequiredOutcomeReceipts": 35,
+            "turretCancelledFlights": 0,
+            "turretOutcomeReceipts": 35,
+            "turretRefusalsApplied": 6
+          },
+          "peer-6": {
+            "Frames": 11119,
+            "AliveFrames": [
+              8613,
+              8963,
+              9147,
+              8595,
+              8431,
+              8210,
+              8229,
+              8778
+            ],
+            "OfferedCarriers": 11119,
+            "AcceptedCarriers": 66672,
+            "AllocatedBytes": 775794256,
+            "HeapBytes": 349841208,
+            "WorkingSet": 305414144,
+            "Transport": {
+              "PacketsReceived": 126955,
+              "PacketsSent": 11401,
+              "BytesReceived": 32732216,
+              "BytesSent": 2190294,
+              "Invalid": 0,
+              "Oversized": 0,
+              "QueueCurrent": 0,
+              "QueueHighWater": 49,
+              "QueueDrops": 0,
+              "Coalesced": 0,
+              "Processed": 114239,
+              "ProcessingMilliseconds": 1262.314734,
+              "SocketErrors": 0
+            },
+            "ServerSegments": [],
+            "shotCounts": {
+              "accepted": 1153,
+              "committed": 1321,
+              "fired": 1131,
+              "offered": 189,
+              "rejected": 21
+            },
+            "turretRequiredOutcomeReceipts": 35,
+            "turretCancelledFlights": 0,
+            "turretOutcomeReceipts": 35,
+            "turretRefusalsApplied": 6
+          },
+          "peer-7": {
+            "Frames": 11092,
+            "AliveFrames": [
+              8585,
+              8944,
+              9125,
+              8570,
+              8406,
+              8191,
+              8202,
+              8750
+            ],
+            "OfferedCarriers": 11092,
+            "AcceptedCarriers": 66508,
+            "AllocatedBytes": 785222200,
+            "HeapBytes": 297662752,
+            "WorkingSet": 318603264,
+            "Transport": {
+              "PacketsReceived": 126594,
+              "PacketsSent": 11422,
+              "BytesReceived": 32627505,
+              "BytesSent": 2138466,
+              "Invalid": 28,
+              "Oversized": 0,
+              "QueueCurrent": 0,
+              "QueueHighWater": 41,
+              "QueueDrops": 0,
+              "Coalesced": 0,
+              "Processed": 114118,
+              "ProcessingMilliseconds": 1404.697093,
+              "SocketErrors": 0
+            },
+            "ServerSegments": [],
+            "shotCounts": {
+              "accepted": 1141,
+              "committed": 1314,
+              "fired": 1119,
+              "offered": 162,
+              "rejected": 18
+            },
+            "turretRequiredOutcomeReceipts": 35,
+            "turretCancelledFlights": 0,
+            "turretOutcomeReceipts": 35,
+            "turretRefusalsApplied": 6
+          }
+        },
+        "parity": {
+          "peer-0": {
+            "healthSamplesCompared": 13368,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 2038,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 94,
+            "acceptedShots": 94,
+            "committedShots": 94,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 1969,
+            "viewExpectedCommits": 1315,
+            "viewMissingCommits": 0,
+            "viewBeforeInitialAdmissionCount": 0,
+            "viewBeforeInitialAdmissionKeys": [],
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 1969,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-1": {
+            "healthSamplesCompared": 13406,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 2054,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 242,
+            "acceptedShots": 242,
+            "committedShots": 242,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 1969,
+            "viewExpectedCommits": 1315,
+            "viewMissingCommits": 0,
+            "viewBeforeInitialAdmissionCount": 0,
+            "viewBeforeInitialAdmissionKeys": [],
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 1969,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-2": {
+            "healthSamplesCompared": 13360,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 2055,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 158,
+            "acceptedShots": 158,
+            "committedShots": 158,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 1969,
+            "viewExpectedCommits": 1315,
+            "viewMissingCommits": 0,
+            "viewBeforeInitialAdmissionCount": 0,
+            "viewBeforeInitialAdmissionKeys": [],
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 1969,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-3": {
+            "healthSamplesCompared": 13448,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 2023,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 166,
+            "acceptedShots": 166,
+            "committedShots": 145,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 21,
+            "terminalRejectedOfferedKeys": [
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                55
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                56
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                57
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                58
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                59
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                60
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                61
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                62
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                63
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                64
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                65
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                66
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                67
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                68
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                69
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                70
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                71
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                72
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                73
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                74
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                7,
+                75
+              ]
+            ],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 1966,
+            "viewExpectedCommits": 1311,
+            "viewMissingCommits": 0,
+            "viewBeforeInitialAdmissionCount": 0,
+            "viewBeforeInitialAdmissionKeys": [],
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 1966,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-4": {
+            "healthSamplesCompared": 13373,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 2036,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 187,
+            "acceptedShots": 187,
+            "committedShots": 187,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 1911,
+            "viewExpectedCommits": 1277,
+            "viewMissingCommits": 0,
+            "viewBeforeInitialAdmissionCount": 38,
+            "viewBeforeInitialAdmissionKeys": [
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                1
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                2
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                4
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                5
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                6
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                7
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                8
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                9
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                10
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                11
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                12
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                13
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                1
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                2
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                3
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                4
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                5
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                6
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                7
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                8
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                9
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                10
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                11
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                1
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                2
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                3
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                4
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                5
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                6
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                7
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                8
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                2,
+                1
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                2,
+                2
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                2,
+                3
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                2,
+                4
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                2,
+                5
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                2,
+                6
+              ]
+            ],
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 1911,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-5": {
+            "healthSamplesCompared": 13184,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 2035,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 144,
+            "acceptedShots": 144,
+            "committedShots": 144,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 1931,
+            "viewExpectedCommits": 1292,
+            "viewMissingCommits": 0,
+            "viewBeforeInitialAdmissionCount": 19,
+            "viewBeforeInitialAdmissionKeys": [
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                3
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                4
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                5
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                6
+              ],
+              [
+                639273715066134990,
+                2,
+                1,
+                1,
+                2,
+                7
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                3
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                4
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                5
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                6
+              ],
+              [
+                639273715066134990,
+                2,
+                2,
+                1,
+                2,
+                7
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                1
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                2
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                3
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                4
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                5
+              ],
+              [
+                639273715066134990,
+                2,
+                3,
+                1,
+                3,
+                6
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                2,
+                1
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                2,
+                2
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                2,
+                3
+              ]
+            ],
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 1931,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-6": {
+            "healthSamplesCompared": 13280,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 2057,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 189,
+            "acceptedShots": 189,
+            "committedShots": 183,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 6,
+            "authorityRetiredOfferedTurretKeys": [
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                6,
+                63
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                7,
+                85
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                7,
+                88
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                7,
+                89
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                15,
+                160
+              ],
+              [
+                639273715066134990,
+                2,
+                6,
+                1,
+                15,
+                161
+              ]
+            ],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 1958,
+            "viewExpectedCommits": 1305,
+            "viewMissingCommits": 0,
+            "viewBeforeInitialAdmissionCount": 0,
+            "viewBeforeInitialAdmissionKeys": [],
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 1958,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          },
+          "peer-7": {
+            "healthSamplesCompared": 13552,
+            "healthMismatches": 0,
+            "slowSamplesCompared": 2040,
+            "slowLaneCompleteness": "PASS",
+            "finalScoreConvergence": "PASS",
+            "offeredShots": 162,
+            "acceptedShots": 162,
+            "committedShots": 162,
+            "wrongWeaponChargeKind": 0,
+            "terminalRejectedOfferedShots": 0,
+            "terminalRejectedOfferedKeys": [],
+            "authorityRetiredOfferedTurretCount": 0,
+            "authorityRetiredOfferedTurretKeys": [],
+            "terminalRejectedViewShots": 0,
+            "terminalRejectedViewKeys": [],
+            "unacceptedKeys": [],
+            "uncommittedKeys": [],
+            "authorityGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "viewGapContext": {
+              "arrivedOrLocallyOffered": 0,
+              "noArrivalEvidence": 0,
+              "recordedPhaseSkips": 0,
+              "nearAuthorityDeathWithin12Frames": 0,
+              "weaponKindCounts": {},
+              "examples": []
+            },
+            "matchingSemanticFacts": 1940,
+            "viewExpectedCommits": 1292,
+            "viewMissingCommits": 0,
+            "viewBeforeInitialAdmissionCount": 0,
+            "viewBeforeInitialAdmissionKeys": [],
+            "viewMissingKeys": [],
+            "viewTailExcludedFrames": 30,
+            "semanticExpected": 1940,
+            "semanticMissing": 0,
+            "semanticConflicts": 0,
+            "semanticTailExcludedFrames": 60,
+            "semanticCompleteness": "PASS",
+            "renderedProjectileAgreement": "NOT_RUN"
+          }
+        },
+        "campaignDrainEvidenceGaps": []
+      },
+      "aiMetrics": {
+        "declaredClientClaims": 593,
+        "authorityClaimReceiptsIncludingRetries": 799,
+        "authorityAppliedClaims": 26,
+        "componentPayments": 594,
+        "ownerNativePickupConsumptions": 128,
+        "paidAiSourceShotKeys": 563,
+        "canonicalLifecycle": {
+          "deathEvents": {
+            "observed": 111,
+            "status": "OBSERVED"
+          },
+          "spawnEvents": {
+            "observed": 126,
+            "status": "OBSERVED"
+          },
+          "respawnEvents": {
+            "observed": 111,
+            "status": "OBSERVED"
+          }
+        },
+        "serverBotSlots": [],
+        "serverBotShotKeys": 0
+      },
+      "aiCoverage": null,
+      "elapsedSeconds": 192.735019708,
+      "configuration": {
+        "build": "src/MphRead/bin/Release/net10.0",
+        "paths": "/private/tmp/prime-polish-netprofile/paths.txt",
+        "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+        "out": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab",
+        "dotnet": "/Users/jarrett/.dotnet/dotnet",
+        "protocol": 52,
+        "shot_proof": "shadow",
+        "players": 8,
+        "ai_net_client": 2,
+        "ai_seed": 1729,
+        "server_bot": false,
+        "powerups": true,
+        "seconds": 180.0,
+        "drain_seconds": 35.0,
+        "port": 27991,
+        "seed": 8128,
+        "profile": "lan",
+        "rtt_ms": 250,
+        "jitter_ms": 40,
+        "loss_percent": 5.0,
+        "reorder_percent": 5.0,
+        "duplicate_percent": 2.0,
+        "scenario": "ai",
+        "observer_delay": 0,
+        "rooms": "MP5 FUEL SLUICE",
+        "round_minutes": 30,
+        "rendered": false,
+        "server_operator": true,
+        "movement_validation_shadow": false,
+        "confirmed_impacts": false,
+        "bomb_visibility": false,
+        "bomb_triangle_fixture": false,
+        "server_performance": false,
+        "record": true,
+        "soak": false
+      },
+      "faultProfile": {
+        "rtt_ms": 250,
+        "jitter_ms": 40,
+        "loss_percent": 5.0,
+        "reorder_percent": 5.0,
+        "duplicate_percent": 2.0,
+        "scope": "each client, inbound and outbound",
+        "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+        "seedRule": "base seed + client launch index"
+      },
+      "commands": [
+        {
+          "name": "server",
+          "argv": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/server/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-server",
+            "-port",
+            "27991",
+            "-players",
+            "8",
+            "-nomaster",
+            "-noserverreplays",
+            "-rotation",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/rotation.txt",
+            "-netdebug",
+            "-powerups"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/server",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/server.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_SERVER_OPERATOR_OUTPUT": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/server.operator.json",
+            "PRIME_NET2_DRAIN_SECONDS": "35.0",
+            "PRIME_NET2_DRAIN_ROLE": "server",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/server.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/drain.server-release.json"
+          }
+        },
+        {
+          "name": "peer-0",
+          "argv": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-0/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "27991",
+            "-name",
+            "peer-0",
+            "-hunter",
+            "Samus",
+            "-seconds",
+            "180.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "250:40",
+            "-netloss",
+            "5%",
+            "-netreorder",
+            "5%",
+            "-netduplicate",
+            "2%",
+            "-netseed",
+            "8128",
+            "-ai-net-client",
+            "2",
+            "-ai-seed",
+            "1729",
+            "-nographics",
+            "-recorddemo"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-0",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-0.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "35.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-0.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/drain.release.json"
+          }
+        },
+        {
+          "name": "peer-1",
+          "argv": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-1/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "27991",
+            "-name",
+            "peer-1",
+            "-hunter",
+            "Kanden",
+            "-seconds",
+            "180.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "250:40",
+            "-netloss",
+            "5%",
+            "-netreorder",
+            "5%",
+            "-netduplicate",
+            "2%",
+            "-netseed",
+            "8129",
+            "-ai-net-client",
+            "2",
+            "-ai-seed",
+            "1730",
+            "-nographics",
+            "-recorddemo"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-1",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-1.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "35.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-1.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/drain.release.json"
+          }
+        },
+        {
+          "name": "peer-2",
+          "argv": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-2/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "27991",
+            "-name",
+            "peer-2",
+            "-hunter",
+            "Trace",
+            "-seconds",
+            "180.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "250:40",
+            "-netloss",
+            "5%",
+            "-netreorder",
+            "5%",
+            "-netduplicate",
+            "2%",
+            "-netseed",
+            "8130",
+            "-ai-net-client",
+            "2",
+            "-ai-seed",
+            "1731",
+            "-nographics",
+            "-recorddemo"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-2",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-2.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "35.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-2.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/drain.release.json"
+          }
+        },
+        {
+          "name": "peer-3",
+          "argv": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-3/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "27991",
+            "-name",
+            "peer-3",
+            "-hunter",
+            "Sylux",
+            "-seconds",
+            "180.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "250:40",
+            "-netloss",
+            "5%",
+            "-netreorder",
+            "5%",
+            "-netduplicate",
+            "2%",
+            "-netseed",
+            "8131",
+            "-ai-net-client",
+            "2",
+            "-ai-seed",
+            "1732",
+            "-nographics",
+            "-recorddemo"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-3",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-3.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "35.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-3.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/drain.release.json"
+          }
+        },
+        {
+          "name": "peer-4",
+          "argv": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-4/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "27991",
+            "-name",
+            "peer-4",
+            "-hunter",
+            "Noxus",
+            "-seconds",
+            "180.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "250:40",
+            "-netloss",
+            "5%",
+            "-netreorder",
+            "5%",
+            "-netduplicate",
+            "2%",
+            "-netseed",
+            "8132",
+            "-ai-net-client",
+            "2",
+            "-ai-seed",
+            "1733",
+            "-nographics",
+            "-recorddemo"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-4",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-4.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "35.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-4.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/drain.release.json"
+          }
+        },
+        {
+          "name": "peer-5",
+          "argv": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-5/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "27991",
+            "-name",
+            "peer-5",
+            "-hunter",
+            "Spire",
+            "-seconds",
+            "180.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "250:40",
+            "-netloss",
+            "5%",
+            "-netreorder",
+            "5%",
+            "-netduplicate",
+            "2%",
+            "-netseed",
+            "8133",
+            "-ai-net-client",
+            "2",
+            "-ai-seed",
+            "1734",
+            "-nographics",
+            "-recorddemo"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-5",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-5.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "35.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-5.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/drain.release.json"
+          }
+        },
+        {
+          "name": "peer-6",
+          "argv": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-6/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "27991",
+            "-name",
+            "peer-6",
+            "-hunter",
+            "Weavel",
+            "-seconds",
+            "180.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "250:40",
+            "-netloss",
+            "5%",
+            "-netreorder",
+            "5%",
+            "-netduplicate",
+            "2%",
+            "-netseed",
+            "8134",
+            "-ai-net-client",
+            "2",
+            "-ai-seed",
+            "1735",
+            "-nographics",
+            "-recorddemo"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-6",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-6.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "35.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-6.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/drain.release.json"
+          }
+        },
+        {
+          "name": "peer-7",
+          "argv": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-7/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "27991",
+            "-name",
+            "peer-7",
+            "-hunter",
+            "Samus",
+            "-seconds",
+            "180.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "250:40",
+            "-netloss",
+            "5%",
+            "-netreorder",
+            "5%",
+            "-netduplicate",
+            "2%",
+            "-netseed",
+            "8135",
+            "-ai-net-client",
+            "2",
+            "-ai-seed",
+            "1736",
+            "-nographics",
+            "-recorddemo"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-7",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-7.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "35.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-7.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/drain.release.json"
+          }
+        }
+      ],
+      "provenance": {
+        "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+        "assemblySha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+        "assemblyAfterSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+        "platform": "macOS-27.0-arm64-arm-64bit",
+        "startedUtc": "2026-10-12T03:11:46Z",
+        "harnessSha256": {
+          "run-net2.py": "b0a31baf0a17041ba0cc713f76dcf0a5695014792b097ebdbd207065803a639e",
+          "net2_evidence.py": "cbd9770d920d5bb9dcd7a5e2c0c78f73897083d4dda1c2b5171164498ab6ba35",
+          "net_ai_evidence.py": "afcbb2192093f978c0697ef7ce590eb0f44e4727dc56b7615ae848aa514b3ed3"
+        },
+        "assetManifestSha256": "f36dfecb0b8ca5aaa109ff19491f58bc27aa44c75c7a53468993846298e33095"
+      },
+      "staging": {
+        "stagingAdapterSha256": "46c0cd258ff671c9308699158d24327400004aef67590a83959e874dea7b244d",
+        "stagingMethod": "APFS copy-on-write clone; symlinks dereferenced; game bytes unchanged",
+        "removedDuplicateStagingSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9"
+      },
+      "stagingAdapter": {
+        "path": "artifacts/net21-g1/run-with-clone-staging.py",
+        "sha256": "46c0cd258ff671c9308699158d24327400004aef67590a83959e874dea7b244d",
+        "bytes": 809
+      },
+      "nativeConsumptionJoin": {
+        "status": "PASS",
+        "failures": [],
+        "grantCreations": 4,
+        "nativeTimedConsumptions": 4,
+        "matched": 4,
+        "unmatchedGrantCreations": 0,
+        "unmatchedNativeConsumptions": 0,
+        "dynamicConsumptions": 0,
+        "limitation": "Dynamic spawner -1 contacts match as a multiset of stream/frame/player/type; individual dynamic item identity is unavailable. Native SpawnCount is quota and is excluded."
+      }
+    }
+  ],
+  "replays": [
+    {
+      "name": "acceptance-bot-powerups-3ba799ab",
+      "rowCount": 4,
+      "completeDemos": 2,
+      "rows": [
+        {
+          "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+          "engineSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+          "unchanged": true,
+          "demoSha256": "060d16f463ac4444771d61aecb6f0a7adf07a3a17afa176784c30c1d7e3dd89d",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+            "-replaydeterminism",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-0/exports/_demos/MP5 FUEL SLUICE_2026-10-11_22-10-14-396_3a6b763704374f0593c91023f094ccf6.ppdemo",
+            "-mapdir",
+            "/private/tmp/prime-polish-netprofile/empty-maps",
+            "-noupdate",
+            "-noautoupdate"
+          ],
+          "exit": 0,
+          "seconds": 14.307841499999999,
+          "logSha256": "6b2d4bf1210945932cf3a8c61ade2a09c7d1cd10c7cc6ef2ffc3dcf1595ea8fe"
+        },
+        {
+          "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+          "engineSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+          "unchanged": true,
+          "demoSha256": "060d16f463ac4444771d61aecb6f0a7adf07a3a17afa176784c30c1d7e3dd89d",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+            "-replayreplicacheck",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-0/exports/_demos/MP5 FUEL SLUICE_2026-10-11_22-10-14-396_3a6b763704374f0593c91023f094ccf6.ppdemo",
+            "-mapdir",
+            "/private/tmp/prime-polish-netprofile/empty-maps",
+            "-noupdate",
+            "-noautoupdate"
+          ],
+          "exit": 0,
+          "seconds": 7.811454749999998,
+          "logSha256": "8df570c36e856b2472091511a0eaf08c3e1cccdb889d2549a8ea3ae2b332bc48"
+        },
+        {
+          "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+          "engineSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+          "unchanged": true,
+          "demoSha256": "063e04595ebb431e634efd71dfe31f44e7e8a5b75aa31fa5d52f941545641a5a",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+            "-replaydeterminism",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-1/exports/_demos/MP5 FUEL SLUICE_2026-10-11_22-10-14-388_0aae9a5294cd48ee87740fa8caafcd6f.ppdemo",
+            "-mapdir",
+            "/private/tmp/prime-polish-netprofile/empty-maps",
+            "-noupdate",
+            "-noautoupdate"
+          ],
+          "exit": 0,
+          "seconds": 14.407898499999998,
+          "logSha256": "338118d387b93b493213f0e61888076ebe20e9bb23ec8bad7e5a5ade8782c31b"
+        },
+        {
+          "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+          "engineSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+          "unchanged": true,
+          "demoSha256": "063e04595ebb431e634efd71dfe31f44e7e8a5b75aa31fa5d52f941545641a5a",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+            "-replayreplicacheck",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-1/exports/_demos/MP5 FUEL SLUICE_2026-10-11_22-10-14-388_0aae9a5294cd48ee87740fa8caafcd6f.ppdemo",
+            "-mapdir",
+            "/private/tmp/prime-polish-netprofile/empty-maps",
+            "-noupdate",
+            "-noautoupdate"
+          ],
+          "exit": 0,
+          "seconds": 7.728223874999998,
+          "logSha256": "466443509873c441414adcfb83cd5a6f5b08b150258e903be9621464c5ab63a5"
+        }
+      ]
+    },
+    {
+      "name": "acceptance-eight-powerups-3ba799ab",
+      "rowCount": 4,
+      "completeDemos": 2,
+      "rows": [
+        {
+          "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+          "engineSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+          "unchanged": true,
+          "demoSha256": "b3f14210e73ae0e7d93c39e32700e3abbeb62f2659810e68e839e936ee2a6235",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+            "-replaydeterminism",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-0/exports/_demos/MP5 FUEL SLUICE_2026-10-11_22-11-49-847_2c55744c08bd4c2abca5fd1533503ad9.ppdemo",
+            "-mapdir",
+            "/private/tmp/prime-polish-netprofile/empty-maps",
+            "-noupdate",
+            "-noautoupdate"
+          ],
+          "exit": 0,
+          "seconds": 52.350397957999995,
+          "logSha256": "e4cdea7d622df93e0374cef72fd9688507cf2c6a937573334e305e8380bff1a5"
+        },
+        {
+          "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+          "engineSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+          "unchanged": true,
+          "demoSha256": "b3f14210e73ae0e7d93c39e32700e3abbeb62f2659810e68e839e936ee2a6235",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+            "-replayreplicacheck",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-0/exports/_demos/MP5 FUEL SLUICE_2026-10-11_22-11-49-847_2c55744c08bd4c2abca5fd1533503ad9.ppdemo",
+            "-mapdir",
+            "/private/tmp/prime-polish-netprofile/empty-maps",
+            "-noupdate",
+            "-noautoupdate"
+          ],
+          "exit": 0,
+          "seconds": 22.858871375,
+          "logSha256": "713653c2f1fd09eff20a433522d50e21443f0d50ea8c095f4412c71b228f27cb"
+        },
+        {
+          "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+          "engineSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+          "unchanged": true,
+          "demoSha256": "5bde73fd87ebacf4685e5db3f9d217089934fb902dc053b736569aabc8c280b1",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+            "-replaydeterminism",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-1/exports/_demos/MP5 FUEL SLUICE_2026-10-11_22-11-49-809_4ccb296b097d403f8c3d3de262bc1898.ppdemo",
+            "-mapdir",
+            "/private/tmp/prime-polish-netprofile/empty-maps",
+            "-noupdate",
+            "-noautoupdate"
+          ],
+          "exit": 0,
+          "seconds": 53.541839708,
+          "logSha256": "bccd9883a9c9b49697d11048a8cd48d660c77820d7b340f5410a557c7c53f608"
+        },
+        {
+          "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+          "engineSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+          "unchanged": true,
+          "demoSha256": "5bde73fd87ebacf4685e5db3f9d217089934fb902dc053b736569aabc8c280b1",
+          "command": [
+            "/Users/jarrett/.dotnet/dotnet",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+            "-replayreplicacheck",
+            "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-1/exports/_demos/MP5 FUEL SLUICE_2026-10-11_22-11-49-809_4ccb296b097d403f8c3d3de262bc1898.ppdemo",
+            "-mapdir",
+            "/private/tmp/prime-polish-netprofile/empty-maps",
+            "-noupdate",
+            "-noautoupdate"
+          ],
+          "exit": 0,
+          "seconds": 23.492056458999997,
+          "logSha256": "2e3a5a666f5c6846169c3fbe5c9587318b9e7b5a1926437bb6cf9577e4feb7b7"
+        }
+      ]
+    }
+  ],
+  "contracts": {
+    "developmentWorkingTree": false,
+    "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+    "engineSha256": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+    "fixtureSha256": "9c858b733868cfe1b527b0ac67f6b2758c7341120a681a7d6c028f69e016461f",
+    "environment": {
+      "PROJECT_PRIME_USER_DATA": "/private/tmp/prime-polish-netprofile",
+      "ALSOFT_DRIVERS": "null"
+    },
+    "results": [
+      {
+        "name": "lobby",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--lobby"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 99.693783792,
+        "logSha256": "5ae07726b14028b03e399bd011f92358f270567a4779d82df99569913344975e"
+      },
+      {
+        "name": "timed-grants",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--timed-grants"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.0456627500000053,
+        "logSha256": "79d5389c60ff7de9835830e7933a1d9831745e6637242ba56cd79e303de10842"
+      },
+      {
+        "name": "lifecycle",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--lifecycle"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.5773093749999987,
+        "logSha256": "662d6bb268309d24e283dfd095544fe7bdbbf2c53c1d6bddcb7a4960ed2f04b0"
+      },
+      {
+        "name": "health-shots",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--health-shots"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 12.488481249999992,
+        "logSha256": "65d3be9467b48ff28e7312da7e5ec211804bcf48979697819fc9b5b9448ac6f1"
+      },
+      {
+        "name": "grants-prime",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--powerup-ledger-scene",
+          "/private/tmp/prime-polish-netprofile",
+          "prime"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 1.3364936669999992,
+        "logSha256": "c5aae3151c3cd39049f82c7381e8ec1cf23e97d2ab137d4686a7d40d24efc3be"
+      },
+      {
+        "name": "grants-balanced",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--powerup-ledger-scene",
+          "/private/tmp/prime-polish-netprofile",
+          "balanced"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 1.2340313330000043,
+        "logSha256": "d3e59dfa0cb2b298c8bb4867b68013ddac29e418e6dcfba8821e677ed34be266"
+      },
+      {
+        "name": "grants-enhanced",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--powerup-ledger-scene",
+          "/private/tmp/prime-polish-netprofile",
+          "enhanced"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 1.2474551669999983,
+        "logSha256": "2534169b9810b61d699066e787e1ed86404c90c263444dde9c5390954228964f"
+      },
+      {
+        "name": "grants-prime-hunter",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--powerup-ledger-scene",
+          "/private/tmp/prime-polish-netprofile",
+          "prime-hunter"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 1.306577333000007,
+        "logSha256": "074c15f72d7c6e847bd4d646f1418e41b382677b2515fc85732c02ea3207ad50"
+      },
+      {
+        "name": "architecture",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--architecture"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.156798957999996,
+        "logSha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+      },
+      {
+        "name": "protocol17",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--protocol17"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.16119799999999884,
+        "logSha256": "9139e28bde8d880ea9119ad134d83c8781c8955febd0c69e14afd1c561533ac1"
+      },
+      {
+        "name": "protocol19",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--protocol19"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 1.7615164580000027,
+        "logSha256": "43fc2f5628cd224af61a019e92f863c597ea755d6a7b72aa48985e2258c0fee7"
+      },
+      {
+        "name": "continuous-targets",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--continuous-targets"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.10027466600000423,
+        "logSha256": "0b1093499c00c64edddfdd5c76a05e708a64d1def309194ac7620e71e771ffb4"
+      },
+      {
+        "name": "collision",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--biped-edge-collision-scene",
+          "/private/tmp/prime-polish-netprofile"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.5353254169999957,
+        "logSha256": "6d06ab1c3cfc4805b633e848e2af40f15530f7b9682e9b375b2232e851a26919"
+      },
+      {
+        "name": "resolved-death",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--replay-resolved-death-scene",
+          "/private/tmp/prime-polish-netprofile",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-8-impaired-a0a120b5/peer-6/exports/_demos/MP1 SANCTORUS_2026-10-11_20-37-44-102_7faa17a48f51407ca743110d2845b175.ppdemo"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.6690357080000098,
+        "logSha256": "c958c9e1e61fc21b0a2eb731fba7e1838de4a2bd4358f7bcc19c60cc7a98bf52"
+      },
+      {
+        "name": "turret-cancellation",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--turret-cancellation-scene",
+          "/private/tmp/prime-polish-netprofile",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-g1/udp-8-impaired-a0a120b5/peer-6/exports/_demos/MP1 SANCTORUS_2026-10-11_20-37-44-102_7faa17a48f51407ca743110d2845b175.ppdemo"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.4757028749999961,
+        "logSha256": "8384ea2f388624660dcecc67f0394d82566a21a7478d3687a48bc8f5b73c8195"
+      },
+      {
+        "name": "native-turret",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--turret-outcome-scene",
+          "/private/tmp/prime-polish-netprofile"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.6529790419999983,
+        "logSha256": "0a5a810d8fc2cf7ed776a908c3d7661043959f3b408cbc0ed179748f6c2b5225"
+      },
+      {
+        "name": "turret-outcome",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--turret-fire-outcome-codec"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.055033499999993296,
+        "logSha256": "bc1a44f5a9717064b0e3bfdd3948aa0280341824adc31f966269fc9a2afeef1d"
+      },
+      {
+        "name": "form-protocol",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--player-form-protocol"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.03866362499999809,
+        "logSha256": "96169772d2d6575b263d5bfc3b3f1394aaaef0df4c2f0a06d30f49d149c96191"
+      },
+      {
+        "name": "bomb-protocol",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--bomb-protocol"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.04200858299999766,
+        "logSha256": "435c92ad19baee0eaa8b9a7d78ad41328dad4d0e2edb714cdfcbd70ca314a88f"
+      },
+      {
+        "name": "campaign-claims",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--campaign-claims"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.12306545899998866,
+        "logSha256": "8bac80a2a8d2902f3ca022c2177766cacac53d2a94b73a34e8a3d3451bb8e8d2"
+      },
+      {
+        "name": "replay-form-history",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--replay-form-history"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.06246841700000516,
+        "logSha256": "2acb76c376cf70deb089ca8cb9bdfffcd5d60021b07699a2b6e1997f92485c57"
+      },
+      {
+        "name": "ai-driver",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--ai-client-driver"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.08703258399999925,
+        "logSha256": "faf48ac68303b3d6637abf8a63b6f4eb5f61cf9d3300aaf35db8ebc7dfa027df"
+      },
+      {
+        "name": "bot-ai",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--bot-ai"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.040867040999998494,
+        "logSha256": "88d4139990f907b0f2a49a2e968e819cae3ed72bc7d2096b4d8afab47d107d99"
+      },
+      {
+        "name": "input-edges",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--input-edges"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.037706333999992125,
+        "logSha256": "04a8dc7b96a21e79ec59feffba5707bd2759f7e3dd7a36f6cde87ceab4cc866d"
+      },
+      {
+        "name": "muzzle",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--sylux-muzzle-scene",
+          "/private/tmp/prime-polish-netprofile"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.6673834159999927,
+        "logSha256": "f30bbf5c41992701746948f247d8a93940cb5efc4dd888b05082f65ac7eb0a67"
+      },
+      {
+        "name": "continuous",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--continuous-combat-scene",
+          "/private/tmp/prime-polish-netprofile"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 1.1530984580000023,
+        "logSha256": "5e8d2c378425163a409f0115bef7f9d00d0664dae6c9601f20ec4ab2ff7a77f3"
+      },
+      {
+        "name": "compact",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--compact-intents"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.31979350000000295,
+        "logSha256": "0fd8ae4216b2f3a4782cb4920a8bfd7fb382c22afa6d8f6c2bfab497dc4208e5"
+      },
+      {
+        "name": "shot-lifecycle",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--shot-lifecycle"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.03249691700000312,
+        "logSha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3"
+      },
+      {
+        "name": "source-journal",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--shot-source-journal"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.12451833299999748,
+        "logSha256": "093f99ac93fbeb8a5d10cd1f6c4c8b18262f02e1661e3a3d0fa4d094e992ba24"
+      },
+      {
+        "name": "queue-budget",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--queue-budget"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.30384187500000337,
+        "logSha256": "15dfab687c9f45705140d159147c19f6276d675c13ca58c02498af7b00f1ee95"
+      },
+      {
+        "name": "replay-format",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+          "-replayformatcheck",
+          "-mapdir",
+          "/private/tmp/prime-polish-netprofile/empty-maps",
+          "-noupdate",
+          "-noautoupdate"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "exit": 0,
+        "seconds": 0.5223348749999985,
+        "logSha256": "bdacefa19fd468ae4d997891416c741d50f08e7e3fe606119a813417686b454a"
+      }
+    ],
+    "engineSha256After": "1b716abcc450d6f2396e5acfa703dce559ab497493d6e536c378faeee9ce4de9",
+    "fixtureSha256After": "9c858b733868cfe1b527b0ac67f6b2758c7341120a681a7d6c028f69e016461f",
+    "binaryHashesUnchanged": true
+  },
+  "python": {
+    "status": "PASS",
+    "tests": 427,
+    "skipped": 1,
+    "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+    "sourceBinding": "Immutable-source invocation and prefix-bound raw log"
+  },
+  "ci": {
+    "headRefOid": "3ba799abfcac35c40a009f6c5a923e800100269a",
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:09:35Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646802915",
+        "name": "no game assets",
+        "startedAt": "2026-10-12T03:09:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:09:29Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624490/job/114646802682",
+        "name": "content-free",
+        "startedAt": "2026-10-12T03:09:10Z",
+        "status": "COMPLETED",
+        "workflowName": "semantic event foundation"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:09:16Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198621138/job/114646792671",
+        "name": "content-free",
+        "startedAt": "2026-10-12T03:09:06Z",
+        "status": "COMPLETED",
+        "workflowName": "semantic event foundation"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:09:41Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646803105",
+        "name": "Windows/Linux release updater and rollback (ubuntu-latest)",
+        "startedAt": "2026-10-12T03:09:09Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:10:37Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646803091",
+        "name": "Windows/Linux release updater and rollback (windows-latest)",
+        "startedAt": "2026-10-12T03:09:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:11:21Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646803079",
+        "name": "dedicated server compile gate",
+        "startedAt": "2026-10-12T03:09:09Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:11:16Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646803081",
+        "name": "HD character model contract",
+        "startedAt": "2026-10-12T03:09:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:12:16Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646803168",
+        "name": "content-free fidelity oracle (F0/F1)",
+        "startedAt": "2026-10-12T03:09:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:11:59Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646803109",
+        "name": "OpenGL compatibility and retained graph smoke",
+        "startedAt": "2026-10-12T03:09:09Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:09:41Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646803114",
+        "name": "Android frame pacing and governor policy",
+        "startedAt": "2026-10-12T03:09:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:12:19Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646803057",
+        "name": "Desktop frame pacing policy",
+        "startedAt": "2026-10-12T03:09:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:12:01Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646803217",
+        "name": "renderer state, lifecycle and low-latency policy",
+        "startedAt": "2026-10-12T03:09:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:13:57Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646803143",
+        "name": "input regressions (windows-latest)",
+        "startedAt": "2026-10-12T03:09:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:12:02Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646803121",
+        "name": "input regressions (macos-latest)",
+        "startedAt": "2026-10-12T03:09:15Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:14:51Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646803107",
+        "name": "input regressions (macos-15-intel)",
+        "startedAt": "2026-10-12T03:09:11Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:13:25Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646893421",
+        "name": "enhanced hunter regressions",
+        "startedAt": "2026-10-12T03:09:37Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:12:54Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646893571",
+        "name": "map editor regressions (ubuntu-latest)",
+        "startedAt": "2026-10-12T03:09:37Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:14:05Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646893549",
+        "name": "map editor regressions (windows-latest)",
+        "startedAt": "2026-10-12T03:09:37Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:12:41Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646893480",
+        "name": "map editor regressions (macos-latest)",
+        "startedAt": "2026-10-12T03:09:41Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:13:48Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646893500",
+        "name": "win-x64",
+        "startedAt": "2026-10-12T03:09:37Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:19:37Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646893577",
+        "name": "linux-x64",
+        "startedAt": "2026-10-12T03:09:37Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:14:21Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646893547",
+        "name": "linux-x64-server",
+        "startedAt": "2026-10-12T03:09:37Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:14:44Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646893521",
+        "name": "linux-arm64",
+        "startedAt": "2026-10-12T03:09:37Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:18:57Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646893453",
+        "name": "macOS osx-arm64",
+        "startedAt": "2026-10-12T03:09:43Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:20:17Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646893460",
+        "name": "macOS osx-x64",
+        "startedAt": "2026-10-12T03:09:40Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:19:30Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646893533",
+        "name": "android",
+        "startedAt": "2026-10-12T03:09:37Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-12T03:14:26Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38198624437/job/114646893424",
+        "name": "win-x64 dedicated server",
+        "startedAt": "2026-10-12T03:09:37Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      }
+    ]
+  },
+  "ciProvenance": {
+    "source": "3ba799abfcac35c40a009f6c5a923e800100269a",
+    "path": "artifacts/net21-a1/ci-3ba799ab-final.json",
+    "requiredCheckCount": 27
+  },
+  "fixtureCoverage": "All three types and mode/reset contracts; per-type zero live coverage is NOT_RUN and reserved for R0.",
+  "rawArtifacts": [
+    {
+      "path": "artifacts/net21-a1/build-ledger-powerups.py",
+      "sha256": "04b5212246358f692ca0fb732b0e3472c8fe25d297ed316dbee4afecca716e58",
+      "bytes": 18959
+    },
+    {
+      "path": "tools/nettest/net_timed_grants.py",
+      "sha256": "2fbef46757980f91a74427f9ecd032f3fdb099e936f4de9aa54f98df6b892dea",
+      "bytes": 5850
+    },
+    {
+      "path": "artifacts/net21-g1/run-with-clone-staging.py",
+      "sha256": "46c0cd258ff671c9308699158d24327400004aef67590a83959e874dea7b244d",
+      "bytes": 809
+    },
+    {
+      "path": "artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/manifest.json",
+      "sha256": "779253e7ee0f118893e1b62579e7e9fdc74e5f87731dd7179f1905fc04195edd",
+      "bytes": 82914
+    },
+    {
+      "path": "artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/summary.json",
+      "sha256": "f4b5f6c7c1456f362a0276b05ccd93e3fe10ef0bd6f8043a0d7267f7f351f215",
+      "bytes": 12847
+    },
+    {
+      "path": "artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/ai-summary.json",
+      "sha256": "e6747487c90de7270f891824b08d56790b8d744a7ee4882284455d9bfa34a52e",
+      "bytes": 3991
+    },
+    {
+      "path": "artifacts/net21-a1/udp-2-bot-powerups-3ba799ab-result.json",
+      "sha256": "b05cf1e81bd7a5e275517d6d485beff8fb5ecda5b0878c31e71cbfbdeda1fb5e",
+      "bytes": 1260
+    },
+    {
+      "path": "artifacts/net21-a1/udp-2-bot-powerups-3ba799ab-runner.log",
+      "sha256": "eb5465ac875748220b76ee19df1142e28eeb32ab6febcb3ae7e79b70e473adb9",
+      "bytes": 168
+    },
+    {
+      "path": "artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/server.json",
+      "sha256": "492ac6416d2d245e79fac6d6254da3bb982910d7b4407b9d1ae0d54045e67bd1",
+      "bytes": 8192700
+    },
+    {
+      "path": "artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/server.log",
+      "sha256": "b9fd9a19cbd89379ea9ca1806b209eafe5a4f424131d51286dc19ffedf7a8aa3",
+      "bytes": 147131
+    },
+    {
+      "path": "artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-0.json",
+      "sha256": "7f79a6ef2d117e51a88c87f1894d80a3079e6b7df356e03f31c25f93b0998b49",
+      "bytes": 4211336
+    },
+    {
+      "path": "artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-0.log",
+      "sha256": "57cdbef13bc886dc00c47d152820f3eb7121a4d1cfe15858f2caa9f491ae693d",
+      "bytes": 4341
+    },
+    {
+      "path": "artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-1.json",
+      "sha256": "9c94381893ffa7f1e62eb92464bd7f55bdce2b1c89a617e24902529f4baf7e20",
+      "bytes": 4218909
+    },
+    {
+      "path": "artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-1.log",
+      "sha256": "44fd105136715fa6c63b6a66436eee15fca3b52e0451c31e27012da70af9fc98",
+      "bytes": 4301
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/manifest.json",
+      "sha256": "b8845b29658433c57bb3fc1000a2195ba7aee17c3d29eb4cca91d5e44cb36bd4",
+      "bytes": 1070541
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/summary.json",
+      "sha256": "e1f4b48d8123195ed39b6c295a064e9f07a10e74941e33be0d7e590185fbf2b3",
+      "bytes": 52432
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/ai-summary.json",
+      "sha256": "23f5bee2c01bce3c527a4e2bff15942ffd40f139742b72af88f57cb8d81844b4",
+      "bytes": 12500
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab-result.json",
+      "sha256": "210c0d79b3a91c971e85b2d0be5e54ce01dca55f69890e4392b2565eed0484d4",
+      "bytes": 1439
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab-runner.log",
+      "sha256": "c36ff20696eace9674fdc9ee12339a8d397842ee62e3a2becbe1fb9ccbaf0d5b",
+      "bytes": 173
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/server.json",
+      "sha256": "4043fb49a7beb8cbdbf0b02568bd2ae4c9477180ee04c712cd618f71c9a34962",
+      "bytes": 61026871
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/server.log",
+      "sha256": "620ca110ebdc4087f92082255b2506dead7c416442fc9a4f71e1f4c296c246a1",
+      "bytes": 674789
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-0.json",
+      "sha256": "19426ed58bfc775089504fa59227e9fce879a2d69bd1e7d79e1645a0180eb28a",
+      "bytes": 22026363
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-0.log",
+      "sha256": "16f51195e1f4b086f8df65a8dc2124fc35bd66030137f8e20839d00988cceb05",
+      "bytes": 5072
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-1.json",
+      "sha256": "9f538978500f7498d0448a965658c26f1946af775b8d6066b0927575fb4c6b0e",
+      "bytes": 22109307
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-1.log",
+      "sha256": "396934be2acbd89b484a61df93ae1f0183f502a6c501b331480dd31dc6273eb9",
+      "bytes": 5073
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-2.json",
+      "sha256": "7c96039210c858e8ed687c8bc130bffb2f6a2746927bcd5579e02ae645bce98d",
+      "bytes": 22201883
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-2.log",
+      "sha256": "41a6346cb8c706f7588a95d1482cd83539245a071423102075af0b376a14e060",
+      "bytes": 5083
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-3.json",
+      "sha256": "738e99deff0650a8ed7a13f5a7f33cda11f29c6d83893f4a0c28a9e25bb1b4d5",
+      "bytes": 21842148
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-3.log",
+      "sha256": "e349d69e31bd27ad03774be4e5a79412865e134824141be285e45c10bef9033f",
+      "bytes": 5046
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-4.json",
+      "sha256": "94714b5fece0d972a89460d29432f2ff263bc4d0618e61e91a67f8e6d284df51",
+      "bytes": 21727018
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-4.log",
+      "sha256": "66efa72e9dfc1a5de699eb36f841bba6f1d0dfbac6872e7cb4793742824f0031",
+      "bytes": 5071
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-5.json",
+      "sha256": "95bbedab506f8813335790b06d745fb4f76635cdc2bd72a0fec358683ddef900",
+      "bytes": 21847604
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-5.log",
+      "sha256": "593db38b3436da71dede2d1ade306452317903a544a3f42a0e566bdf976d3007",
+      "bytes": 5105
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-6.json",
+      "sha256": "2d8d4d90ff6efe69bca0e63d149b9309f1fc0fc04d63c70ea96244e7fc6546f4",
+      "bytes": 22212705
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-6.log",
+      "sha256": "9c39eac82f3b5b573d4ac9d3247c73b491af72c56197004accc0d6b9b9dbc5ed",
+      "bytes": 5029
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-7.json",
+      "sha256": "8b67460d93b48cb57199f65c5326189f87e00af505be85d4d6cf1d9664739a50",
+      "bytes": 22045582
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-7.log",
+      "sha256": "1441c84a661f326fbfca55c2872ef17b2de15c2579840b9bed9fecafa70a07e0",
+      "bytes": 5024
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/results.json",
+      "sha256": "2486691a335da2241a379c7c9705f1e6df370f90dfbc9efde224a0691544699b",
+      "bytes": 15686
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/lobby.log",
+      "sha256": "5ae07726b14028b03e399bd011f92358f270567a4779d82df99569913344975e",
+      "bytes": 47802
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/timed-grants.log",
+      "sha256": "79d5389c60ff7de9835830e7933a1d9831745e6637242ba56cd79e303de10842",
+      "bytes": 39
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/lifecycle.log",
+      "sha256": "662d6bb268309d24e283dfd095544fe7bdbbf2c53c1d6bddcb7a4960ed2f04b0",
+      "bytes": 1372
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/health-shots.log",
+      "sha256": "65d3be9467b48ff28e7312da7e5ec211804bcf48979697819fc9b5b9448ac6f1",
+      "bytes": 893
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/grants-prime.log",
+      "sha256": "c5aae3151c3cd39049f82c7381e8ec1cf23e97d2ab137d4686a7d40d24efc3be",
+      "bytes": 822
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/grants-balanced.log",
+      "sha256": "d3e59dfa0cb2b298c8bb4867b68013ddac29e418e6dcfba8821e677ed34be266",
+      "bytes": 825
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/grants-enhanced.log",
+      "sha256": "2534169b9810b61d699066e787e1ed86404c90c263444dde9c5390954228964f",
+      "bytes": 825
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/grants-prime-hunter.log",
+      "sha256": "074c15f72d7c6e847bd4d646f1418e41b382677b2515fc85732c02ea3207ad50",
+      "bytes": 829
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/architecture.log",
+      "sha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911",
+      "bytes": 108
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/protocol17.log",
+      "sha256": "9139e28bde8d880ea9119ad134d83c8781c8955febd0c69e14afd1c561533ac1",
+      "bytes": 84
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/protocol19.log",
+      "sha256": "43fc2f5628cd224af61a019e92f863c597ea755d6a7b72aa48985e2258c0fee7",
+      "bytes": 6370
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/continuous-targets.log",
+      "sha256": "0b1093499c00c64edddfdd5c76a05e708a64d1def309194ac7620e71e771ffb4",
+      "bytes": 153
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/collision.log",
+      "sha256": "6d06ab1c3cfc4805b633e848e2af40f15530f7b9682e9b375b2232e851a26919",
+      "bytes": 4880
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/resolved-death.log",
+      "sha256": "c958c9e1e61fc21b0a2eb731fba7e1838de4a2bd4358f7bcc19c60cc7a98bf52",
+      "bytes": 223
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/turret-cancellation.log",
+      "sha256": "8384ea2f388624660dcecc67f0394d82566a21a7478d3687a48bc8f5b73c8195",
+      "bytes": 309
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/native-turret.log",
+      "sha256": "0a5a810d8fc2cf7ed776a908c3d7661043959f3b408cbc0ed179748f6c2b5225",
+      "bytes": 602
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/turret-outcome.log",
+      "sha256": "bc1a44f5a9717064b0e3bfdd3948aa0280341824adc31f966269fc9a2afeef1d",
+      "bytes": 93
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/form-protocol.log",
+      "sha256": "96169772d2d6575b263d5bfc3b3f1394aaaef0df4c2f0a06d30f49d149c96191",
+      "bytes": 1573
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/bomb-protocol.log",
+      "sha256": "435c92ad19baee0eaa8b9a7d78ad41328dad4d0e2edb714cdfcbd70ca314a88f",
+      "bytes": 2197
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/campaign-claims.log",
+      "sha256": "8bac80a2a8d2902f3ca022c2177766cacac53d2a94b73a34e8a3d3451bb8e8d2",
+      "bytes": 150
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/replay-form-history.log",
+      "sha256": "2acb76c376cf70deb089ca8cb9bdfffcd5d60021b07699a2b6e1997f92485c57",
+      "bytes": 143
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/ai-driver.log",
+      "sha256": "faf48ac68303b3d6637abf8a63b6f4eb5f61cf9d3300aaf35db8ebc7dfa027df",
+      "bytes": 774
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/bot-ai.log",
+      "sha256": "88d4139990f907b0f2a49a2e968e819cae3ed72bc7d2096b4d8afab47d107d99",
+      "bytes": 1315
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/input-edges.log",
+      "sha256": "04a8dc7b96a21e79ec59feffba5707bd2759f7e3dd7a36f6cde87ceab4cc866d",
+      "bytes": 121
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/muzzle.log",
+      "sha256": "f30bbf5c41992701746948f247d8a93940cb5efc4dd888b05082f65ac7eb0a67",
+      "bytes": 5513
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/continuous.log",
+      "sha256": "5e8d2c378425163a409f0115bef7f9d00d0664dae6c9601f20ec4ab2ff7a77f3",
+      "bytes": 68214
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/compact.log",
+      "sha256": "0fd8ae4216b2f3a4782cb4920a8bfd7fb382c22afa6d8f6c2bfab497dc4208e5",
+      "bytes": 1243
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/shot-lifecycle.log",
+      "sha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3",
+      "bytes": 21
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/source-journal.log",
+      "sha256": "093f99ac93fbeb8a5d10cd1f6c4c8b18262f02e1661e3a3d0fa4d094e992ba24",
+      "bytes": 717
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/queue-budget.log",
+      "sha256": "15dfab687c9f45705140d159147c19f6276d675c13ca58c02498af7b00f1ee95",
+      "bytes": 138
+    },
+    {
+      "path": "artifacts/net21-a1/contracts-3ba799ab/replay-format.log",
+      "sha256": "bdacefa19fd468ae4d997891416c741d50f08e7e3fe606119a813417686b454a",
+      "bytes": 451
+    },
+    {
+      "path": "artifacts/net21-a1/python-3ba799ab.log",
+      "sha256": "c5117c3f4f29d51a6a40713c1c14376ef7bc875cb3cbaf02ebf533111eb8dd06",
+      "bytes": 539
+    },
+    {
+      "path": "artifacts/net21-a1/ci-3ba799ab-final.json",
+      "sha256": "ef07c1a398bd63b13efaa02d3106dbaf5f158790337496f352892682510698f7",
+      "bytes": 8349
+    },
+    {
+      "path": "artifacts/net21-a1/acceptance-bot-powerups-3ba799ab-replays.json",
+      "sha256": "078c9e89ac2781d56476cd3a08cdeb7e1c2c2d4964565d85e1d97ab8eeb6a47c",
+      "bytes": 3747
+    },
+    {
+      "path": "artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-0/exports/_demos/MP5 FUEL SLUICE_2026-10-11_22-10-14-396_3a6b763704374f0593c91023f094ccf6.ppdemo",
+      "sha256": "060d16f463ac4444771d61aecb6f0a7adf07a3a17afa176784c30c1d7e3dd89d",
+      "bytes": 2930479
+    },
+    {
+      "path": "artifacts/net21-a1/acceptance-bot-powerups-3ba799ab-replaydeterminism-0.log",
+      "sha256": "6b2d4bf1210945932cf3a8c61ade2a09c7d1cd10c7cc6ef2ffc3dcf1595ea8fe",
+      "bytes": 13946
+    },
+    {
+      "path": "artifacts/net21-a1/acceptance-bot-powerups-3ba799ab-replayreplicacheck-0.log",
+      "sha256": "8df570c36e856b2472091511a0eaf08c3e1cccdb889d2549a8ea3ae2b332bc48",
+      "bytes": 6927
+    },
+    {
+      "path": "artifacts/net21-a1/udp-2-bot-powerups-3ba799ab/peer-1/exports/_demos/MP5 FUEL SLUICE_2026-10-11_22-10-14-388_0aae9a5294cd48ee87740fa8caafcd6f.ppdemo",
+      "sha256": "063e04595ebb431e634efd71dfe31f44e7e8a5b75aa31fa5d52f941545641a5a",
+      "bytes": 2929532
+    },
+    {
+      "path": "artifacts/net21-a1/acceptance-bot-powerups-3ba799ab-replaydeterminism-1.log",
+      "sha256": "338118d387b93b493213f0e61888076ebe20e9bb23ec8bad7e5a5ade8782c31b",
+      "bytes": 13946
+    },
+    {
+      "path": "artifacts/net21-a1/acceptance-bot-powerups-3ba799ab-replayreplicacheck-1.log",
+      "sha256": "466443509873c441414adcfb83cd5a6f5b08b150258e903be9621464c5ab63a5",
+      "bytes": 6923
+    },
+    {
+      "path": "artifacts/net21-a1/acceptance-eight-powerups-3ba799ab-replays.json",
+      "sha256": "d7bcea7cbc9f094ed88320dbcebcf2fdfb70739860e9fa2bde0f868c141e2565",
+      "bytes": 3757
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-0/exports/_demos/MP5 FUEL SLUICE_2026-10-11_22-11-49-847_2c55744c08bd4c2abca5fd1533503ad9.ppdemo",
+      "sha256": "b3f14210e73ae0e7d93c39e32700e3abbeb62f2659810e68e839e936ee2a6235",
+      "bytes": 13699720
+    },
+    {
+      "path": "artifacts/net21-a1/acceptance-eight-powerups-3ba799ab-replaydeterminism-0.log",
+      "sha256": "e4cdea7d622df93e0374cef72fd9688507cf2c6a937573334e305e8380bff1a5",
+      "bytes": 38199
+    },
+    {
+      "path": "artifacts/net21-a1/acceptance-eight-powerups-3ba799ab-replayreplicacheck-0.log",
+      "sha256": "713653c2f1fd09eff20a433522d50e21443f0d50ea8c095f4412c71b228f27cb",
+      "bytes": 12764
+    },
+    {
+      "path": "artifacts/net21-a1/udp-8-impaired-powerups-3ba799ab/peer-1/exports/_demos/MP5 FUEL SLUICE_2026-10-11_22-11-49-809_4ccb296b097d403f8c3d3de262bc1898.ppdemo",
+      "sha256": "5bde73fd87ebacf4685e5db3f9d217089934fb902dc053b736569aabc8c280b1",
+      "bytes": 13742257
+    },
+    {
+      "path": "artifacts/net21-a1/acceptance-eight-powerups-3ba799ab-replaydeterminism-1.log",
+      "sha256": "bccd9883a9c9b49697d11048a8cd48d660c77820d7b340f5410a557c7c53f608",
+      "bytes": 38199
+    },
+    {
+      "path": "artifacts/net21-a1/acceptance-eight-powerups-3ba799ab-replayreplicacheck-1.log",
+      "sha256": "2e3a5a666f5c6846169c3fbe5c9587318b9e7b5a1926437bb6cf9577e4feb7b7",
+      "bytes": 12765
+    }
+  ],
+  "artifactLedger": {
+    "path": "artifacts/net21-a1/evidence-3ba799ab-final.json",
+    "sha256": "f064534484328b325de60e9ec6cf40fc0b1c5cea87db4d13dc2f850345096cfe",
+    "bytes": 144535
+  },
+  "preservedDefaults": {
+    "protocolChanged": false,
+    "protocol": 52,
+    "shotProof": "shadow",
+    "simulationHz": 60,
+    "dedicatedPowerupsEnabledByDefault": false,
+    "newLivePacketTypes": []
+  },
+  "coverageLimits": {
+    "liveCloak": "NOT_RUN",
+    "liveDeathAlt": "NOT_RUN",
+    "liveNaturalExpiry": "NOT_RUN",
+    "liveRenewal": "NOT_RUN",
+    "liveRoomReset": "NOT_RUN",
+    "matchedPerformance": "NOT_RUN",
+    "independentRemoteMovementAuthority": "NOT_IMPLEMENTED",
+    "pickupClaimWire": "A2_PENDING",
+    "clientGrantReconciliation": "A3_PENDING",
+    "sourceShotDamageAuthorization": "A4_PENDING",
+    "releaseAcceptance": "R0_PENDING"
+  },
+  "priorCandidate": {
+    "source": "d788bbcbc9131c0148f39fe499d61f3d7b66161f",
+    "status": "REGRESSION_ONLY",
+    "liveGrants": "NOT_RUN",
+    "reason": "Dedicated rotation configuration disabled power-ups; Sanctorus also has no authored timed pickups.",
+    "rawArtifacts": [
+      {
+        "path": "artifacts/net21-a1/ci-d788bbcb-final.json",
+        "sha256": "000d3577986ca19aaf05d8ffb097e009797cbf0b1fa664fb5da18256e1d4f312",
+        "bytes": 8349
+      },
+      {
+        "path": "artifacts/net21-a1/contracts-d788bbcb/results.json",
+        "sha256": "04705a3aed0898b0ef17c344d6ebb02d8e3f44a485658a039153b78aae103921",
+        "bytes": 15229
+      },
+      {
+        "path": "artifacts/net21-a1/python-d788bbcb.log",
+        "sha256": "e0563acf114d8f294fe4c040a1b79d968e8ef733874417565dce4d1ae115a13e",
+        "bytes": 538
+      },
+      {
+        "path": "artifacts/net21-a1/udp-2-bot-lan-d788bbcb/manifest.json",
+        "sha256": "5c003b4a69953c76680016d03f8f6df1179c13bb0b0786ba25bf411ce4fc188e",
+        "bytes": 48185
+      },
+      {
+        "path": "artifacts/net21-a1/udp-2-bot-lan-d788bbcb/summary.json",
+        "sha256": "ace50bb797e16e29b0da7ff79b9f3035d8d8bdc051015d7b3d9d12eb7bcee848",
+        "bytes": 12827
+      },
+      {
+        "path": "artifacts/net21-a1/udp-2-bot-lan-d788bbcb/ai-summary.json",
+        "sha256": "feef3123c796743e6e393a341130ba25857cb06f04500442190471607b215359",
+        "bytes": 3981
+      },
+      {
+        "path": "artifacts/net21-a1/udp-2-bot-lan-d788bbcb/server.json",
+        "sha256": "52dd40aa7aeb6eda3f7a12291d4d993965dde672870c8508a3f005a9bd135068",
+        "bytes": 8122131
+      },
+      {
+        "path": "artifacts/net21-a1/udp-8-impaired-180s-d788bbcb/manifest.json",
+        "sha256": "6aac0099987d404f41d4ce15c7a4c82fec4a00b56a3a33759d2ef0e73c37c5be",
+        "bytes": 2200532
+      },
+      {
+        "path": "artifacts/net21-a1/udp-8-impaired-180s-d788bbcb/summary.json",
+        "sha256": "34cab6ffb349cfdb096ac5632c26bdeb99d2eb1e16b1f7c4e2025d930fb463bd",
+        "bytes": 52128
+      },
+      {
+        "path": "artifacts/net21-a1/udp-8-impaired-180s-d788bbcb/ai-summary.json",
+        "sha256": "81ded1a85b9f891cf40a6941cf91af883705822198a8838bce47fb3ff67abb10",
+        "bytes": 12544
+      },
+      {
+        "path": "artifacts/net21-a1/udp-8-impaired-180s-d788bbcb/server.json",
+        "sha256": "60a9d959164c24d1372114e8547b5379dcec95c8341f6f7eb567566dbb9f5884",
+        "bytes": 72238755
+      },
+      {
+        "path": "artifacts/net21-a1/udp-8-fuel-sluice-d788bbcb/manifest.json",
+        "sha256": "c2cb439e25308f301822927b779119fea3a3bb43c4263fdd8ad01278d6a786b2",
+        "bytes": 1292931
+      },
+      {
+        "path": "artifacts/net21-a1/udp-8-fuel-sluice-d788bbcb/summary.json",
+        "sha256": "a51aa1db81087d8aa7859a24288a1a606898fc319317844fe78145416ee65cdf",
+        "bytes": 40621
+      },
+      {
+        "path": "artifacts/net21-a1/udp-8-fuel-sluice-d788bbcb/ai-summary.json",
+        "sha256": "0f88cb64001b55996c4ffb251550da757b4b4261b9925e7335187d18696c072b",
+        "bytes": 12516
+      },
+      {
+        "path": "artifacts/net21-a1/udp-8-fuel-sluice-d788bbcb/server.json",
+        "sha256": "a566e56027e9d69711dd8946ae4e8f10e55d0a24296070adcf68d2b9fd4d3008",
+        "bytes": 61476060
+      },
+      {
+        "path": "artifacts/net21-a1/udp-8-sic-transit-d788bbcb/manifest.json",
+        "sha256": "396d9f3ac249f33f48a12d6178f4273328602eaa541d0a0fdb5b277052d7b692",
+        "bytes": 2775451
+      },
+      {
+        "path": "artifacts/net21-a1/udp-8-sic-transit-d788bbcb/summary.json",
+        "sha256": "6ce43d990031f8176204f9a6b93415914fe995ada10e61b8cade04e023d66887",
+        "bytes": 39677
+      },
+      {
+        "path": "artifacts/net21-a1/udp-8-sic-transit-d788bbcb/ai-summary.json",
+        "sha256": "a1f2d612c26492c6afa6be5c8574a192d2866f2a10d72b30b74d19a264aa901e",
+        "bytes": 12547
+      },
+      {
+        "path": "artifacts/net21-a1/udp-8-sic-transit-d788bbcb/server.json",
+        "sha256": "e5d57e5da98cf2a10b9866defcc136d90eb74e84bd1515e2d30f275e503009bb",
+        "bytes": 63107713
+      },
+      {
+        "path": "artifacts/net21-a1/acceptance-lan-d788bbcb-replays.json",
+        "sha256": "bce8704a06dea428912ecb1221a6a679201186cf3ecb985298ef9d389f40fbb2",
+        "bytes": 3707
+      },
+      {
+        "path": "artifacts/net21-a1/acceptance-eight-d788bbcb-replays.json",
+        "sha256": "5dfdac47476970c90f42e1b73b31664a8883dfc53dd5ffc6d9fdb305204a114a",
+        "bytes": 3723
+      },
+      {
+        "path": "artifacts/net21-a1/acceptance-fuel-d788bbcb-replays.json",
+        "sha256": "82c34d37bb7f2bbf5b710b0bdb4832b644cfc91cbb993fe03b7656291a0222e0",
+        "bytes": 3739
+      }
+    ]
+  }
+}

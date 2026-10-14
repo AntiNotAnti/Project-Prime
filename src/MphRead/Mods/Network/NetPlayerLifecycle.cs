@@ -85,6 +85,7 @@ namespace MphRead.Mods.Network
 
         public static void OnSlotChanged(int slot)
         {
+            NetPowerUpLedger.RetireSlot(slot, TimedGrantEnd.Retired);
             NetBotInput.ForgetSlot(slot);
             NetTelemetry.ForgetSlot(slot);
             NetPlayerBridge.ForgetSlot(slot);
@@ -103,6 +104,7 @@ namespace MphRead.Mods.Network
             if (!NetSession.Active || ApplyingSpawn || (!NetSession.IsHost && !NetSession.IsAuthority)) return;
             int slot = player.SlotIndex;
             if (Generation(slot) == 0) SetOccupant(slot, 1);
+            NetPowerUpLedger.RetireSlot(slot, TimedGrantEnd.Retired);
             _slots[slot].BeginLife();
             NetBotInput.ForgetSlot(slot);
             NetPlayerBridge.ForgetSlot(slot);

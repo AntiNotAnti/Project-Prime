@@ -1647,6 +1647,8 @@ namespace MphRead.Mods.Network
                 PresentationHz = Math.Clamp(PerformanceHz, 60, 240),
                 DrawRate = Math.Clamp(PerformanceHz, 60, 240) / 60.0,
                 DrawSamples = _perfDrawMs.Count,
+                DrawIntervalsMs = _perfDrawMs,
+                SimulationIntervalsMs = _perfSimulationMs,
                 DrawAverageMs = avg,
                 DrawP50Ms = p50,
                 DrawP95Ms = p95,

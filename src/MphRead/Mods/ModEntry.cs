@@ -1111,6 +1111,7 @@ namespace MphRead.Mods
                 WaitlistOfferSeconds = int.TryParse(ValueAfter(args, "waitlistoffer"), out int queueOfferSeconds) ? Math.Clamp(queueOfferSeconds, 1, 300) : 15,
                 WaitlistResumeGraceSeconds = int.TryParse(ValueAfter(args, "waitlistresume"), out int queueResumeSeconds) ? Math.Clamp(queueResumeSeconds, 1, 300) : 10,
                 FriendlyFire = HasFlag(args, "friendlyfire"),
+                EnablePowerups = HasFlag(args, "powerups"),
                 // The one rule here that is a fix rather than a preference:
                 // -noshadowfreeze makes the Judicator's ice wave a cone
                 // instead of a column, for everybody in the room.

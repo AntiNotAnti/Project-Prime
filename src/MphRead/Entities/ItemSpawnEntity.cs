@@ -91,7 +91,7 @@ namespace MphRead.Entities
             }
             else if (state.Available && Item == null)
             {
-                Item = SpawnItem(_data.ItemType, Position.AddY(0.65f), NodeRef, _scene);
+                Item = SpawnItem(_data.ItemType, Position.AddY(0.65f), NodeRef, _scene, owner: this);
                 if (Item != null) { Item.Owner = this; Item.ParentId = _data.ParentId; }
             }
         }
@@ -133,7 +133,7 @@ namespace MphRead.Entities
             }
             if (Item == null && _spawnCooldown == 0 && (_data.MaxSpawnCount == 0 || _spawnCount < _data.MaxSpawnCount))
             {
-                Item = SpawnItem(_data.ItemType, Position.AddY(0.65f), NodeRef, _scene);
+                Item = SpawnItem(_data.ItemType, Position.AddY(0.65f), NodeRef, _scene, owner: this);
                 if (Item != null)
                 {
                     _spawnCooldown = (ushort)(_data.SpawnInterval * 2); // todo: FPS stuff
@@ -243,7 +243,7 @@ namespace MphRead.Entities
         }
 
         private static ItemInstanceEntity? SpawnItem(ItemType type, Vector3 position, NodeRef nodeRef,
-            Scene scene, uint? chance = null, int despawnTime = 0)
+            Scene scene, uint? chance = null, int despawnTime = 0, ItemSpawnEntity? owner = null)
         {
             if (scene.Services.DisablePowerups
                 && Mods.Multiplayer.MapResourceRules.IsPowerup(type))
@@ -254,6 +254,12 @@ namespace MphRead.Entities
             if (type != ItemType.None && (!chance.HasValue || scene.Random.GetRandomInt2(100) < chance.Value))
             {
                 item = new ItemInstanceEntity(new ItemInstanceEntityData(position, type, despawnTime), nodeRef, scene);
+                item.Owner = owner;
+                if (!Mods.Network.NetPowerUpLedger.Register(item))
+                {
+                    item.Destroy();
+                    return null; // capacity never consumes the native spawner quota
+                }
                 scene.AddEntity(item);
             }
             return item;

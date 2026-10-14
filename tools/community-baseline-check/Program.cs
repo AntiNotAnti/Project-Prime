@@ -16,17 +16,23 @@ using MphRead.Mods.MapGen;
 // PR-00: repeatable, asset-free current-path measurements and identity checks.
 // This is not a live remote-service throughput test or a multiplayer Ready benchmark.
 string? output = null;
+string? artifacts = null;
 bool stress = false;
 for (int i = 0; i < args.Length; i++)
 {
     if (args[i] == "--output" && ++i < args.Length) output = Path.GetFullPath(args[i]);
+    else if (args[i] == "--artifacts" && ++i < args.Length) artifacts = Path.GetFullPath(args[i]);
     else if (args[i] == "--stress") stress = true;
-    else throw new ArgumentException("Usage: community-baseline-check [--output FILE] [--stress]");
+    else throw new ArgumentException("Usage: community-baseline-check [--output FILE] [--artifacts DIRECTORY] [--stress]");
 }
 
 string root = Path.Combine(Path.GetTempPath(), "prime-community-baseline-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
 var timings = new System.Collections.Generic.Dictionary<string, double>(StringComparer.Ordinal);
+// Read the loaded production assembly's literal rather than baking a const into
+// this test. The identical fixture can then verify protocol-53/55/56 consumers.
+int runtimeProtocol = (int)typeof(MphRead.Mods.Network.NetConfig)
+    .GetField(nameof(MphRead.Mods.Network.NetConfig.ProtocolVersion))!.GetRawConstantValue()!;
 var watch = Stopwatch.StartNew();
 long peakWorkingSet = Process.GetCurrentProcess().PeakWorkingSet64;
 string? oldMaps = CustomRooms.MapDirectory, oldUserMaps = CustomRooms.UserMapDirectory;
@@ -90,7 +96,8 @@ try
     watch.Restart();
     using (var reader = new MapPackageReader(first))
     {
-        if (reader.Manifest?.MapId != mapId || JsonSerializer.Deserialize<MapDefinition>(reader.ReadProject(), MapPackageReader.JsonOptions)?.MapId != mapId)
+        if (reader.Manifest?.MapId != mapId || reader.Manifest.MinimumProtocol != runtimeProtocol
+            || JsonSerializer.Deserialize<MapDefinition>(reader.ReadProject(), MapPackageReader.JsonOptions)?.MapId != mapId)
             throw new InvalidDataException("Strict reader changed the baseline map identity.");
     }
     timings["strict_verify_ms"] = watch.Elapsed.TotalMilliseconds;
@@ -98,8 +105,8 @@ try
     if (identity.MapId != mapId || identity.PackageHash.ToString() != hash)
         throw new InvalidDataException("Community identity diverged from the exact archive hash.");
 
-    // Optional checked-in package golden digest: populated from the reviewed,
-    // frozen baseline fixture, not generated/overwritten by test execution.
+    // Immutable main-protocol-53 reference, authored separately from the current
+    // package. Current published/downloaded bytes and exact identity stay intact.
     // Current package output differs between Windows and Linux/macOS for this
     // identical source; the precise contributing stage is not yet verified.
     // Freeze each observed archive output separately. Neither hash may be silently normalized: the
@@ -110,11 +117,14 @@ try
     string golden = Path.Combine(AppContext.BaseDirectory, goldenName);
     if (!File.Exists(golden))
         throw new FileNotFoundException("Required platform package golden is missing.", golden);
-    string expected = File.ReadAllText(golden).Trim();
-    if (!MapCommunityClient.ValidHash(expected) || hash != expected)
-        throw new InvalidDataException(
-            "Community baseline archive hash differs from " + goldenName
-            + "; expected " + expected + ", received " + hash);
+    FrozenPackageFixture.Result frozen = FrozenPackageFixture.Verify(first, root, golden, runtimeProtocol);
+    if (artifacts != null)
+    {
+        Directory.CreateDirectory(artifacts);
+        foreach (string name in new[] { "first.ppmap", "second.ppmap", "frozen-protocol53.ppmap",
+            "negative-content.ppmap", "negative-manifest.ppmap", "negative-minimum-protocol.ppmap" })
+            File.Copy(Path.Combine(root, name), Path.Combine(artifacts, name), overwrite: true);
+    }
 
     using var probe = new TcpListener(IPAddress.Loopback, 0);
     probe.Start();
@@ -197,9 +207,16 @@ try
         packageHash = hash,
         canonicalContentHash = identity.ContentHash.ToString(),
         packageGolden = goldenName,
+        frozenReference = frozen,
         mapId,
         packageBytes = new FileInfo(first).Length,
-        netProtocol = MphRead.Mods.Network.NetConfig.ProtocolVersion,
+        netProtocol = runtimeProtocol,
+        loadedClient = new
+        {
+            path = typeof(MapDefinition).Assembly.Location,
+            sha256 = MapBuildFingerprint.HashFile(typeof(MapDefinition).Assembly.Location),
+            mvid = typeof(MapDefinition).Assembly.ManifestModule.ModuleVersionId
+        },
         pipeline = "streamed-owned-archive-install",
         archiveIo = new
         {

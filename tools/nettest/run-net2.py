@@ -24,6 +24,11 @@ HUNTERS = ["Samus", "Kanden", "Trace", "Sylux", "Noxus", "Spire", "Weavel", "Sam
 BOMB_HUNTERS = {"bomb-samus": "Samus", "bomb-kanden": "Kanden", "bomb-lockjaw": "Sylux"}
 
 
+def server_flags(args):
+    """Explicit server-only rule switches; ordinary campaign defaults stay off."""
+    return ["-powerups"] if args.powerups else []
+
+
 def current_protocol():
     """Read the checkout contract; historical binaries need --protocol explicitly."""
     source = Path(__file__).resolve().parents[2] / "src/MphRead/Mods/Network/NetProtocol.cs"
@@ -291,7 +296,7 @@ def run(args):
 
     try:
         server, server_record = launch("server", ["-server", "-port", str(args.port), "-players", str(args.players + int(args.server_bot)),
-            "-nomaster", "-noserverreplays", "-rotation", str(rotation), "-netdebug"], args.seconds, False)
+            "-nomaster", "-noserverreplays", "-rotation", str(rotation), "-netdebug", *server_flags(args)], args.seconds, False)
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
             if server.poll() is not None:
@@ -526,6 +531,8 @@ def parse_args(argv=None):
                    help="Drive ordinary local clients with native tactical AI, level 0..3")
     p.add_argument("--ai-seed", type=int, help="Independent gameplay AI seed; per-client seed adds launch index")
     p.add_argument("--server-bot", action="store_true", help="Add one normal authority bot to an AI campaign")
+    p.add_argument("--powerups", action="store_true",
+                   help="Enable native power-up pickups on the server; disabled by default")
     p.add_argument("--seconds", type=float, default=90)
     p.add_argument("--drain-seconds", type=float, default=0,
                    help="Opt-in bounded quiescence/frontier/empty-reliable-queue barrier; zero preserves legacy shutdown")

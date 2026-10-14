@@ -87,6 +87,8 @@ namespace MphRead.Entities
         public override void Initialize()
         {
             base.Initialize();
+            // Direct dynamic creators do not pass through ItemSpawnEntity.
+            if (!Mods.Network.NetPowerUpLedger.Register(this)) DespawnTimer = 0;
             if (ItemType == ItemType.ArtifactKey && TokenId == 0)
             {
                 Matrix4 transform = Matrix.GetTransform4(Vector3.UnitX, Vector3.UnitY, Position);
@@ -258,6 +260,7 @@ namespace MphRead.Entities
 
         public override void Destroy()
         {
+            Mods.Network.NetPowerUpLedger.Remove(this);
             if (_effectEntry != null)
             {
                 _scene.UnlinkEffectEntry(_effectEntry);
