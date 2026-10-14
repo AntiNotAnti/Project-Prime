@@ -49,6 +49,8 @@ def main() -> int:
     parser.add_argument("--output", required=True, type=Path,
                         help="New evidence directory; an existing receipt is never overwritten")
     parser.add_argument("--configuration", default="Release")
+    parser.add_argument("--expected-commit",
+                        help="Require the exact checked-out PR head/release commit")
     parser.add_argument("--include-guardrails", action="store_true",
                         help="Also test multiplayer protocol / replay contracts")
     parser.add_argument("--assets-dir", type=Path,
@@ -73,6 +75,8 @@ def main() -> int:
 
     dotnet_version = describe_process(["dotnet", "--version"])
     git_sha = describe_process(["git", "rev-parse", "HEAD"])
+    if args.expected_commit and git_sha.lower() != args.expected_commit.lower():
+        parser.error("Checkout is not the expected commit; do not record stale acceptance evidence")
     assembly = ROOT / "tools" / "nettest" / "bin" / args.configuration / "net10.0" / "nettest.dll"
     asm_hash = hashlib.sha256(assembly.read_bytes()).hexdigest() if assembly.is_file() else "NOT_FOUND"
     records: list[dict[str, object]] = []
