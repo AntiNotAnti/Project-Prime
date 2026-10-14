@@ -146,6 +146,21 @@ namespace MphRead.NetTest
                 return TimedShotRescueTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
             if (args.Length > 0 && args[0] == "--timed-shot-damage") return TimedShotDamageTests.Run();
+            if (args.Length > 0 && args[0] == "--native-impact-witness") return NativeImpactWitnessTests.Run();
+            if (args.Length > 0 && args[0] == "--timed-native-effects") return TimedNativeEffectTests.Run();
+            if (args.Length > 0 && args[0] == "--timed-imperialist-impact") return TimedImperialistImpactTests.Run();
+            if (args.Length > 1 && args[0] == "--timed-native-effect-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedNativeEffectTests.RunScene(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 1 && args[0] == "--timed-imperialist-impact-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedImperialistImpactTests.RunScene(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
             if (args.Length > 0 && args[0] == "--timed-source-capabilities") return TimedSourceCapabilityTests.Run();
             if (args.Length > 0 && args[0] == "--timed-shot-damage-benchmark") return TimedShotDamageTests.RunBenchmark(args);
             if (args.Length > 1 && args[0] == "--timed-shot-modifiers")

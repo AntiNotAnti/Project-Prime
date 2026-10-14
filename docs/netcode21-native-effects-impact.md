@@ -1,0 +1,28 @@
+# Native effects and first-segment impact facts
+
+This change shares the native disruption applier with the controlled timed rescue path. Balanced Kanden charged direct Volt applies 75 control frames and 195 total immunity frames; ordinary disruption applies 120 control frames. The native branch uses the beam's captured launch hunter, so source respawn or a later hunter change cannot turn one policy into the other. Snapshot `ModSetDisrupted` keeps its existing flag projection behavior.
+
+The launch template retains a disruption policy from actual sanitized beam fields. Victim profiles retain the authority frame and native Balanced immunity. Controlled additional disruption requires the same sampled authority frame, exact victim life, known source policy, direct/body eligibility, and the current native immunity gate. A delayed claim cannot infer a clean interval from two zero timers. Missing or late effect facts remove this additional effect while preserving the separately admitted base hit. There is no new affliction history ledger, and arbitrary late effect equivalence remains unavailable.
+
+A separate readonly native collision scope exposes the real collision point, original swept segment, already interpolated raw channel, actual head flag and full component/victim/kind payment key. It restores prior state on all exits and retains no entities. The payment join recorder owns completion after real health/turret reduction. Claimed body origins cannot manufacture a native witness. Off scopes perform no thread-local reads or writes.
+
+The narrow Imperialist resolver uses the native wall/door/field collision function and native historical body intersections over every eligible competing player. It preserves strict nearest-winner ordering, including a nearer friendly body that subsequently refuses damage. Unknown competitors, historical half-turrets, relevant enemies, changed hunter/life, missing body or dynamic history, and unsupported segments return unavailable. The native collision position offset and native interpolation determine the channel; `claim.HitPoint` never determines distance or falloff.
+
+The resolver is limited to one originating Imperialist component and the actual first historical catch-up `Process` step. The immutable receipt records that served collision frame. It requires the integer requested ACK to have been served exactly, a real first catch-up step strictly before the current frame, and complete body/dynamic history for that step. For integer rewind the first native collision is ACK+1, not ACK. Current-world fallback, disabled rewind, fractional ACK, hard/plausibility clamp and failed history cannot be relabeled exact. Pending claims copy the matching collision-frame profile and geometry before grace; a later history overwrite does not change those values. Unknown exact head geometry retains the ordinary body ceiling without head amount, bypass or feedback.
+
+| Path | Initial evidence boundary |
+| --- | --- |
+| Paid ordinary native direct originating component | Real native collision/payment witness, exact full payment identity; payment join owns actual completion |
+| Single Imperialist historical first catch-up component | Narrow served-frame resolver and native equivalence fixture; deployment/canary acceptance remains closed pending qualification |
+| Current-world, clamped, fractional or missing Imperialist history | Unavailable exact geometry; ordinary admitted body behavior retained |
+| Other ordinary projectile flight | Launch modifier/channel facts only until its exact trajectory is qualified |
+| Homing, ricochet, splash, continuous, turret and child paths | Existing explicit Shadow-only/Unavailable family boundaries remain |
+| Late additional disruption | Unavailable temporal effect interval; base hit retained |
+
+Production timed enforcement remains unavailable through environment configuration. Off and Shadow do not use the new claim cap or effect application. Normal native behavior changes only for the concrete old-flight captured-hunter repair; current-source native duration and wire/replay packets retain their existing behavior.
+
+The new live template fields are deliberately absent from the existing fixed216 replay timed-fact schema. That schema remains readonly launch-channel observations, and has no conversion back into an enforcement template. No geometry, served frame or disruption policy is fabricated by old readers. Default format5/PPRC12, opt-in format6/PPRC13, live protocol and packet layouts are unchanged.
+
+Focused full nettest routes are `--native-impact-witness`, `--timed-native-effects`, `--timed-imperialist-impact`, `--timed-native-effect-scene <profile> [room]` and `--timed-imperialist-impact-scene <profile> [room]`. The pure routes distinguish constructed values from native admission. The asset resolver fixture compares actual admitted/native Spawn/Process/TakeDamage across seven source/victim hunters, Balanced on/off, head/body, nearer/farther competitors, friendly damage refusal, native wall occlusion, current/clamped timing negatives, profile overwrite, and captured-source disruption after owner mutation. Source resources, health and placement are declared fixture inputs; these are not genuine grant positives. The separate grant hunter tour supplies that funding evidence.
+
+This commit prepares the source and focused fixtures. Full build, asset routes and exact physical runtime receipts are published after serial qualification; no unrun fixture is called PASS. Pixels, Studio playback, a broad exact-impact campaign, remote positive coverage, arbitrary late affliction intervals and general production enforcement are not established by these source changes.

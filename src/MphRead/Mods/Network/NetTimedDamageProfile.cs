@@ -7,8 +7,10 @@ namespace MphRead.Mods.Network;
 // Immutable victim-side facts from one authority world frame. Packed values are
 // the actual nine native Effectiveness entries, never shooter/claim modifiers.
 internal readonly record struct TimedVictimDamageProfile(ShotKey Key, uint PackedEffectiveness,
-    float DamageLevel, byte Handicap, Hunter Hunter, bool Balanced, bool Transitioning)
+    float DamageLevel, byte Handicap, Hunter Hunter, bool Balanced, bool Transitioning,
+    ushort BalancedDisruptImmunity = 0, bool EffectStateKnown = false, uint EffectFrame = 0)
 {
+    internal bool AllowsBalancedDisruption => EffectStateKnown && Balanced && BalancedDisruptImmunity == 0;
     internal uint CompleteDamage(float channel, BeamType beam, bool nativeHeadshot, bool self)
     {
         int index = (int)beam;
@@ -101,7 +103,8 @@ internal static class NetTimedDamageProfile
             if (!float.IsFinite(damageLevel) || damageLevel <= 0) continue;
             cell = new Cell { Live = true, Frame = frame,
                 Value = new(key, packed, damageLevel, NetSession.SlotDamageReduction[slot],
-                    player.Hunter, game.BalancedMode, player.IsMorphing || player.IsUnmorphing) };
+                    player.Hunter, game.BalancedMode, player.IsMorphing || player.IsUnmorphing,
+                    player.ModBalancedDisruptImmunityTimer, EffectStateKnown: true, EffectFrame: frame) };
         }
     }
 

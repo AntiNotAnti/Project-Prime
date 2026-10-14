@@ -2852,8 +2852,8 @@ namespace MphRead.Entities
                     bool applyBeamAfflictions = !Mods.Network.NetHitPrediction.Predicting
                         || attacker == this;
                     bool balancedKandenDisrupt = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
-                        && attacker is { Hunter: Hunter.Kanden }
-                        && BalancedModeRules.IsAffinity(attacker.Hunter, beam.Beam);
+                        && attacker != null && beam.ModOwnerHunter == Hunter.Kanden
+                        && BalancedModeRules.IsAffinity(beam.ModOwnerHunter, beam.Beam);
                     bool balancedNoxusFreeze = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
                         && attacker is { Hunter: Hunter.Noxus }
                         && BalancedModeRules.IsAffinity(attacker.Hunter, beam.Beam);
@@ -2915,25 +2915,13 @@ namespace MphRead.Entities
                     {
                         bool applied = balancedKandenDisrupt
                             ? beam.EnhancedDirectHit && beam.Flags.TestFlag(BeamFlags.Charged)
-                                && ModTryBalancedDisrupt()
-                            : true;
+                                && ModApplyNativeDisruption(balancedKanden: true)
+                            : ModApplyNativeDisruption(balancedKanden: false);
                         if (balancedKandenDisrupt)
                         {
                             BalancedModeTelemetry.NoteKandenDisrupt(this, applied);
                         }
-                        if (applied)
-                        {
-                            if (!balancedKandenDisrupt)
-                            {
-                                _disruptedTimer = 60 * 2;
-                            }
-                            if (IsMainPlayer)
-                            {
-                                skipSfx = true;
-                                HudOnDisrupted();
-                                _soundSource.PlaySfx(SfxId.LOB_DISRUPT);
-                            }
-                        }
+                        if (applied && IsMainPlayer) skipSfx = true;
                     }
                     if (applyBeamAfflictions && beam.Afflictions.TestFlag(Affliction.Burn))
                     {

@@ -5,11 +5,15 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
 
+internal enum TimedDisruptionPolicy : byte { None, Ordinary, BalancedKanden }
+
 // Values copied from the completed native kernel, after charge, row selection,
 // scope and trusted modifiers. No owner, equipment or pooled beam is retained.
 internal readonly record struct TimedShotDamageTemplate(float Body, float Head, float Splash,
     Vector3 Origin, Vector3 Direction, float Radius, float Speed, float Reach, int Curve,
-    bool Balanced, byte Effects, bool Present, byte DirectOnlyEffects = 0)
+    bool Balanced, byte Effects, bool Present, byte DirectOnlyEffects = 0,
+    TimedDisruptionPolicy DisruptionPolicy = TimedDisruptionPolicy.None,
+    Vector3 NativeVelocity = default, bool FirstSegmentKnown = false, uint FirstCollisionFrame = 0)
 {
     internal static TimedShotDamageTemplate From(BeamProjectileEntity beam)
     {
@@ -17,10 +21,30 @@ internal readonly record struct TimedShotDamageTemplate(float Body, float Head, 
         byte effects = FilterEffects(beam.ModOwnerHunter, beam.Beam, balanced,
             beam.Flags.TestFlag(BeamFlags.Charged), NetHitClaims.AfflictionClaimFlags(beam.Afflictions),
             out byte directOnly);
+        uint firstFrame = 0;
+        bool firstSegment = beam.Beam == BeamType.Imperialist && beam.Owner is PlayerEntity owner
+            && beam.ModComponentId == 1 && beam.Position == beam.SpawnPosition
+            && beam.Acceleration == Vector3.Zero && beam.SpeedDecayTime == 0
+            && beam.Homing == 0 && beam.RicochetWeapon == null && beam.EnhancedBounceCount == 0
+            && (beam.Flags & (BeamFlags.Continuous | BeamFlags.Ricochet | BeamFlags.Collided)) == 0
+            && beam.Velocity.LengthSquared > .000001f
+            && NetUnlagged.TryTimedFirstCollisionFrame(owner, out firstFrame);
         return new(beam.Damage, beam.HeadshotDamage, beam.SplashDamage, beam.SpawnPosition,
             beam.Velocity.LengthSquared > .000001f ? beam.Velocity.Normalized() : beam.Direction,
             beam.CylinderRadius, beam.Speed, beam.MaxDistance, beam.DamageInterpolation,
-            balanced, effects, true, directOnly);
+            balanced, effects, true, directOnly,
+            DisruptionFor(beam.ModOwnerHunter, beam.Beam, balanced,
+                beam.Flags.TestFlag(BeamFlags.Charged), effects),
+            firstSegment ? beam.Velocity : default, firstSegment, firstFrame);
+    }
+
+    internal static TimedDisruptionPolicy DisruptionFor(Hunter hunter, BeamType beam,
+        bool balanced, bool charged, byte effects)
+    {
+        if ((effects & HitClaimPacket.FlagDisrupted) == 0) return TimedDisruptionPolicy.None;
+        if (balanced && hunter == Hunter.Kanden && beam == BeamType.VoltDriver)
+            return charged ? TimedDisruptionPolicy.BalancedKanden : TimedDisruptionPolicy.None;
+        return TimedDisruptionPolicy.Ordinary;
     }
 
     internal static byte FilterEffects(Hunter hunter, BeamType beam, bool balanced, bool charged,
@@ -42,7 +66,10 @@ internal readonly record struct TimedShotDamageTemplate(float Body, float Head, 
     internal bool SameChannels(in TimedShotDamageTemplate other) => Body == other.Body
         && Head == other.Head && Splash == other.Splash && Origin == other.Origin
         && Reach == other.Reach && Curve == other.Curve && Balanced == other.Balanced
-        && Effects == other.Effects && DirectOnlyEffects == other.DirectOnlyEffects && Present == other.Present;
+        && Effects == other.Effects && DirectOnlyEffects == other.DirectOnlyEffects
+        && DisruptionPolicy == other.DisruptionPolicy && Present == other.Present
+        && FirstSegmentKnown == other.FirstSegmentKnown && NativeVelocity == other.NativeVelocity
+        && FirstCollisionFrame == other.FirstCollisionFrame;
 
     internal float Channel(in HitClaimPacket claim, out bool nativeHead)
     {
