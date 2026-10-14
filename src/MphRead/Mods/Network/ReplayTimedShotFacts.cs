@@ -112,9 +112,9 @@ internal sealed partial class ReplayReplicaState
             if (!ReplayTimedShotScope.TryRead(packet, out var scope)) throw Malformed();
             if (!Matches(scope.Match, scope.Epoch)) return false;
             if (!TimedShots.Begin(scope.Epoch, scope.Match, scope.Room, scope.Mode)) return false;
-            uint now = _hasSnapshot && NetLifecycleTracker.Newer(ServerTick, scope.AuthorityFrame)
+            uint scopeAuthorityFrame = _hasSnapshot && NetLifecycleTracker.Newer(ServerTick, scope.AuthorityFrame)
                 ? ServerTick : scope.AuthorityFrame;
-            TimedShots.AdvanceAuthority(now); return true;
+            TimedShots.AdvanceAuthority(scopeAuthorityFrame); return true;
         }
         if (!ReplayTimedShotFact.TryRead(packet, out var fact)) throw Malformed();
         if (!Matches(fact.Key.MatchId, fact.Key.AuthorityEpoch)) return false;
