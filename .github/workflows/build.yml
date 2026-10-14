@@ -426,6 +426,10 @@ jobs:
       - name: exact-byte streaming package parity and large-asset allocation checks
         run: dotnet run --project tools/map-package-stream-check -c Release -- --mib 8 --output "${{ runner.temp }}/map-package-stream-parity.json"
 
+      - name: Community service upload quota, request lanes and capability acceptance
+        timeout-minutes: 6
+        run: dotnet run --project tools/community-service-check -c Release
+
       - name: encoder worker exit and inherited-pipe cancellation
         run: dotnet run --project tools/encoder-pipe-check -c Release
 
