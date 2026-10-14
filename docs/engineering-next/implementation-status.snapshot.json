@@ -1,0 +1,177 @@
+{
+  "snapshotUTC": "2026-10-14T09:17:22.601974+00:00",
+  "integrationSource": "b58377ab2ad6b678c6690f3687b69d68683ab8b5",
+  "integrationQualification": "PENDING_NEW_SOURCE_BUILD_AND_RUNS",
+  "planFile": "implementation-plan.md",
+  "originalAttachmentName": "Project_Prime_Next_Engineering_Implementation_Plan (1).md",
+  "originalSHA256": "d242d939a3163cb494a8e9564be4523b3fb7eef4fc3b40d5f9e6ff13c565c279",
+  "originalBytes": 50940,
+  "sourceChangeBoundary": "Documentation only. Original input identity retained; exactly five equivalent Markdown hard-break normalizations in committed derivative. No runtime or policy change.",
+  "slices": [
+    {
+      "slice": "AGX-01",
+      "prs": [
+        523
+      ],
+      "status": "Diagnostic reproduction scoped PASS",
+      "sourceDocument": "agx01.md",
+      "scope": "60/300-load origin groups and an independent60-load control; no memory fix claimed."
+    },
+    {
+      "slice": "AGX-02",
+      "prs": [
+        527
+      ],
+      "status": "Diagnostic attribution scoped PASS",
+      "sourceDocument": "agx02.md",
+      "scope": "Six minimal compiler/draw/context controls; driver-origin-associated behavior, not a definitive driver leak."
+    },
+    {
+      "slice": "AGX-03",
+      "prs": [
+        527,
+        528
+      ],
+      "status": "Conditional NOT_ELIGIBLE",
+      "sourceDocument": "agx04.md",
+      "scope": "Full pipeline key, uniform reset and context/lease lifetime are unproven; no production shader cache."
+    },
+    {
+      "slice": "AGX-04",
+      "prs": [
+        528
+      ],
+      "status": "Permitted UNRESOLVED_P0 exit",
+      "sourceDocument": "agx04.md",
+      "scope": "Growth persists; actual boundedness gate FAIL. Hardware scope and restart-only operational option documented."
+    },
+    {
+      "slice": "GL-01",
+      "prs": [
+        525
+      ],
+      "status": "Attribution scoped PASS",
+      "sourceDocument": "gl01.md",
+      "scope": "Real owner/request/upload counts and captured CPU samples; GPU queries and full device/workload matrix unverified."
+    },
+    {
+      "slice": "GL-02",
+      "prs": [
+        529
+      ],
+      "status": "Measured negative; default OFF",
+      "sourceDocument": "gl02.md",
+      "scope": "Exact29comparisons PASS; matched p95/p99 regress5.16%/11.25%; no rollout or total-frame gain."
+    },
+    {
+      "slice": "GL-03",
+      "prs": [
+        530
+      ],
+      "status": "Conditional NOT_ELIGIBLE",
+      "sourceDocument": "../audits/engineering-consolidation/gl03-procedural-disposition.md",
+      "scope": "Strict adjacent reuse upper bound0.216%; order/state barriers; no duplicate procedural queue."
+    },
+    {
+      "slice": "GL-04",
+      "prs": [
+        531
+      ],
+      "status": "Permitted NO_ROLLOUT exit",
+      "sourceDocument": "gl04.md",
+      "scope": "Palette and procedural-stream defaults stay OFF; unsupported drivers/devices remain NOT_RUN."
+    },
+    {
+      "slice": "NET-01",
+      "prs": [
+        541
+      ],
+      "status": "Shadow certificate implemented; scoped PASS",
+      "sourceDocument": "../netcode21-net01-certificates.md",
+      "scope": "Immutable original-source/life/ShotKey facts and distinct Granted/NotGranted/Unavailable; no gameplay enforcement."
+    },
+    {
+      "slice": "NET-02",
+      "prs": [
+        543
+      ],
+      "status": "Controlled modifier/channel fixtures PASS; full NOT_ACCEPTED",
+      "sourceDocument": "../netcode21-net02-modifiers.md",
+      "scope": "Native per-launch legal channel ceilings do not yet establish exact impact/effect-state/native-versus-rescue semantics."
+    },
+    {
+      "slice": "NET-03",
+      "prs": [
+        544
+      ],
+      "status": "Capability/discovery diagnostics implemented; full NOT_ACCEPTED",
+      "sourceDocument": "../netcode21-net03-source-capabilities.md",
+      "scope": "Explicit source-family classification and same-position dynamic twin proof; incomplete families remain Shadow-only/unavailable."
+    },
+    {
+      "slice": "NET-04",
+      "prs": [
+        548
+      ],
+      "status": "Archival prerequisite scoped PASS; full NOT_ACCEPTED",
+      "sourceDocument": "../netcode21-net04-replay-timed-facts.md",
+      "scope": "Opt-in detached facts/checkpoint/private continuation; positive smoke lacks independent per-component/payment joins and long impaired coverage."
+    },
+    {
+      "slice": "LIFE-01",
+      "prs": [
+        522
+      ],
+      "status": "Owner/liveness diagnostics scoped PASS",
+      "sourceDocument": "../audits/engineering-consolidation/scene-lifetime-owner-map.md",
+      "scope": "Value-only bounded diagnostics distinguish legitimate save/facade owners; no general native root/leak claim."
+    },
+    {
+      "slice": "LIFE-02",
+      "prs": [
+        524
+      ],
+      "status": "Save handoff implemented; writer/retry/parity PASS",
+      "sourceDocument": "../audits/engineering-consolidation/post-match-save-handoff.md",
+      "scope": "Immutable save ownership and real filesystem byte oracle; all rendered/native exit flows not yet qualified."
+    },
+    {
+      "slice": "LIFE-03",
+      "prs": [
+        526
+      ],
+      "status": "Conditional release/publication fencing implemented",
+      "sourceDocument": "../audits/engineering-consolidation/foreground-binding-and-room-publication.md",
+      "scope": "Generation/thread/facade checks preserve old save ownership; active setup and arbitrary callback boundaries remain incomplete."
+    },
+    {
+      "slice": "LIFE-04",
+      "prs": [
+        532
+      ],
+      "status": "Constructed610-owner soak PASS; loaded-world fixture prepared",
+      "sourceDocument": "../audits/engineering-consolidation/lifecycle-controlled-soak.md",
+      "scope": "New e2d0 asset-backed fixture is NOT_RUN at this snapshot; source/test presence is not native campaign acceptance."
+    }
+  ],
+  "programAcceptance": "NOT_ACCEPTED",
+  "currentProtocol": 56,
+  "defaultReplicaCheckpoint": 12,
+  "maximumOptedReplicaCheckpoint": 13,
+  "worldCheckpoint": 10,
+  "productionTimedGrantModes": [
+    "Off",
+    "Shadow"
+  ],
+  "pendingWork": [
+    "exact-source combined qualification",
+    "native effect/impact qualification",
+    "independent component/victim/payment join",
+    "loaded-world lifecycle fixture execution",
+    "long two/eight-player impaired campaign",
+    "private visual/Studio/export/audio and platform gates"
+  ],
+  "normalizedDerivativeSHA256": "9e82d4aedd63b21c565d3627724134361f54950141643e83aa963043641788ff",
+  "normalizedDerivativeBytes": 50935,
+  "planNormalizationReceipt": "implementation-plan-normalization.json"
+}
