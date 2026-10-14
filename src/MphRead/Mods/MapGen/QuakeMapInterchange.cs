@@ -690,7 +690,8 @@ public static class QuakeMapInterchange
                 errors.Add(new("FP-RADIANT-EXPORT-UV", index,
                     "Incomplete Quake face mapping, invalid material, or source unit scale mismatch.",
                     true));
-            else if (geometry is MapConvexBrush or MapBezierPatch)
+            else if (geometry.Material >= 0 && geometry.Material < map.Materials.Count
+                && geometry is (MapConvexBrush or MapBezierPatch))
             {
                 try { GeometryCompiler.Compile(geometry, map.Materials[geometry.Material].TexScale); }
                 catch (MapAuthoringException ex)
@@ -850,9 +851,13 @@ public static class QuakeMapInterchange
             Path.GetDirectoryName(full)!, "project-prime.json"));
         if (string.Equals(full, sidecar, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Quake source and identity sidecar must be distinct files.");
+        QuakeMapSidecar? previous = null;
+        if (File.Exists(full) && File.GetAttributes(full).HasFlag(FileAttributes.ReparsePoint))
+            throw new InvalidDataException("Refusing to overwrite a symbolic-link .map source.");
         if (File.Exists(sidecar))
         {
-            QuakeMapSidecar? previous;
+            if (File.GetAttributes(sidecar).HasFlag(FileAttributes.ReparsePoint))
+                throw new InvalidDataException("Refusing to overwrite a symbolic-link identity sidecar.");
             try
             {
                 if (new FileInfo(sidecar).Length > 65536)
@@ -867,7 +872,17 @@ public static class QuakeMapInterchange
                 throw new InvalidDataException(
                     "Refusing to overwrite a sidecar belonging to a different map identity.");
         }
-        // Refuse identity conflicts before modifying either source or sidecar.
+        // An existing .map is an independently editable NetRadiant master.
+        // An export may replace it only if its sidecar binds the same MapId
+        // and still matches the bytes that were previously exported. Otherwise
+        // the author's changes must be imported/reconciled, not overwritten.
+        if (File.Exists(full)
+            && (previous == null
+                || !previous.SourceSha256.Equals(MapBuildFingerprint.HashFile(full),
+                    StringComparison.OrdinalIgnoreCase)))
+            throw new IOException("Quake .map changed since its identity sidecar was written "
+                + "or has no trusted sidecar. Import the updated source or export to a new path.");
+        // Refuse identity/source conflicts before modifying either source or sidecar.
         AtomicFile.Write(full, Encoding.UTF8.GetBytes(sb.ToString()));
         AtomicFile.Write(sidecar, JsonSerializer.SerializeToUtf8Bytes(
             new QuakeMapSidecar(1, map.MapId, map.Name, unitsPerPrimeUnit,
