@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Original Project Prime gamepack scaffold. External NetRadiant required. -->
+<game name="Project Prime" type="q3" engine="quake3"
+      basegame="baseq3" prefix=".projectprime" default_scale="16"
+      mapformat="q3" shaderpath="scripts" texturepath="textures"
+      entitypath="projectprime/entities.ent" />
