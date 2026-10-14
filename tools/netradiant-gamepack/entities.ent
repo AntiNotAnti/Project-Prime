@@ -1,0 +1,15 @@
+/* Original Project Prime Quake entity definition starter.
+   Experimental: all runtime entities are normalized by the Project Prime
+   importer; this file is editor-facing descriptions only. */
+/*QUAKED info_player_deathmatch (0 1 0) (-16 -16 -24) (16 16 32)
+    Free-for-all spawn. Exact player allocation is resolved by Project Prime. */
+/*QUAKED info_player_start (0 1 0) (-16 -16 -24) (16 16 32)
+    Additional spawn for authoring and preview. */
+/*QUAKED trigger_push (0 0.6 1) ?
+    Authoring placeholder. Project Prime validates jump-pad conversions. */
+/*QUAKED trigger_teleport (0.6 0 1) ?
+    Authoring placeholder. Validate destination targets before building. */
+/*QUAKED target_position (1 0.6 0) (-8 -8 -8) (8 8 8)
+    Target destination for teleport/jump operations. */
+/*QUAKED item_health (1 0 0) (-8 -8 -8) (8 8 8)
+    Preview health pickup; imported runtime placement must be reviewed. */
