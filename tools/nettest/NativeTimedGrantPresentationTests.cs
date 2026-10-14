@@ -280,13 +280,17 @@ internal static class NativeTimedGrantPresentationTests
                 "two real authority birth facts enter owner discovery");
             Check(!NetPickupNetwork.ReceiveItem(birthA), "duplicate native birth is a no-op");
             TimedPickupProjection.ApplyDynamic(scene);
-            projected.AddRange(scene.GetItemInstanceEntities().Where(i => i.Owner == null
-                && i.ModPickupSpawn is { } key && (key == keyA || key == keyB) && i.DespawnTimer != 0));
+            foreach (var item in scene.GetItemInstanceEntities())
+                if (item.Owner == null && item.ModPickupSpawn is { } key
+                    && (key == keyA || key == keyB) && item.DespawnTimer != 0) projected.Add(item);
             Check(projected.Count == 2 && projected.Select(i => i.ModPickupSpawn).Distinct().Count() == 2,
                 "same-position discovery materializes two distinct native instances");
             TimedPickupProjection.ApplyDynamic(scene);
-            Check(scene.GetItemInstanceEntities().Count(i => i.ModPickupSpawn is { } key
-                && (key == keyA || key == keyB) && i.DespawnTimer != 0) == 2,
+            int liveTwins = 0;
+            foreach (var item in scene.GetItemInstanceEntities())
+                if (item.ModPickupSpawn is { } key && (key == keyA || key == keyB)
+                    && item.DespawnTimer != 0) liveTwins++;
+            Check(liveTwins == 2,
                 "duplicate projection does not merge or duplicate twins");
             var clientA = projected.Single(i => i.ModPickupSpawn == keyA);
             var clientB = projected.Single(i => i.ModPickupSpawn == keyB);
