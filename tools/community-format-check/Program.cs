@@ -61,6 +61,14 @@ try
         && File.ReadAllText(path).Contains("PRIME_ID=" + firstId),
         "source exporter retains brush GUID and external identity sidecar");
 
+    var identityless1 = QuakeMapInterchange.Import(path);
+    var identityless2 = QuakeMapInterchange.Import(path);
+    Check(identityless1.Definition.MapId != Guid.Empty
+        && identityless2.Definition.MapId != Guid.Empty
+        && identityless1.Definition.MapId != identityless2.Definition.MapId
+        && identityless1.Diagnostics.Any(d => d.Code == "FP-RADIANT-NEW-ID"),
+        "new source imports without pinned sidecars cannot collide by filename");
+
     var imported = QuakeMapInterchange.Import(path, sidecar);
     Check(imported.Definition.MapId == mapId
         && imported.Definition.Geometry.Count == 2
