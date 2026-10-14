@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
@@ -26,8 +27,11 @@ internal static class TimedShotNativeTests
     private static void Session(string property, object value)
         => typeof(NetSession).GetProperty(property)!.SetValue(null, value);
 
-    private readonly record struct Outcome(int Damage, int Ammo, int Fired, int Semantic,
-        FireEventKind Kind, byte Weapon, byte Charge);
+    private readonly record struct Outcome(float Damage, float Lifespan, int Ammo, int Fired, int Semantic,
+        FireEventKind Kind, byte Weapon, byte Charge, string IntentBytes, string ReplayFacts,
+        int ReplayWeaponFired, int ReplayShotFacts);
+    private readonly record struct RecordedFact(ReplayFactKind Kind, uint RecordingFrame,
+        uint ServerTick, ReplayMarker? Marker, string Payload);
     private readonly record struct NativeShot(ShotKey Key, FireEvent Fire, Outcome Outcome);
 
     private sealed class Fixture : IDisposable
@@ -111,25 +115,59 @@ internal static class TimedShotNativeTests
             uint expected = unchecked(NetSession.NetFrame + 1);
             Check(!_keyboard.IsKeyDown(Keys.Space) && !Owner.Controls.Shoot.IsDown,
                 "released keyboard/control baseline precedes actual native press");
-            Step(shoot: true);
-            Check(Owner.Controls.Shoot.IsPressed && Owner.Controls.Shoot.IsDown
-                && !Owner.Controls.Shoot.IsReleased && _keyboard.IsKeyDown(Keys.Space),
-                "real sampled rising keyboard edge");
-            Check(NetFireEvents.TryActiveAttempt(Owner, out var key, out var fire)
-                && fire.SourceFrame == expected && key.ShotId != 0 && fire.SourceLife == key.LifeId,
-                "native Begin retains exact full key and actual source frame");
-            int firedDelta = NetDamage.Fired[0] - fired;
-            int semanticDelta = Scene.MatchEvents.Bus.Events.Count(e => e.Type == MphRead.Mods.MatchEvents.MatchSemanticEventType.WeaponFired) - semantic;
-            Check(firedDelta == 1 && semanticDelta == 1, "native PlayerInput successful Spawn/Commit semantic denominator is one");
-            var beam = Owner.EquipInfo.Beams.Single(b => b.ModLaunchKey == key && b.ModComponentId != 0);
-            Check(beam.Owner == Owner && beam.Damage > 0, "actual production pooled component has positive native damage");
-            var intent = new IntentPacket(); NetFireEvents.Fill(ref intent, 0);
-            Check(Enumerable.Range(0, intent.FireEventCount).Any(i => intent.FireEvents[i] == fire),
-                "actual successful native Commit retains exact outgoing fire");
-            var outcome = new Outcome((int)beam.Damage, ammo - Owner.EquipInfo.Ammo,
-                firedDelta, semanticDelta, fire.Kind, fire.Weapon, fire.Charge);
-            Step();
-            return new(key, fire, outcome);
+            var recorded = new List<RecordedFact>();
+            int replayWeaponFired = 0, replayShotFacts = 0;
+            void Accepted(ReplayTimelineRecord record)
+            {
+                Check(recorded.Count < 32, "bounded real replay callback capture");
+                var bytes = record.Payload;
+                recorded.Add(new(record.Kind, record.RecordingFrame, record.ServerTick,
+                    record.Marker, Convert.ToHexString(bytes)));
+                if (bytes.Length > 0 && bytes[0] == (byte)PacketType.ReplayShotFact) replayShotFacts++;
+                if (bytes.Length > 0 && bytes[0] == (byte)PacketType.MatchSemanticEvent
+                    && MphRead.Mods.MatchEvents.MatchSemanticEventPacket.TryRead(bytes, out var fact)
+                    && fact.Type == MphRead.Mods.MatchEvents.MatchSemanticEventType.WeaponFired)
+                    replayWeaponFired++;
+            }
+            ReplayCapture.Recorder.Accepted += Accepted;
+            try
+            {
+                Step(shoot: true);
+                Check(Owner.Controls.Shoot.IsPressed && Owner.Controls.Shoot.IsDown
+                    && !Owner.Controls.Shoot.IsReleased && _keyboard.IsKeyDown(Keys.Space),
+                    "real sampled rising keyboard edge");
+                Check(NetFireEvents.TryActiveAttempt(Owner, out var key, out var fire)
+                    && fire.SourceFrame == expected && key.ShotId != 0 && fire.SourceLife == key.LifeId,
+                    "native Begin retains exact full key and actual source frame");
+                int firedDelta = NetDamage.Fired[0] - fired;
+                int semanticDelta = Scene.MatchEvents.Bus.Events.Count(e => e.Type == MphRead.Mods.MatchEvents.MatchSemanticEventType.WeaponFired) - semantic;
+                Check(firedDelta == 1 && semanticDelta == 1, "native PlayerInput successful Spawn/Commit semantic denominator is one");
+                var beam = Owner.EquipInfo.Beams.Single(b => b.ModLaunchKey == key && b.ModComponentId != 0);
+                Check(beam.Owner == Owner && beam.Damage > 0, "actual production pooled component has positive native damage");
+                // Capture the actual actor, then apply the normal SendIntent stamp.
+                // A default Frame=0 would incorrectly prune the real new shot as old.
+                var intent = NetPlayerBridge.CaptureIntent(Owner);
+                intent.Frame = NetSession.NetFrame;
+                intent.MatchId = NetSession.CurrentMatchId;
+                intent.AuthorityEpoch = NetSession.AuthorityEpoch;
+                intent.SlotGeneration = NetPlayerLifecycle.Generation(0);
+                intent.LifeId = NetPlayerLifecycle.Get(0);
+                NetFireEvents.Fill(ref intent, 0);
+                Check(Enumerable.Range(0, intent.FireEventCount).Any(i => intent.FireEvents[i] == fire),
+                    "actual successful native Commit retains exact outgoing fire");
+                var intentBytes = new byte[IntentPacket.TouchCanonicalSize];
+                intent.Write(intentBytes);
+                float damage = beam.Damage, lifespan = beam.Lifespan;
+                int spent = ammo - Owner.EquipInfo.Ammo;
+                Step();
+                Check(replayWeaponFired == 1 && recorded.Count > 0,
+                    "real production ReplayRecorder callback accepts one native WeaponFired semantic fact");
+                var outcome = new Outcome(damage, lifespan, spent, firedDelta, semanticDelta,
+                    fire.Kind, fire.Weapon, fire.Charge, Convert.ToHexString(intentBytes),
+                    JsonSerializer.Serialize(recorded), replayWeaponFired, replayShotFacts);
+                return new(key, fire, outcome);
+            }
+            finally { ReplayCapture.Recorder.Accepted -= Accepted; }
         }
         public void Dispose() { _sim.Stop(); NetSession.Stop(); }
     }
@@ -258,12 +296,12 @@ internal static class TimedShotNativeTests
             foreach (var mode in new[] { (ShotProofMode.Off, TimedGrantProofMode.Shadow),
                 (ShotProofMode.Shadow, TimedGrantProofMode.Off), (ShotProofMode.Shadow, TimedGrantProofMode.Shadow) })
                 Check(Ordinary(room, mode.Item1, mode.Item2) == baseline,
-                    "old/new mode combination preserves actual native damage/ammo/semantic outcome " + mode);
+                    "old/new mode combination preserves actual native damage/lifespan/ammo/semantic, full canonical intent and all accepted replay bytes " + mode);
             NativeGrant(room);
             NonadmittedHelpers(room);
             EmptyAmmo(room);
             Console.WriteLine($"PASS: {_checks} genuine native timed-shot assertions.");
-            Console.WriteLine("SCOPE: actual headless keyboard/player/spawn/contact/commit; fixture Host/local0 and item placement. NOT_RUN: GL/audio, natural AI, authenticated UDP, special-family acceptance.");
+            Console.WriteLine("SCOPE: actual headless keyboard/player/spawn/contact/commit and unmodified canonical intent/accepted replay bytes; fixture Host/local0 and item placement. No-target firing may have zero impact ReplayShotFacts; actual WeaponFired replay fact is required. NOT_RUN: GL/audio, natural AI, authenticated UDP, special-family acceptance.");
             return 0;
         }
         catch (Exception error)
