@@ -13,7 +13,11 @@ namespace MphRead.Mods.Sound
         Navigate,
         Confirm,
         Back,
-        Error
+        Error,
+        CampaignDock,
+        CampaignStarMap,
+        CampaignLand,
+        CampaignEnding
     }
 
     /// <summary>
@@ -70,6 +74,10 @@ namespace MphRead.Mods.Sound
                     UiFeedbackCue.Navigate => 0.22f,
                     UiFeedbackCue.Back => 0.25f,
                     UiFeedbackCue.Error => 0.28f,
+                    UiFeedbackCue.CampaignDock => 0.28f,
+                    UiFeedbackCue.CampaignStarMap => 0.25f,
+                    UiFeedbackCue.CampaignLand => 0.30f,
+                    UiFeedbackCue.CampaignEnding => 0.30f,
                     _ => 0.30f
                 };
                 float gain = Math.Clamp(
@@ -100,6 +108,12 @@ namespace MphRead.Mods.Sound
                 UiFeedbackCue.Confirm => (0.060, 610, 1040, 0.12),
                 UiFeedbackCue.Back => (0.050, 590, 390, 0.08),
                 UiFeedbackCue.Error => (0.080, 230, 170, 0.22),
+                // Short synthesized ship cues, not copyrighted game-bank samples.
+                // The cartridge's music is handled separately by CampaignAudioSession.
+                UiFeedbackCue.CampaignDock => (0.110, 380, 720, 0.18),
+                UiFeedbackCue.CampaignStarMap => (0.095, 530, 1010, 0.12),
+                UiFeedbackCue.CampaignLand => (0.115, 890, 480, 0.15),
+                UiFeedbackCue.CampaignEnding => (0.145, 410, 650, 0.17),
                 _ => (0.040, 600, 600, 0.08)
             };
 

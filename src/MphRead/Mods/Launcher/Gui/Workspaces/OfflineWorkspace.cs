@@ -361,80 +361,25 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal void OpenCampaignShip()
         {
-            if (MatchStart.RecentShipDock is not { } dock || dock.Slot is < 1 or > AdventureSave.SlotCount)
+            if (MatchStart.RecentShipDock is not { } dock
+                || dock.Slot is < 1 or > AdventureSave.SlotCount)
                 return;
             StorySave? save = GameState.PeekSave(dock.Slot);
             if (save == null) return;
+
             SelectSlot(dock.Slot);
-            var statuses = CampaignNavigation.StarMap(save);
-            CampaignPlanet selected = dock.Planet;
-            var readout = PrimeChrome.Text("", 14, PrimeTheme.TextSecondaryBrush);
-            var planetRows = new StackPanel { Spacing = 7 };
-            var buttons = new Dictionary<CampaignPlanet, PrimeButton>();
-            PrimeButton? land = null;
-
-            void SelectPlanet(CampaignPlanet planet)
+            // The original source of truth stays the native StorySave. This
+            // screen only keeps an immutable progress projection and a
+            // temporary music lease while its overlay is visible.
+            var view = new CampaignShipView(dock, CampaignNavigation.StarMap(save), SelectedHunter);
+            view.Closed += (_, _) => _overlays.Close(view);
+            view.Launched += (_, plan) =>
             {
-                selected = planet;
-                foreach (var (id, button) in buttons) button.Selected = id == planet;
-                var status = statuses[(int)planet];
-                string condition = status.Unlocked ? (status.Cleared ? "CLEARED" : "ACCESS GRANTED") : "LOCKED";
-                readout.Text = $"{status.Planet.Name}  //  {condition}\n"
-                    + $"OCTOLITHS {status.Octoliths}/{status.OctolithTotal}   "
-                    + $"ARTIFACTS {status.Artifacts}/{status.ArtifactTotal}\n"
-                    + $"SECTOR {(status.Visited ? "VISITED" : "UNEXPLORED")}  //  "
-                    + $"SHIP CAMERA {status.Planet.Cockpit.Loop}";
-                if (land != null) land.IsEnabled = status.Unlocked;
-            }
-
-            foreach (var status in statuses)
-            {
-                CampaignPlanet planet = status.Planet.Id;
-                var button = new PrimeButton(status.Planet.Name + (status.Unlocked ? "" : " // LOCKED"),
-                    () => SelectPlanet(planet));
-                ControllerNav.Identify(button, $"offline.ship.planet{(int)planet}");
-                buttons.Add(planet, button);
-                planetRows.Children.Add(button);
-            }
-
-            void Launch(CampaignPlanet planet, bool exitShipToSurface = false)
-            {
-                // Repeat the check immediately before launching: changing the
-                // selected slot or a stale/locked planet cannot bypass it.
-                if (!CampaignShipTravel.TryChooseLanding(GameState.PeekSave(dock.Slot),
-                    MatchStart.RecentShipDock, dock.Slot, newGame: false, planet,
-                    out _, out string reason))
-                {
-                    readout.Text = reason;
-                    return;
-                }
-                _overlays.Close();
-                Launched?.Invoke(this, AdventureLaunch.Create(dock.Slot, false,
-                    SelectedHunter(), planet, exitShipToSurface));
-            }
-
-            land = new PrimeButton("▷ LAND SHIP", () => Launch(selected), true);
-            ControllerNav.Identify(land, "offline.ship.land");
-            var leave = new PrimeButton("EXIT SHIP / RETURN TO SURFACE",
-                () => Launch(dock.Planet, exitShipToSurface: true));
-            ControllerNav.Identify(leave, "offline.ship.exit");
-            var pane = PrimeChrome.Stack(
-                new PrimeBadge("CAMPAIGN // GUNSHIP CONSOLE", PrimeTheme.GreenBrush),
-                PrimeChrome.Title("ALIMBIC CLUSTER // STAR MAP"),
-                PrimeChrome.Text("Choose a discovered planet. The ship uses only the progress in this save. "
-                    + "Locked destinations cannot launch; entering a landing does not rewrite the last checkpoint.",
-                    13, PrimeTheme.TextSecondaryBrush),
-                readout,
-                planetRows,
-                PrimeChrome.Columns("*,*", leave, land),
-                new PrimeButton("RETURN TO FILE SELECT", _overlays.Close));
-            _overlays.Show(new PrimePanel(new ScrollViewer
-                {
-                    Content = pane,
-                    HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-                    VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
-                }), PrimeModalSize.Medium);
-            SelectPlanet(dock.Planet);
+                _overlays.Close(view);
+                Launched?.Invoke(this, plan);
+            };
+            _overlays.Show(view, PrimeModalSize.Medium,
+                cancel: () => _overlays.Close(view));
         }
 
         private Hunter SelectedHunter()

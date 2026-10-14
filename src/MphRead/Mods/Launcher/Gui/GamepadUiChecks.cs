@@ -8,6 +8,8 @@ using Avalonia.VisualTree;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using MphRead.Mods.Input;
+using MphRead.Mods.Campaign;
+using MphRead.Formats;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -386,6 +388,23 @@ namespace MphRead.Mods.Launcher.Gui
             GamepadChecks.Check(journalButton is { IsEffectivelyVisible: true }
                 && journalButton.Focusable,
                 "story pause menu exposes controller-focusable mission journal");
+            window.Content = pause; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            // The ship is now two pages, with its own temporary soundtrack
+            // lease. Headless attach/detach must work with no music device.
+            var shipStatuses = CampaignNavigation.Planets.Select(planet =>
+                new CampaignPlanetStatus(planet, true, false, 0, 2, 0, 6,
+                    AreaState.None, AreaState.None)).ToArray();
+            var shipView = new CampaignShipView(
+                new CampaignDockReceipt(1, CampaignPlanet.CelestialArchives),
+                shipStatuses, () => Hunter.Samus);
+            window.Content = shipView; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            GamepadChecks.Check(ControllerNav.Find(shipView, "campaign.ship.open-map")
+                    is { IsEffectivelyVisible: true }
+                && ControllerNav.Find(shipView, "campaign.ship.exit")
+                    is { IsEffectivelyVisible: true }
+                && ControllerNav.Find(shipView, "campaign.ship.land")
+                    is { IsEffectivelyVisible: false },
+                "campaign ship opens at dock with map/exit actions and hidden landing");
             window.Content = pause; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
             // Android hosts PauseMenuView in StartScreen rather than InGameMenu,
             // so Back must reach the view's resume callback without a desktop host.

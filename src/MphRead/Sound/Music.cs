@@ -55,6 +55,20 @@ namespace MphRead
         private static SeqId _currentMusicSeq = SeqId.None;
         private static SeqId _nextMusicSeq = SeqId.None;
 
+        /// <summary>
+        /// Read-only sequence ownership for the campaign launcher. A closed
+        /// game scene resets the player on the next Music.Init; older menus
+        /// must never Stop a different scene's new music.
+        /// </summary>
+        public static SeqId ActiveSequence => _playing ? _currentMusicSeq : SeqId.None;
+        public static bool Initialized => _musicInfo != null && _roomMusic != null;
+        private static long _playbackEpoch;
+        /// <summary>
+        /// A value-only lease generation: a new scene or playback preempts any
+        /// temporary ship/credits menu audio, even when it picks the same ID.
+        /// </summary>
+        public static long PlaybackEpoch => Interlocked.Read(ref _playbackEpoch);
+
         private static int _musicEncounterSuspension = 0;
         public static int MusicEncounterSuspension => _musicEncounterSuspension;
         public static MusicId MusicToResume { get; set; } = MusicId.None;
@@ -67,6 +81,7 @@ namespace MphRead
 
         public static void Init()
         {
+            Interlocked.Increment(ref _playbackEpoch);
             Mods.MapGen.CustomMapMusic.Stop();
             _musicInfo = SoundRead.ReadInterMusicInfo();
             _roomMusic = SoundRead.ReadAssignMusic();
@@ -174,6 +189,7 @@ namespace MphRead
             // the game may update the seq ID first using download play values
             if (!queue)
             {
+                Interlocked.Increment(ref _playbackEpoch);
                 _nextTrackNotReady = false;
                 Stop();
                 _isReady = !notReady;
@@ -495,6 +511,7 @@ namespace MphRead
 
         public static void Stop(float fadeTime = 0)
         {
+            Interlocked.Increment(ref _playbackEpoch);
             Mods.MapGen.CustomMapMusic.Stop();
             _playing = false;
             _musicQueued = false;

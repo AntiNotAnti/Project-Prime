@@ -70,7 +70,7 @@ Acceptance: byte-identical copy; backups never clobbered; empty/missing/bad slot
 - Preserve Project Prime's competitive HUD, 60 Hz simulation, replay/camera invariants, and no-touch multiplayer controls.
 - Add viewport/occlusion, 16:9/ultrawide and phone aspect-ratio goldens.
 
-### CAMP-06: Music, sound and campaign polish
+### CAMP-06: Music, sound and campaign polish (source integration on stacked draft; native audio acceptance pending)
 
 - Compare DS menu/cutscene/escape/cockpit audio with SecondHunt's sequencer and quality options; port isolated missing fixes through Project Prime's existing mixer.
 - Preserve notifications, multiplayer sound levels, render pacing, file ownership and device/lifecycle behavior.
@@ -134,3 +134,16 @@ Before merging CAMP-03, verify actual desktop and Android campaign boarding, fil
 5. `--campaign-presentation` is an asset-free test for locked/visited room disclosure, scan-log privacy, detached journal values, exact 4:3 baseline, widescreen aspect framing, normalized projection, and malformed scan-meter input; it joins the existing scene-ownership CI.
 
 **Unverified:** native rendering, 16:9/21:9 framing, scan visor and live scan-log localization with private game files, all desktop platforms, Android touch/controller/back-key navigation, and frame-time/alloc comparisons. Automated value-only tests do not prove those device-specific visual criteria. The ROM-source detailed collision map and exact 16:9 source-textured one-screen layout in SecondHunt remain future optional fidelity work, not features claimed by this PR.
+
+## CAMP-06: Ship, credits and campaign audio lifecycle
+
+**Source changes**
+
+1. Map original local-cartridge sequence identifiers in `CampaignAudioCatalog`: `SHIP_LAND1/2/3/4` for the five docked planets (Arcterra/Oubliette share LAND4), `SHIP` for the star map, and `CREDITS` when the Gorea completion results screen is displayed. The native `Music`/`MusicPlayer` player and its single SoundFlow output remain the only music engine. No ROM songs or sound assets are copied or packaged.
+2. `CampaignAudioSession` is a small audio lifetime scoped to one visible UI screen. It selects the soundtrack, ticks asynchronous music loading from a 33 ms view heartbeat, and stops music on close/detach. It cannot affect newer gameplay music after `Music.Init` or a different (even same-ID) `PlaySeq`: `Music.PlaybackEpoch` fences every start, stop and scene-init. The source game is silent when the local game files or a device are absent. Catch audio-player failures and continue without blocking Story UI.
+3. Move the inline CAMP-03 ship menu into `CampaignShipView`. **DOCKED COCKPIT** includes checkpoint completion, original localized planet music, Exit Ship without landing movie, and Launch Ship to select destination. **STAR MAP** switches to original SHIP sequence and allows selection among actually unlocked planets; only `AdventureLaunch` drives landing, retaining CAMP-03 save-slot and travel guards. Render remains native Avalonia shell in this baseline; this is not SecondHunt's 3D ship renderer.
+4. `CampaignEndingView` plays original `CREDITS` sequence on the value-only good/bad Gorea result screen, stopping it when the view goes away. EndGame still owns its own movie playback and save commit. Both desktop and Android hosts use the same UI lifecycle.
+5. Extend existing synthesized `UiFeedbackAudio` with four short WAV cues (dock, star map, landing and ending). They use the existing SoundFlow mixer and Notifications volume, honor SFX volume and work without game assets. No new audio device, audio player, asset contract or network semantic event is introduced. Native ScanVisor, encounter, escape, boss and pickup SFX/music behavior remains untouched, avoiding duplicated gameplay triggers.
+6. Gate `--campaign-audio` in scene-ownership CI: original five dock tracks, music handoffs, idempotent entry/teardown, same-sequence cross-scene preemption, silent no-device path, ending lease, and generated WAV headers. Existing UI audio cue contract also exercises every added cue.
+
+**Acceptance still required**: exact-head desktop/Android release builds, sound-card-on and silent-device behavior, repeated ship open/back/open/land with scene reset, Android activity pause/resume/surface recreation, volume changes while docked and during ending credits, correct left/right gameplay channel behavior in videos, audio clock/drift checks, original ROM song comparison, and no owner leaks. A 3D animated cockpit and the original Nintendo DS seven-page credits cannot be asserted from the current two-stage UI alone. This is source-complete for the audio slice but **not native/device certified**.
