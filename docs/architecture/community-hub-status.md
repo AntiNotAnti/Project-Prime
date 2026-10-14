@@ -18,7 +18,7 @@ Historical PR-07 integration base: `AntiNotAnti/Project-Prime` main `989709d58c7
 | PR-11 #547: object-store/CDN | **Open draft**, PR-10 base | Optional immutable mirror and origin fallback, off by default; staging testing deferred |
 | PR-12 #549: external NetRadiant bridge | **Open draft**, PR-11 base | Original gamepack and optional external q3map2 bridge; actual fork license/build + GUI not accepted |
 | PR-13 #551: editable .map interchange | **Open draft**, PR-12 base, head `7a2ea3d` | Supported brush/UV/patchDef2/entity roundtrip, 56 focused checks + 12 real package checks, new cross-platform CI reported green; real editor/gameplay testing deferred |
-| PR-14: release/cutover preparation | **Staged implementation branch**, PR-13 base | Opt-in independent creator workspace, frozen durable publish handoff, shared transfer session, rollback switch and release matrix; exact-head automated CI and manual acceptance outstanding |
+| PR-14 #556: release/cutover preparation | **Open draft**, PR-13 base | Opt-in independent creator workspace, frozen durable publish handoff, shared transfer session, rollback switch and release matrix; exact-head automated CI and manual acceptance outstanding |
 
 ## Historical PR-08 safety gates
 
