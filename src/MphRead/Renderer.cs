@@ -5449,8 +5449,19 @@ namespace MphRead
 
         private void QuitGame(bool enteringShip)
         {
+            // Capture the actual ship-entry transition before clearing the
+            // loaded room. SaveWhen settings alone cannot distinguish it
+            // from Quit (both policies may be configured identically).
+            bool adventureExit = this.GameState.SinglePlayer;
+            int departureRoom = RoomId;
             _fadeType = FadeType.None;
             DoCleanup();
+            if (adventureExit)
+            {
+                this.GameState.LastCampaignDeparture = Mods.Campaign.CampaignNavigation.Classify(
+                    ended: true, enteringShip, departureRoom);
+                this.GameState.LastCampaignDepartureRoomId = departureRoom;
+            }
             if (this.GameState.SinglePlayer)
             {
                 Menu.NeededSave = enteringShip ? Menu.SaveFromShip : Menu.SaveFromExit;
