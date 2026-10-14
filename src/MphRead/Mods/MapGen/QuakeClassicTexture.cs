@@ -37,7 +37,7 @@ public static class QuakeClassicTexture
         new(1,0,0), new(0,1,0), new(0,0,-1),
         new(-1,0,0), new(0,1,0), new(0,0,-1),
         new(0,1,0), new(1,0,0), new(0,-1,0),
-        new(0,-1,0), new(1,0,0), new(0,-1,0)
+        new(0,-1,0), new(1,0,0), new(0,0,-1)
     };
     public static Vector2 Calculate(Vector3 primePoint, Vector3 primeNormal, MapQuakeFace face)
     {
