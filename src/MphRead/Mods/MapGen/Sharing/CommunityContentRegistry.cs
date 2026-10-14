@@ -30,6 +30,13 @@ public sealed class CommunityContentRegistry
     private const int MaximumRevisions = 16384;
     private const int MaximumTags = 16;
     private const int MaximumDependencies = 32;
+    // Distinct raw objects are a separate storage pool from historical
+    // .ppmap packages. Cap both the service and a single creator so valid
+    // credentials cannot exhaust origin disk by accumulating revisions.
+    private const long DefaultObjectBudget = 50L * 1024 * 1024 * 1024;
+    private const long DefaultCreatorBudget = 10L * 1024 * 1024 * 1024;
+    private readonly long _maximumStoredBytes;
+    private readonly long _maximumOwnerBytes;
     private readonly string _root;
     private readonly string _objects;
     private readonly string _index;
@@ -37,9 +44,17 @@ public sealed class CommunityContentRegistry
     private readonly Dictionary<(string Kind, Guid Id), CommunityContentStoredProject> _projects
         = new();
 
-    public CommunityContentRegistry(string storage)
+    public CommunityContentRegistry(string storage,
+        long maximumStoredBytes = DefaultObjectBudget,
+        long maximumOwnerBytes = DefaultCreatorBudget)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storage);
+        if (maximumStoredBytes < 1 || maximumOwnerBytes < 1
+            || maximumOwnerBytes > maximumStoredBytes)
+            throw new ArgumentOutOfRangeException(nameof(maximumStoredBytes),
+                "V3 content pool and creator quotas must be positive and ordered.");
+        _maximumStoredBytes = maximumStoredBytes;
+        _maximumOwnerBytes = maximumOwnerBytes;
         _root = Path.GetFullPath(storage);
         _objects = Path.Combine(_root, "content-v3");
         _index = Path.Combine(_root, "content_catalog_v3.json");
@@ -107,6 +122,33 @@ public sealed class CommunityContentRegistry
             if (current != null
                 && metadata.ExpectedParentHash != current.LatestHash)
                 throw new InvalidDataException("Stale v3 content parent; reload before publishing.");
+
+            // Pool/account quotas count each exact SHA only once even when
+            // several materials or creators reference the same immutable file.
+            // The bounded revision catalog has at most 16,384 entries; only
+            // creator publication takes this quota snapshot under _gate.
+            var allRevisions = _projects.Values
+                .SelectMany(p => p.Revisions).ToArray();
+            bool alreadyStored = allRevisions.Any(revision =>
+                revision.ContentHash == hash);
+            long globalBytes = allRevisions
+                .GroupBy(revision => revision.ContentHash, StringComparer.Ordinal)
+                .Sum(group => group.First().Bytes);
+            if (!alreadyStored && bytes > _maximumStoredBytes - globalBytes)
+                throw new InvalidDataException(
+                    "Community generic content pool storage quota exceeded.");
+
+            var ownerRevisions = _projects.Values
+                .Where(p => p.OwnerId == metadata.OwnerId)
+                .SelectMany(p => p.Revisions).ToArray();
+            bool ownerAlreadyUses = ownerRevisions.Any(revision =>
+                revision.ContentHash == hash);
+            long ownerBytes = ownerRevisions
+                .GroupBy(revision => revision.ContentHash, StringComparer.Ordinal)
+                .Sum(group => group.First().Bytes);
+            if (!ownerAlreadyUses && bytes > _maximumOwnerBytes - ownerBytes)
+                throw new InvalidDataException(
+                    "Community creator generic content storage quota exceeded.");
 
             // A published typed item cannot advertise a private or unresolved
             // dependency hash. PR-10 will generalize this into a lockfile DAG;
