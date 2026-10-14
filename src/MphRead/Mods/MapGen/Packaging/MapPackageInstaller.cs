@@ -165,8 +165,9 @@ public static class MapPackageInstaller
             await using (var output = new FileStream(snapshot, FileMode.CreateNew, FileAccess.Write,
                 FileShare.None, 65536, FileOptions.Asynchronous))
             {
-                copied = await MapCommunityClient.CopyBoundedAsync(source, output,
+                await MapCommunityClient.CopyBoundedAsync(source, output,
                     MapPackageReader.MaxArchiveBytes, token).ConfigureAwait(false);
+                copied = output.Length;
                 await output.FlushAsync(token).ConfigureAwait(false);
             }
             return await PrepareSourceAsync(snapshot, required, ownsSource: true, copied,
