@@ -11,7 +11,7 @@ The previous server admitted at most eight in-flight requests through a single `
 
 - **Metadata lane:** eight slots for catalog browsing, creator/auth commands, capabilities and health, independent from transfer capacity.
 - **Creator upload lane:** three slots for sequential `PUT /uploads/{sha256}`. Excess upload work responds immediately with HTTP 503 and `Retry-After: 1`, never queueing indefinitely.
-- **Player download lane:** four independent slots for immutable `GET /packages/{sha256}`/`GET /maps/{sha256}` and bounded preview reads. Saturated creator uploads therefore cannot deny admission to player map downloads/prewarming.
+- **Player download lane:** eight independent slots for immutable `GET /packages/{sha256}`/`GET /maps/{sha256}` and bounded preview reads. Saturated creator uploads therefore cannot deny admission to player map downloads/prewarming.
 - **Verification lane:** one slot for `POST /uploads/{sha256}/complete` and legacy one-shot archive publication `POST /maps[/.../versions]`; separate from catalog, upload and download traffic.
 - **Publication lock:** still serializes final catalog/immutable package registration and lifecycle changes. A legacy POST now acquires it **after** receiving the archive bytes, not while waiting on the network.
 - **Per-peer request rate:** configurable with `PROJECT_PRIME_MAP_IP_REQUESTS_PER_MINUTE` (60–100000); uses actual peer socket IP, never untrusted `X-Forwarded-For`. **Disabled by default** because many Cloudflare/reverse-proxy visitors may share one origin peer IP. Metadata/transfer/verification lanes have separate bounded windows.
