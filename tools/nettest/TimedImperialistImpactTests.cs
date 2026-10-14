@@ -153,6 +153,11 @@ internal static class TimedImperialistImpactTests
         }
         private void Submit(in IntentPacket packet)
             => Check(NetSession.AcceptSlotIntent(0, packet), "actual source carrier intake succeeds");
+        internal byte FullChargeFrames(BeamType weapon)
+        {
+            bool affinity = Weapons.GetAffinityBeam(Owner.Hunter) == weapon;
+            return checked((byte)(Scene.WeaponRules[(int)weapon + (affinity ? 9 : 0)].FullCharge * 2));
+        }
         internal (TimedShotCertificate Shot, BeamProjectileEntity Beam, HitClaimPacket Claim) Emit(
             BeamType weapon = BeamType.Imperialist, byte charge = 0, bool rewind = true)
         {
@@ -292,13 +297,23 @@ internal static class TimedImperialistImpactTests
                     "actually clamped target does not relabel requested ACK history as the served collision");
             }
             finally { NetUnlagged.MaxRewindFrames = oldCeiling; }
-            foreach (Hunter source in new[] { Hunter.Kanden, Hunter.Samus })
+            foreach (var (source, balanced) in new[] {
+                (Hunter.Kanden, true), (Hunter.Kanden, false), (Hunter.Samus, true) })
             {
-                using var f = new Fixture(room, Hunter.Samus, true, false, sourceHunter: source);
-                var emitted = f.Emit(BeamType.VoltDriver, 180);
+                using var f = new Fixture(room, Hunter.Samus, balanced, false, sourceHunter: source);
+                // The native F30 metadata's FullCharge is converted to F60;
+                // the input proof correctly refuses a larger claimed charge.
+                var emitted = f.Emit(BeamType.VoltDriver, f.FullChargeFrames(BeamType.VoltDriver));
+                bool disrupt = source == Hunter.Kanden;
+                bool affinity = disrupt && balanced;
+                var policy = !disrupt ? TimedDisruptionPolicy.None
+                    : affinity ? TimedDisruptionPolicy.BalancedKanden : TimedDisruptionPolicy.Ordinary;
                 Check(emitted.Beam.Flags.TestFlag(BeamFlags.Charged)
-                    && emitted.Beam.ModOwnerHunter == source,
-                    "actual charged native Volt retains original source hunter");
+                    && emitted.Beam.ModOwnerHunter == source
+                    && emitted.Beam.Afflictions.TestFlag(Affliction.Disrupt) == disrupt
+                    && emitted.Shot.Damage.DisruptionPolicy == policy
+                    && ((emitted.Shot.Damage.EffectsFor(true) & HitClaimPacket.FlagDisrupted) != 0) == disrupt,
+                    "actual charged native Volt retains its source row and native affliction policy");
                 var claim = emitted.Claim; claim.Flags |= HitClaimPacket.FlagDisrupted;
                 Check(NetTimedDamageProfile.TryGet(1, claim.VictimGeneration, claim.VictimLifeId,
                     claim.AckFrame, out var effectProfile) && effectProfile.BalancedDisruptImmunity == 0,
@@ -306,15 +321,16 @@ internal static class TimedImperialistImpactTests
                 f.Owner.ModSetHunter(source == Hunter.Kanden ? Hunter.Samus : Hunter.Kanden);
                 int before = f.Victim.Health;
                 for (int step = 0; step < 60 && f.Victim.Health == before && emitted.Beam.Lifespan > 0; step++) emitted.Beam.Process();
-                bool affinity = source == Hunter.Kanden;
-                Check(f.Victim.Health < before && f.Victim.ModDisruptedTimer == (affinity ? 75 : 120)
-                    && f.Victim.ModBalancedDisruptImmunityTimer == (affinity ? 195 : 0),
+                int control = !disrupt ? 0 : affinity ? 75 : 120;
+                int immunity = affinity ? 195 : 0;
+                Check(f.Victim.Health < before && f.Victim.ModDisruptedTimer == control
+                    && f.Victim.ModBalancedDisruptImmunityTimer == immunity,
                     "actual native disruption uses captured source policy after later owner mutation");
-                f.Victim.ModResetBalancedAffinityState();
-                Check(NetTimedShotEffects.ApplyDisruption(f.Victim, emitted.Shot, claim, effectProfile)
-                    && f.Victim.ModDisruptedTimer == (affinity ? 75 : 120)
-                    && f.Victim.ModBalancedDisruptImmunityTimer == (affinity ? 195 : 0),
-                    "declared same-clock rescue helper matches the real native applier duration");
+                f.Victim.ModResetBalancedAffinityState(); f.Victim.ModSetDisrupted(false);
+                Check(NetTimedShotEffects.ApplyDisruption(f.Victim, emitted.Shot, claim, effectProfile) == disrupt
+                    && f.Victim.ModDisruptedTimer == control
+                    && f.Victim.ModBalancedDisruptImmunityTimer == immunity,
+                    "declared same-clock rescue matches native duration or refuses an absent native effect");
                 if (affinity)
                     Check(!NetTimedShotEffects.ApplyDisruption(f.Victim, emitted.Shot, claim, effectProfile)
                         && f.Victim.ModBalancedDisruptImmunityTimer == 195,
