@@ -22,9 +22,11 @@ internal sealed partial class MapStudioScreen
                     // Quake .map source. Authors select a normal .json save path.
                     WithUnsaved(() => Load(new MapProject(result.Definition)));
                     _status.Text = "Imported " + result.Definition.Geometry.Count
-                        + " editable axial brush(es) and "
-                        + result.Definition.Spawns.Count
-                        + " spawn(s). Save to a new .json project before building.";
+                        + " editable box/convex brush(es), "
+                        + result.Definition.Spawns.Count + " spawn(s), and "
+                        + result.Definition.Items.Count + " pickup(s). "
+                        + "Scale factor " + result.Definition.ScaleFactor
+                        + ". Save to a new .json project before building.";
                 }
                 catch (QuakeMapInterchangeException ex)
                 {
