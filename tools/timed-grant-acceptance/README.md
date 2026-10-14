@@ -212,9 +212,12 @@ extra draws. Exact gameplay hashes and full native checkpoints must remain
 unchanged across the measured samples; exact repeated color/HUD/depth is required
 within each arm. A compatible genuine old-producer recording can be consumed by
 both old and fixed clients: source file hash, producer build, consumer hash/MVID,
-room/frame/backend and exact render inputs are retained. Cross-arm old sorted
-color is expected to differ by the known causal pixel; that is retained evidence,
-never a tolerance applied to the fixed original-order fidelity reference.
+room/frame/backend and exact render inputs are retained. Cross-arm equality or
+difference is measured, not assumed from the separate original seek failure.
+The three matched held-linear-frame pairs at `campaign-20261014T0035Z` observed
+exact world/HUD/depth equality in every pair; the older default seek mismatch
+remains a separate reproduction. No pixel tolerance or normalization is applied
+to either comparison or the fixed Submission fidelity reference.
 
 Benchmark receipts remain BENCHMARK_ONLY/INCOMPLETE and cannot accept broader A3
 behavior. Run matched old/fixed arms serially with fresh directories, preserve
