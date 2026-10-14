@@ -272,9 +272,9 @@ internal static class TimedImperialistImpactTests
                     && !NetTimedImperialistImpact.TryResolve(emitted.Shot, claim, out _),
                     "actual current-world spawn cannot invent a historical first-segment proof");
                 Check(NetTimedDamageProfile.TryGet(1, claim.VictimGeneration, claim.VictimLifeId,
-                    claim.AckFrame, out var profile)
-                    && NetTimedShotModifiers.TryClaimLimit(0, claim, profile, out uint limit, out bool head)
-                    && !head && limit == profile.CompleteDamage(emitted.Shot.Damage.Body, BeamType.Imperialist, false, false),
+                    claim.AckFrame, out var bodyProfile)
+                    && NetTimedShotModifiers.TryClaimLimit(0, claim, bodyProfile, out uint limit, out bool head)
+                    && !head && limit == bodyProfile.CompleteDamage(emitted.Shot.Damage.Body, BeamType.Imperialist, false, false),
                     "unknown exact geometry retains ordinary body cap without claimed head amount or bypass");
             }
             int oldCeiling = NetUnlagged.MaxRewindFrames;
