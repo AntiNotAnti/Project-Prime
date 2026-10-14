@@ -397,7 +397,7 @@ namespace MphRead.Mods.Launcher.Gui
                 planetRows.Children.Add(button);
             }
 
-            void Launch(CampaignPlanet planet)
+            void Launch(CampaignPlanet planet, bool exitShipToSurface = false)
             {
                 // Repeat the check immediately before launching: changing the
                 // selected slot or a stale/locked planet cannot bypass it.
@@ -409,12 +409,14 @@ namespace MphRead.Mods.Launcher.Gui
                     return;
                 }
                 _overlays.Close();
-                Launched?.Invoke(this, AdventureLaunch.Create(dock.Slot, false, SelectedHunter(), planet));
+                Launched?.Invoke(this, AdventureLaunch.Create(dock.Slot, false,
+                    SelectedHunter(), planet, exitShipToSurface));
             }
 
             land = new PrimeButton("▷ LAND SHIP", () => Launch(selected), true);
             ControllerNav.Identify(land, "offline.ship.land");
-            var leave = new PrimeButton("EXIT SHIP / RETURN TO SURFACE", () => Launch(dock.Planet));
+            var leave = new PrimeButton("EXIT SHIP / RETURN TO SURFACE",
+                () => Launch(dock.Planet, exitShipToSurface: true));
             ControllerNav.Identify(leave, "offline.ship.exit");
             var pane = PrimeChrome.Stack(
                 new PrimeBadge("CAMPAIGN // GUNSHIP CONSOLE", PrimeTheme.GreenBrush),
