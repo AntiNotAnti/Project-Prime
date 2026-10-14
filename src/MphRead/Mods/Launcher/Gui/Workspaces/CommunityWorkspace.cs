@@ -1,6 +1,7 @@
 #if MPHREAD_AVALONIA
 using System;
 using System.IO;
+using System.Net.Http;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -110,7 +111,6 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
             else RenderList();
         };
         _search.TextChanged += (_, _) => RenderList();
-        _fixture ??= null;
         if (_fixture != null) _projects = _fixture;
         RenderList();
     }
@@ -153,26 +153,25 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     {
         if (!_active || _disposed) return;
         _load?.Cancel();
-        using var cancel = new CancellationTokenSource();
-        _load = cancel;
-        _refresh.IsEnabled = false;
-
         if (_tabs.Index is 1 or 3)
         {
-            // Installed archives and the foreground transfer do not require the
-            // remote service, so this tab is available entirely offline.
+            // Installed archives and foreground transfers work offline.
+            _load = null;
             _refresh.IsEnabled = true;
             RenderList();
             return;
         }
-
         if (_fixture != null)
         {
+            _load = null;
             _projects = _fixture;
             _refresh.IsEnabled = true;
             RenderList();
             return;
         }
+        using var cancel = new CancellationTokenSource();
+        _load = cancel;
+        _refresh.IsEnabled = false;
 
         _state.Set(PrimeStateKind.Loading, "LOADING COMMUNITY",
             "Contacting the configured Community catalog.", visible: true);
@@ -299,7 +298,6 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         _details.Children.Add(PrimeChrome.Title(title));
         _details.Children.Add(PrimeChrome.Text(description,
             PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
-        if (_tabs.Index == 3 && _transfer != null) _details.Children.Add(_cancel);
     }
 
     private void ShowLocal(MapDefinition map, InstalledMapIdentity installed)
