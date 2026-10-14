@@ -42,18 +42,33 @@ public static class MapPackageGeometryCompatibility
                 // Explicit vertex coordinates include source transforms.
                 Transform = new MapTransform()
             };
+            // A patch is a connected surface, and a convex brush is a
+            // closed volume. Share identical positions across face boundaries
+            // so the fallback mesh retains its native topology and does not
+            // inflate package vertices. UVs still remain per-face vertex.
+            var vertexIndex = new Dictionary<(float X,float Y,float Z),int>();
             foreach (BuiltFace face in compiled)
             {
                 if (face.Points.Length is < 3 or > 32
                     || face.Texcoords.Length != face.Points.Length
                     || face.Material < 0 || face.Material >= definition.Materials.Count)
                     throw new InvalidDataException("Invalid source face during portable mesh conversion.");
-                int start = mesh.Vertices.Count;
-                mesh.Faces.Add(Enumerable.Range(start,face.Points.Length).ToArray());
+                var indices = new int[face.Points.Length];
+                for (int v = 0; v < face.Points.Length; v++)
+                {
+                    var point = face.Points[v];
+                    var key = (point.X, point.Y, point.Z);
+                    if (!vertexIndex.TryGetValue(key,out int index))
+                    {
+                        index = mesh.Vertices.Count;
+                        vertexIndex.Add(key,index);
+                        mesh.Vertices.Add(new[] { point.X, point.Y, point.Z });
+                    }
+                    indices[v] = index;
+                }
+                mesh.Faces.Add(indices);
                 mesh.FaceMaterials.Add(face.Material);
                 mesh.FaceTexcoords.Add(face.Texcoords.Select(v => new[] { v.X, v.Y }).ToArray());
-                foreach (var point in face.Points)
-                    mesh.Vertices.Add(new[] { point.X, point.Y, point.Z });
             }
             IReadOnlyList<BuiltFace> portable = GeometryCompiler.Compile(mesh,
                 definition.Materials[mesh.Material].TexScale);
