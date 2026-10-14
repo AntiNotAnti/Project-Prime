@@ -337,11 +337,8 @@ try
             File.WriteAllText(rendezvous+".upload","go");
             Guid parentUpload = await parentManager.EnqueueUploadAsync(
                 endpoint,pkgA,publish:null,listed:true,draft:false);
-            Guid childUpload = Guid.Parse((await File.ReadAllTextAsync(
-                (await Task.Run(async () => {
-                    await WaitFile(receipts+".upload");
-                    return receipts+".upload";
-                })))).Trim());
+            await WaitFile(receipts+".upload");
+            Guid childUpload = Guid.Parse(File.ReadAllText(receipts+".upload").Trim());
             Check(parentUpload != childUpload,
                 "parallel processes enqueue distinct immutable uploads into one shared index");
             var parentCompleted = await parentManager.WaitAsync(parentUpload);
