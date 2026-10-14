@@ -110,8 +110,74 @@ public static class QuakeMapInterchange
         var faces = new List<Face>();
         Guid brushId = Guid.Empty;
         int depth = 0;
-        int lineNo = 0, brushIndex = 0, spawnIndex = 0, itemIndex = 0, worldspawnCount = 0;
+        int lineNo = 0, brushIndex = 0, patchIndex = 0, spawnIndex = 0, itemIndex = 0, worldspawnCount = 0;
         var seenObjectIds = new HashSet<Guid>();
+        bool inPatch = false, patchBodyClosed = false;
+        bool? patchSolid = null;
+        var patchBody = new List<string>();
+
+        int Material(string shaderName)
+        {
+            if (!materials.TryGetValue(shaderName, out int slot))
+            {
+                slot = definition.Materials.Count;
+                materials.Add(shaderName, slot);
+                definition.Materials.Add(new MapMaterial
+                {
+                    Id = GuidFrom("prime-material:" + shaderName.ToLowerInvariant()),
+                    Name = shaderName, SourceMaterial = 2, TexScale = 16f
+                });
+            }
+            return slot;
+        }
+
+        void ClosePatch()
+        {
+            if (!inPatch || !patchBodyClosed)
+            {
+                Error("FP-RADIANT-PATCH", lineNo, "Incomplete patchDef2 data block.");
+                return;
+            }
+            QuakePatchDef2.Parsed parsed;
+            try { parsed = QuakePatchDef2.Parse(patchBody, unitsPerPrimeUnit); }
+            catch (InvalidDataException ex)
+            {
+                Error("FP-RADIANT-PATCH", lineNo, ex.Message);
+                return;
+            }
+            if (!SafeShader(parsed.Shader))
+            {
+                Error("FP-RADIANT-PATCH", lineNo, "Invalid Quake patch shader name.");
+                return;
+            }
+            MapBezierPatch patch = parsed.Geometry;
+            patch.Material = Material(parsed.Shader);
+            patch.Id = brushId != Guid.Empty ? brushId
+                : GuidFrom("prime-patch:" + mapId + ":" + patchIndex);
+            patch.Label = "Quake patch " + (patchIndex + 1);
+            patch.Solid = patchSolid ?? true;
+            if (patchSolid == null)
+                diagnostics.Add(new("FP-RADIANT-PATCH-COLLISION", lineNo,
+                    "Patch collision defaults to solid; verify the original Quake shader "
+                    + "and save an explicit PRIME_PATCH_SOLID flag before publishing.", false));
+            if (!seenObjectIds.Add(patch.Id))
+            {
+                Error("FP-RADIANT-ID", lineNo, "Duplicate patch/brush/entity identity.");
+                return;
+            }
+            try { GeometryCompiler.Compile(patch, definition.Materials[patch.Material].TexScale); }
+            catch (MapAuthoringException ex)
+            {
+                Error(ex.Code, lineNo, ex.Message);
+                return;
+            }
+            definition.Geometry.Add(patch);
+            patchIndex++;
+            patchBody.Clear();
+            patchBodyClosed = inPatch = false;
+            patchSolid = null;
+            brushId = Guid.Empty;
+        }
 
         void CloseBrush()
         {
@@ -139,20 +205,6 @@ public static class QuakeMapInterchange
             {
                 Error("FP-RADIANT-CONVEX", faces[0].Line, ex.Message);
                 return;
-            }
-            int Material(string shaderName)
-            {
-                if (!materials.TryGetValue(shaderName, out int slot))
-                {
-                    slot = definition.Materials.Count;
-                    materials.Add(shaderName, slot);
-                    definition.Materials.Add(new MapMaterial
-                    {
-                        Id = GuidFrom("prime-material:" + shaderName.ToLowerInvariant()),
-                        Name = shaderName, SourceMaterial = 2, TexScale = 16f
-                    });
-                }
-                return slot;
             }
             int material = Material(shader);
             if (needsQuakeProjection)
@@ -361,33 +413,77 @@ public static class QuakeMapInterchange
             if (line.StartsWith("// PRIME_ID=", StringComparison.OrdinalIgnoreCase)
                 && depth == 2)
             {
-                if (!Guid.TryParse(line[12..], out brushId))
-                    Error("FP-RADIANT-ID", lineNo, "Invalid brush identity marker.");
+                if (!Guid.TryParse(line[12..], out brushId) || brushId == Guid.Empty)
+                    Error("FP-RADIANT-ID", lineNo, "Invalid or empty geometry identity marker.");
+                continue;
+            }
+            if (line.StartsWith("// PRIME_PATCH_SOLID=", StringComparison.OrdinalIgnoreCase)
+                && depth == 2)
+            {
+                if (inPatch || patchSolid != null
+                    || !bool.TryParse(line["// PRIME_PATCH_SOLID=".Length..], out bool solid))
+                    Error("FP-RADIANT-PATCH", lineNo, "Invalid/duplicate patch collision metadata.");
+                else patchSolid = solid;
                 continue;
             }
             if (line.Length == 0 || line.StartsWith("//", StringComparison.Ordinal))
                 continue;
+            if (depth == 2 && line == "patchDef2")
+            {
+                if (inPatch || faces.Count > 0 || patchBodyClosed)
+                    Error("FP-RADIANT-PATCH", lineNo,
+                        "Cannot mix a quadratic patch and brush planes in one source object.");
+                else inPatch = true;
+                continue;
+            }
+            if (depth == 2 && line is "patchDef3" or "brushDef" or "brushDef3")
+            {
+                Error("FP-RADIANT-PATCH", lineNo,
+                    "Unsupported patchDef3 or brushDef primitive; source is not silently rewritten.");
+                break;
+            }
             if (line == "{")
             {
                 depth++;
-                if (depth > 2)
+                if (depth > 3 || (depth == 3 && !inPatch))
                 {
                     Error("FP-RADIANT-PATCH", lineNo,
-                        "Patch/brushDef nested geometry requires explicit import support.");
+                        "Unsupported nested patch, brushDef or source object.");
                     break;
                 }
                 if (depth == 2 && !entity.GetValueOrDefault("classname", "").Equals(
                     "worldspawn", StringComparison.OrdinalIgnoreCase))
                     Error("FP-RADIANT-BRUSH-ENTITY", lineNo,
-                        "Only worldspawn brush geometry is supported by direct editable import.");
+                        "Only worldspawn geometry is supported by direct editable import.");
                 continue;
             }
             if (line == "}")
             {
-                if (depth == 2) CloseBrush();
+                if (depth == 3 && inPatch)
+                    patchBodyClosed = true;
+                else if (depth == 2)
+                {
+                    if (inPatch) ClosePatch();
+                    else CloseBrush();
+                    if (!inPatch) patchSolid = null;
+                }
                 else if (depth == 1) CloseEntity();
                 else Error("FP-RADIANT-BRACE", lineNo, "Unexpected closing brace.");
                 depth--;
+                continue;
+            }
+            if (inPatch)
+            {
+                if (depth != 3 || patchBodyClosed)
+                    Error("FP-RADIANT-PATCH", lineNo,
+                        "patchDef2 data must be inside its nested source block.");
+                else patchBody.Add(line);
+                continue;
+            }
+            if (patchSolid != null && depth == 2)
+            {
+                Error("FP-RADIANT-PATCH", lineNo,
+                    "PRIME_PATCH_SOLID must precede a patchDef2, not a brush plane.");
                 continue;
             }
             if (depth == 1)
@@ -508,6 +604,8 @@ public static class QuakeMapInterchange
                     Math.Abs(box.Transform.Position[i]) + box.Transform.Scale[i] / 2));
             else if (geometry is MapConvexBrush convex)
                 foreach (float[] vertex in convex.Vertices) Measure(vertex);
+            else if (geometry is MapBezierPatch patch)
+                foreach (float[] control in patch.ControlPoints) Measure(control.Take(3));
         }
         foreach (MapSpawn spawn in definition.Spawns) Measure(spawn.Position);
         foreach (MapItem item in definition.Items) Measure(item.Position);
