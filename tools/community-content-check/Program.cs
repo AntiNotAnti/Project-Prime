@@ -157,6 +157,31 @@ try
     Check(materialItem.Kind == "material"
         && materialItem.CurrentHash == MapBuildFingerprint.HashFile(material),
         "second original type, material descriptor, publishes with pinned identity");
+    // The v3 pool has independent service/creator disk budgets. Sharing an
+    // exact SHA across multiple projects reuses the same immutable object,
+    // while a new distinct blob cannot exceed the configured quota.
+    string quotaRoot = Path.Combine(root, "quota-store");
+    var quota = new CommunityContentRegistry(quotaRoot,
+        maximumStoredBytes: png.LongLength, maximumOwnerBytes: png.LongLength);
+    var quotaItem = record with { ContentId = Guid.NewGuid(),
+        ExpectedParentHash = null, Visibility = CommunityContentVisibility.Published };
+    quota.RegisterVerifiedBlob(older, quotaItem);
+    quota.RegisterVerifiedBlob(older, quotaItem with { ContentId = Guid.NewGuid() });
+    Check(quota.ListVisible(MapCreatorCatalog.ServiceOwner).Length == 2,
+        "same SHA is deduplicated across creator projects within bounded storage budget");
+    bool quotaDenied = false;
+    try
+    {
+        quota.RegisterVerifiedBlob(image, quotaItem with { ContentId = Guid.NewGuid() });
+    }
+    catch (InvalidDataException) { quotaDenied = true; }
+    Check(quotaDenied,
+        "new distinct asset exceeding creator or global bytes is refused before metadata publish");
+    var recoveredQuota = new CommunityContentRegistry(quotaRoot,
+        maximumStoredBytes: png.LongLength, maximumOwnerBytes: png.LongLength);
+    Check(recoveredQuota.ListVisible(MapCreatorCatalog.ServiceOwner).Length == 2,
+        "v3 content quota accounting recovers exact bytes and references after restart");
+
     // All creator upload slots can be busy without taking slots from the
     // lightweight catalog and published raw-download lanes. This is a real
     // HttpListener test with deliberately stalled request bodies.
