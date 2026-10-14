@@ -44,7 +44,12 @@ public static class QuakeMapInterchange
         "^\"(?<key>[^\"]+)\"\\s+\"(?<value>[^\"]*)\"$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    private sealed record Face(Vector3[] Points, string Shader, int Line);
+    private sealed record Face(Vector3[] Points, string Shader, int Line,
+        float ShiftU, float ShiftV, float Rotation, float ScaleU, float ScaleV)
+    {
+        public bool DefaultProjection => ShiftU == 0 && ShiftV == 0
+            && Rotation == 0 && ScaleU == 1 && ScaleV == 1;
+    }
 
     public static QuakeMapImportResult Import(string source, string? sidecarPath = null,
         string? roomName = null, float unitsPerPrimeUnit = DefaultUnits)
@@ -119,10 +124,9 @@ public static class QuakeMapInterchange
                 return;
             }
             string shader = faces[0].Shader;
-            foreach (Face face in faces)
-                if (!string.Equals(face.Shader, shader, StringComparison.OrdinalIgnoreCase))
-                    Error("FP-RADIANT-MATERIAL", face.Line,
-                        "Per-face Quake materials require a lossless material/UV importer.");
+            bool needsQuakeProjection = faces.Any(face =>
+                !string.Equals(face.Shader, shader, StringComparison.OrdinalIgnoreCase)
+                || !face.DefaultProjection);
             if (diagnostics.Any(d => d.Error)) return;
 
             MapGeometry geometry;
@@ -136,15 +140,72 @@ public static class QuakeMapInterchange
                 Error("FP-RADIANT-CONVEX", faces[0].Line, ex.Message);
                 return;
             }
-            if (!materials.TryGetValue(shader, out int material))
+            int Material(string shaderName)
             {
-                material = definition.Materials.Count;
-                materials.Add(shader, material);
-                definition.Materials.Add(new MapMaterial
+                if (!materials.TryGetValue(shaderName, out int slot))
                 {
-                    Id = GuidFrom("prime-material:" + shader),
-                    Name = shader, SourceMaterial = 2, TexScale = 16f
-                });
+                    slot = definition.Materials.Count;
+                    materials.Add(shaderName, slot);
+                    definition.Materials.Add(new MapMaterial
+                    {
+                        Id = GuidFrom("prime-material:" + shaderName.ToLowerInvariant()),
+                        Name = shaderName, SourceMaterial = 2, TexScale = 16f
+                    });
+                }
+                return slot;
+            }
+            int material = Material(shader);
+            if (needsQuakeProjection)
+            {
+                var projected = new MapQuakeFace?[faces.Count];
+                IReadOnlyList<BuiltFace>? boxFaces = null;
+                if (geometry is MapBox)
+                    boxFaces = GeometryCompiler.Compile(geometry, 16f);
+                for (int faceIndex = 0; faceIndex < faces.Count; faceIndex++)
+                {
+                    Face face = faces[faceIndex];
+                    int targetIndex = faceIndex;
+                    if (boxFaces != null)
+                    {
+                        Vector3 normal = Vector3.Normalize(Vector3.Cross(
+                            face.Points[1] - face.Points[0],
+                            face.Points[2] - face.Points[0]));
+                        Vector3 converted = new(normal.X, normal.Z, -normal.Y);
+                        targetIndex = -1;
+                        for (int i = 0; i < boxFaces.Count; i++)
+                        {
+                            var n = boxFaces[i].Normal;
+                            if (Vector3.Dot(converted, new Vector3(n.X, n.Y, n.Z)) > 0.9999f)
+                            {
+                                targetIndex = i;
+                                break;
+                            }
+                        }
+                        if (targetIndex < 0 || projected[targetIndex] != null)
+                        {
+                            Error("FP-RADIANT-MATERIAL", face.Line,
+                                "Cannot assign Quake shader projection to a unique box face.");
+                            return;
+                        }
+                    }
+                    projected[targetIndex] = new MapQuakeFace
+                    {
+                        Material = Material(face.Shader),
+                        ShiftU = face.ShiftU,
+                        ShiftV = face.ShiftV,
+                        Rotation = face.Rotation,
+                        ScaleU = face.ScaleU,
+                        ScaleV = face.ScaleV,
+                        UnitsPerPrimeUnit = unitsPerPrimeUnit
+                    };
+                }
+                if (projected.Any(q => q == null))
+                {
+                    Error("FP-RADIANT-MATERIAL", lineNo,
+                        "Incomplete authored per-face texture mapping.");
+                    return;
+                }
+                geometry.QuakeFaces = projected.Select(q => q!).ToList();
             }
             Guid id = brushId != Guid.Empty ? brushId
                 : GuidFrom("prime-brush:" + mapId + ":" + brushIndex + ":"
@@ -379,26 +440,39 @@ public static class QuakeMapInterchange
                 if (invalidCoordinate) continue;
                 string tail = line[(matches[2].Index + matches[2].Length)..].Trim();
                 string[] args = tail.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-                if (args.Length < 6 || args.Length > 9 || args[0].Contains(".."))
+                if (args.Length is not (6 or 9) || args[0].Contains("..")
+                    || args[0].Any(char.IsControl))
                 {
                     Error("FP-RADIANT-UV", lineNo, "Unsupported surface shader/UV syntax.");
                     continue;
                 }
-                bool uvDefault = args.Skip(1).Take(5)
-                    .Select(v => float.TryParse(v, NumberStyles.Float,
-                        CultureInfo.InvariantCulture, out float x) ? x : float.NaN)
-                    .SequenceEqual(new float[] { 0, 0, 0, 1, 1 });
-                bool flagsDefault = args.Skip(6).All(s => s == "0");
-                if (!uvDefault || !flagsDefault)
+                var tex = new float[5];
+                bool wellFormed = true;
+                for (int n = 0; n < 5; n++)
+                    if (!float.TryParse(args[n + 1], NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out tex[n])
+                        || !float.IsFinite(tex[n]))
+                        wellFormed = false;
+                bool flagsDefault = args.Length == 6
+                    || args.Skip(6).All(value => int.TryParse(value,
+                        NumberStyles.Integer, CultureInfo.InvariantCulture, out int v) && v == 0);
+                var verified = new MapQuakeFace
+                {
+                    ShiftU = tex[0], ShiftV = tex[1],
+                    Rotation = tex[2], ScaleU = tex[3], ScaleV = tex[4],
+                    UnitsPerPrimeUnit = unitsPerPrimeUnit
+                };
+                if (!wellFormed || !verified.Valid || !flagsDefault)
                 {
                     Error("FP-RADIANT-UV", lineNo,
-                        "Nondefault UV projection/surface flags cannot be represented losslessly yet.");
+                        "Quake face projection is malformed, over budget or has unsupported surface flags.");
                     continue;
                 }
                 if (faces.Count >= 32)
                     Error("FP-RADIANT-BRUSH", lineNo,
                         "Convex brush exceeds the 32-plane authoring limit.");
-                else faces.Add(new Face(points, args[0], lineNo));
+                else faces.Add(new Face(points, args[0], lineNo,
+                    tex[0], tex[1], tex[2], tex[3], tex[4]));
                 continue;
             }
             Error("FP-RADIANT-SYNTAX", lineNo,
