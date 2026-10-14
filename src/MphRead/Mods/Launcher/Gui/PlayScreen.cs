@@ -134,6 +134,8 @@ namespace MphRead.Mods.Launcher.Gui
         private ChoiceRow? _bots;
         private ChoiceRow? _skill;
         private ChoiceRow? _resume;
+        private (byte Source, byte Destination)? _pendingStoryCopy;
+        private byte _pendingStoryArchive;
         private DeckField? _name;
         private DeckField? _address;
 
@@ -441,6 +443,8 @@ namespace MphRead.Mods.Launcher.Gui
             // times by the time somebody has looked at each face five times.
             _list.SelectionChanged += (_, _) =>
             {
+                _pendingStoryCopy = null;
+                _pendingStoryArchive = 0;
                 RefreshPreview();
                 RefreshStory();
                 RefreshGoLabel();
@@ -917,6 +921,8 @@ namespace MphRead.Mods.Launcher.Gui
             _go.IsEnabled = true;
             _createLobby.IsVisible = Current == Face.Online;
             _options.Children.Clear();
+            _pendingStoryCopy = null;
+            _pendingStoryArchive = 0;
             ClearFaceExtras();
             _note.Text = "";
             _note.Foreground = GuiTheme.TextDimBrush;
@@ -1639,7 +1645,88 @@ namespace MphRead.Mods.Launcher.Gui
             // the only answer it has.
             _resume = new ChoiceRow("Start", new[] { "Continue", "New game" }, 0);
             _options.Children.Add(_resume);
+            // Campaign saves belong to the launcher, not to a paused live
+            // match. Copy and archive work on the existing StorySave JSON;
+            // neither operation changes the selected runtime save slot.
+            if (!_overGame)
+            {
+                var destination = new ChoiceRow("Copy into",
+                    new[] { "Slot 1", "Slot 2", "Slot 3" }, 1);
+                destination.Changed += (_, _) => _pendingStoryCopy = null;
+                _options.Children.Add(destination);
+
+                var copy = new UiWord("Copy selected save");
+                copy.Click += (_, _) => CopyStorySlot(destination);
+                _options.Children.Add(copy);
+
+                var archive = new UiWord("Archive selected save");
+                archive.Click += (_, _) => ArchiveStorySlot();
+                _options.Children.Add(archive);
+            }
             RefreshStory();
+        }
+
+        private void CopyStorySlot(ChoiceRow destination)
+        {
+            byte from = SelectedSlot();
+            byte to = byte.Parse(destination.Value.Substring(5), CultureInfo.InvariantCulture);
+            if (!AdventureSave.Read(from).Used)
+            {
+                _note.Text = "The source slot has no readable game to copy.";
+                return;
+            }
+            if (from == to)
+            {
+                _note.Text = "Choose a different destination slot.";
+                return;
+            }
+            if (AdventureSave.HasFile(to)
+                && (_pendingStoryCopy is not { } pending || pending.Source != from || pending.Destination != to))
+            {
+                _pendingStoryCopy = (from, to);
+                _pendingStoryArchive = 0;
+                _note.Text = $"Slot {to} already has a save. Select Copy again to archive it and replace it.";
+                return;
+            }
+            try
+            {
+                AdventureSave.Copy(from, to);
+                Rebuild();
+                _note.Text = $"Copied slot {from} to slot {to}. Previous destination preserved as a backup.";
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _pendingStoryCopy = null;
+                _note.Text = "Could not copy Adventure save: " + ex.Message;
+            }
+        }
+
+        private void ArchiveStorySlot()
+        {
+            byte slot = SelectedSlot();
+            if (!AdventureSave.HasFile(slot))
+            {
+                _note.Text = "This slot is already empty.";
+                return;
+            }
+            if (_pendingStoryArchive != slot)
+            {
+                _pendingStoryArchive = slot;
+                _pendingStoryCopy = null;
+                _note.Text = $"Select Archive again to move slot {slot} to a recoverable backup.";
+                return;
+            }
+            try
+            {
+                AdventureSave.Archive(slot);
+                Rebuild();
+                _note.Text = $"Slot {slot} archived. Its backup remains in Savedata.";
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _pendingStoryArchive = 0;
+                _note.Text = "Could not archive Adventure save: " + ex.Message;
+            }
         }
 
         private void RefreshStory()
@@ -1664,8 +1751,13 @@ namespace MphRead.Mods.Launcher.Gui
         private void StartAdventure()
         {
             byte slot = SelectedSlot();
-            bool used = AdventureSave.Read(slot).Used;
-            bool newGame = !used || _resume!.Value == "New game";
+            AdventureSave.SlotInfo info = AdventureSave.Read(slot);
+            if (info.Unreadable)
+            {
+                _note.Text = "This slot contains an unreadable save. Archive it before starting a new game.";
+                return;
+            }
+            bool newGame = !info.Used || _resume!.Value == "New game";
             var hunter = (Hunter)Enum.Parse(typeof(Hunter), _hunter!.Value);
             Finish(AdventureLaunch.Create(slot, newGame, hunter));
         }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace MphRead.Mods.Launcher
 {
@@ -48,6 +49,7 @@ namespace MphRead.Mods.Launcher
         {
             public byte Slot { get; init; }
             public bool Used { get; init; }
+            public bool Unreadable { get; init; }
             /// <summary>Where the game would resume, e.g. "Celestial Archives".</summary>
             public string Area { get; init; }
             public int Octoliths { get; init; }
@@ -59,7 +61,7 @@ namespace MphRead.Mods.Launcher
             {
                 if (!Used)
                 {
-                    return "Empty";
+                    return Unreadable ? "Unreadable save" : "Empty";
                 }
                 return $"{Area} — {Octoliths}/8 octoliths";
             }
@@ -70,7 +72,7 @@ namespace MphRead.Mods.Launcher
             StorySave? save = GameState.PeekSave(slot);
             if (save == null)
             {
-                return new SlotInfo { Slot = slot, Used = false, Area = "" };
+                return new SlotInfo { Slot = slot, Used = false, Unreadable = HasFile(slot), Area = "" };
             }
             return new SlotInfo
             {
@@ -91,6 +93,78 @@ namespace MphRead.Mods.Launcher
                 slots.Add(Read(slot));
             }
             return slots;
+        }
+
+        // Preserve the existing MphRead save location and JSON representation.
+        // SecondHunt uses a different campaign save envelope; never copy its
+        // serializer or convert a live Project Prime StorySave here.
+        private static string SlotPath(byte slot)
+        {
+            if (slot < 1 || slot > SlotCount)
+                throw new ArgumentOutOfRangeException(nameof(slot), $"Adventure save slots are 1-{SlotCount}.");
+            return Paths.Combine("Savedata", $"save{slot:000}.json");
+        }
+
+        /// <summary>Whether the slot has bytes, even if the JSON is unreadable.</summary>
+        public static bool HasFile(byte slot) => File.Exists(SlotPath(slot));
+
+        // Never clobber an earlier backup. Every archive remains recoverable
+        // even if the player copies or deletes the same slot repeatedly.
+        private static string NextBackup(string slotPath)
+        {
+            for (int index = 0; index < 1000; index++)
+            {
+                string candidate = index == 0 ? slotPath + ".bak"
+                    : slotPath + $".bak{index:000}";
+                if (!File.Exists(candidate) && !Directory.Exists(candidate))
+                    return candidate;
+            }
+            throw new IOException("Too many archived copies of this Adventure save.");
+        }
+
+        /// <summary>
+        /// Copy exact save bytes to another slot without touching the active
+        /// scene or selecting a different Menu.SaveSlot. An occupied destination
+        /// is preserved in an unused .bak archive before replacement. Call only
+        /// from a menu after the previous Adventure save has committed.
+        /// </summary>
+        public static void Copy(byte source, byte destination)
+        {
+            string from = SlotPath(source), to = SlotPath(destination);
+            if (source == destination)
+                throw new ArgumentException("Choose a different destination slot.", nameof(destination));
+            if (!File.Exists(from))
+                throw new FileNotFoundException("The source Adventure save does not exist.", from);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            string staging = to + ".copy-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                File.Copy(from, staging);
+                if (File.Exists(to))
+                    File.Copy(to, NextBackup(to));
+                // The staged file is in the same directory for an atomic
+                // replacement on supported local filesystems.
+                File.Move(staging, to, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(staging))
+                    File.Delete(staging);
+            }
+        }
+
+        /// <summary>
+        /// Archive an existing slot rather than permanently removing its
+        /// progress. Returns false when the slot is already empty.
+        /// </summary>
+        public static bool Archive(byte slot)
+        {
+            string path = SlotPath(slot);
+            if (!File.Exists(path))
+                return false;
+            File.Move(path, NextBackup(path));
+            return true;
         }
 
         private static string AreaName(StorySave save)
