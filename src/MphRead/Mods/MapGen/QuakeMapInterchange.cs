@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using MphRead.Entities;
 
 namespace MphRead.Mods.MapGen;
 
@@ -98,9 +99,8 @@ public static class QuakeMapInterchange
         var faces = new List<Face>();
         Guid brushId = Guid.Empty;
         int depth = 0;
-        int lineNo = 0, brushIndex = 0, spawnIndex = 0, worldspawnCount = 0;
-        var seenBrushIds = new HashSet<Guid>();
-        var seenSpawnIds = new HashSet<Guid>();
+        int lineNo = 0, brushIndex = 0, spawnIndex = 0, itemIndex = 0, worldspawnCount = 0;
+        var seenObjectIds = new HashSet<Guid>();
 
         void CloseBrush()
         {
@@ -145,7 +145,7 @@ public static class QuakeMapInterchange
                     + string.Join("|", faces.Select(f =>
                         string.Join(",", f.Points.SelectMany(p => new[] { p.X, p.Y, p.Z })
                             .Select(v => v.ToString("R", CultureInfo.InvariantCulture))))));
-            if (!seenBrushIds.Add(id))
+            if (!seenObjectIds.Add(id))
             {
                 Error("FP-RADIANT-ID", lineNo,
                     "Duplicate brush identity; map authoring IDs must be unique.");
@@ -205,7 +205,7 @@ public static class QuakeMapInterchange
                     }
                 }
                 else id = GuidFrom("prime-spawn:" + mapId + ":" + spawnIndex);
-                if (!seenSpawnIds.Add(id))
+                if (!seenObjectIds.Add(id))
                 {
                     Error("FP-RADIANT-ID", lineNo, "Duplicate spawn prime_id is not allowed.");
                     return;
@@ -220,6 +220,58 @@ public static class QuakeMapInterchange
                     }, Yaw = (90f + angle % 360f + 360f) % 360f
                 });
                 spawnIndex++;
+            }
+            else if (Q3Gameplay.MapPickupType(type) is ItemType pickupType
+                && pickupType != ItemType.None)
+            {
+                if (!Q3Gameplay.TryVector(entity.GetValueOrDefault("origin"), out var xyz))
+                {
+                    Error("FP-RADIANT-ITEM", lineNo, "Pickup requires finite Quake origin.");
+                    return;
+                }
+                foreach (string key in entity.Keys)
+                    if (key is not ("classname" or "origin" or "prime_id"
+                        or "prime_spawn_interval" or "prime_has_base"))
+                        Error("FP-RADIANT-ITEM", lineNo,
+                            "Unsupported pickup metadata: " + key);
+                Guid id;
+                if (entity.TryGetValue("prime_id", out var idText))
+                {
+                    if (!Guid.TryParse(idText, out id) || id == Guid.Empty)
+                    {
+                        Error("FP-RADIANT-ID", lineNo, "Pickup prime_id must be a nonempty GUID.");
+                        return;
+                    }
+                }
+                else id = GuidFrom("prime-item:" + mapId + ":" + itemIndex);
+                if (!seenObjectIds.Add(id))
+                {
+                    Error("FP-RADIANT-ID", lineNo,
+                        "Duplicate entity identity across brush, spawn or pickup.");
+                    return;
+                }
+                ushort interval = 300;
+                bool hasBase = true;
+                if (entity.TryGetValue("prime_spawn_interval", out var intervalText)
+                    && !ushort.TryParse(intervalText, NumberStyles.None,
+                        CultureInfo.InvariantCulture, out interval))
+                    Error("FP-RADIANT-ITEM", lineNo, "Invalid pickup respawn interval.");
+                if (entity.TryGetValue("prime_has_base", out var baseText)
+                    && !bool.TryParse(baseText, out hasBase))
+                    Error("FP-RADIANT-ITEM", lineNo, "Invalid pickup base flag.");
+                definition.Items.Add(new MapItem
+                {
+                    Id = id,
+                    Position = new[]
+                    {
+                        xyz[0] / unitsPerPrimeUnit, xyz[2] / unitsPerPrimeUnit,
+                        -xyz[1] / unitsPerPrimeUnit
+                    },
+                    Type = pickupType.ToString(),
+                    SpawnInterval = interval,
+                    HasBase = hasBase
+                });
+                itemIndex++;
             }
             else
                 Error("FP-RADIANT-ENTITY", lineNo,
@@ -356,7 +408,7 @@ public static class QuakeMapInterchange
             throw new InvalidDataException("Cannot export an identity-less map; assign a MapId first.");
         var errors = new List<QuakeMapDiagnostic>();
         if (map.Import != null || map.NativeRoom != null || map.Collision != null
-            || map.Brushes.Count > 0 || map.Items.Count > 0 || map.JumpPads.Count > 0
+            || map.Brushes.Count > 0 || map.JumpPads.Count > 0
             || map.Q3Triggers?.Count > 0 || map.NavigationLinks.Count > 0)
             errors.Add(new("FP-RADIANT-EXPORT", 0,
                 "Native imported, custom collision and advanced gameplay entities need a lossless exporter.",
@@ -396,6 +448,17 @@ public static class QuakeMapInterchange
             || s.Position.Length != 3 || !float.IsFinite(s.Yaw)))
             errors.Add(new("FP-RADIANT-EXPORT-SPAWN", 0,
                 "Only neutral fixed-location spawn entities can round-trip.", true));
+        if (map.Items.Any(item => item.Position.Length != 3
+            || item.Position.Any(v => !float.IsFinite(v))
+            || item.Id == Guid.Empty
+            || Q3Gameplay.CanonicalQuakePickup(item.Type) == null))
+            errors.Add(new("FP-RADIANT-EXPORT-ITEM", 0,
+                "Pickups require valid position, identity and a supported canonical Quake type.", true));
+        var ids = map.Geometry.Select(x => x.Id).Concat(map.Spawns.Select(x => x.Id))
+            .Concat(map.Items.Select(x => x.Id)).ToArray();
+        if (ids.Any(x => x == Guid.Empty) || ids.Distinct().Count() != ids.Length)
+            errors.Add(new("FP-RADIANT-EXPORT-ID", 0,
+                "Brush, spawn and pickup identities must be nonempty and unique.", true));
         if (errors.Count != 0) throw new QuakeMapInterchangeException(errors.ToArray());
 
         var sb = new StringBuilder();
@@ -484,6 +547,26 @@ public static class QuakeMapInterchange
             sb.AppendLine("\"prime_id\" \"" + spawn.Id + "\"");
             sb.AppendLine("}");
         }
+        // Store Prime-specific pickup timing and base behavior explicitly in
+        // source entity keys. Without these, exporting a modified project
+        // would silently substitute Quake's unrelated pickup defaults.
+        foreach (MapItem item in map.Items)
+        {
+            string type = Q3Gameplay.CanonicalQuakePickup(item.Type)!;
+            float x = item.Position[0] * unitsPerPrimeUnit;
+            float y = -item.Position[2] * unitsPerPrimeUnit;
+            float z = item.Position[1] * unitsPerPrimeUnit;
+            string Flo(float n) => n.ToString("G9", CultureInfo.InvariantCulture);
+            sb.AppendLine("{");
+            sb.AppendLine("\"classname\" \"" + type + "\"");
+            sb.AppendLine("\"origin\" \"" + Flo(x) + " " + Flo(y) + " " + Flo(z) + "\"");
+            sb.AppendLine("\"prime_id\" \"" + item.Id + "\"");
+            sb.AppendLine("\"prime_spawn_interval\" \""
+                + item.SpawnInterval.ToString(CultureInfo.InvariantCulture) + "\"");
+            sb.AppendLine("\"prime_has_base\" \"" + item.HasBase.ToString() + "\"");
+            sb.AppendLine("}");
+        }
+
         string full = Path.GetFullPath(output);
         if (!Path.GetExtension(full).Equals(".map", StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Quake source exports require a .map destination.");
