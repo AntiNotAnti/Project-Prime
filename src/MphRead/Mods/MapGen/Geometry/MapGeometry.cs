@@ -36,6 +36,13 @@ namespace MphRead.Mods.MapGen
         public float Shade { get; set; } = 1;
         public MapUv Uv { get; set; } = new();
         public Dictionary<int, MapUv> FaceUv { get; set; } = new();
+        /// <summary>
+        /// Optional exact Quake classic projection and per-face material for
+        /// editable boxes/convex solids. Null preserves all legacy geometry,
+        /// serialization and compiler behavior.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<MapQuakeFace>? QuakeFaces { get; set; }
         public bool Hidden { get; set; }
         public bool Locked { get; set; }
         public string Layer { get; set; } = "Architecture";
