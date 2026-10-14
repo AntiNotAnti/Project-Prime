@@ -22,10 +22,13 @@
   verified self-contained `.ppmap` through `MapBuildScheduler`, then queues
   a frozen verified archive in the persistent transfer manager. Package
   building and upload are asynchronous. The transient build file is deleted.
-- The game/player Community view and creator preview use one shared process
-  `CommunityTransferSession` receipt index and queue. Worker callbacks
-  never retain editor controls. Disposing the preview cancels only its
-  foreground operation; a queued upload continues independently.
+- The game/player Community view and creator preview share one
+  `CommunityTransferSession` queue inside each process. The queue now
+  coordinates across *different* running Game and pop-out Studio processes
+  through short durable index transactions and per-job lifetime leases.
+  Worker callbacks never retain editor controls. Disposing the preview
+  cancels only its foreground operation; a queued upload continues
+  independently or can be safely adopted after its owner exits.
 - A stale parent is **never** silently overridden. Conflict receipts enter
   **NeedsReview**. The preview shows a two-step explicit confirmation that
   preserves the original parent hash; Advanced Revisions remains available
@@ -53,6 +56,48 @@ until its actual Windows/Linux/macOS UI, owner permissions, revisions,
 transfer restart and screen navigation tests pass. Android continues to use
 the player-facing Community workspace, not the desktop creator editor.
 
+## Concurrent Game and pop-out Studio queue ownership
+
+The legacy `jobs-v1.json` index remains the authoritative durable receipt
+store. The index schema and identity meaning have not changed.
+
+- `transfer-leases/index-v1.lock` is an **OS cross-process exclusive
+  short transaction lock**. Each read/modify/write of `jobs-v1.json`
+  reloads current bytes and validates records before atomic replacement.
+  Network uploads/downloads never hold this global gate. Index lock timeouts
+  fail closed instead of writing stale snapshots.
+- `transfer-leases/<job-guid>.job.lock` is an **exclusive lifetime lease**,
+  acquired before an owner can schedule HTTP work and released only after
+  the worker has persisted completion, failure or cancellation. A second
+  process may observe and request controls, but cannot run that job twice.
+  Lock files remain in place rather than being unlinked while held.
+- A bounded 500ms metadata watcher refreshes other-process status and dispatches
+  UI events. Remote Pause/Cancel persists an atomic request and cancels the
+  owner worker. Resume is queued durably until the previous job lease releases.
+  During a true process crash, the operating system closes its lease; a
+  surviving process can then recover and adopt an abandoned active job.
+  Explicit user Paused/Cancelled receipts are **never** automatically adopted.
+- Shared download partials and content-addressed archives retain the already
+  existing SHA-256 and cross-process cache/lease protections. Workers do not
+  persist Hunter License tickets or bearer tokens.
+
+**Mixed-version limitation:** An *older* running Project Prime binary that
+does not honor `index-v1.lock` could still rewrite the same directory. Before
+activating the creator preview, update both Game and pop-out Studio processes
+to the coordinated build. Do not run a new preview alongside an older editor
+against the same `community-transfers` directory. This is a rollout
+compatibility gate, not a replay or package encoding change.
+
+**Automated evidence:** A content-free Linux loopback integration test starts
+actual separate `dotnet` Game/Studio processes over the same directory.
+[CI run #38641478774](https://github.com/AntiNotAnti/Project-Prime/actions/runs/38641478774)
+passed **47/47** transfer assertions: concurrent independent uploads,
+same-hash download deduplication, shared receipt readback, remote
+pause/resume/cancel, alive-owner lease protection, crashed-owner adoption,
+restart/partial recovery and exact SHA-256 identity. Windows/macOS/Linux
+matrix results on the final PR-14 head must be confirmed separately.
+In-game UI, remote service and hardware performance remain deferred.
+
 ## Source format and package compatibility
 
 - PR-13 supports a strict subset of classic Quake .map solids, convex brushes,
@@ -77,7 +122,8 @@ the player-facing Community workspace, not the desktop creator editor.
 | PR-13 direct source round trip | [Focused Actions 38620034073](https://github.com/AntiNotAnti/Project-Prime/actions/runs/38620034073) | **56 PASS** on historical exact head `1c00510f` |
 | PR-13 real asset-free .ppmap scheduler, readback, rollback | Same focused run | **12 PASS**, Linux fixture; exact source/package ID verified |
 | PR-13 full CI and desktop package matrix after hardening | [Actions 38621114155](https://github.com/AntiNotAnti/Project-Prime/actions/runs/38621114155) and build 38621114022 | Reported success on PR-13 head `7a2ea3d` (check full job evidence before release) |
-| PR-14 creator preview + optimistic revision upload | `tools/community-transfer-check`, new handoff fixture, normal build CI | **Pending exact-head PR-14 CI** |
+| PR-14 cross-process creator + Game transfer coordination | [Linux CI 38641478774](https://github.com/AntiNotAnti/Project-Prime/actions/runs/38641478774) and desktop matrix `community-creator-handoff.yml` | **47/47 Linux PASS** on commit `3d4907f8`; Windows/macOS and final-head matrix pending |
+| PR-14 creator preview + optimistic revision upload | `tools/community-transfer-check` and normal build | Frozen publication and shared transfer tests passed on Linux; complete exact-head build and manual GUI gates outstanding |
 | Windows/Linux/macOS creator preview actual interaction | Manual acceptance | **Deferred at user's request** |
 | Actual NetRadiant + q3map2 open/save/compile | Manual editor/compiler acceptance | **Deferred** |
 | In-game render/collision/audio/1v1/8-player maps | Manual device/game acceptance | **Deferred** |
@@ -95,6 +141,9 @@ Do not infer device or live-load performance from a desktop/headless compile.
       short-lived ticket refresh; no mutation of old immutable revisions
 - [ ] Freeze a modified editor document; queue publication; close/restart
       Studio; source mutation/removal must not change uploaded archive bytes
+- [ ] Both concurrently running Game and pop-out Studio use the coordinated
+      transfer build; verify remote Pause/Resume/Cancel and crash adoption on
+      Windows, Linux and macOS, including a rollback to the old dashboard
 - [ ] Player Game Community discovery/installed/favorites/downloads; 1v1,
       8-player FFA, host rotation across multiple Community maps, Ready and
       spectator/disconnect state
