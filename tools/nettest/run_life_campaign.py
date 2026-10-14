@@ -160,7 +160,7 @@ def png_receipt(path):
     return {'name': Path(path).name, 'width': width, 'height': height, 'bytes': len(data), 'sha256': sha(path), 'nonblack': nonblack}
 
 
-def shell_receipt(repository, images, text):
+def shell_receipt(repository, images, text, debug_text=''):
     source = (repository / 'src/MphRead/Mods/Launcher/Gui/Shell.cs').read_text()
     standard = source.split('private static Action<RenderWindow>[] StandardScript', 1)[1].split('private static Action<RenderWindow>[]? _lifecycleTail', 1)[0]
     expected = set(re.findall(r'Shot\(w,\s*"([^"]+)"', standard))
@@ -168,11 +168,16 @@ def shell_receipt(repository, images, text):
         raise ValueError('Current full standard shell script is missing rematch/rotation captures')
     for cycle in (1, 2):
         expected.update(f'lifecycle-{cycle}-{stage}' for stage in ('spectator', 'rejoin', 'forge', 'replay', 'replay-seek', 'return'))
-    markers = re.findall(r'\[shelllifecycle\] PASS cycle=(\d+) spectator/rejoin/Forge/replay/seek/return', text)
-    assets_ready = re.search(r'game files ready=true', text, re.IGNORECASE) is not None
-    failures = re.findall(r'\[shellshot\].*(?:nothing .*matched|found nothing to press|missing|could not be read|no game files|started nothing|failed|invalid:)', text, re.IGNORECASE)
-    if markers != ['1', '2'] or not assets_ready or failures:
-        raise ValueError(f'Incomplete full shell script: cycles={markers}, assetsReady={assets_ready}, failures={failures}')
+    pattern = r'\[shelllifecycle\] PASS cycle=(\d+) spectator/rejoin/Forge/replay/seek/return'
+    markers = re.findall(pattern, text)
+    debug_markers = re.findall(pattern, debug_text)
+    # DebugLog tees Console.Out into its own file. Validate the two streams
+    # independently rather than concatenating mirrors or deduplicating actual
+    # repeated execution into a false positive.
+    assets_ready = re.search(r'game files ready=true', text + '\n' + debug_text, re.IGNORECASE) is not None
+    failures = re.findall(r'\[shellshot\].*(?:nothing .*matched|found nothing to press|missing|could not be read|no game files|started nothing|failed|invalid:)', text + '\n' + debug_text, re.IGNORECASE)
+    if markers != ['1', '2'] or debug_text and debug_markers != markers or not assets_ready or failures:
+        raise ValueError(f'Incomplete full shell script: cycles={markers}, debugCycles={debug_markers}, assetsReady={assets_ready}, failures={failures}')
     captures = []
     for name in sorted(expected):
         image = images / (name + '.png')
@@ -183,7 +188,7 @@ def shell_receipt(repository, images, text):
             raise ValueError('capture backend/dimension identity mismatch: ' + name)
         capture['evidenceSha256'] = sha(evidence)
         captures.append(capture)
-    return {'assetsReady': assets_ready, 'completedCycles': markers, 'fullStandardScript': True,
+    return {'assetsReady': assets_ready, 'completedCycles': markers, 'debugCompletedCycles': debug_markers, 'fullStandardScript': True,
             'missingSteps': 0, 'expectedCaptures': len(expected), 'captures': captures}
 
 
@@ -325,11 +330,10 @@ def main():
                         raise ValueError('Asset fixture positive receipt or loaded DLL identity mismatch')
                 elif name == 'shell':
                     text = log_path.read_text()
-                    debug_logs = list(userdata.rglob(f'*-{record["pid"]}.log'))
-                    for debug_log in debug_logs:
-                        text += '\n' + debug_log.read_text(errors='replace')
+                    debug_logs = sorted(userdata.rglob(f'*-{record["pid"]}.log'))
+                    debug_text = '\n'.join(debug_log.read_text(errors='replace') for debug_log in debug_logs)
                     record['debugLogs'] = [{'name': path.name, 'sha256': sha(path)} for path in debug_logs]
-                    record['acceptance'] = shell_receipt(repository, output / 'shell-pictures', text)
+                    record['acceptance'] = shell_receipt(repository, output / 'shell-pictures', text, debug_text)
                 elif name == 'respawn':
                     record['acceptance'] = respawn_receipt(log_path.read_text())
         except Exception as error:
