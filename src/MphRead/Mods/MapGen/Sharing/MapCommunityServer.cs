@@ -1199,7 +1199,15 @@ public static class MapCommunityServer
                 Console.Error.WriteLine("[maphub] Request failed: " + ex.GetType().Name);
                 try { context.Response.StatusCode = 400; } catch { }
             }
-            finally { try { context.Response.Close(); } catch (ObjectDisposedException) { } }
+            finally
+            {
+                // Callers can abort half-written PUT bodies or close Range reads
+                // mid-stream. Closing their response must never fault the
+                // server's active-worker drain or leak an admission slot.
+                try { context.Response.Close(); }
+                catch (Exception ex) when (ex is ObjectDisposedException
+                    or IOException or HttpListenerException) { }
+            }
         }
     }
     private static void CleanupStaleUploads(string storage)
