@@ -1,5 +1,53 @@
 # Map Studio windows and community maps
 
+## Where Community lives (Community Hub 3.0 rollout)
+
+- **Game:** Select the top-level **Community** tab for Discover, Installed,
+  Favorites and Downloads. This does not require opening Map Studio. Existing
+  Create Lobby -> Map Rotation -> Source: Community remains available directly.
+- **Map Studio, default:** **Online -> Community maps** opens the established
+  creator dashboard with My Maps/revisions/rollback and publication. **Online
+  -> Host current map** stays separate; local playtesting never requires a
+  Community upload.
+- **Optional creator preview:** A QA build can set
+  `PROJECT_PRIME_STUDIO_COMMUNITY_HUB_PREVIEW=1` before launching Studio.
+  The Online -> Community maps command then opens a separate Creator Community
+  workspace with **My Uploads**, **Transfers** and **Publish**. It captures a
+  frozen current project and queues a self-contained verified `.ppmap` via
+  the shared durable transfer queue. Public, unlisted and private draft
+  publication are explicit actions; a newer server revision triggers review
+  rather than an automatic parent overwrite.
+- **Advanced revisions:** The preview's **Advanced Revisions** action opens
+  the established dashboard for rollback and visibility. Stale-parent upload
+  receipts remain in **Transfers → NeedsReview** until the creator explicitly
+  reviews the server history and confirms the older-parent publication. They
+  are never promoted automatically.
+  Transfers already queued continue after the preview or editor closes; the
+  underlying archive and MapId remain immutable.
+- **Concurrent Game + pop-out Studio:** Current coordinated builds share
+  `community-transfers/jobs-v1.json` safely across separate OS processes.
+  The transfer manager serializes index updates, holds a single active
+  lease per job, and preserves remote pause/resume and crash recovery.
+  Uploads already queued stay exact and immutable if an editor window closes.
+  **Both processes must use the coordinated release**; do not enable
+  the preview next to an older process that writes the same queue without
+  the cross-process lease protocol.
+- **Rollback / troubleshooting:** Unset the preview variable (or set it to
+  any value other than `1`) and restart Studio to restore the existing
+  creator dashboard. No reinstall, package re-encoding, protocol change or
+  Community service migration is required. If the service is offline, installed
+  local maps and saved source projects remain usable.
+- **NetRadiant:** The optional separately installed editor and compiler use
+  `PROJECT_PRIME_NETRADIANT_EXE` and `PROJECT_PRIME_Q3MAP2_EXE`. NetRadiant
+  is **not the default editor** in the current release/cutover candidate.
+  A real NetRadiant/q3map2/gameplay validation and license review are still
+  required before that can change.
+
+The creator preview is a staged PR-14 feature, not enabled by default.
+Full platform/gameplay/replay testing is deferred and must not be assumed.
+See [the cutover readiness and rollback plan](architecture/community-hub-pr14-cutover.md).
+
+
 Open Forge and choose **Pop out**. The current project is saved before a separate,
 maximized, resizable desktop editor starts. Editing in the original view is paused
 until the new process exits, then its saved project is reloaded. Closing the OS

@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Reflection;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -11,6 +13,71 @@ using MphRead.Mods.MapGen;
 
 // Asset-free local Community transfer contract. Does not install into a live
 // scene or claim to validate Android UI or a real remote-service throughput.
+//
+// The child mode is a REAL second dotnet process. It intentionally opens the
+// same durable manager directory to prove index fencing and per-job ownership,
+// not just two objects that happen to share one managed lock.
+if (args.Length == 6 && args[0] == "--crossprocess-stalled-owner")
+{
+    string directory=args[1], endpoint=args[2], package=args[3],
+        secret=args[4], receipt=args[5];
+    var credentials = new DelegateCommunityCredentialSource(
+        ct => Task.FromResult(secret), ct => Task.FromResult(secret));
+    await using var manager = new CommunityTransferManager(directory, credentials);
+    Guid id=await manager.EnqueueUploadAsync(endpoint,package,publish:null,
+        listed:true,draft:false);
+    File.WriteAllText(receipt,id.ToString("D"));
+    // Parent kills this process without a managed Dispose, deliberately
+    // simulating an editor crash in the middle of an HTTP upload.
+    await Task.Delay(Timeout.InfiniteTimeSpan);
+    return;
+}
+
+if (args.Length == 9 && args[0] == "--crossprocess-child")
+{
+    string directory = args[1], endpoint = args[2],
+        package = args[3], exactHash = args[4],
+        secret = args[5], rendezvous = args[6],
+        receipt = args[7], stage = args[8];
+    var credentials = new DelegateCommunityCredentialSource(
+        ct => Task.FromResult(secret), ct => Task.FromResult(secret));
+    await using var manager = new CommunityTransferManager(directory, credentials);
+    File.WriteAllText(rendezvous + ".ready", "ready");
+
+    static async Task WaitFlag(string name)
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+        while (!File.Exists(name))
+            await Task.Delay(40,deadline.Token);
+    }
+
+    await WaitFlag(rendezvous + ".upload");
+    Guid upload = await manager.EnqueueUploadAsync(
+        endpoint, package, publish: null, listed: true, draft: false);
+    File.WriteAllText(receipt + ".upload", upload.ToString("D"));
+    var uploaded = await manager.WaitAsync(upload);
+    if (uploaded.State != CommunityTransferState.Completed)
+        throw new InvalidDataException("Secondary-process upload did not complete: " + uploaded.State);
+    File.WriteAllText(receipt + ".upload-complete", uploaded.PackageHash);
+
+    await WaitFlag(rendezvous + ".download");
+    using (var client = new MapCommunityClient(endpoint,secret))
+    {
+        CommunityMap exact = await client.GetPackageAsync(exactHash,CancellationToken.None)
+            ?? throw new InvalidDataException("Missing published map for cross-process download.");
+        Guid id = manager.EnqueueDownload(endpoint,exact);
+        File.WriteAllText(receipt + ".download",id.ToString("D"));
+        var downloaded = await manager.WaitAsync(id);
+        if (downloaded.State != CommunityTransferState.Completed)
+            throw new InvalidDataException("Secondary-process download did not complete: " + downloaded.State);
+        File.WriteAllText(receipt + ".download-complete", downloaded.PackageHash);
+    }
+    File.WriteAllText(receipt + ".jobs",
+        string.Join(",",manager.ListJobs().Select(j => j.Id.ToString("D"))));
+    await WaitFlag(rendezvous + ".stop");
+    return;
+}
+
 string root = Path.Combine(Path.GetTempPath(),
     "prime-community-transfers-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
@@ -25,6 +92,14 @@ using var stop = new CancellationTokenSource();
 Task? service = null;
 try
 {
+    Check(!CommunityCutoverPolicy.Enabled(null)
+        && !CommunityCutoverPolicy.Enabled("")
+        && !CommunityCutoverPolicy.Enabled("true")
+        && !CommunityCutoverPolicy.Enabled("0")
+        && CommunityCutoverPolicy.Enabled("1")
+        && !CommunityCutoverPolicy.NetRadiantDefault,
+        "PR-14 creator hub requires deliberate opt-in and NetRadiant stays nondefault");
+
     string package = MapPackageBuilder.Build(
         MapTemplates.Create("COMMUNITY_TRANSFER_CHECK", true).Definition,
         Path.Combine(root, "source.ppmap"));
@@ -182,6 +257,320 @@ try
         Check(Directory.GetFiles(Path.Combine(jobsDir, "quarantine"),
             "*.corrupt").Length >= 1,
             "corrupted bytes are quarantined, never accepted as installed content");
+    }
+
+    // PR-14: publication from a frozen Studio intent shares the durable
+    // upload manager and never retains the changing editor document.
+    await using (var creatorTransfers = new CommunityTransferManager(
+        Path.Combine(root, "creator-intent-jobs"), credentials))
+    {
+        MapDefinition mutable = MapTemplates.Create("CREATOR_HANDOFF", true).Definition;
+        mutable.MapId = Guid.Parse("96f0d5ca-7255-45ec-a6b6-7c0e12fc327d");
+        mutable.Name = "CREATOR_HANDOFF";
+        CommunityStudioPublishIntent intent = CommunityStudioPublishIntent.Capture(mutable);
+        Guid frozenMapId = intent.MapId;
+        mutable.MapId = Guid.NewGuid();
+        mutable.Name = "MUTATED_AFTER_HANDOFF";
+        var operations = new CommunityMapOperations(endpoint, credentials);
+        CommunityStudioPublishReceipt receipt = await intent.QueueAsync(
+            endpoint, operations, creatorTransfers,
+            CommunityPublishVisibility.Draft, "First creator draft");
+        Check(receipt.MapId == frozenMapId && receipt.RuntimeName == "CREATOR_HANDOFF"
+            && !receipt.IsRevision && receipt.ExpectedParentHash == null
+            && receipt.Visibility == CommunityPublishVisibility.Draft,
+            "creator intent captures one immutable map identity and begins a new draft");
+        CommunityTransferJob creatorJob = await creatorTransfers.WaitAsync(receipt.JobId);
+        Check(creatorJob.State == CommunityTransferState.Completed
+            && creatorJob.PackageHash == receipt.PackageHash
+            && creatorJob.Publish == new CommunityPublishRequest(false, null,
+                "First creator draft", false),
+            "creator publish handoff reaches authenticated durable exact-hash queue");
+        CommunityMapProject[] mine = await operations.BrowseProjectsAsync(
+            mine: true, favorites: false, sort: "updated",
+            cancellation: CancellationToken.None);
+        Check(mine.Any(p => p.MapId == frozenMapId)
+            && mine.All(p => p.MapId != mutable.MapId),
+            "published creator-owned draft has captured MapId, not subsequent editor changes");
+
+        MapDefinition noId = MapProjectSerializer.Clone(mutable);
+        noId.MapId = Guid.Empty;
+        bool idRefused = false;
+        try { CommunityStudioPublishIntent.Capture(noId); }
+        catch (InvalidDataException) { idRefused = true; }
+        Check(idRefused, "creator publication refuses identity-less source projects");
+
+        var frozenAgain = CommunityStudioPublishIntent.Capture(mutable);
+        bool notesRefused = false;
+        try
+        {
+            await frozenAgain.QueueAsync(endpoint, operations, creatorTransfers,
+                CommunityPublishVisibility.Published, new string('x', 4001));
+        }
+        catch (ArgumentOutOfRangeException) { notesRefused = true; }
+        Check(notesRefused, "oversized creator release notes are rejected before network or package writes");
+    }
+
+    // Two real OS processes must share one index without overwriting each
+    // other's jobs, preserve exact package SHA, and deduplicate same-hash
+    // downloads while both windows remain open.
+    string multiRoot = Path.Combine(root,"multiprocess");
+    Directory.CreateDirectory(multiRoot);
+    string pkgA = MapPackageBuilder.Build(
+        MapTemplates.Create("CROSSPROCESS_A",true).Definition,
+        Path.Combine(root,"cross-a.ppmap"));
+    string pkgB = MapPackageBuilder.Build(
+        MapTemplates.Create("CROSSPROCESS_B",true).Definition,
+        Path.Combine(root,"cross-b.ppmap"));
+    string hashA = MapBuildFingerprint.HashFile(pkgA);
+    string hashB = MapBuildFingerprint.HashFile(pkgB);
+    string rendezvous = Path.Combine(root,"cross-sync");
+    string receipts = Path.Combine(root,"cross-child");
+    await using (var parentManager = new CommunityTransferManager(multiRoot,credentials))
+    {
+        var start = new ProcessStartInfo("dotnet")
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
+        foreach(string argument in new[]
+        {
+            "--crossprocess-child",multiRoot,endpoint,pkgB,hashA,
+            secret,rendezvous,receipts,"simultaneous"
+        }) start.ArgumentList.Add(argument);
+        using Process child = Process.Start(start)
+            ?? throw new InvalidDataException("Unable to start secondary Community transfer process.");
+        static async Task WaitFile(string path)
+        {
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+            while (!File.Exists(path))
+                await Task.Delay(50,deadline.Token);
+        }
+        try
+        {
+            await WaitFile(rendezvous+".ready");
+            File.WriteAllText(rendezvous+".upload","go");
+            Guid parentUpload = await parentManager.EnqueueUploadAsync(
+                endpoint,pkgA,publish:null,listed:true,draft:false);
+            await WaitFile(receipts+".upload");
+            Guid childUpload = Guid.Parse(File.ReadAllText(receipts+".upload").Trim());
+            Check(parentUpload != childUpload,
+                "parallel processes enqueue distinct immutable uploads into one shared index");
+            var parentCompleted = await parentManager.WaitAsync(parentUpload);
+            await WaitFile(receipts+".upload-complete");
+            Check(parentCompleted.State == CommunityTransferState.Completed
+                && parentCompleted.PackageHash == hashA
+                && File.ReadAllText(receipts+".upload-complete")==hashB,
+                "both processes upload their own frozen packages without lost receipts");
+            Check(parentManager.ListJobs().Any(j=>j.Id==childUpload
+                && j.State == CommunityTransferState.Completed),
+                "parent process observes child's completed upload in the same durable index");
+
+            using(var client = new MapCommunityClient(endpoint,secret))
+            {
+                CommunityMap same = await client.GetPackageAsync(hashA,CancellationToken.None)
+                    ?? throw new InvalidDataException("Missing exact map for concurrency fixture");
+                File.WriteAllText(rendezvous+".download","go");
+                Guid parentDownload = parentManager.EnqueueDownload(endpoint,same);
+                await WaitFile(receipts+".download");
+                Guid childDownload=Guid.Parse(File.ReadAllText(receipts+".download"));
+                Check(parentDownload == childDownload,
+                    "simultaneous Game and Studio processes deduplicate one exact download job");
+                Check((await parentManager.WaitAsync(parentDownload)).State
+                    == CommunityTransferState.Completed,
+                    "parent waits successfully even when other process owns the download lease");
+                await WaitFile(receipts+".download-complete");
+                Check(File.ReadAllText(receipts+".download-complete")==hashA,
+                    "secondary-process verified download retains source SHA-256 identity");
+            }
+            await WaitFile(receipts+".jobs");
+            Check(File.ReadAllText(receipts+".jobs")
+                .Contains(parentUpload.ToString("D"),StringComparison.OrdinalIgnoreCase),
+                "secondary process sees parent-owned jobs in shared durable history");
+            File.WriteAllText(rendezvous+".stop","stop");
+            using var stopped=new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            await child.WaitForExitAsync(stopped.Token);
+            Check(child.ExitCode == 0,
+                "pop-out process exits without holding persistent index or job leases");
+            await using var reopened = new CommunityTransferManager(multiRoot,credentials);
+            Check(reopened.GetJob(parentUpload).State == CommunityTransferState.Completed
+                && reopened.GetJob(childUpload).State == CommunityTransferState.Completed,
+                "both processes' upload receipts survive independent window exit");
+        }
+        finally
+        {
+            if (!child.HasExited)
+            {
+                child.Kill(entireProcessTree:true);
+                await child.WaitForExitAsync();
+            }
+            if (child.ExitCode != 0)
+            {
+                string output=await child.StandardOutput.ReadToEndAsync();
+                string errors=await child.StandardError.ReadToEndAsync();
+                Console.WriteLine("Secondary process diagnostics: "+output+" "+errors);
+            }
+        }
+    }
+
+    // A deliberately unresponsive loopback HTTP listener keeps a real upload
+    // in progress while a second process pauses/resumes or crashes. No external
+    // service, privileged IPC, sleeps-as-correctness or proprietary files.
+    using (var blackhole = new TcpListener(IPAddress.Loopback,0))
+    {
+        blackhole.Start();
+        string blockedEndpoint = "http://127.0.0.1:"
+            + ((IPEndPoint)blackhole.LocalEndpoint).Port + "/";
+        using var trapStop = new CancellationTokenSource();
+        var clients = new System.Collections.Generic.List<TcpClient>();
+        Task accept = Task.Run(async () =>
+        {
+            try
+            {
+                while(!trapStop.IsCancellationRequested)
+                {
+                    TcpClient connection =
+                        await blackhole.AcceptTcpClientAsync(trapStop.Token);
+                    lock(clients) clients.Add(connection);
+                    // Keep the HTTP request open; the worker must terminate
+                    // through its cancellation token rather than timeout.
+                }
+            }
+            catch(OperationCanceledException) when(trapStop.IsCancellationRequested) { }
+        });
+        static async Task Eventually(Func<bool> condition)
+        {
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            while(!condition()) await Task.Delay(50,deadline.Token);
+        }
+        static bool LocalOwner(CommunityTransferManager manager,Guid id)
+        {
+            var field=typeof(CommunityTransferManager).GetField(
+                "_running",System.Reflection.BindingFlags.NonPublic |
+                    System.Reflection.BindingFlags.Instance);
+            return field?.GetValue(manager) is System.Collections.IDictionary
+                owners && owners.Contains(id);
+        }
+        static Process SpawnBlockedOwner(string queue,string endpoint,
+            string package,string token,string receipt)
+        {
+            var start=new ProcessStartInfo("dotnet")
+            {
+                UseShellExecute=false,
+                RedirectStandardError=true
+            };
+            foreach(string arg in new[]{
+                Assembly.GetExecutingAssembly().Location,
+                "--crossprocess-stalled-owner",queue,endpoint,package,token,receipt
+            }) start.ArgumentList.Add(arg);
+            return Process.Start(start)
+                ?? throw new InvalidDataException("Cannot launch crashed-owner fixture.");
+        }
+        try
+        {
+            // The child owns the job BEFORE Game opens its transfer manager.
+            // Loading a second manager must not relabel this live Uploading
+            // record as Retryable, nor try to send a duplicate POST.
+            string pauseRoot=Path.Combine(root,"remote-pause");
+            string pauseReceipt=Path.Combine(root,"remote-pause-id");
+            using (Process child=SpawnBlockedOwner(
+                pauseRoot,blockedEndpoint,pkgA,secret,pauseReceipt))
+            {
+                try
+                {
+                    await Eventually(()=>File.Exists(pauseReceipt));
+                    Guid id=Guid.Parse(File.ReadAllText(pauseReceipt));
+                    await using var peer=new CommunityTransferManager(
+                        pauseRoot,credentials);
+                    await Eventually(()=>peer.GetJob(id).State ==
+                        CommunityTransferState.Uploading);
+                    Check(!LocalOwner(peer,id),
+                        "joining Game process respects still-live Studio upload ownership");
+                    peer.Pause(id);
+                    await Eventually(()=>peer.GetJob(id).State ==
+                        CommunityTransferState.Paused);
+                    Check(peer.GetJob(id).State==CommunityTransferState.Paused,
+                        "remote Game pause persists atomically into Studio-owned job state");
+                    // The secondary worker observes the pause within 500ms and
+                    // releases its exclusive lifetime lease before resuming.
+                    await Eventually(()=>
+                    {
+                        try
+                        {
+                            using var lease=new FileStream(Path.Combine(
+                                pauseRoot,"transfer-leases",id.ToString("N")+".job.lock"),
+                                FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None,1);
+                            return true;
+                        }
+                        catch(IOException){return false;}
+                    });
+                    peer.Resume(id);
+                    await Eventually(()=>peer.GetJob(id).State ==
+                        CommunityTransferState.Uploading);
+                    Check(peer.GetJob(id).State == CommunityTransferState.Uploading,
+                        "remote resume claims one new job owner without losing immutable source");
+                    peer.Cancel(id);
+                    await Eventually(()=>peer.GetJob(id).State ==
+                        CommunityTransferState.Cancelled);
+                    Check(peer.GetJob(id).State == CommunityTransferState.Cancelled,
+                        "remote cancellation remains terminal and cannot publish stale bytes");
+                }
+                finally
+                {
+                    if(!child.HasExited)
+                    {
+                        child.Kill(entireProcessTree:true);
+                        await child.WaitForExitAsync();
+                    }
+                }
+            }
+
+            // A true process death must release its OS job lease. An already
+            // running sibling automatically observes and safely adopts that
+            // orphan; manually paused/cancelled jobs are never adopted.
+            string crashRoot=Path.Combine(root,"crashed-owner");
+            string crashReceipt=Path.Combine(root,"crashed-owner-id");
+            using(Process child=SpawnBlockedOwner(
+                crashRoot,blockedEndpoint,pkgB,secret,crashReceipt))
+            {
+                try
+                {
+                    await Eventually(()=>File.Exists(crashReceipt));
+                    Guid id=Guid.Parse(File.ReadAllText(crashReceipt));
+                    await using var peer=new CommunityTransferManager(
+                        crashRoot,credentials);
+                    await Eventually(()=>peer.GetJob(id).State ==
+                        CommunityTransferState.Uploading);
+                    Check(!LocalOwner(peer,id),
+                        "active sibling process does not steal an owned Studio job");
+                    child.Kill(entireProcessTree:true);
+                    await child.WaitForExitAsync();
+                    await Eventually(()=>LocalOwner(peer,id));
+                    Check(LocalOwner(peer,id),
+                        "live Game process adopts abandoned transfer only after OS lease release");
+                    peer.Cancel(id);
+                    Check((await peer.WaitAsync(id)).State ==
+                        CommunityTransferState.Cancelled,
+                        "adopted crash recovery cancels cleanly without rewriting exact package identity");
+                }
+                finally
+                {
+                    if(!child.HasExited)
+                    {
+                        child.Kill(entireProcessTree:true);
+                        await child.WaitForExitAsync();
+                    }
+                }
+            }
+        }
+        finally
+        {
+            trapStop.Cancel();
+            blackhole.Stop();
+            lock(clients) foreach(var connection in clients) connection.Dispose();
+            try {await accept;} catch(ObjectDisposedException) {}
+        }
     }
 
     // Auth is not persisted: reopening without credentials cannot create new
