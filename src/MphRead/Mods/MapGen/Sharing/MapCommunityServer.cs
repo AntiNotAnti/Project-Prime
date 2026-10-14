@@ -945,13 +945,16 @@ public static class MapCommunityServer
                             : query["sort"] is "new" or "updated"
                                 ? projects.OrderByDescending(p=>p.UpdatedAt)
                                 : projects.OrderBy(p=>p.DisplayName??p.Name);
+                        CommunityMapProject[] allItems = projects.ToArray();
+                        context.Response.Headers["X-Total-Count"] = allItems.Length.ToString(
+                            System.Globalization.CultureInfo.InvariantCulture);
                         if(query["page"]!=null||query["pageSize"]!=null)
                         {
                             int page=int.TryParse(query["page"],out int p)?Math.Clamp(p,1,2000):1;
                             int size=int.TryParse(query["pageSize"],out int n)?Math.Clamp(n,1,100):24;
-                            projects=projects.Skip((page-1)*size).Take(size);
+                            allItems=allItems.Skip((page-1)*size).Take(size).ToArray();
                         }
-                        CommunityMapProject[] pageItems = projects.ToArray();
+                        CommunityMapProject[] pageItems = allItems;
                         await CatalogJson(context, pageItems, deadline.Token,
                             privateResult: creator != null);
                         return;
@@ -1027,13 +1030,16 @@ public static class MapCommunityServer
                     if (query["mode"] is { } mode) found = found.Where(m => m.SupportedModes.Length == 0 || m.SupportedModes.Contains(mode, StringComparer.OrdinalIgnoreCase));
                     if (query["author"] is { } author) found = found.Where(m => string.Equals(m.Author, author, StringComparison.OrdinalIgnoreCase));
                     found = query["sort"]=="favorites" ? found.OrderByDescending(m=>m.FavoriteCount).ThenBy(m=>m.Name) : query["sort"] is "new" or "updated" ? found.OrderByDescending(m => m.PublishedAt) : found.OrderBy(m => m.DisplayName ?? m.Name);
+                    CommunityMap[] allFound = found.ToArray();
+                    context.Response.Headers["X-Total-Count"] = allFound.Length.ToString(
+                        System.Globalization.CultureInfo.InvariantCulture);
                     if (query["page"] != null || query["pageSize"] != null)
                     {
                         int page = int.TryParse(query["page"], out int p) ? Math.Clamp(p, 1, 2000) : 1;
                         int size = int.TryParse(query["pageSize"], out int n) ? Math.Clamp(n, 1, 100) : 24;
-                        found = found.Skip((page - 1) * size).Take(size);
+                        allFound = allFound.Skip((page - 1) * size).Take(size).ToArray();
                     }
-                    await CatalogJson(context, found.ToArray(), deadline.Token,
+                    await CatalogJson(context, allFound, deadline.Token,
                         privateResult: creator != null);
                 }
                 else if ((route.StartsWith(root + "/maps/", StringComparison.Ordinal) || route.StartsWith(root + "/packages/", StringComparison.Ordinal)) && context.Request.HttpMethod == "GET")
