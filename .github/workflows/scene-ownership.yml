@@ -27,3 +27,5 @@ jobs:
         run: dotnet build tools/nettest/nettest.csproj -c Release
       - name: Observe eligible owner release without devices or assets
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --scene-lifetime
+      - name: Verify post-match save bytes, fencing and retries
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --post-match-save
