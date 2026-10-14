@@ -665,6 +665,8 @@ namespace MphRead.Mods.Launcher.Gui
             if (commit != null) MatchStart.AfterMatch(commit);
             else MatchStart.AfterMatch();
             ShowFrontScreen();
+            if (_played?.Kind == LaunchKind.Adventure && MatchStart.RecentShipDock != null)
+                _front?.OpenCampaignShip();
             if (_played?.Kind == LaunchKind.AimTrainer) _front?.OpenTraining(_focusTrainingOnReturn);
             _focusTrainingOnReturn = false;
             if (commit != null) ForegroundSceneBinding.TryRelease(commit);
