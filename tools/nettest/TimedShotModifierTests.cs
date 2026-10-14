@@ -95,10 +95,11 @@ internal static class TimedShotModifierTests
             => Check(NetSession.AcceptSlotIntent(slot, packet), "actual lifecycle/event carrier intake");
         internal void Step(bool down = false)
         {
-            Frame(unchecked(NetSession.NetFrame + 1));
-            Submit(0, Packet(0, NetSession.NetFrame, down)); Submit(1, Packet(1, NetSession.NetFrame));
+            uint expectedFrame = unchecked(NetSession.NetFrame + 1);
+            Submit(0, Packet(0, expectedFrame, down)); Submit(1, Packet(1, expectedFrame));
             long before = _sim.StepFailures; _sim.Step();
-            Check(_sim.StepFailures == before && Owner.ModIsInPlay && Victim.ModIsInPlay,
+            Check(_sim.StepFailures == before && NetSession.NetFrame == expectedFrame
+                && Owner.ModIsInPlay && Victim.ModIsInPlay,
                 "complete native step retains both live bodies without simulation failure");
         }
         internal TimedGrantRecord NativeGrant()
@@ -109,6 +110,7 @@ internal static class TimedShotModifierTests
             Step();
             var ledger = NetPowerUpLedger.Ledger!;
             var grant = ledger.History.Single(g => g.Spawn == spawn);
+            Console.WriteLine("NATIVE GRANT DIAGNOSTIC " + JsonSerializer.Serialize(new { item.DespawnTimer, Owner.DoubleDamage, lifeMatches = grant.Life == ShotKey.For(0, 0), grant.ContactFrame, grant.SourceContactFrame, authorityFrame = NetSession.NetFrame, actualCarrierFrame = NetSession.RemoteIntents[0].Frame }));
             Check(item.DespawnTimer == 0 && Owner.DoubleDamage && grant.Life == ShotKey.For(0, 0)
                 && grant.ContactFrame == NetSession.NetFrame && grant.SourceContactFrame == NetSession.NetFrame,
                 "complete native item contact produces genuine source/authority reservation");
