@@ -231,7 +231,7 @@ try
                 using var request = await http.GetAsync("v2/metrics");
                 using var doc = JsonDocument.Parse(await request.Content.ReadAsStringAsync());
                 saturated = doc.RootElement.GetProperty("admission")
-                    .GetProperty("transfers").GetProperty("active").GetInt32() == 3;
+                    .GetProperty("uploads").GetProperty("active").GetInt32() == 3;
                 if (!saturated) await Task.Delay(50);
             }
             Check(saturated, "three deliberately stalled upload bodies occupy only the transfer lane");
@@ -245,11 +245,20 @@ try
             Check(stopwatch.Elapsed < TimeSpan.FromSeconds(5),
                 "metadata responses are not serialized behind long file transfers");
 
-            using var busy = await http.GetAsync("packages/" +
-                MapBuildFingerprint.HashFile(Path.Combine(root, "source.ppmap")));
+            // Player join/package downloads have their own four-slot lane
+            // and must not be rejected because creator uploads are stalled.
+            using (var playerDownload = await http.GetAsync("packages/" +
+                MapBuildFingerprint.HashFile(Path.Combine(root, "source.ppmap"))))
+                Check(playerDownload.IsSuccessStatusCode,
+                    "lobby package download remains available during saturated uploads");
+
+            using var fourthUpload = new HttpRequestMessage(HttpMethod.Put,
+                "uploads/" + new string('g', 64) + "?offset=0")
+            { Content = new ByteArrayContent(new byte[] { 7 }) };
+            using var busy = await http.SendAsync(fourthUpload);
             Check(busy.StatusCode == HttpStatusCode.ServiceUnavailable
                 && busy.Headers.RetryAfter != null,
-                "a fourth transfer is rejected promptly with Retry-After instead of queue growth");
+                "fourth upload is refused promptly without queueing or starving downloads");
         }
         finally
         {
