@@ -1221,7 +1221,7 @@ namespace MphRead.Mods.MapGen
                 {
                     continue;
                 }
-                ItemType type = MapItemType(classname);
+                ItemType type = Q3Gameplay.MapPickupType(classname);
                 if (type == ItemType.None)
                 {
                     continue;
@@ -1244,36 +1244,6 @@ namespace MphRead.Mods.MapGen
         /// took it better for the rest of the session. They map to the largest
         /// thing that runs out instead. See MapBuilder.MultiplayerItems.
         /// </summary>
-        private static ItemType MapItemType(string classname)
-        {
-            return classname.ToLowerInvariant() switch
-            {
-                "weapon_railgun" => ItemType.Imperialist,
-                "weapon_rocketlauncher" => ItemType.Magmaul,
-                "weapon_lightning" => ItemType.ShockCoil,
-                "weapon_plasmagun" => ItemType.VoltDriver,
-                "weapon_shotgun" => ItemType.Battlehammer,
-                "weapon_grenadelauncher" => ItemType.Judicator,
-                "weapon_bfg" => ItemType.OmegaCannon,
-                "item_quad" => ItemType.DoubleDamage,
-                "item_invis" => ItemType.Cloak,
-                "item_health" => ItemType.HealthMedium,
-                "item_health_small" => ItemType.HealthSmall,
-                "item_health_large" => ItemType.HealthBig,
-                "item_health_mega" => ItemType.HealthBig,
-                "item_armor_shard" => ItemType.UASmall,
-                "item_armor_combat" => ItemType.UABig,
-                "item_armor_body" => ItemType.UABig,
-                "ammo_rockets" => ItemType.MissileBig,
-                "ammo_slugs" => ItemType.UABig,
-                "ammo_cells" => ItemType.UASmall,
-                "ammo_shells" => ItemType.UASmall,
-                "ammo_bullets" => ItemType.UASmall,
-                "ammo_grenades" => ItemType.MissileSmall,
-                "ammo_lightning" => ItemType.UASmall,
-                _ => ItemType.None
-            };
-        }
 
         private static float[] ParseVector(string value)
         {
