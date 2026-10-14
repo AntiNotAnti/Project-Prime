@@ -1,0 +1,19 @@
+The command could not be loaded, possibly because:
+  * You intended to execute a .NET application:
+      The application 'build' does not exist or is not a managed .dll or .exe.
+  * You intended to execute a .NET SDK command:
+      A compatible .NET SDK was not found.
+
+Requested SDK version: 10.0.401
+global.json file: ${WORKSPACE}/work/prime-life-grant-tour/global.json
+
+Installed SDKs:
+No .NET SDKs were found.
+
+Install the [10.0.401] .NET SDK or update [${WORKSPACE}/work/prime-life-grant-tour/global.json] to match an installed SDK.
+
+Download a .NET SDK:
+https://aka.ms/dotnet/download
+
+Learn about SDK resolution:
+https://aka.ms/dotnet/sdk-not-found

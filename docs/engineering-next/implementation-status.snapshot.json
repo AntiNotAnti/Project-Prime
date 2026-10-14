@@ -1,7 +1,7 @@
 {
-  "snapshotUTC": "2026-10-14T09:17:22.601974+00:00",
-  "integrationSource": "b58377ab2ad6b678c6690f3687b69d68683ab8b5",
-  "integrationQualification": "PENDING_NEW_SOURCE_BUILD_AND_RUNS",
+  "snapshotUTC": "2026-10-14T11:15:22.500239+00:00",
+  "integrationSource": "09ada0ab153dd4c15f4ea3b55473772c64f75663",
+  "integrationQualification": "SCOPED_BUILD_PURE_UI_AND_INDEPENDENT_NATIVE_PASS; ORIGINAL_IMPERIALIST_TOUR_FAILURES_RETAINED; FULL_NOT_ACCEPTED",
   "planFile": "implementation-plan.md",
   "originalAttachmentName": "Project_Prime_Next_Engineering_Implementation_Plan (1).md",
   "originalSHA256": "d242d939a3163cb494a8e9564be4523b3fb7eef4fc3b40d5f9e6ff13c565c279",
@@ -115,7 +115,7 @@
       ],
       "status": "Archival prerequisite scoped PASS; full NOT_ACCEPTED",
       "sourceDocument": "../netcode21-net04-replay-timed-facts.md",
-      "scope": "Opt-in detached facts/checkpoint/private continuation; positive smoke lacks independent per-component/payment joins and long impaired coverage."
+      "scope": "Source09 archival118 and normal file consumers PASS; original tour/Imperialist failures and distinct room/charge diagnostics retained. Long canaries and independent component/payment full acceptance pending."
     },
     {
       "slice": "LIFE-01",
@@ -151,7 +151,7 @@
       ],
       "status": "Constructed and headless asset-backed 610-world scope PASS; full native/UI campaign NOT_ACCEPTED",
       "sourceDocument": "../audits/engineering-consolidation/lifecycle-controlled-soak.md",
-      "scope": "Actual 38ae 10/100/500 loaded worlds: 36,600 sequential steps and 610 saves; three simultaneous worlds per arm, weak observations 0/0. Current native GL/audio/UI and new NET semantics remain NOT_RUN."
+      "scope": "Headless 38ae 610-world scope, native 88 resource/export/audio and source09 UI43 are separate measured identities. Full loaded exit/callback/platform acceptance remains incomplete."
     }
   ],
   "programAcceptance": "NOT_ACCEPTED",
@@ -190,5 +190,34 @@
     "package": "../evidence/life-campaign-2026-10-14/README.md",
     "nativeGlAudio": "NOT_RUN",
     "lobbyReconnectUiMedia": "NOT_RUN"
+  },
+  "historicalInitialIntegrationSource": "b58377ab2ad6b678c6690f3687b69d68683ab8b5",
+  "historicalInitialIntegrationQualification": "PENDING_NEW_SOURCE_BUILD_AND_RUNS",
+  "currentEvidencePackagingParent": "d345ae86b444edb4de671d151ed8860776107d6b",
+  "currentSource09Evidence": {
+    "clientSHA256": "323380522fb48d8d6903709f27f5f95ca8995aa26d625e1fa3bdfff0ef603647",
+    "clientMVID": "d6f53ab0-c704-4d18-8665-e83509063a09",
+    "baselineRoutes": 15,
+    "extraRoutes": 20,
+    "relevantPython": 123,
+    "fullNettestPython": 537,
+    "pythonSkipped": 1,
+    "glComparatorPython": 11,
+    "uiCaptures": 43,
+    "uiCycles": 2,
+    "commonApplierAssertions": 450,
+    "fullAcceptance": "NOT_ACCEPTED",
+    "remaining": "Tour repair and final source qualification; independent live join/long campaigns; unsupported family/impact/effect/platform gates.",
+    "package": "../evidence/integration-09-2026-10-14/README.md",
+    "hostedCIObservedOnly": {
+      "success": 29,
+      "inProgress": 3,
+      "source": "09ada0ab153dd4c15f4ea3b55473772c64f75663"
+    }
+  },
+  "historicalNative88Evidence": {
+    "source": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "package": "../evidence/life-native-2026-10-14/README.md",
+    "scope": "Four resource arms, replica/export/music and separate respawn PASS; original packaging/UI failures retained."
   }
 }

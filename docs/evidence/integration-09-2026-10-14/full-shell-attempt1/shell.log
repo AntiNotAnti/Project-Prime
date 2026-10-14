@@ -1,0 +1,204 @@
+COMPACT_LOADED_IDENTITY ProjectPrime location=${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/ProjectPrime.dll mvid=d6f53ab0-c704-4d18-8665-e83509063a09
+[debug] standard error is being written to ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/user-data/logs/ProjectPrime-20261014-052343-50693-native.txt
+Project Prime a local build
+OS: macOS 27.0.0
+OS architecture: Arm64
+Process architecture: Arm64
+RID: osx-arm64
+Runtime: .NET 10.0.12
+Base directory: ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/
+Launch directory: ${WORKSPACE}/work/prime-plan-integration
+Current directory: ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/user-data
+User data: ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/user-data
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/libopenal.1.dylib
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/libglfw.3.dylib
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/libSkiaSharp.dylib
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/libAvaloniaNative.dylib
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/libminiaudio.dylib
+[input] gamepad mappings: 2275 from ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/gamecontrollerdb.txt
+[shelllifecycle] replay format=6 protocol=56 frames=5690
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[shellshot] shell-startup: pixels=(2560, 1536) scene=no match scale=1.719 drawn=1.719 raster=1760x1056 (0.688 of the window) screen=1024x615
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-startup.png
+[shellshot] shell-startup-transition: pixels=(2560, 1536) scene=no match scale=1.719 drawn=1.719 raster=1760x1056 (0.688 of the window) screen=1024x615
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-startup-transition.png
+[shellshot] shell-start: pixels=(2560, 1536) scene=no match scale=1.719 drawn=1.719 raster=1760x1056 (0.688 of the window) screen=1024x615
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-start.png
+[shellshot] shell-escape: pixels=(2560, 1536) scene=no match scale=1.719 drawn=1.719 raster=1760x1056 (0.688 of the window) screen=1024x615
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-escape.png
+[shellshot] shell-hover: pixels=(2560, 1536) scene=no match scale=1.719 drawn=1.719 raster=1760x1056 (0.688 of the window) screen=1024x615
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-hover.png
+[shellshot] shell-click: pixels=(2560, 1536) scene=no match scale=1.719 drawn=1.719 raster=1760x1056 (0.688 of the window) screen=1024x615
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-click.png
+[shellshot] shell-resized: pixels=(2000, 1240) scene=no match scale=1.625 drawn=1.625 raster=1625x1008 (0.813 of the window) screen=1000x621
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-resized.png
+[shellshot] shell-maximized: pixels=(3024, 1646) scene=no match scale=1.641 drawn=1.641 raster=1890x1029 (0.625 of the window) screen=1152x628
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-maximized.png
+[shellshot] Fullscreen covers the monitor with the expected focus policy: (1920, 1200)
+[shellshot] shell-fullscreen: pixels=(1920, 1200) scene=no match scale=1.75 drawn=1.75 raster=1680x1050 (0.875 of the window) screen=960x600
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-fullscreen.png
+[shellshot] shell-fullscreen-click: pixels=(1920, 1200) scene=no match scale=1.75 drawn=1.75 raster=1680x1050 (0.875 of the window) screen=960x600
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-fullscreen-click.png
+[shellshot] shell-windowed: pixels=(2048, 1440) scene=no match scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-windowed.png
+[shellshot] BorderlessFullscreen covers the monitor with the expected focus policy: (1512, 982)
+[shellshot] shell-borderless: pixels=(3024, 1964) scene=no match scale=1.563 drawn=1.563 raster=1512x982 (0.5 of the window) screen=968x629
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-borderless.png
+[shellshot] Fullscreen covers the monitor with the expected focus policy: (1920, 1200)
+[shellshot] shell-launcher-fullscreen: pixels=(1920, 1200) scene=no match scale=1.75 drawn=1.75 raster=1680x1050 (0.875 of the window) screen=960x600
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-launcher-fullscreen.png
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.447
+[world-shaders] variant=plain elapsedMs=5.380
+[world-shaders] variant=plain-unlit elapsedMs=5.075
+[shellshot] shell-play: pixels=(2048, 1440) scene=no match scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-play.png
+[shellshot] shell-server-side: pixels=(2048, 1440) scene=no match scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-server-side.png
+[shellshot] shell-create-lobby: pixels=(2048, 1440) scene=no match scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-create-lobby.png
+[shellshot] create lobby preview ownership PASS wanted=False drawn=False owner=active-modal
+[shellshot] shell-create-lobby-closed: pixels=(2048, 1440) scene=no match scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-create-lobby-closed.png
+[shellshot] shell-play-offline: pixels=(2048, 1440) scene=no match scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-play-offline.png
+[shellshot] shell-play-selected: pixels=(2048, 1440) scene=no match scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-play-selected.png
+[prewarm] AD1 TRANSFER LOCK BT: 6 files, 0.5 MiB in 0.03s
+[prewarm] SFX decoded in 0.24s
+[load] SFX device ready in 0.23s
+[glcapabilities] version=2.1 Metal - 91.7; vao=False; appleVao=True; desktopVaoApi=Apple; timer=False; disjointTimer=False; sync=True; ubo=False; storage=False; optimizations=capability-and-policy; forceLegacy=False
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.477
+[world-shaders] variant=plain elapsedMs=5.159
+[world-shaders] variant=plain-unlit elapsedMs=4.898
+[launcher] loaded AD1 TRANSFER LOCK BT in 0.66s (joined prewarm)
+[shellshot] shell-match: pixels=(2048, 1440) scene=(2048, 1440) scale=1.594 drawn=none raster=1536x1080 (0.75 of the window) screen=none
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-match.png
+[shellshot] shell-pause-maximized: pixels=(3024, 1646) scene=(3024, 1646) scale=1.641 drawn=1.641 raster=1890x1029 (0.625 of the window) screen=1152x628
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-pause-maximized.png
+[shellshot] shell-match-fullscreen: pixels=(1920, 1200) scene=(1920, 1200) scale=1.75 drawn=none raster=1680x1050 (0.875 of the window) screen=none
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-match-fullscreen.png
+[shellshot] shell-pause-fullscreen: pixels=(1920, 1200) scene=(1920, 1200) scale=1.75 drawn=1.75 raster=1680x1050 (0.875 of the window) screen=960x600
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-pause-fullscreen.png
+[shellshot] shell-pause: pixels=(2048, 1440) scene=(2048, 1440) scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-pause.png
+[shellshot] shell-settings-ingame: pixels=(2048, 1440) scene=(2048, 1440) scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-settings-ingame.png
+[shellshot] shell-endgame: pixels=(1920, 1200) scene=(1920, 1200) scale=1.75 drawn=1.75 raster=1680x1050 (0.875 of the window) screen=960x600
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-endgame.png
+[shellshot] shell-endgame-hunter: pixels=(1920, 1200) scene=(1920, 1200) scale=1.75 drawn=1.75 raster=1680x1050 (0.875 of the window) screen=960x600
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-endgame-hunter.png
+[prewarm] AD1 TRANSFER LOCK BT: 6 files, 0.5 MiB in 0.02s
+[prewarm] SFX decoded in 0.19s
+[load] SFX device ready in 0.00s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.710
+[world-shaders] variant=plain elapsedMs=4.519
+[world-shaders] variant=plain-unlit elapsedMs=4.308
+[launcher] loaded AD1 TRANSFER LOCK BT in 0.33s (joined prewarm)
+[shellshot] bot rematch loaded AD1 TRANSFER LOCK BT
+[shellshot] shell-bot-rematch: pixels=(1920, 1200) scene=(1920, 1200) scale=1.75 drawn=none raster=1680x1050 (0.875 of the window) screen=none
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-bot-rematch.png
+[prewarm] AD1 TRANSFER LOCK DM: 6 files, 0.3 MiB in 0.01s
+[prewarm] SFX decoded in 0.25s
+[load] SFX device ready in 0.08s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.711
+[world-shaders] variant=plain elapsedMs=4.471
+[world-shaders] variant=plain-unlit elapsedMs=4.350
+[launcher] loaded AD1 TRANSFER LOCK DM in 0.32s (joined prewarm)
+[shellshot] bot rematch loaded AD1 TRANSFER LOCK DM
+[shellshot] shell-bot-next-map: pixels=(1920, 1200) scene=(1920, 1200) scale=1.75 drawn=none raster=1680x1050 (0.875 of the window) screen=none
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-bot-next-map.png
+[shellshot] shell-back-fullscreen: pixels=(1920, 1200) scene=no match scale=1.75 drawn=1.75 raster=1680x1050 (0.875 of the window) screen=960x600
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-back-fullscreen.png
+[shellshot] shell-back: pixels=(2048, 1440) scene=no match scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/shell-back.png
+[prewarm] AD1 TRANSFER LOCK BT: 6 files, 0.5 MiB in 0.01s
+[prewarm] SFX decoded in 0.14s
+[load] SFX device ready in 0.00s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.187
+[world-shaders] variant=plain elapsedMs=4.784
+[world-shaders] variant=plain-unlit elapsedMs=4.443
+[launcher] loaded AD1 TRANSFER LOCK BT in 0.23s (joined prewarm)
+[shellshot] lifecycle-1-spectator: pixels=(2048, 1440) scene=(2048, 1440) scale=1.594 drawn=none raster=1536x1080 (0.75 of the window) screen=none
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/lifecycle-1-spectator.png
+[shellshot] lifecycle-1-rejoin: pixels=(2048, 1440) scene=(2048, 1440) scale=1.594 drawn=none raster=1536x1080 (0.75 of the window) screen=none
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/lifecycle-1-rejoin.png
+[shellshot] lifecycle-1-forge: pixels=(2048, 1440) scene=no match scale=1.067 drawn=1.067 raster=1536x1080 (0.75 of the window) screen=1440x1013
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/lifecycle-1-forge.png
+[net] player slots built, main player = slot 0
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.060
+[world-shaders] variant=plain elapsedMs=4.570
+[world-shaders] variant=plain-unlit elapsedMs=4.354
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.646
+[world-shaders] variant=plain elapsedMs=4.569
+[world-shaders] variant=plain-unlit elapsedMs=4.281
+[shellshot] lifecycle-1-replay: pixels=(2048, 1440) scene=(1280, 1180) scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/lifecycle-1-replay.png
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.703
+[world-shaders] variant=plain elapsedMs=4.481
+[world-shaders] variant=plain-unlit elapsedMs=4.315
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[shelllifecycle] replay camera=(0.30684853, 1.5499129, -16.84538) main=1 actor=(0.30684853, 0.5505371, -16.84538) warning=Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[shellshot] lifecycle-1-replay-seek: pixels=(2048, 1440) scene=(1280, 1180) scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/lifecycle-1-replay-seek.png
+[shellshot] lifecycle-1-return: pixels=(2048, 1440) scene=no match scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/lifecycle-1-return.png
+[shelllifecycle] PASS cycle=1 spectator/rejoin/Forge/replay/seek/return
+[prewarm] AD1 TRANSFER LOCK BT: 6 files, 0.5 MiB in 0.01s
+[prewarm] SFX decoded in 0.13s
+[load] SFX device ready in 0.00s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.684
+[world-shaders] variant=plain elapsedMs=4.419
+[world-shaders] variant=plain-unlit elapsedMs=4.333
+[launcher] loaded AD1 TRANSFER LOCK BT in 0.24s (joined prewarm)
+[shellshot] lifecycle-2-spectator: pixels=(2048, 1440) scene=(2048, 1440) scale=1.594 drawn=none raster=1536x1080 (0.75 of the window) screen=none
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/lifecycle-2-spectator.png
+[shellshot] lifecycle-2-rejoin: pixels=(2048, 1440) scene=(2048, 1440) scale=1.594 drawn=none raster=1536x1080 (0.75 of the window) screen=none
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/lifecycle-2-rejoin.png
+[shellshot] lifecycle-2-forge: pixels=(2048, 1440) scene=no match scale=1.067 drawn=1.067 raster=1536x1080 (0.75 of the window) screen=1440x1013
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/lifecycle-2-forge.png
+[net] player slots built, main player = slot 0
+[load] SFX device ready in 0.12s
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.714
+[world-shaders] variant=plain elapsedMs=4.515
+[world-shaders] variant=plain-unlit elapsedMs=4.317
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.943
+[world-shaders] variant=plain elapsedMs=4.681
+[world-shaders] variant=plain-unlit elapsedMs=4.395
+[shellshot] lifecycle-2-replay: pixels=(2048, 1440) scene=(1280, 1180) scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/lifecycle-2-replay.png
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.795
+[world-shaders] variant=plain elapsedMs=4.630
+[world-shaders] variant=plain-unlit elapsedMs=4.295
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[shelllifecycle] replay camera=(0.30684853, 1.5499129, -16.84538) main=1 actor=(0.30684853, 0.5505371, -16.84538) warning=Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[shellshot] lifecycle-2-replay-seek: pixels=(2048, 1440) scene=(1280, 1180) scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/lifecycle-2-replay-seek.png
+[shellshot] lifecycle-2-return: pixels=(2048, 1440) scene=no match scale=1.594 drawn=1.594 raster=1536x1080 (0.75 of the window) screen=964x678
+[shellshot] ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/full-shell-attempt1/shell-pictures/lifecycle-2-return.png
+[shelllifecycle] PASS cycle=2 spectator/rejoin/Forge/replay/seek/return
