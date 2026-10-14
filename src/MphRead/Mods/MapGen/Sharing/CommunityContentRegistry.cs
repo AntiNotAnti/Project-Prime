@@ -269,8 +269,13 @@ public sealed class CommunityContentRegistry
                 foreach (var revision in project.Revisions)
                 {
                     if (revision.ContentHash != hash) continue;
-                    if (!owner && (revision.Visibility != CommunityContentVisibility.Published
-                        || project.CurrentHash != hash)) continue;
+                    // Every published immutable revision is discoverable
+                    // through the public revisions API, including versions
+                    // superseded by a newer published CurrentHash. Retain
+                    // exact historical blob fetches until explicit lifecycle
+                    // deletion, without exposing drafts or archived projects.
+                    if (!owner && revision.Visibility != CommunityContentVisibility.Published)
+                        continue;
                     declared = revision.Bytes;
                     break;
                 }
