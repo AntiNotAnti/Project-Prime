@@ -261,6 +261,9 @@ namespace MphRead.Mods.Render
                 && sample.Requested == 8 && sample.Submitted == 5 && sample.Skipped == 3,
                 "legacy GL cache suppresses exact scalar/vector/matrix duplicates and measures arrays",
                 ref failures);
+            Check(sample.ScalarRequested == 7 && sample.ScalarSubmitted == 4
+                && sample.UncachedWrites == 1 && sample.ScalarRequested == sample.ScalarSubmitted + sample.Skipped,
+                "runtime scalar counts exclude uncached array writes without losing skipped requests", ref failures);
 
             cache.UseProgram(8);
             cache.Submit(9, 1f);

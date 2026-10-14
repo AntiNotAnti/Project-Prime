@@ -650,6 +650,7 @@ namespace MphRead.Mods.Render
             _paletteUploads?.Invalidate();
             OpenGlPassProfiler.Count(OpenGlFrameCounter.UniformArrayUploads);
             OpenGlPassProfiler.Count(OpenGlFrameCounter.UniformArrayBytes, (long)count * 64);
+            OpenGlUniformAttribution.NoteMatrixArray(_paletteProgram, count, submitted: true);
             {
 #if !ANDROID
                 _legacyUniforms.InvalidateMatrix4Array(location, count);
@@ -680,6 +681,7 @@ namespace MphRead.Mods.Render
                 _paletteProgram, location, count, source, revision, scale))
             {
                 OpenGlPassProfiler.Count(OpenGlFrameCounter.UniformArraySkips);
+                OpenGlUniformAttribution.NoteMatrixArray(_paletteProgram, count, submitted: false);
                 return;
             }
             UniformMatrix4(location, count, false, values);
