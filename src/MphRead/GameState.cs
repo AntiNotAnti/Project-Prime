@@ -1086,14 +1086,7 @@ namespace MphRead
                         // yes to ship hatch (enter)
                         EnterShip(); // the game does this in the cockpit
                         Debug.Assert(scene.Room != null);
-                        Movie movieId = scene.Room.RoomId switch
-                        {
-                            27 => Movie.AlinosTakeoff,
-                            45 => Movie.CATakeoff,
-                            65 => Movie.VDOTakeoff,
-                            77 => Movie.ArcterraTakeoff,
-                            _ => Movie.None
-                        };
+                        Movie movieId = Mods.Campaign.CampaignMovieCatalog.Takeoff(scene.Room.RoomId);
                         if (movieId != Movie.None && !Cheats.SkipPlanetIntros)
                         {
                             scene.StartMovie(movieId, FadeType.FadeOutInWhite, 20 / 30f,
