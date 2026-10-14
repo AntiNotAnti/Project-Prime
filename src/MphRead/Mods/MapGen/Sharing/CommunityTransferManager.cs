@@ -812,8 +812,14 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                     if (orphaned.Count > 0) PersistLocked();
                     foreach (var job in _jobs.Values)
                     {
+                        // JSON creates fresh array instances for nested
+                        // CommunityMap metadata. Record equality alone would
+                        // therefore emit a false change on every poll.
                         if (!previous.TryGetValue(job.Id, out var before)
-                            || before != job) changed.Add(job);
+                            || before.UpdatedAt != job.UpdatedAt
+                            || before.State != job.State
+                            || before.AcknowledgedBytes != job.AcknowledgedBytes
+                            || before.Error != job.Error) changed.Add(job);
                         if (_running.TryGetValue(job.Id, out var active)
                             && job.State is CommunityTransferState.Paused
                                 or CommunityTransferState.Cancelled)
