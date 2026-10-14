@@ -189,6 +189,10 @@ try
     using var next = await waiting.WaitAsync(TimeSpan.FromSeconds(10));
     Check(next != null, "second downloader can resume after first releases gate");
 
+    // The preceding quota prune intentionally evicted B while preserving A.
+    // Re-import the exact immutable bytes before testing restart recovery;
+    // recovery cannot succeed against a deliberately deleted archive.
+    cache.Promote(second, b);
     using (var reopened = new CommunityArchiveCache(store, max).TryAcquire(b))
         Check(reopened != null, "verified archive can be recovered across cache instances");
 
