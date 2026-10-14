@@ -1,0 +1,13 @@
+# Frozen community package baseline
+
+The production builder authors `manifest.minimumProtocol` from the loaded client’s network protocol. Changing protocol 53 to 55/56 legitimately changes exact archive SHA-256 while the canonical project/asset digest stays the same: the manifest is not part of that canonical digest. The original main-protocol-53 archive hashes remain immutable in the existing platform golden files.
+
+The test checks two distinct packages. The unmodified current builder package must repeat byte exactly, declare the reflected loaded runtime protocol, pass the public strict reader and exact public identity checks, and retain its actual SHA-256 through upload, exact download and install. This current package is never normalized, rewritten or assigned the reference package’s identity.
+
+The separate protocol-53 reference pins only the raw manifest `minimumProtocol` token. Before that change, a whole-file byte comparison proves the fixture writer exactly reproduces the current production archive encoding. An explicit ZIP32 wire comparison then proves unchanged entry order, raw compressed data, local/central metadata, extras, attributes and timestamps. Only the manifest payload, its CRC/lengths, and derived central-directory local offsets may differ. Other manifest bytes, including unknown properties, remain intact. The existing platform archive golden must match this reference exactly. No test updates a golden.
+
+Controls reject modified asset content (both archive golden and strict content digest), a valid unknown manifest property (archive golden), an incorrect asserted runtime protocol, and a valid but incorrect frozen minimum protocol 52 (archive golden). Public identity must reject a different package SHA-256.
+
+Run the standard tool with `--stress` for the existing oversized archive fence. Optional `--artifacts DIRECTORY` retains current/repeated/reference packages and the three negative packages for inspection; `--output FILE` retains measured output, actual loaded client SHA/MVID/protocol and the separate reference hash. No cartridge assets are required.
+
+Local macOS controls used the identical compiled fixture against loaded protocols 53, 55 and 56. All current exact delivery/install and rejection checks passed; the protocol-53 reference stayed byte exact at `ddf15bed5b8bb0f3ca8a3521a69be8bd3afcdf9f2fe469998f3f68e2d063a17e`. The original unpatched main fixture passed protocol 53 and failed 55/56 at its archive-golden comparison, reproducing the Linux CI protocol-55 failure hash. Windows has a distinct existing frozen hash and requires the new hosted Windows check; no local Windows result is claimed.
