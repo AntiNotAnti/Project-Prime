@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "status": "INCOMPLETE",
+  "scope": "bounded observed source/payment joins; no claimed-impact reconstruction or Enforce authorization",
+  "sourceVerifiedFraction": null,
+  "suggestedEnforceCoverageGate": "NOT_ADJUDICATED: requires meaningful declared supported samples and independent impact/policy gates",
+  "metrics": {
+    "fundedOrdinaryCertificates": 0,
+    "verifiedSourceCertificates": 0,
+    "nativeComponents": 0,
+    "fundedPayments": 0,
+    "fullyJoinedPaidCases": 0,
+    "nativePaidWithoutOwnerClaim": 0,
+    "nativeImpactObservations": 23,
+    "authorityNativePaidJoins": 0,
+    "corrections": 0,
+    "continuousPayments": 0
+  },
+  "cases": [],
+  "failures": [],
+  "incomplete": [
+    "positive full A1/A2/A3/certificate/component/claim/payment join absent",
+    "positive funded ordinary source denominator absent"
+  ]
+}

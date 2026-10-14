@@ -1,0 +1,343 @@
+{
+  "schema": 1,
+  "scope": "Completed actual source758 smoke attempt; overall INCOMPLETE, full NET NOT_ACCEPTED. No running campaign projection.",
+  "qualifiedSource": "7588d98689899c9868e8a0105b78653c7a1db50d",
+  "qualifiedClientSHA256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+  "qualifiedClientMVID": "5e534c23-57c6-4026-a55a-f8233293a732",
+  "projectionRules": {
+    "strings": "Replace exact workspace and home prefixes with ${WORKSPACE}/${HOME}; no other scalar changes.",
+    "roles": "All fields and all rows retained except the four complete fields explicitly listed per original with canonical identity. All source/payment/claim/terminal/pickup/replay-fact rows, all chronological Windows and TransportWindows, and ServerSegments retained.",
+    "text": "Complete original text JSON-escaped; no line truncation.",
+    "excludedFiles": "No binaries, assets, recordings, Paths.txt, profiles, telemetry archives or netlog copies. Recording/asset input inventories remain hash/byte metadata in original receipt/manifest."
+  },
+  "entries": [
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/receipt.json",
+      "originalSHA256": "07bd3cbcc58508ac7d6c20b19cc7567a91c0d9d52d0bbf2e791302cb7921d195",
+      "originalBytes": 113162,
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "4cea04ab8ef12b7a72ceff0d3a6f6b3ac3f448399e0f95b4e89f7bbc96d0629c",
+      "derivativePath": "receipt.json",
+      "derivativeSHA256": "0c863281ba7049284f8ed8398fc943d2ba3a43714c717ebcb492aee6ab1b21b2",
+      "derivativeBytes": 95909
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/strict-joined-evidence.json",
+      "originalSHA256": "77b4bf00bcc749c3ad0173b1f273364bb3df5b7adb9532604e6de541876ce241",
+      "originalBytes": 853,
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "3400c9bf9cb86cee2ddb15ef56fc6e4fdff70790537164c8e2c4357cba67eeb1",
+      "derivativePath": "strict-joined-evidence.json",
+      "derivativeSHA256": "77b4bf00bcc749c3ad0173b1f273364bb3df5b7adb9532604e6de541876ce241",
+      "derivativeBytes": 853
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/strict-joined-evidence.log",
+      "originalSHA256": "e5ebcee580f2d922b746d4ff422ff1aec67c1bb63bb662ef0e7b015303406b8b",
+      "originalBytes": 315,
+      "omittedFields": [],
+      "kind": "escaped-text",
+      "derivativePath": "strict-joined-evidence.log.json",
+      "derivativeSHA256": "afa4a142d1ce69282fe6c727ff947b42384356cdbe98aa766f16e4d0714c1dea",
+      "derivativeBytes": 359
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign-runner.log",
+      "originalSHA256": "3bce8d10bb1020567cfa000818598045d9f90f848329131ce81a2129625ddfd3",
+      "originalBytes": 201,
+      "omittedFields": [],
+      "kind": "escaped-text",
+      "derivativePath": "campaign-runner.log.json",
+      "derivativeSHA256": "8011d2944d01a78498163302c424ad8e4ae8f0dda660229ddf5df079823f8fe2",
+      "derivativeBytes": 160
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/manifest.json",
+      "originalSHA256": "4765ea64b1e4a45361f190766764ff762f2650ddcf7665965d5410b368c577c5",
+      "originalBytes": 32654,
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "edf3ef6556784359b22deec1f12994d39e99f4fecc34ae0acb036d467fc4326f",
+      "derivativePath": "campaign/manifest.json",
+      "derivativeSHA256": "3a19586a3ae4629babbc18d097e81d8c7bce6d252f6bdec99a77032eebac6177",
+      "derivativeBytes": 30382
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/summary.json",
+      "originalSHA256": "782d05cedd02625124abae1566a5733686f2dc81f5fa8eddabd2310a10758ab2",
+      "originalBytes": 12641,
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "d9fe2dc069e463dd45e1f4d07bf2f10bb33d33f4330117f3284e1dffee35cc1c",
+      "derivativePath": "campaign/summary.json",
+      "derivativeSHA256": "782d05cedd02625124abae1566a5733686f2dc81f5fa8eddabd2310a10758ab2",
+      "derivativeBytes": 12641
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/ai-summary.json",
+      "originalSHA256": "7d9b98d2b925d57e7a1da66287ab91e1f1625d94f0c7ed2fb3f14105fe7428e4",
+      "originalBytes": 3962,
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "de17e2cbd62d102d900948374c9399986a7ba8a96c0b3f225e63beea53e35691",
+      "derivativePath": "campaign/ai-summary.json",
+      "derivativeSHA256": "7d9b98d2b925d57e7a1da66287ab91e1f1625d94f0c7ed2fb3f14105fe7428e4",
+      "derivativeBytes": 3962
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/drain.release.json",
+      "originalSHA256": "f5575e2dd4ec8d0d29763fe94943ae4338498d79a903fb55224325325193ce19",
+      "originalBytes": 113,
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "b6162bd0f368e760bd23706b787fd4c45ccf7698aa74583b292e58d95c8f14c7",
+      "derivativePath": "campaign/drain.release.json",
+      "derivativeSHA256": "f5575e2dd4ec8d0d29763fe94943ae4338498d79a903fb55224325325193ce19",
+      "derivativeBytes": 113
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/drain.server-release.json",
+      "originalSHA256": "f5575e2dd4ec8d0d29763fe94943ae4338498d79a903fb55224325325193ce19",
+      "originalBytes": 113,
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "b6162bd0f368e760bd23706b787fd4c45ccf7698aa74583b292e58d95c8f14c7",
+      "derivativePath": "campaign/drain.server-release.json",
+      "derivativeSHA256": "f5575e2dd4ec8d0d29763fe94943ae4338498d79a903fb55224325325193ce19",
+      "derivativeBytes": 113
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/drain.server-release.json.quiesce",
+      "originalSHA256": "ad6b2b68ef8d540a9587bb6065d9e30e80ba352c52dfa4100148a777a2d96de7",
+      "originalBytes": 48,
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "6b7a6af9c405c9a75af1bbc38bc2363b8ac95905b1cadffbbfdfd1e4a785ad08",
+      "derivativePath": "campaign/drain.server-release.json.quiesce.json",
+      "derivativeSHA256": "ad6b2b68ef8d540a9587bb6065d9e30e80ba352c52dfa4100148a777a2d96de7",
+      "derivativeBytes": 48
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/rotation.txt",
+      "originalSHA256": "9869c6eefaec91732dfcec5237207c01ea84d9171b4abe1b49335fac2e9b953c",
+      "originalBytes": 36,
+      "omittedFields": [],
+      "kind": "escaped-text",
+      "derivativePath": "campaign/rotation.txt.json",
+      "derivativeSHA256": "6db5df8d97993593b64258af13d7902efd9525b9b706089241dce094cba0afe1",
+      "derivativeBytes": 53
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server.json",
+      "originalSHA256": "efe8dbd1469b519260be41270d230d1ef1ac13746c0b5eb205794e6ef0273dfa",
+      "originalBytes": 13795111,
+      "omittedFields": [
+        {
+          "path": [
+            "Forms"
+          ],
+          "canonicalValueSHA256": "e50a891f4aaafb2681c39d7ebc8f7b7ead6da9cb0ca6e560881abf50e30cb549",
+          "canonicalValueBytes": 9912019,
+          "entryCount": 22259,
+          "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
+        },
+        {
+          "path": [
+            "SlowStates"
+          ],
+          "canonicalValueSHA256": "e1c21e670dc8149d20a807563159db20cd751cf8f511bf7a8f50696a1a559ec0",
+          "canonicalValueBytes": 475206,
+          "entryCount": 987,
+          "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
+        },
+        {
+          "path": [
+            "States"
+          ],
+          "canonicalValueSHA256": "d3dc5a5aa41d7765fd3c5f016147ebff16dbc1b184eb90225855789f742a961e",
+          "canonicalValueBytes": 277235,
+          "entryCount": 1943,
+          "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
+        },
+        {
+          "path": [
+            "Bombs",
+            "Rows"
+          ],
+          "canonicalValueSHA256": "fa2127288b5fc8462cacd68b5e45d9e9bd07be995365606f4a3885a87fe78342",
+          "canonicalValueBytes": 456616,
+          "entryCount": 5844,
+          "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "0623e70d3a5021f7a68e7824d2162aeccf9d822125b125e6af421be1d4f51fc1",
+      "derivativePath": "campaign/server.json",
+      "derivativeSHA256": "6f133a246ba0534112bb7f8c43f505c440c0e4aae524297b4931f14957d93184",
+      "derivativeBytes": 2673990
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server.drain.json",
+      "originalSHA256": "53d38fc696f165ccd31df31a488c4199ca6b948957050f1f5a1c9523a42129c8",
+      "originalBytes": 2733,
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "394b657b4087685da80da0711caeaceca370e19f1b1218ffb67b833496c256f5",
+      "derivativePath": "campaign/server.drain.json",
+      "derivativeSHA256": "f24b716aed82345dab189c12376d1a2cd09b235b041205f7a5c3477d8395c04d",
+      "derivativeBytes": 3329
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server.log",
+      "originalSHA256": "ed5179b25a4b396310180410668537f8b1354784eac68b00cdd52e244e78edc1",
+      "originalBytes": 217577,
+      "omittedFields": [],
+      "kind": "escaped-text",
+      "derivativePath": "campaign/server.log.json",
+      "derivativeSHA256": "b188858dcdb1d8d63ad558930a00f991a4c0aff1d7ac340bbdf8bc3b8d40cf5e",
+      "derivativeBytes": 218410
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0.json",
+      "originalSHA256": "cab429cae41f4feef08cc79a8228c8f3be2ac62b5591bb60898ea9d7349e2b75",
+      "originalBytes": 4309592,
+      "omittedFields": [
+        {
+          "path": [
+            "Forms"
+          ],
+          "canonicalValueSHA256": "e943e2d625f7a90968ecd3f9f97f1bcb041c2bb0ad54a7de95f6b38c13ba9847",
+          "canonicalValueBytes": 1382192,
+          "entryCount": 3119,
+          "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
+        },
+        {
+          "path": [
+            "SlowStates"
+          ],
+          "canonicalValueSHA256": "625b23e22bbe703ab5e7e849e18802a78ba899b9e3e6a250509eca681abb8dbf",
+          "canonicalValueBytes": 426779,
+          "entryCount": 886,
+          "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
+        },
+        {
+          "path": [
+            "States"
+          ],
+          "canonicalValueSHA256": "dff2ea4cc4fe695902614eb2f93e0b0426e459ac71267dec9324dcfa906c3dc9",
+          "canonicalValueBytes": 246875,
+          "entryCount": 1730,
+          "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
+        },
+        {
+          "path": [
+            "Bombs",
+            "Rows"
+          ],
+          "canonicalValueSHA256": "1bd0bc61a7afc765f966baa253efc777fde0d3d8685841ad10563586d16a8224",
+          "canonicalValueBytes": 322276,
+          "entryCount": 4230,
+          "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "fb6d4879fb04ae29baa4043149bb43feb6c09fbf4d31f455213e94169e64e553",
+      "derivativePath": "campaign/peer-0.json",
+      "derivativeSHA256": "0435733d1896708e4b5b13a8c35a2d74dfa20c018cffb227ccd958adc9af3ebe",
+      "derivativeBytes": 1931425
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0.drain.json",
+      "originalSHA256": "6fd1a414b93eb37a7214b176257a173b6f426749eb61ebdc737a64a8f9b2ca68",
+      "originalBytes": 2604,
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "0911adbe894547f0ce868233fc2126a2cb769135adceff6c677f8902faae1410",
+      "derivativePath": "campaign/peer-0.drain.json",
+      "derivativeSHA256": "282fae5ec868022eab7318b4759c28595431578c8ced4ce0453259148787195c",
+      "derivativeBytes": 3146
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0.log",
+      "originalSHA256": "158d1a8dfc7fe30ad0f6a748ed43b731194531509e19fe8fb588fcdd9a8100e0",
+      "originalBytes": 4789,
+      "omittedFields": [],
+      "kind": "escaped-text",
+      "derivativePath": "campaign/peer-0.log.json",
+      "derivativeSHA256": "f4efec9b3f273d3ee1291556be8f39cf0f34f93848905e9fa603ef26de2bbfb1",
+      "derivativeBytes": 3999
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1.json",
+      "originalSHA256": "96fcdbbc981a9f6bde96af0f6316d224dbd35517a4f3339834a88633ae8c6f41",
+      "originalBytes": 4302607,
+      "omittedFields": [
+        {
+          "path": [
+            "Forms"
+          ],
+          "canonicalValueSHA256": "358d18803415761ec5a143f89d14c3467c33bcb827dbfbe6c5688b98a272002e",
+          "canonicalValueBytes": 1364469,
+          "entryCount": 3079,
+          "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
+        },
+        {
+          "path": [
+            "SlowStates"
+          ],
+          "canonicalValueSHA256": "fc358fc062080e94ab9a290da030e92bb3b6eddea0e3e8a397da67c9d5c56d3b",
+          "canonicalValueBytes": 427739,
+          "entryCount": 888,
+          "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
+        },
+        {
+          "path": [
+            "States"
+          ],
+          "canonicalValueSHA256": "2fcd989b26fecd2f239dc580e54dfb3004d3dd1b9526e22d4c5c626971baf726",
+          "canonicalValueBytes": 242006,
+          "entryCount": 1696,
+          "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
+        },
+        {
+          "path": [
+            "Bombs",
+            "Rows"
+          ],
+          "canonicalValueSHA256": "0c983f673145196398a96a98ac161e147dd4ea22d01b96c90e5ad52ab0ca4689",
+          "canonicalValueBytes": 322509,
+          "entryCount": 4232,
+          "reason": "Complete field omitted: bulk form/state/bomb payload history outside source/payment join and pacing scope. No subset or row truncation."
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "5929515924d5c4cc7b4cef0fd3cea9660b36a308cdcef1f6f43c4aaa10cc20a4",
+      "derivativePath": "campaign/peer-1.json",
+      "derivativeSHA256": "8ff5096bdf7734449b5df95d8667238b9e32a2ce704c39807f802c266e5fa79a",
+      "derivativeBytes": 1945839
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1.drain.json",
+      "originalSHA256": "956ecba7309978225e8671c0c3dcf5eb6ca2752d6fd51d666beff3e6bf7afae1",
+      "originalBytes": 2604,
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "f2cc1f000ebc6d64edac65d1a1d0fad2cc26540b84d7c89ca0473ba15df1858a",
+      "derivativePath": "campaign/peer-1.drain.json",
+      "derivativeSHA256": "df218bdd16d990ad18260971b537c26bf20222c2a249972c7e7003fd59a47bd1",
+      "derivativeBytes": 3146
+    },
+    {
+      "originalRelativePath": "work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1.log",
+      "originalSHA256": "5f66dbc5b43de9d894cced97b048163412e03444d6df2b36301ab055d3e96650",
+      "originalBytes": 4750,
+      "omittedFields": [],
+      "kind": "escaped-text",
+      "derivativePath": "campaign/peer-1.log.json",
+      "derivativeSHA256": "c41d339e49d2be8d07200722503af85465d15c8a51d87fce4c9b944f38b6496d",
+      "derivativeBytes": 3960
+    }
+  ]
+}

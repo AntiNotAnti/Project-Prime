@@ -1,0 +1,2452 @@
+{
+  "schema": 1,
+  "status": "INCOMPLETE",
+  "executed": true,
+  "case": "smoke2",
+  "scope": "actual native AI/pickups; no seeded grants; claimed-impact and general Enforce NOT_ADJUDICATED",
+  "diskFloorBytes": 1610612736,
+  "diskBudgetTargetBytes": 6442450944,
+  "semanticReplayScope": "NOT_RUN by wrapper; inventory only, actual production consumer is a separate gate",
+  "unsupportedScope": {
+    "soloUdp": "UNAVAILABLE: existing runner supports2/3/4/8 clients",
+    "controlled400msPumpStall": "NOT_RUN: no application fixture option in this runner",
+    "rateCapacityExhaustion": "NOT_RUN: requires separate authentic fixture"
+  },
+  "sourceBefore": {
+    "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+    "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+    "dirty": ""
+  },
+  "physicalHashesBefore": {
+    "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "runtimeInventoryBefore": {
+    "Avalonia.Base.dll": {
+      "bytes": 2355200,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Base.dll"
+    },
+    "Avalonia.Controls.dll": {
+      "bytes": 1347072,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Controls.dll"
+    },
+    "Avalonia.DesignerSupport.dll": {
+      "bytes": 214528,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.DesignerSupport.dll"
+    },
+    "Avalonia.Desktop.dll": {
+      "bytes": 15360,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Desktop.dll"
+    },
+    "Avalonia.Dialogs.dll": {
+      "bytes": 242688,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Dialogs.dll"
+    },
+    "Avalonia.Fonts.Inter.dll": {
+      "bytes": 1892864,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Fonts.Inter.dll"
+    },
+    "Avalonia.FreeDesktop.AtSpi.dll": {
+      "bytes": 562688,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.FreeDesktop.AtSpi.dll"
+    },
+    "Avalonia.FreeDesktop.dll": {
+      "bytes": 253952,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.FreeDesktop.dll"
+    },
+    "Avalonia.HarfBuzz.dll": {
+      "bytes": 22016,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.HarfBuzz.dll"
+    },
+    "Avalonia.Headless.dll": {
+      "bytes": 71680,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Headless.dll"
+    },
+    "Avalonia.Markup.Xaml.dll": {
+      "bytes": 74752,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Markup.Xaml.dll"
+    },
+    "Avalonia.Markup.dll": {
+      "bytes": 45568,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Markup.dll"
+    },
+    "Avalonia.Metal.dll": {
+      "bytes": 15360,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Metal.dll"
+    },
+    "Avalonia.MicroCom.dll": {
+      "bytes": 15360,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.MicroCom.dll"
+    },
+    "Avalonia.Native.dll": {
+      "bytes": 351232,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Native.dll"
+    },
+    "Avalonia.OpenGL.dll": {
+      "bytes": 128512,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.OpenGL.dll"
+    },
+    "Avalonia.Remote.Protocol.dll": {
+      "bytes": 75776,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Remote.Protocol.dll"
+    },
+    "Avalonia.Skia.dll": {
+      "bytes": 125440,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Skia.dll"
+    },
+    "Avalonia.Themes.Fluent.dll": {
+      "bytes": 733184,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Themes.Fluent.dll"
+    },
+    "Avalonia.Vulkan.dll": {
+      "bytes": 191488,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Vulkan.dll"
+    },
+    "Avalonia.Win32.Automation.dll": {
+      "bytes": 123904,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Win32.Automation.dll"
+    },
+    "Avalonia.Win32.dll": {
+      "bytes": 943104,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Win32.dll"
+    },
+    "Avalonia.X11.dll": {
+      "bytes": 408064,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.X11.dll"
+    },
+    "Avalonia.dll": {
+      "bytes": 4096,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.dll"
+    },
+    "CommunityToolkit.HighPerformance.dll": {
+      "bytes": 153928,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/CommunityToolkit.HighPerformance.dll"
+    },
+    "HarfBuzzSharp.dll": {
+      "bytes": 122400,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/HarfBuzzSharp.dll"
+    },
+    "Ktx2.NET.dll": {
+      "bytes": 26624,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Ktx2.NET.dll"
+    },
+    "MicroCom.Runtime.dll": {
+      "bytes": 15360,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/MicroCom.Runtime.dll"
+    },
+    "MphRead.Protocol.Generator.deps.json": {
+      "bytes": 11110,
+      "sha256": "08c2787d35a49738d19a495b180a81b7a13d0140adb37ee43735a2c7b3a8f525"
+    },
+    "MphRead.Protocol.Generator.dll": {
+      "bytes": 29184,
+      "sha256": "9e224fb2e96d4bd127c3df05b8b68ceb5d627d09f0eda52289bf168ca952bb13"
+    },
+    "MphRead.Protocol.Generator.pdb": {
+      "bytes": 12348,
+      "sha256": "19dc04ca3ae212a988d738a07e9dc32c1406abf84bb3462f59045014bfd6dd4e"
+    },
+    "NcsfPlay.deps.json": {
+      "bytes": 4862,
+      "sha256": "00b9355daf760b4a6a53169861bcf7cfe69ca777d1da65fb981ed8b7ba8cf59b"
+    },
+    "NcsfPlay.dll": {
+      "bytes": 166400,
+      "sha256": "2d4d4906b7dc61eda6ba51acd2210034243edf0bb17aecd330e61507eed3a288"
+    },
+    "OpenTK.Audio.OpenAL.dll": {
+      "bytes": 92672,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Audio.OpenAL.dll"
+    },
+    "OpenTK.Compute.dll": {
+      "bytes": 46592,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Compute.dll"
+    },
+    "OpenTK.Core.dll": {
+      "bytes": 8704,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Core.dll"
+    },
+    "OpenTK.Graphics.dll": {
+      "bytes": 5087232,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Graphics.dll"
+    },
+    "OpenTK.Input.dll": {
+      "bytes": 8704,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Input.dll"
+    },
+    "OpenTK.Mathematics.dll": {
+      "bytes": 355840,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Mathematics.dll"
+    },
+    "OpenTK.Windowing.Common.dll": {
+      "bytes": 13824,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Windowing.Common.dll"
+    },
+    "OpenTK.Windowing.Desktop.dll": {
+      "bytes": 59904,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Windowing.Desktop.dll"
+    },
+    "OpenTK.Windowing.GraphicsLibraryFramework.dll": {
+      "bytes": 51200,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Windowing.GraphicsLibraryFramework.dll"
+    },
+    "ProjectPrime": {
+      "bytes": 124712,
+      "sha256": "d61eaf484edf5b1b62ec0e4f0355317aac05f1c4aca4b0df981a74df1dcfbe9e"
+    },
+    "ProjectPrime.deps.json": {
+      "bytes": 42297,
+      "sha256": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4"
+    },
+    "ProjectPrime.dll": {
+      "bytes": 33332224,
+      "sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694"
+    },
+    "ProjectPrime.runtimeconfig.json": {
+      "bytes": 330,
+      "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "ReFuel.StbImage.dll": {
+      "bytes": 19968,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/ReFuel.StbImage.dll"
+    },
+    "SkiaSharp.dll": {
+      "bytes": 489824,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/SkiaSharp.dll"
+    },
+    "SoundFlow.dll": {
+      "bytes": 968192,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/SoundFlow.dll"
+    },
+    "System.IO.Hashing.dll": {
+      "bytes": 56144,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/System.IO.Hashing.dll"
+    },
+    "Tmds.DBus.Protocol.dll": {
+      "bytes": 232960,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Tmds.DBus.Protocol.dll"
+    },
+    "gamecontrollerdb.LICENSE": {
+      "bytes": 878,
+      "sha256": "7826eca0a0f7e591f38dd844e207a200aac81a59b20d8a30c3af8c6282af13e6"
+    },
+    "gamecontrollerdb.txt": {
+      "bytes": 608491,
+      "sha256": "07ec5b753e685c4829987919b27905cc3c45c8e18c11b3046e275fcf38b0f3cb"
+    },
+    "libopenal.1.dylib": {
+      "bytes": 873880,
+      "sha256": "85c3fffe4a246315b28ba07346d0e14bfa46c265cf130e2c9c0092421b5b707c"
+    },
+    "nettest": {
+      "bytes": 124712,
+      "sha256": "fa671fe95b404f919229ffd4aa8911d1a029fac5e269585ad7dcb533b801da5f"
+    },
+    "nettest.deps.json": {
+      "bytes": 42984,
+      "sha256": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff"
+    },
+    "nettest.dll": {
+      "bytes": 1470976,
+      "sha256": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f"
+    },
+    "nettest.pdb": {
+      "bytes": 283900,
+      "sha256": "520dbaa410c609522f10328c5207af85e3f1062c2dda0be8a972074dd4a0c7d8"
+    },
+    "nettest.runtimeconfig.json": {
+      "bytes": 330,
+      "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    }
+  },
+  "qualifiedLoadedClient": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/runtime/ProjectPrime.dll",
+    "sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+    "mvid": "5e534c23-57c6-4026-a55a-f8233293a732",
+    "buildId": "local+7588d98689899c9868e8a0105b78653c7a1db50d",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "qualification": {
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/source-native-qualification.json",
+    "sha256": "6c7e0d1d6207058e02d8b27d74eebd6444ce7b140d66358affc250a63da97757"
+  },
+  "buildReceipt": {
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/receipt.json",
+    "sha256": "f2c5c190f4d4c3913ac264683233ad6bdc3d61eb10e244a9e5f45afe4ea73003"
+  },
+  "paths": {
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/net-assets/timed-native-effect-scene-profile/paths.txt",
+    "sha256": "032e6a0bdd758fe3eccdaa7bbec684c23ba198744a9857235661241d811b744f"
+  },
+  "sdk": {
+    "path": "${WORKSPACE}/work/dotnet/dotnet",
+    "sha256": "00c673767ee2538369f307d3c8a0ce06f16bc9e0ecf8ce767b64dd02b2230e98",
+    "version": "10.0.401",
+    "versionQuery": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "--version"
+    ],
+    "versionCwd": "${WORKSPACE}/work/prime-plan-qualified-source"
+  },
+  "protocol": 56,
+  "runnerSha256": "9e5a45b173fb384894c57d60b56ee8c2d4ea36df91895d2a128b81488b4369a9",
+  "auditorSha256": "84a622bb96ad2746f73c23b19d3a91acd96b0337425997b70e07ffe60102b8f0",
+  "recordingsBefore": [],
+  "plannedCommand": [
+    "/Library/Developer/CommandLineTools/usr/bin/python3",
+    "${WORKSPACE}/work/prime-plan-qualified-source/tools/nettest/run-net2.py",
+    "--build",
+    "${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/runtime",
+    "--paths",
+    "${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/net-assets/timed-native-effect-scene-profile/paths.txt",
+    "--source",
+    "7588d98689899c9868e8a0105b78653c7a1db50d",
+    "--dotnet",
+    "${WORKSPACE}/work/dotnet/dotnet",
+    "--protocol",
+    "56",
+    "--out",
+    "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign",
+    "--players",
+    "2",
+    "--ai-net-client",
+    "2",
+    "--ai-seed",
+    "1729",
+    "--powerups",
+    "--rooms",
+    "MP12 SIC TRANSIT",
+    "--seconds",
+    "90",
+    "--drain-seconds",
+    "35",
+    "--profile",
+    "poor",
+    "--rtt-ms",
+    "250",
+    "--jitter-ms",
+    "40",
+    "--loss-percent",
+    "5",
+    "--reorder-percent",
+    "5",
+    "--duplicate-percent",
+    "2",
+    "--seed",
+    "8128",
+    "--port",
+    "29250",
+    "--timed-grant-proof",
+    "shadow",
+    "--timed-replay-facts",
+    "--shot-proof",
+    "shadow",
+    "--record",
+    "--evidence-row-limit",
+    "1048576"
+  ],
+  "startFreeDiskBytes": 4092530688,
+  "runs": [
+    {
+      "label": "campaign",
+      "command": [
+        "/Library/Developer/CommandLineTools/usr/bin/python3",
+        "${WORKSPACE}/work/prime-plan-qualified-source/tools/nettest/run-net2.py",
+        "--build",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/runtime",
+        "--paths",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/net-assets/timed-native-effect-scene-profile/paths.txt",
+        "--source",
+        "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "--dotnet",
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "--protocol",
+        "56",
+        "--out",
+        "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign",
+        "--players",
+        "2",
+        "--ai-net-client",
+        "2",
+        "--ai-seed",
+        "1729",
+        "--powerups",
+        "--rooms",
+        "MP12 SIC TRANSIT",
+        "--seconds",
+        "90",
+        "--drain-seconds",
+        "35",
+        "--profile",
+        "poor",
+        "--rtt-ms",
+        "250",
+        "--jitter-ms",
+        "40",
+        "--loss-percent",
+        "5",
+        "--reorder-percent",
+        "5",
+        "--duplicate-percent",
+        "2",
+        "--seed",
+        "8128",
+        "--port",
+        "29250",
+        "--timed-grant-proof",
+        "shadow",
+        "--timed-replay-facts",
+        "--shot-proof",
+        "shadow",
+        "--record",
+        "--evidence-row-limit",
+        "1048576"
+      ],
+      "cwd": "${WORKSPACE}/work/prime-plan-qualified-source",
+      "log": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign-runner.log",
+      "startedUtc": 1791976977.495984,
+      "pid": 54205,
+      "ownedProcessGroup": 54205,
+      "observations": [
+        {
+          "utc": 1791976977.522166,
+          "members": [
+            "54205 54205 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python ${WORKSPACE}/work/prime-plan-qualified-source/tools/nettest/run-net2.py --build ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/runtime --paths ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/net-assets/timed-native-effect-scene-profile/paths.txt --source 7588d98689899c9868e8a0105b78653c7a1db50d --dotnet ${WORKSPACE}/work/dotnet/dotnet --protocol 56 --out ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign --players 2 --ai-net-client 2 --ai-seed 1729 --powerups --rooms MP12 SIC TRANSIT --seconds 90 --drain-seconds 35 --profile poor --rtt-ms 250 --jitter-ms 40 --loss-percent 5 --reorder-percent 5 --duplicate-percent 2 --seed 8128 --port 29250 --timed-grant-proof shadow --timed-replay-facts --shot-proof shadow --record --evidence-row-limit 1048576"
+          ]
+        },
+        {
+          "utc": 1791976978.0561678,
+          "members": [
+            "54205 54205 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python ${WORKSPACE}/work/prime-plan-qualified-source/tools/nettest/run-net2.py --build ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/runtime --paths ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/net-assets/timed-native-effect-scene-profile/paths.txt --source 7588d98689899c9868e8a0105b78653c7a1db50d --dotnet ${WORKSPACE}/work/dotnet/dotnet --protocol 56 --out ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign --players 2 --ai-net-client 2 --ai-seed 1729 --powerups --rooms MP12 SIC TRANSIT --seconds 90 --drain-seconds 35 --profile poor --rtt-ms 250 --jitter-ms 40 --loss-percent 5 --reorder-percent 5 --duplicate-percent 2 --seed 8128 --port 29250 --timed-grant-proof shadow --timed-replay-facts --shot-proof shadow --record --evidence-row-limit 1048576",
+            "54215 54205 ${WORKSPACE}/work/dotnet/dotnet --info"
+          ]
+        },
+        {
+          "utc": 1791976978.5954912,
+          "members": [
+            "54205 54205 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python ${WORKSPACE}/work/prime-plan-qualified-source/tools/nettest/run-net2.py --build ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/runtime --paths ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/net-assets/timed-native-effect-scene-profile/paths.txt --source 7588d98689899c9868e8a0105b78653c7a1db50d --dotnet ${WORKSPACE}/work/dotnet/dotnet --protocol 56 --out ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign --players 2 --ai-net-client 2 --ai-seed 1729 --powerups --rooms MP12 SIC TRANSIT --seconds 90 --drain-seconds 35 --profile poor --rtt-ms 250 --jitter-ms 40 --loss-percent 5 --reorder-percent 5 --duplicate-percent 2 --seed 8128 --port 29250 --timed-grant-proof shadow --timed-replay-facts --shot-proof shadow --record --evidence-row-limit 1048576",
+            "54217 54205 ${WORKSPACE}/work/dotnet/dotnet ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll -mapdir ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server/empty-maps -noupdate -noautoupdate -server -port 29250 -players 2 -nomaster -rotation ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/rotation.txt -netdebug -powerups"
+          ]
+        },
+        {
+          "utc": 1791976980.262939,
+          "members": [
+            "54205 54205 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python ${WORKSPACE}/work/prime-plan-qualified-source/tools/nettest/run-net2.py --build ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/runtime --paths ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/net-assets/timed-native-effect-scene-profile/paths.txt --source 7588d98689899c9868e8a0105b78653c7a1db50d --dotnet ${WORKSPACE}/work/dotnet/dotnet --protocol 56 --out ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign --players 2 --ai-net-client 2 --ai-seed 1729 --powerups --rooms MP12 SIC TRANSIT --seconds 90 --drain-seconds 35 --profile poor --rtt-ms 250 --jitter-ms 40 --loss-percent 5 --reorder-percent 5 --duplicate-percent 2 --seed 8128 --port 29250 --timed-grant-proof shadow --timed-replay-facts --shot-proof shadow --record --evidence-row-limit 1048576",
+            "54217 54205 ${WORKSPACE}/work/dotnet/dotnet ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll -mapdir ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server/empty-maps -noupdate -noautoupdate -server -port 29250 -players 2 -nomaster -rotation ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/rotation.txt -netdebug -powerups",
+            "54229 54205 ${WORKSPACE}/work/dotnet/dotnet ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll -mapdir ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0/empty-maps -noupdate -noautoupdate -netcheck 127.0.0.1 -port 29250 -name peer-0 -hunter Samus -seconds 90.0 -size 480x270 -netlag 250:40 -netloss 5% -netreorder 5% -netduplicate 2% -netseed 8128 -ai-net-client 2 -ai-seed 1729 -nographics -recorddemo"
+          ]
+        },
+        {
+          "utc": 1791976980.7906282,
+          "members": [
+            "54205 54205 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python ${WORKSPACE}/work/prime-plan-qualified-source/tools/nettest/run-net2.py --build ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/runtime --paths ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/net-assets/timed-native-effect-scene-profile/paths.txt --source 7588d98689899c9868e8a0105b78653c7a1db50d --dotnet ${WORKSPACE}/work/dotnet/dotnet --protocol 56 --out ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign --players 2 --ai-net-client 2 --ai-seed 1729 --powerups --rooms MP12 SIC TRANSIT --seconds 90 --drain-seconds 35 --profile poor --rtt-ms 250 --jitter-ms 40 --loss-percent 5 --reorder-percent 5 --duplicate-percent 2 --seed 8128 --port 29250 --timed-grant-proof shadow --timed-replay-facts --shot-proof shadow --record --evidence-row-limit 1048576",
+            "54217 54205 ${WORKSPACE}/work/dotnet/dotnet ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll -mapdir ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server/empty-maps -noupdate -noautoupdate -server -port 29250 -players 2 -nomaster -rotation ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/rotation.txt -netdebug -powerups",
+            "54229 54205 ${WORKSPACE}/work/dotnet/dotnet ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll -mapdir ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0/empty-maps -noupdate -noautoupdate -netcheck 127.0.0.1 -port 29250 -name peer-0 -hunter Samus -seconds 90.0 -size 480x270 -netlag 250:40 -netloss 5% -netreorder 5% -netduplicate 2% -netseed 8128 -ai-net-client 2 -ai-seed 1729 -nographics -recorddemo",
+            "54230 54205 ${WORKSPACE}/work/dotnet/dotnet ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll -mapdir ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1/empty-maps -noupdate -noautoupdate -netcheck 127.0.0.1 -port 29250 -name peer-1 -hunter Kanden -seconds 90.0 -size 480x270 -netlag 250:40 -netloss 5% -netreorder 5% -netduplicate 2% -netseed 8129 -ai-net-client 2 -ai-seed 1730 -nographics -recorddemo"
+          ]
+        },
+        {
+          "utc": 1791977078.3870661,
+          "members": [
+            "54205 54205 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python ${WORKSPACE}/work/prime-plan-qualified-source/tools/nettest/run-net2.py --build ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/runtime --paths ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/net-assets/timed-native-effect-scene-profile/paths.txt --source 7588d98689899c9868e8a0105b78653c7a1db50d --dotnet ${WORKSPACE}/work/dotnet/dotnet --protocol 56 --out ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign --players 2 --ai-net-client 2 --ai-seed 1729 --powerups --rooms MP12 SIC TRANSIT --seconds 90 --drain-seconds 35 --profile poor --rtt-ms 250 --jitter-ms 40 --loss-percent 5 --reorder-percent 5 --duplicate-percent 2 --seed 8128 --port 29250 --timed-grant-proof shadow --timed-replay-facts --shot-proof shadow --record --evidence-row-limit 1048576",
+            "54217 54205 ${WORKSPACE}/work/dotnet/dotnet ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll -mapdir ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server/empty-maps -noupdate -noautoupdate -server -port 29250 -players 2 -nomaster -rotation ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/rotation.txt -netdebug -powerups",
+            "54229 54205 ${WORKSPACE}/work/dotnet/dotnet ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll -mapdir ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0/empty-maps -noupdate -noautoupdate -netcheck 127.0.0.1 -port 29250 -name peer-0 -hunter Samus -seconds 90.0 -size 480x270 -netlag 250:40 -netloss 5% -netreorder 5% -netduplicate 2% -netseed 8128 -ai-net-client 2 -ai-seed 1729 -nographics -recorddemo",
+            "54230 54205 <defunct>"
+          ]
+        },
+        {
+          "utc": 1791977078.917419,
+          "members": [
+            "54205 54205 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python ${WORKSPACE}/work/prime-plan-qualified-source/tools/nettest/run-net2.py --build ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/runtime --paths ${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/net-assets/timed-native-effect-scene-profile/paths.txt --source 7588d98689899c9868e8a0105b78653c7a1db50d --dotnet ${WORKSPACE}/work/dotnet/dotnet --protocol 56 --out ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign --players 2 --ai-net-client 2 --ai-seed 1729 --powerups --rooms MP12 SIC TRANSIT --seconds 90 --drain-seconds 35 --profile poor --rtt-ms 250 --jitter-ms 40 --loss-percent 5 --reorder-percent 5 --duplicate-percent 2 --seed 8128 --port 29250 --timed-grant-proof shadow --timed-replay-facts --shot-proof shadow --record --evidence-row-limit 1048576"
+          ]
+        }
+      ],
+      "minimumObservedFreeDiskBytes": 4002467840,
+      "exit": 0,
+      "finishedUtc": 1791977079.466313,
+      "remainingOwnedGroupMembers": [],
+      "logSha256": "3bce8d10bb1020567cfa000818598045d9f90f848329131ce81a2129625ddfd3",
+      "ownedProcessGroupClosed": true
+    },
+    {
+      "label": "strict-auditor",
+      "command": [
+        "/Library/Developer/CommandLineTools/usr/bin/python3",
+        "${WORKSPACE}/work/prime-plan-qualified-source/tools/nettest/net04_join_evidence.py",
+        "--campaign",
+        "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign",
+        "--out",
+        "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/strict-joined-evidence.json"
+      ],
+      "cwd": "${WORKSPACE}/work/prime-plan-qualified-source",
+      "log": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/strict-joined-evidence.log",
+      "startedUtc": 1791977079.495957,
+      "pid": 54474,
+      "ownedProcessGroup": 54474,
+      "observations": [
+        {
+          "utc": 1791977079.5256782,
+          "members": [
+            "54474 54474 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python ${WORKSPACE}/work/prime-plan-qualified-source/tools/nettest/net04_join_evidence.py --campaign ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign --out ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/strict-joined-evidence.json"
+          ]
+        }
+      ],
+      "minimumObservedFreeDiskBytes": 4002361344,
+      "exit": 2,
+      "finishedUtc": 1791977080.075713,
+      "remainingOwnedGroupMembers": [],
+      "logSha256": "e5ebcee580f2d922b746d4ff422ff1aec67c1bb63bb662ef0e7b015303406b8b",
+      "ownedProcessGroupClosed": true
+    }
+  ],
+  "summary": {
+    "status": "PASS",
+    "coverage": {
+      "renderedProjectileAgreement": "NOT_RUN",
+      "botFills": "NOT_RUN",
+      "spectator": "NOT_RUN",
+      "mapRotation": "NOT_RUN",
+      "shockCoilDrainKillParity": "NOT_RUN",
+      "imperialistSpawnTrapCoverage": "NOT_RUN",
+      "sustained20Minutes": "NOT_RUN",
+      "turretEmissions": "NOT_RUN",
+      "turretRefusals": "NOT_RUN",
+      "turretOutcomeReceipts": "NOT_RUN",
+      "turretRefusalApplications": "NOT_RUN",
+      "turretCancelledFlights": "NOT_RUN",
+      "boundedHeadlessDrain": "PASS"
+    },
+    "turretOutcomeDenominators": {
+      "authorityEmissions": 0,
+      "authorityRefusals": 0,
+      "requiredPeerReceipts": 0,
+      "receivedPeerReceipts": 0,
+      "requiredPeerRefusalApplications": 0,
+      "appliedPeerRefusals": 0,
+      "cancelledFlights": 0
+    },
+    "mapRotationEvidenceGaps": [],
+    "campaignDrainEvidenceGaps": [],
+    "failures": [],
+    "incomplete": [],
+    "processes": [
+      {
+        "name": "server",
+        "pid": 54217,
+        "startedSeconds": 0.0018160420000000732,
+        "requestedSeconds": 90.0,
+        "expectsShots": false,
+        "exit": 0,
+        "timedOut": false
+      },
+      {
+        "name": "peer-0",
+        "pid": 54229,
+        "startedSeconds": 2.121614958,
+        "requestedSeconds": 90.0,
+        "expectsShots": true,
+        "exit": 0,
+        "timedOut": false,
+        "endedSeconds": 100.33253875
+      },
+      {
+        "name": "peer-1",
+        "pid": 54230,
+        "startedSeconds": 2.376309917,
+        "requestedSeconds": 90.0,
+        "expectsShots": true,
+        "exit": 0,
+        "timedOut": false,
+        "endedSeconds": 100.332542667
+      }
+    ],
+    "observations": {
+      "server": {
+        "Frames": 5836,
+        "AliveFrames": [
+          5478,
+          5112,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "OfferedCarriers": 0,
+        "AcceptedCarriers": 10937,
+        "AllocatedBytes": 7649858032,
+        "HeapBytes": 154958120,
+        "WorkingSet": 310935552,
+        "Transport": {
+          "PacketsReceived": 11707,
+          "PacketsSent": 63039,
+          "BytesReceived": 1924535,
+          "BytesSent": 9771527,
+          "Invalid": 0,
+          "Oversized": 0,
+          "QueueCurrent": 0,
+          "QueueHighWater": 11,
+          "QueueDrops": 0,
+          "Coalesced": 0,
+          "Processed": 11474,
+          "ProcessingMilliseconds": 879.324558,
+          "SocketErrors": 0
+        },
+        "ServerSegments": [
+          {
+            "Room": "MP12 SIC TRANSIT",
+            "AuthorityEpoch": 639275737781613360,
+            "CurrentMatchId": 2,
+            "Frames": 5836,
+            "StepFailures": 0,
+            "DroppedSteps": 7,
+            "Stalls": 1,
+            "StepAllocatedBytes": 200614816,
+            "MeanMs": 0.5745500342700467,
+            "P50Ms": 0.27,
+            "P95Ms": 1.6,
+            "P99Ms": 3.29,
+            "P999Ms": 9.15,
+            "WorstMs": 213.081
+          }
+        ],
+        "shotCounts": {
+          "accepted": 51,
+          "committed": 51,
+          "fired": 51
+        },
+        "continuousTerminalRejectedCount": 0,
+        "continuousTerminalRejectedKeys": [],
+        "authorityRetiredTurretCount": 0,
+        "authorityRetiredTurretKeys": [],
+        "authorityUnavailableTurretCount": 0,
+        "authorityUnavailableTurretKeys": []
+      },
+      "peer-0": {
+        "Frames": 5742,
+        "AliveFrames": [
+          5384,
+          5027,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "OfferedCarriers": 5742,
+        "AcceptedCarriers": 4859,
+        "AllocatedBytes": 331614224,
+        "HeapBytes": 134209048,
+        "WorkingSet": 302055424,
+        "Transport": {
+          "PacketsReceived": 31433,
+          "PacketsSent": 5866,
+          "BytesReceived": 4845821,
+          "BytesSent": 993901,
+          "Invalid": 0,
+          "Oversized": 0,
+          "QueueCurrent": 0,
+          "QueueHighWater": 36,
+          "QueueDrops": 0,
+          "Coalesced": 0,
+          "Processed": 28249,
+          "ProcessingMilliseconds": 295.4128,
+          "SocketErrors": 0
+        },
+        "ServerSegments": [],
+        "shotCounts": {
+          "committed": 51,
+          "offered": 38,
+          "accepted": 13,
+          "fired": 13
+        },
+        "turretRequiredOutcomeReceipts": 0,
+        "turretCancelledFlights": 0,
+        "turretOutcomeReceipts": 0,
+        "turretRefusalsApplied": 0
+      },
+      "peer-1": {
+        "Frames": 5754,
+        "AliveFrames": [
+          5397,
+          5038,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "OfferedCarriers": 5754,
+        "AcceptedCarriers": 4946,
+        "AllocatedBytes": 331753936,
+        "HeapBytes": 134686640,
+        "WorkingSet": 292405248,
+        "Transport": {
+          "PacketsReceived": 31466,
+          "PacketsSent": 5819,
+          "BytesReceived": 4905266,
+          "BytesSent": 927650,
+          "Invalid": 0,
+          "Oversized": 0,
+          "QueueCurrent": 0,
+          "QueueHighWater": 38,
+          "QueueDrops": 0,
+          "Coalesced": 0,
+          "Processed": 28318,
+          "ProcessingMilliseconds": 261.926933,
+          "SocketErrors": 0
+        },
+        "ServerSegments": [],
+        "shotCounts": {
+          "committed": 51,
+          "offered": 13,
+          "accepted": 38,
+          "fired": 38
+        },
+        "turretRequiredOutcomeReceipts": 0,
+        "turretCancelledFlights": 0,
+        "turretOutcomeReceipts": 0,
+        "turretRefusalsApplied": 0
+      }
+    },
+    "parity": {
+      "peer-0": {
+        "healthSamplesCompared": 1730,
+        "healthMismatches": 0,
+        "slowSamplesCompared": 886,
+        "slowLaneCompleteness": "PASS",
+        "finalScoreConvergence": "PASS",
+        "offeredShots": 38,
+        "acceptedShots": 38,
+        "committedShots": 38,
+        "wrongWeaponChargeKind": 0,
+        "terminalRejectedOfferedShots": 0,
+        "terminalRejectedOfferedKeys": [],
+        "authorityRetiredOfferedTurretCount": 0,
+        "authorityRetiredOfferedTurretKeys": [],
+        "terminalRejectedViewShots": 0,
+        "terminalRejectedViewKeys": [],
+        "unacceptedKeys": [],
+        "uncommittedKeys": [],
+        "authorityGapContext": {
+          "arrivedOrLocallyOffered": 0,
+          "noArrivalEvidence": 0,
+          "recordedPhaseSkips": 0,
+          "nearAuthorityDeathWithin12Frames": 0,
+          "weaponKindCounts": {},
+          "examples": []
+        },
+        "viewGapContext": {
+          "arrivedOrLocallyOffered": 0,
+          "noArrivalEvidence": 0,
+          "recordedPhaseSkips": 0,
+          "nearAuthorityDeathWithin12Frames": 0,
+          "weaponKindCounts": {},
+          "examples": []
+        },
+        "matchingSemanticFacts": 69,
+        "viewExpectedCommits": 51,
+        "viewMissingCommits": 0,
+        "viewBeforeInitialAdmissionCount": 0,
+        "viewBeforeInitialAdmissionKeys": [],
+        "viewMissingKeys": [],
+        "viewTailExcludedFrames": 30,
+        "semanticExpected": 69,
+        "semanticMissing": 0,
+        "semanticConflicts": 0,
+        "semanticTailExcludedFrames": 60,
+        "semanticCompleteness": "PASS",
+        "renderedProjectileAgreement": "NOT_RUN"
+      },
+      "peer-1": {
+        "healthSamplesCompared": 1696,
+        "healthMismatches": 0,
+        "slowSamplesCompared": 888,
+        "slowLaneCompleteness": "PASS",
+        "finalScoreConvergence": "PASS",
+        "offeredShots": 13,
+        "acceptedShots": 13,
+        "committedShots": 13,
+        "wrongWeaponChargeKind": 0,
+        "terminalRejectedOfferedShots": 0,
+        "terminalRejectedOfferedKeys": [],
+        "authorityRetiredOfferedTurretCount": 0,
+        "authorityRetiredOfferedTurretKeys": [],
+        "terminalRejectedViewShots": 0,
+        "terminalRejectedViewKeys": [],
+        "unacceptedKeys": [],
+        "uncommittedKeys": [],
+        "authorityGapContext": {
+          "arrivedOrLocallyOffered": 0,
+          "noArrivalEvidence": 0,
+          "recordedPhaseSkips": 0,
+          "nearAuthorityDeathWithin12Frames": 0,
+          "weaponKindCounts": {},
+          "examples": []
+        },
+        "viewGapContext": {
+          "arrivedOrLocallyOffered": 0,
+          "noArrivalEvidence": 0,
+          "recordedPhaseSkips": 0,
+          "nearAuthorityDeathWithin12Frames": 0,
+          "weaponKindCounts": {},
+          "examples": []
+        },
+        "matchingSemanticFacts": 69,
+        "viewExpectedCommits": 51,
+        "viewMissingCommits": 0,
+        "viewBeforeInitialAdmissionCount": 0,
+        "viewBeforeInitialAdmissionKeys": [],
+        "viewMissingKeys": [],
+        "viewTailExcludedFrames": 30,
+        "semanticExpected": 69,
+        "semanticMissing": 0,
+        "semanticConflicts": 0,
+        "semanticTailExcludedFrames": 60,
+        "semanticCompleteness": "PASS",
+        "renderedProjectileAgreement": "NOT_RUN"
+      }
+    },
+    "aiClient": {
+      "status": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "clients": [
+        {
+          "name": "peer-0",
+          "slot": 0,
+          "inputFrames": 5742,
+          "decisionFrames": 5185,
+          "travel": 563.0287119441432,
+          "offeredShots": 38,
+          "declaredClaims": 15,
+          "nativePickupConsumptions": 11,
+          "spawnedLives": 2,
+          "altFrames": 2,
+          "weapons": [
+            0,
+            2
+          ],
+          "lifecycleEvidence": {
+            "spawnedLives": {
+              "observed": 2,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+            },
+            "altForms": {
+              "observed": 2,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision frames where the local player is in an alternative form"
+            },
+            "deathEvents": {
+              "observed": 2,
+              "status": "OBSERVED",
+              "countingUnit": "unique canonical death fact"
+            },
+            "respawnEvents": {
+              "observed": 2,
+              "status": "OBSERVED",
+              "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+            },
+            "altTransitions": {
+              "observed": null,
+              "status": "NOT_RUN",
+              "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+            }
+          },
+          "invalidPositionSamples": 0,
+          "invalidDistanceSamples": 0,
+          "paidSourceShotKeys": 15
+        },
+        {
+          "name": "peer-1",
+          "slot": 1,
+          "inputFrames": 5754,
+          "decisionFrames": 4665,
+          "travel": 468.73688579028027,
+          "offeredShots": 13,
+          "declaredClaims": 6,
+          "nativePickupConsumptions": 12,
+          "spawnedLives": 5,
+          "altFrames": 408,
+          "weapons": [
+            0,
+            2,
+            1
+          ],
+          "lifecycleEvidence": {
+            "spawnedLives": {
+              "observed": 5,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+            },
+            "altForms": {
+              "observed": 408,
+              "status": "OBSERVED",
+              "countingUnit": "AI decision frames where the local player is in an alternative form"
+            },
+            "deathEvents": {
+              "observed": 4,
+              "status": "OBSERVED",
+              "countingUnit": "unique canonical death fact"
+            },
+            "respawnEvents": {
+              "observed": 4,
+              "status": "OBSERVED",
+              "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+            },
+            "altTransitions": {
+              "observed": null,
+              "status": "NOT_RUN",
+              "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+            }
+          },
+          "invalidPositionSamples": 0,
+          "invalidDistanceSamples": 0,
+          "paidSourceShotKeys": 7
+        }
+      ],
+      "metrics": {
+        "declaredClientClaims": 21,
+        "authorityClaimReceiptsIncludingRetries": 23,
+        "authorityAppliedClaims": 1,
+        "componentPayments": 24,
+        "ownerNativePickupConsumptions": 23,
+        "paidAiSourceShotKeys": 22,
+        "canonicalLifecycle": {
+          "deathEvents": {
+            "observed": 6,
+            "status": "OBSERVED"
+          },
+          "spawnEvents": {
+            "observed": 9,
+            "status": "OBSERVED"
+          },
+          "respawnEvents": {
+            "observed": 6,
+            "status": "OBSERVED"
+          }
+        },
+        "serverBotSlots": [],
+        "serverBotShotKeys": 0
+      },
+      "scope": "Each campaign is one bounded activity phase; native pickup consumption is not an admitted grant. Claim receipts include retries. Component payments exclude bomb/continuous paths. Paid AI source shot keys count distinct source shots, not component payments; canonical respawns require a joined preceding death. Lifecycle evidence is descriptive and does not add an activity gate; OBSERVED is not lifecycle parity PASS. Seeded gameplay RNG does not make UDP scheduling deterministic."
+    }
+  },
+  "ai-summary": {
+    "status": "PASS",
+    "failures": [],
+    "incomplete": [],
+    "clients": [
+      {
+        "name": "peer-0",
+        "slot": 0,
+        "inputFrames": 5742,
+        "decisionFrames": 5185,
+        "travel": 563.0287119441432,
+        "offeredShots": 38,
+        "declaredClaims": 15,
+        "nativePickupConsumptions": 11,
+        "spawnedLives": 2,
+        "altFrames": 2,
+        "weapons": [
+          0,
+          2
+        ],
+        "lifecycleEvidence": {
+          "spawnedLives": {
+            "observed": 2,
+            "status": "OBSERVED",
+            "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+          },
+          "altForms": {
+            "observed": 2,
+            "status": "OBSERVED",
+            "countingUnit": "AI decision frames where the local player is in an alternative form"
+          },
+          "deathEvents": {
+            "observed": 2,
+            "status": "OBSERVED",
+            "countingUnit": "unique canonical death fact"
+          },
+          "respawnEvents": {
+            "observed": 2,
+            "status": "OBSERVED",
+            "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+          },
+          "altTransitions": {
+            "observed": null,
+            "status": "NOT_RUN",
+            "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+          }
+        },
+        "invalidPositionSamples": 0,
+        "invalidDistanceSamples": 0,
+        "paidSourceShotKeys": 15
+      },
+      {
+        "name": "peer-1",
+        "slot": 1,
+        "inputFrames": 5754,
+        "decisionFrames": 4665,
+        "travel": 468.73688579028027,
+        "offeredShots": 13,
+        "declaredClaims": 6,
+        "nativePickupConsumptions": 12,
+        "spawnedLives": 5,
+        "altFrames": 408,
+        "weapons": [
+          0,
+          2,
+          1
+        ],
+        "lifecycleEvidence": {
+          "spawnedLives": {
+            "observed": 5,
+            "status": "OBSERVED",
+            "countingUnit": "AI decision observations of a changed LifeId, including the initial life"
+          },
+          "altForms": {
+            "observed": 408,
+            "status": "OBSERVED",
+            "countingUnit": "AI decision frames where the local player is in an alternative form"
+          },
+          "deathEvents": {
+            "observed": 4,
+            "status": "OBSERVED",
+            "countingUnit": "unique canonical death fact"
+          },
+          "respawnEvents": {
+            "observed": 4,
+            "status": "OBSERVED",
+            "countingUnit": "canonical spawn joined to preceding same-generation death with newer life"
+          },
+          "altTransitions": {
+            "observed": null,
+            "status": "NOT_RUN",
+            "reason": "AltFrames measures form activity frames, not distinct enter/exit transitions."
+          }
+        },
+        "invalidPositionSamples": 0,
+        "invalidDistanceSamples": 0,
+        "paidSourceShotKeys": 7
+      }
+    ],
+    "metrics": {
+      "declaredClientClaims": 21,
+      "authorityClaimReceiptsIncludingRetries": 23,
+      "authorityAppliedClaims": 1,
+      "componentPayments": 24,
+      "ownerNativePickupConsumptions": 23,
+      "paidAiSourceShotKeys": 22,
+      "canonicalLifecycle": {
+        "deathEvents": {
+          "observed": 6,
+          "status": "OBSERVED"
+        },
+        "spawnEvents": {
+          "observed": 9,
+          "status": "OBSERVED"
+        },
+        "respawnEvents": {
+          "observed": 6,
+          "status": "OBSERVED"
+        }
+      },
+      "serverBotSlots": [],
+      "serverBotShotKeys": 0
+    },
+    "scope": "Each campaign is one bounded activity phase; native pickup consumption is not an admitted grant. Claim receipts include retries. Component payments exclude bomb/continuous paths. Paid AI source shot keys count distinct source shots, not component payments; canonical respawns require a joined preceding death. Lifecycle evidence is descriptive and does not add an activity gate; OBSERVED is not lifecycle parity PASS. Seeded gameplay RNG does not make UDP scheduling deterministic."
+  },
+  "manifest": {
+    "source": "7588d98689899c9868e8a0105b78653c7a1db50d",
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "python": "3.9.6",
+    "dotnetInfo": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     Mac OS X\n OS Version:  27.0\n OS Platform: Darwin\n RID:         osx-arm64\n Base Path:   ${WORKSPACE}/work/dotnet/sdk/10.0.401/\n\n.NET workloads installed:\nThere are no installed workloads to display.\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: arm64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.401 [${WORKSPACE}/work/dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [${WORKSPACE}/work/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [${WORKSPACE}/work/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  Not set\n\nglobal.json file:\n  ${WORKSPACE}/work/prime-plan-qualified-source/global.json\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+    "assemblySha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+    "stagedEntry": {
+      "ProjectPrime.dll": {
+        "sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "bytes": 33332224
+      },
+      "ProjectPrime.deps.json": {
+        "sha256": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+        "bytes": 42297
+      },
+      "ProjectPrime.runtimeconfig.json": {
+        "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+        "bytes": 330
+      }
+    },
+    "assetManifestSha256": "18ff0604e7e92c54bccbe5c8c76473ad2bbe550566c6ff2aa5d3932f6b16fff3",
+    "harnessSha256": {
+      "run-net2.py": "9e5a45b173fb384894c57d60b56ee8c2d4ea36df91895d2a128b81488b4369a9",
+      "net2_evidence.py": "6a220c3ea22b095e39576519b4f8747b2c29899d25f5452c8b22785e0eccc9a8",
+      "net_ai_evidence.py": "afcbb2192093f978c0697ef7ce590eb0f44e4727dc56b7615ae848aa514b3ed3"
+    },
+    "settings": {
+      "build": "${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/runtime",
+      "paths": "${WORKSPACE}/work/plan-completion-evidence/candidate-7588d986/net-assets/timed-native-effect-scene-profile/paths.txt",
+      "source": "7588d98689899c9868e8a0105b78653c7a1db50d",
+      "out": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign",
+      "dotnet": "${WORKSPACE}/work/dotnet/dotnet",
+      "protocol": 56,
+      "shot_proof": "shadow",
+      "timed_grant_proof": "shadow",
+      "timed_replay_facts": true,
+      "evidence_row_limit": 1048576,
+      "players": 2,
+      "ai_net_client": 2,
+      "ai_seed": 1729,
+      "server_bot": false,
+      "powerups": true,
+      "pacing_lobby_client": null,
+      "seconds": 90.0,
+      "drain_seconds": 35.0,
+      "port": 29250,
+      "seed": 8128,
+      "profile": "poor",
+      "rtt_ms": 250,
+      "jitter_ms": 40,
+      "loss_percent": 5.0,
+      "reorder_percent": 5.0,
+      "duplicate_percent": 2.0,
+      "scenario": "ai",
+      "observer_delay": 0,
+      "rooms": "MP12 SIC TRANSIT",
+      "round_minutes": 30,
+      "rendered": false,
+      "server_operator": false,
+      "movement_validation_shadow": false,
+      "confirmed_impacts": false,
+      "bomb_visibility": false,
+      "bomb_triangle_fixture": false,
+      "server_performance": false,
+      "record": true,
+      "soak": false
+    },
+    "faultProfile": {
+      "rtt_ms": 250,
+      "jitter_ms": 40,
+      "loss_percent": 5.0,
+      "reorder_percent": 5.0,
+      "duplicate_percent": 2.0,
+      "scope": "each client, inbound and outbound",
+      "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+      "seedRule": "base seed + client launch index"
+    },
+    "commands": [
+      {
+        "name": "server",
+        "argv": [
+          "${WORKSPACE}/work/dotnet/dotnet",
+          "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll",
+          "-mapdir",
+          "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server/empty-maps",
+          "-noupdate",
+          "-noautoupdate",
+          "-server",
+          "-port",
+          "29250",
+          "-players",
+          "2",
+          "-nomaster",
+          "-rotation",
+          "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/rotation.txt",
+          "-netdebug",
+          "-powerups"
+        ],
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server",
+          "ALSOFT_DRIVERS": "null",
+          "MPHREAD_PHASE_SECONDS": "2",
+          "PRIME_NET2_EVIDENCE": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server.json",
+          "PRIME_SHOT_PROOF": "shadow",
+          "PRIME_TIMED_GRANT_PROOF": "shadow",
+          "PRIME_TIMED_REPLAY_FACTS": "1",
+          "PRIME_NET2_EVIDENCE_ROW_LIMIT": "1048576",
+          "PRIME_NET2_DRAIN_SECONDS": "35.0",
+          "PRIME_NET2_DRAIN_ROLE": "server",
+          "PRIME_NET2_DRAIN_STATUS": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server.drain.json",
+          "PRIME_NET2_DRAIN_RELEASE": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/drain.server-release.json"
+        },
+        "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+        "soak": false
+      },
+      {
+        "name": "peer-0",
+        "argv": [
+          "${WORKSPACE}/work/dotnet/dotnet",
+          "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll",
+          "-mapdir",
+          "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0/empty-maps",
+          "-noupdate",
+          "-noautoupdate",
+          "-netcheck",
+          "127.0.0.1",
+          "-port",
+          "29250",
+          "-name",
+          "peer-0",
+          "-hunter",
+          "Samus",
+          "-seconds",
+          "90.0",
+          "-size",
+          "480x270",
+          "-netlag",
+          "250:40",
+          "-netloss",
+          "5%",
+          "-netreorder",
+          "5%",
+          "-netduplicate",
+          "2%",
+          "-netseed",
+          "8128",
+          "-ai-net-client",
+          "2",
+          "-ai-seed",
+          "1729",
+          "-nographics",
+          "-recorddemo"
+        ],
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0",
+          "ALSOFT_DRIVERS": "null",
+          "MPHREAD_PHASE_SECONDS": "2",
+          "PRIME_NET2_EVIDENCE": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0.json",
+          "PRIME_SHOT_PROOF": "shadow",
+          "PRIME_TIMED_GRANT_PROOF": "shadow",
+          "PRIME_NET2_EVIDENCE_ROW_LIMIT": "1048576",
+          "PRIME_NET2_DRAIN_SECONDS": "35.0",
+          "PRIME_NET2_DRAIN_ROLE": "client",
+          "PRIME_NET2_DRAIN_STATUS": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0.drain.json",
+          "PRIME_NET2_DRAIN_RELEASE": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/drain.release.json"
+        },
+        "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+        "soak": false
+      },
+      {
+        "name": "peer-1",
+        "argv": [
+          "${WORKSPACE}/work/dotnet/dotnet",
+          "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll",
+          "-mapdir",
+          "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1/empty-maps",
+          "-noupdate",
+          "-noautoupdate",
+          "-netcheck",
+          "127.0.0.1",
+          "-port",
+          "29250",
+          "-name",
+          "peer-1",
+          "-hunter",
+          "Kanden",
+          "-seconds",
+          "90.0",
+          "-size",
+          "480x270",
+          "-netlag",
+          "250:40",
+          "-netloss",
+          "5%",
+          "-netreorder",
+          "5%",
+          "-netduplicate",
+          "2%",
+          "-netseed",
+          "8129",
+          "-ai-net-client",
+          "2",
+          "-ai-seed",
+          "1730",
+          "-nographics",
+          "-recorddemo"
+        ],
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1",
+          "ALSOFT_DRIVERS": "null",
+          "MPHREAD_PHASE_SECONDS": "2",
+          "PRIME_NET2_EVIDENCE": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1.json",
+          "PRIME_SHOT_PROOF": "shadow",
+          "PRIME_TIMED_GRANT_PROOF": "shadow",
+          "PRIME_NET2_EVIDENCE_ROW_LIMIT": "1048576",
+          "PRIME_NET2_DRAIN_SECONDS": "35.0",
+          "PRIME_NET2_DRAIN_ROLE": "client",
+          "PRIME_NET2_DRAIN_STATUS": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1.drain.json",
+          "PRIME_NET2_DRAIN_RELEASE": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/drain.release.json"
+        },
+        "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+        "soak": false
+      }
+    ],
+    "startedUtc": "2026-10-14T11:22:58Z",
+    "serverQuiesceRequest": {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/drain.server-release.json.quiesce",
+      "request": {
+        "Epoch": 639275737781613360,
+        "Match": 2
+      },
+      "peerNames": [
+        "peer-0",
+        "peer-1"
+      ],
+      "requestedSeconds": 93.90546416699999,
+      "serverFrame": 5457,
+      "peerFrames": {
+        "peer-0": 5414,
+        "peer-1": 5428
+      }
+    },
+    "drain": {
+      "status": "PASS",
+      "release": {
+        "Status": "PASS",
+        "Epoch": 639275737781613360,
+        "Match": 2,
+        "Semantic": 72,
+        "Award": 1,
+        "Bomb": 2
+      },
+      "server": {
+        "Enabled": true,
+        "Role": "server",
+        "Quiescing": true,
+        "Epoch": 639275737781613360,
+        "Match": 2,
+        "Frame": 5805,
+        "SemanticLatest": 72,
+        "SemanticPresented": 72,
+        "AwardLatest": 1,
+        "AwardPresented": 1,
+        "BombFrontier": 2,
+        "BombPendingRequests": 0,
+        "TurretPendingOutcomes": 0,
+        "PickupPendingWork": 0,
+        "BombPendingEvents": 0,
+        "BombFaulted": false,
+        "PendingRespawns": 0,
+        "ActiveProjectiles": 0,
+        "ActiveBombs": 0,
+        "ActiveTurrets": 0,
+        "ClaimsPending": 0,
+        "ClaimGraceSeconds": 2.4,
+        "OfferedShotKeys": [],
+        "AcceptedShotKeys": [
+          "639275737781613360:2:0:1:1:1",
+          "639275737781613360:2:0:1:1:2",
+          "639275737781613360:2:0:1:1:3",
+          "639275737781613360:2:0:1:1:4",
+          "639275737781613360:2:0:1:2:10",
+          "639275737781613360:2:0:1:2:11",
+          "639275737781613360:2:0:1:2:12",
+          "639275737781613360:2:0:1:2:13",
+          "639275737781613360:2:0:1:2:14",
+          "639275737781613360:2:0:1:2:15",
+          "639275737781613360:2:0:1:2:16",
+          "639275737781613360:2:0:1:2:17",
+          "639275737781613360:2:0:1:2:18",
+          "639275737781613360:2:0:1:2:19",
+          "639275737781613360:2:0:1:2:20",
+          "639275737781613360:2:0:1:2:21",
+          "639275737781613360:2:0:1:2:22",
+          "639275737781613360:2:0:1:2:23",
+          "639275737781613360:2:0:1:2:24",
+          "639275737781613360:2:0:1:2:25",
+          "639275737781613360:2:0:1:2:26",
+          "639275737781613360:2:0:1:2:27",
+          "639275737781613360:2:0:1:2:28",
+          "639275737781613360:2:0:1:2:29",
+          "639275737781613360:2:0:1:2:30",
+          "639275737781613360:2:0:1:2:31",
+          "639275737781613360:2:0:1:2:32",
+          "639275737781613360:2:0:1:2:33",
+          "639275737781613360:2:0:1:2:34",
+          "639275737781613360:2:0:1:2:35",
+          "639275737781613360:2:0:1:2:36",
+          "639275737781613360:2:0:1:2:37",
+          "639275737781613360:2:0:1:2:38",
+          "639275737781613360:2:0:1:2:5",
+          "639275737781613360:2:0:1:2:6",
+          "639275737781613360:2:0:1:2:7",
+          "639275737781613360:2:0:1:2:8",
+          "639275737781613360:2:0:1:2:9",
+          "639275737781613360:2:1:1:2:1",
+          "639275737781613360:2:1:1:2:2",
+          "639275737781613360:2:1:1:2:3",
+          "639275737781613360:2:1:1:2:4",
+          "639275737781613360:2:1:1:2:5",
+          "639275737781613360:2:1:1:2:6",
+          "639275737781613360:2:1:1:5:7",
+          "639275737781613360:2:1:1:5:8",
+          "639275737781613360:2:1:1:6:10",
+          "639275737781613360:2:1:1:6:11",
+          "639275737781613360:2:1:1:6:12",
+          "639275737781613360:2:1:1:6:13",
+          "639275737781613360:2:1:1:6:9"
+        ],
+        "Reliable": [
+          {
+            "Endpoint": "127.0.0.1:55969",
+            "ConnectionId": 17766764713612633815,
+            "Pending": 0,
+            "Failed": false
+          },
+          {
+            "Endpoint": "127.0.0.1:55763",
+            "ConnectionId": 11133168384175288502,
+            "Pending": 0,
+            "Failed": false
+          }
+        ],
+        "ConnectionLost": false,
+        "Error": null,
+        "QuiesceRequest": {
+          "Epoch": 639275737781613360,
+          "Match": 2
+        },
+        "Release": {
+          "Status": "PASS",
+          "Epoch": 639275737781613360,
+          "Match": 2,
+          "Semantic": 72,
+          "Award": 1,
+          "Bomb": 2
+        },
+        "AtRelease": {
+          "Epoch": 639275737781613360,
+          "Match": 2,
+          "SemanticLatest": 72,
+          "SemanticPresented": 72,
+          "AwardLatest": 1,
+          "AwardPresented": 1,
+          "BombFrontier": 2,
+          "BombPendingRequests": 0,
+          "TurretPendingOutcomes": 0,
+          "PickupPendingWork": 0,
+          "BombPendingEvents": 0,
+          "BombFaulted": false
+        }
+      },
+      "peers": {
+        "peer-0": {
+          "Enabled": true,
+          "Role": "client",
+          "Quiescing": true,
+          "Epoch": 639275737781613360,
+          "Match": 2,
+          "Frame": 5768,
+          "SemanticLatest": 72,
+          "SemanticPresented": 72,
+          "AwardLatest": 1,
+          "AwardPresented": 1,
+          "BombFrontier": 2,
+          "BombPendingRequests": 0,
+          "TurretPendingOutcomes": 0,
+          "PickupPendingWork": 0,
+          "BombPendingEvents": 0,
+          "BombFaulted": false,
+          "PendingRespawns": 0,
+          "ActiveProjectiles": 0,
+          "ActiveBombs": 0,
+          "ActiveTurrets": 0,
+          "ClaimsPending": 0,
+          "ClaimGraceSeconds": 2.4,
+          "OfferedShotKeys": [
+            "639275737781613360:2:0:1:1:1",
+            "639275737781613360:2:0:1:1:2",
+            "639275737781613360:2:0:1:1:3",
+            "639275737781613360:2:0:1:1:4",
+            "639275737781613360:2:0:1:2:10",
+            "639275737781613360:2:0:1:2:11",
+            "639275737781613360:2:0:1:2:12",
+            "639275737781613360:2:0:1:2:13",
+            "639275737781613360:2:0:1:2:14",
+            "639275737781613360:2:0:1:2:15",
+            "639275737781613360:2:0:1:2:16",
+            "639275737781613360:2:0:1:2:17",
+            "639275737781613360:2:0:1:2:18",
+            "639275737781613360:2:0:1:2:19",
+            "639275737781613360:2:0:1:2:20",
+            "639275737781613360:2:0:1:2:21",
+            "639275737781613360:2:0:1:2:22",
+            "639275737781613360:2:0:1:2:23",
+            "639275737781613360:2:0:1:2:24",
+            "639275737781613360:2:0:1:2:25",
+            "639275737781613360:2:0:1:2:26",
+            "639275737781613360:2:0:1:2:27",
+            "639275737781613360:2:0:1:2:28",
+            "639275737781613360:2:0:1:2:29",
+            "639275737781613360:2:0:1:2:30",
+            "639275737781613360:2:0:1:2:31",
+            "639275737781613360:2:0:1:2:32",
+            "639275737781613360:2:0:1:2:33",
+            "639275737781613360:2:0:1:2:34",
+            "639275737781613360:2:0:1:2:35",
+            "639275737781613360:2:0:1:2:36",
+            "639275737781613360:2:0:1:2:37",
+            "639275737781613360:2:0:1:2:38",
+            "639275737781613360:2:0:1:2:5",
+            "639275737781613360:2:0:1:2:6",
+            "639275737781613360:2:0:1:2:7",
+            "639275737781613360:2:0:1:2:8",
+            "639275737781613360:2:0:1:2:9"
+          ],
+          "AcceptedShotKeys": [
+            "639275737781613360:2:1:1:2:1",
+            "639275737781613360:2:1:1:2:2",
+            "639275737781613360:2:1:1:2:3",
+            "639275737781613360:2:1:1:2:4",
+            "639275737781613360:2:1:1:2:5",
+            "639275737781613360:2:1:1:2:6",
+            "639275737781613360:2:1:1:5:7",
+            "639275737781613360:2:1:1:5:8",
+            "639275737781613360:2:1:1:6:10",
+            "639275737781613360:2:1:1:6:11",
+            "639275737781613360:2:1:1:6:12",
+            "639275737781613360:2:1:1:6:13",
+            "639275737781613360:2:1:1:6:9"
+          ],
+          "Reliable": [
+            {
+              "Endpoint": "127.0.0.1:29250",
+              "ConnectionId": 17766764713612633815,
+              "Pending": 0,
+              "Failed": false
+            }
+          ],
+          "ConnectionLost": false,
+          "Error": null,
+          "QuiesceRequest": null,
+          "Release": null,
+          "AtRelease": null
+        },
+        "peer-1": {
+          "Enabled": true,
+          "Role": "client",
+          "Quiescing": true,
+          "Epoch": 639275737781613360,
+          "Match": 2,
+          "Frame": 5768,
+          "SemanticLatest": 72,
+          "SemanticPresented": 72,
+          "AwardLatest": 1,
+          "AwardPresented": 1,
+          "BombFrontier": 2,
+          "BombPendingRequests": 0,
+          "TurretPendingOutcomes": 0,
+          "PickupPendingWork": 0,
+          "BombPendingEvents": 0,
+          "BombFaulted": false,
+          "PendingRespawns": 0,
+          "ActiveProjectiles": 0,
+          "ActiveBombs": 0,
+          "ActiveTurrets": 0,
+          "ClaimsPending": 0,
+          "ClaimGraceSeconds": 2.4,
+          "OfferedShotKeys": [
+            "639275737781613360:2:1:1:2:1",
+            "639275737781613360:2:1:1:2:2",
+            "639275737781613360:2:1:1:2:3",
+            "639275737781613360:2:1:1:2:4",
+            "639275737781613360:2:1:1:2:5",
+            "639275737781613360:2:1:1:2:6",
+            "639275737781613360:2:1:1:5:7",
+            "639275737781613360:2:1:1:5:8",
+            "639275737781613360:2:1:1:6:10",
+            "639275737781613360:2:1:1:6:11",
+            "639275737781613360:2:1:1:6:12",
+            "639275737781613360:2:1:1:6:13",
+            "639275737781613360:2:1:1:6:9"
+          ],
+          "AcceptedShotKeys": [
+            "639275737781613360:2:0:1:1:1",
+            "639275737781613360:2:0:1:1:2",
+            "639275737781613360:2:0:1:1:3",
+            "639275737781613360:2:0:1:1:4",
+            "639275737781613360:2:0:1:2:10",
+            "639275737781613360:2:0:1:2:11",
+            "639275737781613360:2:0:1:2:12",
+            "639275737781613360:2:0:1:2:13",
+            "639275737781613360:2:0:1:2:14",
+            "639275737781613360:2:0:1:2:15",
+            "639275737781613360:2:0:1:2:16",
+            "639275737781613360:2:0:1:2:17",
+            "639275737781613360:2:0:1:2:18",
+            "639275737781613360:2:0:1:2:19",
+            "639275737781613360:2:0:1:2:20",
+            "639275737781613360:2:0:1:2:21",
+            "639275737781613360:2:0:1:2:22",
+            "639275737781613360:2:0:1:2:23",
+            "639275737781613360:2:0:1:2:24",
+            "639275737781613360:2:0:1:2:25",
+            "639275737781613360:2:0:1:2:26",
+            "639275737781613360:2:0:1:2:27",
+            "639275737781613360:2:0:1:2:28",
+            "639275737781613360:2:0:1:2:29",
+            "639275737781613360:2:0:1:2:30",
+            "639275737781613360:2:0:1:2:31",
+            "639275737781613360:2:0:1:2:32",
+            "639275737781613360:2:0:1:2:33",
+            "639275737781613360:2:0:1:2:34",
+            "639275737781613360:2:0:1:2:35",
+            "639275737781613360:2:0:1:2:36",
+            "639275737781613360:2:0:1:2:37",
+            "639275737781613360:2:0:1:2:38",
+            "639275737781613360:2:0:1:2:5",
+            "639275737781613360:2:0:1:2:6",
+            "639275737781613360:2:0:1:2:7",
+            "639275737781613360:2:0:1:2:8",
+            "639275737781613360:2:0:1:2:9"
+          ],
+          "Reliable": [
+            {
+              "Endpoint": "127.0.0.1:29250",
+              "ConnectionId": 11133168384175288502,
+              "Pending": 0,
+              "Failed": false
+            }
+          ],
+          "ConnectionLost": false,
+          "Error": null,
+          "QuiesceRequest": null,
+          "Release": null,
+          "AtRelease": null
+        }
+      },
+      "stableSeconds": 2.6974790000000013,
+      "elapsedSeconds": 6.012439916000005,
+      "prepareServer": {
+        "Enabled": true,
+        "Role": "server",
+        "Quiescing": true,
+        "Epoch": 639275737781613360,
+        "Match": 2,
+        "Frame": 5793,
+        "SemanticLatest": 72,
+        "SemanticPresented": 72,
+        "AwardLatest": 1,
+        "AwardPresented": 1,
+        "BombFrontier": 2,
+        "BombPendingRequests": 0,
+        "TurretPendingOutcomes": 0,
+        "PickupPendingWork": 0,
+        "BombPendingEvents": 0,
+        "BombFaulted": false,
+        "PendingRespawns": 0,
+        "ActiveProjectiles": 0,
+        "ActiveBombs": 0,
+        "ActiveTurrets": 0,
+        "ClaimsPending": 0,
+        "ClaimGraceSeconds": 2.4,
+        "OfferedShotKeys": [],
+        "AcceptedShotKeys": [
+          "639275737781613360:2:0:1:1:1",
+          "639275737781613360:2:0:1:1:2",
+          "639275737781613360:2:0:1:1:3",
+          "639275737781613360:2:0:1:1:4",
+          "639275737781613360:2:0:1:2:10",
+          "639275737781613360:2:0:1:2:11",
+          "639275737781613360:2:0:1:2:12",
+          "639275737781613360:2:0:1:2:13",
+          "639275737781613360:2:0:1:2:14",
+          "639275737781613360:2:0:1:2:15",
+          "639275737781613360:2:0:1:2:16",
+          "639275737781613360:2:0:1:2:17",
+          "639275737781613360:2:0:1:2:18",
+          "639275737781613360:2:0:1:2:19",
+          "639275737781613360:2:0:1:2:20",
+          "639275737781613360:2:0:1:2:21",
+          "639275737781613360:2:0:1:2:22",
+          "639275737781613360:2:0:1:2:23",
+          "639275737781613360:2:0:1:2:24",
+          "639275737781613360:2:0:1:2:25",
+          "639275737781613360:2:0:1:2:26",
+          "639275737781613360:2:0:1:2:27",
+          "639275737781613360:2:0:1:2:28",
+          "639275737781613360:2:0:1:2:29",
+          "639275737781613360:2:0:1:2:30",
+          "639275737781613360:2:0:1:2:31",
+          "639275737781613360:2:0:1:2:32",
+          "639275737781613360:2:0:1:2:33",
+          "639275737781613360:2:0:1:2:34",
+          "639275737781613360:2:0:1:2:35",
+          "639275737781613360:2:0:1:2:36",
+          "639275737781613360:2:0:1:2:37",
+          "639275737781613360:2:0:1:2:38",
+          "639275737781613360:2:0:1:2:5",
+          "639275737781613360:2:0:1:2:6",
+          "639275737781613360:2:0:1:2:7",
+          "639275737781613360:2:0:1:2:8",
+          "639275737781613360:2:0:1:2:9",
+          "639275737781613360:2:1:1:2:1",
+          "639275737781613360:2:1:1:2:2",
+          "639275737781613360:2:1:1:2:3",
+          "639275737781613360:2:1:1:2:4",
+          "639275737781613360:2:1:1:2:5",
+          "639275737781613360:2:1:1:2:6",
+          "639275737781613360:2:1:1:5:7",
+          "639275737781613360:2:1:1:5:8",
+          "639275737781613360:2:1:1:6:10",
+          "639275737781613360:2:1:1:6:11",
+          "639275737781613360:2:1:1:6:12",
+          "639275737781613360:2:1:1:6:13",
+          "639275737781613360:2:1:1:6:9"
+        ],
+        "Reliable": [
+          {
+            "Endpoint": "127.0.0.1:55969",
+            "ConnectionId": 17766764713612633815,
+            "Pending": 0,
+            "Failed": false
+          },
+          {
+            "Endpoint": "127.0.0.1:55763",
+            "ConnectionId": 11133168384175288502,
+            "Pending": 0,
+            "Failed": false
+          }
+        ],
+        "ConnectionLost": false,
+        "Error": null,
+        "QuiesceRequest": {
+          "Epoch": 639275737781613360,
+          "Match": 2
+        },
+        "Release": null,
+        "AtRelease": null
+      },
+      "preparePeers": {
+        "peer-0": {
+          "Enabled": true,
+          "Role": "client",
+          "Quiescing": true,
+          "Epoch": 639275737781613360,
+          "Match": 2,
+          "Frame": 5755,
+          "SemanticLatest": 72,
+          "SemanticPresented": 72,
+          "AwardLatest": 1,
+          "AwardPresented": 1,
+          "BombFrontier": 2,
+          "BombPendingRequests": 0,
+          "TurretPendingOutcomes": 0,
+          "PickupPendingWork": 0,
+          "BombPendingEvents": 0,
+          "BombFaulted": false,
+          "PendingRespawns": 0,
+          "ActiveProjectiles": 0,
+          "ActiveBombs": 0,
+          "ActiveTurrets": 0,
+          "ClaimsPending": 0,
+          "ClaimGraceSeconds": 2.4,
+          "OfferedShotKeys": [
+            "639275737781613360:2:0:1:1:1",
+            "639275737781613360:2:0:1:1:2",
+            "639275737781613360:2:0:1:1:3",
+            "639275737781613360:2:0:1:1:4",
+            "639275737781613360:2:0:1:2:10",
+            "639275737781613360:2:0:1:2:11",
+            "639275737781613360:2:0:1:2:12",
+            "639275737781613360:2:0:1:2:13",
+            "639275737781613360:2:0:1:2:14",
+            "639275737781613360:2:0:1:2:15",
+            "639275737781613360:2:0:1:2:16",
+            "639275737781613360:2:0:1:2:17",
+            "639275737781613360:2:0:1:2:18",
+            "639275737781613360:2:0:1:2:19",
+            "639275737781613360:2:0:1:2:20",
+            "639275737781613360:2:0:1:2:21",
+            "639275737781613360:2:0:1:2:22",
+            "639275737781613360:2:0:1:2:23",
+            "639275737781613360:2:0:1:2:24",
+            "639275737781613360:2:0:1:2:25",
+            "639275737781613360:2:0:1:2:26",
+            "639275737781613360:2:0:1:2:27",
+            "639275737781613360:2:0:1:2:28",
+            "639275737781613360:2:0:1:2:29",
+            "639275737781613360:2:0:1:2:30",
+            "639275737781613360:2:0:1:2:31",
+            "639275737781613360:2:0:1:2:32",
+            "639275737781613360:2:0:1:2:33",
+            "639275737781613360:2:0:1:2:34",
+            "639275737781613360:2:0:1:2:35",
+            "639275737781613360:2:0:1:2:36",
+            "639275737781613360:2:0:1:2:37",
+            "639275737781613360:2:0:1:2:38",
+            "639275737781613360:2:0:1:2:5",
+            "639275737781613360:2:0:1:2:6",
+            "639275737781613360:2:0:1:2:7",
+            "639275737781613360:2:0:1:2:8",
+            "639275737781613360:2:0:1:2:9"
+          ],
+          "AcceptedShotKeys": [
+            "639275737781613360:2:1:1:2:1",
+            "639275737781613360:2:1:1:2:2",
+            "639275737781613360:2:1:1:2:3",
+            "639275737781613360:2:1:1:2:4",
+            "639275737781613360:2:1:1:2:5",
+            "639275737781613360:2:1:1:2:6",
+            "639275737781613360:2:1:1:5:7",
+            "639275737781613360:2:1:1:5:8",
+            "639275737781613360:2:1:1:6:10",
+            "639275737781613360:2:1:1:6:11",
+            "639275737781613360:2:1:1:6:12",
+            "639275737781613360:2:1:1:6:13",
+            "639275737781613360:2:1:1:6:9"
+          ],
+          "Reliable": [
+            {
+              "Endpoint": "127.0.0.1:29250",
+              "ConnectionId": 17766764713612633815,
+              "Pending": 0,
+              "Failed": false
+            }
+          ],
+          "ConnectionLost": false,
+          "Error": null,
+          "QuiesceRequest": null,
+          "Release": null,
+          "AtRelease": null
+        },
+        "peer-1": {
+          "Enabled": true,
+          "Role": "client",
+          "Quiescing": true,
+          "Epoch": 639275737781613360,
+          "Match": 2,
+          "Frame": 5756,
+          "SemanticLatest": 72,
+          "SemanticPresented": 72,
+          "AwardLatest": 1,
+          "AwardPresented": 1,
+          "BombFrontier": 2,
+          "BombPendingRequests": 0,
+          "TurretPendingOutcomes": 0,
+          "PickupPendingWork": 0,
+          "BombPendingEvents": 0,
+          "BombFaulted": false,
+          "PendingRespawns": 0,
+          "ActiveProjectiles": 0,
+          "ActiveBombs": 0,
+          "ActiveTurrets": 0,
+          "ClaimsPending": 0,
+          "ClaimGraceSeconds": 2.4,
+          "OfferedShotKeys": [
+            "639275737781613360:2:1:1:2:1",
+            "639275737781613360:2:1:1:2:2",
+            "639275737781613360:2:1:1:2:3",
+            "639275737781613360:2:1:1:2:4",
+            "639275737781613360:2:1:1:2:5",
+            "639275737781613360:2:1:1:2:6",
+            "639275737781613360:2:1:1:5:7",
+            "639275737781613360:2:1:1:5:8",
+            "639275737781613360:2:1:1:6:10",
+            "639275737781613360:2:1:1:6:11",
+            "639275737781613360:2:1:1:6:12",
+            "639275737781613360:2:1:1:6:13",
+            "639275737781613360:2:1:1:6:9"
+          ],
+          "AcceptedShotKeys": [
+            "639275737781613360:2:0:1:1:1",
+            "639275737781613360:2:0:1:1:2",
+            "639275737781613360:2:0:1:1:3",
+            "639275737781613360:2:0:1:1:4",
+            "639275737781613360:2:0:1:2:10",
+            "639275737781613360:2:0:1:2:11",
+            "639275737781613360:2:0:1:2:12",
+            "639275737781613360:2:0:1:2:13",
+            "639275737781613360:2:0:1:2:14",
+            "639275737781613360:2:0:1:2:15",
+            "639275737781613360:2:0:1:2:16",
+            "639275737781613360:2:0:1:2:17",
+            "639275737781613360:2:0:1:2:18",
+            "639275737781613360:2:0:1:2:19",
+            "639275737781613360:2:0:1:2:20",
+            "639275737781613360:2:0:1:2:21",
+            "639275737781613360:2:0:1:2:22",
+            "639275737781613360:2:0:1:2:23",
+            "639275737781613360:2:0:1:2:24",
+            "639275737781613360:2:0:1:2:25",
+            "639275737781613360:2:0:1:2:26",
+            "639275737781613360:2:0:1:2:27",
+            "639275737781613360:2:0:1:2:28",
+            "639275737781613360:2:0:1:2:29",
+            "639275737781613360:2:0:1:2:30",
+            "639275737781613360:2:0:1:2:31",
+            "639275737781613360:2:0:1:2:32",
+            "639275737781613360:2:0:1:2:33",
+            "639275737781613360:2:0:1:2:34",
+            "639275737781613360:2:0:1:2:35",
+            "639275737781613360:2:0:1:2:36",
+            "639275737781613360:2:0:1:2:37",
+            "639275737781613360:2:0:1:2:38",
+            "639275737781613360:2:0:1:2:5",
+            "639275737781613360:2:0:1:2:6",
+            "639275737781613360:2:0:1:2:7",
+            "639275737781613360:2:0:1:2:8",
+            "639275737781613360:2:0:1:2:9"
+          ],
+          "Reliable": [
+            {
+              "Endpoint": "127.0.0.1:29250",
+              "ConnectionId": 11133168384175288502,
+              "Pending": 0,
+              "Failed": false
+            }
+          ],
+          "ConnectionLost": false,
+          "Error": null,
+          "QuiesceRequest": null,
+          "Release": null,
+          "AtRelease": null
+        }
+      },
+      "prepareStableSeconds": 2.4882277090000002,
+      "stabilityCondition": "gameplay frontier and offered keys stable; healthy queues during grace, empty at preparation and release"
+    },
+    "elapsedSeconds": 100.582747042,
+    "assemblyAfterSha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694"
+  },
+  "actualCommandsAndEnvironments": [
+    {
+      "name": "server",
+      "argv": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll",
+        "-mapdir",
+        "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server/empty-maps",
+        "-noupdate",
+        "-noautoupdate",
+        "-server",
+        "-port",
+        "29250",
+        "-players",
+        "2",
+        "-nomaster",
+        "-rotation",
+        "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/rotation.txt",
+        "-netdebug",
+        "-powerups"
+      ],
+      "environment": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server",
+        "ALSOFT_DRIVERS": "null",
+        "MPHREAD_PHASE_SECONDS": "2",
+        "PRIME_NET2_EVIDENCE": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server.json",
+        "PRIME_SHOT_PROOF": "shadow",
+        "PRIME_TIMED_GRANT_PROOF": "shadow",
+        "PRIME_TIMED_REPLAY_FACTS": "1",
+        "PRIME_NET2_EVIDENCE_ROW_LIMIT": "1048576",
+        "PRIME_NET2_DRAIN_SECONDS": "35.0",
+        "PRIME_NET2_DRAIN_ROLE": "server",
+        "PRIME_NET2_DRAIN_STATUS": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server.drain.json",
+        "PRIME_NET2_DRAIN_RELEASE": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/drain.server-release.json"
+      },
+      "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+      "soak": false
+    },
+    {
+      "name": "peer-0",
+      "argv": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll",
+        "-mapdir",
+        "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0/empty-maps",
+        "-noupdate",
+        "-noautoupdate",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "29250",
+        "-name",
+        "peer-0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "90.0",
+        "-size",
+        "480x270",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "5%",
+        "-netreorder",
+        "5%",
+        "-netduplicate",
+        "2%",
+        "-netseed",
+        "8128",
+        "-ai-net-client",
+        "2",
+        "-ai-seed",
+        "1729",
+        "-nographics",
+        "-recorddemo"
+      ],
+      "environment": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0",
+        "ALSOFT_DRIVERS": "null",
+        "MPHREAD_PHASE_SECONDS": "2",
+        "PRIME_NET2_EVIDENCE": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0.json",
+        "PRIME_SHOT_PROOF": "shadow",
+        "PRIME_TIMED_GRANT_PROOF": "shadow",
+        "PRIME_NET2_EVIDENCE_ROW_LIMIT": "1048576",
+        "PRIME_NET2_DRAIN_SECONDS": "35.0",
+        "PRIME_NET2_DRAIN_ROLE": "client",
+        "PRIME_NET2_DRAIN_STATUS": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0.drain.json",
+        "PRIME_NET2_DRAIN_RELEASE": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/drain.release.json"
+      },
+      "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+      "soak": false
+    },
+    {
+      "name": "peer-1",
+      "argv": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/bin/ProjectPrime.dll",
+        "-mapdir",
+        "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1/empty-maps",
+        "-noupdate",
+        "-noautoupdate",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "29250",
+        "-name",
+        "peer-1",
+        "-hunter",
+        "Kanden",
+        "-seconds",
+        "90.0",
+        "-size",
+        "480x270",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "5%",
+        "-netreorder",
+        "5%",
+        "-netduplicate",
+        "2%",
+        "-netseed",
+        "8129",
+        "-ai-net-client",
+        "2",
+        "-ai-seed",
+        "1730",
+        "-nographics",
+        "-recorddemo"
+      ],
+      "environment": {
+        "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1",
+        "ALSOFT_DRIVERS": "null",
+        "MPHREAD_PHASE_SECONDS": "2",
+        "PRIME_NET2_EVIDENCE": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1.json",
+        "PRIME_SHOT_PROOF": "shadow",
+        "PRIME_TIMED_GRANT_PROOF": "shadow",
+        "PRIME_NET2_EVIDENCE_ROW_LIMIT": "1048576",
+        "PRIME_NET2_DRAIN_SECONDS": "35.0",
+        "PRIME_NET2_DRAIN_ROLE": "client",
+        "PRIME_NET2_DRAIN_STATUS": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1.drain.json",
+        "PRIME_NET2_DRAIN_RELEASE": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/drain.release.json"
+      },
+      "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+      "soak": false
+    }
+  ],
+  "actualProcesses": [
+    {
+      "name": "server",
+      "pid": 54217,
+      "startedSeconds": 0.0018160420000000732,
+      "requestedSeconds": 90.0,
+      "expectsShots": false,
+      "exit": 0,
+      "timedOut": false
+    },
+    {
+      "name": "peer-0",
+      "pid": 54229,
+      "startedSeconds": 2.121614958,
+      "requestedSeconds": 90.0,
+      "expectsShots": true,
+      "exit": 0,
+      "timedOut": false,
+      "endedSeconds": 100.33253875
+    },
+    {
+      "name": "peer-1",
+      "pid": 54230,
+      "startedSeconds": 2.376309917,
+      "requestedSeconds": 90.0,
+      "expectsShots": true,
+      "exit": 0,
+      "timedOut": false,
+      "endedSeconds": 100.332542667
+    }
+  ],
+  "joinedAuditRun": {
+    "label": "strict-auditor",
+    "command": [
+      "/Library/Developer/CommandLineTools/usr/bin/python3",
+      "${WORKSPACE}/work/prime-plan-qualified-source/tools/nettest/net04_join_evidence.py",
+      "--campaign",
+      "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign",
+      "--out",
+      "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/strict-joined-evidence.json"
+    ],
+    "cwd": "${WORKSPACE}/work/prime-plan-qualified-source",
+    "log": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/strict-joined-evidence.log",
+    "startedUtc": 1791977079.495957,
+    "pid": 54474,
+    "ownedProcessGroup": 54474,
+    "observations": [
+      {
+        "utc": 1791977079.5256782,
+        "members": [
+          "54474 54474 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python ${WORKSPACE}/work/prime-plan-qualified-source/tools/nettest/net04_join_evidence.py --campaign ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign --out ${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/strict-joined-evidence.json"
+        ]
+      }
+    ],
+    "minimumObservedFreeDiskBytes": 4002361344,
+    "exit": 2,
+    "finishedUtc": 1791977080.075713,
+    "remainingOwnedGroupMembers": [],
+    "logSha256": "e5ebcee580f2d922b746d4ff422ff1aec67c1bb63bb662ef0e7b015303406b8b",
+    "ownedProcessGroupClosed": true
+  },
+  "joinedEvidence": {
+    "schema": 1,
+    "status": "INCOMPLETE",
+    "scope": "bounded observed source/payment joins; no claimed-impact reconstruction or Enforce authorization",
+    "sourceVerifiedFraction": null,
+    "suggestedEnforceCoverageGate": "NOT_ADJUDICATED: requires meaningful declared supported samples and independent impact/policy gates",
+    "metrics": {
+      "fundedOrdinaryCertificates": 0,
+      "verifiedSourceCertificates": 0,
+      "nativeComponents": 0,
+      "fundedPayments": 0,
+      "fullyJoinedPaidCases": 0,
+      "nativePaidWithoutOwnerClaim": 0,
+      "nativeImpactObservations": 23,
+      "authorityNativePaidJoins": 0,
+      "corrections": 0,
+      "continuousPayments": 0
+    },
+    "cases": [],
+    "failures": [],
+    "incomplete": [
+      "positive full A1/A2/A3/certificate/component/claim/payment join absent",
+      "positive funded ordinary source denominator absent"
+    ]
+  },
+  "sourceAfter": {
+    "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+    "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+    "dirty": ""
+  },
+  "physicalHashesAfter": {
+    "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "runtimeInventoryAfter": {
+    "Avalonia.Base.dll": {
+      "bytes": 2355200,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Base.dll"
+    },
+    "Avalonia.Controls.dll": {
+      "bytes": 1347072,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Controls.dll"
+    },
+    "Avalonia.DesignerSupport.dll": {
+      "bytes": 214528,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.DesignerSupport.dll"
+    },
+    "Avalonia.Desktop.dll": {
+      "bytes": 15360,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Desktop.dll"
+    },
+    "Avalonia.Dialogs.dll": {
+      "bytes": 242688,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Dialogs.dll"
+    },
+    "Avalonia.Fonts.Inter.dll": {
+      "bytes": 1892864,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Fonts.Inter.dll"
+    },
+    "Avalonia.FreeDesktop.AtSpi.dll": {
+      "bytes": 562688,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.FreeDesktop.AtSpi.dll"
+    },
+    "Avalonia.FreeDesktop.dll": {
+      "bytes": 253952,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.FreeDesktop.dll"
+    },
+    "Avalonia.HarfBuzz.dll": {
+      "bytes": 22016,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.HarfBuzz.dll"
+    },
+    "Avalonia.Headless.dll": {
+      "bytes": 71680,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Headless.dll"
+    },
+    "Avalonia.Markup.Xaml.dll": {
+      "bytes": 74752,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Markup.Xaml.dll"
+    },
+    "Avalonia.Markup.dll": {
+      "bytes": 45568,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Markup.dll"
+    },
+    "Avalonia.Metal.dll": {
+      "bytes": 15360,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Metal.dll"
+    },
+    "Avalonia.MicroCom.dll": {
+      "bytes": 15360,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.MicroCom.dll"
+    },
+    "Avalonia.Native.dll": {
+      "bytes": 351232,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Native.dll"
+    },
+    "Avalonia.OpenGL.dll": {
+      "bytes": 128512,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.OpenGL.dll"
+    },
+    "Avalonia.Remote.Protocol.dll": {
+      "bytes": 75776,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Remote.Protocol.dll"
+    },
+    "Avalonia.Skia.dll": {
+      "bytes": 125440,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Skia.dll"
+    },
+    "Avalonia.Themes.Fluent.dll": {
+      "bytes": 733184,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Themes.Fluent.dll"
+    },
+    "Avalonia.Vulkan.dll": {
+      "bytes": 191488,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Vulkan.dll"
+    },
+    "Avalonia.Win32.Automation.dll": {
+      "bytes": 123904,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Win32.Automation.dll"
+    },
+    "Avalonia.Win32.dll": {
+      "bytes": 943104,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.Win32.dll"
+    },
+    "Avalonia.X11.dll": {
+      "bytes": 408064,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.X11.dll"
+    },
+    "Avalonia.dll": {
+      "bytes": 4096,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Avalonia.dll"
+    },
+    "CommunityToolkit.HighPerformance.dll": {
+      "bytes": 153928,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/CommunityToolkit.HighPerformance.dll"
+    },
+    "HarfBuzzSharp.dll": {
+      "bytes": 122400,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/HarfBuzzSharp.dll"
+    },
+    "Ktx2.NET.dll": {
+      "bytes": 26624,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Ktx2.NET.dll"
+    },
+    "MicroCom.Runtime.dll": {
+      "bytes": 15360,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/MicroCom.Runtime.dll"
+    },
+    "MphRead.Protocol.Generator.deps.json": {
+      "bytes": 11110,
+      "sha256": "08c2787d35a49738d19a495b180a81b7a13d0140adb37ee43735a2c7b3a8f525"
+    },
+    "MphRead.Protocol.Generator.dll": {
+      "bytes": 29184,
+      "sha256": "9e224fb2e96d4bd127c3df05b8b68ceb5d627d09f0eda52289bf168ca952bb13"
+    },
+    "MphRead.Protocol.Generator.pdb": {
+      "bytes": 12348,
+      "sha256": "19dc04ca3ae212a988d738a07e9dc32c1406abf84bb3462f59045014bfd6dd4e"
+    },
+    "NcsfPlay.deps.json": {
+      "bytes": 4862,
+      "sha256": "00b9355daf760b4a6a53169861bcf7cfe69ca777d1da65fb981ed8b7ba8cf59b"
+    },
+    "NcsfPlay.dll": {
+      "bytes": 166400,
+      "sha256": "2d4d4906b7dc61eda6ba51acd2210034243edf0bb17aecd330e61507eed3a288"
+    },
+    "OpenTK.Audio.OpenAL.dll": {
+      "bytes": 92672,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Audio.OpenAL.dll"
+    },
+    "OpenTK.Compute.dll": {
+      "bytes": 46592,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Compute.dll"
+    },
+    "OpenTK.Core.dll": {
+      "bytes": 8704,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Core.dll"
+    },
+    "OpenTK.Graphics.dll": {
+      "bytes": 5087232,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Graphics.dll"
+    },
+    "OpenTK.Input.dll": {
+      "bytes": 8704,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Input.dll"
+    },
+    "OpenTK.Mathematics.dll": {
+      "bytes": 355840,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Mathematics.dll"
+    },
+    "OpenTK.Windowing.Common.dll": {
+      "bytes": 13824,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Windowing.Common.dll"
+    },
+    "OpenTK.Windowing.Desktop.dll": {
+      "bytes": 59904,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Windowing.Desktop.dll"
+    },
+    "OpenTK.Windowing.GraphicsLibraryFramework.dll": {
+      "bytes": 51200,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/OpenTK.Windowing.GraphicsLibraryFramework.dll"
+    },
+    "ProjectPrime": {
+      "bytes": 124712,
+      "sha256": "d61eaf484edf5b1b62ec0e4f0355317aac05f1c4aca4b0df981a74df1dcfbe9e"
+    },
+    "ProjectPrime.deps.json": {
+      "bytes": 42297,
+      "sha256": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4"
+    },
+    "ProjectPrime.dll": {
+      "bytes": 33332224,
+      "sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694"
+    },
+    "ProjectPrime.runtimeconfig.json": {
+      "bytes": 330,
+      "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "ReFuel.StbImage.dll": {
+      "bytes": 19968,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/ReFuel.StbImage.dll"
+    },
+    "SkiaSharp.dll": {
+      "bytes": 489824,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/SkiaSharp.dll"
+    },
+    "SoundFlow.dll": {
+      "bytes": 968192,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/SoundFlow.dll"
+    },
+    "System.IO.Hashing.dll": {
+      "bytes": 56144,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/System.IO.Hashing.dll"
+    },
+    "Tmds.DBus.Protocol.dll": {
+      "bytes": 232960,
+      "linkTarget": "${WORKSPACE}/work/baseline-bin/Tmds.DBus.Protocol.dll"
+    },
+    "gamecontrollerdb.LICENSE": {
+      "bytes": 878,
+      "sha256": "7826eca0a0f7e591f38dd844e207a200aac81a59b20d8a30c3af8c6282af13e6"
+    },
+    "gamecontrollerdb.txt": {
+      "bytes": 608491,
+      "sha256": "07ec5b753e685c4829987919b27905cc3c45c8e18c11b3046e275fcf38b0f3cb"
+    },
+    "libopenal.1.dylib": {
+      "bytes": 873880,
+      "sha256": "85c3fffe4a246315b28ba07346d0e14bfa46c265cf130e2c9c0092421b5b707c"
+    },
+    "nettest": {
+      "bytes": 124712,
+      "sha256": "fa671fe95b404f919229ffd4aa8911d1a029fac5e269585ad7dcb533b801da5f"
+    },
+    "nettest.deps.json": {
+      "bytes": 42984,
+      "sha256": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff"
+    },
+    "nettest.dll": {
+      "bytes": 1470976,
+      "sha256": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f"
+    },
+    "nettest.pdb": {
+      "bytes": 283900,
+      "sha256": "520dbaa410c609522f10328c5207af85e3f1062c2dda0be8a972074dd4a0c7d8"
+    },
+    "nettest.runtimeconfig.json": {
+      "bytes": 330,
+      "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    }
+  },
+  "recordingsAfter": [
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-0/exports/_demos/MP12 SIC TRANSIT_2026-10-14_06-23-01-273_e065b6a3ecda4296a64ff2313d61e549.ppdemo",
+      "bytes": 3531282,
+      "sha256": "215a66709f5a980e9dca326d2097bd4b79e64be031be95983b4699f1157c07a0",
+      "magic": "PPDM",
+      "format": 4,
+      "protocol": 56,
+      "finalName": true
+    },
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/peer-1/exports/_demos/MP12 SIC TRANSIT_2026-10-14_06-23-01-245_4984530365a94ea5b091cedb8861e5cd.ppdemo",
+      "bytes": 3530548,
+      "sha256": "f290596747b7f4b564a8104021ed8cdc93a039efc14655a13c3ca46424d92068",
+      "magic": "PPDM",
+      "format": 4,
+      "protocol": 56,
+      "finalName": true
+    },
+    {
+      "path": "${WORKSPACE}/work/net-plan-campaigns/smoke2-7588-attempt1/campaign/server/exports/_demos/server/MP12 SIC TRANSIT_2026-10-14_06-23-00-837_d3276cdee9484b2a80ce1c75b2c89690.ppdemo",
+      "bytes": 3598764,
+      "sha256": "094d21596a0e9ff1a1d9ce20c8f7aa747d0e8ae4d5dde9b5e2cfecee427a816c",
+      "magic": "PPDM",
+      "format": 6,
+      "protocol": 56,
+      "finalName": true
+    }
+  ],
+  "sourceUnchanged": true,
+  "runtimeUnchanged": true,
+  "sdkAfter": {
+    "path": "${WORKSPACE}/work/dotnet/dotnet",
+    "sha256": "00c673767ee2538369f307d3c8a0ce06f16bc9e0ecf8ce767b64dd02b2230e98",
+    "version": "10.0.401",
+    "versionQuery": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "--version"
+    ],
+    "versionCwd": "${WORKSPACE}/work/prime-plan-qualified-source"
+  },
+  "sdkUnchanged": true
+}
