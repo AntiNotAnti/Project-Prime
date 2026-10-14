@@ -242,8 +242,12 @@ internal static class TimedImperialistImpactTests
             }
             using (var f = new Fixture(room, Hunter.Samus, false, false, -1))
             {
-                f.Scene.GameState.Teams = true; f.Scene.GameState.FriendlyFire = false;
+                f.Scene.GameState.Teams = true; f.Scene.GameState.TeamCount = 2;
+                f.Scene.GameState.FriendlyFire = false;
                 f.Owner.TeamIndex = f.Other.TeamIndex = 0; f.Victim.TeamIndex = 1;
+                Check(MphRead.Mods.Multiplayer.TeamRules.AreAllies(f.Owner.TeamIndex, f.Other.TeamIndex)
+                    && !MphRead.Mods.Multiplayer.TeamRules.AreAllies(f.Owner.TeamIndex, f.Victim.TeamIndex),
+                    "declared valid two-team native contract identifies the nearer ally and farther enemy");
                 int victim = f.Victim.Health, other = f.Other.Health;
                 var emitted = f.Emit();
                 Check(!NetTimedImperialistImpact.TryResolve(emitted.Shot, emitted.Claim, out _),
