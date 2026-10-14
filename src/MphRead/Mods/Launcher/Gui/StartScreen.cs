@@ -141,6 +141,8 @@ namespace MphRead.Mods.Launcher.Gui
                     play.Overlays = _prime.Overlays;
                     play.CanLaunch = CanLaunchLocal;
                     return play;
+                case PrimeRoute.Community:
+                    return new CommunityWorkspace(_prime.Overlays);
                 case PrimeRoute.Settings:
                     var settings = new SettingsView(_settings, shell: true);
                     settings.Closed += (_, _) => _prime.Back();
