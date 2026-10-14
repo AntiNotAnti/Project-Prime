@@ -31,6 +31,7 @@ internal sealed class LegacyGlUniformCache
     private long _requested;
     private long _submitted;
     private long _skipped;
+    private long _uncachedWrites;
 
     private readonly record struct Int4(int X, int Y, int Z, int W);
     private readonly record struct MatrixValue(Matrix4 Value, bool Transpose);
@@ -63,19 +64,21 @@ internal sealed class LegacyGlUniformCache
     internal void ResetContext()
     {
         _program = 0;
+        _measuring = false;
+        _requested = _submitted = _skipped = _uncachedWrites = 0;
         InvalidateAll();
     }
 
     internal void BeginSample()
     {
-        _requested = _submitted = _skipped = 0;
+        _requested = _submitted = _skipped = _uncachedWrites = 0;
         _measuring = true;
     }
 
     internal LegacyUniformSample EndSample()
     {
         _measuring = false;
-        return new LegacyUniformSample(_requested, _submitted, _skipped);
+        return new LegacyUniformSample(_requested, _submitted, _skipped, _uncachedWrites);
     }
 
     internal void NoteUncachedWrite()
@@ -83,6 +86,7 @@ internal sealed class LegacyGlUniformCache
         if (!_measuring) return;
         _requested++;
         _submitted++;
+        _uncachedWrites++;
     }
 
     // Array uploads overwrite values which may previously have been submitted
@@ -183,8 +187,10 @@ internal sealed class LegacyGlUniformCache
     }
 }
 
-internal readonly record struct LegacyUniformSample(long Requested, long Submitted, long Skipped)
+internal readonly record struct LegacyUniformSample(long Requested, long Submitted, long Skipped, long UncachedWrites = 0)
 {
     public double SkipPercent => Requested == 0 ? 0 : Skipped * 100.0 / Requested;
+    internal long ScalarRequested => Requested - UncachedWrites;
+    internal long ScalarSubmitted => Submitted - UncachedWrites;
 }
 #endif
