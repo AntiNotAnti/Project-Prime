@@ -1,6 +1,6 @@
 # NET-03 source capability classification
 
-Status: **implemented source; new pure/native gates NOT_RUN**. Base source is NET-02 `bf3c144178e70b5bdcaec334b79e2980cdb56405`. Runtime execution awaits the exclusive test slot. This change does not enable general timed Enforce or claim NET-03 source-family completeness.
+Status: **implemented source; new pure/native gates NOT_RUN**. Initial base source was NET-02 `bf3c144178e70b5bdcaec334b79e2980cdb56405`; the parent is updated through `dc5e755f`, preserving the final NET-02 docs, configuration guard and profile-clock fixtures. Its production template capture remains guarded by the existing timed-Active callers; independent capability telemetry uses campaign opt-in. Runtime execution awaits the exclusive test slot. This change does not enable general timed Enforce or claim NET-03 source-family completeness.
 
 `NetTimedSourceCapabilities` describes the evidence already present. It does not authorize damage or change source/grant/payment state. The four statuses are:
 
