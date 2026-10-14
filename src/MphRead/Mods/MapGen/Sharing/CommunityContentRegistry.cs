@@ -152,7 +152,8 @@ public sealed class CommunityContentRegistry
                     ? hash : current?.CurrentHash,
                 LatestHash: hash,
                 CreatedAt: current?.CreatedAt ?? now,
-                UpdatedAt: now,
+                UpdatedAt: metadata.Visibility == CommunityContentVisibility.Published
+                    || current == null ? now : current.UpdatedAt,
                 Revisions: current == null
                     ? new[] { revision } : current.Revisions.Append(revision).ToArray(),
                 Archived: current?.Archived ?? false);
@@ -201,10 +202,8 @@ public sealed class CommunityContentRegistry
                 return Array.Empty<CommunityContentRevision>();
             bool owner = value.OwnerId == viewerId;
             if (value.Archived && !owner) return Array.Empty<CommunityContentRevision>();
-            return value.Revisions
-                .Where(r => owner || r.Visibility == CommunityContentVisibility.Published)
-                .OrderByDescending(r => r.RevisionNumber)
-                .ToArray();
+            return VisibleRevisions(value, owner)
+                .OrderByDescending(r => r.RevisionNumber).ToArray();
         }
     }
 
@@ -252,9 +251,7 @@ public sealed class CommunityContentRegistry
     private CommunityContentProject? Project(CommunityContentStoredProject data, bool owner)
     {
         if (data.Archived && !owner) return null;
-        CommunityContentRevision[] visible = data.Revisions
-            .Where(r => owner || r.Visibility == CommunityContentVisibility.Published)
-            .ToArray();
+        CommunityContentRevision[] visible = VisibleRevisions(data, owner);
         if (visible.Length == 0) return null;
         CommunityContentRevision latest = visible[^1];
         CommunityContentRevision? current = data.CurrentHash != null
@@ -274,10 +271,27 @@ public sealed class CommunityContentRegistry
             latest.ContentHash,
             visible.Length,
             data.CreatedAt,
-            data.UpdatedAt,
+            owner ? data.Revisions[^1].CreatedAt : data.UpdatedAt,
             current,
             latest,
             CanManage: owner, Archived: data.Archived);
+    }
+
+    private static CommunityContentRevision[] VisibleRevisions(
+        CommunityContentStoredProject data, bool owner)
+    {
+        if (owner) return data.Revisions.ToArray();
+        CommunityContentRevision[] published = data.Revisions
+            .Where(r => r.Visibility == CommunityContentVisibility.Published).ToArray();
+        // The true parent may be an unpublished draft. Public revision edges
+        // must reference only hashes already visible to an anonymous reader,
+        // while the full immutable parent lineage remains owner-visible.
+        for (int i = 0; i < published.Length; i++)
+            published[i] = published[i] with
+            {
+                ParentHash = i == 0 ? null : published[i - 1].ContentHash
+            };
+        return published;
     }
 
     private static void ValidateRegistration(CommunityContentRegistration m)
