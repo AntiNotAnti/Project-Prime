@@ -104,12 +104,17 @@ namespace MphRead
             // - decoder can decode up to 4 frames, then needs to wait until its oldest frame is requested by the renderer,
             //   then it can drop that frame and decode another one
             Music.Stop();
-            this.GameState.PauseDialog();
-            Sfx.SfxMute = true;
-            Sfx.LongSfxMute++;
-            Sfx.TimedSfxMute++;
-            Sfx.ForceFieldSfxMute++;
-            _movieOwnsSoundPause = true;
+            // A two-part ending hands the same dialog/SFX pause to the next
+            // film. Unpause+re-pause in one tick makes ApplyPause unpause it.
+            if (!_movieOwnsSoundPause)
+            {
+                this.GameState.PauseDialog();
+                Sfx.SfxMute = true;
+                Sfx.LongSfxMute++;
+                Sfx.TimedSfxMute++;
+                Sfx.ForceFieldSfxMute++;
+                _movieOwnsSoundPause = true;
+            }
             VxDecoder.Instance1.Reset();
             VxDecoder.Instance2.Reset();
             _decoderCts = new CancellationTokenSource();
@@ -290,7 +295,11 @@ namespace MphRead
                 AL.DeleteBuffers(_audioBufferIds);
                 _audioHandle = -1;
             }
-            if (_movieOwnsSoundPause)
+            // Keep a chained movie's pause active while handing off to the
+            // next decoder. Releasing and re-acquiring it in one frame leaves
+            // both pause flags set and ApplyPause incorrectly unpauses.
+            bool chained = _movieSettings.AfterMovieId.HasValue;
+            if (_movieOwnsSoundPause && !chained)
             {
                 _movieOwnsSoundPause = false;
                 Sfx.SfxMute = false;
