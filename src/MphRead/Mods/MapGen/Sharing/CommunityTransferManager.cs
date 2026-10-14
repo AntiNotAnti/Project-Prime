@@ -790,10 +790,10 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                     var orphaned = new List<Guid>();
                     foreach (var job in _jobs.Values.ToArray())
                     {
-                        if (job.State is CommunityTransferState.Preparing
+                        if ((job.State is CommunityTransferState.Preparing
                             or CommunityTransferState.Uploading
                             or CommunityTransferState.Downloading
-                            or CommunityTransferState.Verifying
+                            or CommunityTransferState.Verifying)
                             && !_running.ContainsKey(job.Id)
                             && !_coordination.IsJobOwned(job.Id))
                         {
