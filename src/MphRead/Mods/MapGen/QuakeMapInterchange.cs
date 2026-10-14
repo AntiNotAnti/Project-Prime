@@ -83,7 +83,8 @@ public static class QuakeMapInterchange
         MapValidator.RequireRuntimeName(inferred);
         Guid mapId = sidecar?.MapId ?? GuidFrom("prime-map:" + inferred);
         string sourceHash = MapBuildFingerprint.HashFile(full);
-        if (sidecar != null && sidecar.SourceSha256 != sourceHash)
+        if (sidecar != null
+            && !sidecar.SourceSha256.Equals(sourceHash, StringComparison.OrdinalIgnoreCase))
             diagnostics.Add(new("FP-RADIANT-SOURCE-CHANGED", 0,
                 "The source .map changed after the sidecar was saved; check entity/brush IDs.",
                 false));
@@ -351,20 +352,26 @@ public static class QuakeMapInterchange
                     continue;
                 }
                 var points = new Vector3[3];
+                bool invalidCoordinate = false;
                 for (int i = 0; i < 3; i++)
                 {
                     Match m = matches[i];
-                    points[i] = new Vector3(
-                        float.Parse(m.Groups["x"].Value, CultureInfo.InvariantCulture),
-                        float.Parse(m.Groups["y"].Value, CultureInfo.InvariantCulture),
-                        float.Parse(m.Groups["z"].Value, CultureInfo.InvariantCulture));
+                    if (!float.TryParse(m.Groups["x"].Value, NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out float x)
+                        || !float.TryParse(m.Groups["y"].Value, NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out float y)
+                        || !float.TryParse(m.Groups["z"].Value, NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out float z)
+                        || !float.IsFinite(x) || !float.IsFinite(y) || !float.IsFinite(z))
+                    {
+                        Error("FP-RADIANT-PLANE", lineNo,
+                            "Brush plane has an invalid or nonfinite coordinate.");
+                        invalidCoordinate = true;
+                        break;
+                    }
+                    points[i] = new Vector3(x, y, z);
                 }
-                if (points.Any(p => !float.IsFinite(p.X)
-                    || !float.IsFinite(p.Y) || !float.IsFinite(p.Z)))
-                {
-                    Error("FP-RADIANT-PLANE", lineNo, "Nonfinite brush plane coordinate.");
-                    continue;
-                }
+                if (invalidCoordinate) continue;
                 string tail = line[(matches[2].Index + matches[2].Length)..].Trim();
                 string[] args = tail.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
                 if (args.Length < 6 || args.Length > 9 || args[0].Contains(".."))
