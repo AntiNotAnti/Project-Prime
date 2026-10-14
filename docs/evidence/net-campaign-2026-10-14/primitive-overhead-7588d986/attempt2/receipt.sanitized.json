@@ -1,0 +1,582 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt2/receipt.json",
+    "sha256": "34e62d42b4add2681e35da74b9ce4f75aa7abdd11468e7f0177d0f4a9c416334",
+    "bytes": 28677
+  },
+  "policy": "Existing portable collector receipt retained; workspace prefixes sanitized. Scope/source/digests/counters unchanged.",
+  "payload": {
+    "schema": 1,
+    "success": true,
+    "scope": "constructed primitive overhead only; no native/admission/payment/FPS coverage",
+    "utc_started": "2026-10-14T11:21:25.738766+00:00",
+    "args": {
+      "repo": "$SOURCE",
+      "runtime": "$QUALIFIED_RUNTIME",
+      "donor": "$DEPENDENCIES",
+      "sdk": "$DOTNET",
+      "out": "$EVIDENCE",
+      "qualification_receipt": "$QUALIFICATION_RECEIPT",
+      "build_receipt": "$BUILD_RECEIPT",
+      "head": "7588d98689899c9868e8a0105b78653c7a1db50d",
+      "benchmark_head": "f2dfea058668c5ea3ad2cba38c36141920abbd1d",
+      "client_sha": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+      "client_mvid": "5e534c23-57c6-4026-a55a-f8233293a732",
+      "fixture_sha": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+      "fixture_mvid": "0151d5f2-81b8-4566-96e3-aadf793388ee",
+      "execution_slot_released": true
+    },
+    "processes": [
+      {
+        "command": [
+          "$DOTNET",
+          "build",
+          "$EVIDENCE/external-entry-source/benchmark.csproj",
+          "-c",
+          "Release",
+          "-o",
+          "$EVIDENCE/runtime",
+          "--nologo",
+          "-p:UseSharedCompilation=false",
+          "-nodeReuse:false"
+        ],
+        "cwd": "$EVIDENCE/external-entry-source",
+        "pid": 54133,
+        "owned_pgid": 54133,
+        "returncode": 0,
+        "timeout": false,
+        "interrupted": false,
+        "leftover_group_after_parent_exit": false,
+        "owned_group_closed": true,
+        "wall_seconds": 1.07319425,
+        "children_cpu_seconds": 1.316688,
+        "log": "$EVIDENCE/external-entry-build.log"
+      },
+      {
+        "command": [
+          "$DOTNET",
+          "$EVIDENCE/runtime/nettest.dll",
+          "$EVIDENCE/results.json",
+          "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+          "5e534c23-57c6-4026-a55a-f8233293a732",
+          "$QUALIFIED_RUNTIME/nettest.dll",
+          "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+          "0151d5f2-81b8-4566-96e3-aadf793388ee"
+        ],
+        "cwd": "$EVIDENCE/runtime",
+        "pid": 54144,
+        "owned_pgid": 54144,
+        "returncode": 0,
+        "timeout": false,
+        "interrupted": false,
+        "leftover_group_after_parent_exit": false,
+        "owned_group_closed": true,
+        "wall_seconds": 1.590724833,
+        "children_cpu_seconds": 1.624814,
+        "log": "$EVIDENCE/primitive-raw.log"
+      }
+    ],
+    "logs": [
+      {
+        "kind": "sanitized_text_derivative",
+        "original_sha256": "6342c64e80215d19f481725a57a4e1067c1abc9e32f92a18666613c4002fc8a9",
+        "original_bytes": 532,
+        "derivative": "external-entry-build.sanitized.log",
+        "derivative_sha256": "bfc3b0f627ed6dbec8c628d67c5c095102cd8c2a5c0c771a880bc2118698467c",
+        "policy": "input path placeholders and external host paths removed; content otherwise retained"
+      },
+      {
+        "kind": "sanitized_text_derivative",
+        "original_sha256": "557adfeb7b3578bbe0f922a102d0e59c1033e10e9c5ee9a308ab55b9b262b214",
+        "original_bytes": 33165,
+        "derivative": "primitive-raw.sanitized.log",
+        "derivative_sha256": "557adfeb7b3578bbe0f922a102d0e59c1033e10e9c5ee9a308ab55b9b262b214",
+        "policy": "input path placeholders and external host paths removed; content otherwise retained"
+      }
+    ],
+    "source_before": {
+      "head": "7588d98689899c9868e8a0105b78653c7a1db50d",
+      "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+      "status_porcelain": ""
+    },
+    "benchmark_source_before": {
+      "head": "f2dfea058668c5ea3ad2cba38c36141920abbd1d",
+      "tree": "047f8773d8e135a34fc5a55b0d1d331f93d22383",
+      "status_porcelain": ""
+    },
+    "benchmark_source_digests_before": {
+      "primitives/Program.cs": "ddd6d9585a01aba8f45ae2852843ca8025368f96b7d7b2775332699e7ce15a3e",
+      "run_primitives.py": "e5dfd874ee9d325d0ea7ca76efc8a6a09183914a6d48ce6c74fcd90d714a6bc3",
+      "run.py": "eb8e1c29f5ce7792e73b82607c8e9cee33b383c3b0b0b8d2744d363ec70e300d"
+    },
+    "qualification": {
+      "status": "PASS_AVAILABLE_SOURCE_NATIVE_QUALIFICATION",
+      "source": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "actual_client": {
+        "sourceQualifiedPhysicalClient": true,
+        "path": "$QUALIFIED_RUNTIME/ProjectPrime.dll",
+        "sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "mvid": "5e534c23-57c6-4026-a55a-f8233293a732",
+        "buildId": "local+7588d98689899c9868e8a0105b78653c7a1db50d",
+        "protocol": 56,
+        "replicaCheckpoint": 13,
+        "worldCheckpoint": 10,
+        "timedGrantPacket": 77,
+        "timedGrantBootstrapPacket": 79,
+        "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+      },
+      "full_fixture": {
+        "file": "nettest.dll",
+        "sha256": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "mvid": "0151d5f2-81b8-4566-96e3-aadf793388ee"
+      }
+    },
+    "qualification_receipt_sha256": "6c7e0d1d6207058e02d8b27d74eebd6444ce7b140d66358affc250a63da97757",
+    "build_receipt_sha256": "f2c5c190f4d4c3913ac264683233ad6bdc3d61eb10e244a9e5f45afe4ea73003",
+    "physical_inputs_before": {
+      "$QUALIFIED_RUNTIME/ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+      "$QUALIFIED_RUNTIME/nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+      "$DEPENDENCIES/Avalonia.Base.dll": "39f7c973a20346b2a0c0e758b875749670a610d63863e9a85ffea22d5f320279",
+      "$DEPENDENCIES/Avalonia.Controls.dll": "909b7abd1e4b389b3372c4d1c0fcae1106f99ed783cc177fa0fa67ed1147ca24",
+      "$DEPENDENCIES/Avalonia.DesignerSupport.dll": "ee57e6001029f66ff212f4b81024e51f3167abc9461b055f7c829ec617931a2a",
+      "$DEPENDENCIES/Avalonia.Desktop.dll": "2f3af65d2dace707ea07ad9723b4a4b849622ad9090533d44ac00ef4b0754241",
+      "$DEPENDENCIES/Avalonia.Dialogs.dll": "70aaeffbb3afcfafee5a5b1e19707e13b7ae5f293c4c157332693690e12e3598",
+      "$DEPENDENCIES/Avalonia.Fonts.Inter.dll": "332d53aa406bcecec75f498fb8c0a91eb3ac1dcddd34a0a1fbeba0b5ddf87585",
+      "$DEPENDENCIES/Avalonia.FreeDesktop.AtSpi.dll": "217ee386cbccaece75184e2ac675dc0cfcd2fcf5a7f7bf4e689f401818c945cd",
+      "$DEPENDENCIES/Avalonia.FreeDesktop.dll": "a0b0918cdeb2d1b34ba86a6f858d2a81180eca919e9b7c05e18f20a02a7ffd5c",
+      "$DEPENDENCIES/Avalonia.HarfBuzz.dll": "77bbaad227444b7dbde768677b4dbfba28fec0365b9021d8f5803b23c1323eaa",
+      "$DEPENDENCIES/Avalonia.Headless.dll": "5806ec32049e9bbaae3673688c420ce8215ed84af19f1e30cb51edb5e6810200",
+      "$DEPENDENCIES/Avalonia.Markup.Xaml.dll": "1228b0a7359ebfa592408de8e20aa3b8a2775d27c36f19c1f7c8f1e9ff1e14a8",
+      "$DEPENDENCIES/Avalonia.Markup.dll": "ce634015611862dd6814355a4880c3c718782a017665445d232834615a6120cb",
+      "$DEPENDENCIES/Avalonia.Metal.dll": "d9efd4c5293f90239f2930ae688c98b2ef55925fc3de85c4a6b8422175bd78b9",
+      "$DEPENDENCIES/Avalonia.MicroCom.dll": "63457674ab61566ea94a7a089044bb2be7d0cda1530085578109df953ef37d49",
+      "$DEPENDENCIES/Avalonia.Native.dll": "929bd4b42462a0cb9734ff49690dccf4b52a65e86892d23f2b1d60be56a1b913",
+      "$DEPENDENCIES/Avalonia.OpenGL.dll": "365fc038f938088c913db7d067160f985a31f116961dbc527a38703c570119d3",
+      "$DEPENDENCIES/Avalonia.Remote.Protocol.dll": "080f6f41f70cfd4f98863deeb61d15d229aa7d9333e7a3eb17582efb19ed779c",
+      "$DEPENDENCIES/Avalonia.Skia.dll": "449a83a2d086a1cf255b69bc352136aa3a21b9f742bbb165ab9ba9178d28af78",
+      "$DEPENDENCIES/Avalonia.Themes.Fluent.dll": "71ff087f03da9f484f53ef1aea502eb19b015c8a6a1e8a9161b0d344053ed8ef",
+      "$DEPENDENCIES/Avalonia.Vulkan.dll": "ba98aeb0319a60c1de28b927c46fd94c75a6adc676dd160faae5bce14080e38d",
+      "$DEPENDENCIES/Avalonia.Win32.Automation.dll": "beba00c11bcfff73dd3228d7219c8d80e6a78aca4cb278a71c1122b1974633ec",
+      "$DEPENDENCIES/Avalonia.Win32.dll": "511a118f48b8d029924f3720e62658df72ee7a99c5b810f37378514ad4ea0427",
+      "$DEPENDENCIES/Avalonia.X11.dll": "cfce1f1ba8c47a0e303bd9e37da1908d665910b3818969264a3dd06d7014bfe2",
+      "$DEPENDENCIES/Avalonia.dll": "ac289895e7fa553ea6be420f9154c452bec6aebf64d0b344aa37827bd29d2fdb",
+      "$DEPENDENCIES/CommunityToolkit.HighPerformance.dll": "196607c6d4d704b5ee95c80f8e3cd799595b7d8a08108701894c211b138d2839",
+      "$DEPENDENCIES/HarfBuzzSharp.dll": "55e72ac23263f8e12484f3435e02ec22fac9eff6e6d169bb0a8c246be6b99d29",
+      "$DEPENDENCIES/Ktx2.NET.dll": "d7e87f619302fe22451b8d1e49feb8c98b918a095f0c6bf69992b0376dc2a90f",
+      "$DEPENDENCIES/MicroCom.Runtime.dll": "2538ec6f3c24e901a90e33c37788b9a4e4b6ae8158cab7328a00a00bb28eab9e",
+      "$DEPENDENCIES/MphRead.Protocol.Generator.dll": "da5c675754c258ccf1ea4cbcabb5c1ca472da8bc910f2afa3ef6f55373dcce3a",
+      "$DEPENDENCIES/NcsfPlay.dll": "003a435aa8a89de856cb0660f184bf4ca1c3e9edf3af1bd5a517c9e7addbc3e1",
+      "$DEPENDENCIES/OpenTK.Audio.OpenAL.dll": "88968377988b018039adeeed92efbbe390ba836bfeaac1885ebccb9c86b0f20b",
+      "$DEPENDENCIES/OpenTK.Compute.dll": "8aa991eb9a7dfba704f562ef838162136b8dfa461ca7a234947ca8cace09f07c",
+      "$DEPENDENCIES/OpenTK.Core.dll": "00e86fd2aa3ec0a518294ac210f2377078570120dfc22889654843e5ccb9e71c",
+      "$DEPENDENCIES/OpenTK.Graphics.dll": "5b57957ca9e4c5f7bfb7ec495b991e6b88cfac52863a19e405492ab8c33cb1d2",
+      "$DEPENDENCIES/OpenTK.Input.dll": "0df16a0035a375313c1f5e0823972748b6d58bf717a08c36edd2cb1afe0f993a",
+      "$DEPENDENCIES/OpenTK.Mathematics.dll": "10172a71d9590960bf594fb397e65ee5ebb9fff5d08bd5d358ab047b0a6efff0",
+      "$DEPENDENCIES/OpenTK.Windowing.Common.dll": "2f0c74b795c664db5ca8a4d8d426efafda2fa48986ae5e2e0ee62dfaf1da660e",
+      "$DEPENDENCIES/OpenTK.Windowing.Desktop.dll": "cd759959d5924a44e5d943693ec63dd65dacbca5fe209546df1f932a0e3ae8ae",
+      "$DEPENDENCIES/OpenTK.Windowing.GraphicsLibraryFramework.dll": "b54ec149aa11635dcd09bcc2f0bd2acbd6584f67303b21065935e566d00605cb",
+      "$DEPENDENCIES/ReFuel.StbImage.dll": "191b521ce25d03c73ae10b716b3e55b1a1fcca988201b50cbac9603fcee10ea3",
+      "$DEPENDENCIES/SkiaSharp.dll": "aaaaa18c68ba1f3a3408b00dff28b11d5705198e17ba9d3aa59222bfd35407c8",
+      "$DEPENDENCIES/SoundFlow.dll": "8e5224ef27f7cd518c22533fd3fbe745eded9da56b1ed4c2f9611dbbe92bb399",
+      "$DEPENDENCIES/System.IO.Hashing.dll": "c7798d45633baaa0b0b53487d90b9b7f09d81fddfce681a7cd934cda82e7d18e",
+      "$DEPENDENCIES/Tmds.DBus.Protocol.dll": "60a1c5255731d8ac843cab53108be8ba1ed02759ce3db0da5b49939ebe97bd8a"
+    },
+    "thin_entry_source_sha256": "ddd6d9585a01aba8f45ae2852843ca8025368f96b7d7b2775332699e7ce15a3e",
+    "launcher_sources": [
+      {
+        "file": "run_primitives.py",
+        "sha256": "e5dfd874ee9d325d0ea7ca76efc8a6a09183914a6d48ce6c74fcd90d714a6bc3"
+      },
+      {
+        "file": "run.py",
+        "sha256": "eb8e1c29f5ce7792e73b82607c8e9cee33b383c3b0b0b8d2744d363ec70e300d"
+      }
+    ],
+    "identities": {
+      "QualifiedActualClient": {
+        "File": "ProjectPrime.dll",
+        "Name": "ProjectPrime",
+        "Sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "Mvid": "5e534c23-57c6-4026-a55a-f8233293a732"
+      },
+      "ThinBenchmarkEntry": {
+        "File": "nettest.dll",
+        "Name": "nettest",
+        "Sha256": "500b3d33ddca9ac6a1e2c64720aad16a3809530e9ee7b5dd8a8046345cc24048",
+        "Mvid": "73c4899e-e7b6-4e39-ab2c-946301f536d1"
+      },
+      "FullNativeFixtureIdentityOnly": {
+        "File": "nettest.dll",
+        "Name": "nettest",
+        "Sha256": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "Mvid": "0151d5f2-81b8-4566-96e3-aadf793388ee"
+      },
+      "PhysicalRuntimeDependencies": [
+        {
+          "File": "Avalonia.Base.dll",
+          "Name": "Avalonia.Base",
+          "Sha256": "39f7c973a20346b2a0c0e758b875749670a610d63863e9a85ffea22d5f320279",
+          "Mvid": "3850e6d0-d211-4576-a44b-2bef28c3acaa"
+        },
+        {
+          "File": "Avalonia.Controls.dll",
+          "Name": "Avalonia.Controls",
+          "Sha256": "909b7abd1e4b389b3372c4d1c0fcae1106f99ed783cc177fa0fa67ed1147ca24",
+          "Mvid": "86a368bc-708e-4b07-9b43-90b6bb0cfb69"
+        },
+        {
+          "File": "Avalonia.DesignerSupport.dll",
+          "Name": "Avalonia.DesignerSupport",
+          "Sha256": "ee57e6001029f66ff212f4b81024e51f3167abc9461b055f7c829ec617931a2a",
+          "Mvid": "71a1c900-9753-4b36-861b-1d23135692be"
+        },
+        {
+          "File": "Avalonia.Desktop.dll",
+          "Name": "Avalonia.Desktop",
+          "Sha256": "2f3af65d2dace707ea07ad9723b4a4b849622ad9090533d44ac00ef4b0754241",
+          "Mvid": "9538b7d8-cb60-455c-bdb8-13958f91ad98"
+        },
+        {
+          "File": "Avalonia.Dialogs.dll",
+          "Name": "Avalonia.Dialogs",
+          "Sha256": "70aaeffbb3afcfafee5a5b1e19707e13b7ae5f293c4c157332693690e12e3598",
+          "Mvid": "29cfa1a3-8963-434c-801f-7cf46b8c0bfa"
+        },
+        {
+          "File": "Avalonia.dll",
+          "Name": "Avalonia",
+          "Sha256": "ac289895e7fa553ea6be420f9154c452bec6aebf64d0b344aa37827bd29d2fdb",
+          "Mvid": "f23b5d5d-0597-4b60-aad4-558975c30bbb"
+        },
+        {
+          "File": "Avalonia.Fonts.Inter.dll",
+          "Name": "Avalonia.Fonts.Inter",
+          "Sha256": "332d53aa406bcecec75f498fb8c0a91eb3ac1dcddd34a0a1fbeba0b5ddf87585",
+          "Mvid": "3e347248-53e5-46af-a002-b6953ea6f839"
+        },
+        {
+          "File": "Avalonia.FreeDesktop.AtSpi.dll",
+          "Name": "Avalonia.FreeDesktop.AtSpi",
+          "Sha256": "217ee386cbccaece75184e2ac675dc0cfcd2fcf5a7f7bf4e689f401818c945cd",
+          "Mvid": "5cf9c952-c8ad-497c-be8e-8958331589e1"
+        },
+        {
+          "File": "Avalonia.FreeDesktop.dll",
+          "Name": "Avalonia.FreeDesktop",
+          "Sha256": "a0b0918cdeb2d1b34ba86a6f858d2a81180eca919e9b7c05e18f20a02a7ffd5c",
+          "Mvid": "7815a1d9-25fb-49ec-80cf-dcd66be430ad"
+        },
+        {
+          "File": "Avalonia.HarfBuzz.dll",
+          "Name": "Avalonia.HarfBuzz",
+          "Sha256": "77bbaad227444b7dbde768677b4dbfba28fec0365b9021d8f5803b23c1323eaa",
+          "Mvid": "89451f4d-b9ce-4b20-8aba-f806d60585bf"
+        },
+        {
+          "File": "Avalonia.Headless.dll",
+          "Name": "Avalonia.Headless",
+          "Sha256": "5806ec32049e9bbaae3673688c420ce8215ed84af19f1e30cb51edb5e6810200",
+          "Mvid": "3c2f3053-e445-46c2-aa9c-985150cbe623"
+        },
+        {
+          "File": "Avalonia.Markup.dll",
+          "Name": "Avalonia.Markup",
+          "Sha256": "ce634015611862dd6814355a4880c3c718782a017665445d232834615a6120cb",
+          "Mvid": "a6d8312f-6088-4a3e-93d3-f81b06f2956a"
+        },
+        {
+          "File": "Avalonia.Markup.Xaml.dll",
+          "Name": "Avalonia.Markup.Xaml",
+          "Sha256": "1228b0a7359ebfa592408de8e20aa3b8a2775d27c36f19c1f7c8f1e9ff1e14a8",
+          "Mvid": "ffbdf18f-acb1-4f25-ad2f-c36425755ad8"
+        },
+        {
+          "File": "Avalonia.Metal.dll",
+          "Name": "Avalonia.Metal",
+          "Sha256": "d9efd4c5293f90239f2930ae688c98b2ef55925fc3de85c4a6b8422175bd78b9",
+          "Mvid": "6841ac78-f015-4ee3-acab-f2fa9eaee7ec"
+        },
+        {
+          "File": "Avalonia.MicroCom.dll",
+          "Name": "Avalonia.MicroCom",
+          "Sha256": "63457674ab61566ea94a7a089044bb2be7d0cda1530085578109df953ef37d49",
+          "Mvid": "ba19fdcc-39a1-46c9-a1ec-350402ce3ffd"
+        },
+        {
+          "File": "Avalonia.Native.dll",
+          "Name": "Avalonia.Native",
+          "Sha256": "929bd4b42462a0cb9734ff49690dccf4b52a65e86892d23f2b1d60be56a1b913",
+          "Mvid": "db09d37f-1821-48b5-9ae0-96a4ae13738c"
+        },
+        {
+          "File": "Avalonia.OpenGL.dll",
+          "Name": "Avalonia.OpenGL",
+          "Sha256": "365fc038f938088c913db7d067160f985a31f116961dbc527a38703c570119d3",
+          "Mvid": "a5045327-3234-40a1-a82a-79eb82634f74"
+        },
+        {
+          "File": "Avalonia.Remote.Protocol.dll",
+          "Name": "Avalonia.Remote.Protocol",
+          "Sha256": "080f6f41f70cfd4f98863deeb61d15d229aa7d9333e7a3eb17582efb19ed779c",
+          "Mvid": "52af1112-7ed4-4afe-9c11-c9584d94219c"
+        },
+        {
+          "File": "Avalonia.Skia.dll",
+          "Name": "Avalonia.Skia",
+          "Sha256": "449a83a2d086a1cf255b69bc352136aa3a21b9f742bbb165ab9ba9178d28af78",
+          "Mvid": "e860c40e-8a22-48fe-84b9-f72b9ef93d15"
+        },
+        {
+          "File": "Avalonia.Themes.Fluent.dll",
+          "Name": "Avalonia.Themes.Fluent",
+          "Sha256": "71ff087f03da9f484f53ef1aea502eb19b015c8a6a1e8a9161b0d344053ed8ef",
+          "Mvid": "5f448198-03ae-44a4-97bc-9a47cb1d5aca"
+        },
+        {
+          "File": "Avalonia.Vulkan.dll",
+          "Name": "Avalonia.Vulkan",
+          "Sha256": "ba98aeb0319a60c1de28b927c46fd94c75a6adc676dd160faae5bce14080e38d",
+          "Mvid": "0e92926b-acf8-4a3c-b259-ae1e720c259d"
+        },
+        {
+          "File": "Avalonia.Win32.Automation.dll",
+          "Name": "Avalonia.Win32.Automation",
+          "Sha256": "beba00c11bcfff73dd3228d7219c8d80e6a78aca4cb278a71c1122b1974633ec",
+          "Mvid": "dd2a8bf3-5dbd-4311-875b-40cb4a4129de"
+        },
+        {
+          "File": "Avalonia.Win32.dll",
+          "Name": "Avalonia.Win32",
+          "Sha256": "511a118f48b8d029924f3720e62658df72ee7a99c5b810f37378514ad4ea0427",
+          "Mvid": "2ac61393-00ae-4ffd-b4d9-47e3bf212fb7"
+        },
+        {
+          "File": "Avalonia.X11.dll",
+          "Name": "Avalonia.X11",
+          "Sha256": "cfce1f1ba8c47a0e303bd9e37da1908d665910b3818969264a3dd06d7014bfe2",
+          "Mvid": "e9e0f680-d486-4185-838f-d42d2b646bb8"
+        },
+        {
+          "File": "CommunityToolkit.HighPerformance.dll",
+          "Name": "CommunityToolkit.HighPerformance",
+          "Sha256": "196607c6d4d704b5ee95c80f8e3cd799595b7d8a08108701894c211b138d2839",
+          "Mvid": "c64760f8-108a-442f-a87e-4eadaf35aa31"
+        },
+        {
+          "File": "HarfBuzzSharp.dll",
+          "Name": "HarfBuzzSharp",
+          "Sha256": "55e72ac23263f8e12484f3435e02ec22fac9eff6e6d169bb0a8c246be6b99d29",
+          "Mvid": "a73e107b-f97a-46d5-8c0b-9f59605eee25"
+        },
+        {
+          "File": "Ktx2.NET.dll",
+          "Name": "Ktx2.NET",
+          "Sha256": "d7e87f619302fe22451b8d1e49feb8c98b918a095f0c6bf69992b0376dc2a90f",
+          "Mvid": "8072c788-2431-4f4c-a5cb-aa2f51840910"
+        },
+        {
+          "File": "MicroCom.Runtime.dll",
+          "Name": "MicroCom.Runtime",
+          "Sha256": "2538ec6f3c24e901a90e33c37788b9a4e4b6ae8158cab7328a00a00bb28eab9e",
+          "Mvid": "4d49b2b6-5b2e-46a6-a6ee-c55349b80913"
+        },
+        {
+          "File": "MphRead.Protocol.Generator.dll",
+          "Name": "MphRead.Protocol.Generator",
+          "Sha256": "da5c675754c258ccf1ea4cbcabb5c1ca472da8bc910f2afa3ef6f55373dcce3a",
+          "Mvid": "e9a1bccb-cbfe-4811-b44c-54ac7351878a"
+        },
+        {
+          "File": "NcsfPlay.dll",
+          "Name": "NcsfPlay",
+          "Sha256": "003a435aa8a89de856cb0660f184bf4ca1c3e9edf3af1bd5a517c9e7addbc3e1",
+          "Mvid": "99b05855-ce52-4c01-b02a-4ae5237541c2"
+        },
+        {
+          "File": "nettest.dll",
+          "Name": "nettest",
+          "Sha256": "500b3d33ddca9ac6a1e2c64720aad16a3809530e9ee7b5dd8a8046345cc24048",
+          "Mvid": "73c4899e-e7b6-4e39-ab2c-946301f536d1"
+        },
+        {
+          "File": "OpenTK.Audio.OpenAL.dll",
+          "Name": "OpenTK.Audio.OpenAL",
+          "Sha256": "88968377988b018039adeeed92efbbe390ba836bfeaac1885ebccb9c86b0f20b",
+          "Mvid": "1eabf0da-039e-464a-93f9-633fb8e5f70f"
+        },
+        {
+          "File": "OpenTK.Compute.dll",
+          "Name": "OpenTK.Compute",
+          "Sha256": "8aa991eb9a7dfba704f562ef838162136b8dfa461ca7a234947ca8cace09f07c",
+          "Mvid": "43498108-15b5-4fd5-8c04-b6f7152745f1"
+        },
+        {
+          "File": "OpenTK.Core.dll",
+          "Name": "OpenTK.Core",
+          "Sha256": "00e86fd2aa3ec0a518294ac210f2377078570120dfc22889654843e5ccb9e71c",
+          "Mvid": "29a8061f-1d56-40d5-9637-74baf0af9dc9"
+        },
+        {
+          "File": "OpenTK.Graphics.dll",
+          "Name": "OpenTK.Graphics",
+          "Sha256": "5b57957ca9e4c5f7bfb7ec495b991e6b88cfac52863a19e405492ab8c33cb1d2",
+          "Mvid": "56fce2c6-82e9-454c-8c16-a88f90e06a2d"
+        },
+        {
+          "File": "OpenTK.Input.dll",
+          "Name": "OpenTK.Input",
+          "Sha256": "0df16a0035a375313c1f5e0823972748b6d58bf717a08c36edd2cb1afe0f993a",
+          "Mvid": "2762d0f2-4151-4a61-9329-b596b64a2fea"
+        },
+        {
+          "File": "OpenTK.Mathematics.dll",
+          "Name": "OpenTK.Mathematics",
+          "Sha256": "10172a71d9590960bf594fb397e65ee5ebb9fff5d08bd5d358ab047b0a6efff0",
+          "Mvid": "107cf183-20d1-4911-abfa-24c614050cc7"
+        },
+        {
+          "File": "OpenTK.Windowing.Common.dll",
+          "Name": "OpenTK.Windowing.Common",
+          "Sha256": "2f0c74b795c664db5ca8a4d8d426efafda2fa48986ae5e2e0ee62dfaf1da660e",
+          "Mvid": "fd6953a1-21f1-4d75-a1d5-e0380d96340b"
+        },
+        {
+          "File": "OpenTK.Windowing.Desktop.dll",
+          "Name": "OpenTK.Windowing.Desktop",
+          "Sha256": "cd759959d5924a44e5d943693ec63dd65dacbca5fe209546df1f932a0e3ae8ae",
+          "Mvid": "b441354b-344b-43ed-b550-af154ae750ae"
+        },
+        {
+          "File": "OpenTK.Windowing.GraphicsLibraryFramework.dll",
+          "Name": "OpenTK.Windowing.GraphicsLibraryFramework",
+          "Sha256": "b54ec149aa11635dcd09bcc2f0bd2acbd6584f67303b21065935e566d00605cb",
+          "Mvid": "7680671d-685b-4d6b-9a74-86d586fcc254"
+        },
+        {
+          "File": "ProjectPrime.dll",
+          "Name": "ProjectPrime",
+          "Sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+          "Mvid": "5e534c23-57c6-4026-a55a-f8233293a732"
+        },
+        {
+          "File": "ReFuel.StbImage.dll",
+          "Name": "ReFuel.StbImage",
+          "Sha256": "191b521ce25d03c73ae10b716b3e55b1a1fcca988201b50cbac9603fcee10ea3",
+          "Mvid": "f6450b26-3cd1-4402-afe7-be218ce19032"
+        },
+        {
+          "File": "SkiaSharp.dll",
+          "Name": "SkiaSharp",
+          "Sha256": "aaaaa18c68ba1f3a3408b00dff28b11d5705198e17ba9d3aa59222bfd35407c8",
+          "Mvid": "dd18365b-6361-4558-bf3d-753b1b12c13a"
+        },
+        {
+          "File": "SoundFlow.dll",
+          "Name": "SoundFlow",
+          "Sha256": "8e5224ef27f7cd518c22533fd3fbe745eded9da56b1ed4c2f9611dbbe92bb399",
+          "Mvid": "54fd4602-1f29-4a90-b62b-123e130a9199"
+        },
+        {
+          "File": "System.IO.Hashing.dll",
+          "Name": "System.IO.Hashing",
+          "Sha256": "c7798d45633baaa0b0b53487d90b9b7f09d81fddfce681a7cd934cda82e7d18e",
+          "Mvid": "f9a583d0-d1c6-42cf-b1a6-997d89f40a57"
+        },
+        {
+          "File": "Tmds.DBus.Protocol.dll",
+          "Name": "Tmds.DBus.Protocol",
+          "Sha256": "60a1c5255731d8ac843cab53108be8ba1ed02759ce3db0da5b49939ebe97bd8a",
+          "Mvid": "f22413e0-7562-4e25-8be1-e803be2a66c1"
+        }
+      ]
+    },
+    "source_after": {
+      "head": "7588d98689899c9868e8a0105b78653c7a1db50d",
+      "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+      "status_porcelain": ""
+    },
+    "benchmark_source_after": {
+      "head": "f2dfea058668c5ea3ad2cba38c36141920abbd1d",
+      "tree": "047f8773d8e135a34fc5a55b0d1d331f93d22383",
+      "status_porcelain": ""
+    },
+    "benchmark_source_digests_after": {
+      "primitives/Program.cs": "ddd6d9585a01aba8f45ae2852843ca8025368f96b7d7b2775332699e7ce15a3e",
+      "run_primitives.py": "e5dfd874ee9d325d0ea7ca76efc8a6a09183914a6d48ce6c74fcd90d714a6bc3",
+      "run.py": "eb8e1c29f5ce7792e73b82607c8e9cee33b383c3b0b0b8d2744d363ec70e300d"
+    },
+    "benchmark_source_clean_stable": true,
+    "physical_inputs_after": {
+      "$QUALIFIED_RUNTIME/ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+      "$QUALIFIED_RUNTIME/nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+      "$DEPENDENCIES/Avalonia.Base.dll": "39f7c973a20346b2a0c0e758b875749670a610d63863e9a85ffea22d5f320279",
+      "$DEPENDENCIES/Avalonia.Controls.dll": "909b7abd1e4b389b3372c4d1c0fcae1106f99ed783cc177fa0fa67ed1147ca24",
+      "$DEPENDENCIES/Avalonia.DesignerSupport.dll": "ee57e6001029f66ff212f4b81024e51f3167abc9461b055f7c829ec617931a2a",
+      "$DEPENDENCIES/Avalonia.Desktop.dll": "2f3af65d2dace707ea07ad9723b4a4b849622ad9090533d44ac00ef4b0754241",
+      "$DEPENDENCIES/Avalonia.Dialogs.dll": "70aaeffbb3afcfafee5a5b1e19707e13b7ae5f293c4c157332693690e12e3598",
+      "$DEPENDENCIES/Avalonia.Fonts.Inter.dll": "332d53aa406bcecec75f498fb8c0a91eb3ac1dcddd34a0a1fbeba0b5ddf87585",
+      "$DEPENDENCIES/Avalonia.FreeDesktop.AtSpi.dll": "217ee386cbccaece75184e2ac675dc0cfcd2fcf5a7f7bf4e689f401818c945cd",
+      "$DEPENDENCIES/Avalonia.FreeDesktop.dll": "a0b0918cdeb2d1b34ba86a6f858d2a81180eca919e9b7c05e18f20a02a7ffd5c",
+      "$DEPENDENCIES/Avalonia.HarfBuzz.dll": "77bbaad227444b7dbde768677b4dbfba28fec0365b9021d8f5803b23c1323eaa",
+      "$DEPENDENCIES/Avalonia.Headless.dll": "5806ec32049e9bbaae3673688c420ce8215ed84af19f1e30cb51edb5e6810200",
+      "$DEPENDENCIES/Avalonia.Markup.Xaml.dll": "1228b0a7359ebfa592408de8e20aa3b8a2775d27c36f19c1f7c8f1e9ff1e14a8",
+      "$DEPENDENCIES/Avalonia.Markup.dll": "ce634015611862dd6814355a4880c3c718782a017665445d232834615a6120cb",
+      "$DEPENDENCIES/Avalonia.Metal.dll": "d9efd4c5293f90239f2930ae688c98b2ef55925fc3de85c4a6b8422175bd78b9",
+      "$DEPENDENCIES/Avalonia.MicroCom.dll": "63457674ab61566ea94a7a089044bb2be7d0cda1530085578109df953ef37d49",
+      "$DEPENDENCIES/Avalonia.Native.dll": "929bd4b42462a0cb9734ff49690dccf4b52a65e86892d23f2b1d60be56a1b913",
+      "$DEPENDENCIES/Avalonia.OpenGL.dll": "365fc038f938088c913db7d067160f985a31f116961dbc527a38703c570119d3",
+      "$DEPENDENCIES/Avalonia.Remote.Protocol.dll": "080f6f41f70cfd4f98863deeb61d15d229aa7d9333e7a3eb17582efb19ed779c",
+      "$DEPENDENCIES/Avalonia.Skia.dll": "449a83a2d086a1cf255b69bc352136aa3a21b9f742bbb165ab9ba9178d28af78",
+      "$DEPENDENCIES/Avalonia.Themes.Fluent.dll": "71ff087f03da9f484f53ef1aea502eb19b015c8a6a1e8a9161b0d344053ed8ef",
+      "$DEPENDENCIES/Avalonia.Vulkan.dll": "ba98aeb0319a60c1de28b927c46fd94c75a6adc676dd160faae5bce14080e38d",
+      "$DEPENDENCIES/Avalonia.Win32.Automation.dll": "beba00c11bcfff73dd3228d7219c8d80e6a78aca4cb278a71c1122b1974633ec",
+      "$DEPENDENCIES/Avalonia.Win32.dll": "511a118f48b8d029924f3720e62658df72ee7a99c5b810f37378514ad4ea0427",
+      "$DEPENDENCIES/Avalonia.X11.dll": "cfce1f1ba8c47a0e303bd9e37da1908d665910b3818969264a3dd06d7014bfe2",
+      "$DEPENDENCIES/Avalonia.dll": "ac289895e7fa553ea6be420f9154c452bec6aebf64d0b344aa37827bd29d2fdb",
+      "$DEPENDENCIES/CommunityToolkit.HighPerformance.dll": "196607c6d4d704b5ee95c80f8e3cd799595b7d8a08108701894c211b138d2839",
+      "$DEPENDENCIES/HarfBuzzSharp.dll": "55e72ac23263f8e12484f3435e02ec22fac9eff6e6d169bb0a8c246be6b99d29",
+      "$DEPENDENCIES/Ktx2.NET.dll": "d7e87f619302fe22451b8d1e49feb8c98b918a095f0c6bf69992b0376dc2a90f",
+      "$DEPENDENCIES/MicroCom.Runtime.dll": "2538ec6f3c24e901a90e33c37788b9a4e4b6ae8158cab7328a00a00bb28eab9e",
+      "$DEPENDENCIES/MphRead.Protocol.Generator.dll": "da5c675754c258ccf1ea4cbcabb5c1ca472da8bc910f2afa3ef6f55373dcce3a",
+      "$DEPENDENCIES/NcsfPlay.dll": "003a435aa8a89de856cb0660f184bf4ca1c3e9edf3af1bd5a517c9e7addbc3e1",
+      "$DEPENDENCIES/OpenTK.Audio.OpenAL.dll": "88968377988b018039adeeed92efbbe390ba836bfeaac1885ebccb9c86b0f20b",
+      "$DEPENDENCIES/OpenTK.Compute.dll": "8aa991eb9a7dfba704f562ef838162136b8dfa461ca7a234947ca8cace09f07c",
+      "$DEPENDENCIES/OpenTK.Core.dll": "00e86fd2aa3ec0a518294ac210f2377078570120dfc22889654843e5ccb9e71c",
+      "$DEPENDENCIES/OpenTK.Graphics.dll": "5b57957ca9e4c5f7bfb7ec495b991e6b88cfac52863a19e405492ab8c33cb1d2",
+      "$DEPENDENCIES/OpenTK.Input.dll": "0df16a0035a375313c1f5e0823972748b6d58bf717a08c36edd2cb1afe0f993a",
+      "$DEPENDENCIES/OpenTK.Mathematics.dll": "10172a71d9590960bf594fb397e65ee5ebb9fff5d08bd5d358ab047b0a6efff0",
+      "$DEPENDENCIES/OpenTK.Windowing.Common.dll": "2f0c74b795c664db5ca8a4d8d426efafda2fa48986ae5e2e0ee62dfaf1da660e",
+      "$DEPENDENCIES/OpenTK.Windowing.Desktop.dll": "cd759959d5924a44e5d943693ec63dd65dacbca5fe209546df1f932a0e3ae8ae",
+      "$DEPENDENCIES/OpenTK.Windowing.GraphicsLibraryFramework.dll": "b54ec149aa11635dcd09bcc2f0bd2acbd6584f67303b21065935e566d00605cb",
+      "$DEPENDENCIES/ReFuel.StbImage.dll": "191b521ce25d03c73ae10b716b3e55b1a1fcca988201b50cbac9603fcee10ea3",
+      "$DEPENDENCIES/SkiaSharp.dll": "aaaaa18c68ba1f3a3408b00dff28b11d5705198e17ba9d3aa59222bfd35407c8",
+      "$DEPENDENCIES/SoundFlow.dll": "8e5224ef27f7cd518c22533fd3fbe745eded9da56b1ed4c2f9611dbbe92bb399",
+      "$DEPENDENCIES/System.IO.Hashing.dll": "c7798d45633baaa0b0b53487d90b9b7f09d81fddfce681a7cd934cda82e7d18e",
+      "$DEPENDENCIES/Tmds.DBus.Protocol.dll": "60a1c5255731d8ac843cab53108be8ba1ed02759ce3db0da5b49939ebe97bd8a"
+    },
+    "source_clean_stable": true,
+    "physical_inputs_unchanged": true,
+    "raw_files": [
+      {
+        "file": "results.json",
+        "sha256": "ebeccb59421b944a7b0c66148d8d06a9f6155016d76a8808191dd5fe04fbd6e9"
+      },
+      {
+        "file": "review.md",
+        "sha256": "fc3f496c77d679d7e429042e5dea490f8745dcdb0d692cfc3964f13b0dff0334"
+      },
+      {
+        "file": "external-entry-source/Program.cs",
+        "sha256": "ddd6d9585a01aba8f45ae2852843ca8025368f96b7d7b2775332699e7ce15a3e"
+      }
+    ],
+    "all_owned_groups_closed": true,
+    "utc_ended": "2026-10-14T11:21:28.613176+00:00"
+  }
+}

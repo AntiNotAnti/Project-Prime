@@ -35,7 +35,9 @@ def main():
             assert prefix == "RAW"
             recorded.setdefault(name, []).append(json.loads(raw))
         assert len(result["Cases"]) == benchmark["cases"]
-        assert receipt["success"] and receipt["source_clean_stable"] and receipt["qualified_binaries_unchanged"]
+        assert receipt["success"] and receipt["source_clean_stable"]
+        assert receipt.get("qualified_binaries_unchanged", receipt.get("physical_inputs_unchanged", False))
+        assert receipt.get("benchmark_source_clean_stable", True)
         assert all(process["owned_group_closed"] for process in receipt["processes"])
         assert result["QualifiedActualClient"]["Sha256"] != result["ThinBenchmarkEntry"]["Sha256"]
         assert result["FullNativeFixtureIdentityOnly"]["Mvid"] != result["ThinBenchmarkEntry"]["Mvid"]
@@ -47,12 +49,34 @@ def main():
         rows = sum(len(case["Raw"]) for case in result["Cases"])
         assert rows == benchmark["rawBatches"] == len(lines)
         batches += rows
+    failed_batches = 0
+    for benchmark in manifest.get("failedBenchmarks", []):
+        label = benchmark["label"]
+        receipt = json.loads((base / label / "receipt.sanitized.json").read_text())["payload"]
+        lines = json.loads((base / label / "batch-lines.sanitized.json").read_text())["payload"]["lines"]
+        assert receipt["success"] is False and receipt.get("error")
+        assert all(process["owned_group_closed"] for process in receipt["processes"])
+        assert receipt["source_before"] == receipt["source_after"]
+        assert receipt["physical_inputs_before"] == receipt["physical_inputs_after"]
+        assert receipt["benchmark_source_before"] == receipt["benchmark_source_after"]
+        recorded = {}
+        for line in lines:
+            prefix, name, raw = line.split(" ", 2)
+            assert prefix == "RAW"
+            recorded.setdefault(name, []).append(json.loads(raw))
+        assert len(recorded) == benchmark["cases"]
+        for rows in recorded.values():
+            assert [row["Index"] for row in rows] == list(range(30))
+            assert all(row["Operations"] == rows[0]["Operations"] and row["Operations"] > 0 for row in rows)
+            assert all(row["WallMs"] >= 0 and row["ProcessCpuMs"] >= 0 and row["CallerAllocatedBytes"] >= 0 for row in rows)
+        assert len(lines) == benchmark["rawBatches"]
+        failed_batches += len(lines)
     for path in base.rglob("*"):
         if not path.is_file(): continue
         assert path.suffix not in {".dll", ".pdb", ".dylib", ".so", ".ppdemo", ".zip", ".png", ".wav"}
         assert not re.search(r"/Users/|/home/|/private/var/|sk-proj-[A-Za-z0-9_-]{15,}", path.read_text())
     print(json.dumps({"success": True, "derivedHashes": len(manifest["derivedFiles"]),
-                      "rawBatches": batches, "negativeScopes": len(manifest["negativeEvidence"])}))
+                      "rawBatches": batches, "failedAttemptRawBatches": failed_batches, "negativeScopes": len(manifest["negativeEvidence"])}))
 
 
 if __name__ == "__main__": main()

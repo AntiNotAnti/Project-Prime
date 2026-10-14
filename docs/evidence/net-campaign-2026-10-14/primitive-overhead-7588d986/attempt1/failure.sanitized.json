@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt1/primitive-raw.sanitized.log",
+    "sha256": "3ef1edd9c63fab428418c468f98a0171c9b8c3da42f921a4d14917f73793fc8d",
+    "bytes": 33245
+  },
+  "policy": "Terminal error selected unchanged; raw numeric rows independently preserved in batch-lines derivative. No unsupported allocation cause assigned.",
+  "payload": {
+    "terminalError": [
+      "Unhandled exception. System.InvalidOperationException: Unexpected caller allocations in warmed disabled/scope/in-page/refusal primitives"
+    ],
+    "rawBatchesCompleted": 180,
+    "success": false,
+    "notAcceptedAsMeasurementPass": true
+  }
+}
