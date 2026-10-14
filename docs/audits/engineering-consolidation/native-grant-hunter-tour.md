@@ -89,3 +89,20 @@ coordinated integrated qualified build. No new native success is claimed from
 source inspection. Preserve earlier Samus/presentation results with their
 original scope. Roll back this fixture/dispatch/test-helper/document slice
 independently; no production behavior change needs rollback.
+
+The first qualified integrated run at `09ada0ab153dd4c15f4ea3b55473772c64f75663`
+failed the Samus/Double Damage Off/Shadow pair after two completed native arms
+and zero accepted pairs. The attempted failure JSON then failed separately:
+general serialization recursively followed OpenTK's computed vector properties.
+Preserve both the primary parity failure and secondary reporting abort; this is
+not a completed seven-hunter campaign or a diagnosis of gameplay divergence.
+
+Schema 2 converts every shot vector/target/key/incarnation to explicit scalar
+DTOs and retains exact canonical bytes. Failure reporting also records scalar
+fire/outcome/ammo/timer/identity values, decoded canonical intent fields and
+bounded first-difference offsets/24-byte contexts/hashes for intent and replay
+records. Production replay record arrays are capped at the existing 32-record
+capture budget. The original parity assertion remains unchanged pending real
+diagnostic evidence. Cleanup/proof-mode restoration still runs if writing a
+diagnostic file fails. New-head build, diagnostic run and corrected acceptance
+remain required; no source-inspection hypothesis upgrades the failed pair.
