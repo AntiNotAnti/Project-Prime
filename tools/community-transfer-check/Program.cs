@@ -96,9 +96,51 @@ try
         && !CommunityCutoverPolicy.Enabled("")
         && !CommunityCutoverPolicy.Enabled("true")
         && !CommunityCutoverPolicy.Enabled("0")
-        && CommunityCutoverPolicy.Enabled("1")
-        && !CommunityCutoverPolicy.NetRadiantDefault,
-        "PR-14 creator hub requires deliberate opt-in and NetRadiant stays nondefault");
+        && CommunityCutoverPolicy.Enabled("1"),
+        "original strict feature flag parsing remains compatible");
+    Check(CommunityCutoverPolicy.EnabledByDefault(null)
+        && CommunityCutoverPolicy.EnabledByDefault("1")
+        && CommunityCutoverPolicy.EnabledByDefault("true")
+        && !CommunityCutoverPolicy.EnabledByDefault("0")
+        && !CommunityCutoverPolicy.EnabledByDefault("false")
+        && !CommunityCutoverPolicy.EnabledByDefault("invalid"),
+        "Community features are default-on with explicit fail-closed rollback values");
+    string? priorCreator = Environment.GetEnvironmentVariable(
+        CommunityCutoverPolicy.StudioCreatorPreviewVariable);
+    string? priorMirror = Environment.GetEnvironmentVariable(
+        CommunityCutoverPolicy.ObjectMirrorVariable);
+    string? priorNetRadiant = Environment.GetEnvironmentVariable(
+        CommunityCutoverPolicy.NetRadiantDefaultVariable);
+    try
+    {
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.StudioCreatorPreviewVariable, null);
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.ObjectMirrorVariable, null);
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.NetRadiantDefaultVariable, null);
+        Check(CommunityCutoverPolicy.StudioCreatorPreview
+            && CommunityCutoverPolicy.ObjectMirrorEnabled,
+            "creator Hub and verified public-map mirroring activate automatically");
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.StudioCreatorPreviewVariable, "0");
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.ObjectMirrorVariable, "0");
+        Check(!CommunityCutoverPolicy.StudioCreatorPreview
+            && !CommunityCutoverPolicy.ObjectMirrorEnabled,
+            "old Studio dashboard and origin-only storage retain explicit rollback switches");
+        Check(!CommunityCutoverPolicy.NetRadiantDefault,
+            "NetRadiant does not replace native Studio without an installed configured binary");
+    }
+    finally
+    {
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.StudioCreatorPreviewVariable, priorCreator);
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.ObjectMirrorVariable, priorMirror);
+        Environment.SetEnvironmentVariable(
+            CommunityCutoverPolicy.NetRadiantDefaultVariable, priorNetRadiant);
+    }
 
     string package = MapPackageBuilder.Build(
         MapTemplates.Create("COMMUNITY_TRANSFER_CHECK", true).Definition,
