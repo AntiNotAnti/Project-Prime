@@ -53,6 +53,7 @@ internal sealed class NetTimedGrants
     internal int SpawnCount => _spawns.Count;
     internal int HistoryCount => _history.Count;
     internal int ObservationCount => _observations.Count;
+    internal uint Room => _room;
     internal IEnumerable<TimedGrantRecord> History => _history.Values;
     internal bool TryRecord(ulong sequence, out TimedGrantRecord record) => _history.TryGetValue(sequence, out record!);
 
@@ -183,6 +184,27 @@ internal sealed class NetTimedGrants
         _observations.Add(key, new(authorityFrame, Answer(TimedPowerUp.DoubleDamage),
             Answer(TimedPowerUp.Cloak), Answer(TimedPowerUp.DeathAlt)));
         _observationOrder.Enqueue((key, authorityFrame));
+    }
+
+    // Raw retained input truth: callers own freshness policy. A read must never
+    // advance expiry/eviction, seed clocks, or publish a grant transition.
+    internal bool TryReadObservation(ShotKey life, uint sourceFrame, TimedPowerUp type,
+        out TimedGrantAnswer answer, out uint authorityFrame)
+    {
+        answer = new(TimedGrantKnowledge.Unavailable);
+        authorityFrame = 0;
+        life = life with { ShotId = 0 };
+        if ((uint)type >= 3 || !ValidLife(life)
+            || !_observations.TryGetValue(new(life, sourceFrame), out var sample)) return false;
+        answer = type switch
+        {
+            TimedPowerUp.DoubleDamage => sample.Double,
+            TimedPowerUp.Cloak => sample.Cloak,
+            TimedPowerUp.DeathAlt => sample.DeathAlt,
+            _ => new(TimedGrantKnowledge.Unavailable)
+        };
+        authorityFrame = sample.Authority;
+        return true;
     }
 
     internal TimedGrantAnswer GrantedAt(ShotKey life, uint shotSourceFrame, TimedPowerUp type, uint now)
