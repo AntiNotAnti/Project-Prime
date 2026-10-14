@@ -46,10 +46,9 @@ try
         (long before, long after, int deleted) = secondProcess.Prune();
         Check(before > max && after <= max && deleted == 1,
             "bounded LRU removes one unleased archive under disk pressure");
-        Check(cache.TryAcquire(b) == null && cache.TryAcquire(a) != null,
+        using var secondReader = cache.TryAcquire(a);
+        Check(cache.TryAcquire(b) == null && secondReader != null,
             "LRU preserves a leased older archive and removes an unleased newer one");
-        // The temporary second lease is intentionally released below in a
-        // separate statement to avoid holding an accidental eviction guard.
     }
 
     cache.Promote(second, b);
@@ -57,7 +56,8 @@ try
     {
         Check(protectB != null, "evicted exact archive can be safely re-imported");
         secondProcess.Prune();
-        Check(secondProcess.TryAcquire(a) == null && secondProcess.TryAcquire(b) != null,
+        using var confirmed = secondProcess.TryAcquire(b);
+        Check(secondProcess.TryAcquire(a) == null && confirmed != null,
             "restarted cache instance honors live leases during eviction");
     }
 
