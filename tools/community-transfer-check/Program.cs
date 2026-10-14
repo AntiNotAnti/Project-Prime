@@ -229,7 +229,7 @@ try
         try
         {
             await frozenAgain.QueueAsync(endpoint, operations, creatorTransfers,
-                CommunityPublishVisibility.Published, new string('x', 2001));
+                CommunityPublishVisibility.Published, new string('x', 4001));
         }
         catch (ArgumentOutOfRangeException) { notesRefused = true; }
         Check(notesRefused, "oversized creator release notes are rejected before network or package writes");
