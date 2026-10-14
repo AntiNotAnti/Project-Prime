@@ -567,8 +567,14 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             || job.AcknowledgedBytes < 0 || job.AcknowledgedBytes > job.TotalBytes)
             throw new InvalidDataException("Invalid stored transfer identity or byte limits.");
         ValidateEndpoint(job.Endpoint);
-        if (job.Kind == CommunityTransferKind.Download) ValidateMap(job.Download
-            ?? throw new InvalidDataException("Download job has no map metadata."));
+        if (job.Kind == CommunityTransferKind.Download)
+        {
+            CommunityMap map = job.Download
+                ?? throw new InvalidDataException("Download job has no map metadata.");
+            ValidateMap(map);
+            if (map.Hash != job.PackageHash || map.Bytes != job.TotalBytes)
+                throw new InvalidDataException("Stored Community job and map identities disagree.");
+        }
         else if (!StringComparer.Ordinal.Equals(job.SnapshotPath, UploadPath(job.Id)))
             throw new InvalidDataException("Upload staging path is outside its private job.");
     }
