@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 namespace MphRead.Mods.Launcher.Gui
 {
-    internal enum PrimeRoute { News, Play, Community, HunterLicense, Theatre, Forge, Offline, Settings, Lobby }
+    internal enum PrimeRoute { News, Play, HunterLicense, Theatre, Forge, Offline, Settings, Lobby, Community }
 
     // Navigation policy contains no rendering or session ownership.
     internal sealed class PrimeRouter
