@@ -5,10 +5,11 @@
 - **Game:** Select the top-level **Community** tab for Discover, Installed,
   Favorites and Downloads. This does not require opening Map Studio. Existing
   Create Lobby -> Map Rotation -> Source: Community remains available directly.
-- **Map Studio, default:** **Online -> Community maps** opens the established
-  creator dashboard with My Maps/revisions/rollback and publication. **Online
-  -> Host current map** stays separate; local playtesting never requires a
-  Community upload.
+- **Map Studio, default:** **Online -> Community maps** opens the independent
+  creator workspace with My Uploads, Transfers and Publish. The **Advanced
+  Revisions** action still opens the established creator dashboard for My Maps,
+  revision rollback and visibility controls. **Online -> Host current map**
+  stays separate; local playtesting never requires a Community upload.
 - **Optional creator preview:** A QA build can set
   `PROJECT_PRIME_STUDIO_COMMUNITY_HUB_PREVIEW=1` before launching Studio.
   The Online -> Community maps command then opens a separate Creator Community
