@@ -127,11 +127,10 @@ internal static class QuakeConvexHull
         // points with coincident min/max bounds.
         bool axisBox = planes.Count == 6 && converted.Length == 8
             && polygons.All(f => f.Length == 4)
-            && planes.All(p =>
-            {
-                Vector3 n = Vector3.Abs(p.Normal);
-                return n.X >= 0.99999f || n.Y >= 0.99999f || n.Z >= 0.99999f;
-            })
+            && sourceFaces.All(f =>
+                (f[0].X == f[1].X && f[1].X == f[2].X)
+                || (f[0].Y == f[1].Y && f[1].Y == f[2].Y)
+                || (f[0].Z == f[1].Z && f[1].Z == f[2].Z))
             && converted.All(p =>
                 (Math.Abs(p.X - lo.X) < PlaneTolerance / units
                     || Math.Abs(p.X - hi.X) < PlaneTolerance / units)
