@@ -642,6 +642,7 @@ jobs:
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --timed-imperialist-impact
           PRIME_TIMED_GRANT_PROOF=enforce-discrete dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --timed-shot-damage
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --timed-source-capabilities
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --timed-campaign-joins
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --pickup-protocol
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --pickup-claims
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --pickup-network

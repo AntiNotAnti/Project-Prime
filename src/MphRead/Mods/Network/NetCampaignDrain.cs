@@ -47,7 +47,7 @@ internal static class NetCampaignDrain
         string value = $"{key.AuthorityEpoch}:{key.MatchId}:{key.ShooterSlot}:{key.Generation}:{key.LifeId}:{key.ShotId}";
         var keys = offered ? Offered : Accepted;
         if (keys.Contains(value)) return;
-        if (keys.Count >= 16384) { _error = "bounded drain shot-key evidence overflow"; return; }
+        if (keys.Count >= NetCampaignEvidence.EvidenceShotKeyLimit) { _error = "bounded drain shot-key evidence overflow"; return; }
         keys.Add(value);
     }
 

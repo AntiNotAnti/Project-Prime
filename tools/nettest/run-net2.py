@@ -42,6 +42,8 @@ def child_environment(args, name, profile, inherited=None):
                PRIME_SHOT_PROOF=args.shot_proof)
     if args.timed_grant_proof != "off":
         env["PRIME_TIMED_GRANT_PROOF"] = args.timed_grant_proof
+    if args.evidence_row_limit is not None:
+        env["PRIME_NET2_EVIDENCE_ROW_LIMIT"] = str(args.evidence_row_limit)
     if args.timed_replay_facts and name == "server":
         env["PRIME_TIMED_REPLAY_FACTS"] = "1"
     return env
@@ -327,7 +329,7 @@ def run(args):
             "environment": {k: env[k] for k in ("PROJECT_PRIME_USER_DATA", "ALSOFT_DRIVERS", "MPHREAD_PHASE_SECONDS", "PRIME_NET2_EVIDENCE", "PRIME_SHOT_PROOF")},
             "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
             "soak": args.soak})
-        for key in ("PRIME_TIMED_GRANT_PROOF", "PRIME_TIMED_REPLAY_FACTS"):
+        for key in ("PRIME_TIMED_GRANT_PROOF", "PRIME_TIMED_REPLAY_FACTS", "PRIME_NET2_EVIDENCE_ROW_LIMIT"):
             if key in env:
                 manifest["commands"][-1]["environment"][key] = env[key]
         if args.server_operator and name == "server":
@@ -592,6 +594,8 @@ def parse_args(argv=None):
                    help="Explicit NET-01 timed certificate observation; independent of legacy --shot-proof")
     p.add_argument("--timed-replay-facts", action="store_true",
                    help="Enable authority archival timed facts and server recordings; requires timed Shadow")
+    p.add_argument("--evidence-row-limit", type=int,
+                   help="Opt-in diagnostic row budget262144..1048576; does not enable soak gameplay")
     p.add_argument("--players", type=int, choices=(2, 3, 4, 8), default=2)
     p.add_argument("--ai-net-client", type=int, nargs="?", const=2, choices=range(4),
                    help="Drive ordinary local clients with native tactical AI, level 0..3")
@@ -629,6 +633,8 @@ def parse_args(argv=None):
     p.add_argument("--record", action="store_true")
     p.add_argument("--soak", action="store_true")
     args = p.parse_args(argv)
+    if args.evidence_row_limit is not None and not 262144 <= args.evidence_row_limit <= 1048576:
+        p.error("--evidence-row-limit must be between262144 and1048576")
     if args.timed_replay_facts and args.timed_grant_proof != "shadow":
         p.error("--timed-replay-facts requires --timed-grant-proof shadow")
     if args.pacing_lobby_client and (not args.pacing_lobby_client.is_file() or args.players != 8
