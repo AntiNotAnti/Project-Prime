@@ -1,0 +1,78 @@
+{
+  "source": {
+    "commit": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "tree": "eafd1c25936e1dbeeb254cac1936e3090b22e2e2",
+    "dirty": ""
+  },
+  "actualLoadedClient": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+    "sha256": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15",
+    "buildId": "local+88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "baseline": "PASS15+123Python",
+  "extraPureConfig": "PASS16",
+  "officialToolBuild": "PASS exactEngineSHA/MVID, complete officialProjectReference sources",
+  "lifeStages": [
+    {
+      "name": "native-arms",
+      "status": "PASS",
+      "exit": 0,
+      "error": null,
+      "ownedGroupClosed": true
+    },
+    {
+      "name": "replica",
+      "status": "PASS",
+      "exit": 0,
+      "error": null,
+      "ownedGroupClosed": true
+    },
+    {
+      "name": "export",
+      "status": "PASS",
+      "exit": 0,
+      "error": null,
+      "ownedGroupClosed": true
+    },
+    {
+      "name": "music",
+      "status": "PASS",
+      "exit": 0,
+      "error": null,
+      "ownedGroupClosed": true
+    },
+    {
+      "name": "shell",
+      "status": "FAIL",
+      "exit": 0,
+      "error": "ValueError: Incomplete full shell script: cycles=['1', '2', '1', '2'], assetsReady=True, failures=[]",
+      "ownedGroupClosed": true
+    },
+    {
+      "name": "respawn",
+      "status": "NOT_RUN",
+      "exit": null,
+      "error": null,
+      "ownedGroupClosed": null
+    }
+  ],
+  "scope": "Actual nativeGL/audio/replica/export/music and fullshell execution; shell receiptFAIL retained, respawnNOTRUN",
+  "preservedNegatives": [
+    "life-native-attempt1 managed FileNotFoundSIGABRT",
+    "life-native-attempt2 nativeGLFW DllNotFoundSIGABRT",
+    "life-native-attempt3 shell mirroredstream oracleFAIL"
+  ],
+  "sourceUnchanged": true,
+  "runtimeUnchanged": true,
+  "heavySlot": "RELEASED",
+  "allCompletedStageGroupsClosed": true,
+  "finishedUtc": "2026-10-14T09:49:16.099392+00:00"
+}

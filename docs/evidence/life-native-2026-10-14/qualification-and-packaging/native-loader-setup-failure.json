@@ -1,0 +1,11 @@
+{
+  "fault": "Direct references Private=false omitted runtime dependency admission",
+  "physicalClientPresent": true,
+  "physicalClientIsLink": false,
+  "depsProjectPrimeDeclared": false,
+  "managedReferenceFileCount": 46,
+  "managedReferenceTotalBytes": 52816920,
+  "nextRepair": "Copy-local direct managed DLL references in new project/output directories; no source change or full dependency bundle copy",
+  "nativeActualScope": "NOT_RUN; aborted before context",
+  "heavyProcessClosure": "All owned LIFE runner descendants absent"
+}

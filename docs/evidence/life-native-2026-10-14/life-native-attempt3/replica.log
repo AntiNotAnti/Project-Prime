@@ -1,0 +1,368 @@
+[debug] standard error is being written to ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/user-data/logs/ProjectPrime-20261014-044543-48262-native.txt
+Project Prime a local build
+OS: macOS 27.0.0
+OS architecture: Arm64
+Process architecture: Arm64
+RID: osx-arm64
+Runtime: .NET 10.0.12
+Base directory: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/
+Launch directory: ${WORKSPACE}/work/prime-plan-integration
+Current directory: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/user-data
+User data: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/user-data
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/libopenal.1.dylib
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/libglfw.3.dylib
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/libSkiaSharp.dylib
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/libAvaloniaNative.dylib
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/libminiaudio.dylib
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[glcapabilities] version=2.1 Metal - 91.7; vao=False; appleVao=True; desktopVaoApi=Apple; timer=False; disjointTimer=False; sync=True; ubo=False; storage=False; optimizations=capability-and-policy; forceLegacy=False
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.852
+[world-shaders] variant=plain elapsedMs=4.576
+[world-shaders] variant=plain-unlit elapsedMs=4.272
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.738
+[world-shaders] variant=plain elapsedMs=4.498
+[world-shaders] variant=plain-unlit elapsedMs=4.312
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.905
+[world-shaders] variant=plain elapsedMs=4.787
+[world-shaders] variant=plain-unlit elapsedMs=4.703
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.848
+[world-shaders] variant=plain elapsedMs=4.735
+[world-shaders] variant=plain-unlit elapsedMs=4.369
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.885
+[world-shaders] variant=plain elapsedMs=4.557
+[world-shaders] variant=plain-unlit elapsedMs=4.341
+[replayparticles] PASS: real pooled birth resets rotation; historical world restore clears unowned angles and preserves authored rotation.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.795
+[world-shaders] variant=plain elapsedMs=4.537
+[world-shaders] variant=plain-unlit elapsedMs=4.275
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.907
+[world-shaders] variant=plain elapsedMs=4.510
+[world-shaders] variant=plain-unlit elapsedMs=4.354
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.003
+[world-shaders] variant=plain elapsedMs=4.561
+[world-shaders] variant=plain-unlit elapsedMs=4.398
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.709
+[world-shaders] variant=plain elapsedMs=4.664
+[world-shaders] variant=plain-unlit elapsedMs=4.328
+[replayposes] NOT_RUN: version 5/6/7/8 baseline needed for the export policy regression.
+[replayposes] PASS: 4096 real bomb facts bypass pose lookahead, remain consumed by simulation, and preserve 180 continuation frames.
+[replayassets] PASS: private room layers/materials/meshes, shared immutable geometry, foreground defaults and detached asset/activation restore.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.683
+[world-shaders] variant=plain elapsedMs=4.595
+[world-shaders] variant=plain-unlit elapsedMs=4.322
+[replayreplica] restored frame 300: 640133 bytes; capture 16.60 ms, create/restore 131.12 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.760
+[world-shaders] variant=plain elapsedMs=4.653
+[world-shaders] variant=plain-unlit elapsedMs=4.410
+[replayreplica] restored frame 600: 639049 bytes; capture 24.20 ms, create/restore 133.99 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.981
+[world-shaders] variant=plain elapsedMs=4.614
+[world-shaders] variant=plain-unlit elapsedMs=4.445
+[replayreplica] restored frame 660: 638721 bytes; capture 14.45 ms, create/restore 141.13 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.913
+[world-shaders] variant=plain elapsedMs=4.657
+[world-shaders] variant=plain-unlit elapsedMs=4.459
+[replayreplica] restored frame 900: 640950 bytes; capture 23.08 ms, create/restore 137.75 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.036
+[world-shaders] variant=plain elapsedMs=4.724
+[world-shaders] variant=plain-unlit elapsedMs=4.485
+[replayreplica] restored frame 1200: 641809 bytes; capture 18.52 ms, create/restore 137.35 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.912
+[world-shaders] variant=plain elapsedMs=4.718
+[world-shaders] variant=plain-unlit elapsedMs=4.340
+[replayreplica] restored frame 1500: 645173 bytes; capture 21.54 ms, create/restore 138.69 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.867
+[world-shaders] variant=plain elapsedMs=4.735
+[world-shaders] variant=plain-unlit elapsedMs=4.353
+[replayreplica] restored frame 1800: 645001 bytes; capture 21.56 ms, create/restore 142.07 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.885
+[world-shaders] variant=plain elapsedMs=4.576
+[world-shaders] variant=plain-unlit elapsedMs=4.442
+[replayreplica] restored frame 2100: 645108 bytes; capture 18.37 ms, create/restore 118.95 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.072
+[world-shaders] variant=plain elapsedMs=4.739
+[world-shaders] variant=plain-unlit elapsedMs=4.514
+[replayreplica] restored frame 2400: 646563 bytes; capture 11.47 ms, create/restore 77.74 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.750
+[world-shaders] variant=plain elapsedMs=4.576
+[world-shaders] variant=plain-unlit elapsedMs=4.393
+[replayreplica] restored frame 2700: 642839 bytes; capture 8.24 ms, create/restore 74.24 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.699
+[world-shaders] variant=plain elapsedMs=4.487
+[world-shaders] variant=plain-unlit elapsedMs=4.495
+[replayreplica] restored frame 3000: 643955 bytes; capture 13.72 ms, create/restore 82.83 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.970
+[world-shaders] variant=plain elapsedMs=4.801
+[world-shaders] variant=plain-unlit elapsedMs=4.613
+[replayreplica] restored frame 3300: 641139 bytes; capture 3.91 ms, create/restore 72.87 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.896
+[world-shaders] variant=plain elapsedMs=4.701
+[world-shaders] variant=plain-unlit elapsedMs=4.378
+[replayreplica] restored frame 3600: 641958 bytes; capture 3.69 ms, create/restore 78.98 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.659
+[world-shaders] variant=plain elapsedMs=4.572
+[world-shaders] variant=plain-unlit elapsedMs=4.374
+[replayreplica] restored frame 3900: 641663 bytes; capture 3.84 ms, create/restore 79.84 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.784
+[world-shaders] variant=plain elapsedMs=4.604
+[world-shaders] variant=plain-unlit elapsedMs=4.484
+[replayreplica] restored frame 4200: 640525 bytes; capture 9.76 ms, create/restore 87.87 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.839
+[world-shaders] variant=plain elapsedMs=4.750
+[world-shaders] variant=plain-unlit elapsedMs=4.430
+[replayreplica] restored frame 4500: 640527 bytes; capture 8.07 ms, create/restore 98.30 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.650
+[world-shaders] variant=plain elapsedMs=4.624
+[world-shaders] variant=plain-unlit elapsedMs=4.339
+[replayreplica] restored frame 4800: 640095 bytes; capture 3.84 ms, create/restore 72.83 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.101
+[world-shaders] variant=plain elapsedMs=4.646
+[world-shaders] variant=plain-unlit elapsedMs=4.645
+[replayreplica] restored frame 5100: 640657 bytes; capture 9.23 ms, create/restore 73.13 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.067
+[world-shaders] variant=plain elapsedMs=4.641
+[world-shaders] variant=plain-unlit elapsedMs=4.679
+[replayreplica] restored frame 5400: 643862 bytes; capture 4.08 ms, create/restore 72.68 ms
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=13.575
+[world-shaders] variant=plain elapsedMs=11.408
+[world-shaders] variant=plain-unlit elapsedMs=10.184
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.940
+[world-shaders] variant=plain elapsedMs=4.509
+[world-shaders] variant=plain-unlit elapsedMs=4.455
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.879
+[world-shaders] variant=plain elapsedMs=4.698
+[world-shaders] variant=plain-unlit elapsedMs=4.503
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.968
+[world-shaders] variant=plain elapsedMs=4.579
+[world-shaders] variant=plain-unlit elapsedMs=4.419
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.974
+[world-shaders] variant=plain elapsedMs=4.698
+[world-shaders] variant=plain-unlit elapsedMs=4.552
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.907
+[world-shaders] variant=plain elapsedMs=4.629
+[world-shaders] variant=plain-unlit elapsedMs=4.425
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[replayseek] 1500 from 0: 1980 steps, 17 updates, 524.70 ms
+[replayseek] durable fallbacks=5; last error=Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.945
+[world-shaders] variant=plain elapsedMs=4.651
+[world-shaders] variant=plain-unlit elapsedMs=4.449
+[replayseek] 35 from 0: 35 steps, 1 updates, 77.18 ms
+[replayseek] durable fallbacks=5; last error=Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.777
+[world-shaders] variant=plain elapsedMs=4.691
+[world-shaders] variant=plain-unlit elapsedMs=4.680
+[replayseek] 1100 from 900: 200 steps, 2 updates, 96.50 ms
+[replayseek] durable fallbacks=5; last error=Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.231
+[world-shaders] variant=plain elapsedMs=4.979
+[world-shaders] variant=plain-unlit elapsedMs=4.519
+[replayseek] 615 from 600: 15 steps, 1 updates, 97.91 ms
+[replayseek] durable fallbacks=5; last error=Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.982
+[world-shaders] variant=plain elapsedMs=4.570
+[world-shaders] variant=plain-unlit elapsedMs=4.547
+[replayseek] 0 from 0: 0 steps, 1 updates, 59.85 ms
+[replayseek] durable fallbacks=5; last error=Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.806
+[world-shaders] variant=plain elapsedMs=4.695
+[world-shaders] variant=plain-unlit elapsedMs=4.447
+[replayseek] 1799 from 1500: 299 steps, 3 updates, 111.47 ms
+[replayseek] durable fallbacks=5; last error=Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.758
+[world-shaders] variant=plain elapsedMs=4.857
+[world-shaders] variant=plain-unlit elapsedMs=4.367
+[replayseek] 1201 from 1200: 1 steps, 1 updates, 85.52 ms
+[replayseek] durable fallbacks=5; last error=Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.776
+[world-shaders] variant=plain elapsedMs=4.565
+[world-shaders] variant=plain-unlit elapsedMs=4.432
+[replayseek] 610 from 600: 10 steps, 1 updates, 91.27 ms
+[replayseek] durable fallbacks=5; last error=Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.867
+[world-shaders] variant=plain elapsedMs=4.680
+[world-shaders] variant=plain-unlit elapsedMs=4.465
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.790
+[world-shaders] variant=plain elapsedMs=4.612
+[world-shaders] variant=plain-unlit elapsedMs=4.459
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.964
+[world-shaders] variant=plain elapsedMs=4.568
+[world-shaders] variant=plain-unlit elapsedMs=5.770
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.153
+[world-shaders] variant=plain elapsedMs=4.661
+[world-shaders] variant=plain-unlit elapsedMs=4.478
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.887
+[world-shaders] variant=plain elapsedMs=4.557
+[world-shaders] variant=plain-unlit elapsedMs=4.530
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.981
+[world-shaders] variant=plain elapsedMs=4.694
+[world-shaders] variant=plain-unlit elapsedMs=4.510
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.901
+[world-shaders] variant=plain elapsedMs=4.729
+[world-shaders] variant=plain-unlit elapsedMs=4.505
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.908
+[world-shaders] variant=plain elapsedMs=4.722
+[world-shaders] variant=plain-unlit elapsedMs=4.423
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.989
+[world-shaders] variant=plain elapsedMs=4.740
+[world-shaders] variant=plain-unlit elapsedMs=4.440
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.889
+[world-shaders] variant=plain elapsedMs=4.684
+[world-shaders] variant=plain-unlit elapsedMs=4.641
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.005
+[world-shaders] variant=plain elapsedMs=4.659
+[world-shaders] variant=plain-unlit elapsedMs=4.451
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.095
+[world-shaders] variant=plain elapsedMs=4.575
+[world-shaders] variant=plain-unlit elapsedMs=4.567
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.739
+[world-shaders] variant=plain elapsedMs=4.771
+[world-shaders] variant=plain-unlit elapsedMs=4.450
+[replay] Durable checkpoint fallback: Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.797
+[world-shaders] variant=plain elapsedMs=4.707
+[world-shaders] variant=plain-unlit elapsedMs=4.539
+[replayseek] 5690 from 1500: 5750 steps, 48 updates, 1422.20 ms
+[replayseek] durable fallbacks=18; last error=Durable world firing contract does not match the consumer; reconstructing from the recording baseline.
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.107
+[world-shaders] variant=plain elapsedMs=4.728
+[world-shaders] variant=plain-unlit elapsedMs=4.592
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.858
+[world-shaders] variant=plain elapsedMs=4.670
+[world-shaders] variant=plain-unlit elapsedMs=4.341
+[replayseek] frozen clip: 250 bounded warmup steps, frames 1150–1200, backward seek, source timeline reset
+[replayseek] PASS: 62 file/clip comparisons, 18 checkpoints, 11559790 retained bytes, frozen EOF.
+[replayreplica] PASS: 5690 gameplay/presentation hashes and decoder restores, 44507 animation restores, 19 detached worlds and 5390 continuation frames, 757 frames with projectiles; interleaved scenes and teardown preserve foreground state.

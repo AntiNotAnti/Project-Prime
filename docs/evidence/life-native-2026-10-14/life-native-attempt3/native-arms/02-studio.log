@@ -1,0 +1,48 @@
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+NATIVERENDER appleVao advertised=True gen=True bind=True delete=True
+NATIVERENDER pid=48242 context room=MP3 PROVING GROUND pixels=(1920, 1080) cap=-1 shadows=High vendor=Apple renderer=Apple M4 Pro gl=2.1 Metal - 91.7 mvid=896c230f-be96-4e23-b0cc-3fb2824d1a15
+[world-shaders] variant=native elapsedMs=6.127
+[world-shaders] variant=plain elapsedMs=4.693
+[world-shaders] variant=plain-unlit elapsedMs=4.604
+UNSUPPORTED (log once): POSSIBLE ISSUE: unit 0 GLD_TEXTURE_INDEX_2D is unloadable and bound to sampler type (Float) - using zero texture because texture unloadable
+NATIVERENDER resource arm=studio cycle=1/10
+[world-shaders] variant=native elapsedMs=5.854
+[world-shaders] variant=plain elapsedMs=4.625
+[world-shaders] variant=plain-unlit elapsedMs=4.430
+NATIVERENDER resource arm=studio cycle=2/10
+[world-shaders] variant=native elapsedMs=6.055
+[world-shaders] variant=plain elapsedMs=4.713
+[world-shaders] variant=plain-unlit elapsedMs=4.618
+NATIVERENDER resource arm=studio cycle=3/10
+[world-shaders] variant=native elapsedMs=6.004
+[world-shaders] variant=plain elapsedMs=4.734
+[world-shaders] variant=plain-unlit elapsedMs=4.625
+NATIVERENDER resource arm=studio cycle=4/10
+[world-shaders] variant=native elapsedMs=5.834
+[world-shaders] variant=plain elapsedMs=4.763
+[world-shaders] variant=plain-unlit elapsedMs=4.510
+NATIVERENDER resource arm=studio cycle=5/10
+[world-shaders] variant=native elapsedMs=5.914
+[world-shaders] variant=plain elapsedMs=4.487
+[world-shaders] variant=plain-unlit elapsedMs=4.524
+NATIVERENDER resource arm=studio cycle=6/10
+[world-shaders] variant=native elapsedMs=5.745
+[world-shaders] variant=plain elapsedMs=4.537
+[world-shaders] variant=plain-unlit elapsedMs=4.478
+NATIVERENDER resource arm=studio cycle=7/10
+[world-shaders] variant=native elapsedMs=5.937
+[world-shaders] variant=plain elapsedMs=4.636
+[world-shaders] variant=plain-unlit elapsedMs=4.437
+NATIVERENDER resource arm=studio cycle=8/10
+[world-shaders] variant=native elapsedMs=5.833
+[world-shaders] variant=plain elapsedMs=4.729
+[world-shaders] variant=plain-unlit elapsedMs=4.514
+NATIVERENDER resource arm=studio cycle=9/10
+[world-shaders] variant=native elapsedMs=6.085
+[world-shaders] variant=plain elapsedMs=4.663
+[world-shaders] variant=plain-unlit elapsedMs=4.609
+NATIVERENDER resource arm=studio cycle=10/10
+NATIVERENDER PASS ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/02-studio.json

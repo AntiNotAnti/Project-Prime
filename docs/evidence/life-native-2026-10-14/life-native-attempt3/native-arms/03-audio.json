@@ -1,0 +1,1735 @@
+{
+  "schema": 2,
+  "kind": "audio-resource-stress",
+  "arm": "audio",
+  "manifest": {
+    "processId": 48247,
+    "command": [
+      "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-normal1-runtime/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-size",
+      "1920x1080",
+      "-hz",
+      "-1",
+      "-seconds",
+      "8",
+      "-shadows",
+      "High",
+      "-resource-audio-wait",
+      "-resourcestress",
+      "-resource-arm",
+      "audio",
+      "-resourcecycles",
+      "10",
+      "-resourceframes",
+      "120",
+      "-resource-drain",
+      "-resource-quiescent-samples",
+      "6",
+      "-resource-quiescent-ms",
+      "1000",
+      "-output",
+      "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/03-audio.json"
+    ],
+    "workingDirectory": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/user-data",
+    "runtime": ".NET 10.0.12",
+    "os": "macOS 27.0.0",
+    "architecture": "Arm64",
+    "cpuCount": 12,
+    "stopwatchFrequency": 1000000000,
+    "clientPath": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-normal1-runtime/ProjectPrime.dll",
+    "clientSha256": "785D507A682811F31D4262AB39AC8427074D4FC3563C8A9CDC863787F53CB009",
+    "harnessPath": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-normal1-runtime/native-render-check.dll",
+    "harnessSha256": "6416DAB4578F9B7E6495CCFC75446EF7C22E23B90F8239AF7E732408DC092660",
+    "assemblyMvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15",
+    "harnessAssemblyMvid": "3f7dcaa4-38e6-4256-ab74-642772066609",
+    "openTkVersion": "4.9.4.0",
+    "musicStartupProbeClosed": false,
+    "environment": {
+      "PROJECT_PRIME_USER_DATA": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/user-data"
+    },
+    "limitations": "RSS/private/virtual are process accounting, not native allocation attribution. VM categories/allocation stacks/GPU driver residency are not sampled. Native resource counters describe existing owner fields. GC and readbacks invalidate FPS interpretation. Replay-only and full Studio UI are NOT_RUN."
+  },
+  "workload": {
+    "cyclesRequested": 10,
+    "loadsPerCycle": 2,
+    "audioUpdateSteps": 120,
+    "serialShutdown": true,
+    "simulationHz": 60,
+    "retentionProbe": false,
+    "secondCollect": false,
+    "workloadFrameUnwoundBeforeFinalGc": false,
+    "roomCount": 0,
+    "contextCount": 0,
+    "sceneGlInitialized": false,
+    "perUnloadGc": true,
+    "quiescentSamples": 6,
+    "quiescentIntervalMs": 1000,
+    "scope": "Sfx.Load/Update/ShutDown and feedback warmup; no room music, playback, renderer, Studio or replay."
+  },
+  "cyclesCompleted": 10,
+  "records": [
+    {
+      "cycle": 0,
+      "candidate": false,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 2464,
+        "streamSource": 2593,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 387.7036,
+      "memory": {
+        "timestamp": 41980520757916,
+        "utc": "2026-10-14T09:45:34.110242+00:00",
+        "workingSetBytes": 215384064,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58187288,
+        "gcCommittedBytes": 57884672,
+        "gcHeapSizeBytes": 45140288,
+        "gcFragmentedBytes": 12829072,
+        "gcMemoryInfoCollectionIndex": 14,
+        "gcTotalPauseMs": 9.532,
+        "gcLatestPauseMs": [
+          3.07,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 19264312,
+        "lohFragmentedBytes": 12828784,
+        "allocatedBytes": 130659248,
+        "collectionCounts": [
+          14,
+          7,
+          5
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 1
+      },
+      "audio": {
+        "observations": 1,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 0,
+      "candidate": true,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 2658,
+        "streamSource": 2787,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 586.5554,
+      "memory": {
+        "timestamp": 41980719572875,
+        "utc": "2026-10-14T09:45:34.309055+00:00",
+        "workingSetBytes": 233783296,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58191048,
+        "gcCommittedBytes": 75448320,
+        "gcHeapSizeBytes": 41814656,
+        "gcFragmentedBytes": 9497328,
+        "gcMemoryInfoCollectionIndex": 24,
+        "gcTotalPauseMs": 14.501,
+        "gcLatestPauseMs": [
+          2.642,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 15932808,
+        "lohFragmentedBytes": 9497280,
+        "allocatedBytes": 251816792,
+        "collectionCounts": [
+          24,
+          11,
+          7
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 2
+      },
+      "audio": {
+        "observations": 2,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 1,
+      "candidate": false,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 2852,
+        "streamSource": 2981,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 178.0883,
+      "memory": {
+        "timestamp": 41980897772791,
+        "utc": "2026-10-14T09:45:34.487254+00:00",
+        "workingSetBytes": 253067264,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58193160,
+        "gcCommittedBytes": 93159424,
+        "gcHeapSizeBytes": 60715968,
+        "gcFragmentedBytes": 28397584,
+        "gcMemoryInfoCollectionIndex": 34,
+        "gcTotalPauseMs": 18.612,
+        "gcLatestPauseMs": [
+          2.184,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 34833064,
+        "lohFragmentedBytes": 28397536,
+        "allocatedBytes": 372965712,
+        "collectionCounts": [
+          34,
+          15,
+          9
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 3
+      },
+      "audio": {
+        "observations": 3,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 1,
+      "candidate": true,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 3046,
+        "streamSource": 3175,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 339.5263,
+      "memory": {
+        "timestamp": 41981059210083,
+        "utc": "2026-10-14T09:45:34.64869+00:00",
+        "workingSetBytes": 253788160,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58195248,
+        "gcCommittedBytes": 93618176,
+        "gcHeapSizeBytes": 62629488,
+        "gcFragmentedBytes": 30310048,
+        "gcMemoryInfoCollectionIndex": 44,
+        "gcTotalPauseMs": 23.711,
+        "gcLatestPauseMs": [
+          2.76,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 36745552,
+        "lohFragmentedBytes": 30310024,
+        "allocatedBytes": 494119872,
+        "collectionCounts": [
+          44,
+          19,
+          11
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 4
+      },
+      "audio": {
+        "observations": 4,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 2,
+      "candidate": false,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 3240,
+        "streamSource": 3369,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 158.4088,
+      "memory": {
+        "timestamp": 41981217729791,
+        "utc": "2026-10-14T09:45:34.807208+00:00",
+        "workingSetBytes": 251166720,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58197376,
+        "gcCommittedBytes": 90914816,
+        "gcHeapSizeBytes": 59419184,
+        "gcFragmentedBytes": 27098680,
+        "gcMemoryInfoCollectionIndex": 54,
+        "gcTotalPauseMs": 28.448,
+        "gcLatestPauseMs": [
+          2.42,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 33534184,
+        "lohFragmentedBytes": 27098656,
+        "allocatedBytes": 615250048,
+        "collectionCounts": [
+          54,
+          23,
+          13
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 5
+      },
+      "audio": {
+        "observations": 5,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 2,
+      "candidate": true,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 3434,
+        "streamSource": 3563,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 318.583,
+      "memory": {
+        "timestamp": 41981377931416,
+        "utc": "2026-10-14T09:45:34.967408+00:00",
+        "workingSetBytes": 253853696,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58199504,
+        "gcCommittedBytes": 92913664,
+        "gcHeapSizeBytes": 61332736,
+        "gcFragmentedBytes": 29011168,
+        "gcMemoryInfoCollectionIndex": 64,
+        "gcTotalPauseMs": 33.587,
+        "gcLatestPauseMs": [
+          2.58,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 35446672,
+        "lohFragmentedBytes": 29011144,
+        "allocatedBytes": 736367184,
+        "collectionCounts": [
+          64,
+          27,
+          15
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 6
+      },
+      "audio": {
+        "observations": 6,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 3,
+      "candidate": false,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 3628,
+        "streamSource": 3757,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 159.1319,
+      "memory": {
+        "timestamp": 41981537182666,
+        "utc": "2026-10-14T09:45:35.126658+00:00",
+        "workingSetBytes": 251494400,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58201568,
+        "gcCommittedBytes": 90406912,
+        "gcHeapSizeBytes": 59339368,
+        "gcFragmentedBytes": 27016768,
+        "gcMemoryInfoCollectionIndex": 74,
+        "gcTotalPauseMs": 38.229,
+        "gcLatestPauseMs": [
+          2.476,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 33452272,
+        "lohFragmentedBytes": 27016744,
+        "allocatedBytes": 857485096,
+        "collectionCounts": [
+          74,
+          31,
+          17
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 7
+      },
+      "audio": {
+        "observations": 7,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 3,
+      "candidate": true,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 3822,
+        "streamSource": 3951,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 321.4661,
+      "memory": {
+        "timestamp": 41981699529458,
+        "utc": "2026-10-14T09:45:35.289003+00:00",
+        "workingSetBytes": 253657088,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58203632,
+        "gcCommittedBytes": 92340224,
+        "gcHeapSizeBytes": 61252888,
+        "gcFragmentedBytes": 28929256,
+        "gcMemoryInfoCollectionIndex": 84,
+        "gcTotalPauseMs": 42.869,
+        "gcLatestPauseMs": [
+          2.323,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 35364760,
+        "lohFragmentedBytes": 28929232,
+        "allocatedBytes": 978597728,
+        "collectionCounts": [
+          84,
+          35,
+          19
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 8
+      },
+      "audio": {
+        "observations": 8,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 4,
+      "candidate": false,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 4016,
+        "streamSource": 4145,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 159.5212,
+      "memory": {
+        "timestamp": 41981859164125,
+        "utc": "2026-10-14T09:45:35.448636+00:00",
+        "workingSetBytes": 242614272,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58205824,
+        "gcCommittedBytes": 81018880,
+        "gcHeapSizeBytes": 49354576,
+        "gcFragmentedBytes": 17029848,
+        "gcMemoryInfoCollectionIndex": 94,
+        "gcTotalPauseMs": 47.754,
+        "gcLatestPauseMs": [
+          2.466,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 23465352,
+        "lohFragmentedBytes": 17029824,
+        "allocatedBytes": 1099715344,
+        "collectionCounts": [
+          94,
+          39,
+          21
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 9
+      },
+      "audio": {
+        "observations": 9,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 4,
+      "candidate": true,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 4210,
+        "streamSource": 4339,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 319.9551,
+      "memory": {
+        "timestamp": 41982019602750,
+        "utc": "2026-10-14T09:45:35.609074+00:00",
+        "workingSetBytes": 255000576,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58208016,
+        "gcCommittedBytes": 93323264,
+        "gcHeapSizeBytes": 60697464,
+        "gcFragmentedBytes": 28371640,
+        "gcMemoryInfoCollectionIndex": 104,
+        "gcTotalPauseMs": 52.463,
+        "gcLatestPauseMs": [
+          2.342,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 34807144,
+        "lohFragmentedBytes": 28371616,
+        "allocatedBytes": 1220826672,
+        "collectionCounts": [
+          104,
+          43,
+          23
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 10
+      },
+      "audio": {
+        "observations": 10,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 5,
+      "candidate": false,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 4404,
+        "streamSource": 4533,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 160.226,
+      "memory": {
+        "timestamp": 41982179947500,
+        "utc": "2026-10-14T09:45:35.769417+00:00",
+        "workingSetBytes": 255361024,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58210080,
+        "gcCommittedBytes": 93749248,
+        "gcHeapSizeBytes": 62610984,
+        "gcFragmentedBytes": 30284128,
+        "gcMemoryInfoCollectionIndex": 114,
+        "gcTotalPauseMs": 57.108,
+        "gcLatestPauseMs": [
+          2.446,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 36719632,
+        "lohFragmentedBytes": 30284104,
+        "allocatedBytes": 1341944464,
+        "collectionCounts": [
+          114,
+          47,
+          25
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 11
+      },
+      "audio": {
+        "observations": 11,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 5,
+      "candidate": true,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 4598,
+        "streamSource": 4727,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 318.9046,
+      "memory": {
+        "timestamp": 41982338651166,
+        "utc": "2026-10-14T09:45:35.928119+00:00",
+        "workingSetBytes": 247513088,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58212144,
+        "gcCommittedBytes": 85770240,
+        "gcHeapSizeBytes": 54126024,
+        "gcFragmentedBytes": 21798136,
+        "gcMemoryInfoCollectionIndex": 124,
+        "gcTotalPauseMs": 61.608,
+        "gcLatestPauseMs": [
+          2.365,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 28233640,
+        "lohFragmentedBytes": 21798112,
+        "allocatedBytes": 1463060952,
+        "collectionCounts": [
+          124,
+          51,
+          27
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 12
+      },
+      "audio": {
+        "observations": 12,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 6,
+      "candidate": false,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 4792,
+        "streamSource": 4921,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 158.9692,
+      "memory": {
+        "timestamp": 41982497724750,
+        "utc": "2026-10-14T09:45:36.087192+00:00",
+        "workingSetBytes": 246579200,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58214208,
+        "gcCommittedBytes": 84819968,
+        "gcHeapSizeBytes": 53183800,
+        "gcFragmentedBytes": 20854880,
+        "gcMemoryInfoCollectionIndex": 134,
+        "gcTotalPauseMs": 66.273,
+        "gcLatestPauseMs": [
+          2.486,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 27290384,
+        "lohFragmentedBytes": 20854856,
+        "allocatedBytes": 1584178744,
+        "collectionCounts": [
+          134,
+          55,
+          29
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 13
+      },
+      "audio": {
+        "observations": 13,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 6,
+      "candidate": true,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 4986,
+        "streamSource": 5115,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 319.217,
+      "memory": {
+        "timestamp": 41982657982375,
+        "utc": "2026-10-14T09:45:36.247448+00:00",
+        "workingSetBytes": 255737856,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58216272,
+        "gcCommittedBytes": 94060544,
+        "gcHeapSizeBytes": 62439360,
+        "gcFragmentedBytes": 30109408,
+        "gcMemoryInfoCollectionIndex": 144,
+        "gcTotalPauseMs": 70.825,
+        "gcLatestPauseMs": [
+          2.418,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 36544912,
+        "lohFragmentedBytes": 30109384,
+        "allocatedBytes": 1705296448,
+        "collectionCounts": [
+          144,
+          59,
+          31
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 14
+      },
+      "audio": {
+        "observations": 14,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 7,
+      "candidate": false,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 5180,
+        "streamSource": 5309,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 160.1297,
+      "memory": {
+        "timestamp": 41982818210250,
+        "utc": "2026-10-14T09:45:36.407674+00:00",
+        "workingSetBytes": 252919808,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58218336,
+        "gcCommittedBytes": 91045888,
+        "gcHeapSizeBytes": 59351080,
+        "gcFragmentedBytes": 27020096,
+        "gcMemoryInfoCollectionIndex": 154,
+        "gcTotalPauseMs": 75.424,
+        "gcLatestPauseMs": [
+          2.332,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 33455600,
+        "lohFragmentedBytes": 27020072,
+        "allocatedBytes": 1826409240,
+        "collectionCounts": [
+          154,
+          63,
+          33
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 15
+      },
+      "audio": {
+        "observations": 15,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 7,
+      "candidate": true,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 5374,
+        "streamSource": 5503,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 319.3954,
+      "memory": {
+        "timestamp": 41982977476166,
+        "utc": "2026-10-14T09:45:36.566939+00:00",
+        "workingSetBytes": 249610240,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58220400,
+        "gcCommittedBytes": 87719936,
+        "gcHeapSizeBytes": 56042696,
+        "gcFragmentedBytes": 23710680,
+        "gcMemoryInfoCollectionIndex": 164,
+        "gcTotalPauseMs": 79.855,
+        "gcLatestPauseMs": [
+          2.308,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 30146184,
+        "lohFragmentedBytes": 23710656,
+        "allocatedBytes": 1947526920,
+        "collectionCounts": [
+          164,
+          67,
+          35
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 16
+      },
+      "audio": {
+        "observations": 16,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 8,
+      "candidate": false,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 5568,
+        "streamSource": 5697,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 160.1924,
+      "memory": {
+        "timestamp": 41983137778333,
+        "utc": "2026-10-14T09:45:36.727239+00:00",
+        "workingSetBytes": 246808576,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58222720,
+        "gcCommittedBytes": 84852736,
+        "gcHeapSizeBytes": 53188000,
+        "gcFragmentedBytes": 20854824,
+        "gcMemoryInfoCollectionIndex": 174,
+        "gcTotalPauseMs": 84.525,
+        "gcLatestPauseMs": [
+          2.426,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 27290328,
+        "lohFragmentedBytes": 20854800,
+        "allocatedBytes": 2068645016,
+        "collectionCounts": [
+          174,
+          71,
+          37
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 17
+      },
+      "audio": {
+        "observations": 17,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 8,
+      "candidate": true,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 5762,
+        "streamSource": 5891,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 319.9277,
+      "memory": {
+        "timestamp": 41983297509791,
+        "utc": "2026-10-14T09:45:36.886969+00:00",
+        "workingSetBytes": 256114688,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58225040,
+        "gcCommittedBytes": 94093312,
+        "gcHeapSizeBytes": 62443688,
+        "gcFragmentedBytes": 30109352,
+        "gcMemoryInfoCollectionIndex": 184,
+        "gcTotalPauseMs": 88.901,
+        "gcLatestPauseMs": [
+          2.32,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 36544856,
+        "lohFragmentedBytes": 30109328,
+        "allocatedBytes": 2189757904,
+        "collectionCounts": [
+          184,
+          75,
+          39
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 18
+      },
+      "audio": {
+        "observations": 18,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 9,
+      "candidate": false,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 5956,
+        "streamSource": 6085,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 159.4295,
+      "memory": {
+        "timestamp": 41983457040500,
+        "utc": "2026-10-14T09:45:37.046499+00:00",
+        "workingSetBytes": 252526592,
+        "privateBytes": null,
+        "virtualBytes": 501972549632,
+        "managedLiveBytes": 58227104,
+        "gcCommittedBytes": 90423296,
+        "gcHeapSizeBytes": 58794464,
+        "gcFragmentedBytes": 26459096,
+        "gcMemoryInfoCollectionIndex": 194,
+        "gcTotalPauseMs": 93.398,
+        "gcLatestPauseMs": [
+          2.334,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 32894600,
+        "lohFragmentedBytes": 26459072,
+        "allocatedBytes": 2310875720,
+        "collectionCounts": [
+          194,
+          79,
+          41
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 19
+      },
+      "audio": {
+        "observations": 19,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "cycle": 9,
+      "candidate": true,
+      "audioUpdateSteps": 120,
+      "audioOwnedBefore": {
+        "backend": "MphRead.Sound.SfxInstance",
+        "nativeSfx": true,
+        "device": "OpenTK.Audio.OpenAL.ALDevice",
+        "context": "OpenTK.Audio.OpenAL.ALContext",
+        "ownershipShape": "MphRead.Sound.SfxResourceOwner",
+        "ownedBufferIds": 65,
+        "ownedSourceIds": 129,
+        "bufferSlots": 64,
+        "sourceSlots": 128,
+        "streamBuffer": 6150,
+        "streamSource": 6279,
+        "musicDeviceAvailable": true,
+        "musicLoading": false,
+        "meaning": "Owner fields/pool slots, not a driver enumeration. Completed shutdown tasks are observations of native close, not an independent OpenAL handle census."
+      },
+      "elapsedMs": 319.7787,
+      "memory": {
+        "timestamp": 41983617392125,
+        "utc": "2026-10-14T09:45:37.206849+00:00",
+        "workingSetBytes": 252067840,
+        "privateBytes": null,
+        "virtualBytes": 501976743936,
+        "managedLiveBytes": 58229168,
+        "gcCommittedBytes": 87310336,
+        "gcHeapSizeBytes": 55702856,
+        "gcFragmentedBytes": 23366456,
+        "gcMemoryInfoCollectionIndex": 204,
+        "gcTotalPauseMs": 98.03,
+        "gcLatestPauseMs": [
+          2.357,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 29801960,
+        "lohFragmentedBytes": 23366432,
+        "allocatedBytes": 2431988240,
+        "collectionCounts": [
+          204,
+          83,
+          43
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 20
+      },
+      "audio": {
+        "observations": 20,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    }
+  ],
+  "drainSamples": [
+    {
+      "phase": "workload-start",
+      "memory": {
+        "timestamp": 41980131668916,
+        "utc": "2026-10-14T09:45:33.72117+00:00",
+        "workingSetBytes": 61423616,
+        "privateBytes": null,
+        "virtualBytes": 501938733056,
+        "managedLiveBytes": 3129520,
+        "gcCommittedBytes": 0,
+        "gcHeapSizeBytes": 0,
+        "gcFragmentedBytes": 0,
+        "gcMemoryInfoCollectionIndex": 0,
+        "gcTotalPauseMs": 0,
+        "gcLatestPauseMs": [
+          0,
+          0
+        ],
+        "gcLatestGeneration": 0,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": false,
+        "lohSizeBytes": 0,
+        "lohFragmentedBytes": 0,
+        "allocatedBytes": 3127096,
+        "collectionCounts": [
+          0,
+          0,
+          0
+        ],
+        "processThreadCount": 11,
+        "processHandleCount": null,
+        "threadPoolThreads": 0,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 0
+      }
+    },
+    {
+      "phase": "before-drain",
+      "memory": {
+        "timestamp": 41983617460458,
+        "utc": "2026-10-14T09:45:37.206917+00:00",
+        "workingSetBytes": 252067840,
+        "privateBytes": null,
+        "virtualBytes": 501976743936,
+        "managedLiveBytes": 58237320,
+        "gcCommittedBytes": 87310336,
+        "gcHeapSizeBytes": 55702856,
+        "gcFragmentedBytes": 23366456,
+        "gcMemoryInfoCollectionIndex": 204,
+        "gcTotalPauseMs": 98.03,
+        "gcLatestPauseMs": [
+          2.357,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 29801960,
+        "lohFragmentedBytes": 23366432,
+        "allocatedBytes": 2431996392,
+        "collectionCounts": [
+          204,
+          83,
+          43
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 20
+      },
+      "audio": {
+        "observations": 20,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "phase": "after-audio-wait",
+      "memory": {
+        "timestamp": 41983617611875,
+        "utc": "2026-10-14T09:45:37.207068+00:00",
+        "workingSetBytes": 252067840,
+        "privateBytes": null,
+        "virtualBytes": 501976743936,
+        "managedLiveBytes": 58245544,
+        "gcCommittedBytes": 87310336,
+        "gcHeapSizeBytes": 55702856,
+        "gcFragmentedBytes": 23366456,
+        "gcMemoryInfoCollectionIndex": 204,
+        "gcTotalPauseMs": 98.03,
+        "gcLatestPauseMs": [
+          2.357,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 29801960,
+        "lohFragmentedBytes": 23366432,
+        "allocatedBytes": 2432004592,
+        "collectionCounts": [
+          204,
+          83,
+          43
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 20
+      },
+      "audio": {
+        "observations": 20,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "phase": "after-full-gc-finalizers",
+      "memory": {
+        "timestamp": 41983619227500,
+        "utc": "2026-10-14T09:45:37.208684+00:00",
+        "workingSetBytes": 228392960,
+        "privateBytes": null,
+        "virtualBytes": 501976743936,
+        "managedLiveBytes": 58231912,
+        "gcCommittedBytes": 63635456,
+        "gcHeapSizeBytes": 32338384,
+        "gcFragmentedBytes": 624,
+        "gcMemoryInfoCollectionIndex": 205,
+        "gcTotalPauseMs": 99.529,
+        "gcLatestPauseMs": [
+          1.499,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 6436104,
+        "lohFragmentedBytes": 576,
+        "allocatedBytes": 2432012920,
+        "collectionCounts": [
+          205,
+          84,
+          44
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 20
+      },
+      "audio": {
+        "observations": 20,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      },
+      "retention": null
+    },
+    {
+      "phase": "quiescent",
+      "sample": 0,
+      "elapsedSeconds": 1.0019373,
+      "memory": {
+        "timestamp": 41984621696000,
+        "utc": "2026-10-14T09:45:38.211144+00:00",
+        "workingSetBytes": 228425728,
+        "privateBytes": null,
+        "virtualBytes": 501976760320,
+        "managedLiveBytes": 58240136,
+        "gcCommittedBytes": 63635456,
+        "gcHeapSizeBytes": 32338384,
+        "gcFragmentedBytes": 624,
+        "gcMemoryInfoCollectionIndex": 205,
+        "gcTotalPauseMs": 99.529,
+        "gcLatestPauseMs": [
+          1.499,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 6436104,
+        "lohFragmentedBytes": 576,
+        "allocatedBytes": 2432021120,
+        "collectionCounts": [
+          205,
+          84,
+          44
+        ],
+        "processThreadCount": 18,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 20
+      },
+      "audio": {
+        "observations": 20,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "phase": "quiescent",
+      "sample": 1,
+      "elapsedSeconds": 2.010388,
+      "memory": {
+        "timestamp": 41985630170875,
+        "utc": "2026-10-14T09:45:39.21961+00:00",
+        "workingSetBytes": 228392960,
+        "privateBytes": null,
+        "virtualBytes": 501976186880,
+        "managedLiveBytes": 58248360,
+        "gcCommittedBytes": 63635456,
+        "gcHeapSizeBytes": 32338384,
+        "gcFragmentedBytes": 624,
+        "gcMemoryInfoCollectionIndex": 205,
+        "gcTotalPauseMs": 99.529,
+        "gcLatestPauseMs": [
+          1.499,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 6436104,
+        "lohFragmentedBytes": 576,
+        "allocatedBytes": 2432029320,
+        "collectionCounts": [
+          205,
+          84,
+          44
+        ],
+        "processThreadCount": 17,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 20
+      },
+      "audio": {
+        "observations": 20,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "phase": "quiescent",
+      "sample": 2,
+      "elapsedSeconds": 3.0201757,
+      "memory": {
+        "timestamp": 41986640111875,
+        "utc": "2026-10-14T09:45:40.229543+00:00",
+        "workingSetBytes": 228343808,
+        "privateBytes": null,
+        "virtualBytes": 501975613440,
+        "managedLiveBytes": 58256584,
+        "gcCommittedBytes": 63635456,
+        "gcHeapSizeBytes": 32338384,
+        "gcFragmentedBytes": 624,
+        "gcMemoryInfoCollectionIndex": 205,
+        "gcTotalPauseMs": 99.529,
+        "gcLatestPauseMs": [
+          1.499,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 6436104,
+        "lohFragmentedBytes": 576,
+        "allocatedBytes": 2432037520,
+        "collectionCounts": [
+          205,
+          84,
+          44
+        ],
+        "processThreadCount": 16,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 20
+      },
+      "audio": {
+        "observations": 20,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "phase": "quiescent",
+      "sample": 3,
+      "elapsedSeconds": 4.0291245,
+      "memory": {
+        "timestamp": 41987648946375,
+        "utc": "2026-10-14T09:45:41.238368+00:00",
+        "workingSetBytes": 228343808,
+        "privateBytes": null,
+        "virtualBytes": 501975613440,
+        "managedLiveBytes": 58264808,
+        "gcCommittedBytes": 63635456,
+        "gcHeapSizeBytes": 32338384,
+        "gcFragmentedBytes": 624,
+        "gcMemoryInfoCollectionIndex": 205,
+        "gcTotalPauseMs": 99.529,
+        "gcLatestPauseMs": [
+          1.499,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 6436104,
+        "lohFragmentedBytes": 576,
+        "allocatedBytes": 2432045720,
+        "collectionCounts": [
+          205,
+          84,
+          44
+        ],
+        "processThreadCount": 16,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 20
+      },
+      "audio": {
+        "observations": 20,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "phase": "quiescent",
+      "sample": 4,
+      "elapsedSeconds": 5.0365144,
+      "memory": {
+        "timestamp": 41988656540208,
+        "utc": "2026-10-14T09:45:42.245954+00:00",
+        "workingSetBytes": 228343808,
+        "privateBytes": null,
+        "virtualBytes": 501975613440,
+        "managedLiveBytes": 58273032,
+        "gcCommittedBytes": 63635456,
+        "gcHeapSizeBytes": 32338384,
+        "gcFragmentedBytes": 624,
+        "gcMemoryInfoCollectionIndex": 205,
+        "gcTotalPauseMs": 99.529,
+        "gcLatestPauseMs": [
+          1.499,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 6436104,
+        "lohFragmentedBytes": 576,
+        "allocatedBytes": 2432053920,
+        "collectionCounts": [
+          205,
+          84,
+          44
+        ],
+        "processThreadCount": 16,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 20
+      },
+      "audio": {
+        "observations": 20,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    },
+    {
+      "phase": "quiescent",
+      "sample": 5,
+      "elapsedSeconds": 6.0418842,
+      "memory": {
+        "timestamp": 41989661763541,
+        "utc": "2026-10-14T09:45:43.251167+00:00",
+        "workingSetBytes": 228261888,
+        "privateBytes": null,
+        "virtualBytes": 501973417984,
+        "managedLiveBytes": 58273032,
+        "gcCommittedBytes": 63635456,
+        "gcHeapSizeBytes": 32338384,
+        "gcFragmentedBytes": 624,
+        "gcMemoryInfoCollectionIndex": 205,
+        "gcTotalPauseMs": 99.529,
+        "gcLatestPauseMs": [
+          1.499,
+          0
+        ],
+        "gcLatestGeneration": 2,
+        "gcLatestConcurrent": false,
+        "gcLatestCompacted": true,
+        "lohSizeBytes": 6436104,
+        "lohFragmentedBytes": 576,
+        "allocatedBytes": 2432053920,
+        "collectionCounts": [
+          205,
+          84,
+          44
+        ],
+        "processThreadCount": 14,
+        "processHandleCount": null,
+        "threadPoolThreads": 2,
+        "threadPoolPendingWorkItems": 0,
+        "threadPoolCompletedWorkItems": 20
+      },
+      "audio": {
+        "observations": 20,
+        "remaining": 0,
+        "faulted": 0,
+        "canceled": 0
+      }
+    }
+  ],
+  "audioShutdown": {
+    "observations": 20,
+    "remaining": 0,
+    "faulted": 0,
+    "canceled": 0
+  },
+  "wallSeconds": 9.5907962,
+  "complete": true,
+  "error": null,
+  "retention": null
+}

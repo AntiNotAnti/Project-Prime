@@ -1,0 +1,63 @@
+{
+  "sourceBefore": {
+    "commit": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "tree": "eafd1c25936e1dbeeb254cac1936e3090b22e2e2",
+    "dirty": ""
+  },
+  "engineIdentity": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+    "sha256": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15",
+    "buildId": "local+88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "tools": [
+    {
+      "name": "native-render-check",
+      "sourceFiles": {
+        "tools/native-render-check/AudioResourceStress.cs": "e1bb23b507d15a0000d24986fc7113a99e269dc6b130e2410404675109c2703c",
+        "tools/native-render-check/AudioRetentionProbe.cs": "15a502cf0640ba91e718106e5af2a721cfa8d37e9a152324b24277ff257addf5",
+        "tools/native-render-check/BombVisibilityCheck.cs": "8f415f9e822c3cead8ae4e2947a288cef7152ff56717d0cb35ad86262d3278c1",
+        "tools/native-render-check/CaptureWorldDepth.cs": "8a0a36919147cfbc2fbf468d15c1f18ce3027fe07b615099db194466a0a07b32",
+        "tools/native-render-check/ContextControl.cs": "87b1650c60df48f57060deeacbfb0299cc5e04f81b0982a6ac3f9fafb82166f6",
+        "tools/native-render-check/DiagnosticOptions.cs": "9f6cbae3e070df43a5882abea71b1b964199dc9770f2e0121d6ecd0f201073df",
+        "tools/native-render-check/GlRetirementLedger.cs": "8b31f73deeaa4d7217ea434d04c032797044a965799742705c022599e88b5b1f",
+        "tools/native-render-check/MinimalGlControl.cs": "b85b3c8092fb4b511bd66dcd6123405b6b59a65191ff6a97facae8936afd5ef1",
+        "tools/native-render-check/NetImpactPresentationCheck.cs": "aabf86830f3766eeca0c9ac632e235ab54c24480f15895726e7954523dee7a1a",
+        "tools/native-render-check/Program.cs": "28c24c32a4e019fcd2b86dbb655ba8d484e131ee77fffce116d88a066c180755",
+        "tools/native-render-check/ResourceAttribution.cs": "f2e5c76305ed08e28091ea65db025757bf76725f5882196107e8ed95993fb180",
+        "tools/native-render-check/ResourceStress.cs": "73f603b994ca48e0e2d5805ae9e0413c342ba29fa50d33b89611065f9a29cf15",
+        "tools/native-render-check/ShaderSourceLedger.cs": "5d3b78c4f3fc93983a8101f57c3390d81fb38d18e12dc13aee1d5f90b3757b74",
+        "tools/native-render-check/TransitionGcCleanup.cs": "6c4cb9d9d45ab5a2d52fd290714da7df80821a490a6994f5e22035925434f971",
+        "tools/native-render-check/TransitionGcObservation.cs": "77c6465a9ad53fa98d895b0d429b846d5f15122ea9b8b1a2430b157a77979775"
+      },
+      "projectSourceHash": "9fc1ba32c4449d670d4c4e61962ccdced3de52f158cbd0e8d087abc2ea0e41ca",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "build",
+        "${WORKSPACE}/work/prime-plan-integration/tools/native-render-check/native-render-check.csproj",
+        "-c",
+        "Release",
+        "-o",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-normal1-runtime",
+        "-m:1",
+        "-p:UseSharedCompilation=false",
+        "-p:CopyLocalLockFileAssemblies=false",
+        "-nodeReuse:false"
+      ],
+      "pid": 47929,
+      "exit": 0,
+      "ownedSurvivors": [
+        "47967     1 47929 S    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+      ],
+      "buildLogSha256": "cbf793f96541ed88a3b4b1c28c5ce28f08a56759e6320d8ab58db370e8d94d28"
+    }
+  ],
+  "scope": "Complete official tool projects with normal ProjectReference, same engine compile flags; compare actual physical emitted client before launch"
+}

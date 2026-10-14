@@ -1,0 +1,124 @@
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+NATIVERENDER appleVao advertised=True gen=True bind=True delete=True
+NATIVERENDER pid=48229 context room=MP3 PROVING GROUND pixels=(1920, 1080) cap=-1 shadows=High vendor=Apple renderer=Apple M4 Pro gl=2.1 Metal - 91.7 mvid=896c230f-be96-4e23-b0cc-3fb2824d1a15
+[glcapabilities] version=2.1 Metal - 91.7; vao=False; appleVao=True; desktopVaoApi=Apple; timer=False; disjointTimer=False; sync=True; ubo=False; storage=False; optimizations=capability-and-policy; forceLegacy=False
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.846
+[world-shaders] variant=plain elapsedMs=4.584
+[world-shaders] variant=plain-unlit elapsedMs=4.354
+[input] gamepad mappings: 2275 from ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/native-render-check-normal1-runtime/gamecontrollerdb.txt
+[render] cel outline: the depth buffer is 24 bits
+UNSUPPORTED (log once): POSSIBLE ISSUE: unit 1 GLD_TEXTURE_INDEX_2D is unloadable and bound to sampler type (Float) - using zero texture because texture unloadable
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.062
+[world-shaders] variant=plain elapsedMs=4.780
+[world-shaders] variant=plain-unlit elapsedMs=4.585
+NATIVERENDER resource arm=map-gl cycle=1/10
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.017
+[world-shaders] variant=plain elapsedMs=4.763
+[world-shaders] variant=plain-unlit elapsedMs=4.525
+[glvao] layout validation failed; using retained client arrays: Injected GL allocation failure: retained-vao-after-create
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.997
+[world-shaders] variant=plain elapsedMs=4.699
+[world-shaders] variant=plain-unlit elapsedMs=4.595
+NATIVERENDER resource arm=map-gl cycle=2/10
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.225
+[world-shaders] variant=plain elapsedMs=4.919
+[world-shaders] variant=plain-unlit elapsedMs=4.749
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.190
+[world-shaders] variant=plain elapsedMs=4.854
+[world-shaders] variant=plain-unlit elapsedMs=4.720
+NATIVERENDER resource arm=map-gl cycle=3/10
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.348
+[world-shaders] variant=plain elapsedMs=5.077
+[world-shaders] variant=plain-unlit elapsedMs=4.934
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.976
+[world-shaders] variant=plain elapsedMs=4.866
+[world-shaders] variant=plain-unlit elapsedMs=4.495
+NATIVERENDER resource arm=map-gl cycle=4/10
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.449
+[world-shaders] variant=plain elapsedMs=5.093
+[world-shaders] variant=plain-unlit elapsedMs=5.036
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.046
+[world-shaders] variant=plain elapsedMs=4.830
+[world-shaders] variant=plain-unlit elapsedMs=4.547
+[render] shadow maps unavailable: Injected GL allocation failure: shadow-after-framebuffer
+NATIVERENDER resource arm=map-gl cycle=5/10
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.123
+[world-shaders] variant=plain elapsedMs=4.773
+[world-shaders] variant=plain-unlit elapsedMs=4.593
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.620
+[world-shaders] variant=plain elapsedMs=5.357
+[world-shaders] variant=plain-unlit elapsedMs=5.014
+NATIVERENDER resource arm=map-gl cycle=6/10
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.870
+[world-shaders] variant=plain elapsedMs=4.659
+[world-shaders] variant=plain-unlit elapsedMs=4.529
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.074
+[world-shaders] variant=plain elapsedMs=4.769
+[world-shaders] variant=plain-unlit elapsedMs=4.586
+NATIVERENDER resource arm=map-gl cycle=7/10
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.242
+[world-shaders] variant=plain elapsedMs=4.985
+[world-shaders] variant=plain-unlit elapsedMs=4.614
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.156
+[world-shaders] variant=plain elapsedMs=4.877
+[world-shaders] variant=plain-unlit elapsedMs=4.652
+NATIVERENDER resource arm=map-gl cycle=8/10
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.084
+[world-shaders] variant=plain elapsedMs=4.830
+[world-shaders] variant=plain-unlit elapsedMs=4.623
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=5.990
+[world-shaders] variant=plain elapsedMs=4.818
+[world-shaders] variant=plain-unlit elapsedMs=4.678
+NATIVERENDER resource arm=map-gl cycle=9/10
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.160
+[world-shaders] variant=plain elapsedMs=4.901
+[world-shaders] variant=plain-unlit elapsedMs=4.632
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.383
+[world-shaders] variant=plain elapsedMs=5.299
+[world-shaders] variant=plain-unlit elapsedMs=4.723
+[render] shadow maps unavailable: Injected GL allocation failure: shadow-after-framebuffer
+NATIVERENDER resource arm=map-gl cycle=10/10
+NATIVERENDER PASS ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/01-map-gl.json

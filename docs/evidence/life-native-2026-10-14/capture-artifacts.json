@@ -1,0 +1,3261 @@
+{
+  "schema": 1,
+  "createdUTC": "2026-10-14T10:15:04.992609+00:00",
+  "source": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+  "scope": "Existing artifact SHA/count/dimension observations only; media/pixels not copied. PNG byte mismatch is not a semantic failure. Native resource readback pixel/depth pairs remain separate.",
+  "files": [
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/after-dispose.png",
+      "bytes": 125982,
+      "sha256": "bc45d3a2521c493c75be505f4e00145582b3ae3332f83406d77e5f29e249bf51",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/before-dispose.png",
+      "bytes": 125982,
+      "sha256": "bc45d3a2521c493c75be505f4e00145582b3ae3332f83406d77e5f29e249bf51",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/first.png",
+      "bytes": 157349,
+      "sha256": "c43f7d6c0f236bd6e3afb932ed030d98f713cdf6d5d7c7331dedb8edf3abd9bd",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/interleaved-checkpoint.png",
+      "bytes": 499071,
+      "sha256": "0f51dd6f58cdeedc667166cea6dfea31ac355fed40b55b104525ba10de327c63",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-1200.png",
+      "bytes": 340935,
+      "sha256": "9d2aa20884d118afc3e0dacdbaa22bb0b4b8c201fb5559042ef2e2b96ff4187f",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-1500.png",
+      "bytes": 462075,
+      "sha256": "dcecc18c14de64962dbbfb4ab9948bf030251c0bc6f06397b6a917f4195c200c",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-1800.png",
+      "bytes": 237102,
+      "sha256": "fd4924a8d439da284896a73990a4fe4f861ef799b6920802a2ba037f84df28f0",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-2100.png",
+      "bytes": 536600,
+      "sha256": "316490176e9bc7abf0214b2671fafd466f3064d52cb8a95257cb21ca8e89f5a3",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-2400.png",
+      "bytes": 461407,
+      "sha256": "b1b9c88fc4f4372ad888d3cb827d15e0c4180ad38ce9c5d580ce306473c16e35",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-2700.png",
+      "bytes": 79307,
+      "sha256": "1e7cdc2dc42ca40db25a3372f7dbdb50c5101fe682f373dc133cb74a4418cd7a",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-300.png",
+      "bytes": 309479,
+      "sha256": "4bd6e142b1d325361de0bdd4650f2a31d84da6c6a78bcb7de32a65fc60b1a1a9",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-3000.png",
+      "bytes": 503666,
+      "sha256": "f0904c7924eef9e25fe43d18d68f030bc4aeaa70f8f08d42b71da224984e3069",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-3300.png",
+      "bytes": 329356,
+      "sha256": "3315b090084424edc6effc5b6950a2e1d00776c8f61f43e10c65bc1d739c4060",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-3600.png",
+      "bytes": 503081,
+      "sha256": "3aa400ed3e74bcc2179d4c7536ebd2fe51144d65da4fa468df4dc0a45618b5f4",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-3900.png",
+      "bytes": 501047,
+      "sha256": "4acada822eb585f8ec3e3c3acf7988ed84edfbf9347ab3a1723f45715c4af8c8",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-4200.png",
+      "bytes": 465935,
+      "sha256": "945e37455a11c647997fb2c1baa97a22f7fa179911b5ec61af7f069d7068c80b",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-4500.png",
+      "bytes": 387096,
+      "sha256": "8588151d21d0b0d6597edbaf37fcf8afbfdde490add7fea4781a21bb864c581e",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-4800.png",
+      "bytes": 244416,
+      "sha256": "d6346c4c3713f2cdb19137dfc9a774670b0f9b1155c471e7ef3458acabb74586",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-5100.png",
+      "bytes": 512943,
+      "sha256": "e21fa306439d57f8ef702940be2b6935d3b2fc688339d1262c149c5b4a078290",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-5400.png",
+      "bytes": 499071,
+      "sha256": "0f51dd6f58cdeedc667166cea6dfea31ac355fed40b55b104525ba10de327c63",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-600.png",
+      "bytes": 414319,
+      "sha256": "eef9103a21bf6a7c738bf2aa6dc6d2434181154125e0accd5407836e2501d33e",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-660.png",
+      "bytes": 303449,
+      "sha256": "e614bb555b411f580af8ab1dc2ddef57e54f49199a2f57c84ce71a4869394875",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-900.png",
+      "bytes": 408995,
+      "sha256": "dad47ca06d8a3ac4ac5720c87e393c46ff94aea2a102ba448fae7639334e7aa1",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-1200.png",
+      "bytes": 340935,
+      "sha256": "9d2aa20884d118afc3e0dacdbaa22bb0b4b8c201fb5559042ef2e2b96ff4187f",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-1500.png",
+      "bytes": 462075,
+      "sha256": "dcecc18c14de64962dbbfb4ab9948bf030251c0bc6f06397b6a917f4195c200c",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-1800.png",
+      "bytes": 237102,
+      "sha256": "fd4924a8d439da284896a73990a4fe4f861ef799b6920802a2ba037f84df28f0",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-2100.png",
+      "bytes": 536600,
+      "sha256": "316490176e9bc7abf0214b2671fafd466f3064d52cb8a95257cb21ca8e89f5a3",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-2400.png",
+      "bytes": 461407,
+      "sha256": "b1b9c88fc4f4372ad888d3cb827d15e0c4180ad38ce9c5d580ce306473c16e35",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-2700.png",
+      "bytes": 79307,
+      "sha256": "1e7cdc2dc42ca40db25a3372f7dbdb50c5101fe682f373dc133cb74a4418cd7a",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-300.png",
+      "bytes": 309479,
+      "sha256": "4bd6e142b1d325361de0bdd4650f2a31d84da6c6a78bcb7de32a65fc60b1a1a9",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-3000.png",
+      "bytes": 503666,
+      "sha256": "f0904c7924eef9e25fe43d18d68f030bc4aeaa70f8f08d42b71da224984e3069",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-3300.png",
+      "bytes": 329356,
+      "sha256": "3315b090084424edc6effc5b6950a2e1d00776c8f61f43e10c65bc1d739c4060",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-3600.png",
+      "bytes": 503081,
+      "sha256": "3aa400ed3e74bcc2179d4c7536ebd2fe51144d65da4fa468df4dc0a45618b5f4",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-3900.png",
+      "bytes": 501047,
+      "sha256": "4acada822eb585f8ec3e3c3acf7988ed84edfbf9347ab3a1723f45715c4af8c8",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-4200.png",
+      "bytes": 465935,
+      "sha256": "945e37455a11c647997fb2c1baa97a22f7fa179911b5ec61af7f069d7068c80b",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-4500.png",
+      "bytes": 387096,
+      "sha256": "8588151d21d0b0d6597edbaf37fcf8afbfdde490add7fea4781a21bb864c581e",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-4800.png",
+      "bytes": 244416,
+      "sha256": "d6346c4c3713f2cdb19137dfc9a774670b0f9b1155c471e7ef3458acabb74586",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-5100.png",
+      "bytes": 512943,
+      "sha256": "e21fa306439d57f8ef702940be2b6935d3b2fc688339d1262c149c5b4a078290",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-5400.png",
+      "bytes": 499071,
+      "sha256": "0f51dd6f58cdeedc667166cea6dfea31ac355fed40b55b104525ba10de327c63",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-600.png",
+      "bytes": 414319,
+      "sha256": "eef9103a21bf6a7c738bf2aa6dc6d2434181154125e0accd5407836e2501d33e",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-660.png",
+      "bytes": 303449,
+      "sha256": "e614bb555b411f580af8ab1dc2ddef57e54f49199a2f57c84ce71a4869394875",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-900.png",
+      "bytes": 408995,
+      "sha256": "dad47ca06d8a3ac4ac5720c87e393c46ff94aea2a102ba448fae7639334e7aa1",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored.png",
+      "bytes": 157349,
+      "sha256": "c43f7d6c0f236bd6e3afb932ed030d98f713cdf6d5d7c7331dedb8edf3abd9bd",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/second.png",
+      "bytes": 157349,
+      "sha256": "c43f7d6c0f236bd6e3afb932ed030d98f713cdf6d5d7c7331dedb8edf3abd9bd",
+      "kind": ".png",
+      "width": 640,
+      "height": 480,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/lifecycle-1-forge.png",
+      "bytes": 400204,
+      "sha256": "607382314afa36e2e6a6baeea48bc513b894abbf2eba224107e01c3f779fa712",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/lifecycle-1-rejoin.png",
+      "bytes": 1189885,
+      "sha256": "884d10fe0a62d43eb804a6533d56ff92c0f78e1ea9815e2955490468dff8b019",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/lifecycle-1-replay-seek.png",
+      "bytes": 1525391,
+      "sha256": "5f9eca542091fb1d176c31fcd04efeb5fecb01e6f6c3833491689ffb67fef5cc",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/lifecycle-1-replay.png",
+      "bytes": 1638653,
+      "sha256": "bc69d6d98044c7e625a942f40f2055278325fac4f03fd6bfb57e93e6d6366cc5",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/lifecycle-1-return.png",
+      "bytes": 408502,
+      "sha256": "b04409583d24499c7b770d65c849e62bb35bfa3d3438fa303e44803155390399",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/lifecycle-1-spectator.png",
+      "bytes": 1527259,
+      "sha256": "97cb88d6a3bdcf5691714e1dbdaa3cb573e7f48f3eff2295879168d06d193383",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/lifecycle-2-forge.png",
+      "bytes": 292360,
+      "sha256": "6922a3f4428371b15331ac9ce43921461cfe9278ce635b6471d22a0d82e94527",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/lifecycle-2-rejoin.png",
+      "bytes": 1550885,
+      "sha256": "f1f33d58b512b53103336c2ca5d523c8f473186204a248a88c293d3a93684071",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/lifecycle-2-replay-seek.png",
+      "bytes": 1525391,
+      "sha256": "5f9eca542091fb1d176c31fcd04efeb5fecb01e6f6c3833491689ffb67fef5cc",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/lifecycle-2-replay.png",
+      "bytes": 1639771,
+      "sha256": "cebaf47c5e931614e9d4ca0d4a8702edc1884af78bf2baab46856180be68ec0a",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/lifecycle-2-return.png",
+      "bytes": 408502,
+      "sha256": "b04409583d24499c7b770d65c849e62bb35bfa3d3438fa303e44803155390399",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/lifecycle-2-spectator.png",
+      "bytes": 1457083,
+      "sha256": "d8b10465ab9ac8c2867c9ca85b0878d188c34e75c108ac4cf2823b549f4a241f",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-back-fullscreen.png",
+      "bytes": 691659,
+      "sha256": "2d28068025e78cd868b7598e0c2f9396f3faf7d07ce7c9276751c787c515db46",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-back.png",
+      "bytes": 823666,
+      "sha256": "e923649094aaea6c7e3b7830c924c95f587a415063fe28b53e88aa65670070bb",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-borderless.png",
+      "bytes": 612510,
+      "sha256": "6b78baec60904d36ac19afea97ae4ba84c4b5d2b471806dad4f32c3cc3c03d80",
+      "kind": ".png",
+      "width": 3024,
+      "height": 1964,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-bot-next-map.png",
+      "bytes": 1561053,
+      "sha256": "38fc9ee39f1215c8b0c270acacc0b9c417b16c90f1a5f391c2e84cabe5f788b5",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-bot-rematch.png",
+      "bytes": 1298227,
+      "sha256": "545b79d55c82c1c4a726db5ce7e0b76283b93264d04f71939cf5fcf76726e939",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-click.png",
+      "bytes": 459523,
+      "sha256": "7b182ca46cc37a7d6a48be9bc2d6959b40b414c465fde71425f6812b43158e8e",
+      "kind": ".png",
+      "width": 2560,
+      "height": 1536,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-create-lobby-closed.png",
+      "bytes": 546943,
+      "sha256": "c57d2fd866443488e2a6a275803044b0436278c511e90503bfed12733cc8bd2b",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-create-lobby.png",
+      "bytes": 784981,
+      "sha256": "0a2e95b3d63a845647ea6286c159cb9af9a21e5c1943beea67c3e103f1e6c65c",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-endgame-hunter.png",
+      "bytes": 2203716,
+      "sha256": "e740890a067fa5f83b3b48059b4637145a89080ef53588e13acedcccd6500e67",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-endgame.png",
+      "bytes": 2209168,
+      "sha256": "3cbab169182c9744c54a26262428a247121f3caf3ed19052a6fa98b555e356a3",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-escape.png",
+      "bytes": 324289,
+      "sha256": "e4b1ae1aa0acb05a376706f8f7d44ba3b88f375c5cbb73b022b9ba82a7af641f",
+      "kind": ".png",
+      "width": 2560,
+      "height": 1536,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-fullscreen-click.png",
+      "bytes": 302873,
+      "sha256": "69cb37d74f7fa7e65d1a8c60e8b52f52369893dab8168cdf20d54c6e6ffe9501",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-fullscreen.png",
+      "bytes": 306763,
+      "sha256": "3f26bd083cb7d868f85b205648294f0b1278c2ae52ab9cad92f1c224dbbbd8bf",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-hover.png",
+      "bytes": 480446,
+      "sha256": "861fb87ce5531999e1473b5b829dcc1f79766b0f9eb62520678f471b368ba350",
+      "kind": ".png",
+      "width": 2560,
+      "height": 1536,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-launcher-fullscreen.png",
+      "bytes": 307609,
+      "sha256": "958f74ab4d5061f1cef59c325ca80ccb5b02f53c4961533f0f9d609e2e23f0cf",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-match-fullscreen.png",
+      "bytes": 1306831,
+      "sha256": "e41c1dffb7f5c5108b7cfa46c215b291c09b77c3f6b82080013139479badfb34",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-match.png",
+      "bytes": 1439337,
+      "sha256": "f3de7f32255d6fde15180bc30a5d7ae4bec961a492bbf85525e6f39da995e377",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-maximized.png",
+      "bytes": 584076,
+      "sha256": "1bc2796d01093d0e108eba19a8e3624087409efe4171f06360c0539af61cb28a",
+      "kind": ".png",
+      "width": 3024,
+      "height": 1646,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-pause-fullscreen.png",
+      "bytes": 539411,
+      "sha256": "1136957867a5694a0763d14e48e4bbd5f94296df62c8460209c9fc55413e5b4b",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-pause-maximized.png",
+      "bytes": 814738,
+      "sha256": "6ce8cd2859e071a0c2e53ba4feb951804806c4a0c7beb02be655bbeb034a1d71",
+      "kind": ".png",
+      "width": 3024,
+      "height": 1646,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-pause.png",
+      "bytes": 627321,
+      "sha256": "63bd6e6b4413e82afe8b120edc6b7752f13f35c7ae821ce885af2e5ed1c6f7c7",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-play-offline.png",
+      "bytes": 829282,
+      "sha256": "6c40085149463cbc4e90c3f62ed00a9fdc3008b1678ded12b208a2f60d516d03",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-play-selected.png",
+      "bytes": 1505902,
+      "sha256": "430e9bc44d3ed0126b9121da8f3467f4edf645438dfa23f469e39464de565c6a",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-play.png",
+      "bytes": 546625,
+      "sha256": "4b7e5d7252374e18d85f6bbd274b7c1b8b33fe882bdf4820663fe95c0e2336bd",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-resized.png",
+      "bytes": 337425,
+      "sha256": "72056d7f849ded1b64a634181277f6f15353dad2bbbd57e1b43d8434fd9ea7ea",
+      "kind": ".png",
+      "width": 2000,
+      "height": 1240,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-server-side.png",
+      "bytes": 546661,
+      "sha256": "e54bc7b43ba825cd4fdf96e4ba65dd6fc153df146949aa235b1f68ed678d1bc1",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-settings-ingame.png",
+      "bytes": 726623,
+      "sha256": "2443fefc6927727f52c5e1a58056e0a9dcada74c6ead5f27b80fbf6dd5880bf9",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-start.png",
+      "bytes": 479849,
+      "sha256": "ab03cfde807c5e7837a6e557646b696862ee72ea796b9de598baea5aee0b20a2",
+      "kind": ".png",
+      "width": 2560,
+      "height": 1536,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-startup-transition.png",
+      "bytes": 4406040,
+      "sha256": "ff480f7604ab9d1dc81b7534705f032da51400355a9f72c106b08af785e72b93",
+      "kind": ".png",
+      "width": 2560,
+      "height": 1536,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-startup.png",
+      "bytes": 5325349,
+      "sha256": "59c43db46c7d632d053b9321b3c36ce3d584ed007e9392a34487ec93fbb3993d",
+      "kind": ".png",
+      "width": 2560,
+      "height": 1536,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-pictures/shell-windowed.png",
+      "bytes": 370478,
+      "sha256": "829bd27540822587808039a4e85ea5765f5cf7fc45961fa4e0737d55e4356fbc",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/lifecycle-1-forge.png",
+      "bytes": 400204,
+      "sha256": "607382314afa36e2e6a6baeea48bc513b894abbf2eba224107e01c3f779fa712",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/lifecycle-1-rejoin.png",
+      "bytes": 1197966,
+      "sha256": "db64269fb10368b6da9fe1620f283b7b02bf1f055ced6fdee7939d2507988fda",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/lifecycle-1-replay-seek.png",
+      "bytes": 1525391,
+      "sha256": "5f9eca542091fb1d176c31fcd04efeb5fecb01e6f6c3833491689ffb67fef5cc",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/lifecycle-1-replay.png",
+      "bytes": 1639485,
+      "sha256": "c041dfb3c6af4220f1b3a95460846ceb8ab01fca587554f0bf3e45bc128eb562",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/lifecycle-1-return.png",
+      "bytes": 408502,
+      "sha256": "b04409583d24499c7b770d65c849e62bb35bfa3d3438fa303e44803155390399",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/lifecycle-1-spectator.png",
+      "bytes": 1447564,
+      "sha256": "412aa74185414c686f76c3c80a7066025f3526bf9b40d2a2fd9149114f888484",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/lifecycle-2-forge.png",
+      "bytes": 292360,
+      "sha256": "6922a3f4428371b15331ac9ce43921461cfe9278ce635b6471d22a0d82e94527",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/lifecycle-2-rejoin.png",
+      "bytes": 2104434,
+      "sha256": "5548e89b7095aeedfb5fae4c9571742eda37fce828aa4cc230dfd55e174044bd",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/lifecycle-2-replay-seek.png",
+      "bytes": 1525391,
+      "sha256": "5f9eca542091fb1d176c31fcd04efeb5fecb01e6f6c3833491689ffb67fef5cc",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/lifecycle-2-replay.png",
+      "bytes": 1638282,
+      "sha256": "798ffc0818be74be45d89ec018473d21fecab98bd4eeca72d3695fe8ab677193",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/lifecycle-2-return.png",
+      "bytes": 408502,
+      "sha256": "b04409583d24499c7b770d65c849e62bb35bfa3d3438fa303e44803155390399",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/lifecycle-2-spectator.png",
+      "bytes": 1512525,
+      "sha256": "777ecf9c9c5b17f19c93127b422b1041d1145a6ca68d0ccc0d00d7c07ffb5a26",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-back-fullscreen.png",
+      "bytes": 697757,
+      "sha256": "9a70e193708644490ae8c3b3d9230e07610e7885a3206ce8aad999cb7c6f3ebd",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-back.png",
+      "bytes": 830068,
+      "sha256": "3b0f708669bad68fb470c9bd1fe475445225aa901d0c28f0a0f1941db30159c2",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-borderless.png",
+      "bytes": 612510,
+      "sha256": "6b78baec60904d36ac19afea97ae4ba84c4b5d2b471806dad4f32c3cc3c03d80",
+      "kind": ".png",
+      "width": 3024,
+      "height": 1964,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-bot-next-map.png",
+      "bytes": 1576946,
+      "sha256": "cef7c8586c76598376cf39ada866a9d1129aa0964121c239ac7e2a29e306a893",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-bot-rematch.png",
+      "bytes": 1281308,
+      "sha256": "e6b82cca58ebe16a99e2b72f494a54243624612e776ebebf201d8f20f9a57fa1",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-click.png",
+      "bytes": 462604,
+      "sha256": "4858e08ea7df8590eecd43347286743632685804c53df550f45494d8d5da10cf",
+      "kind": ".png",
+      "width": 2560,
+      "height": 1536,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-create-lobby-closed.png",
+      "bytes": 546952,
+      "sha256": "ce212b8a5ba56264b4e6f719f774259d77beffdf5024aa4f48cd75bb8329304d",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-create-lobby.png",
+      "bytes": 765767,
+      "sha256": "ba91850aa5d7092775916dd0ebd4164a860287016c6c46302d26bb4e369a8413",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-endgame-hunter.png",
+      "bytes": 2204427,
+      "sha256": "1d4ae67f3612bb874da9f5fe2fa1927910f56aa36900aa9a075f7aec99a5c7ec",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-endgame.png",
+      "bytes": 2209190,
+      "sha256": "8c9a7f683bb401465ac0d5986d694311637600112b0ba36d364421cc7a090ffe",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-escape.png",
+      "bytes": 325886,
+      "sha256": "a53bbcb31bb00fc82b8697815c4ac5307279ed8e93a93830e26cea604c53035e",
+      "kind": ".png",
+      "width": 2560,
+      "height": 1536,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-fullscreen-click.png",
+      "bytes": 302533,
+      "sha256": "3e3dc1432e1aae3b7c70822532d0935b6f96b618cd5fd7cd6524c4f4c9633008",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-fullscreen.png",
+      "bytes": 306798,
+      "sha256": "19794e59569d29bbb919690f096e7f13ed94994540cb8e994d5d41a115a7ad2d",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-hover.png",
+      "bytes": 480446,
+      "sha256": "861fb87ce5531999e1473b5b829dcc1f79766b0f9eb62520678f471b368ba350",
+      "kind": ".png",
+      "width": 2560,
+      "height": 1536,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-launcher-fullscreen.png",
+      "bytes": 307521,
+      "sha256": "604aaeef8beb46d22cf98922d6223cabe65021b7d3bc20fa09c43cde90e39683",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-match-fullscreen.png",
+      "bytes": 1306908,
+      "sha256": "f8c1b0e659d98f3e715fba66f29524bd9bc3c457b938fe3bf0907d55e8b561d0",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-match.png",
+      "bytes": 1422841,
+      "sha256": "6195ae3866c232ba206732b60ecca5465a85cf12f0de59402dc1be299f75cfcd",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-maximized.png",
+      "bytes": 585224,
+      "sha256": "cc5df207f30c1a61083d22957858c0ff0a4086b5c9beaa8804961ef4514560b5",
+      "kind": ".png",
+      "width": 3024,
+      "height": 1646,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-pause-fullscreen.png",
+      "bytes": 540816,
+      "sha256": "d42bd1dfd4c33acda0323cd0f879c9031059fcf0c9316c254ca4ad382f33fec1",
+      "kind": ".png",
+      "width": 1920,
+      "height": 1200,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-pause-maximized.png",
+      "bytes": 834976,
+      "sha256": "fa906f2601730c60101764c594d94740ef3857fd45cfbbe0807136fbf5a41a1d",
+      "kind": ".png",
+      "width": 3024,
+      "height": 1646,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-pause.png",
+      "bytes": 626789,
+      "sha256": "122ec5d03516ada4e9669596d84d83dd406254a1b657426e53810aebf751e7a8",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-play-offline.png",
+      "bytes": 836930,
+      "sha256": "04b4446b9c6fd3327b3c910c59ae0ee85cbd6c7886b9a1888e4243c56496dfb4",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-play-selected.png",
+      "bytes": 1483368,
+      "sha256": "21c132b7aa0a344c2b00efdcce6fcbb517a2a00b2a71d2491b7142defde1ae6b",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-play.png",
+      "bytes": 546446,
+      "sha256": "17f6cd4ecd6387efaaf043b84016885cf3093c0c6ea19d18792930b5dfb47935",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-resized.png",
+      "bytes": 337490,
+      "sha256": "07dff2f77345c79914ea982164d688e2c8b90cf7b38ec51e97cdeb6cfe7ecd0f",
+      "kind": ".png",
+      "width": 2000,
+      "height": 1240,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-server-side.png",
+      "bytes": 546575,
+      "sha256": "f9d9d4f2386770353c10d75fdf9703639e8acbcc6234152d5054483cbe7216be",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-settings-ingame.png",
+      "bytes": 726720,
+      "sha256": "98be7d7f0c7eab43431d79ec22620c18d44840a84738a0143a9f2590f31d6a2b",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-start.png",
+      "bytes": 479849,
+      "sha256": "ab03cfde807c5e7837a6e557646b696862ee72ea796b9de598baea5aee0b20a2",
+      "kind": ".png",
+      "width": 2560,
+      "height": 1536,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-startup-transition.png",
+      "bytes": 4579706,
+      "sha256": "8a1fe754160535b54bc845dd1dbbe0393a6f3654d74eb465788c13bd08366413",
+      "kind": ".png",
+      "width": 2560,
+      "height": 1536,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-startup.png",
+      "bytes": 5325349,
+      "sha256": "59c43db46c7d632d053b9321b3c36ce3d584ed007e9392a34487ec93fbb3993d",
+      "kind": ".png",
+      "width": 2560,
+      "height": 1536,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell-pictures/shell-windowed.png",
+      "bytes": 370478,
+      "sha256": "829bd27540822587808039a4e85ea5765f5cf7fc45961fa4e0737d55e4356fbc",
+      "kind": ".png",
+      "width": 2048,
+      "height": 1440,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/frame_00000001.png",
+      "bytes": 843006,
+      "sha256": "7e6134d8fe78c2156cf6eeaf0db61b4cd440e9bf70e590287e9725f8d5d83049",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/frame_00000002.png",
+      "bytes": 842341,
+      "sha256": "248b9939a13dbac4995687001e27da35d5c22e2fc71acb498c88acd4523d04db",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/frame_00000003.png",
+      "bytes": 846210,
+      "sha256": "f2df53eeca2080435bda39148948d3016627bb60b222cdccd02b2ad6deffe628",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/frame_00000004.png",
+      "bytes": 848820,
+      "sha256": "3c4a811d369cfaea8b3d0d6e31a39e1d508838aa2211b7cd54841b1defde0676",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/frame_00000005.png",
+      "bytes": 858313,
+      "sha256": "e58e92b9ea269d37a39fe32a6f593174a61db92cb87d5951e6bb546e3990df52",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/frame_00000006.png",
+      "bytes": 876086,
+      "sha256": "b59fd26d0478436bdbbee8696cc76ce345279dbc78c3feae8547eaf0ac4d8813",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/frame_00000007.png",
+      "bytes": 877227,
+      "sha256": "2c5372bd9d24e2fa2199e9308fe1c5cc6199ad21424209808f0c76249678ae0d",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/frame_00000008.png",
+      "bytes": 878564,
+      "sha256": "65629d843a85ecc1e42ffc7ec9ab1c1e7f8adbac6937bdc72e4a5766f1a2eebf",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/frame_00000009.png",
+      "bytes": 878444,
+      "sha256": "89faa25c7393aa96cd524f09dd38c7c40a9db94dfb94110760fb6279137ece1f",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/frame_00000010.png",
+      "bytes": 880191,
+      "sha256": "9194a6e596897446b9214d7145ef70c0089b3bcbb264b8b9ca77f83b9ec521eb",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/frame_00000011.png",
+      "bytes": 491712,
+      "sha256": "6eb751d75662775d1bf673aa2cde66ffb7c91e1a387c3f97845bac19cd5d38a3",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/frame_00000012.png",
+      "bytes": 582178,
+      "sha256": "ebb3714ffab453516f3d95563e75d68ba59109817dc441b31a999af09f05ae12",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-0/replay.mp4",
+      "bytes": 88973,
+      "sha256": "af51f14628070ef918a8d5722ff4978c02631e967422e93d48eea9bd5b380db6",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/frame_00000001.png",
+      "bytes": 843006,
+      "sha256": "7e6134d8fe78c2156cf6eeaf0db61b4cd440e9bf70e590287e9725f8d5d83049",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/frame_00000002.png",
+      "bytes": 842341,
+      "sha256": "248b9939a13dbac4995687001e27da35d5c22e2fc71acb498c88acd4523d04db",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/frame_00000003.png",
+      "bytes": 846210,
+      "sha256": "f2df53eeca2080435bda39148948d3016627bb60b222cdccd02b2ad6deffe628",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/frame_00000004.png",
+      "bytes": 848820,
+      "sha256": "3c4a811d369cfaea8b3d0d6e31a39e1d508838aa2211b7cd54841b1defde0676",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/frame_00000005.png",
+      "bytes": 858313,
+      "sha256": "e58e92b9ea269d37a39fe32a6f593174a61db92cb87d5951e6bb546e3990df52",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/frame_00000006.png",
+      "bytes": 876086,
+      "sha256": "b59fd26d0478436bdbbee8696cc76ce345279dbc78c3feae8547eaf0ac4d8813",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/frame_00000007.png",
+      "bytes": 877227,
+      "sha256": "2c5372bd9d24e2fa2199e9308fe1c5cc6199ad21424209808f0c76249678ae0d",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/frame_00000008.png",
+      "bytes": 878564,
+      "sha256": "65629d843a85ecc1e42ffc7ec9ab1c1e7f8adbac6937bdc72e4a5766f1a2eebf",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/frame_00000009.png",
+      "bytes": 878444,
+      "sha256": "89faa25c7393aa96cd524f09dd38c7c40a9db94dfb94110760fb6279137ece1f",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/frame_00000010.png",
+      "bytes": 880191,
+      "sha256": "9194a6e596897446b9214d7145ef70c0089b3bcbb264b8b9ca77f83b9ec521eb",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/frame_00000011.png",
+      "bytes": 491712,
+      "sha256": "6eb751d75662775d1bf673aa2cde66ffb7c91e1a387c3f97845bac19cd5d38a3",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/frame_00000012.png",
+      "bytes": 582178,
+      "sha256": "ebb3714ffab453516f3d95563e75d68ba59109817dc441b31a999af09f05ae12",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/120-1/replay.mp4",
+      "bytes": 88973,
+      "sha256": "af51f14628070ef918a8d5722ff4978c02631e967422e93d48eea9bd5b380db6",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000001.png",
+      "bytes": 843631,
+      "sha256": "533eddc17ed274d5d888952b5af2652fbca2718fe1c57ad3711ea3e61aa1f9ff",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000002.png",
+      "bytes": 842773,
+      "sha256": "c74060366bf5c2711506433e85a5a5d271d7364fdfd86dda8f5cb14db3f6be0c",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000003.png",
+      "bytes": 843491,
+      "sha256": "30bc746fca538a8dcdb25983e4a1f97b7a61fe712cb149b0b60996b3d90588d8",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000004.png",
+      "bytes": 847014,
+      "sha256": "2a507e1d775e2287df3ec7a22205fbe916ec9d6f33473c7384a9d0e3a087a3f2",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000005.png",
+      "bytes": 849007,
+      "sha256": "7952c46615a966eaa8275db22683ded995394b67caa71ff440e9d622962a15cf",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000006.png",
+      "bytes": 858313,
+      "sha256": "e58e92b9ea269d37a39fe32a6f593174a61db92cb87d5951e6bb546e3990df52",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000007.png",
+      "bytes": 872871,
+      "sha256": "5f9603e9f6814c04a1827c3d4ce5bda74a89cc0ec32eaac729de027543d82a57",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000008.png",
+      "bytes": 879028,
+      "sha256": "338f5eda6ed30417e1fd6fe225b0644ec4fa927fc3e2a7409872bbe3937a2c2b",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000009.png",
+      "bytes": 879583,
+      "sha256": "a258c83258706ca7bff7df2a1e70ccb78e3b0112c9e77748789f7be92740587a",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000010.png",
+      "bytes": 879681,
+      "sha256": "a985036b634d4dddd96c04371145295963655b30e48b77385539317f8bc8ec9a",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000011.png",
+      "bytes": 878974,
+      "sha256": "ddb52b26848ffa69e09fed351470b902b73c3b8522ca6743d5de065d7c822995",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000012.png",
+      "bytes": 880191,
+      "sha256": "9194a6e596897446b9214d7145ef70c0089b3bcbb264b8b9ca77f83b9ec521eb",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000013.png",
+      "bytes": 475274,
+      "sha256": "75ee2863cf6df9d4fb6004c26b50e984af02addddc9286dd2fddf6463a1a8f43",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/frame_00000014.png",
+      "bytes": 552385,
+      "sha256": "fc2883f525b7ddb7509a1ffeb9f72753d879f448bda56acc8f2a85daa98bbc56",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-0/replay.mp4",
+      "bytes": 96899,
+      "sha256": "4f7d9a32085e5869cf01038605002a375aa6a239abbdc85b975d568348dc61da",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000001.png",
+      "bytes": 843631,
+      "sha256": "533eddc17ed274d5d888952b5af2652fbca2718fe1c57ad3711ea3e61aa1f9ff",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000002.png",
+      "bytes": 842773,
+      "sha256": "c74060366bf5c2711506433e85a5a5d271d7364fdfd86dda8f5cb14db3f6be0c",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000003.png",
+      "bytes": 843491,
+      "sha256": "30bc746fca538a8dcdb25983e4a1f97b7a61fe712cb149b0b60996b3d90588d8",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000004.png",
+      "bytes": 847014,
+      "sha256": "2a507e1d775e2287df3ec7a22205fbe916ec9d6f33473c7384a9d0e3a087a3f2",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000005.png",
+      "bytes": 849007,
+      "sha256": "7952c46615a966eaa8275db22683ded995394b67caa71ff440e9d622962a15cf",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000006.png",
+      "bytes": 858313,
+      "sha256": "e58e92b9ea269d37a39fe32a6f593174a61db92cb87d5951e6bb546e3990df52",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000007.png",
+      "bytes": 872871,
+      "sha256": "5f9603e9f6814c04a1827c3d4ce5bda74a89cc0ec32eaac729de027543d82a57",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000008.png",
+      "bytes": 879028,
+      "sha256": "338f5eda6ed30417e1fd6fe225b0644ec4fa927fc3e2a7409872bbe3937a2c2b",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000009.png",
+      "bytes": 879583,
+      "sha256": "a258c83258706ca7bff7df2a1e70ccb78e3b0112c9e77748789f7be92740587a",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000010.png",
+      "bytes": 879681,
+      "sha256": "a985036b634d4dddd96c04371145295963655b30e48b77385539317f8bc8ec9a",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000011.png",
+      "bytes": 878974,
+      "sha256": "ddb52b26848ffa69e09fed351470b902b73c3b8522ca6743d5de065d7c822995",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000012.png",
+      "bytes": 880191,
+      "sha256": "9194a6e596897446b9214d7145ef70c0089b3bcbb264b8b9ca77f83b9ec521eb",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000013.png",
+      "bytes": 475274,
+      "sha256": "75ee2863cf6df9d4fb6004c26b50e984af02addddc9286dd2fddf6463a1a8f43",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/frame_00000014.png",
+      "bytes": 552385,
+      "sha256": "fc2883f525b7ddb7509a1ffeb9f72753d879f448bda56acc8f2a85daa98bbc56",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/144-1/replay.mp4",
+      "bytes": 96899,
+      "sha256": "4f7d9a32085e5869cf01038605002a375aa6a239abbdc85b975d568348dc61da",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/24-0/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/24-0/frame_00000001.png",
+      "bytes": 858313,
+      "sha256": "e58e92b9ea269d37a39fe32a6f593174a61db92cb87d5951e6bb546e3990df52",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/24-0/frame_00000002.png",
+      "bytes": 880191,
+      "sha256": "9194a6e596897446b9214d7145ef70c0089b3bcbb264b8b9ca77f83b9ec521eb",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/24-0/replay.mp4",
+      "bytes": 75367,
+      "sha256": "5e8778c5f7eaf8636ee4d6594adab1d2e2f429f6fe74b16c405f4973bfe12aed",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/24-1/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/24-1/frame_00000001.png",
+      "bytes": 858313,
+      "sha256": "e58e92b9ea269d37a39fe32a6f593174a61db92cb87d5951e6bb546e3990df52",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/24-1/frame_00000002.png",
+      "bytes": 880191,
+      "sha256": "9194a6e596897446b9214d7145ef70c0089b3bcbb264b8b9ca77f83b9ec521eb",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/24-1/replay.mp4",
+      "bytes": 75367,
+      "sha256": "5e8778c5f7eaf8636ee4d6594adab1d2e2f429f6fe74b16c405f4973bfe12aed",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/30-0/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/30-0/frame_00000001.png",
+      "bytes": 848820,
+      "sha256": "3c4a811d369cfaea8b3d0d6e31a39e1d508838aa2211b7cd54841b1defde0676",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/30-0/frame_00000002.png",
+      "bytes": 878564,
+      "sha256": "65629d843a85ecc1e42ffc7ec9ab1c1e7f8adbac6937bdc72e4a5766f1a2eebf",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/30-0/frame_00000003.png",
+      "bytes": 582178,
+      "sha256": "ebb3714ffab453516f3d95563e75d68ba59109817dc441b31a999af09f05ae12",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/30-0/replay.mp4",
+      "bytes": 90077,
+      "sha256": "5c7b42a1ca0b4d887c1db6b2bb688f84c2e9aad0d7413a012a88d7e340a806fd",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/30-1/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/30-1/frame_00000001.png",
+      "bytes": 848820,
+      "sha256": "3c4a811d369cfaea8b3d0d6e31a39e1d508838aa2211b7cd54841b1defde0676",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/30-1/frame_00000002.png",
+      "bytes": 878564,
+      "sha256": "65629d843a85ecc1e42ffc7ec9ab1c1e7f8adbac6937bdc72e4a5766f1a2eebf",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/30-1/frame_00000003.png",
+      "bytes": 582178,
+      "sha256": "ebb3714ffab453516f3d95563e75d68ba59109817dc441b31a999af09f05ae12",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/30-1/replay.mp4",
+      "bytes": 90077,
+      "sha256": "5c7b42a1ca0b4d887c1db6b2bb688f84c2e9aad0d7413a012a88d7e340a806fd",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/48-0/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/48-0/frame_00000001.png",
+      "bytes": 843491,
+      "sha256": "30bc746fca538a8dcdb25983e4a1f97b7a61fe712cb149b0b60996b3d90588d8",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/48-0/frame_00000002.png",
+      "bytes": 858313,
+      "sha256": "e58e92b9ea269d37a39fe32a6f593174a61db92cb87d5951e6bb546e3990df52",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/48-0/frame_00000003.png",
+      "bytes": 879583,
+      "sha256": "a258c83258706ca7bff7df2a1e70ccb78e3b0112c9e77748789f7be92740587a",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/48-0/frame_00000004.png",
+      "bytes": 880191,
+      "sha256": "9194a6e596897446b9214d7145ef70c0089b3bcbb264b8b9ca77f83b9ec521eb",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/48-0/replay.mp4",
+      "bytes": 66719,
+      "sha256": "69a7caa8ef054658a5b6aa3fc6518cd4594599a32f77a908ab1eb924584079a9",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/48-1/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/48-1/frame_00000001.png",
+      "bytes": 843491,
+      "sha256": "30bc746fca538a8dcdb25983e4a1f97b7a61fe712cb149b0b60996b3d90588d8",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/48-1/frame_00000002.png",
+      "bytes": 858313,
+      "sha256": "e58e92b9ea269d37a39fe32a6f593174a61db92cb87d5951e6bb546e3990df52",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/48-1/frame_00000003.png",
+      "bytes": 879583,
+      "sha256": "a258c83258706ca7bff7df2a1e70ccb78e3b0112c9e77748789f7be92740587a",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/48-1/frame_00000004.png",
+      "bytes": 880191,
+      "sha256": "9194a6e596897446b9214d7145ef70c0089b3bcbb264b8b9ca77f83b9ec521eb",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/48-1/replay.mp4",
+      "bytes": 66719,
+      "sha256": "69a7caa8ef054658a5b6aa3fc6518cd4594599a32f77a908ab1eb924584079a9",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/4k-hud/frame_00000000.png",
+      "bytes": 3592680,
+      "sha256": "d50a7f6ab5ef078618a6c648921a8f5b25063f9a7b008bdc724f0b5d1b3527e7",
+      "kind": ".png",
+      "width": 3840,
+      "height": 2160,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/4k-hud/frame_00000001.png",
+      "bytes": 3581767,
+      "sha256": "6e5cf3308765c1ae2f595d8d5db904a247d6e63c8f3608cb1cab72829b16c341",
+      "kind": ".png",
+      "width": 3840,
+      "height": 2160,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/4k-hud/replay.mp4",
+      "bytes": 252612,
+      "sha256": "9e64048d73c8c7e1b6aa8c280bfb91e2cff5481d2da3fe636cd0f1449a58e6a3",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-0/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-0/frame_00000001.png",
+      "bytes": 842341,
+      "sha256": "248b9939a13dbac4995687001e27da35d5c22e2fc71acb498c88acd4523d04db",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-0/frame_00000002.png",
+      "bytes": 848820,
+      "sha256": "3c4a811d369cfaea8b3d0d6e31a39e1d508838aa2211b7cd54841b1defde0676",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-0/frame_00000003.png",
+      "bytes": 876086,
+      "sha256": "b59fd26d0478436bdbbee8696cc76ce345279dbc78c3feae8547eaf0ac4d8813",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-0/frame_00000004.png",
+      "bytes": 878564,
+      "sha256": "65629d843a85ecc1e42ffc7ec9ab1c1e7f8adbac6937bdc72e4a5766f1a2eebf",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-0/frame_00000005.png",
+      "bytes": 880191,
+      "sha256": "9194a6e596897446b9214d7145ef70c0089b3bcbb264b8b9ca77f83b9ec521eb",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-0/frame_00000006.png",
+      "bytes": 582178,
+      "sha256": "ebb3714ffab453516f3d95563e75d68ba59109817dc441b31a999af09f05ae12",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-0/replay.mp4",
+      "bytes": 80156,
+      "sha256": "e777e8dcdd11bd2d22a03f7c9a7555fe1aa689c7c88c4db00f283426fe7bc499",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-1/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-1/frame_00000001.png",
+      "bytes": 842341,
+      "sha256": "248b9939a13dbac4995687001e27da35d5c22e2fc71acb498c88acd4523d04db",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-1/frame_00000002.png",
+      "bytes": 848820,
+      "sha256": "3c4a811d369cfaea8b3d0d6e31a39e1d508838aa2211b7cd54841b1defde0676",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-1/frame_00000003.png",
+      "bytes": 876086,
+      "sha256": "b59fd26d0478436bdbbee8696cc76ce345279dbc78c3feae8547eaf0ac4d8813",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-1/frame_00000004.png",
+      "bytes": 878564,
+      "sha256": "65629d843a85ecc1e42ffc7ec9ab1c1e7f8adbac6937bdc72e4a5766f1a2eebf",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-1/frame_00000005.png",
+      "bytes": 880191,
+      "sha256": "9194a6e596897446b9214d7145ef70c0089b3bcbb264b8b9ca77f83b9ec521eb",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-1/frame_00000006.png",
+      "bytes": 582178,
+      "sha256": "ebb3714ffab453516f3d95563e75d68ba59109817dc441b31a999af09f05ae12",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/60-1/replay.mp4",
+      "bytes": 80156,
+      "sha256": "e777e8dcdd11bd2d22a03f7c9a7555fe1aa689c7c88c4db00f283426fe7bc499",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-0/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-0/frame_00000001.png",
+      "bytes": 844001,
+      "sha256": "657cf0da5d04a802a34c4558ec415f05f43746e11c73c798f8e96995c040c62d",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-0/frame_00000002.png",
+      "bytes": 844952,
+      "sha256": "57cded1f6ac3527d46c5ade114b0b6204bbd07ac4cd70bcc9a9be3b6d26c3099",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-0/frame_00000003.png",
+      "bytes": 848820,
+      "sha256": "3c4a811d369cfaea8b3d0d6e31a39e1d508838aa2211b7cd54841b1defde0676",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-0/frame_00000004.png",
+      "bytes": 862799,
+      "sha256": "a40d770c2c30667c14e7a6e34fc908a080e219cbc90c3c9caa45a0899458e5de",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-0/frame_00000005.png",
+      "bytes": 879028,
+      "sha256": "338f5eda6ed30417e1fd6fe225b0644ec4fa927fc3e2a7409872bbe3937a2c2b",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-0/frame_00000006.png",
+      "bytes": 878564,
+      "sha256": "65629d843a85ecc1e42ffc7ec9ab1c1e7f8adbac6937bdc72e4a5766f1a2eebf",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-0/frame_00000007.png",
+      "bytes": 877910,
+      "sha256": "fdf7dc9980456255f2e6a76a931f435d03e89e57c5c369fc02ecb2d7d533a24a",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-0/frame_00000008.png",
+      "bytes": 533838,
+      "sha256": "2bcf78cbda5bac97917cf3afd8d17c713e95abb97c9970080ab95ab38eeb4669",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-0/frame_00000009.png",
+      "bytes": 582178,
+      "sha256": "ebb3714ffab453516f3d95563e75d68ba59109817dc441b31a999af09f05ae12",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-0/replay.mp4",
+      "bytes": 84964,
+      "sha256": "38a59d532bc5ae300ebd2a8c008b8bd818dce710564089dc69585b71febcddcc",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-1/frame_00000000.png",
+      "bytes": 843021,
+      "sha256": "7a259aebef35b6f1ab21b2572de026dca538468c5baef36f0c946b94b8b4132e",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-1/frame_00000001.png",
+      "bytes": 844001,
+      "sha256": "657cf0da5d04a802a34c4558ec415f05f43746e11c73c798f8e96995c040c62d",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-1/frame_00000002.png",
+      "bytes": 844952,
+      "sha256": "57cded1f6ac3527d46c5ade114b0b6204bbd07ac4cd70bcc9a9be3b6d26c3099",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-1/frame_00000003.png",
+      "bytes": 848820,
+      "sha256": "3c4a811d369cfaea8b3d0d6e31a39e1d508838aa2211b7cd54841b1defde0676",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-1/frame_00000004.png",
+      "bytes": 862799,
+      "sha256": "a40d770c2c30667c14e7a6e34fc908a080e219cbc90c3c9caa45a0899458e5de",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-1/frame_00000005.png",
+      "bytes": 879028,
+      "sha256": "338f5eda6ed30417e1fd6fe225b0644ec4fa927fc3e2a7409872bbe3937a2c2b",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-1/frame_00000006.png",
+      "bytes": 878564,
+      "sha256": "65629d843a85ecc1e42ffc7ec9ab1c1e7f8adbac6937bdc72e4a5766f1a2eebf",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-1/frame_00000007.png",
+      "bytes": 877910,
+      "sha256": "fdf7dc9980456255f2e6a76a931f435d03e89e57c5c369fc02ecb2d7d533a24a",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-1/frame_00000008.png",
+      "bytes": 533838,
+      "sha256": "2bcf78cbda5bac97917cf3afd8d17c713e95abb97c9970080ab95ab38eeb4669",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-1/frame_00000009.png",
+      "bytes": 582178,
+      "sha256": "ebb3714ffab453516f3d95563e75d68ba59109817dc441b31a999af09f05ae12",
+      "kind": ".png",
+      "width": 1280,
+      "height": 720,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/90-1/replay.mp4",
+      "bytes": 84964,
+      "sha256": "38a59d532bc5ae300ebd2a8c008b8bd818dce710564089dc69585b71febcddcc",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-0/frame_00000000.png",
+      "bytes": 349007,
+      "sha256": "1f96084c8f6cd0a52de1e7470a54b8ff6ab6ed7484aee55c624367a79303b83b",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-0/frame_00000001.png",
+      "bytes": 347289,
+      "sha256": "3e9959b7aab1536255eb6e725d29ef3ae846c2fe9436c2ffd13d7fcce7c7f789",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-0/frame_00000002.png",
+      "bytes": 351705,
+      "sha256": "de5dbd2b135bcbb28743deebf824f3cbfc78e54e07d29c4c0bc9d48d02f476b5",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-0/frame_00000003.png",
+      "bytes": 361091,
+      "sha256": "f3f7268fe300f2a84e545ea03f6eac76def0e028b5ef83c6e481dc868d40b638",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-0/frame_00000004.png",
+      "bytes": 363551,
+      "sha256": "fbcfdddc199c22b7bcae92959ac58b2a78692675ee7626ba26363ebb364b4297",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-0/frame_00000005.png",
+      "bytes": 363111,
+      "sha256": "b5a81099d167ec109bf373bdce2b2ccad6627636e8452c2d7f16063b73a3c934",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-0/frame_00000006.png",
+      "bytes": 236584,
+      "sha256": "e2c5e9abff12c1acd3f4e67d32e0fb2e552aba0dc7594b1324a3d449a3a279c8",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-0/replay.mp4",
+      "bytes": 27627,
+      "sha256": "e8a0f7e2aa870052d9cca79fe8a30d9df9098c8477aeaec6e2740e53cb6c2ea8",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-1/frame_00000000.png",
+      "bytes": 349007,
+      "sha256": "1f96084c8f6cd0a52de1e7470a54b8ff6ab6ed7484aee55c624367a79303b83b",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-1/frame_00000001.png",
+      "bytes": 347289,
+      "sha256": "3e9959b7aab1536255eb6e725d29ef3ae846c2fe9436c2ffd13d7fcce7c7f789",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-1/frame_00000002.png",
+      "bytes": 351705,
+      "sha256": "de5dbd2b135bcbb28743deebf824f3cbfc78e54e07d29c4c0bc9d48d02f476b5",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-1/frame_00000003.png",
+      "bytes": 361091,
+      "sha256": "f3f7268fe300f2a84e545ea03f6eac76def0e028b5ef83c6e481dc868d40b638",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-1/frame_00000004.png",
+      "bytes": 363551,
+      "sha256": "fbcfdddc199c22b7bcae92959ac58b2a78692675ee7626ba26363ebb364b4297",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-1/frame_00000005.png",
+      "bytes": 363111,
+      "sha256": "b5a81099d167ec109bf373bdce2b2ccad6627636e8452c2d7f16063b73a3c934",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-1/frame_00000006.png",
+      "bytes": 236584,
+      "sha256": "e2c5e9abff12c1acd3f4e67d32e0fb2e552aba0dc7594b1324a3d449a3a279c8",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-1/replay.mp4",
+      "bytes": 27627,
+      "sha256": "e8a0f7e2aa870052d9cca79fe8a30d9df9098c8477aeaec6e2740e53cb6c2ea8",
+      "kind": ".mp4"
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-2/frame_00000000.png",
+      "bytes": 346178,
+      "sha256": "e033630117479067b4e7539f4cc0a795fb4b5ce78798ba80710e71a9c57eda72",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-2/frame_00000001.png",
+      "bytes": 335303,
+      "sha256": "ea2af4caf3411f5dd963f62339b0a2a8c71c21e232ec24320784ceb0e78a4410",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-2/frame_00000002.png",
+      "bytes": 318833,
+      "sha256": "89c7ba2a91c60e27f014e0ed0258ff6a4c1904cef9ca91337cb75b31ca5d3d90",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-2/frame_00000003.png",
+      "bytes": 369287,
+      "sha256": "08913a504d7b3be3eee51a81126e7d209ed078cf7324d59ea3ee2d0314c40fbe",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-2/frame_00000004.png",
+      "bytes": 372554,
+      "sha256": "9fd76cb001fb495a5f404b4be6a3f5bdb99f222ca80f7d7eb11d95c4ea11658a",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-2/frame_00000005.png",
+      "bytes": 364278,
+      "sha256": "097c40481d3aabf3bf69c808495ab70180899eee88aef64693d179e28bc58dd8",
+      "kind": ".png",
+      "width": 640,
+      "height": 360,
+      "bitDepth": 8,
+      "colorType": 2
+    },
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export/queue-2/replay.mp4",
+      "bytes": 44402,
+      "sha256": "ea0308edbe7f630612685712c9066a6862b889da8b19ec7dc60e53b3eded161f",
+      "kind": ".mp4"
+    }
+  ],
+  "resourcePairs": [
+    {
+      "arm": "combined",
+      "cycle": 0,
+      "stage": "retained-promotion-after-vbo",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "candidatePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "candidateFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "combined",
+      "cycle": 1,
+      "stage": "retained-vao-after-create",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "candidatePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "candidateFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "combined",
+      "cycle": 2,
+      "stage": "retained-combined-after-vbo",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "candidatePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "candidateFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "combined",
+      "cycle": 3,
+      "stage": "depth-snapshot-after-framebuffer",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "candidatePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "candidateFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "combined",
+      "cycle": 4,
+      "stage": "shadow-after-framebuffer",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "D2E348F1612675E3DB32AAE40213112DC61740BD44BA15902F69AAC776FF71DF",
+      "candidatePixelsSHA256": "D2E348F1612675E3DB32AAE40213112DC61740BD44BA15902F69AAC776FF71DF",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "candidateFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "combined",
+      "cycle": 5,
+      "stage": "retained-promotion-after-vbo",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "candidatePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "candidateFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "combined",
+      "cycle": 6,
+      "stage": "retained-vao-after-create",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "candidatePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "candidateFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "combined",
+      "cycle": 7,
+      "stage": "retained-combined-after-vbo",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "candidatePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "candidateFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "combined",
+      "cycle": 8,
+      "stage": "depth-snapshot-after-framebuffer",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "candidatePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "candidateFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "combined",
+      "cycle": 9,
+      "stage": "shadow-after-framebuffer",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "31B1BEA37C6A64C4131EBFB5821BC27D2AE8392E46E3E807DD5E6AEBB9BBA061",
+      "candidatePixelsSHA256": "31B1BEA37C6A64C4131EBFB5821BC27D2AE8392E46E3E807DD5E6AEBB9BBA061",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "candidateFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "map-gl",
+      "cycle": 0,
+      "stage": "retained-promotion-after-vbo",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "candidatePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "candidateFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "map-gl",
+      "cycle": 1,
+      "stage": "retained-vao-after-create",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "candidatePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "candidateFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "map-gl",
+      "cycle": 2,
+      "stage": "retained-combined-after-vbo",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "candidatePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "candidateFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "map-gl",
+      "cycle": 3,
+      "stage": "depth-snapshot-after-framebuffer",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "candidatePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "candidateFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "map-gl",
+      "cycle": 4,
+      "stage": "shadow-after-framebuffer",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "D2E348F1612675E3DB32AAE40213112DC61740BD44BA15902F69AAC776FF71DF",
+      "candidatePixelsSHA256": "D2E348F1612675E3DB32AAE40213112DC61740BD44BA15902F69AAC776FF71DF",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "candidateFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "map-gl",
+      "cycle": 5,
+      "stage": "retained-promotion-after-vbo",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "candidatePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "candidateFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "map-gl",
+      "cycle": 6,
+      "stage": "retained-vao-after-create",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "candidatePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "candidateFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "map-gl",
+      "cycle": 7,
+      "stage": "retained-combined-after-vbo",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "candidatePixelsSHA256": "6BFF098571F3AEB58DFDCE3E2A036EC4748885915ED89BEB77EF1BBF2D3351ED",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "candidateFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "map-gl",
+      "cycle": 8,
+      "stage": "depth-snapshot-after-framebuffer",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "candidatePixelsSHA256": "1C97AA91B6A39D4E47693DAE123AA9C2250B8967AC51E34DEAE467BD513F7192",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "candidateFloatDepthSHA256": "07F062E4FBA8FC4968E22A2CDB1C96D131869AC2767FBB56E609198F66A6C5A7",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    },
+    {
+      "arm": "map-gl",
+      "cycle": 9,
+      "stage": "shadow-after-framebuffer",
+      "referenceCandidateFlags": [
+        false,
+        true
+      ],
+      "width": 1920,
+      "height": 1080,
+      "referencePixelsSHA256": "31B1BEA37C6A64C4131EBFB5821BC27D2AE8392E46E3E807DD5E6AEBB9BBA061",
+      "candidatePixelsSHA256": "31B1BEA37C6A64C4131EBFB5821BC27D2AE8392E46E3E807DD5E6AEBB9BBA061",
+      "pixelsEqual": true,
+      "referenceFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "candidateFloatDepthSHA256": "D60E076D289E579E0FE2D87B25DEEA5B4F61FFFDFF9A06256BA1FAEFF3E0111F",
+      "floatDepthEqual": true,
+      "candidateInjectionHit": true
+    }
+  ],
+  "replicaFilePairs": [
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-1200.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-1200.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-1500.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-1500.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-1800.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-1800.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-2100.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-2100.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-2400.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-2400.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-2700.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-2700.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-300.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-300.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-3000.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-3000.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-3300.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-3300.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-3600.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-3600.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-3900.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-3900.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-4200.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-4200.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-4500.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-4500.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-4800.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-4800.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-5100.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-5100.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-5400.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-5400.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-600.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-600.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-660.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-660.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    },
+    {
+      "linear": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/linear-900.png",
+      "restored": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica-pictures/restored-900.png",
+      "samePNGBytes": true,
+      "scope": "Observed file-encoding equality only; not an imposed semantic gate."
+    }
+  ],
+  "counts": {
+    "png": 266,
+    "mp4": 18,
+    "resourceReadbackPairs": 20,
+    "resourceEqualPixelPairs": 20,
+    "resourceEqualFloatDepthPairs": 20
+  }
+}

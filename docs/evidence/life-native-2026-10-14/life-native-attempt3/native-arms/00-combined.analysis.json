@@ -1,0 +1,1613 @@
+{
+  "schema": 1,
+  "arm": "combined",
+  "complete": true,
+  "error": null,
+  "warmupCyclesExcluded": 5,
+  "sourceIdentity": {
+    "clientSha256": "785D507A682811F31D4262AB39AC8427074D4FC3563C8A9CDC863787F53CB009",
+    "harnessSha256": "6416DAB4578F9B7E6495CCFC75446EF7C22E23B90F8239AF7E732408DC092660",
+    "assemblyMvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+  },
+  "series": {
+    "postReferenceUnload": {
+      "sampleCount": 10,
+      "postWarmupSamples": 5,
+      "slopeUnit": "metric units per full cycle (zero-based cycle index)",
+      "postWarmup": {
+        "workingSetBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 767000576,
+          "last": 779403264,
+          "delta": 12402688,
+          "mean": 774078464.0,
+          "min": 743718912,
+          "max": 791003136,
+          "slope": 7208960.0,
+          "rSquared": 0.3425168905410847
+        },
+        "privateBytes": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "virtualBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 508244770816,
+          "last": 508245180416,
+          "delta": 409600,
+          "mean": 508245531033.6,
+          "min": 508244180992,
+          "max": 508248522752,
+          "slope": 516096.0,
+          "rSquared": 0.22657627211530573
+        },
+        "managedLiveBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 92843216,
+          "last": 92923664,
+          "delta": 80448,
+          "mean": 97022707.2,
+          "min": 92843216,
+          "max": 103261120,
+          "slope": 23479.2,
+          "rSquared": 4.300100123655337e-05
+        },
+        "gcCommittedBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 217972736,
+          "last": 227360768,
+          "delta": 9388032,
+          "mean": 214997401.6,
+          "min": 188776448,
+          "max": 227360768,
+          "slope": 4884070.4,
+          "rSquared": 0.261112184587473
+        },
+        "gcHeapSizeBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 179772864,
+          "last": 194048712,
+          "delta": 14275848,
+          "mean": 187693985.6,
+          "min": 172641272,
+          "max": 202917904,
+          "slope": 5882832.8,
+          "rSquared": 0.614238143021288
+        },
+        "gcFragmentedBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 108539568,
+          "last": 122765304,
+          "delta": 14225736,
+          "mean": 114439220.8,
+          "min": 96416248,
+          "max": 126655848,
+          "slope": 5869107.2,
+          "rSquared": 0.5842070324946124
+        },
+        "lohSizeBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 158163232,
+          "last": 172408744,
+          "delta": 14245512,
+          "mean": 163926337.6,
+          "min": 145679376,
+          "max": 175919144,
+          "slope": 5873079.2,
+          "rSquared": 0.5802625691543278
+        },
+        "lohFragmentedBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 108519456,
+          "last": 122764968,
+          "delta": 14245512,
+          "mean": 114428939.2,
+          "min": 96401544,
+          "max": 126641312,
+          "slope": 5873079.2,
+          "rSquared": 0.5846061562578575
+        },
+        "processThreadCount": {
+          "samples": 5,
+          "available": true,
+          "first": 32,
+          "last": 32,
+          "delta": 0,
+          "mean": 32.0,
+          "min": 32,
+          "max": 32,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "processHandleCount": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "threadPoolThreads": {
+          "samples": 5,
+          "available": true,
+          "first": 5,
+          "last": 5,
+          "delta": 0,
+          "mean": 5.0,
+          "min": 5,
+          "max": 5,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "threadPoolPendingWorkItems": {
+          "samples": 5,
+          "available": true,
+          "first": 0,
+          "last": 0,
+          "delta": 0,
+          "mean": 0.0,
+          "min": 0,
+          "max": 0,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "gcTotalPauseMs": {
+          "samples": 5,
+          "available": true,
+          "first": 381.243,
+          "last": 647.172,
+          "delta": 265.92900000000003,
+          "mean": 515.0184,
+          "min": 381.243,
+          "max": 647.172,
+          "slope": 66.43750000000001,
+          "rSquared": 0.999920454146066
+        }
+      },
+      "latterHalf": {
+        "workingSetBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 789266432,
+          "last": 779403264,
+          "delta": -9863168,
+          "mean": 786557610.6666666,
+          "min": 779403264,
+          "max": 791003136,
+          "slope": -4931584.0,
+          "rSquared": 0.6213321690151148
+        },
+        "privateBytes": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "virtualBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 508245000192,
+          "last": 508245180416,
+          "delta": 180224,
+          "mean": 508246234453.3333,
+          "min": 508245000192,
+          "max": 508248522752,
+          "slope": 90112.0,
+          "rSquared": 0.0020633910097541674
+        },
+        "managedLiveBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 92898312,
+          "last": 92923664,
+          "delta": 25352,
+          "mean": 96361032.0,
+          "min": 92898312,
+          "max": 103261120,
+          "slope": 12676.0,
+          "rSquared": 4.499787286671442e-06
+        },
+        "gcCommittedBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 222035968,
+          "last": 227360768,
+          "delta": 5324800,
+          "mean": 222745941.33333334,
+          "min": 218841088,
+          "max": 227360768,
+          "slope": 2662400.0,
+          "rSquared": 0.38265306122448994
+        },
+        "gcHeapSizeBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 189089176,
+          "last": 194048712,
+          "delta": 4959536,
+          "mean": 195351930.66666666,
+          "min": 189089176,
+          "max": 202917904,
+          "slope": 2479768.0,
+          "rSquared": 0.12528467791033926
+        },
+        "gcFragmentedBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 117819136,
+          "last": 122765304,
+          "delta": 4946168,
+          "mean": 122413429.33333333,
+          "min": 117819136,
+          "max": 126655848,
+          "slope": 2473084.0,
+          "rSquared": 0.3118138245518789
+        },
+        "lohSizeBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 167461192,
+          "last": 172408744,
+          "delta": 4947552,
+          "mean": 171929693.33333334,
+          "min": 167461192,
+          "max": 175919144,
+          "slope": 2473776.0,
+          "rSquared": 0.3389148940870983
+        },
+        "lohFragmentedBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 117817416,
+          "last": 122764968,
+          "delta": 4947552,
+          "mean": 122407898.66666667,
+          "min": 117817416,
+          "max": 126641312,
+          "slope": 2473776.0,
+          "rSquared": 0.3128467949427475
+        },
+        "processThreadCount": {
+          "samples": 3,
+          "available": true,
+          "first": 32,
+          "last": 32,
+          "delta": 0,
+          "mean": 32.0,
+          "min": 32,
+          "max": 32,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "processHandleCount": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "threadPoolThreads": {
+          "samples": 3,
+          "available": true,
+          "first": 5,
+          "last": 5,
+          "delta": 0,
+          "mean": 5.0,
+          "min": 5,
+          "max": 5,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "threadPoolPendingWorkItems": {
+          "samples": 3,
+          "available": true,
+          "first": 0,
+          "last": 0,
+          "delta": 0,
+          "mean": 0.0,
+          "min": 0,
+          "max": 0,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "gcTotalPauseMs": {
+          "samples": 3,
+          "available": true,
+          "first": 514.65,
+          "last": 647.172,
+          "delta": 132.52200000000005,
+          "mean": 581.3646666666667,
+          "min": 514.65,
+          "max": 647.172,
+          "slope": 66.26100000000002,
+          "rSquared": 0.999859389435036
+        }
+      },
+      "blocks": [
+        {
+          "firstCycle": 5,
+          "lastCycle": 14,
+          "metrics": {
+            "workingSetBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 767000576,
+              "last": 779403264,
+              "delta": 12402688,
+              "mean": 774078464.0,
+              "min": 743718912,
+              "max": 791003136,
+              "slope": 7208960.0,
+              "rSquared": 0.3425168905410847
+            },
+            "privateBytes": {
+              "samples": 0,
+              "available": false,
+              "slope": null
+            },
+            "virtualBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 508244770816,
+              "last": 508245180416,
+              "delta": 409600,
+              "mean": 508245531033.6,
+              "min": 508244180992,
+              "max": 508248522752,
+              "slope": 516096.0,
+              "rSquared": 0.22657627211530573
+            },
+            "managedLiveBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 92843216,
+              "last": 92923664,
+              "delta": 80448,
+              "mean": 97022707.2,
+              "min": 92843216,
+              "max": 103261120,
+              "slope": 23479.2,
+              "rSquared": 4.300100123655337e-05
+            },
+            "gcCommittedBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 217972736,
+              "last": 227360768,
+              "delta": 9388032,
+              "mean": 214997401.6,
+              "min": 188776448,
+              "max": 227360768,
+              "slope": 4884070.4,
+              "rSquared": 0.261112184587473
+            },
+            "gcHeapSizeBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 179772864,
+              "last": 194048712,
+              "delta": 14275848,
+              "mean": 187693985.6,
+              "min": 172641272,
+              "max": 202917904,
+              "slope": 5882832.8,
+              "rSquared": 0.614238143021288
+            },
+            "gcFragmentedBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 108539568,
+              "last": 122765304,
+              "delta": 14225736,
+              "mean": 114439220.8,
+              "min": 96416248,
+              "max": 126655848,
+              "slope": 5869107.2,
+              "rSquared": 0.5842070324946124
+            },
+            "lohSizeBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 158163232,
+              "last": 172408744,
+              "delta": 14245512,
+              "mean": 163926337.6,
+              "min": 145679376,
+              "max": 175919144,
+              "slope": 5873079.2,
+              "rSquared": 0.5802625691543278
+            },
+            "lohFragmentedBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 108519456,
+              "last": 122764968,
+              "delta": 14245512,
+              "mean": 114428939.2,
+              "min": 96401544,
+              "max": 126641312,
+              "slope": 5873079.2,
+              "rSquared": 0.5846061562578575
+            },
+            "processThreadCount": {
+              "samples": 5,
+              "available": true,
+              "first": 32,
+              "last": 32,
+              "delta": 0,
+              "mean": 32.0,
+              "min": 32,
+              "max": 32,
+              "slope": 0.0,
+              "rSquared": null
+            },
+            "processHandleCount": {
+              "samples": 0,
+              "available": false,
+              "slope": null
+            },
+            "threadPoolThreads": {
+              "samples": 5,
+              "available": true,
+              "first": 5,
+              "last": 5,
+              "delta": 0,
+              "mean": 5.0,
+              "min": 5,
+              "max": 5,
+              "slope": 0.0,
+              "rSquared": null
+            },
+            "threadPoolPendingWorkItems": {
+              "samples": 5,
+              "available": true,
+              "first": 0,
+              "last": 0,
+              "delta": 0,
+              "mean": 0.0,
+              "min": 0,
+              "max": 0,
+              "slope": 0.0,
+              "rSquared": null
+            },
+            "gcTotalPauseMs": {
+              "samples": 5,
+              "available": true,
+              "first": 381.243,
+              "last": 647.172,
+              "delta": 265.92900000000003,
+              "mean": 515.0184,
+              "min": 381.243,
+              "max": 647.172,
+              "slope": 66.43750000000001,
+              "rSquared": 0.999920454146066
+            }
+          }
+        }
+      ]
+    },
+    "postCandidateUnload": {
+      "sampleCount": 10,
+      "postWarmupSamples": 5,
+      "slopeUnit": "metric units per full cycle (zero-based cycle index)",
+      "postWarmup": {
+        "workingSetBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 776192000,
+          "last": 817807360,
+          "delta": 41615360,
+          "mean": 790695116.8,
+          "min": 766246912,
+          "max": 817807360,
+          "slope": 11822694.4,
+          "rSquared": 0.8440298518591473
+        },
+        "privateBytes": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "virtualBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 508244393984,
+          "last": 508244787200,
+          "delta": 393216,
+          "mean": 508246143795.2,
+          "min": 508244197376,
+          "max": 508252733440,
+          "slope": 932249.6,
+          "rSquared": 0.15953627398999093
+        },
+        "managedLiveBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 109300632,
+          "last": 109401728,
+          "delta": 101096,
+          "mean": 113493281.6,
+          "min": 109300632,
+          "max": 119727224,
+          "slope": 27724.8,
+          "rSquared": 6.0054804410736295e-05
+        },
+        "gcCommittedBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 252837888,
+          "last": 237764608,
+          "delta": -15073280,
+          "mean": 240648192.0,
+          "min": 225492992,
+          "max": 252837888,
+          "slope": -4063232.0,
+          "rSquared": 0.3180924383742447
+        },
+        "gcHeapSizeBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 213089392,
+          "last": 202263056,
+          "delta": -10826336,
+          "mean": 207835849.6,
+          "min": 199333888,
+          "max": 216341264,
+          "slope": -3047043.2,
+          "rSquared": 0.456506619692286
+        },
+        "gcFragmentedBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 125347712,
+          "last": 114470816,
+          "delta": -10876896,
+          "mean": 118071124.8,
+          "min": 106562184,
+          "max": 128557552,
+          "slope": -3060896.8,
+          "rSquared": 0.29707841231764154
+        },
+        "lohSizeBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 191580072,
+          "last": 180703200,
+          "delta": -10876872,
+          "mean": 184156932.8,
+          "min": 172428016,
+          "max": 194789936,
+          "slope": -3060916.8,
+          "rSquared": 0.2874727861571268
+        },
+        "lohFragmentedBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 125347448,
+          "last": 114470576,
+          "delta": -10876872,
+          "mean": 118070686.4,
+          "min": 106561336,
+          "max": 128557312,
+          "slope": -3060916.8,
+          "rSquared": 0.2970676409811105
+        },
+        "processThreadCount": {
+          "samples": 5,
+          "available": true,
+          "first": 32,
+          "last": 32,
+          "delta": 0,
+          "mean": 32.0,
+          "min": 32,
+          "max": 32,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "processHandleCount": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "threadPoolThreads": {
+          "samples": 5,
+          "available": true,
+          "first": 5,
+          "last": 5,
+          "delta": 0,
+          "mean": 5.0,
+          "min": 5,
+          "max": 5,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "threadPoolPendingWorkItems": {
+          "samples": 5,
+          "available": true,
+          "first": 0,
+          "last": 0,
+          "delta": 0,
+          "mean": 0.0,
+          "min": 0,
+          "max": 0,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "gcTotalPauseMs": {
+          "samples": 5,
+          "available": true,
+          "first": 409.329,
+          "last": 675.309,
+          "delta": 265.97999999999996,
+          "mean": 546.278,
+          "min": 409.329,
+          "max": 675.309,
+          "slope": 66.4702,
+          "rSquared": 0.998165647304096
+        }
+      },
+      "latterHalf": {
+        "workingSetBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 791986176,
+          "last": 817807360,
+          "delta": 25821184,
+          "mean": 803678890.6666666,
+          "min": 791986176,
+          "max": 817807360,
+          "slope": 12910592.0,
+          "rSquared": 0.9739987378180356
+        },
+        "privateBytes": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "virtualBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 508244606976,
+          "last": 508244787200,
+          "delta": 180224,
+          "mean": 508247375872.0,
+          "min": 508244606976,
+          "max": 508252733440,
+          "slope": 90112.0,
+          "rSquared": 0.0003770551061363925
+        },
+        "managedLiveBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 109384656,
+          "last": 109401728,
+          "delta": 17072,
+          "mean": 112837869.33333333,
+          "min": 109384656,
+          "max": 119727224,
+          "slope": 8536.0,
+          "rSquared": 2.046866765859079e-06
+        },
+        "gcCommittedBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 251166720,
+          "last": 237764608,
+          "delta": -13402112,
+          "mean": 238141440.0,
+          "min": 225492992,
+          "max": 251166720,
+          "slope": -6701056.0,
+          "rSquared": 0.2723253167586188
+        },
+        "gcHeapSizeBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 216341264,
+          "last": 202263056,
+          "delta": -14078208,
+          "mean": 205979402.66666666,
+          "min": 199333888,
+          "max": 216341264,
+          "slope": -7039104.0,
+          "rSquared": 0.5993504953728718
+        },
+        "gcFragmentedBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 128557552,
+          "last": 114470816,
+          "delta": -14086736,
+          "mean": 116530184.0,
+          "min": 106562184,
+          "max": 128557552,
+          "slope": -7043368.0,
+          "rSquared": 0.3996544944914523
+        },
+        "lohSizeBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 194789936,
+          "last": 180703200,
+          "delta": -14086736,
+          "mean": 182640384.0,
+          "min": 172428016,
+          "max": 194789936,
+          "slope": -7043368.0,
+          "rSquared": 0.38809091998917
+        },
+        "lohFragmentedBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 128557312,
+          "last": 114470576,
+          "delta": -14086736,
+          "mean": 116529741.33333333,
+          "min": 106561336,
+          "max": 128557312,
+          "slope": -7043368.0,
+          "rSquared": 0.3996349822178328
+        },
+        "processThreadCount": {
+          "samples": 3,
+          "available": true,
+          "first": 32,
+          "last": 32,
+          "delta": 0,
+          "mean": 32.0,
+          "min": 32,
+          "max": 32,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "processHandleCount": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "threadPoolThreads": {
+          "samples": 3,
+          "available": true,
+          "first": 5,
+          "last": 5,
+          "delta": 0,
+          "mean": 5.0,
+          "min": 5,
+          "max": 5,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "threadPoolPendingWorkItems": {
+          "samples": 3,
+          "available": true,
+          "first": 0,
+          "last": 0,
+          "delta": 0,
+          "mean": 0.0,
+          "min": 0,
+          "max": 0,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "gcTotalPauseMs": {
+          "samples": 3,
+          "available": true,
+          "first": 544.526,
+          "last": 675.309,
+          "delta": 130.78300000000002,
+          "mean": 612.4396666666667,
+          "min": 544.526,
+          "max": 675.309,
+          "slope": 65.39150000000001,
+          "rSquared": 0.9955568366725785
+        }
+      },
+      "blocks": [
+        {
+          "firstCycle": 5,
+          "lastCycle": 14,
+          "metrics": {
+            "workingSetBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 776192000,
+              "last": 817807360,
+              "delta": 41615360,
+              "mean": 790695116.8,
+              "min": 766246912,
+              "max": 817807360,
+              "slope": 11822694.4,
+              "rSquared": 0.8440298518591473
+            },
+            "privateBytes": {
+              "samples": 0,
+              "available": false,
+              "slope": null
+            },
+            "virtualBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 508244393984,
+              "last": 508244787200,
+              "delta": 393216,
+              "mean": 508246143795.2,
+              "min": 508244197376,
+              "max": 508252733440,
+              "slope": 932249.6,
+              "rSquared": 0.15953627398999093
+            },
+            "managedLiveBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 109300632,
+              "last": 109401728,
+              "delta": 101096,
+              "mean": 113493281.6,
+              "min": 109300632,
+              "max": 119727224,
+              "slope": 27724.8,
+              "rSquared": 6.0054804410736295e-05
+            },
+            "gcCommittedBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 252837888,
+              "last": 237764608,
+              "delta": -15073280,
+              "mean": 240648192.0,
+              "min": 225492992,
+              "max": 252837888,
+              "slope": -4063232.0,
+              "rSquared": 0.3180924383742447
+            },
+            "gcHeapSizeBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 213089392,
+              "last": 202263056,
+              "delta": -10826336,
+              "mean": 207835849.6,
+              "min": 199333888,
+              "max": 216341264,
+              "slope": -3047043.2,
+              "rSquared": 0.456506619692286
+            },
+            "gcFragmentedBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 125347712,
+              "last": 114470816,
+              "delta": -10876896,
+              "mean": 118071124.8,
+              "min": 106562184,
+              "max": 128557552,
+              "slope": -3060896.8,
+              "rSquared": 0.29707841231764154
+            },
+            "lohSizeBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 191580072,
+              "last": 180703200,
+              "delta": -10876872,
+              "mean": 184156932.8,
+              "min": 172428016,
+              "max": 194789936,
+              "slope": -3060916.8,
+              "rSquared": 0.2874727861571268
+            },
+            "lohFragmentedBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 125347448,
+              "last": 114470576,
+              "delta": -10876872,
+              "mean": 118070686.4,
+              "min": 106561336,
+              "max": 128557312,
+              "slope": -3060916.8,
+              "rSquared": 0.2970676409811105
+            },
+            "processThreadCount": {
+              "samples": 5,
+              "available": true,
+              "first": 32,
+              "last": 32,
+              "delta": 0,
+              "mean": 32.0,
+              "min": 32,
+              "max": 32,
+              "slope": 0.0,
+              "rSquared": null
+            },
+            "processHandleCount": {
+              "samples": 0,
+              "available": false,
+              "slope": null
+            },
+            "threadPoolThreads": {
+              "samples": 5,
+              "available": true,
+              "first": 5,
+              "last": 5,
+              "delta": 0,
+              "mean": 5.0,
+              "min": 5,
+              "max": 5,
+              "slope": 0.0,
+              "rSquared": null
+            },
+            "threadPoolPendingWorkItems": {
+              "samples": 5,
+              "available": true,
+              "first": 0,
+              "last": 0,
+              "delta": 0,
+              "mean": 0.0,
+              "min": 0,
+              "max": 0,
+              "slope": 0.0,
+              "rSquared": null
+            },
+            "gcTotalPauseMs": {
+              "samples": 5,
+              "available": true,
+              "first": 409.329,
+              "last": 675.309,
+              "delta": 265.97999999999996,
+              "mean": 546.278,
+              "min": 409.329,
+              "max": 675.309,
+              "slope": 66.4702,
+              "rSquared": 0.998165647304096
+            }
+          }
+        }
+      ]
+    },
+    "postStudioUnload": {
+      "sampleCount": 10,
+      "postWarmupSamples": 5,
+      "slopeUnit": "metric units per full cycle (zero-based cycle index)",
+      "postWarmup": {
+        "workingSetBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 767672320,
+          "last": 809320448,
+          "delta": 41648128,
+          "mean": 782368768.0,
+          "min": 758235136,
+          "max": 809320448,
+          "slope": 11825971.2,
+          "rSquared": 0.8511074953686913
+        },
+        "privateBytes": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "virtualBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 508218916864,
+          "last": 508227665920,
+          "delta": 8749056,
+          "mean": 508222495129.6,
+          "min": 508218916864,
+          "max": 508227665920,
+          "slope": 2603417.6,
+          "rSquared": 0.7626657830542141
+        },
+        "managedLiveBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 113895512,
+          "last": 113996608,
+          "delta": 101096,
+          "mean": 118086516.8,
+          "min": 113895512,
+          "max": 124322104,
+          "slope": 27724.8,
+          "rSquared": 6.0023087820271215e-05
+        },
+        "gcCommittedBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 252837888,
+          "last": 237764608,
+          "delta": -15073280,
+          "mean": 240648192.0,
+          "min": 225492992,
+          "max": 252837888,
+          "slope": -4063232.0,
+          "rSquared": 0.3180924383742447
+        },
+        "gcHeapSizeBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 213089392,
+          "last": 202263056,
+          "delta": -10826336,
+          "mean": 207835849.6,
+          "min": 199333888,
+          "max": 216341264,
+          "slope": -3047043.2,
+          "rSquared": 0.456506619692286
+        },
+        "gcFragmentedBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 125347712,
+          "last": 114470816,
+          "delta": -10876896,
+          "mean": 118071124.8,
+          "min": 106562184,
+          "max": 128557552,
+          "slope": -3060896.8,
+          "rSquared": 0.29707841231764154
+        },
+        "lohSizeBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 191580072,
+          "last": 180703200,
+          "delta": -10876872,
+          "mean": 184156932.8,
+          "min": 172428016,
+          "max": 194789936,
+          "slope": -3060916.8,
+          "rSquared": 0.2874727861571268
+        },
+        "lohFragmentedBytes": {
+          "samples": 5,
+          "available": true,
+          "first": 125347448,
+          "last": 114470576,
+          "delta": -10876872,
+          "mean": 118070686.4,
+          "min": 106561336,
+          "max": 128557312,
+          "slope": -3060916.8,
+          "rSquared": 0.2970676409811105
+        },
+        "processThreadCount": {
+          "samples": 5,
+          "available": true,
+          "first": 32,
+          "last": 32,
+          "delta": 0,
+          "mean": 32.0,
+          "min": 32,
+          "max": 32,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "processHandleCount": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "threadPoolThreads": {
+          "samples": 5,
+          "available": true,
+          "first": 5,
+          "last": 5,
+          "delta": 0,
+          "mean": 5.0,
+          "min": 5,
+          "max": 5,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "threadPoolPendingWorkItems": {
+          "samples": 5,
+          "available": true,
+          "first": 0,
+          "last": 0,
+          "delta": 0,
+          "mean": 0.0,
+          "min": 0,
+          "max": 0,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "gcTotalPauseMs": {
+          "samples": 5,
+          "available": true,
+          "first": 409.329,
+          "last": 675.309,
+          "delta": 265.97999999999996,
+          "mean": 546.278,
+          "min": 409.329,
+          "max": 675.309,
+          "slope": 66.4702,
+          "rSquared": 0.998165647304096
+        }
+      },
+      "latterHalf": {
+        "workingSetBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 783417344,
+          "last": 809320448,
+          "delta": 25903104,
+          "mean": 795312128.0,
+          "min": 783417344,
+          "max": 809320448,
+          "slope": 12951552.0,
+          "rSquared": 0.9804183905449103
+        },
+        "privateBytes": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "virtualBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 508219129856,
+          "last": 508227665920,
+          "delta": 8536064,
+          "mean": 508224815104.0,
+          "min": 508219129856,
+          "max": 508227665920,
+          "slope": 4268032.0,
+          "rSquared": 0.7514395340339066
+        },
+        "managedLiveBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 113971312,
+          "last": 113996608,
+          "delta": 25296,
+          "mean": 117430008.0,
+          "min": 113971312,
+          "max": 124322104,
+          "slope": 12648.0,
+          "rSquared": 4.490325916872706e-06
+        },
+        "gcCommittedBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 251166720,
+          "last": 237764608,
+          "delta": -13402112,
+          "mean": 238141440.0,
+          "min": 225492992,
+          "max": 251166720,
+          "slope": -6701056.0,
+          "rSquared": 0.2723253167586188
+        },
+        "gcHeapSizeBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 216341264,
+          "last": 202263056,
+          "delta": -14078208,
+          "mean": 205979402.66666666,
+          "min": 199333888,
+          "max": 216341264,
+          "slope": -7039104.0,
+          "rSquared": 0.5993504953728718
+        },
+        "gcFragmentedBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 128557552,
+          "last": 114470816,
+          "delta": -14086736,
+          "mean": 116530184.0,
+          "min": 106562184,
+          "max": 128557552,
+          "slope": -7043368.0,
+          "rSquared": 0.3996544944914523
+        },
+        "lohSizeBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 194789936,
+          "last": 180703200,
+          "delta": -14086736,
+          "mean": 182640384.0,
+          "min": 172428016,
+          "max": 194789936,
+          "slope": -7043368.0,
+          "rSquared": 0.38809091998917
+        },
+        "lohFragmentedBytes": {
+          "samples": 3,
+          "available": true,
+          "first": 128557312,
+          "last": 114470576,
+          "delta": -14086736,
+          "mean": 116529741.33333333,
+          "min": 106561336,
+          "max": 128557312,
+          "slope": -7043368.0,
+          "rSquared": 0.3996349822178328
+        },
+        "processThreadCount": {
+          "samples": 3,
+          "available": true,
+          "first": 32,
+          "last": 32,
+          "delta": 0,
+          "mean": 32.0,
+          "min": 32,
+          "max": 32,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "processHandleCount": {
+          "samples": 0,
+          "available": false,
+          "slope": null
+        },
+        "threadPoolThreads": {
+          "samples": 3,
+          "available": true,
+          "first": 5,
+          "last": 5,
+          "delta": 0,
+          "mean": 5.0,
+          "min": 5,
+          "max": 5,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "threadPoolPendingWorkItems": {
+          "samples": 3,
+          "available": true,
+          "first": 0,
+          "last": 0,
+          "delta": 0,
+          "mean": 0.0,
+          "min": 0,
+          "max": 0,
+          "slope": 0.0,
+          "rSquared": null
+        },
+        "gcTotalPauseMs": {
+          "samples": 3,
+          "available": true,
+          "first": 544.526,
+          "last": 675.309,
+          "delta": 130.78300000000002,
+          "mean": 612.4396666666667,
+          "min": 544.526,
+          "max": 675.309,
+          "slope": 65.39150000000001,
+          "rSquared": 0.9955568366725785
+        }
+      },
+      "blocks": [
+        {
+          "firstCycle": 5,
+          "lastCycle": 14,
+          "metrics": {
+            "workingSetBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 767672320,
+              "last": 809320448,
+              "delta": 41648128,
+              "mean": 782368768.0,
+              "min": 758235136,
+              "max": 809320448,
+              "slope": 11825971.2,
+              "rSquared": 0.8511074953686913
+            },
+            "privateBytes": {
+              "samples": 0,
+              "available": false,
+              "slope": null
+            },
+            "virtualBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 508218916864,
+              "last": 508227665920,
+              "delta": 8749056,
+              "mean": 508222495129.6,
+              "min": 508218916864,
+              "max": 508227665920,
+              "slope": 2603417.6,
+              "rSquared": 0.7626657830542141
+            },
+            "managedLiveBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 113895512,
+              "last": 113996608,
+              "delta": 101096,
+              "mean": 118086516.8,
+              "min": 113895512,
+              "max": 124322104,
+              "slope": 27724.8,
+              "rSquared": 6.0023087820271215e-05
+            },
+            "gcCommittedBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 252837888,
+              "last": 237764608,
+              "delta": -15073280,
+              "mean": 240648192.0,
+              "min": 225492992,
+              "max": 252837888,
+              "slope": -4063232.0,
+              "rSquared": 0.3180924383742447
+            },
+            "gcHeapSizeBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 213089392,
+              "last": 202263056,
+              "delta": -10826336,
+              "mean": 207835849.6,
+              "min": 199333888,
+              "max": 216341264,
+              "slope": -3047043.2,
+              "rSquared": 0.456506619692286
+            },
+            "gcFragmentedBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 125347712,
+              "last": 114470816,
+              "delta": -10876896,
+              "mean": 118071124.8,
+              "min": 106562184,
+              "max": 128557552,
+              "slope": -3060896.8,
+              "rSquared": 0.29707841231764154
+            },
+            "lohSizeBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 191580072,
+              "last": 180703200,
+              "delta": -10876872,
+              "mean": 184156932.8,
+              "min": 172428016,
+              "max": 194789936,
+              "slope": -3060916.8,
+              "rSquared": 0.2874727861571268
+            },
+            "lohFragmentedBytes": {
+              "samples": 5,
+              "available": true,
+              "first": 125347448,
+              "last": 114470576,
+              "delta": -10876872,
+              "mean": 118070686.4,
+              "min": 106561336,
+              "max": 128557312,
+              "slope": -3060916.8,
+              "rSquared": 0.2970676409811105
+            },
+            "processThreadCount": {
+              "samples": 5,
+              "available": true,
+              "first": 32,
+              "last": 32,
+              "delta": 0,
+              "mean": 32.0,
+              "min": 32,
+              "max": 32,
+              "slope": 0.0,
+              "rSquared": null
+            },
+            "processHandleCount": {
+              "samples": 0,
+              "available": false,
+              "slope": null
+            },
+            "threadPoolThreads": {
+              "samples": 5,
+              "available": true,
+              "first": 5,
+              "last": 5,
+              "delta": 0,
+              "mean": 5.0,
+              "min": 5,
+              "max": 5,
+              "slope": 0.0,
+              "rSquared": null
+            },
+            "threadPoolPendingWorkItems": {
+              "samples": 5,
+              "available": true,
+              "first": 0,
+              "last": 0,
+              "delta": 0,
+              "mean": 0.0,
+              "min": 0,
+              "max": 0,
+              "slope": 0.0,
+              "rSquared": null
+            },
+            "gcTotalPauseMs": {
+              "samples": 5,
+              "available": true,
+              "first": 409.329,
+              "last": 675.309,
+              "delta": 265.97999999999996,
+              "mean": 546.278,
+              "min": 409.329,
+              "max": 675.309,
+              "slope": 66.4702,
+              "rSquared": 0.998165647304096
+            }
+          }
+        }
+      ]
+    }
+  },
+  "quiescent": {
+    "sampleCount": 6,
+    "slopeUnit": "metric units per elapsed second",
+    "metrics": {
+      "workingSetBytes": {
+        "samples": 6,
+        "available": true,
+        "first": 675659776,
+        "last": 675266560,
+        "delta": -393216,
+        "mean": 675528704.0,
+        "min": 675266560,
+        "max": 675659776,
+        "slope": -75669.03034734602,
+        "rSquared": 0.8800424035932717
+      },
+      "privateBytes": {
+        "samples": 0,
+        "available": false,
+        "slope": null
+      },
+      "virtualBytes": {
+        "samples": 6,
+        "available": true,
+        "first": 508093448192,
+        "last": 508085043200,
+        "delta": -8404992,
+        "mean": 508089947477.3333,
+        "min": 508085043200,
+        "max": 508093448192,
+        "slope": -1688108.6783275183,
+        "rSquared": 0.9472045452960458
+      },
+      "managedLiveBytes": {
+        "samples": 6,
+        "available": true,
+        "first": 89716752,
+        "last": 89790584,
+        "delta": 73832,
+        "mean": 89757749.33333333,
+        "min": 89716752,
+        "max": 89790584,
+        "slope": 14963.816352575235,
+        "rSquared": 0.975614050019756
+      },
+      "gcCommittedBytes": {
+        "samples": 6,
+        "available": true,
+        "first": 98910208,
+        "last": 98910208,
+        "delta": 0,
+        "mean": 98910208.0,
+        "min": 98910208,
+        "max": 98910208,
+        "slope": 0.0,
+        "rSquared": null
+      },
+      "gcHeapSizeBytes": {
+        "samples": 6,
+        "available": true,
+        "first": 68909976,
+        "last": 68909976,
+        "delta": 0,
+        "mean": 68909976.0,
+        "min": 68909976,
+        "max": 68909976,
+        "slope": 0.0,
+        "rSquared": null
+      },
+      "gcFragmentedBytes": {
+        "samples": 6,
+        "available": true,
+        "first": 5576,
+        "last": 5576,
+        "delta": 0,
+        "mean": 5576.0,
+        "min": 5576,
+        "max": 5576,
+        "slope": 0.0,
+        "rSquared": null
+      },
+      "lohSizeBytes": {
+        "samples": 6,
+        "available": true,
+        "first": 48073280,
+        "last": 48073280,
+        "delta": 0,
+        "mean": 48073280.0,
+        "min": 48073280,
+        "max": 48073280,
+        "slope": 0.0,
+        "rSquared": null
+      },
+      "lohFragmentedBytes": {
+        "samples": 6,
+        "available": true,
+        "first": 2656,
+        "last": 2656,
+        "delta": 0,
+        "mean": 2656.0,
+        "min": 2656,
+        "max": 2656,
+        "slope": 0.0,
+        "rSquared": null
+      },
+      "processThreadCount": {
+        "samples": 6,
+        "available": true,
+        "first": 32,
+        "last": 21,
+        "delta": -11,
+        "mean": 28.333333333333332,
+        "min": 21,
+        "max": 32,
+        "slope": -2.1096674650195686,
+        "rSquared": 0.8756513265625878
+      },
+      "processHandleCount": {
+        "samples": 0,
+        "available": false,
+        "slope": null
+      },
+      "threadPoolThreads": {
+        "samples": 6,
+        "available": true,
+        "first": 5,
+        "last": 3,
+        "delta": -2,
+        "mean": 3.6666666666666665,
+        "min": 3,
+        "max": 5,
+        "slope": -0.456181494890878,
+        "rSquared": 0.6857934593627923
+      },
+      "threadPoolPendingWorkItems": {
+        "samples": 6,
+        "available": true,
+        "first": 0,
+        "last": 0,
+        "delta": 0,
+        "mean": 0.0,
+        "min": 0,
+        "max": 0,
+        "slope": 0.0,
+        "rSquared": null
+      },
+      "gcTotalPauseMs": {
+        "samples": 6,
+        "available": true,
+        "first": 682.294,
+        "last": 682.294,
+        "delta": 0.0,
+        "mean": 682.294,
+        "min": 682.294,
+        "max": 682.294,
+        "slope": 0.0,
+        "rSquared": null
+      }
+    }
+  },
+  "boundedness": "UNVERIFIED: slopes are descriptive evidence. RSS includes runtime, driver caches and allocator retention; plateau/leak requires repeated matched runs and native allocation/VM-category evidence.",
+  "limitations": "OLS/R-squared are descriptive, not independent-sample confidence intervals. LOH/GC metrics describe the last collection. Null platform counters remain unavailable. No FPS or native subsystem byte attribution."
+}
