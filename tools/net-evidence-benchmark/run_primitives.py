@@ -14,7 +14,7 @@ import uuid
 import xml.etree.ElementTree as ET
 
 # Same portable log/digest and owned process-group policy as the archival harness.
-from run import portable, run_owned, sanitize_log, sha, source_snapshot
+from run import git, portable, run_owned, sanitize_log, sha, source_snapshot
 
 
 def clean_environment(original, sdk):
@@ -25,7 +25,7 @@ def clean_environment(original, sdk):
     return env
 
 
-def validate_qualification(document, head, client_sha, client_mvid):
+def validate_qualification(document, head, client_sha, client_mvid, fixture_sha, fixture_mvid):
     q = document.get("payload", document)
     before = q.get("sourceBefore", q.get("source_before", {}))
     after = q.get("sourceAfter", q.get("source_after", {}))
@@ -38,10 +38,18 @@ def validate_qualification(document, head, client_sha, client_mvid):
         raise ValueError("Qualification source is dirty")
     if actual.get("sha256") != client_sha or actual.get("mvid", "").lower() != client_mvid.lower():
         raise ValueError("Qualification client identity mismatch")
+    physical = q.get("physicalHashesAfter", q.get("physical_hashes_after", {}))
+    recorded_fixture_sha = physical.get("nettest.dll")
+    recorded_fixture_mvid = q.get("nettestMvid", q.get("nettest_mvid", ""))
+    if recorded_fixture_sha != fixture_sha or not isinstance(recorded_fixture_mvid, str) or recorded_fixture_mvid.lower() != fixture_mvid.lower():
+        raise ValueError("Qualification full fixture SHA/MVID missing or mismatched")
+    if physical.get("ProjectPrime.dll", client_sha) != client_sha:
+        raise ValueError("Qualification physical engine SHA mismatch")
     for field in ("sourceUnchanged", "runtimeUnchanged", "allOwnedGroupsClosed"):
         if q.get(field) is False:
             raise ValueError("Qualification explicitly failed " + field)
-    return {"status": q["status"], "source": before, "actual_client": actual}
+    return {"status": q["status"], "source": before, "actual_client": actual,
+            "full_fixture": {"file": "nettest.dll", "sha256": recorded_fixture_sha, "mvid": recorded_fixture_mvid}}
 
 
 def require_external_fresh_output(repo, out):
@@ -105,7 +113,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("repo", "runtime", "donor", "sdk", "out", "qualification-receipt", "build-receipt"):
         parser.add_argument("--" + name, type=Path, required=True)
-    for name in ("head", "client-sha", "client-mvid", "fixture-sha", "fixture-mvid"):
+    for name in ("head", "benchmark-head", "client-sha", "client-mvid", "fixture-sha", "fixture-mvid"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--execution-slot-released", action="store_true", required=True)
     args = parser.parse_args(argv)
@@ -116,29 +124,38 @@ def main(argv=None):
         if not re.fullmatch(r"[0-9a-f]{64}", value):
             raise ValueError("Require exact SHA256 for " + name)
         setattr(args, name, value)
-    if not re.fullmatch(r"[0-9a-f]{40}", args.head):
-        raise ValueError("Require full commit SHA")
+    for name in ("head", "benchmark_head"):
+        if not re.fullmatch(r"[0-9a-f]{40}", getattr(args, name)):
+            raise ValueError("Require full commit SHA for " + name)
     for name in ("client_mvid", "fixture_mvid"):
         setattr(args, name, str(uuid.UUID(getattr(args, name))))
-    require_external_fresh_output(args.repo, args.out)
-    args.out.mkdir(parents=True)
     prep = Path(__file__).resolve().parent
+    benchmark_repo = Path(git(prep, "rev-parse", "--show-toplevel")).resolve()
+    require_external_fresh_output(args.repo, args.out)
+    require_external_fresh_output(benchmark_repo, args.out)
+    args.out.mkdir(parents=True)
     labels = {str(args.repo): "$SOURCE", str(args.runtime): "$QUALIFIED_RUNTIME", str(args.donor): "$DEPENDENCIES",
-              str(args.sdk): "$DOTNET", str(args.out): "$EVIDENCE", str(prep): "$BENCHMARK_SOURCE",
+              str(args.sdk): "$DOTNET", str(args.out): "$EVIDENCE", str(prep): "$BENCHMARK_SOURCE", str(benchmark_repo): "$BENCHMARK_CHECKOUT",
               str(args.qualification_receipt): "$QUALIFICATION_RECEIPT", str(args.build_receipt): "$BUILD_RECEIPT"}
     receipt = {"schema": 1, "success": False, "scope": "constructed primitive overhead only; no native/admission/payment/FPS coverage",
                "utc_started": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                "args": {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()}, "processes": [], "logs": []}
     binaries = {}
+    benchmark_sources = {}
     def interrupted(signum, frame):
         raise KeyboardInterrupt("Received signal " + str(signum))
     prior_handler = signal.signal(signal.SIGTERM, interrupted)
     try:
         before = source_snapshot(args.repo); receipt["source_before"] = before
+        benchmark_before = source_snapshot(prep); receipt["benchmark_source_before"] = benchmark_before
+        if benchmark_before["head"] != args.benchmark_head or benchmark_before["status_porcelain"]:
+            raise ValueError("Require exact clean benchmark source HEAD, independently of engine HEAD")
+        benchmark_sources = {name: sha(prep / name) for name in ("primitives/Program.cs", "run_primitives.py", "run.py")}
+        receipt["benchmark_source_digests_before"] = benchmark_sources
         if before["head"] != args.head or before["status_porcelain"]:
             raise ValueError("Require exact qualified clean source HEAD")
         receipt["qualification"] = validate_qualification(json.loads(args.qualification_receipt.read_text()),
-            args.head, args.client_sha, args.client_mvid)
+            args.head, args.client_sha, args.client_mvid, args.fixture_sha, args.fixture_mvid)
         receipt["qualification_receipt_sha256"] = sha(args.qualification_receipt)
         # This is a hashed provenance document, not a claimed re-execution of its build.
         json.loads(args.build_receipt.read_text())
@@ -192,6 +209,11 @@ def main(argv=None):
         if result["ThinBenchmarkEntry"]["Sha256"] != sha(runtime / "nettest.dll"):
             raise ValueError("Reported thin entry differs from executed physical file")
         after = source_snapshot(args.repo); receipt["source_after"] = after
+        benchmark_after = source_snapshot(prep); receipt["benchmark_source_after"] = benchmark_after
+        receipt["benchmark_source_digests_after"] = {name: sha(prep / name) for name in benchmark_sources}
+        if benchmark_after != benchmark_before or receipt["benchmark_source_digests_after"] != benchmark_sources:
+            raise ValueError("Benchmark source changed during run")
+        receipt["benchmark_source_clean_stable"] = True
         receipt["physical_inputs_after"] = {p: sha(Path(p)) for p in binaries}
         if after != before or receipt["physical_inputs_after"] != binaries:
             raise ValueError("Qualified source/physical inputs changed during run")
@@ -206,6 +228,8 @@ def main(argv=None):
         receipt["error"] = type(error).__name__ + ": " + str(error)
         try:
             receipt["source_after"] = source_snapshot(args.repo)
+            receipt["benchmark_source_after"] = source_snapshot(prep)
+            receipt["benchmark_source_digests_after"] = {name: sha(prep / name) for name in benchmark_sources}
             receipt["physical_inputs_after"] = {p: sha(Path(p)) for p in binaries}
         except Exception as post_error:
             receipt["postcheck_error"] = str(post_error)
