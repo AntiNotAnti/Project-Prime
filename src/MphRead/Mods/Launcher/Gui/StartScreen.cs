@@ -275,6 +275,22 @@ namespace MphRead.Mods.Launcher.Gui
                 offline.OpenCampaignShip();
         }
 
+        /// <summary>Reveal final mission results only after a real, finished
+        /// Gorea cinematic and its existing save handoff have completed.</summary>
+        public void OpenCampaignEnding()
+        {
+            if (MatchStart.RecentCampaignEnding is not { } summary) return;
+            _prime.Router.Navigate(PrimeRoute.Offline);
+            var view = new CampaignEndingView(summary);
+            void Done()
+            {
+                _prime.Overlays.Close();
+                MatchStart.ClearRecentCampaignEnding();
+            }
+            view.Finished += (_, _) => Done();
+            _prime.Overlays.Show(view, PrimeModalSize.Medium, cancel: Done);
+        }
+
         public void OpenTraining(bool focusTrainer = true)
         {
             _prime.Router.Navigate(PrimeRoute.Offline);

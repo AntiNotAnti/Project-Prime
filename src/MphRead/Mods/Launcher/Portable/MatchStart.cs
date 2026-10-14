@@ -1,5 +1,6 @@
 using System;
 using MphRead.Entities;
+using MphRead.Formats;
 using MphRead.Mods.Campaign;
 using MphRead.Mods.Network;
 
@@ -27,6 +28,8 @@ namespace MphRead.Mods.Launcher
         /// <summary>In-memory ship boarding after a successfully committed save.</summary>
         public static CampaignDockReceipt? RecentShipDock { get; private set; }
         public static void ClearRecentShipDock() => RecentShipDock = null;
+        public static CampaignEndingSummary? RecentCampaignEnding { get; private set; }
+        public static void ClearRecentCampaignEnding() => RecentCampaignEnding = null;
 
         /// <summary>
         /// Load what the plan asked for into a window of its own and run until
@@ -96,10 +99,11 @@ namespace MphRead.Mods.Launcher
             if (plan.Kind == LaunchKind.Adventure)
             {
                 bool began = BeginAdventure(window, plan);
-                if (began) ClearRecentShipDock();
+                if (began) { ClearRecentShipDock(); ClearRecentCampaignEnding(); }
                 return began;
             }
             ClearRecentShipDock();
+            ClearRecentCampaignEnding();
             if (plan.Kind == LaunchKind.Demo)
             {
                 return BeginDemo(window, plan);
@@ -290,6 +294,12 @@ namespace MphRead.Mods.Launcher
         {
             bool wroteAdventure = commit.HasPayload && commit.Slot != 0;
             commit.Commit();
+            // Publish only after Commit succeeded: the view cannot retain
+            // the prior Scene, and a failed save must remain retryable.
+            if (commit.Departure == CampaignDeparture.Ending && commit.Ending is { } ending)
+                RecentCampaignEnding = ending with { SaveCommitted = wroteAdventure };
+            else if (commit.Slot != 0)
+                RecentCampaignEnding = null;
             // Only the real QuitGame(enteringShip:true) path can produce a
             // star-map ticket, and only after the native save was committed.
             if (wroteAdventure && commit.Departure == CampaignDeparture.ReturnedToShip
@@ -319,6 +329,13 @@ namespace MphRead.Mods.Launcher
         {
             string? landingRoom = null;
             CampaignDockReceipt? checkedDock = RecentShipDock;
+            if (plan.ExitShipToSurface &&
+                (plan.AdventureDestination is not { } exitDestination
+                    || checkedDock is not { } currentDock || exitDestination != currentDock.Planet))
+            {
+                LastError = "Exit Ship is only available at the current docked planet.";
+                return false;
+            }
             if (plan.AdventureDestination is { } destination)
             {
                 if (!CampaignShipTravel.TryChooseLanding(GameState.PeekSave(plan.SaveSlot),
@@ -366,7 +383,17 @@ namespace MphRead.Mods.Launcher
 
             window.Scene.GameState.Mode = GameMode.SinglePlayer;
             window.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: LauncherPrefs.LastColor, team: -1);
+            window.Scene.SuppressNextCampaignLandingMovie = plan.ExitShipToSurface;
             window.AddRoom(roomKey, GameMode.SinglePlayer);
+            if (plan.NewGame && !Cheats.SkipPlanetIntros)
+            {
+                // The original new-file story movie precedes the landing
+                // sequence. AddRoom's ordinary landing film is replaced by
+                // one chained intro + landing with the same native renderer.
+                window.Scene.StartMovies(Movie.StoryIntro, Movie.CALanding,
+                    FadeType.FadeOutInBlack, 0, FadeType.FadeOutWhite,
+                    5 / 30f, AfterMovie.StartGame);
+            }
             window.LoadScene();
             return true;
         }

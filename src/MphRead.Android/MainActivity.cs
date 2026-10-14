@@ -1293,7 +1293,9 @@ namespace MphRead.Droid
             {
                 NetSession.Stop(); NetHostSession.Stop();
                 ResetLauncher();
-                if (MatchStart.RecentShipDock != null)
+                if (MatchStart.RecentCampaignEnding != null)
+                    AndroidApp.Home?.OpenCampaignEnding();
+                else if (MatchStart.RecentShipDock != null)
                     AndroidApp.Home?.OpenCampaignShip();
             }
             // A demo feeds NetSession from a file rather than a socket, so

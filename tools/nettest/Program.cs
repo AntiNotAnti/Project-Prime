@@ -36,6 +36,8 @@ namespace MphRead.NetTest
                     + "  --campaign-save-management        Test Adventure save copy/archive and byte preservation.\n"
                     + "  --campaign-navigation             Test campaign planet unlocks, progress, and exits.\n"
                     + "  --campaign-ship-flow              Test ship-only travel and completed save receipt.\n"
+                    + "  --campaign-movies                 Test cartridge-movie catalog and bounded VX warmup.\n"
+                    + "  --campaign-endings                Test final cinematics, ending results and save handoff.\n"
                     + "  --foreground-binding              Test eligible facade release and cancelled room publication.\n"
                     + "  --lifecycle-soak                  Test 10/100/500 device-free save/bot-owner handoffs.\n"
                     + "  --asset-lifecycle <filesystem> <count> <replay|-> <json> Test loaded world/save/replica ownership.\n"
@@ -90,6 +92,8 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--campaign-save-management") return CampaignSaveManagementTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-navigation") return CampaignNavigationTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-ship-flow") return CampaignShipFlowTests.Run();
+            if (args.Length > 0 && args[0] == "--campaign-movies") return CampaignMovieTests.Run();
+            if (args.Length > 0 && args[0] == "--campaign-endings") return CampaignEndingTests.Run();
             if (args.Length > 0 && args[0] == "--foreground-binding") return ForegroundBindingTests.Run();
             if (args.Length > 0 && args[0] == "--lifecycle-soak") return LifecycleSoakTests.Run();
             if (args.Length > 0 && args[0] == "--asset-lifecycle")
