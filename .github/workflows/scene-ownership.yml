@@ -38,6 +38,10 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-navigation
       - name: Verify real ship travel and completed save receipt
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-ship-flow
+      - name: Verify cinematic catalog and decoder startup failure policy
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-movies
+      - name: Verify both Gorea endings and save completion handoff
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-endings
       - name: Fence foreground release and cancelled room completion
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --foreground-binding
       - name: Soak 10, 100 and 500 device-free owner/save handoffs
