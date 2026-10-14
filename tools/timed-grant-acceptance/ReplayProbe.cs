@@ -149,12 +149,15 @@ internal static class ReplayProbe
     }
     private static string GameplayHash(Scene scene, uint frame)
         => (string)Reflection.Static("ReplayStateHash", "Compute", scene, frame)!;
-    private readonly record struct CaptureHashes(string World, string Hud, string Depth);
-    private static CaptureHashes Capture(Scene scene, string label, Acceptance.Report report)
+    internal readonly record struct CaptureHashes(string World, string Hud, string Depth);
+    internal static CaptureHashes Capture(Scene scene, string label, Acceptance.Report report, bool draw = true)
     {
-        scene.OnDrawFrame();
-        ReplayReadbackDiagnostics.OriginalOpaqueSequence(scene, label, report);
-        scene.OnRenderFrame(); GL.Finish();
+        if (draw)
+        {
+            scene.OnDrawFrame();
+            ReplayReadbackDiagnostics.OriginalOpaqueSequence(scene, label, report);
+            scene.OnRenderFrame(); GL.Finish();
+        }
         string world = Path.Combine(report.Output, label + "-world.png"), hud = Path.Combine(report.Output, label + "-hud.png");
         if (!ScreenCapture.Save(scene, world)
             || !ScreenCapture.SaveWindow(scene, hud)

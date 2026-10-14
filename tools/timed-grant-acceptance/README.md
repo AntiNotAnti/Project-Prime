@@ -179,3 +179,56 @@ match. Without the flag, submission remains untouched. This isolates allocation-
 local state-key sorting from exact native restore/texture content evidence.
 Actual retained opaque/decal/translucent packet sequences and full item state are
 also retained in ordinary diagnostics to compare the submitted permutation.
+
+A fixed genuine private-scene render benchmark is available separately:
+
+```sh
+dotnet timed-grant-acceptance.dll \
+  --binary-dir /absolute/frozen/consumer \
+  --expected-client-sha256 EXACT_CONSUMER_SHA256 --assets /absolute/profile \
+  --room 'MP6 HEADSHOT' --output /absolute/fresh/benchmark-arm \
+  --replay-render-benchmark /absolute/genuine/DeathAlt-authored-recording.ppdemo \
+  --benchmark-frame 31
+```
+
+The actual native private decoder advances to the exact recorded frame and then
+holds simulation/input state. Eight actual GL draw/finish warmups precede 31
+sequential unprofiled samples. Each sample retains owner-thread CPU elapsed via
+clock_gettime(CLOCK_THREAD_CPUTIME_ID), submission wall time and explicit
+GL.Finish wall time. macOS uses the local Darwin SDK clock ID 16; Linux uses ID 3.
+GL profiling must be disabled. This is fixed-state private rendering cost, not
+presented FPS or GPU execution timing. Every sample, including unfavorable ones,
+is retained; no trimming or median-only result replaces the raw distribution.
+
+Actual prepared graph packet/batch/state-group counts and executed compatibility
+packet submissions are recorded per sample. The latter is the renderer's native
+RetainedCompatibilityWorldDraws delta; it is not a hardware GL draw count.
+Indexed batch hardware draw counts are explicitly NOT_RUN with profiling off.
+An independent profiled arm may establish those counts using existing profiler
+controls, but its timing must not be mixed with these unprofiled samples.
+
+Reference/after world/HUD/depth readbacks reuse the existing framebuffer without
+extra draws. Exact gameplay hashes and full native checkpoints must remain
+unchanged across the measured samples; exact repeated color/HUD/depth is required
+within each arm. A compatible genuine old-producer recording can be consumed by
+both old and fixed clients: source file hash, producer build, consumer hash/MVID,
+room/frame/backend and exact render inputs are retained. Cross-arm old sorted
+color is expected to differ by the known causal pixel; that is retained evidence,
+never a tolerance applied to the fixed original-order fidelity reference.
+
+Benchmark receipts remain BENCHMARK_ONLY/INCOMPLETE and cannot accept broader A3
+behavior. Run matched old/fixed arms serially with fresh directories, preserve
+all command/exit/hash receipts, and compare actual batch/submission cost as well
+as CPU and synchronized wall distributions. The benchmark performs no native
+simulation, input or replay seeking during samples and changes no renderer policy.
+
+
+For the matched fixed arm, add `--benchmark-compare-result /absolute/old/result.json`.
+The prior arm must have completed without error and without a client-hash change,
+and must use the same genuine recording and target frame. Both arms retain their
+exact captured hashes. Cross-arm world/HUD/depth equality or difference and prior
+raw cost summaries are included explicitly; differing old sorted color is not
+normalized. Matching asset/backend/profile settings must still be verified from
+the per-arm command/input receipts. With 31 samples, nearest-rank p95 selects rank
+30 and p99/p99.9 both select rank31 (the maximum). These are descriptive ranks,
+not robust rare-tail latency estimates; full raw values remain the evidence.

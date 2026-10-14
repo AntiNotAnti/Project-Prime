@@ -122,7 +122,9 @@ internal static class Acceptance
                 .Where(entry => entry.value == flag && entry.index + 1 < args.Length)
                 .Select(entry => args[entry.index + 1]).ToArray();
             using var window = new AcceptanceWindow(Value("--room", "MP1 SANCTORUS"), report,
-                Files("--replay"), Files("--clip"), Value("--record-authored-effect", ""));
+                Files("--replay"), Files("--clip"), Value("--record-authored-effect", ""),
+                Value("--replay-render-benchmark", ""), uint.Parse(Value("--benchmark-frame", "31")),
+                Value("--benchmark-compare-result", ""));
             window.Run();
             if (report.Error != null) throw new InvalidOperationException(report.Error);
             report.Status = report.Missing.Count == 0 ? "PASS" : "INCOMPLETE";
@@ -166,7 +168,8 @@ internal sealed class AcceptanceWindow : RenderWindow
 {
     private readonly Acceptance.Report _report;
     private readonly List<string> _replayPaths, _clipPaths;
-    private readonly string _recordEffect;
+    private readonly string _recordEffect, _benchmarkPath, _benchmarkComparison;
+    private readonly uint _benchmarkFrame;
     private PlayerEntity _owner = null!, _victim = null!;
     private object _presentation = null!;
     private TracedAudio _audio = null!;
@@ -175,9 +178,10 @@ internal sealed class AcceptanceWindow : RenderWindow
     private static readonly string[] Timers = { "_doubleDmgTimer", "_cloakTimer", "_deathaltTimer" };
     private static readonly string[] Types = { "DoubleDamage", "Cloak", "DeathAlt" };
 
-    internal AcceptanceWindow(string room, Acceptance.Report report, string[] replayPaths, string[] clipPaths, string recordEffect)
+    internal AcceptanceWindow(string room, Acceptance.Report report, string[] replayPaths, string[] clipPaths, string recordEffect, string benchmarkPath, uint benchmarkFrame, string benchmarkComparison)
     {
         _report = report; _replayPaths = new(replayPaths); _clipPaths = new(clipPaths); _recordEffect = recordEffect;
+        _benchmarkPath = benchmarkPath; _benchmarkFrame = benchmarkFrame; _benchmarkComparison = benchmarkComparison;
         ClientSize = new Vector2i(640, 480); IsVisible = true;
         Title = "Project Prime A3 timed grant acceptance";
         Reflection.Set(Scene, "_keyboardState", SyntheticInput.CreateKeyboard());
@@ -284,6 +288,11 @@ internal sealed class AcceptanceWindow : RenderWindow
             Check(!Reflection.Bool(Reflection.Type("Mods.Headless"), "Active"), "runtime is true client, not headless");
             Check(Sfx.Instance is SfxInstance, "real decoded OpenAL SfxInstance loaded; silent fallback is forbidden");
             _originalAudio = (SfxInstance)Sfx.Instance;
+            if (_benchmarkPath.Length != 0)
+            {
+                ReplayRenderBenchmark.Run(_benchmarkPath, _benchmarkFrame, _benchmarkComparison, _report);
+                return;
+            }
             _owner = Scene.Players.Items[0]; _victim = Scene.Players.Items[1];
             for (int i = 0; i < 120; i++) Scene.OnSimulationFrame();
             Scene.GameState.PrimeHunter = -1; Scene.GameState.BalancedMode = false; Scene.GameState.EnhancedHunters = false;
