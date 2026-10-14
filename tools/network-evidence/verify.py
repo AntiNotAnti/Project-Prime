@@ -4,6 +4,7 @@ import argparse
 import importlib.util
 import json
 from pathlib import Path
+from chunks import read_chunks
 
 _helpers = Path(__file__).resolve().parents[1] / 'life-evidence' / 'verify.py'
 _spec = importlib.util.spec_from_file_location('portable_helpers', _helpers)
@@ -15,6 +16,17 @@ sha, sanitize, projection, require = (_module.sha, _module.sanitize,
 
 def canonical(value):
     return json.dumps(value, separators=(',', ':'), ensure_ascii=False).encode()
+
+
+def portable(value, workspace):
+    value = sanitize(value, workspace, Path.home())
+    if isinstance(value, str):
+        return value.replace('/home/runner', '${CI_HOME}')
+    if isinstance(value, list):
+        return [portable(v, workspace) for v in value]
+    if isinstance(value, dict):
+        return {k: portable(v, workspace) for k, v in value.items()}
+    return value
 
 
 def remove(document, path):
@@ -37,8 +49,16 @@ def verify(evidence, originals=None):
         require(path.suffix == '.json', 'unexpected asset/binary/text payload')
         require(not any(x in raw for x in [b'/Users/', b'/home/', b'/private/var/']), 'private path')
         document = json.loads(raw)
-        if entry['kind'] == 'json':
-            documents[entry['derivativePath']] = document
+        if entry['kind'] == 'chunked-json':
+            folder = evidence / entry['chunksDirectory']
+            require(folder.resolve().is_relative_to(evidence.resolve()), 'external chunk directory')
+            expected.update(str((folder / c['path']).relative_to(evidence)) for c in document['chunks'])
+            document = read_chunks(document, folder)
+            require(not any(x in canonical(document) for x in [b'/Users/', b'/home/', b'/private/var/']), 'private recomposed path')
+            require({k: len(v) for k, v in document.items() if isinstance(v, list)} ==
+                    entry['topLevelArrayCounts'], 'projected array counts')
+        if entry['kind'] in ['json', 'chunked-json']:
+            documents[entry.get('logicalPath', entry['derivativePath'])] = document
             require(sha(json.dumps(projection(document), separators=(',', ':')).encode()) ==
                     entry['numericAndArrayStructureSHA256'], 'numeric/array structure')
         else:
@@ -47,17 +67,17 @@ def verify(evidence, originals=None):
             original = (originals / entry['originalRelativePath']).read_bytes()
             require(sha(original) == entry['originalSHA256'] and
                     len(original) == entry['originalBytes'], 'original identity')
-            if entry['kind'] == 'json':
+            if entry['kind'] in ['json', 'chunked-json']:
                 source = json.loads(original)
                 for omission in entry['omittedFields']:
                     value = remove(source, omission['path'])
                     require(sha(canonical(value)) == omission['canonicalValueSHA256'] and
                             len(canonical(value)) == omission['canonicalValueBytes'] and
                             len(value) == omission['entryCount'], 'omitted complete-field identity')
-                require(sanitize(source, originals, Path.home()) == document and
+                require(portable(source, originals) == document and
                         projection(source) == projection(document), 'exact preserved semantic/numeric/array equality')
             else:
-                require(sanitize(original.decode(), originals, Path.home()) == document['text'], 'complete text equality')
+                require(portable(original.decode(), originals) == document['text'], 'complete text equality')
     require({str(p.relative_to(evidence)) for p in evidence.rglob('*') if p.is_file()} == expected,
             'unlisted evidence files')
     receipt = documents['receipt.json']
