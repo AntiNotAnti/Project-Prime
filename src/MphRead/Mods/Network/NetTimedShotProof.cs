@@ -101,9 +101,16 @@ internal struct TimedShotEmission
         if (parent != null || beam.Owner is not PlayerEntity || beam.ModComponentId == 0
             || beam.Flags.TestFlag(BeamFlags.Continuous) || !float.IsFinite(beam.Lifespan)
             || beam.Lifespan > 8.5f) { Conflict = true; return; }
-        var damage = TimedShotDamageTemplate.From(beam);
-        if (Components == 0) { Key = beam.ModLaunchKey; Damage = damage; }
-        else if (Key != beam.ModLaunchKey || !Damage.SameChannels(damage)) Conflict = true;
+        // Keep the existing receipt tracking in Off, without the opt-in
+        // channel copy, normalization or effect-policy work.
+        bool capture = NetTimedShotProof.Active;
+        if (Components == 0)
+        {
+            Key = beam.ModLaunchKey;
+            if (capture) Damage = TimedShotDamageTemplate.From(beam);
+        }
+        else if (Key != beam.ModLaunchKey || capture
+            && !Damage.SameChannels(TimedShotDamageTemplate.From(beam))) Conflict = true;
         Components++;
     }
     internal ShotKey Key { get; private set; }
