@@ -397,6 +397,9 @@ jobs:
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
 
+      - name: immutable Community baseline (frozen package and loopback timings)
+        run: dotnet run --project tools/community-baseline-check -c Release -- --output "${{ runner.temp }}/community-baseline.json" --stress
+
       - name: map editor history and PK3 import regressions
         run: dotnet run --project tools/map-editor-check -c Release
 
@@ -444,6 +447,7 @@ jobs:
         with:
           name: map-acceptance-${{ matrix.os }}
           path: |
+            ${{ runner.temp }}/community-baseline.json
             ${{ runner.temp }}/map-multiplayer-check
             ${{ runner.temp }}/mapviewportcheck
           if-no-files-found: warn
