@@ -40,6 +40,10 @@ namespace MphRead
         public bool MoviePlaying => _movieFrameIndex != -1;
         private bool _skipMovie = false;
         private bool _movieOwnsSoundPause;
+        private Task? _movieTopDecode;
+        private Task? _movieBottomDecode;
+        private long _movieProgressStamp;
+        private int _movieObservedFrame;
         // hack to avoid things (like spawn SFX) happening on frame 0 of processing before we can start playing the landing movie
         private bool _playingLandingMovie = false;
 
@@ -127,6 +131,8 @@ namespace MphRead
             Task? botDecode = _dualScreenMovie
                 ? Task.Run(() => VxDecoder.Instance2.Decode(bottomPath!, token: token), token)
                 : null;
+            _movieTopDecode = topDecode;
+            _movieBottomDecode = botDecode;
             if (!_dualScreenMovie) Array.Fill<byte>(_botImageBuffer, 0);
             TimeSpan limit = TimeSpan.FromSeconds(3);
             if (!Mods.Campaign.CampaignMovieCatalog.WaitForWarmup(topDecode,
@@ -157,6 +163,8 @@ namespace MphRead
             _lastRenderedMovieFrameIndex = 0;
             _movieFrameIndex = 0;
             _movieFrameCount = 0;
+            _movieObservedFrame = 0;
+            _movieProgressStamp = Stopwatch.GetTimestamp();
             _skipMovie = false;
             Task.Run(async () =>
             {
@@ -260,6 +268,8 @@ namespace MphRead
             // SFX counters and dialog pause this movie actually acquired.
             _decoderCts?.Cancel();
             _decoderCts = null!;
+            _movieTopDecode = null;
+            _movieBottomDecode = null;
             if (_audioHandle != -1)
             {
                 AL.SourceStop(_audioHandle);
@@ -312,6 +322,26 @@ namespace MphRead
 
         private void UpdateMovie()
         {
+            if (!_skipMovie && (_movieTopDecode?.IsFaulted == true
+                || _movieBottomDecode?.IsFaulted == true))
+            {
+                Console.WriteLine("[campaign] active VX decoder faulted; completing cutscene");
+                _skipMovie = true;
+            }
+            if (!_skipMovie && _movieFrameIndex >= 0 && _movieFrameCount != Int32.MaxValue)
+            {
+                if (_movieObservedFrame != _movieFrameIndex)
+                {
+                    _movieObservedFrame = _movieFrameIndex;
+                    _movieProgressStamp = Stopwatch.GetTimestamp();
+                }
+                else if (_movieProgressStamp != 0
+                    && Stopwatch.GetElapsedTime(_movieProgressStamp) >= TimeSpan.FromSeconds(8))
+                {
+                    Console.WriteLine("[campaign] VX stopped advancing for 8s; completing cutscene");
+                    _skipMovie = true;
+                }
+            }
             if (_skipMovie)
             {
                 if (_movieFrameCount != Int32.MaxValue)
