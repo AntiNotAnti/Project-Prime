@@ -14,16 +14,18 @@ namespace MphRead.Mods.MapGen;
 internal sealed class MapCommunityServiceAdmission : IDisposable
 {
     public const int MetadataConcurrency = 8;
-    public const int TransferConcurrency = 3;
+    public const int UploadConcurrency = 3;
+    public const int DownloadConcurrency = 4;
     public const int VerificationConcurrency = 1;
 
-    internal enum Lane { Metadata, Transfer, Verification }
+    internal enum Lane { Metadata, Upload, Download, Verification }
     internal enum Refusal { None, Busy, RateLimited }
 
     private readonly SemaphoreSlim[] _slots =
     {
         new(MetadataConcurrency),
-        new(TransferConcurrency),
+        new(UploadConcurrency),
+        new(DownloadConcurrency),
         new(VerificationConcurrency)
     };
 
@@ -33,11 +35,11 @@ internal sealed class MapCommunityServiceAdmission : IDisposable
     private readonly int _perIpPerMinute;
     private readonly Dictionary<string, (long Minute, int Count)> _perIp = new(StringComparer.Ordinal);
     private readonly object _rateGate = new();
-    private readonly long[] _accepted = new long[3];
-    private readonly long[] _completed = new long[3];
-    private readonly long[] _busy = new long[3];
-    private readonly long[] _rateRejected = new long[3];
-    private readonly int[] _active = new int[3];
+    private readonly long[] _accepted = new long[4];
+    private readonly long[] _completed = new long[4];
+    private readonly long[] _busy = new long[4];
+    private readonly long[] _rateRejected = new long[4];
+    private readonly int[] _active = new int[4];
 
     internal MapCommunityServiceAdmission(int perIpPerMinute = 0)
     {
@@ -64,7 +66,7 @@ internal sealed class MapCommunityServiceAdmission : IDisposable
         string[] parts = relative.Split('/');
         string method = request.HttpMethod;
         if (method == "PUT" && parts.Length >= 2 && parts[0] == "uploads")
-            return Lane.Transfer;
+            return Lane.Upload;
         if (method == "POST" && parts.Length == 3
             && parts[0] == "uploads" && parts[2] == "complete")
             return Lane.Verification;
@@ -72,12 +74,13 @@ internal sealed class MapCommunityServiceAdmission : IDisposable
             || relative.StartsWith("maps/", StringComparison.Ordinal)
                 && relative.EndsWith("/versions", StringComparison.Ordinal)))
             return Lane.Verification;
-        if (method == "GET"
-            && (parts.Length == 2 && parts[0] is "maps" or "packages"
-                && MapCommunityClient.ValidHash(parts[1])
-                || parts.Length == 3 && parts[^1] == "preview"
-                    && parts[0] is "maps" or "packages"))
-            return Lane.Transfer;
+        bool packageFamily = parts[0] is "maps" or "packages";
+        bool archiveRequest = parts.Length == 2
+            && MapCommunityClient.ValidHash(parts[1]);
+        bool previewRequest = parts.Length == 3 && parts[2] == "preview"
+            && MapCommunityClient.ValidHash(parts[1]);
+        if (method == "GET" && packageFamily && (archiveRequest || previewRequest))
+            return Lane.Download;
         return Lane.Metadata;
     }
 
@@ -125,7 +128,7 @@ internal sealed class MapCommunityServiceAdmission : IDisposable
             }
             int maximum = lane switch
             {
-                Lane.Transfer => Math.Max(15, _perIpPerMinute / 4),
+                Lane.Upload or Lane.Download => Math.Max(15, _perIpPerMinute / 4),
                 Lane.Verification => Math.Max(10, _perIpPerMinute / 8),
                 _ => _perIpPerMinute
             };
@@ -138,8 +141,9 @@ internal sealed class MapCommunityServiceAdmission : IDisposable
     internal object Snapshot() => new
     {
         Metadata = Counters(0),
-        Transfers = Counters(1),
-        Verification = Counters(2),
+        Uploads = Counters(1),
+        Downloads = Counters(2),
+        Verification = Counters(3),
         PerIpRateLimitEnabled = _perIpPerMinute > 0,
         PerIpMetadataPerMinute = _perIpPerMinute
     };
@@ -154,7 +158,8 @@ internal sealed class MapCommunityServiceAdmission : IDisposable
         Capacity = lane switch
         {
             0 => MetadataConcurrency,
-            1 => TransferConcurrency,
+            1 => UploadConcurrency,
+            2 => DownloadConcurrency,
             _ => VerificationConcurrency
         }
     };
