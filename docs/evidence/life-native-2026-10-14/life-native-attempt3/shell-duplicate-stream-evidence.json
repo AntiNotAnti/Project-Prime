@@ -1,0 +1,20 @@
+{
+  "raw": {
+    "cycleMarkers": [
+      "1",
+      "2"
+    ],
+    "assetsReady": false
+  },
+  "debug": [
+    {
+      "path": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/user-data/logs/ProjectPrime-20261014-044621-48359.log",
+      "sha256": "265a15afb876915848c154aba0bb38ae3c11234f21f6eebeb5d04dca2aa12c3e",
+      "cycleMarkers": [
+        "1",
+        "2"
+      ],
+      "assetsReady": true
+    }
+  ]
+}

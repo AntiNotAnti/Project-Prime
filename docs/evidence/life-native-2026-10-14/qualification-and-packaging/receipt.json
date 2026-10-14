@@ -1,0 +1,889 @@
+{
+  "schema": 1,
+  "sourceBefore": {
+    "commit": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "tree": "eafd1c25936e1dbeeb254cac1936e3090b22e2e2",
+    "dirty": ""
+  },
+  "startedUtc": "2026-10-14T09:30:39.037901+00:00",
+  "scope": "Fresh merged-main integration build and focused source/claim/replay checks; no native/performance campaign repetition",
+  "merges": [
+    {
+      "headRefOid": "c5d2b1136f4104a4b38abb3824c9a4617c002e36",
+      "mergeCommit": {
+        "oid": "b24f8dccebf18c23954816de3bc753856b3cdf6f"
+      },
+      "mergedAt": "2026-10-14T04:10:10Z",
+      "number": 472,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/472"
+    },
+    {
+      "headRefOid": "e8a8f58abe78293cd07f947981fd52de868783e2",
+      "mergeCommit": {
+        "oid": "b768c9bea10da3201960a2519effbdc260f14026"
+      },
+      "mergedAt": "2026-10-14T04:10:54Z",
+      "number": 473,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/473"
+    },
+    {
+      "headRefOid": "ec788c0bb2cd819ac29504279dd9ba16cd1363ec",
+      "mergeCommit": {
+        "oid": "f85def5bb8ab17a208717d9ad9990381ab142db2"
+      },
+      "mergedAt": "2026-10-14T04:11:06Z",
+      "number": 474,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/474"
+    }
+  ],
+  "steps": [
+    {
+      "name": "build",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "build",
+        "tools/nettest/nettest.csproj",
+        "-c",
+        "Release",
+        "-o",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime",
+        "-m:1",
+        "-p:UseSharedCompilation=false",
+        "-p:CopyLocalLockFileAssemblies=false",
+        "-nodeReuse:false"
+      ],
+      "cwd": "${WORKSPACE}/work/prime-plan-integration",
+      "startedUtc": "2026-10-14T09:30:40.832691+00:00",
+      "pid": 47199,
+      "exit": 0,
+      "closureProbe": {
+        "closed": false,
+        "waitSeconds": 5.062380874999995,
+        "observations": [
+          {
+            "utc": "2026-10-14T09:31:24.294535+00:00",
+            "members": [
+              "47235     1 47199 S    dotnet exec --runtimeconfig ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/runtimeconfig.json ${HOME}/.nuget/packages/avalonia.buildservices/11.3.2/tools/netstandard2.0/Avalonia.BuildServices.Collector.dll"
+            ]
+          }
+        ]
+      },
+      "finishedUtc": "2026-10-14T09:31:29.330806+00:00",
+      "logSha256": "05847f1466483a314c21f560f5c29577d7bdb6cdd3b2412dae2d85aff85a2e35",
+      "ownedProcessGroupClosed": false
+    },
+    {
+      "name": "build-identity",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "build",
+        "${WORKSPACE}/work/latest-main-verification/merged-main-preparation/MergedIdentity.csproj",
+        "-c",
+        "Release",
+        "-o",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/identity-tool",
+        "-m:1",
+        "-p:UseSharedCompilation=false",
+        "-nodeReuse:false"
+      ],
+      "cwd": "${WORKSPACE}/work/prime-plan-integration",
+      "startedUtc": "2026-10-14T09:31:54.842670+00:00",
+      "pid": 47354,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 4.03749999999814e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:55.384265+00:00",
+      "logSha256": "dd386e79d5213b68fb32dddfee232e4ebb47805878dc112638f0df4991c65cf0",
+      "ownedProcessGroupClosed": true
+    },
+    {
+      "name": "current-identity",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/identity-tool/MergedIdentity.dll",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime",
+        "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e",
+      "startedUtc": "2026-10-14T09:31:55.385885+00:00",
+      "pid": 47355,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.0124999999991964e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:55.466168+00:00",
+      "logSha256": "f8b428765339a04656604796995200ed4b1d53fd11a6e8e28051ddd745086cef",
+      "ownedProcessGroupClosed": true
+    },
+    {
+      "name": "architecture",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--architecture"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/architecture-profile",
+      "startedUtc": "2026-10-14T09:31:55.468556+00:00",
+      "pid": 47358,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.545799999993271e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:55.674236+00:00",
+      "logSha256": "3631034b29570258704dd698e685331d813881d37e75e7b09cdf4b7def0ed481",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "protocol19",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--protocol19"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/protocol19-profile",
+      "startedUtc": "2026-10-14T09:31:55.678024+00:00",
+      "pid": 47359,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 6.391700000030198e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:57.491019+00:00",
+      "logSha256": "f28f19cd62394dfe1c4f50886419ac91c70ceb17b885187491e007f874e28dab",
+      "ownedProcessGroupClosed": true
+    },
+    {
+      "name": "timed-grants",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--timed-grants"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-grants-profile",
+      "startedUtc": "2026-10-14T09:31:57.494002+00:00",
+      "pid": 47361,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.3708000000066676e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:57.582826+00:00",
+      "logSha256": "f1bfb05c5461475830393b02f0ce8d4978a6682a70129b2bee532153382e0868",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "shot-source-journal",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--shot-source-journal"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/shot-source-journal-profile",
+      "startedUtc": "2026-10-14T09:31:57.586305+00:00",
+      "pid": 47362,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 4.808399999989277e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:57.734389+00:00",
+      "logSha256": "ff2aee3477666adac35d6bd88836bc286efd35e5e133f25362d6609851a246f1",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "pickup-protocol",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--pickup-protocol"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/pickup-protocol-profile",
+      "startedUtc": "2026-10-14T09:31:57.738354+00:00",
+      "pid": 47363,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.616600000004965e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:57.787439+00:00",
+      "logSha256": "5e86ea402ddf70bd8addde0bfbcf7185b9bd265c4f927bac4b5d871d5bbeb4f0",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "pickup-claims",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--pickup-claims"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/pickup-claims-profile",
+      "startedUtc": "2026-10-14T09:31:57.790388+00:00",
+      "pid": 47364,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.9166000000024894e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:57.865911+00:00",
+      "logSha256": "b05deb0bb6d7acd5172dd535623480936e07160992c192363abe35322d89151c",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "pickup-network",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--pickup-network"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/pickup-network-profile",
+      "startedUtc": "2026-10-14T09:31:57.869235+00:00",
+      "pid": 47365,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.9083999999901522e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:58.065867+00:00",
+      "logSha256": "310151e2601960cc814b8de964d8a3ec3c0bf0ba00cf476ebe8c1ded4b9b4969",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "pickup-replay",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--pickup-replay"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/pickup-replay-profile",
+      "startedUtc": "2026-10-14T09:31:58.069828+00:00",
+      "pid": 47366,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.2833000000120904e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:58.337577+00:00",
+      "logSha256": "1ce3e167724f3b49f1c69052a0eb323cabe510856360517cb49bea12df63aad4",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "terminal-retries",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--terminal-retries"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/terminal-retries-profile",
+      "startedUtc": "2026-10-14T09:31:58.341443+00:00",
+      "pid": 47367,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.562500000014012e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:58.492734+00:00",
+      "logSha256": "8034b2101af8c215cc5270265ceb5fc57c3fa99ed24fddc95fbde88043ad326e",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "claim-stress",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--claim-stress"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/claim-stress-profile",
+      "startedUtc": "2026-10-14T09:31:58.496042+00:00",
+      "pid": 47368,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.9375000000442242e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:58.640912+00:00",
+      "logSha256": "68dd06d9d9d55c06b445c5bb4c83a2772713b2f6db9455be76ce6661ffb51b0f",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "timed-grant-codec",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--timed-grant-codec"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-grant-codec-profile",
+      "startedUtc": "2026-10-14T09:31:58.644473+00:00",
+      "pid": 47369,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.6250000000338503e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:58.693549+00:00",
+      "logSha256": "a15ef8cc888de2e750f2b8dc23937764482d958eaef8f7f296a072d7bb6ed8ef",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "timed-grant-presentation",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--timed-grant-presentation"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/timed-grant-presentation-profile",
+      "startedUtc": "2026-10-14T09:31:58.696814+00:00",
+      "pid": 47370,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.8458000000064487e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:58.765868+00:00",
+      "logSha256": "93c21fe98166c484646ea320dddf51302f7b1e4d2550a067601bde23196b16dc",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "grant-network",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--grant-network"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/grant-network-profile",
+      "startedUtc": "2026-10-14T09:31:58.769198+00:00",
+      "pid": 47371,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.4250000000058947e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:58.857809+00:00",
+      "logSha256": "b25e734198a98db557d3406fa5d9ed433f328c8f28544cb01e0f8b2f25ac39a0",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "grant-replay",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--grant-replay"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/grant-replay-profile",
+      "startedUtc": "2026-10-14T09:31:58.861932+00:00",
+      "pid": 47372,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 2.9666999999733434e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:58.940799+00:00",
+      "logSha256": "6d3aafb6645a00f6dfc2ecb353060c84f52c7d39800f61e4c3f86dd20817c736",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "reliable",
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+        "--reliable"
+      ],
+      "cwd": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/reliable-profile",
+      "startedUtc": "2026-10-14T09:31:58.944248+00:00",
+      "pid": 47373,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 0.00012687500000030383,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:59.626454+00:00",
+      "logSha256": "3053dc9a1c38cc493bd02510d738314767c2ac9e448066c28ce730abe68537e8",
+      "ownedProcessGroupClosed": true,
+      "loadedModules": [
+        {
+          "name": "nettest",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/nettest.dll",
+          "mvid": "7068ed8f-16f5-4900-b763-efdbe399a34a"
+        },
+        {
+          "name": "ProjectPrime",
+          "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+          "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15"
+        }
+      ],
+      "loadedClientMatches": true
+    },
+    {
+      "name": "python-relevant",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "test_net_timed_grants",
+        "test_net_pickup_claims",
+        "test_net_grant_reconciliation",
+        "test_run_net_ai",
+        "test_net2_drain"
+      ],
+      "cwd": "${WORKSPACE}/work/prime-plan-integration/tools/nettest",
+      "startedUtc": "2026-10-14T09:31:59.637841+00:00",
+      "pid": 47374,
+      "exit": 0,
+      "closureProbe": {
+        "closed": true,
+        "waitSeconds": 3.062499999995083e-05,
+        "observations": []
+      },
+      "finishedUtc": "2026-10-14T09:31:59.791953+00:00",
+      "logSha256": "d4885d7aaa058abeee6204339a1e061b9afdc1e715a9201ed5316079670c93b8",
+      "ownedProcessGroupClosed": true
+    }
+  ],
+  "runnerSha256": "c8397ce1654c59c014c63e48c7afe9aee2201431a40c2cbcfbcd6f4a5b390d89",
+  "donorSixBefore": {
+    "ProjectPrime.dll": "9e4cdb80cda4ad70c84145d6425eccd744e975ef8d64af575cc0d3013b9b62dc",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "88ba69a3869e19dda13ad9f21334e245437c85bb91426da9b2f5d5080965c082",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "sourceConstants": {
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10
+  },
+  "resume": {
+    "startedUtc": "2026-10-14T09:31:54.760548+00:00",
+    "runnerSha256": "c8397ce1654c59c014c63e48c7afe9aee2201431a40c2cbcfbcd6f4a5b390d89",
+    "existingRuntimeHashes": {
+      "ProjectPrime.dll": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+      "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "nettest.dll": "733c26053828d9725c1fee695ae86ef5ed4c25a6ed9da8b5d143f3e647a3dc9f",
+      "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "originalImmediateClosure": false,
+    "originalBuildClosureNow": {
+      "closed": true,
+      "waitSeconds": 9.084000000020298e-06,
+      "observations": []
+    }
+  },
+  "physicalHashesBefore": {
+    "ProjectPrime.dll": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "733c26053828d9725c1fee695ae86ef5ed4c25a6ed9da8b5d143f3e647a3dc9f",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "sharedDependencies": [
+    {
+      "name": "Avalonia.Remote.Protocol.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Remote.Protocol.dll"
+    },
+    {
+      "name": "Tmds.DBus.Protocol.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Tmds.DBus.Protocol.dll"
+    },
+    {
+      "name": "Avalonia.Markup.Xaml.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Markup.Xaml.dll"
+    },
+    {
+      "name": "Avalonia.Themes.Fluent.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Themes.Fluent.dll"
+    },
+    {
+      "name": "Avalonia.Skia.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Skia.dll"
+    },
+    {
+      "name": "Avalonia.Native.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Native.dll"
+    },
+    {
+      "name": "Avalonia.Fonts.Inter.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Fonts.Inter.dll"
+    },
+    {
+      "name": "Avalonia.Markup.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Markup.dll"
+    },
+    {
+      "name": "Avalonia.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.dll"
+    },
+    {
+      "name": "SkiaSharp.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/SkiaSharp.dll"
+    },
+    {
+      "name": "Avalonia.OpenGL.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.OpenGL.dll"
+    },
+    {
+      "name": "ReFuel.StbImage.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/ReFuel.StbImage.dll"
+    },
+    {
+      "name": "Avalonia.Vulkan.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Vulkan.dll"
+    },
+    {
+      "name": "Avalonia.Desktop.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Desktop.dll"
+    },
+    {
+      "name": "OpenTK.Windowing.GraphicsLibraryFramework.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Windowing.GraphicsLibraryFramework.dll"
+    },
+    {
+      "name": "Avalonia.Metal.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Metal.dll"
+    },
+    {
+      "name": "CommunityToolkit.HighPerformance.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/CommunityToolkit.HighPerformance.dll"
+    },
+    {
+      "name": "OpenTK.Input.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Input.dll"
+    },
+    {
+      "name": "OpenTK.Core.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Core.dll"
+    },
+    {
+      "name": "runtimes",
+      "target": "${WORKSPACE}/work/baseline-bin/runtimes"
+    },
+    {
+      "name": "HarfBuzzSharp.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/HarfBuzzSharp.dll"
+    },
+    {
+      "name": "Avalonia.Win32.Automation.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Win32.Automation.dll"
+    },
+    {
+      "name": "System.IO.Hashing.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/System.IO.Hashing.dll"
+    },
+    {
+      "name": "SoundFlow.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/SoundFlow.dll"
+    },
+    {
+      "name": "Avalonia.MicroCom.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.MicroCom.dll"
+    },
+    {
+      "name": "Avalonia.Controls.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Controls.dll"
+    },
+    {
+      "name": "Avalonia.HarfBuzz.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.HarfBuzz.dll"
+    },
+    {
+      "name": "Avalonia.DesignerSupport.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.DesignerSupport.dll"
+    },
+    {
+      "name": "OpenTK.Audio.OpenAL.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Audio.OpenAL.dll"
+    },
+    {
+      "name": "OpenTK.Compute.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Compute.dll"
+    },
+    {
+      "name": "Ktx2.NET.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Ktx2.NET.dll"
+    },
+    {
+      "name": "Avalonia.Win32.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Win32.dll"
+    },
+    {
+      "name": "OpenTK.Mathematics.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Mathematics.dll"
+    },
+    {
+      "name": "Avalonia.X11.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.X11.dll"
+    },
+    {
+      "name": "OpenTK.Windowing.Common.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Windowing.Common.dll"
+    },
+    {
+      "name": "Avalonia.Base.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Base.dll"
+    },
+    {
+      "name": "OpenTK.Windowing.Desktop.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Windowing.Desktop.dll"
+    },
+    {
+      "name": "Avalonia.Dialogs.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Dialogs.dll"
+    },
+    {
+      "name": "MicroCom.Runtime.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/MicroCom.Runtime.dll"
+    },
+    {
+      "name": "Avalonia.FreeDesktop.AtSpi.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.FreeDesktop.AtSpi.dll"
+    },
+    {
+      "name": "Avalonia.FreeDesktop.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.FreeDesktop.dll"
+    },
+    {
+      "name": "OpenTK.Graphics.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/OpenTK.Graphics.dll"
+    },
+    {
+      "name": "Avalonia.Headless.dll",
+      "target": "${WORKSPACE}/work/baseline-bin/Avalonia.Headless.dll"
+    }
+  ],
+  "actualLoadedClient": {
+    "sourceQualifiedPhysicalClient": true,
+    "path": "${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/ProjectPrime.dll",
+    "sha256": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "mvid": "896c230f-be96-4e23-b0cc-3fb2824d1a15",
+    "buildId": "local+88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "protocol": 56,
+    "replicaCheckpoint": 13,
+    "worldCheckpoint": 10,
+    "timedGrantPacket": 77,
+    "timedGrantBootstrapPacket": 79,
+    "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+  },
+  "finishedUtc": "2026-10-14T09:31:59.793541+00:00",
+  "sourceAfter": {
+    "commit": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+    "tree": "eafd1c25936e1dbeeb254cac1936e3090b22e2e2",
+    "dirty": ""
+  },
+  "physicalHashesAfter": {
+    "ProjectPrime.dll": "785d507a682811f31d4262ab39ac8427074d4fc3563c8a9cdc863787f53cb009",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "733c26053828d9725c1fee695ae86ef5ed4c25a6ed9da8b5d143f3e647a3dc9f",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "donorSixAfter": {
+    "ProjectPrime.dll": "9e4cdb80cda4ad70c84145d6425eccd744e975ef8d64af575cc0d3013b9b62dc",
+    "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+    "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+    "nettest.dll": "88ba69a3869e19dda13ad9f21334e245437c85bb91426da9b2f5d5080965c082",
+    "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+    "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  "focusedRoutes": 15,
+  "pythonModules": [
+    "test_net_timed_grants",
+    "test_net_pickup_claims",
+    "test_net_grant_reconciliation",
+    "test_run_net_ai",
+    "test_net2_drain"
+  ],
+  "status": "PASS_FOCUSED_MERGED_INTEGRATION"
+}

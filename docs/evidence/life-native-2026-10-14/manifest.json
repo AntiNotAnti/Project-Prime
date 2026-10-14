@@ -1,0 +1,638 @@
+{
+  "schema": 1,
+  "createdUTC": "2026-10-14T10:16:05.516748+00:00",
+  "scope": "Sanitized derivatives of actual88 qualification/packaging/native campaigns and retained negatives; no newest09 acceptance, no assets/images/media/runtime/profile/auth/Paths content.",
+  "qualifiedSource": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+  "entries": [
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/qualification-summary.json",
+      "originalSHA256": "58f5a0fb29314a43761dd4512328b3172921abb634aa02c9d13fd3bc4ea8a162",
+      "originalBytes": 2701,
+      "derivativePath": "qualification-and-packaging/qualification-summary.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "37356118db4a5c8f4fab80c15e13c572f4d24fb9c46eb0b610025dac714d5dab",
+      "derivativeSHA256": "6807348f36c4c260a87564b894a4cd70dde1f6d2549cfb038d5572d6be07283b",
+      "derivativeBytes": 2630
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/qualification-summary-attempt3-original.json",
+      "originalSHA256": "ab75253f216db1f7000131205ef8923a01619cfa4b17276439dbabc718842430",
+      "originalBytes": 2416,
+      "derivativePath": "qualification-and-packaging/qualification-summary-attempt3-original.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "7447f0c3ac103936d1655590fb196c48f005bd79e373c74a4bfc84e7dec07496",
+      "derivativeSHA256": "4823812011b6ba4e728d945a41fcb7b9900b99cdce7375ddf5634dc0f4a8aeb7",
+      "derivativeBytes": 2345
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/receipt.json",
+      "originalSHA256": "6536fc086ddf307295e36be68d3b1404bc8e4977897046dc926b1ec31f482e8e",
+      "originalBytes": 287834,
+      "derivativePath": "qualification-and-packaging/receipt.json",
+      "omittedFields": [
+        {
+          "path": [
+            "sourceTreeLines"
+          ],
+          "canonicalValueSHA256": "be686fe79bc75b4387acd02d9250278e9d11e17d39d9ab2fa471680c375671b9",
+          "canonicalValueBytes": 245450,
+          "reason": "Bulk provenance omitted; original whole-file hash retained.",
+          "lineCount": 2418
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "3a38c07e9845a1c645a42a0012285da286e7455403a41db8229425d9a7897235",
+      "derivativeSHA256": "6b100f66ca3239de53c8fe1ca8448ff05babca570ade86dac7ef61366c21c154",
+      "derivativeBytes": 33188
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/extra-pure-receipt.json",
+      "originalSHA256": "a558f22418326bec8b41d7dcdbaaf7d0bfa6e7ecfc1697727bf66e333e155553",
+      "originalBytes": 36754,
+      "derivativePath": "qualification-and-packaging/extra-pure-receipt.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "eb585280d9e8dc5ee688fe1fb13da159e2b22c685f4c5150b2545eaa2c9cec75",
+      "derivativeSHA256": "d7a9aaeab7672626e0dbc64e70f1f39b6178c36ba2084b58f6eea714a389ff91",
+      "derivativeBytes": 29015
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/build.log",
+      "originalSHA256": "05847f1466483a314c21f560f5c29577d7bdb6cdd3b2412dae2d85aff85a2e35",
+      "originalBytes": 1646,
+      "derivativePath": "qualification-and-packaging/build.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "fb847bdab4824b73b3624e4f75ea3633fa096776cffced19fb37ddd2dc3f75c5",
+      "derivativeBytes": 1078
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/full-tools-build-receipt.json",
+      "originalSHA256": "d820feacf82e016c0992de8b5350dfb981a2c86bc01de1414de5f515faaa10e4",
+      "originalBytes": 6809,
+      "derivativePath": "qualification-and-packaging/full-tools-build-receipt.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "132bc7b2778749a0c3035dd78124f6e80d46004048da6eff70e7772dc668c324",
+      "derivativeSHA256": "fa93298bc38bbb1e53c01ef8634ff498b5cbfe605578b7459c8eae77e4fc7581",
+      "derivativeBytes": 6312
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/full-tools-copylocal-build-receipt.json",
+      "originalSHA256": "e6891ad0edff7fe25ebfb0eb7c1749ba243fa1105f195f27c3ec3d946d9fe7b0",
+      "originalBytes": 6849,
+      "derivativePath": "qualification-and-packaging/full-tools-copylocal-build-receipt.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "0470aae5994f83e01a5921ad47368ff0091d01fabd3f855d3b206ad96c50b56e",
+      "derivativeSHA256": "ccc2c00ce36070afaa2399bef084cf6f728b24e311f4c78e14a92c3815c3fdcf",
+      "derivativeBytes": 6352
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/full-tools-normal1-build-receipt.json",
+      "originalSHA256": "87db4479e2a6adcf5624ae40ef7b5eb1c59c304982ac33d9c7aa50b10b67da8d",
+      "originalBytes": 8614,
+      "derivativePath": "qualification-and-packaging/full-tools-normal1-build-receipt.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "e5ad580ece1001dece5142860a2b9ead1ca2da22d6470e0e92d9e7c97eb59ab6",
+      "derivativeSHA256": "0387324553e4b21ad73f82c5b6b5ff92e116f191e36b4b712c752a407406dcb2",
+      "derivativeBytes": 8061
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/full-tools-normal1-initial-closure-receipt.json",
+      "originalSHA256": "f88a67924f30e2453fdc12a3f2d5f876511183df69929d7996e9b41453a5fd43",
+      "originalBytes": 4231,
+      "derivativePath": "qualification-and-packaging/full-tools-normal1-initial-closure-receipt.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "1b18ae3684281e951338396cc8fee88d814613c541f34241a377d005914dea90",
+      "derivativeSHA256": "e8120af28c7759c160bbb66e73685a33b389a477e559c192b5dc3534b101cb33",
+      "derivativeBytes": 3933
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/native-loader-setup-failure.json",
+      "originalSHA256": "1a69ca2821f7016c31fac0885b4193953e872bc0dce27884273c3ff80022217e",
+      "originalBytes": 536,
+      "derivativePath": "qualification-and-packaging/native-loader-setup-failure.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "33c8f3fc206b4f8ecb340825d69d2a829dfad379af0ea0ca9e3ff4fd856d1245",
+      "derivativeSHA256": "1a69ca2821f7016c31fac0885b4193953e872bc0dce27884273c3ff80022217e",
+      "derivativeBytes": 536
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/tool-normal1-startup/receipt.json",
+      "originalSHA256": "bd5e81a1497a1ab1881b673fc01802a603b8cefd576c5e1b9b218e75b58d07e6",
+      "originalBytes": 2602,
+      "derivativePath": "qualification-and-packaging/tool-normal1-startup/receipt.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "62edb59913e986b6496c6fc0016d10ad2abf96265a04719f8248c565addf8165",
+      "derivativeSHA256": "3e78ae6ebd6a08b2df68cd8363b60f598197c0bec454ea570643e43abe2048e0",
+      "derivativeBytes": 2105
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/shell-modal-preview-classification.json",
+      "originalSHA256": "390246ed54f0a4b0be9d49254be55c26d0aeb2bb8ff6c32483ed72e5fa22f065",
+      "originalBytes": 3424,
+      "derivativePath": "qualification-and-packaging/shell-modal-preview-classification.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "a9c2e8198d97356c55042d44b1918e292ebb009dec9866a60a160a5b18548966",
+      "derivativeSHA256": "ce63c865928746d618fbf21b4dd05c3691eca8160e6df0d5fc0230a7cb65055a",
+      "derivativeBytes": 3273
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/setup-closure/original-setup-receipt.json",
+      "originalSHA256": "e8dbae3cf1e91ce574f12168a6b60cb50e56287672b713e1b88d83a24c01c3f8",
+      "originalBytes": 249067,
+      "derivativePath": "qualification-and-packaging/setup-closure/original-setup-receipt.json",
+      "omittedFields": [
+        {
+          "path": [
+            "sourceTreeLines"
+          ],
+          "canonicalValueSHA256": "be686fe79bc75b4387acd02d9250278e9d11e17d39d9ab2fa471680c375671b9",
+          "canonicalValueBytes": 245450,
+          "reason": "Bulk provenance omitted; original whole-file hash retained.",
+          "lineCount": 2418
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "4d5c0f43b63fe428f4882b5638dfca40cf69195a65a90891abbec1d924141c47",
+      "derivativeSHA256": "a74393a18c9591ec5b10ce430eee36acca7d7db391da0560b2a077810510c6af",
+      "derivativeBytes": 3367
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/setup-closure/disposition.json",
+      "originalSHA256": "1aa42ac9b77a24d2a7080588d8a0d92acbf13184d208aca41c4c9a55d26ade39",
+      "originalBytes": 140,
+      "derivativePath": "qualification-and-packaging/setup-closure/disposition.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "3ce25844c5e9579a10cfb706dde2c9140f2caec9500972e361d8c0b185af3edf",
+      "derivativeSHA256": "1aa42ac9b77a24d2a7080588d8a0d92acbf13184d208aca41c4c9a55d26ade39",
+      "derivativeBytes": 140
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt1/manifest.json",
+      "originalSHA256": "c39259dfdf89553a0c12294dee4379d797aed855b2bb83521d791eea5ba89cfa",
+      "originalBytes": 721532,
+      "derivativePath": "life-native-attempt1/manifest.json",
+      "omittedFields": [
+        {
+          "path": [
+            "assetIdentity",
+            "files"
+          ],
+          "canonicalValueSHA256": "72f2303b1f11604e817e2a84da53340943a3634d089f7ac6197c277788da8191",
+          "canonicalValueBytes": 537845,
+          "reason": "Bulk provenance omitted; original whole-file hash retained.",
+          "entryCount": 3826
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "832d91d28d71d342dbbef41bdc797182933cbc693b62960f76f07b882cbce98a",
+      "derivativeSHA256": "82e44f74d9714488a24a9308cd97f916bcde483cd18b67a8cc9812b85991d20d",
+      "derivativeBytes": 11830
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt2/manifest.json",
+      "originalSHA256": "d4610144825dfc41f04e104289c1ac521dbd833a940abd4341a1bbd1ac28dc0e",
+      "originalBytes": 721625,
+      "derivativePath": "life-native-attempt2/manifest.json",
+      "omittedFields": [
+        {
+          "path": [
+            "assetIdentity",
+            "files"
+          ],
+          "canonicalValueSHA256": "72f2303b1f11604e817e2a84da53340943a3634d089f7ac6197c277788da8191",
+          "canonicalValueBytes": 537845,
+          "reason": "Bulk provenance omitted; original whole-file hash retained.",
+          "entryCount": 3826
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "56a7f72703b1b1f6421a42d9e918ad29c2bbf3729eda05ce90fb94f3a8d482e3",
+      "derivativeSHA256": "2bc9798a92e1a46c36d89155e05fb73d24ee6f5a72333f1a5d8b5b4a139e45de",
+      "derivativeBytes": 11923
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/manifest.json",
+      "originalSHA256": "e4bb094bfb5e621889d2d7ddc763dd14f429ee937576eab9470570a6d1abdc21",
+      "originalBytes": 723327,
+      "derivativePath": "life-native-attempt3/manifest.json",
+      "omittedFields": [
+        {
+          "path": [
+            "assetIdentity",
+            "files"
+          ],
+          "canonicalValueSHA256": "72f2303b1f11604e817e2a84da53340943a3634d089f7ac6197c277788da8191",
+          "canonicalValueBytes": 537845,
+          "reason": "Bulk provenance omitted; original whole-file hash retained.",
+          "entryCount": 3826
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "e51d42ea2c240ad4cd310a449e280377b5b0319db0086295911338ea94d10ca3",
+      "derivativeSHA256": "ab1b9cec872312f42b8c923d0750a4aa77438bec45dce69359fcd3cd5df7fbef",
+      "derivativeBytes": 13625
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/manifest.json",
+      "originalSHA256": "f54b211aac4210b23aa59dddc7812a7d89cdb7a5481fb64b73bd3893306b36c0",
+      "originalBytes": 718189,
+      "derivativePath": "life-native-attempt4/manifest.json",
+      "omittedFields": [
+        {
+          "path": [
+            "assetIdentity",
+            "files"
+          ],
+          "canonicalValueSHA256": "72f2303b1f11604e817e2a84da53340943a3634d089f7ac6197c277788da8191",
+          "canonicalValueBytes": 537845,
+          "reason": "Bulk provenance omitted; original whole-file hash retained.",
+          "entryCount": 3826
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "b99588691b0620f53f469d13e838c8e6d1c4232006c136329ed29aa3886a2aa3",
+      "derivativeSHA256": "7bf6cd1ae59f12ccbbed9e2f7246fe0aff716d43328a8641c55cf48dc1185424",
+      "derivativeBytes": 9488
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt5-respawn/manifest.json",
+      "originalSHA256": "cf93ceb7b29198ec990d533c55c3878557675bafcab5f414d0a1403dfd2cc4fa",
+      "originalBytes": 1424393,
+      "derivativePath": "life-native-attempt5-respawn/manifest.json",
+      "omittedFields": [
+        {
+          "path": [
+            "assetIdentity",
+            "files"
+          ],
+          "canonicalValueSHA256": "72f2303b1f11604e817e2a84da53340943a3634d089f7ac6197c277788da8191",
+          "canonicalValueBytes": 537845,
+          "reason": "Bulk provenance omitted; original whole-file hash retained.",
+          "entryCount": 3826
+        },
+        {
+          "path": [
+            "assetIdentityAfter",
+            "files"
+          ],
+          "canonicalValueSHA256": "72f2303b1f11604e817e2a84da53340943a3634d089f7ac6197c277788da8191",
+          "canonicalValueBytes": 537845,
+          "reason": "Bulk provenance omitted; original whole-file hash retained.",
+          "entryCount": 3826
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "757f09328886103e2444e3697834c5e87da81792599de05cecf14cb47f313c7c",
+      "derivativeSHA256": "0dffc86469f9bfb7f6d5f6fee2662f0fe9ee3e6483005c0ed4110deae7ae803e",
+      "derivativeBytes": 9760
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt1/native-arms.log",
+      "originalSHA256": "2a4024fc3794a5d715876dde399a443a841861b76315295613efff5cf12be8d7",
+      "originalBytes": 32,
+      "derivativePath": "life-native-attempt1/native-arms.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "2a4024fc3794a5d715876dde399a443a841861b76315295613efff5cf12be8d7",
+      "derivativeBytes": 32
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt1/native-arms/manifest.json",
+      "originalSHA256": "8a41fe7943af9448a813428f3bbf15e1b6cb8b91ff3fd810cbd40928e880110a",
+      "originalBytes": 4080,
+      "derivativePath": "life-native-attempt1/native-arms/manifest.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "9deadc7d5bbbb7ee4960c2739a00224227f986915ec38026a8f1743a7a51a80e",
+      "derivativeSHA256": "10df7cd9ff055b86601ba3a09751cea5ac352effd27b832b9ace311eb46826e5",
+      "derivativeBytes": 3299
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt1/native-arms/00-combined.log",
+      "originalSHA256": "7c4497c7c760f2966db5193787f0d051e340c2eff73b91aabb834fab90b8e431",
+      "originalBytes": 319,
+      "derivativePath": "life-native-attempt1/native-arms/00-combined.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "7c4497c7c760f2966db5193787f0d051e340c2eff73b91aabb834fab90b8e431",
+      "derivativeBytes": 319
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt2/native-arms.log",
+      "originalSHA256": "9616500d51594433adc031939b2a89ba57f1ae72fa6340cfa0674264a67f7aa9",
+      "originalBytes": 32,
+      "derivativePath": "life-native-attempt2/native-arms.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "9616500d51594433adc031939b2a89ba57f1ae72fa6340cfa0674264a67f7aa9",
+      "derivativeBytes": 32
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt2/native-arms/manifest.json",
+      "originalSHA256": "42eab3ce329b14680095fb3a6cba2c1941e06b3cc9f5aeabf32ed07361ef7c7b",
+      "originalBytes": 4092,
+      "derivativePath": "life-native-attempt2/native-arms/manifest.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "170590e1ac979b44adb648b62b3ed12498058af9ec324db9208ada4772d176b5",
+      "derivativeSHA256": "95a674ff528537ababbb5627cc4942714d88274b1f144ffc9e7eed9e942127be",
+      "derivativeBytes": 3311
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt2/native-arms/00-combined.log",
+      "originalSHA256": "d4be58e1ee0bfdf2c7c8bc13ef112efb45dfd4fc1458af9142120264de03510e",
+      "originalBytes": 9721,
+      "derivativePath": "life-native-attempt2/native-arms/00-combined.log.json",
+      "omittedFields": [],
+      "kind": "escaped-text",
+      "derivativeSHA256": "6ea9cccafbada546be6a390af3b03ed7caafaf1630c3b3af9026ecd621f8015a",
+      "derivativeBytes": 7141,
+      "encodingScope": "JSON-escaped text preserves full sanitized exception output including original trailing whitespace. Original raw log SHA/bytes unchanged; no content trim or gate configuration change."
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms.log",
+      "originalSHA256": "0395adfb86053a558089815de1d7c62469b8f81ca69a07855fa48a1607e3b4fa",
+      "originalBytes": 119,
+      "derivativePath": "life-native-attempt3/native-arms.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "0395adfb86053a558089815de1d7c62469b8f81ca69a07855fa48a1607e3b4fa",
+      "derivativeBytes": 119
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/replica.log",
+      "originalSHA256": "8ae900c6588eaa5107f906785ee021f7c0135e30733f8045586f16ba2bdc32c6",
+      "originalBytes": 23800,
+      "derivativePath": "life-native-attempt3/replica.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "4c03fb6a2e92eb2f77f88d6da379512ff22756518146f3eeb7f562316b518925",
+      "derivativeBytes": 23090
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/export.log",
+      "originalSHA256": "c69106fd8fbebf860143bd1b8ca08425b23c2274dc063c4e27f5b4fc9d3811cc",
+      "originalBytes": 7770,
+      "derivativePath": "life-native-attempt3/export.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "9a3ddc81035c14840d5bf9fe8d1cc6612f0dd271ce7453afae0167e1b9c6e2ff",
+      "derivativeBytes": 6989
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/music.log",
+      "originalSHA256": "b1490805136db47c6398201a2b1539dc4d4a6a06e17303f657729816aa32bcde",
+      "originalBytes": 8017,
+      "derivativePath": "life-native-attempt3/music.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "b1490805136db47c6398201a2b1539dc4d4a6a06e17303f657729816aa32bcde",
+      "derivativeBytes": 8017
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell.log",
+      "originalSHA256": "ef30eeac8643f8d5244fbad339743f79c3bb7fffb0c322580bf572ebb55e66d5",
+      "originalBytes": 22887,
+      "derivativePath": "life-native-attempt3/shell.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "db1f4ba03d09248501a279c3383ec7f430375ccbc427ccafc4abf72fe4cfafe6",
+      "derivativeBytes": 19053
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/shell-duplicate-stream-evidence.json",
+      "originalSHA256": "cddfef7ec4a2a8e6d351b16ec0f11ac993424f9ecbe422f6af75c721213c1f4c",
+      "originalBytes": 433,
+      "derivativePath": "life-native-attempt3/shell-duplicate-stream-evidence.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "ab77ca35152a2d3eb412f0395be0a91907d8d4e2828841d603206e0ef63a1c5b",
+      "derivativeSHA256": "cddfef7ec4a2a8e6d351b16ec0f11ac993424f9ecbe422f6af75c721213c1f4c",
+      "derivativeBytes": 433
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/manifest.json",
+      "originalSHA256": "e13e3405a3af85a2dae6308115502c2ef60fe7c9bd7825852c1932a7344a5c60",
+      "originalBytes": 8938,
+      "derivativePath": "life-native-attempt3/native-arms/manifest.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "ea7e519d250a204d2860807a3e93fb1856ca5c0fb2bb2480eca281e7ce6db8b5",
+      "derivativeSHA256": "622a33082bc2569206a8f4e80505b8058c83164e3e68b2c97a34c8b755475fa4",
+      "derivativeBytes": 7305
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/00-combined.json",
+      "originalSHA256": "3abc1608474158b6b2c8a37c5cb0b452a1594b1bbe26554cf9e07932164cc90f",
+      "originalBytes": 159287,
+      "derivativePath": "life-native-attempt3/native-arms/00-combined.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "0a4df4feb33824bd13cb520760f25f8d9c91f731ec18df541abe18f3caf5f690",
+      "derivativeSHA256": "45d52151f8aeb11bbcd09d00c7c21f967d202a7a6e45e3b2a5ae222cf4b4c821",
+      "derivativeBytes": 158661
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/00-combined.analysis.json",
+      "originalSHA256": "faa6ca830a068f286b2bb5f3b062caa38f90000355415a989a7d95f08800d26d",
+      "originalBytes": 44972,
+      "derivativePath": "life-native-attempt3/native-arms/00-combined.analysis.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "30fb136b8c942de994c718fe980dab2adced3c85f7a8f5ee54dd01e64350db2e",
+      "derivativeSHA256": "faa6ca830a068f286b2bb5f3b062caa38f90000355415a989a7d95f08800d26d",
+      "derivativeBytes": 44972
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/00-combined.log",
+      "originalSHA256": "d55dce8531b818ccf3ebd100063f1888463f68bb0442f0c61f66c585892c23cc",
+      "originalBytes": 9337,
+      "derivativePath": "life-native-attempt3/native-arms/00-combined.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "f62c5725558ef2fb1164b423080c66881940eb929365e8a13bb5a0197511aa62",
+      "derivativeBytes": 9195
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/01-map-gl.json",
+      "originalSHA256": "009eb4483a5f0d2bace07beea711bfd072aa46a918e68cf4fafad6af2de02039",
+      "originalBytes": 126040,
+      "derivativePath": "life-native-attempt3/native-arms/01-map-gl.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "3897e395a777b5aa120849c17687b7d44402601062007dfadd9a38c3064a0f96",
+      "derivativeSHA256": "4be7b8f823f2c2c0c5178e6d9bfa3bb21a52de0bae29712fb37e8be6a36fbd90",
+      "derivativeBytes": 125464
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/01-map-gl.analysis.json",
+      "originalSHA256": "bfc753cef21f13a4fbdcba4941634a95e7e9932d6993a4a0fc853e1d48f766c3",
+      "originalBytes": 31439,
+      "derivativePath": "life-native-attempt3/native-arms/01-map-gl.analysis.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "c7fa1467afdaf23adc8a5793ef0349509d8595986f1b5647140def22c7191743",
+      "derivativeSHA256": "bfc753cef21f13a4fbdcba4941634a95e7e9932d6993a4a0fc853e1d48f766c3",
+      "derivativeBytes": 31439
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/01-map-gl.log",
+      "originalSHA256": "c0e7a8cc2caa7d9fd3dc22adf997816e3d1f37ba5bafc3c1bfaba762f2717277",
+      "originalBytes": 7205,
+      "derivativePath": "life-native-attempt3/native-arms/01-map-gl.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "d9fdfb8d472f18f152527887ad62f5de267f95a0dfe83bc750557cb6eefdefd8",
+      "derivativeBytes": 7063
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/02-studio.json",
+      "originalSHA256": "df282426151929b82945def87acbcf19d1960e248efaca495694974b98648b5d",
+      "originalBytes": 51091,
+      "derivativePath": "life-native-attempt3/native-arms/02-studio.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "ffb874f11e62c3fd9d32b1a617b4425b471f77c88be4804066b317e11fbc7d27",
+      "derivativeSHA256": "0c3008f60277f9f0e8d44a767392a18f0decf6110e524affd7354670720d3a88",
+      "derivativeBytes": 50565
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/02-studio.analysis.json",
+      "originalSHA256": "5de294d476b38aa467a68ae4ec8a2c6aea3f0ea6158cddb9d66d627747d3373d",
+      "originalBytes": 17753,
+      "derivativePath": "life-native-attempt3/native-arms/02-studio.analysis.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "338eb15fdc33d27e53a4569059c45dffb9ef1e88744f97fdc298182c610500e8",
+      "derivativeSHA256": "5de294d476b38aa467a68ae4ec8a2c6aea3f0ea6158cddb9d66d627747d3373d",
+      "derivativeBytes": 17753
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/02-studio.log",
+      "originalSHA256": "4a89da133b355e9668ce3b7e080f2a648f09f7d24fe02ecb4ee9a3167a3f0c0d",
+      "originalBytes": 2859,
+      "derivativePath": "life-native-attempt3/native-arms/02-studio.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "7856fe6ca390aa2919c2cf7a8a0564e8481628fea32d7fe6bd1b3258692df5df",
+      "derivativeBytes": 2788
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/03-audio.json",
+      "originalSHA256": "db441e5d0957847cc8d5b55940ad1a59092967351e7ae2f9a7c841d9702175ae",
+      "originalBytes": 53925,
+      "derivativePath": "life-native-attempt3/native-arms/03-audio.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "e483db7bc9d664c0ca552af57c9f0e81cf51db08db97a6d8c3e6beadd7835d21",
+      "derivativeSHA256": "29c6a505109c8cb802feb7fb02babc949f57ee1fd0dfe1c42b8e0217e9088111",
+      "derivativeBytes": 53499
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/03-audio.analysis.json",
+      "originalSHA256": "04b0cff3c17528cc516a0d6723ed140b04c5aec2fba58922084ba90a8e623ad9",
+      "originalBytes": 31131,
+      "derivativePath": "life-native-attempt3/native-arms/03-audio.analysis.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "7c001b13c1c5a03c3abacf419fc4681154b0bc38fe08013290a5a4c329058158",
+      "derivativeSHA256": "04b0cff3c17528cc516a0d6723ed140b04c5aec2fba58922084ba90a8e623ad9",
+      "derivativeBytes": 31131
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt3/native-arms/03-audio.log",
+      "originalSHA256": "c92d7b6b42521bfcacf391e51ee6f0ab50dfed765aa0f4431179f2d51f34cf55",
+      "originalBytes": 1509,
+      "derivativePath": "life-native-attempt3/native-arms/03-audio.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "5f89527ab92f6c71db841d53eea7008c9504f37973c9c7d970beb53e6a7eb7d8",
+      "derivativeBytes": 1438
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt4/shell.log",
+      "originalSHA256": "afd16adb1b672522695278a4c632cb5985b434611f89d32c601fc435bebfdf64",
+      "originalBytes": 22994,
+      "derivativePath": "life-native-attempt4/shell.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "b2dfe42aba40c9a046b2067b1d95d1ea8cec5076f3b059f26c71b37b597b3233",
+      "derivativeBytes": 19160
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt5-respawn/respawn.log",
+      "originalSHA256": "929adeb2f1049b67975108c20b0d6c8ab3d2c39c23fa4eed9554ef4c2eac8318",
+      "originalBytes": 6112,
+      "derivativePath": "life-native-attempt5-respawn/respawn.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "a327d354b134dbe40c5c5fa45bffcc6fbd7378a10c210cefa2c02a0724d9f1c2",
+      "derivativeBytes": 5331
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-f24b07b2/receipt.json",
+      "originalSHA256": "16318766334fec76041143eb919e0f840342bc51c583365b0585555005a08c4d",
+      "originalBytes": 255902,
+      "derivativePath": "negatives-f24/receipt.json",
+      "omittedFields": [
+        {
+          "path": [
+            "sourceTreeLines"
+          ],
+          "canonicalValueSHA256": "2b6b1ea72c8e24cf2cb839de8ff36c59a6cbf3495e9852554b77871f93b448f2",
+          "canonicalValueBytes": 249849,
+          "reason": "Bulk provenance omitted; original whole-file hash retained.",
+          "lineCount": 2456
+        }
+      ],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "8c570724fd79644cc1e2846e3de025f8f5b425b23136c0be25f960ed81219d5e",
+      "derivativeSHA256": "eff7f7cffa5c0370f5460701d53244717023340c801cc3dad9eb2715691c1199",
+      "derivativeBytes": 5719
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-f24b07b2/build-failure-closure.json",
+      "originalSHA256": "1db4c7f0d91de40ecc6f72dd3cf410bf5d5f1ce479ebbf2ad0a041f61e5a8b77",
+      "originalBytes": 193,
+      "derivativePath": "negatives-f24/build-failure-closure.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "430a1e38ebacaed39f0db1e9876a86b33dab74c17ba9e4f13c2ad548321f80fd",
+      "derivativeSHA256": "1db4c7f0d91de40ecc6f72dd3cf410bf5d5f1ce479ebbf2ad0a041f61e5a8b77",
+      "derivativeBytes": 193
+    },
+    {
+      "originalRelativePath": "work/plan-completion-evidence/candidate-f24b07b2/build.log",
+      "originalSHA256": "be3ae2937494c7b105691b3eb077cd7d825b77e220fd981ed4c188b4a6c51d89",
+      "originalBytes": 2433,
+      "derivativePath": "negatives-f24/build.log",
+      "omittedFields": [],
+      "kind": "text",
+      "derivativeSHA256": "61dd6a65de6212cdc0c3c2006df6f711f782970d376c2255f2eddedfb0dae47e",
+      "derivativeBytes": 1652
+    },
+    {
+      "originalRelativePath": "work/life-completion-preparation/native-88-portable-artifacts.json",
+      "originalSHA256": "9253d52c5b3ac26c8ee190856b56cb9875849e74fb98bc4c7825cbd230156ed7",
+      "originalBytes": 118802,
+      "derivativePath": "capture-artifacts.json",
+      "omittedFields": [],
+      "kind": "json",
+      "numericAndArrayStructureSHA256": "b103f5072b25525a243528436c85c8b9a5e2a0706fa2ec6fb481ce8e24cae9eb",
+      "derivativeSHA256": "9253d52c5b3ac26c8ee190856b56cb9875849e74fb98bc4c7825cbd230156ed7",
+      "derivativeBytes": 118802,
+      "scope": "Packager-generated metadata from existing artifact bytes/readback records; not a fresh native campaign or copied media."
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+[debug] standard error is being written to ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt5-respawn/user-data/logs/ProjectPrime-20261014-045452-48892-native.txt
+Project Prime a local build
+OS: macOS 27.0.0
+OS architecture: Arm64
+Process architecture: Arm64
+RID: osx-arm64
+Runtime: .NET 10.0.12
+Base directory: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/
+Launch directory: ${WORKSPACE}/work/prime-plan-integration
+Current directory: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt5-respawn/user-data
+User data: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/life-native-attempt5-respawn/user-data
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/libopenal.1.dylib
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/libglfw.3.dylib
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/libSkiaSharp.dylib
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/libAvaloniaNative.dylib
+Native: ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/libminiaudio.dylib
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[load] SFX device ready in 0.19s
+[glcapabilities] version=2.1 Metal - 91.7; vao=False; appleVao=True; desktopVaoApi=Apple; timer=False; disjointTimer=False; sync=True; ubo=False; storage=False; optimizations=capability-and-policy; forceLegacy=False
+RESPAWNRENDER backend requested=OpenGL actual=OpenGL
+RESPAWNRENDER start room=MP3 PROVING GROUND cycles=9 timeout=300s | visible/unfocused, cursor free, vsync off | accelerated 60 Hz simulation | every step rendered; 300 settling frames per completed cycle | beam-source injects damage, does not test projectile collision
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[world-shaders] variant=native elapsedMs=6.000
+[world-shaders] variant=plain elapsedMs=4.554
+[world-shaders] variant=plain-unlit elapsedMs=4.232
+[input] gamepad mappings: 2275 from ${WORKSPACE}/work/plan-completion-evidence/candidate-88f9d29e/runtime/gamecontrollerdb.txt
+RESPAWNRENDER boundary clean repeat cel=0 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=scissor cel=0 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=depth cel=0 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=color-mask cel=0 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=blend cel=0 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=raster cel=0 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=hud-mask cel=0 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=combined cel=0 changedPixels=0/1228800
+[render] cel outline: the depth buffer is 24 bits
+[render] cel outline: a flat surface's depth is off by 3.037481e-8 here, 0.5x the 5.960465e-8 the driver stores -- which is what the buffer stores.
+RESPAWNRENDER boundary clean repeat cel=1 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=scissor cel=1 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=depth cel=1 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=color-mask cel=1 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=blend cel=1 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=raster cel=1 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=hud-mask cel=1 changedPixels=0/1228800
+RESPAWNRENDER boundary poison=combined cel=1 changedPixels=0/1228800
+RESPAWNRENDER boundary-control comparisons=14 failures=0 | exact RGB comparison; cel off/on; simulation frozen
+RESPAWNRENDER combined diagnostics age=10 max=255 whiteState=0 whiteFactor=0.51562506 tableMin=-1 tableMax=16 time=74.1847
+RESPAWNRENDER combined diagnostics age=11 max=255 whiteState=0 whiteFactor=0.56250006 tableMin=-1 tableMax=16 time=74.20137
+RESPAWNRENDER combined diagnostics age=12 max=255 whiteState=0 whiteFactor=0.60937506 tableMin=-1 tableMax=16 time=74.21804
+RESPAWNRENDER combined diagnostics age=13 max=255 whiteState=0 whiteFactor=0.65625006 tableMin=-1 tableMax=16 time=74.23471
+RESPAWNRENDER combined diagnostics age=14 max=255 whiteState=0 whiteFactor=0.70312506 tableMin=-1 tableMax=16 time=74.25138
+RESPAWNRENDER combined diagnostics age=15 max=255 whiteState=0 whiteFactor=0.75000006 tableMin=-1 tableMax=16 time=74.26805
+RESPAWNRENDER progress 9/9 frames=4935 simulated=82.2s wall=9.8s managedBytes=174462744 workingSetBytes=477151232 failures=0
+RESPAWNRENDER advancedFrames=0
+RESPAWNRENDER PASS room=MP3 PROVING GROUND cycles=9/9 deaths=10 respawns=10 frames=4935 checked=3106 black=0 fadeExcluded=39 invariants=0 gl=0 rendererGl=0 failures=0 resize=18 scale=18 cel=18 controlComparisons=14 controlDraws=20 simulated=82.2s wall=9.9s
+RESPAWNRENDER coverage opponent=1
+RESPAWNRENDER coverage self=1
+RESPAWNRENDER coverage environment=1
+RESPAWNRENDER coverage beam-source=1
+RESPAWNRENDER coverage rapid=1
+RESPAWNRENDER coverage disruption=1
+RESPAWNRENDER coverage whiteout=1
+RESPAWNRENDER coverage scoreboard=1
+RESPAWNRENDER coverage combined=1
+RESPAWNRENDER scope: full-black/invariants/GL only; HUD bars, fullscreen, alt-tab, projectile collision and other drivers/platforms require separate validation.

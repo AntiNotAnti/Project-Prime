@@ -1,0 +1,16 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NcsfPlay -> ${WORKSPACE}/work/plan-completion-evidence/candidate-f24b07b2/runtime/NcsfPlay.dll
+  MphRead.Protocol.Generator -> ${WORKSPACE}/work/plan-completion-evidence/candidate-f24b07b2/runtime/MphRead.Protocol.Generator.dll
+  MphRead -> ${WORKSPACE}/work/plan-completion-evidence/candidate-f24b07b2/runtime/ProjectPrime.dll
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/PlayerNameChatTests.cs(7,7): warning CS0105: The using directive for 'System.Text' appeared previously in this namespace [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/TimedImperialistImpactTests.cs(275,45): error CS0136: A local or parameter named 'profile' cannot be declared in this scope because that name is used in an enclosing local scope to define a local or parameter [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+
+Build FAILED.
+
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/PlayerNameChatTests.cs(7,7): warning CS0105: The using directive for 'System.Text' appeared previously in this namespace [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/TimedImperialistImpactTests.cs(275,45): error CS0136: A local or parameter named 'profile' cannot be declared in this scope because that name is used in an enclosing local scope to define a local or parameter [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+    1 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:44.02
