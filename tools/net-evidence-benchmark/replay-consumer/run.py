@@ -191,7 +191,7 @@ def main(argv=None):
     args = p.parse_args(argv)
     if not 1 <= len(args.replay) <= 9 or not 0 < args.max_frames < HARD_CAP or args.timeout < 1:
         p.error('Require 1..9 inputs, max-frames 1..999999 and positive timeout')
-    if args.out.exists() or args.out == args.repo or args.repo in args.out.parents or HERE in args.out.parents or args.out == args.runtime or args.runtime in args.out.parents:
+    if args.out.exists() or args.out == args.repo or args.repo in args.out.parents or args.out == HERE.parents[2] or HERE.parents[2] in args.out.parents or args.out == args.runtime or args.runtime in args.out.parents:
         p.error('Require a fresh output outside source/tool checkouts')
     args.out.mkdir(parents=True)
     receipt = {'schema': 1, 'status': 'SOURCE_SETUP_IN_PROGRESS', 'fullPlanStatus': 'NOT_ACCEPTED',
@@ -275,10 +275,11 @@ def main(argv=None):
             profile.mkdir()
             sanitized, _ = paths_profile(args.paths, profile)
             (profile / 'paths.txt').write_text(sanitized)
+            profile_paths_before = sha(profile / 'paths.txt')
             runenv = dict(env, PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS='null')
             log = args.out / f'replay-{index:02d}.log'
             run = owned_run([str(args.sdk), str(thin / 'nettest.dll'), str(replay), '--scene'], profile, runenv, log, args.timeout)
-            row = {'name': f'replay-{index:02d}', 'input': str(replay), 'pathsSha256': sha(profile / 'paths.txt'), **run}
+            row = {'name': f'replay-{index:02d}', 'input': str(replay), 'pathsSha256Before': profile_paths_before, 'pathsSha256After': sha(profile / 'paths.txt'), **run}
             receipt['steps'].append(row)
             save()
             if run['exit'] or run['ownedSurvivors'] or run.get('timeout'):
@@ -310,11 +311,13 @@ def main(argv=None):
                 receipt['assetsAfter'] = asset_manifest(roots)
             receipt['toolSourceAfter'] = source_identity(tool_repo)
             receipt['pathsTemplateSha256After'] = sha(args.paths)
+            receipt['qualificationSha256After'] = sha(args.qualification)
+            receipt['sdkSha256After'] = sha(args.sdk)
             receipt['managedReferenceHashesAfter'] = {f.name: sha(f) for f in args.runtime.glob('*.dll')}
             if 'thinPhysicalHashesBefore' in receipt:
                 receipt['thinPhysicalHashesAfter'] = {f.name: sha(f) for f in thin.glob('*') if f.is_file() and not f.is_symlink()}
             receipt['toolHashesAfter'] = {str(f.relative_to(HERE)): sha(f) for f in HERE.glob('*') if f.is_file()}
-            receipt['inputsUnchanged'] = (receipt.get('toolSourceBefore') == receipt['toolSourceAfter'] and receipt.get('pathsTemplateSha256') == receipt['pathsTemplateSha256After'] and receipt.get('managedReferenceHashesBefore') == receipt['managedReferenceHashesAfter'] and receipt.get('thinPhysicalHashesBefore') == receipt.get('thinPhysicalHashesAfter') and receipt.get('sourceBefore') == receipt['sourceAfter'] and receipt.get('physicalHashesBefore') == receipt['physicalHashesAfter'] and receipt.get('assetsBefore') == receipt.get('assetsAfter') and receipt.get('toolHashesBefore') == receipt['toolHashesAfter'] and all(a['sha256'] == b['sha256'] for a, b in zip(receipt.get('replaysBefore', []), receipt['replaysAfter'])))
+            receipt['inputsUnchanged'] = (receipt.get('sdkSha256') == receipt['sdkSha256After'] and receipt.get('qualificationSha256') == receipt['qualificationSha256After'] and all(row['pathsSha256Before'] == row['pathsSha256After'] for row in receipt['steps'] if 'pathsSha256Before' in row) and receipt.get('toolSourceBefore') == receipt['toolSourceAfter'] and receipt.get('pathsTemplateSha256') == receipt['pathsTemplateSha256After'] and receipt.get('managedReferenceHashesBefore') == receipt['managedReferenceHashesAfter'] and receipt.get('thinPhysicalHashesBefore') == receipt.get('thinPhysicalHashesAfter') and receipt.get('sourceBefore') == receipt['sourceAfter'] and receipt.get('physicalHashesBefore') == receipt['physicalHashesAfter'] and receipt.get('assetsBefore') == receipt.get('assetsAfter') and receipt.get('toolHashesBefore') == receipt['toolHashesAfter'] and all(a['sha256'] == b['sha256'] for a, b in zip(receipt.get('replaysBefore', []), receipt['replaysAfter'])))
             receipt['allOwnedGroupsClosed'] = all(not s['ownedSurvivors'] for s in receipt['steps'])
             if receipt['status'].startswith('PASS') and not (receipt['inputsUnchanged'] and receipt['allOwnedGroupsClosed']):
                 receipt.update(status='PROVENANCE_FAIL', error='Source/runtime/assets/replays/tool changed or owned groups remain open')
