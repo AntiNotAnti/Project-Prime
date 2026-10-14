@@ -91,7 +91,7 @@ try
     watch.Restart();
     using (var reader = new MapPackageReader(first))
     {
-        if (reader.Manifest?.MapId != mapId || reader.ReadProject().MapId != mapId)
+        if (reader.Manifest?.MapId != mapId || JsonSerializer.Deserialize<MapDefinition>(reader.ReadProject(), MapPackageReader.JsonOptions)?.MapId != mapId)
             throw new InvalidDataException("Strict reader changed the baseline map identity.");
     }
     timings["strict_verify_ms"] = watch.Elapsed.TotalMilliseconds;
