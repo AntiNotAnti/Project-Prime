@@ -66,7 +66,6 @@ public static class MapCommunityServer
         }
         var revisionCatalog = new MapCommunityRevisionCatalog(storage, maps.Values);
         long publishedBytes = maps.Values.Sum(m => m.Bytes);
-        PurgeExpiredLifecycle();
         DateTimeOffset nextLifecycleSweep = DateTimeOffset.UtcNow.AddHours(1);
         object lifecycleSweepGate = new();
         using var listener = new HttpListener();
@@ -112,6 +111,9 @@ public static class MapCommunityServer
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
         var uploadQuota = new MapCommunityUploadReservations(retained, orphanPartialBytes);
+        // Lifecycle purge can remove resumable uploads. Initialize the ledger
+        // first so each purge releases the corresponding reservation safely.
+        PurgeExpiredLifecycle();
         string requestRoot = new Uri(prefix).AbsolutePath.TrimEnd('/');
         try
         {
