@@ -318,10 +318,11 @@ namespace MphRead.Mods.Launcher
         private static bool BeginAdventure(RenderWindow window, LaunchPlan plan)
         {
             string? landingRoom = null;
+            CampaignDockReceipt? checkedDock = RecentShipDock;
             if (plan.AdventureDestination is { } destination)
             {
                 if (!CampaignShipTravel.TryChooseLanding(GameState.PeekSave(plan.SaveSlot),
-                    RecentShipDock, plan.SaveSlot, plan.NewGame, destination,
+                    checkedDock, plan.SaveSlot, plan.NewGame, destination,
                     out string room, out string reason))
                 {
                     LastError = reason;
@@ -349,8 +350,14 @@ namespace MphRead.Mods.Launcher
             string roomKey = AdventureSave.Begin(
                 window.Scene.GameState, plan.SaveSlot, plan.NewGame);
             // Travel is allowed only after real ship boarding and unlock
-            // validation above; save checkpoint bytes are not rewritten here.
-            if (landingRoom != null) roomKey = landingRoom;
+            // validation above. Initialize the *live* landing spawn without
+            // rewriting the persisted prior checkpoint until normal save.
+            if (landingRoom != null && checkedDock is { } dock
+                && plan.AdventureDestination is { } landing)
+            {
+                CampaignShipTravel.PrepareLandingSpawn(window.Scene.GameState.StorySave, dock, landing);
+                roomKey = landingRoom;
+            }
             if (roomKey.Length == 0)
             {
                 Console.WriteLine("[launcher] no adventure room to load");
