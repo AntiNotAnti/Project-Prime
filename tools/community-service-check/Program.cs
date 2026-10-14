@@ -287,7 +287,10 @@ try
         var started = await StartAsync();
         using var client = started.Client;
         bool denied = false;
-        for (int i = 0; i < 72; i++)
+        // Crosses at most one fixed-minute rate window in this short local
+        // campaign. 136 requests exceed two 60-request windows, so the result
+        // is not sensitive to running exactly at a UTC minute boundary.
+        for (int i = 0; i < 136; i++)
         {
             using var result = await client.GetAsync("health");
             if (result.StatusCode == HttpStatusCode.TooManyRequests)
