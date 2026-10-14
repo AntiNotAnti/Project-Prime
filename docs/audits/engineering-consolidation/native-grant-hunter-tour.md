@@ -15,14 +15,20 @@ existing asset-dependent native fixture and adds the missing contact matrix.
 ## Exact command and workload
 
 ```sh
-dotnet /absolute/qualified/bin/nettest.dll --native-grant-hunter-tour \
-  /absolute/licensed/AMHE1/filesystem 'MP1 SANCTORUS' \
-  /absolute/fresh/evidence/native-grant-hunter-tour.json
+python3 tools/nettest/run_native_grant_hunter_tour.py \
+  --nettest /absolute/qualified/bin/nettest.dll \
+  --client /absolute/qualified/bin/ProjectPrime.dll \
+  --filesystem /absolute/licensed/AMHE1/filesystem \
+  --paths-template /absolute/licensed-template/paths.txt \
+  --qualification-receipt /absolute/exact-head/receipt.json \
+  --dotnet /absolute/qualified/dotnet \
+  --room 'MP1 SANCTORUS' --output /absolute/fresh/evidence/native-grant-hunter-tour
 ```
 
 Run the qualified full physical client/nettest build in the exclusive native
-campaign slot. The output must be fresh; retain all attempts and actual
-source/binary/asset identity. The fixture emits the loaded client SHA-256/MVID
+campaign slot. The parent starts one fresh process per arm, with fresh isolated
+user data containing normalized paths only. The output must be fresh; retain
+all attempts and actual source/binary/asset identity. The fixture emits the loaded client SHA-256/MVID
 and completed arm receipts with full item incarnation, actor life, grant
 sequence, contact/effective/expiry frames, native phase counters, native emitted
 shot, canonical intent and production replay callback bytes. A caught failure
@@ -106,3 +112,57 @@ capture budget. The original parity assertion remains unchanged pending real
 diagnostic evidence. Cleanup/proof-mode restoration still runs if writing a
 diagnostic file fails. New-head build, diagnostic run and corrected acceptance
 remain required; no source-inspection hypothesis upgrades the failed pair.
+
+## Source-bound diagnostic and authentic process boundary
+
+A distinct friend entry compiled the actual modified tour/helper sources against
+that unchanged qualified engine. Its build passed with zero warnings/errors.
+The real two-arm diagnostic reproduced the failure and successfully wrote the
+scalar receipts. Physical engine SHA-256 was
+`323380522fb48d8d6903709f27f5f95ca8995aa26d625e1fa3bdfff0ef603647`, MVID
+`d6f53ab0-c704-4d18-8665-e83509063a09`. The separate friend entry SHA-256 was
+`923e08adc7344914690dcbb823e0634ebba5bc4a94c8666563250d16ac8ccefb`, MVID
+`86f853c3-f6cd-4c5f-bc7b-bc66abcb8563`; this is explicitly not a full integrated
+nettest or 42-arm acceptance result. All source/reference/asset identities stayed
+unchanged and both owned process groups closed. An earlier attempted build using
+the system runtime without the pinned SDK is preserved as a setup failure.
+
+The measured discrepancy was authentic world identity: Off's Room incarnation
+was one, while Shadow's independently constructed second world was two.
+NetPowerUpLedger.BeginRoom increments that incarnation; Reset intentionally
+preserves it across session teardown. Full native Fire and the 1296-byte Intent
+were exact matches, as were damage 12, lifespan 8.483334, ammo expenditure zero,
+contact 121, timers [1799,1798,0,0], 1801 native frames and fire/semantic/replay
+counts [1,1,1,0]. The first of two actual replay records differed at payload byte
+11, carrying the real room incarnation. Therefore even the original Outcome
+object properly failed raw equality; dropping a room field or normalizing replay
+bytes would conceal a truthful producer difference.
+
+The acceptance executor now starts each Off/Shadow arm in a fresh CLR with the
+same authentic initialized fixture scope. It does not reset any production
+ledger counter or rewrite canonical bytes. The full test route is
+`--native-grant-hunter-tour-arm FILESYSTEM HUNTER ITEM Off|Shadow ROOM JSON`.
+Its schema-3 receipt includes loaded engine and full entry SHA/MVID plus scalar
+native certificate, source, raw ledger answer and full funding proof. The old
+in-process experiment remains explicitly available as
+`--native-grant-hunter-tour-in-process`; its historical comparator is unchanged.
+The old ambiguous route redirects operators to the fresh-process executor.
+
+The parent requires a successful clean-source integrated qualification receipt,
+its exact full nettest physical hash, matching engine copies and immutable
+DLL/dependency/runtime-config/source/asset identities. Each of the 42 planned
+arms remains NOT_RUN until executed; a failure stops with all partial evidence
+retained. An owned process group must close before the next arm. Complete native
+frame/contact/fire/semantic/replay denominators and exact source/pose,
+room/life/certificate/raw-ledger/funding identities are independently validated.
+Only the intentional proof mode and certificate instrumentation fields differ
+between Off and Shadow. All remaining fields—including the complete untouched
+Fire, Intent, ReplayRecorder bytes, full native spawn/life identity and timer
+chronology—must compare exactly. No identity normalization is performed.
+
+Nine lightweight synthetic parser/comparator tests pass. They reject different
+room incarnations, any raw Fire/Intent/replay difference, missing positive
+samples, wrong loaded DLL, wrong full shot source, wrong raw ledger answer,
+wrong capture mode and forged Cloak/Death Alt Double funding. These are checker
+controls, not new native witnesses. New-head full compilation and the actual
+42-arm fresh-process campaign remain NOT_RUN pending coordinated execution.
