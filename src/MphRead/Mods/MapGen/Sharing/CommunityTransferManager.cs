@@ -212,10 +212,38 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     public void Resume(Guid id)
     {
         ThrowIfDisposed();
-        CommunityTransferJob job = GetJob(id);
-        if (job.State is CommunityTransferState.Completed or CommunityTransferState.Cancelled)
-            throw new InvalidOperationException("Completed or cancelled transfers cannot resume.");
-        Schedule(id);
+        Task? retiring = null;
+        lock (_gate)
+        {
+            if (!_jobs.TryGetValue(id, out var job))
+                throw new KeyNotFoundException("Unknown transfer.");
+            if (job.State is CommunityTransferState.Completed
+                or CommunityTransferState.Cancelled)
+                throw new InvalidOperationException("Completed or cancelled transfers cannot resume.");
+            if (_running.TryGetValue(id, out var active))
+            {
+                // Pausing cancels a running worker, but it still needs to exit
+                // its HTTP request and release the slot. A quick Resume click
+                // must not be lost while that cancelled worker is retiring.
+                if (!active.Cancellation.IsCancellationRequested) return;
+                retiring = active.Running;
+            }
+        }
+        if (retiring == null)
+        {
+            Schedule(id);
+            return;
+        }
+        _ = retiring.ContinueWith(_ =>
+        {
+            try
+            {
+                if (!_disposed && GetJob(id).State == CommunityTransferState.Paused)
+                    Schedule(id);
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException
+                or KeyNotFoundException) { }
+        }, TaskScheduler.Default);
     }
 
     public void StartPending()
