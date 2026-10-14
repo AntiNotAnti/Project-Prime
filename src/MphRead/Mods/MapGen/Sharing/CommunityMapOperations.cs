@@ -108,6 +108,24 @@ public sealed class CommunityMapOperations
         }
     }
 
+    public Task<CommunityContentPage> BrowseContentAsync(
+        CancellationToken cancellation, string? kind = null, bool mine = false,
+        string? query = null, string? sort = null, int page = 1, int pageSize = 24)
+        => UseClientAsync(mine, client => client.BrowseContentAsync(
+            cancellation, kind, mine, query, sort, page, pageSize), cancellation);
+
+    public Task<CommunityContentProject?> GetContentAsync(
+        string kind, Guid contentId, CancellationToken cancellation,
+        bool ownerView = false)
+        => UseClientAsync(ownerView, client => client.GetContentAsync(
+            kind, contentId, cancellation), cancellation);
+
+    public Task<CommunityContentRevision[]> GetContentRevisionsAsync(
+        string kind, Guid contentId, CancellationToken cancellation,
+        bool ownerView = false)
+        => UseClientAsync(ownerView, client => client.GetContentRevisionsAsync(
+            kind, contentId, cancellation), cancellation);
+
     public Task<CommunityMapProject[]> BrowseProjectsAsync(
         bool mine, bool favorites, string? sort, CancellationToken cancellation)
         => UseClientAsync(mine || favorites,
