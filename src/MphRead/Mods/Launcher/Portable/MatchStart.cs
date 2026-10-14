@@ -1,5 +1,6 @@
 using System;
 using MphRead.Entities;
+using MphRead.Mods.Campaign;
 using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Launcher
@@ -22,6 +23,10 @@ namespace MphRead.Mods.Launcher
         public static string? LastError { get; private set; }
         // Failed commits remain retryable without retaining the old world.
         private static PostMatchCommitContext? _pendingCommit;
+
+        /// <summary>In-memory ship boarding after a successfully committed save.</summary>
+        public static CampaignDockReceipt? RecentShipDock { get; private set; }
+        public static void ClearRecentShipDock() => RecentShipDock = null;
 
         /// <summary>
         /// Load what the plan asked for into a window of its own and run until
@@ -90,8 +95,11 @@ namespace MphRead.Mods.Launcher
             GameFiles.ApplyPaths();
             if (plan.Kind == LaunchKind.Adventure)
             {
-                return BeginAdventure(window, plan);
+                bool began = BeginAdventure(window, plan);
+                if (began) ClearRecentShipDock();
+                return began;
             }
+            ClearRecentShipDock();
             if (plan.Kind == LaunchKind.Demo)
             {
                 return BeginDemo(window, plan);
@@ -280,7 +288,15 @@ namespace MphRead.Mods.Launcher
 
         private static void CompleteCommit(PostMatchCommitContext commit)
         {
+            bool wroteAdventure = commit.HasPayload && commit.Slot != 0;
             commit.Commit();
+            // Only the real QuitGame(enteringShip:true) path can produce a
+            // star-map ticket, and only after the native save was committed.
+            if (wroteAdventure && commit.Departure == CampaignDeparture.ReturnedToShip
+                && CampaignNavigation.ByLandingRoom(commit.DepartureRoomId) is { } planet)
+                RecentShipDock = new CampaignDockReceipt(commit.Slot, planet.Id);
+            else if (commit.Slot != 0)
+                RecentShipDock = null;
             // A new scene/slot may already have issued its own request. The old
             // save completion must not erase it, including same-value requests.
             if (Menu.SaveRequestVersion == commit.RequestVersion) Menu.NeededSave = SaveWhen.Never;
@@ -301,6 +317,18 @@ namespace MphRead.Mods.Launcher
         /// </summary>
         private static bool BeginAdventure(RenderWindow window, LaunchPlan plan)
         {
+            string? landingRoom = null;
+            if (plan.AdventureDestination is { } destination)
+            {
+                if (!CampaignShipTravel.TryChooseLanding(GameState.PeekSave(plan.SaveSlot),
+                    RecentShipDock, plan.SaveSlot, plan.NewGame, destination,
+                    out string room, out string reason))
+                {
+                    LastError = reason;
+                    return false;
+                }
+                landingRoom = room;
+            }
             // The shell has no scene while its menus are up. Do not prepare the
             // bootstrap GameState and then construct a different SceneGameState:
             // that discards StartNewSave(), and Scene.Reset may immediately read
@@ -320,6 +348,9 @@ namespace MphRead.Mods.Launcher
 
             string roomKey = AdventureSave.Begin(
                 window.Scene.GameState, plan.SaveSlot, plan.NewGame);
+            // Travel is allowed only after real ship boarding and unlock
+            // validation above; save checkpoint bytes are not rewritten here.
+            if (landingRoom != null) roomKey = landingRoom;
             if (roomKey.Length == 0)
             {
                 Console.WriteLine("[launcher] no adventure room to load");
