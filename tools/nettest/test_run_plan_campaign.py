@@ -4,13 +4,44 @@ from pathlib import Path
 from types import SimpleNamespace
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 SPEC = importlib.util.spec_from_file_location('plan_campaign', Path(__file__).with_name('run_plan_campaign.py'))
 MODULE = importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(MODULE)
 
 
 class PreflightTests(unittest.TestCase):
+    def test_cleanup_missing_group_never_signals(self):
+        process = Mock(pid=12345)
+        with patch.object(MODULE, 'members', return_value=[]), patch.object(MODULE.os, 'killpg') as kill:
+            self.assertEqual(MODULE.stop_owned(process), [])
+        kill.assert_not_called()
+
+    def test_cleanup_permission_race_rechecks_without_escalation(self):
+        process = Mock(pid=12345); process.poll.return_value = 0
+        for error in (PermissionError('denied'), ProcessLookupError('gone')):
+            with patch.object(MODULE, 'members', side_effect=[['owned'], [], []]), \
+                    patch.object(MODULE.os, 'killpg', side_effect=error) as kill:
+                self.assertEqual(MODULE.stop_owned(process), [])
+                kill.assert_called_once_with(12345, MODULE.signal.SIGTERM)
+
+    def test_cleanup_denied_live_group_preserves_guard_and_actual_members(self):
+        process = Mock(pid=12345); process.poll.return_value = None
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); receipt = {}
+            with patch.object(MODULE.subprocess, 'Popen', return_value=process), \
+                    patch.object(MODULE, 'members', return_value=['12345 12345 owned']), \
+                    patch.object(MODULE.shutil, 'disk_usage', return_value=SimpleNamespace(free=0)), \
+                    patch.object(MODULE.os, 'killpg', side_effect=PermissionError('denied')) as kill:
+                row = MODULE.watched(['unused'], root, {}, root / 'log', receipt, root / 'receipt.json', 'test', 10)
+            kill.assert_called_once_with(12345, MODULE.signal.SIGTERM)
+            self.assertIn('partial data preserved', row['guardFailure'])
+            self.assertEqual(receipt['error'], row['guardFailure'])
+            self.assertEqual(row['cleanupError'], 'denied')
+            self.assertEqual(row['remainingOwnedGroupMembers'], ['12345 12345 owned'])
+            self.assertFalse(row['ownedProcessGroupClosed'])
+            self.assertIn('cleanupError', (root / 'receipt.json').read_text())
+
     def recipe(self, name):
         args = SimpleNamespace(case=name, port=None, source_worktree=Path('/qualified/source'),
             source='a' * 40, build=Path('/frozen/runtime'), paths=Path('/isolated/paths.txt'),

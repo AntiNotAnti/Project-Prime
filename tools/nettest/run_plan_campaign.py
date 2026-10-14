@@ -121,6 +121,12 @@ def stop_owned(process):
             os.killpg(process.pid, sig)
         except ProcessLookupError:
             break
+        except PermissionError:
+            # A group can disappear between ps and killpg. Recheck rather than
+            # declaring closure or escalating after a denied signal.
+            if not members(process.pid):
+                break
+            raise
         deadline = time.monotonic() + wait
         while time.monotonic() < deadline and members(process.pid):
             time.sleep(.2)
@@ -165,6 +171,7 @@ def watched(argv, cwd, env, log, receipt, receipt_path, label, deadline_seconds)
                 guard = guard_failure(time.monotonic(), deadline, free)
                 if guard:
                     row['guardFailure'] = guard
+                    receipt.setdefault('error', guard)
                     break
                 if time.monotonic() - last_checkpoint >= 5:
                     save(receipt_path, receipt); last_checkpoint = time.monotonic()
@@ -180,7 +187,10 @@ def watched(argv, cwd, env, log, receipt, receipt_path, label, deadline_seconds)
                 if residual:
                     row['residualBeforeCleanup'] = residual
                     row.setdefault('guardFailure', 'owned descendant remained after parent exit')
-                    stop_owned(process)
+                    try:
+                        stop_owned(process)
+                    except (OSError, subprocess.SubprocessError) as error:
+                        row['cleanupError'] = str(error)
             row.update(exit=process.poll(), finishedUtc=time.time(),
                        remainingOwnedGroupMembers=members(process.pid), logSha256=digest(log))
             row['ownedProcessGroupClosed'] = not row['remainingOwnedGroupMembers']
@@ -288,6 +298,9 @@ def main(argv=None):
         receipt['joinedEvidence'] = json.loads(joined_path.read_text()) if joined_path.exists() else {'status': 'INCOMPLETE', 'reason': 'strict audit report missing'}
         receipt['status'] = disposition(receipt['summary'], receipt['joinedEvidence'],
             guarded=any(row.get('guardFailure') or not row['ownedProcessGroupClosed'] for row in receipt.get('runs', [])))
+        failures = [row['guardFailure'] for row in receipt.get('runs', []) if row.get('guardFailure')]
+        if failures:
+            receipt['error'] = failures[0]
         if (run['exit'] != 0 and receipt['summary'].get('status') != 'INCOMPLETE'):
             receipt['status'] = 'FAIL'
         audit_run = receipt.get('joinedAuditRun')
@@ -295,7 +308,12 @@ def main(argv=None):
             receipt['status'] = 'FAIL'
         return 0 if receipt['status'].startswith('PASS') else 1 if receipt['status'] == 'FAIL' else 2
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
-        receipt.update(status='FAIL_PRECONDITION_OR_PARTIAL', error=str(error)); return 1
+        receipt.update(status='FAIL_PRECONDITION_OR_PARTIAL')
+        if 'error' in receipt:
+            receipt['secondaryError'] = str(error)
+        else:
+            receipt['error'] = str(error)
+        return 1
     except (KeyboardInterrupt, SystemExit) as error:
         receipt.update(status='FAIL_INTERRUPTED_PARTIAL_PRESERVED', error=str(error)); return 1
     finally:
