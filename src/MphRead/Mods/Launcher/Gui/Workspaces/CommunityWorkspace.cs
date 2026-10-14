@@ -513,8 +513,8 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
                 cancel.Token)
                 ?? throw new IOException("Verified Community archive is missing or changed.");
             MapDefinition installed = await Task.Run(() =>
-                MapPackageInstaller.Install(archive.Path, map.MapId, map.ContentHash, map.Hash,
-                    CustomRooms.UserMapDirectory), cancel.Token);
+                MapPackageInstaller.InstallLeased(archive, map.MapId, map.ContentHash,
+                    map.Hash, CustomRooms.UserMapDirectory), cancel.Token);
 
             // Commit may finish just before navigation changes. Registration
             // must follow a completed installation to avoid stale map indices.
