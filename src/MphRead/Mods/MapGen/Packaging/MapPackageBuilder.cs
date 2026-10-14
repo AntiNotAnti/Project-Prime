@@ -147,6 +147,13 @@ namespace MphRead.Mods.MapGen
                     Add(asset, FromAsset(source, asset));
                 }
 
+                // Keep the Project Prime Studio authoring source editable, but
+                // publish older-reader-compatible geometry: patch control grids
+                // and Quake face projection metadata are lowered to the existing
+                // explicit-UV MapMesh schema. Existing maps are byte-identical
+                // because this path is a no-op when no new geometry is present.
+                MapPackageGeometryCompatibility.LowerInPlace(definition);
+
                 // Runtime package metadata must not expose private source paths
                 // or model authoring baselines, just as before this change.
                 definition.ModelSources.Clear();
