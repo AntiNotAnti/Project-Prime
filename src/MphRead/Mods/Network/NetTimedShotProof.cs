@@ -200,7 +200,7 @@ internal static class NetTimedShotProof
             : value.Lane == TimedShotSource.AcceptedFire && NetFireEvents.PendingAccepted(value.Key, value.Fire));
     private static void InvalidateSource(ShotKey key)
     {
-        if ((uint)key.ShooterSlot < 8)
+        if ((uint)key.ShooterSlot < 8 && NetShotSourceJournal.Birth(key).HasValue)
             _unavailableSourceLives[key.ShooterSlot, key.LifeId % 8] = key with { ShotId = 0 };
     }
     // Unknown expenditure cannot fund later timed certificates. Keep this bounded
