@@ -663,7 +663,9 @@ public static class QuakeMapInterchange
         foreach (var geometry in map.Geometry)
         {
             if (geometry is not (MapBox or MapConvexBrush or MapBezierPatch)
-                || geometry.Hidden || !geometry.Solid || geometry.Damaging
+                || geometry.Hidden
+                || (geometry is not MapBezierPatch && !geometry.Solid)
+                || geometry.Damaging
                 || geometry.FaceUv.Count != 0
                 || geometry.Uv.Rotation != 0
                 || geometry.Uv.Offset.Any(v => v != 0)
