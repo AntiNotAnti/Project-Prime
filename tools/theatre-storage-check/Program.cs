@@ -25,7 +25,8 @@ Directory.CreateDirectory(DemoLibrary.Directory);
 string source = Path.Combine(DemoLibrary.Directory, "fixture.ppdemo");
 File.WriteAllBytes(source, DemoFile.Magic.Concat(new byte[] { 1, NetConfig.ProtocolVersion }).ToArray());
 int passed = 0, failed = 0;
-void Require(bool value) { if (!value) throw new InvalidOperationException("contract failed"); }
+void Require(bool value, [CallerArgumentExpression("value")] string? expression = null)
+{ if (!value) throw new InvalidOperationException("contract failed: " + expression); }
 T Field<T>(object owner, string name) => (T)owner.GetType().GetField(name, instance)!.GetValue(owner)!;
 void Select(TheatreWorkspace view, string path) => typeof(TheatreWorkspace).GetField("_selected", instance)!.SetValue(view, path);
 void Click(TheatreWorkspace view, string name)
@@ -68,13 +69,16 @@ void Check(string name, Action test)
     try { test(); passed++; Console.WriteLine("PASS " + name); }
     catch (Exception ex) { failed++; Console.WriteLine($"FAIL {name}: {ex.GetType().Name}: {ex.Message}"); }
 }
-void Blocked(Action test)
+void Blocked(Action test, Func<bool>? ownerComplete = null)
 {
     using var release = new ManualResetEventSlim(); using var started = new CountdownEvent(2);
     Task<bool> Block() => ReplayStorageJobs.Run(() => { started.Signal(); release.Wait(); return true; });
     Task<bool>[] workers = [Block(), Block()];
     try { Require(started.Wait(TimeSpan.FromSeconds(10))); test(); }
-    finally { release.Set(); Pump(() => workers.All(t => t.IsCompleted) && Idle()); Task.WaitAll(workers); }
+    // A released storage slot precedes the awaiting UI owner's continuation.
+    // Wait for that owner too before asserting published state or admission.
+    finally { release.Set(); Pump(() => workers.All(t => t.IsCompleted) && Idle()
+        && (ownerComplete?.Invoke() ?? true)); Task.WaitAll(workers); }
 }
 try
 {
@@ -85,13 +89,15 @@ try
         Require(pending == 1);
         Require(!File.Exists(source + ".favorite")); // Every favorite mutation still executes.
     }));
-    Check("file export callbacks admit one task with clear busy feedback", () => Blocked(() => {
+    Check("file export callbacks admit one task with clear busy feedback", () => {
         using var view = new TheatreWorkspace(manageStorage: false); Select(view, source);
-        for (int i = 0; i < 128; i++) Click(view, "_export");
-        int pending = Waiters(); Console.WriteLine($"export waiter graph: {pending}");
-        Require(pending == 1);
-        Require(Field<TextBlock>(view, "_status").Text?.Contains("already", StringComparison.OrdinalIgnoreCase) == true);
-    }));
+        Blocked(() => {
+            for (int i = 0; i < 128; i++) Click(view, "_export");
+            int pending = Waiters(); Console.WriteLine($"export waiter graph: {pending}");
+            Require(pending == 1);
+            Require(Field<TextBlock>(view, "_status").Text?.Contains("already", StringComparison.OrdinalIgnoreCase) == true);
+        }, () => !Field<bool>(view, "_exporting"));
+    });
     // An unused drawing-disabled control is retained independently of storage.
     // Record the WeakReference observation without attributing it to this producer.
     WeakReference unused = UnusedWorkspace();
@@ -115,7 +121,7 @@ try
             Select(view, second);
             for (int i = 0; i < 127; i++) Click(view, "_favorite");
             Require(Waiters() == 1);
-        });
+        }, () => !Field<bool>(view, "_reloading"));
         Require(Field<string>(view, "_selected") == second);
         var entries = Field<System.Collections.IEnumerable>(view, "_entries").Cast<object>().ToArray();
         var latest = entries.Single(e => (string)e.GetType().GetProperty("Path")!.GetValue(e)! == second);
@@ -137,7 +143,7 @@ try
             Require(!Field<HubNavButton>(view, "_export").IsEnabled);
             for (int i = 0; i < 127; i++) Click(view, "_export");
             Require(Waiters() == 1);
-        });
+        }, () => !Field<bool>(view, "_exporting"));
         string[] copies = Directory.GetFiles(exports, "*.ppdemo");
         Require(copies.Length == before + 1 && copies.All(path => File.ReadAllBytes(path).SequenceEqual(expected)));
         Require(File.ReadAllBytes(sentinel).SequenceEqual(new byte[] { 9, 8, 7 }));
@@ -146,12 +152,41 @@ try
     Check("export I/O failure restores admission and allows retry", () => {
         string missing = Path.Combine(directory, "missing.ppdemo");
         using var view = new TheatreWorkspace(manageStorage: false); Select(view, missing);
-        Blocked(() => { Click(view, "_export"); Require(Waiters() == 1); });
+        // Hold the real ExportAsync continuation after I/O has failed. This
+        // witnesses why worker-idle alone was an invalid completion boundary.
+        var context = SynchronizationContext.Current!;
+        var deferred = new DeferredSynchronizationContext(context);
+        try
+        {
+            Blocked(() => {
+                SynchronizationContext.SetSynchronizationContext(deferred);
+                try { Click(view, "_export"); }
+                finally { SynchronizationContext.SetSynchronizationContext(context); }
+                Require(Waiters() == 1);
+            });
+            Pump(() => deferred.Pending > 0);
+            Require(Idle() && Field<bool>(view, "_exporting")
+                && !Field<HubNavButton>(view, "_export").IsEnabled);
+            Console.WriteLine("worker-idle witness: storage idle=true, export owner pending=true, controls disabled=true");
+            if (args.Contains("--falsify-worker-idle"))
+                Require(Field<HubNavButton>(view, "_export").IsEnabled);
+        }
+        finally
+        {
+            deferred.Release();
+            Pump(() => !Field<bool>(view, "_exporting"));
+        }
         Require(Field<HubNavButton>(view, "_export").IsEnabled);
         Require(Field<TextBlock>(view, "_status").Text?.Contains("failed", StringComparison.OrdinalIgnoreCase) == true);
         File.WriteAllBytes(missing, File.ReadAllBytes(source));
-        Blocked(() => { Click(view, "_export"); Require(Waiters() == 1); });
+        string exports = Path.Combine(DemoLibrary.Directory, "exports");
+        int before = Directory.GetFiles(exports, "missing_*.ppdemo").Length;
+        Blocked(() => { Click(view, "_export"); Require(Waiters() == 1); },
+            () => !Field<bool>(view, "_exporting"));
         Require(Field<TextBlock>(view, "_status").Text?.StartsWith("EXPORTED", StringComparison.Ordinal) == true);
+        string[] copies = Directory.GetFiles(exports, "missing_*.ppdemo");
+        Require(copies.Length == before + 1 && copies.All(path => File.ReadAllBytes(path).SequenceEqual(File.ReadAllBytes(source))));
+        Require(Field<HubNavButton>(view, "_export").IsEnabled && Field<HubNavButton>(view, "_export").Label == "EXPORT");
     });
     Check("accepted export survives disposal without stale feedback or deletion", () => {
         string exports = Path.Combine(DemoLibrary.Directory, "exports");
@@ -162,7 +197,7 @@ try
             Field<TextBlock>(view, "_status").Text = "retired";
             Click(view, "_favorite"); Click(view, "_export");
             Require(Waiters() == 1);
-        });
+        }, () => !Field<bool>(view, "_exporting"));
         Require(Directory.GetFiles(exports, "*.ppdemo").Length == before + 1);
         Require(Field<TextBlock>(view, "_status").Text == "retired");
     });
@@ -208,4 +243,15 @@ static bool ReloadReferencesCleared(WeakReference reference)
     var request = ((long, long, string?, string?))typeof(TheatreWorkspace).GetField("_reloadRequest", flags)!.GetValue(target)!;
     return typeof(TheatreWorkspace).GetField("_reloadCancellation", flags)!.GetValue(target) == null
         && request == default;
+}
+
+sealed class DeferredSynchronizationContext(SynchronizationContext target) : SynchronizationContext
+{
+    private readonly System.Collections.Concurrent.ConcurrentQueue<(SendOrPostCallback Callback, object? State)> _posts = new();
+    internal int Pending => _posts.Count;
+    public override void Post(SendOrPostCallback callback, object? state) => _posts.Enqueue((callback, state));
+    internal void Release()
+    {
+        while (_posts.TryDequeue(out var post)) target.Post(post.Callback, post.State);
+    }
 }

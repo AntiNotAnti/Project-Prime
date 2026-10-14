@@ -189,8 +189,19 @@ try
     using var next = await waiting.WaitAsync(TimeSpan.FromSeconds(10));
     Check(next != null, "second downloader can resume after first releases gate");
 
-    using (var reopened = new CommunityArchiveCache(store, max).TryAcquire(b))
-        Check(reopened != null, "verified archive can be recovered across cache instances");
+    // The download-gate check above deliberately evicted B and preserved A.
+    // A new cache instance must recover that exact survivor, not resurrect B.
+    var restarted = new CommunityArchiveCache(store, max);
+    using (var reopened = restarted.TryAcquire(a))
+    {
+        Check(reopened != null && reopened.Identity.Matches(a),
+            "verified surviving archive can be recovered across cache instances");
+        Check(File.ReadAllBytes(reopened!.Path).SequenceEqual(File.ReadAllBytes(first)),
+            "restarted cache preserves exact surviving archive bytes");
+    }
+    using (var evicted = restarted.TryAcquire(b))
+        Check(evicted == null && !File.Exists(cachedB),
+            "restarting a cache never resurrects an evicted archive");
 
     Check(Directory.EnumerateFiles(Path.Combine(store, "archives"), "*.ppmap")
         .All(p => Path.GetFileNameWithoutExtension(p).Length == 64),
