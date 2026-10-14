@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Entities;
 using MphRead.Formats;
+using MphRead.Formats.Collision;
 using MphRead.Mods;
 using MphRead.Mods.Diagnostics;
 using MphRead.Mods.Input;
@@ -199,8 +200,23 @@ internal static class AssetLifecycleTests
 
     private static CollisionQueryWorkspace Candidates(Scene scene)
     {
-        // Cover the native room grid, independent of its current spawn position.
-        var lease = CollisionDetection.GetCandidatesForPoints(new(-1000), new(1000), 0, true, scene);
+        // The point API traverses a clipped line, not its bounding box. Derive
+        // limits from the actual active room grids so the query covers native
+        // cells even when an arbitrary diagonal misses the loaded room.
+        RoomEntity room = scene.Room ?? throw new InvalidOperationException("Loaded scene has no room collision owner.");
+        Vector3 minimum = new(float.MaxValue), maximum = new(float.MinValue);
+        bool found = false;
+        foreach (CollisionInstance instance in room.RoomCollision)
+        {
+            if (!instance.Active || instance.Info.FirstHunt || instance.Info is not MphCollisionInfoBase info) continue;
+            Vector3 low = info.MinPosition + instance.Translation;
+            Vector3 high = low + new Vector3(info.Header.PartsX * 4, info.Header.PartsY * 4, info.Header.PartsZ * 4);
+            minimum = new(MathF.Min(minimum.X, low.X), MathF.Min(minimum.Y, low.Y), MathF.Min(minimum.Z, low.Z));
+            maximum = new(MathF.Max(maximum.X, high.X), MathF.Max(maximum.Y, high.Y), MathF.Max(maximum.Z, high.Z));
+            found = true;
+        }
+        Require(found, "loaded scene has actual active native collision grids");
+        var lease = CollisionDetection.GetCandidatesForLimits(null, default, 0, minimum, maximum, false, scene);
         if (lease.Count > 0) return lease;
         lease.Dispose(); throw new InvalidOperationException("Loaded scene yielded no native collision candidates.");
     }
