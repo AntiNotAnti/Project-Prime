@@ -177,8 +177,8 @@ namespace MphRead.Droid
             if (plan.NewGame && !Cheats.SkipPlanetIntros)
             {
                 scene.StartMovies(Movie.StoryIntro, Movie.CALanding,
-                    MphRead.Formats.FadeType.FadeOutInBlack, 0,
-                    MphRead.Formats.FadeType.FadeOutWhite, 5 / 30f,
+                    FadeType.FadeOutInBlack, 0,
+                    FadeType.FadeOutWhite, 5 / 30f,
                     AfterMovie.StartGame);
             }
             MatchStart.ClearRecentShipDock();
