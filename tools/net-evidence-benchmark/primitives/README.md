@@ -1,6 +1,6 @@
 # Constructed primitive overhead benchmark
 
-The separate friend assembly measures six production value/storage primitives against an explicitly qualified physical `ProjectPrime.dll`. It does not rebuild the engine. The ordinary full `nettest.dll` is identified but never executed by this entry. Source qualification must cover the exact clean full checkout commit supplied to the runner; qualify again after integrating this source-only harness.
+The separate friend assembly measures six production value/storage primitives against an explicitly qualified physical `ProjectPrime.dll`. It does not rebuild the engine. The ordinary full `nettest.dll` is identified but never executed by this entry. The `--repo`/`--head` inputs identify the immutable qualified engine checkout. The benchmark source is taken from the running script’s directory and can live in a separate clean checkout at `--benchmark-head`; both commits and source digests are recorded and checked independently. Adding external benchmark-only `.cs` files outside the engine project does not require rebuilding that already qualified engine.
 
 | Case | Measured unit | Untimed preparation |
 |---|---|---|
@@ -24,6 +24,7 @@ Run only after the shared execution slot is explicitly released:
 ```sh
 python3 tools/net-evidence-benchmark/run_primitives.py \
   --repo "$SOURCE" --head "$FULL_QUALIFIED_COMMIT" \
+  --benchmark-head "$FULL_BENCHMARK_SOURCE_COMMIT" \
   --runtime "$QUALIFIED_RUNTIME" --donor "$DEPENDENCY_DONOR" \
   --sdk "$DOTNET_SDK_EXECUTABLE" \
   --qualification-receipt "$PASSING_QUALIFICATION_JSON" \
@@ -33,11 +34,11 @@ python3 tools/net-evidence-benchmark/run_primitives.py \
   --out "$FRESH_EXTERNAL_EVIDENCE_DIRECTORY" --execution-slot-released
 ```
 
-The qualification JSON must contain a PASS status, identical clean `sourceBefore`/`sourceAfter` snapshots with the full commit, and `actualLoadedClient` SHA/MVID matching the supplied engine. Existing qualification field aliases are supported. The separate build provenance JSON is hashed and disclosed as a supplied identity document; the runner does not claim to re-execute or audit that build. The qualification receipt provides the source/engine linkage. Full-fixture SHA/MVID must independently come from that qualification's build evidence.
+The qualification JSON must contain a PASS status, identical clean `sourceBefore`/`sourceAfter` snapshots with the full commit, and `actualLoadedClient` SHA/MVID matching the supplied engine. Before any process is launched, the full fixture SHA must also match `physicalHashesAfter["nettest.dll"]` and its MVID must match `nettestMvid` in that qualification document. Declared aliases `physical_hashes_after`/`nettest_mvid` are supported; missing or contradictory identity fields fail closed. The separate build provenance JSON is hashed and disclosed as a supplied identity document; the runner does not claim to re-execute or audit that build. The qualification receipt provides the source/engine linkage. Caller-supplied full-fixture flags are checked against the qualification and the actual physical file; matching caller flags alone cannot establish qualification.
 
-The runtime must contain the qualified engine and full fixture; the dependency donor supplies shared DLLs. The SDK executable and all deployment paths come from CLI inputs. Fresh output must be outside the source checkout. The entry project uses DLL references, not `ProjectReference`. Compiler servers and node reuse are disabled. Only the launcher's newly owned process groups may be closed; every group must exit normally and close for PASS. Failures retain their fresh receipt and logs rather than overwriting earlier evidence.
+The runtime must contain the qualified engine and full fixture; the dependency donor supplies shared DLLs. The SDK executable and all deployment paths come from CLI inputs. Fresh output must be outside both source checkouts so their clean-source checks remain meaningful. The entry project uses DLL references, not `ProjectReference`. Compiler servers and node reuse are disabled. Only the launcher's newly owned process groups may be closed; every group must exit normally and close for PASS. Failures retain their fresh receipt and logs rather than overwriting earlier evidence.
 
-Receipts identify source HEAD/tree, actual engine, full fixture, thin entry, shared dependency hashes/MVIDs, build/qualification document hashes, benchmark source digest, raw data and setup costs. Source and physical inputs are checked before/after. Logs become explicitly named sanitized text derivatives with separate original and derivative hashes. Generated deployment projects and runtime binaries are local execution products, not portable repository evidence; commit only the text source and appropriately scoped measured derivatives.
+Receipts identify separate qualified-engine and benchmark-source HEAD/tree/digests, actual engine, full fixture, thin entry, shared dependency hashes/MVIDs, build/qualification document hashes, benchmark source digest, raw data and setup costs. Source and physical inputs are checked before/after. Logs become explicitly named sanitized text derivatives with separate original and derivative hashes. Generated deployment projects and runtime binaries are local execution products, not portable repository evidence; commit only the text source and appropriately scoped measured derivatives.
 
 Light checks, with no build/native/performance execution:
 
