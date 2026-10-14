@@ -34,7 +34,6 @@ using var stop = new CancellationTokenSource();
 Task? server = null;
 try
 {
-    Headless.Enter();
     Paths.SetPath(Paths.MphKey, Path.Combine(root, "runtime"));
     Directory.CreateDirectory(Paths.FileSystem);
     CustomRooms.MapDirectory = Path.Combine(root, "maps");
@@ -140,12 +139,14 @@ try
     using (var prepared = await client.PrepareExactAsync(identity, CancellationToken.None))
     {
         var installed = prepared.Commit(CustomRooms.UserMapDirectory);
-        Metadata.RegisterDownloadedMap(installed);
+        if (installed.MapId != mapId)
+            throw new InvalidDataException("Installed map identity changed during preparation.");
     }
     timings["loopback_prepare_build_install_ms"] = watch.Elapsed.TotalMilliseconds;
     watch.Restart();
-    if (!CustomRooms.Installed.HasExact(identity))
-        throw new InvalidDataException("Installed map is missing its exact identity.");
+    string installedArchive = Path.Combine(CustomRooms.UserMapDirectory, mapId.ToString("N") + ".ppmap");
+    if (!File.Exists(installedArchive) || !MapContentIdentity.FromPackage(installedArchive).Matches(identity))
+        throw new InvalidDataException("Installed archive is missing its exact identity.");
     timings["installed_exact_lookup_ms"] = watch.Elapsed.TotalMilliseconds;
 
     if (stress)
