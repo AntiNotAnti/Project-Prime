@@ -81,7 +81,13 @@ public static class QuakeMapInterchange
         if (!float.IsFinite(unitsPerPrimeUnit) || unitsPerPrimeUnit is < 1f or > 1024f)
             throw new InvalidDataException("Quake map sidecar scale must be finite and between 1 and 1024.");
         MapValidator.RequireRuntimeName(inferred);
-        Guid mapId = sidecar?.MapId ?? GuidFrom("prime-map:" + inferred);
+        // Two unrelated maps may share a room filename. Never derive their
+        // persistent multiplayer identity from that filename alone.
+        Guid mapId = sidecar?.MapId ?? Guid.NewGuid();
+        if (sidecar == null)
+            diagnostics.Add(new("FP-RADIANT-NEW-ID", 0,
+                "No project-prime.json sidecar; imported a new map identity. "
+                + "Export a sidecar before reimporting edits to preserve it.", false));
         string sourceHash = MapBuildFingerprint.HashFile(full);
         if (sidecar != null
             && !sidecar.SourceSha256.Equals(sourceHash, StringComparison.OrdinalIgnoreCase))
