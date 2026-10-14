@@ -16,6 +16,7 @@ internal sealed class PostMatchCommitContext
     internal byte Slot { get; }
     internal Mods.Campaign.CampaignDeparture Departure { get; }
     internal int DepartureRoomId { get; }
+    internal Mods.Campaign.CampaignEndingSummary? Ending { get; }
     internal bool LegacyTransitionTiming { get; }
     internal int WriteAttempts { get; private set; }
     internal bool HasPayload => _payload.HasValue;
@@ -27,6 +28,9 @@ internal sealed class PostMatchCommitContext
         Slot = slot;
         Departure = state.LastCampaignDeparture;
         DepartureRoomId = state.LastCampaignDepartureRoomId;
+        if (state.LastCampaignDeparture == Mods.Campaign.CampaignDeparture.Ending)
+            Ending = Mods.Campaign.CampaignEndingSummary.Capture(slot, DepartureRoomId,
+                state.StorySave, save => save.GetCompletionPercentage());
         LegacyTransitionTiming = state.InRoomTransition;
         State = PostMatchCommitState.Ending;
         if (requested != SaveWhen.Never && slot != 0) _payload = state.CaptureSaveCommit(slot);
