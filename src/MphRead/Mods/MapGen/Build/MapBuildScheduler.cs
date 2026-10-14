@@ -252,6 +252,11 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
         var destination = MapOutputSet.Create(definition, archive, entities, nodes);
         Directory.CreateDirectory(Path.GetDirectoryName(destination.Manifest)!);
         using var lease = AcquireLease(destination.Manifest + ".lock");
+        // The exact same map may be selected again after returning to the
+        // lobby or opening a historical replay. If the published runtime set
+        // still matches its verified build manifest, leave every binary and
+        // timestamp untouched. This prevents needless five-file rewrites.
+        if (MapBuildManifest.IsCurrent(definition, destination)) return;
         if (File.Exists(destination.Manifest)) File.Delete(destination.Manifest);
         // Compilation cache outputs are already integrity-checked by ReadCache.
         // Stream each file into destination-volume atomic staging, rather than
