@@ -1,6 +1,6 @@
 # NET-01: immutable shot-time timed-grant certificates in Shadow
 
-**Status: NOT ACCEPTED.** Frozen `0c52bc8a` passes the focused existing checks, pure certificate storage tests, and local storage benchmark. Genuine native/remote admission and the newer final production source remain pending. Those results must be joined to a newly verified physical runtime before this document can claim NET-01 acceptance.
+**Status: bounded local Shadow gates PASS; new PR hosted CI is tracked separately.** Fresh production `10601328` passes 15 focused regressions, 119 Python tests and 6,463 native assertions. The corrected controlled-remote fixture passes 343 assertions against that exact physical client; identical tests preserve an expected red on original `0c52bc8a`. The unchanged store passes 5,238 constructed assertions and the local benchmark. This is NET-01 correctness acceptance within the declared scope, with NET-02 through NET-04 still open.
 
 ## Hypothesis and change boundary
 
@@ -25,7 +25,7 @@ There are two provenance gates:
 
 The attempt is taken before emission. Retention occurs only after the native spawn reports spend and completed `AddEntity` components with the same shot key. A success return without emitted components, partial exception, child, continuous/turret owner, zero component identity, unknown/nonfinite or over-bound lifespan cannot prove an ordinary emission. Duplicate completion preserves the first certificate; it cannot refresh its timestamp or resnapshot later grants. The shared resource journal records a completed spend once per exact ShotKey; timed Shadow does not maintain a competing mutable ammo ledger.
 
-The observer has a private fixed **8 slots × 8 retained-life uncertainty table**. Unsupported or incomplete expenditure makes later timed source classification unavailable for that exact life. It preserves previously retained certificates and leaves legacy proof invalidation/enforcement untouched. Uncertainty can be recorded only for a retained matching journal life; retired-life uncertainty must not replace a newer life sharing the same modulo cell. These changes follow frozen `0c52bc8a` and require final-source validation. Shared source observations are reused; the uncertainty table only records evidence loss.
+The observer has a private fixed **8 slots × 8 retained-life uncertainty table**. Unsupported or incomplete expenditure makes later timed source classification unavailable for that exact life. It preserves previously retained certificates and leaves legacy proof invalidation/enforcement untouched. Uncertainty can be recorded only for a retained matching journal life; retired-life uncertainty must not replace a newer life sharing the same modulo cell. The fresh `10601328` native run and corrected remote fixture validate these changes. Shared source observations are reused; the uncertainty table only records evidence loss.
 
 ## Storage, bounds and unsupported scope
 
@@ -41,7 +41,19 @@ The detailed inspected constants and original-source anchors are in the [retenti
 
 Unsupported expenditure must leave subsequent timed funding uncertain, rather than silently treating it as free. No unsupported family is promoted to damage enforcement or authenticated proof.
 
-## Frozen evidence and current limits
+## Qualified current production
+
+The fresh physical client is source `106013282eed587fdbe0583bcd26e52aa2637fa4`, tree `dd3b062535c365a92a8e18c69de7f0d19f060201`, SHA-256 `4020f302ff8f7c8b1efddcd72a365a09fa4dc15449a094ec892a80cabdbf9ccf`, MVID `43453875-0ba3-452d-8a94-33ed8e0df8a1`, BuildId `local+106013282eed587fdbe0583bcd26e52aa2637fa4`. Protocol 56 / PPRC12 / world10 remain unchanged. Later test/document edits do not relabel this physical binary.
+
+The 6,463-assertion native run proves full headless keyboard/input/Spawn/Commit, real native Double contact and source chronology, immutable later expiry, rejected helper certification, and identical unmodified canonical intent/replay bytes, damage, lifespan, ammo and semantics across old Off/Shadow × new Off/Shadow. The no-target shot has one real replay WeaponFired semantic fact and zero impact ReplayShotFacts. Natural zero bank switches to PowerBeam and can truthfully emit it. A separate controlled mid-frame depletion reaches native NoAmmo without spend or certificate. A declared post-spend setter fault changes the native bank 100→90, produces exactly one expected simulation failure and no certificate, preserves an earlier certificate and leaves later source evidence unavailable. It is a negative fault injection, not a natural positive arm.
+
+The corrected remote fixture uses actual lifecycle/event carrier intake, Pending ledger entries, private DrainAccepted and native projectile terminals. Its explicitly declared resource/reservation seeds are separate from genuine native pickup evidence. It passes 343 checks: Double hints cannot manufacture/remove A1 funding; Prime/affinity remain independent; C/C+1/C+1799/C+1800, expiry, renewal and immutable retrieval agree; helpers/incomplete pose do not certify; unsupported expenditure and retired modulo aliases remain unavailable; old Off/Shadow/Enforce terminal outcomes and accepted replay bytes remain equal under new Off/Shadow. The deliberately adjacent expiry fire retains its real cooldown failure and only proves ownership absence.
+
+The original combined106 remote fixture failed because its 2800 carrier contradicted the already observed 2799 Shoot=true with false backfill. The input proof correctly poisoned that life. The corrected test supplies the actual preceding input; identical corrected test source SHA `04f4f1c98f4ee4a8f35f6070b32078bc74c351185af3bdeb9c217255937e6a3c` passes against frozen106 in a newly compiled external friend harness. Against original0c it fails after 178 checks at the genuine unsupported-spend falsifier. Both production clients remain unchanged and independently identified. The external harness is not relabeled as original106 nettest.
+
+[Portable measured results](evidence/net01-shadow-results.json) preserve raw benchmark samples, identities, positive scopes, negatives and rollback. Full commands/logs/process receipts remain in the implementation task's `work/net01-evidence/`, including `candidate-10601328`, `accepted-diagnostic106`, `accepted-original0c` and `accepted-proof-summary.json`. All owned groups close and original asset Paths remain unchanged. Current source follows merged main f85, whose 31 hosted checks are green; this new PR needs its own exact-head CI. No hosted-build wait is implied by local qualification.
+
+## Earlier frozen evidence and limits
 
 The tested physical candidate was built from clean source **`0c52bc8a91b072f2b7cc4fc04bc69b0df82839b7`**, tree `64fb17e12a528a45f9d392cd6af2001d0f0d24d7`. Its loaded identity is independent of a subsequently changed checkout:
 
@@ -69,7 +81,7 @@ Negative evidence is retained. Candidate `b66a730729ba504b6b405b3251578c628b11c3
 
 The successful `0c52bc8a` build initially left an owned Avalonia build-services collector running, so its original process-closure result is false. The [cleanup disposition](/Users/jarrett/Documents/Codex/2026-10-13/implement-the-attached-project-prime-next/work/net01-evidence/candidate-0c52bc8a/setup-closure/disposition.json) records identity-verified SIGTERM and absence afterward; the original receipt is preserved. Compile success, setup-process closure and gameplay acceptance are separate facts.
 
-Native timed-pickup/source equivalence, failed/partial emission, admitted remote lanes and mode equivalence are **pending**. The newer uncertainty changes at `ba6671ca`/`d6d284cd` are also **pending final physical-source checks**. No final-source PASS or full NET-01 acceptance is claimed here.
+The earlier frozen results above retain their original identities. The current qualification supersedes their pending native/remote work without erasing original failures. Authenticated UDP, GL/audio, broad platform runtime play and exhaustive post-spend failure locations remain unverified; CI packaging is tracked in the PR. NET-02 damage enforcement, NET-03 special families and NET-04 persisted certificate rollout remain separate gates.
 
 ## Reproduction and rollback
 
@@ -82,4 +94,4 @@ Build once after final source is stable, freeze the physical outputs, and captur
 
 The asset-backed command is `dotnet /absolute/path/to/frozen/nettest.dll --timed-shot-native /absolute/path/to/assets "MP1 SANCTORUS"`. Its result must be reported separately from pure storage and remote/authentication coverage. The existing focused dispatch names above reproduce compatibility checks; exact frozen invocations and Python selections are in the receipts.
 
-Runtime rollback is to unset `PRIME_TIMED_GRANT_PROOF` or set it to `off`. It does not require changing the existing shot-proof mode or protocol negotiation. Code rollback reverts the complete NET-01 implementation/test/document commit set while preserving accepted A1–A3 prerequisites. Record the final commit set when acceptance is completed; do not treat the preliminary `b66a7307` feature commit alone as the full rollback after follow-up fixes.
+Runtime rollback is to unset `PRIME_TIMED_GRANT_PROOF` or set it to `off`. It does not require changing the existing shot-proof mode or protocol negotiation. Code rollback reverts the complete NET-01 implementation/test/document commit set while preserving accepted A1–A3 prerequisites. Revert all changes in this focused PR as a unit; the preliminary `b66a7307` feature commit alone is not the complete rollback after follow-up fixes.

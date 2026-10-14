@@ -94,7 +94,7 @@ internal static class TimedShotAcceptedTests
             Check(NetPowerUpLedger.Ledger is { } ledger && ledger.Room != 0,
                 "actual A1 input adapter creates the authority room ledger");
         }
-        internal IntentPacket Packet(FireEvent? fire, uint carrier)
+        internal IntentPacket Packet(FireEvent? fire, uint carrier, bool previousShoot = false)
         {
             var life = ShotKey.For(0, 0);
             var packet = new IntentPacket { MatchId = life.MatchId, AuthorityEpoch = life.AuthorityEpoch,
@@ -105,7 +105,7 @@ internal static class TimedShotAcceptedTests
             {
                 packet.HasFireEvents = true; packet.FireEventCount = 1; packet.FireEvents[0] = value;
                 packet.ShotInputCount = 2;
-                packet.ShotInputs[1] = ShotInputHistory.Sample((byte)BeamType.PowerBeam, false, false, true);
+                packet.ShotInputs[1] = ShotInputHistory.Sample((byte)BeamType.PowerBeam, previousShoot, false, true);
                 packet.ShotInputs[0] = ShotInputHistory.Sample(value.Weapon, true, value.ScopedAtFire, true);
                 packet.Buttons |= IntentButtons.Shoot;
                 if (value.ScopedAtFire) packet.Buttons |= IntentButtons.Zoom;
@@ -123,7 +123,7 @@ internal static class TimedShotAcceptedTests
             => new(++_id, source, source, 0, FireEventKind.PressFire, (byte)weapon, 0, modifiers,
                 pose ? FireEvent.FlagPose : (byte)0, Owner.Position + Vector3.UnitY * .5f,
                 Direction, Direction, Direction, SourceLife: life ?? NetPlayerLifecycle.Get(0));
-        internal Shot Emit(FireEvent fire, uint? carrier = null, ShotDisposition expected = ShotDisposition.Fired)
+        internal Shot Emit(FireEvent fire, uint? carrier = null, ShotDisposition expected = ShotDisposition.Fired, bool previousShoot = false)
         {
             Frame(carrier ?? fire.SourceFrame); Record();
             foreach (var beam in Owner.EquipInfo.Beams) beam.Lifespan = 0;
@@ -136,7 +136,7 @@ internal static class TimedShotAcceptedTests
             var key = ShotKey.For(0, fire.ShotId) with { LifeId = fire.SourceLife };
             try
             {
-                Submit(Packet(fire, carrier ?? fire.SourceFrame));
+                Submit(Packet(fire, carrier ?? fire.SourceFrame, previousShoot));
                 var ledger = NetFireEvents.CaptureLedger(0);
                 Check(ledger.TryGet(key, out var pending, out var disposition, out _)
                     && disposition == ShotDisposition.Pending && pending.Fire == fire,
@@ -223,7 +223,7 @@ internal static class TimedShotAcceptedTests
         // accepted emission to test immutable retrieval after grant expiry.
         var late = fixture.Emit(fixture.Fire(2799)); var lateValue = Certificate(late);
         Check(lateValue.AuthorizedDouble && lateValue.Funding?.Sequence == first.Sequence, "last independent authority input before expiry owns grant");
-        var expired = Certificate(fixture.Emit(fixture.Fire(2800)));
+        var expired = Certificate(fixture.Emit(fixture.Fire(2800), previousShoot: true));
         Check(first.EndReason == TimedGrantEnd.Expired && expired.Knowledge == TimedGrantKnowledge.NotGranted
             && !expired.AuthorizedDouble && NetTimedShotProof.TryGet(late.Key, late.Fire.SourceFrame, out var retained)
             && retained == lateValue, "exclusive expiry never changes retained late-fire funding");
@@ -234,6 +234,7 @@ internal static class TimedShotAcceptedTests
         var renewal = fixture.SeedTimedReservation(2801);
         uint renewedSource = 2800 + (uint)fixture.Scene.WeaponRules[(int)BeamType.PowerBeam].ShotCooldown * 2 + 1;
         var renewed = Certificate(fixture.Emit(fixture.Fire(renewedSource)));
+        Console.WriteLine("RENEWAL DIAGNOSTIC " + JsonSerializer.Serialize(new { renewedSource, source = renewed.Source.Source.ToString(), pose = renewed.Source.Pose.ToString(), cooldown = renewed.Source.Cooldown, knowledge = renewed.Knowledge.ToString(), unavailable = renewed.Unavailable.ToString(), renewed.AuthorizedDouble, fundingSequence = renewed.Funding?.Sequence, renewalSequence = renewal.Sequence, found = NetTimedShotProof.TryGet(late.Key, late.Fire.SourceFrame, out retained), equal = retained == lateValue }));
         Check(renewed.AuthorizedDouble && renewed.Funding?.Sequence == renewal.Sequence
             && NetTimedShotProof.TryGet(late.Key, late.Fire.SourceFrame, out retained) && retained == lateValue,
             "later reservation has a new sequence without refilling a prior flight certificate");
