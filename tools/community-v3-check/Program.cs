@@ -384,6 +384,26 @@ try
             || rev.ParentHash == lineageDraft.LatestHash),
         "public revision links never expose private parent hashes; owner keeps full lineage");
 
+    string[] mutableKinds = CommunityContentKinds.Supported;
+    mutableKinds[0] = "untrusted-override";
+    Check(CommunityContentKinds.IsSupported(CommunityContentKinds.Map)
+        && !CommunityContentKinds.IsSupported("untrusted-override"),
+        "content-kind policy cannot be widened through mutable capability arrays");
+
+    bool ownerControlRejected = false;
+    try
+    {
+        registry.RegisterVerifiedBlob(image,
+            textureMeta with
+            {
+                ContentId = Guid.NewGuid(),
+                OwnerId = "bad\ncreator"
+            });
+    }
+    catch (InvalidDataException) { ownerControlRejected = true; }
+    Check(ownerControlRejected,
+        "creator IDs containing control characters cannot poison persisted v3 metadata");
+
     // Registration is trusted local metadata only: reject unsupported MIME,
     // foreign map kind, oversized fields and self dependencies.
     bool rejected = false;
