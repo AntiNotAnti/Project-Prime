@@ -451,45 +451,69 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     private async Task InstallAsync()
     {
         CommunityMapProject? project = _selected;
-        if (project == null || _transfer != null || _disposed) return;
+        if (project == null || _transfer != null || _disposed || _transfers == null)
+            return;
         CommunityMap map = project.CurrentRevision?.Package ?? project.LatestRevision.Package;
         using var cancel = new CancellationTokenSource();
         _transfer = cancel;
-        _cancel.IsVisible = true;
         _install.IsEnabled = false;
-        _status.Text = "Preparing exact map download…";
+        _status.Text = "Checking verified Community archives…";
         try
         {
             if (!GameFiles.Ready)
                 throw new IOException("Set up game files before installing Community maps.");
             GameFiles.ApplyPaths();
             MapRuntimeUsage.RequireInstallationAllowed();
-            MapDefinition installed = await Operations().InstallAsync(map,
-                CustomRooms.UserMapDirectory, cancel.Token,
-                (received, total) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                {
-                    if (_disposed || cancel.IsCancellationRequested) return;
-                    _status.Text = $"Downloading {received / 1048576.0:0.0}/{total / 1048576.0:0.0} MiB";
-                }));
-            // InstallAsync may finish its atomic commit just before navigation
-            // cancels the transfer. Always register a successfully committed
-            // archive; otherwise the on-disk install and room index diverge.
+
+            // The queue owns download bytes and persists its partials. Leaving
+            // the page cancels only this foreground install handoff, never the
+            // durable content job. No worker can report network map Ready.
+            Guid id = _transfers.EnqueueDownload(NetworkMapIdentity.ConfiguredDownloadSource(), map);
+            _activeJobId = id;
+            _cancel.IsVisible = true;
+            CommunityTransferJob result = await _transfers.WaitAsync(id);
+            if (result.State != CommunityTransferState.Completed)
+            {
+                if (!cancel.IsCancellationRequested && !_disposed)
+                    _status.Text = result.Error ?? $"Download {result.State}. Resume from Downloads.";
+                return;
+            }
+
+            // The player may have entered a game while downloading. Do not
+            // publish a map during active scene ownership; retain verified bytes
+            // and offer installation on their next visit.
+            if (cancel.IsCancellationRequested || !_active || _disposed)
+            {
+                if (!_disposed)
+                    _status.Text = "Verified archive saved. Reopen Community to install.";
+                return;
+            }
+
+            string archive = _transfers.VerifiedArchivePath(id)
+                ?? throw new IOException("Verified Community archive is missing.");
+            MapDefinition installed = await Task.Run(() =>
+                MapPackageInstaller.Install(archive, map.MapId, map.ContentHash, map.Hash,
+                    CustomRooms.UserMapDirectory), cancel.Token);
+
+            // Commit may finish just before navigation changes. Registration
+            // must follow a completed installation to avoid stale map indices.
             Metadata.RegisterDownloadedMap(installed);
             if (!_disposed)
                 _status.Text = $"{project.DisplayName ?? project.Name} installed and registered.";
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested)
         {
-            _status.Text = "Download cancelled. No incomplete map was registered.";
+            if (!_disposed) _status.Text = "Install handoff cancelled. Download progress was retained.";
         }
         catch (Exception ex) when (ex is IOException or HttpRequestException
             or InvalidDataException or ArgumentException or InvalidOperationException)
         {
-            _status.Text = "Map installation failed: " + ex.Message;
+            if (!_disposed) _status.Text = "Map installation failed: " + ex.Message;
         }
         finally
         {
             if (ReferenceEquals(_transfer, cancel)) _transfer = null;
+            _activeJobId = null;
             _cancel.IsVisible = false;
             if (_active) RenderList();
         }
