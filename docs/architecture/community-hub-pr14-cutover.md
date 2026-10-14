@@ -26,8 +26,10 @@
   `CommunityTransferSession` receipt index and queue. Worker callbacks
   never retain editor controls. Disposing the preview cancels only its
   foreground operation; a queued upload continues independently.
-- A stale parent is **never** silently overridden. Conflict receipts require
-  explicit review through the existing **Advanced Revisions** path.
+- A stale parent is **never** silently overridden. Conflict receipts enter
+  **NeedsReview**. The preview shows a two-step explicit confirmation that
+  preserves the original parent hash; Advanced Revisions remains available
+  to inspect current history before taking that action.
 - Existing Map Studio Community dashboard, creator lifecycle controls, JSON
   Map Editor, stand-alone Studio pop-out, source import, Publish & Host, and
   local/offline playtest remain accessible. The legacy dashboard is a rollback
