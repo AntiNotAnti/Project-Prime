@@ -63,6 +63,12 @@ namespace MphRead.Mods.MapGen
                 if (edgeCounts.Values.Any(c => c != 2)) throw new MapAuthoringException("FP-MAP-013", "Convex brush must be closed, with two faces per edge.");
             }
             else throw new MapAuthoringException("FP-MAP-013", "Unsupported geometry kind.");
+            if (geometry.QuakeFaces is { } authored
+                && (geometry is not (MapBox or MapConvexBrush)
+                    || authored.Count != indices.Count
+                    || authored.Any(face => face == null || !face.Valid)))
+                throw new MapAuthoringException("FP-MAP-001",
+                    "Classic Quake face projections require one valid face per box or convex brush plane.");
             var t = geometry.Transform;
             if (t == null || !MapValidator.Vector(t.Position) || !MapValidator.Vector(t.Scale) || t.Scale.Any(x => x <= 0)
                 || t.Rotation?.Length != 4 || t.Rotation.Any(x => !float.IsFinite(x))
@@ -93,7 +99,27 @@ namespace MphRead.Mods.MapGen
                     || points.Any(p => Math.Abs(Vector3.Dot(normal, p-points[0])) > .001)))
                     throw new MapAuthoringException("FP-MAP-013", "Brush faces must be planar and convex.");
                 Vector2[] coords;
-                if (geometry is MapMesh explicitMesh && explicitMesh.FaceTexcoords != null
+                if (geometry.QuakeFaces is { } quakeFaces)
+                {
+                    MapQuakeFace source = quakeFaces[faceIndex];
+                    try
+                    {
+                        coords = points.Select(p =>
+                        {
+                            var uv = QuakeClassicTexture.Calculate(
+                                new System.Numerics.Vector3(p.X, p.Y, p.Z),
+                                new System.Numerics.Vector3(normal.X, normal.Y, normal.Z),
+                                source);
+                            return new Vector2(uv.X, uv.Y);
+                        }).ToArray();
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        throw new MapAuthoringException("FP-MAP-001",
+                            "Invalid or oversized Quake projection: " + ex.Message);
+                    }
+                }
+                else if (geometry is MapMesh explicitMesh && explicitMesh.FaceTexcoords != null
                     && faceIndex < explicitMesh.FaceTexcoords.Count
                     && explicitMesh.FaceTexcoords[faceIndex] is {} authoredUv)
                 {
@@ -118,8 +144,11 @@ namespace MphRead.Mods.MapGen
                     }).ToArray();
                 }
                 if (coords.Any(p => Math.Abs(p.X) >= 2048 || Math.Abs(p.Y) >= 2048)) throw new MapAuthoringException("FP-MAP-001", "UV coordinates exceed the runtime range; lower texture scale.");
-                int material = geometry.Material;
-                if (geometry is MapMesh mesh && mesh.FaceMaterials != null && faceIndex < mesh.FaceMaterials.Count)
+                int material = geometry.QuakeFaces is { } projectedFaces
+                    ? projectedFaces[faceIndex].Material : geometry.Material;
+                if (geometry.QuakeFaces == null
+                    && geometry is MapMesh mesh && mesh.FaceMaterials != null
+                    && faceIndex < mesh.FaceMaterials.Count)
                     material = mesh.FaceMaterials[faceIndex];
                 result.Add(new BuiltFace(points,coords,normal,material + materialOffset,geometry.Shade * (.7f+.3f*Math.Max(0,normal.Y)))
                 { Slipperiness = (geometry as MapMesh)?.Slipperiness ?? 0,
