@@ -562,6 +562,15 @@ public static class QuakeMapInterchange
             if (geometry.Material < 0 || geometry.Material >= map.Materials.Count)
                 errors.Add(new("FP-RADIANT-EXPORT-MATERIAL", index,
                     "Missing material binding.", true));
+            if (geometry.QuakeFaces is { } projected
+                && (projected.Count != (geometry is MapBox ? 6
+                    : geometry is MapConvexBrush convex ? convex.Faces.Count : -1)
+                    || projected.Any(face => face == null || !face.Valid
+                        || face.Material >= map.Materials.Count
+                        || Math.Abs(face.UnitsPerPrimeUnit - unitsPerPrimeUnit) > 0.0001f)))
+                errors.Add(new("FP-RADIANT-EXPORT-UV", index,
+                    "Incomplete Quake face mapping, invalid material, or source unit scale mismatch.",
+                    true));
             else if (geometry is MapConvexBrush)
             {
                 try { GeometryCompiler.Compile(geometry, map.Materials[geometry.Material].TexScale); }
@@ -605,12 +614,24 @@ public static class QuakeMapInterchange
             static string P(Vector3 p) => "( " + p.X.ToString("G9", CultureInfo.InvariantCulture)
                 + " " + p.Y.ToString("G9", CultureInfo.InvariantCulture)
                 + " " + p.Z.ToString("G9", CultureInfo.InvariantCulture) + " )";
-            void Plane(Vector3 first, Vector3 second, Vector3 third, Vector3 expected)
+            void Plane(int faceIndex, Vector3 first, Vector3 second,
+                Vector3 third, Vector3 expected)
             {
                 if (Vector3.Dot(Vector3.Cross(second - first, third - first), expected) < 0)
                     (second, third) = (third, second);
+                MapQuakeFace? face = geometry.QuakeFaces?[faceIndex];
+                string faceShader = face == null
+                    ? shader : map.Materials[face.Material].Name;
+                if (string.IsNullOrWhiteSpace(faceShader)
+                    || faceShader.Any(char.IsWhiteSpace)
+                    || faceShader.Contains("..", StringComparison.Ordinal))
+                    throw new InvalidDataException("Face shader name cannot be represented in Quake .map.");
+                static string F(float n) => n.ToString("R", CultureInfo.InvariantCulture);
+                string projection = face == null ? "0 0 0 1 1"
+                    : F(face.ShiftU) + " " + F(face.ShiftV) + " "
+                    + F(face.Rotation) + " " + F(face.ScaleU) + " " + F(face.ScaleV);
                 sb.AppendLine(P(first) + " " + P(second) + " " + P(third)
-                    + " " + shader + " 0 0 0 1 1 0 0 0");
+                    + " " + faceShader + " " + projection + " 0 0 0");
             }
             if (geometry is MapBox box)
             {
@@ -632,12 +653,14 @@ public static class QuakeMapInterchange
                     new(minX,minY,maxZ), new(maxX,minY,maxZ),
                     new(minX,maxY,maxZ), new(maxX,maxY,maxZ)
                 };
-                Plane(corner[0], corner[2], corner[6], -Vector3.UnitX);
-                Plane(corner[1], corner[5], corner[7], Vector3.UnitX);
-                Plane(corner[0], corner[4], corner[5], -Vector3.UnitY);
-                Plane(corner[2], corner[3], corner[7], Vector3.UnitY);
-                Plane(corner[0], corner[1], corner[3], -Vector3.UnitZ);
-                Plane(corner[4], corner[6], corner[7], Vector3.UnitZ);
+                // Source plane order is Quake-space -X,+X,-Y,+Y,-Z,+Z;
+                // native MapBox faces are -Y,+Y,-Z,+X,+Z,-X.
+                Plane(5, corner[0], corner[2], corner[6], -Vector3.UnitX);
+                Plane(3, corner[1], corner[5], corner[7], Vector3.UnitX);
+                Plane(4, corner[0], corner[4], corner[5], -Vector3.UnitY);
+                Plane(2, corner[2], corner[3], corner[7], Vector3.UnitY);
+                Plane(0, corner[0], corner[1], corner[3], -Vector3.UnitZ);
+                Plane(1, corner[4], corner[6], corner[7], Vector3.UnitZ);
             }
             else if (geometry is MapConvexBrush brush)
             {
@@ -648,12 +671,13 @@ public static class QuakeMapInterchange
                 static Vector3 Q(Vector3 prime, float units)
                     => new(prime.X * units, -prime.Z * units, prime.Y * units);
                 Vector3 quakeCenter = Q(centroid, unitsPerPrimeUnit);
-                foreach (int[] face in brush.Faces)
+                for (int faceIndex = 0; faceIndex < brush.Faces.Count; faceIndex++)
                 {
+                    int[] face = brush.Faces[faceIndex];
                     Vector3 first = Q(primeVertices[face[0]], unitsPerPrimeUnit);
                     Vector3 second = Q(primeVertices[face[1]], unitsPerPrimeUnit);
                     Vector3 third = Q(primeVertices[face[2]], unitsPerPrimeUnit);
-                    Plane(first, second, third, first - quakeCenter);
+                    Plane(faceIndex, first, second, third, first - quakeCenter);
                 }
             }
             sb.AppendLine("}");
