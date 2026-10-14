@@ -492,11 +492,13 @@ namespace MphRead.Entities
             string text = Strings.GetHudMessage(103); // scanning...
             DrawText2D(128 + _objShiftX, posY - 8, Align.Center, 0, text);
             int length = _scanProgressMeter.Length;
-            _scanProgressMeter.TankAmount = (int)(_scanningTime * 120);
+            (int total, int filled) = Mods.Campaign.CampaignScanPresentation.Meter(
+                _scanningTime, _scanningTimer);
+            _scanProgressMeter.TankAmount = total;
             _scanProgressMeter.Horizontal = true;
             _scanProgressMeter.TankCount = 0;
             _scanProgressMeter.Length = 40;
-            DrawMeter(108 + _objShiftX, posY, _scanProgressMeter.TankAmount, (int)(_scanningTimer * 120),
+            DrawMeter(108 + _objShiftX, posY, total, filled,
                 palette: 0, _scanProgressMeter, drawText: false, drawTanks: false);
             _scanProgressMeter.Length = length;
         }
