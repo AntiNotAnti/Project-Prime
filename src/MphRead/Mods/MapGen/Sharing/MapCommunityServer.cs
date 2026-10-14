@@ -401,6 +401,28 @@ public static class MapCommunityServer
             return new PublishResult(201, entry);
         }
 
+        // Conditional ETags are calculated on the exact authorized JSON
+        // representation. Private creator/favorite responses cannot be cached
+        // as public results or mixed with another viewer's permissions.
+        async Task CatalogJson(HttpListenerContext request, object value,
+            CancellationToken cancellation, bool privateResult)
+        {
+            byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(value, MapPackageReader.JsonOptions);
+            string etag = "\"" + Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant() + "\"";
+            request.Response.Headers["ETag"] = etag;
+            request.Response.Headers["Cache-Control"] = privateResult
+                ? "private, max-age=0, must-revalidate"
+                : "public, max-age=0, must-revalidate";
+            if (request.Request.Headers["If-None-Match"] == etag)
+            {
+                request.Response.StatusCode = 304;
+                return;
+            }
+            request.Response.ContentType = "application/json";
+            request.Response.ContentLength64 = bytes.Length;
+            await request.Response.OutputStream.WriteAsync(bytes, cancellation);
+        }
+
         async Task Handle(HttpListenerContext context)
         {
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -419,6 +441,29 @@ public static class MapCommunityServer
                     && parts[0] is "maps" or "packages") deadline.CancelAfter(TimeSpan.FromMinutes(15));
                 async Task<T> Body<T>()
                 {using var data=new MemoryStream();await MapCommunityClient.CopyBoundedAsync(context.Request.InputStream,data,16384,deadline.Token);return JsonSerializer.Deserialize<T>(data.ToArray(),MapPackageReader.JsonOptions)??throw new InvalidDataException("Missing request body.");}
+
+                if (route == root + "/v3/capabilities" && context.Request.HttpMethod == "GET")
+                {
+                    await Json(context.Response, new MapCommunityServiceCapabilities
+                    {
+                        PublishedStorageLimitBytes = publishedStorageLimit
+                    }, deadline.Token);
+                    return;
+                }
+                if (route == root + "/v2/metrics" && context.Request.HttpMethod == "GET")
+                {
+                    if (creator?.Moderator != true)
+                    { context.Response.StatusCode = 403; return; }
+                    await Json(context.Response, new
+                    {
+                        Admission = admission.Snapshot(),
+                        UploadQuota = uploadQuota.Snapshot(),
+                        PublishedBytes = publishedBytes,
+                        PublishedStorageLimitBytes = publishedStorageLimit,
+                        DownloadBytesServed = Interlocked.Read(ref completedDownloadBytes)
+                    }, deadline.Token);
+                    return;
+                }
 
                 if (parts.Length >= 2 && parts[0] == "uploads")
                 {
@@ -900,7 +945,9 @@ public static class MapCommunityServer
                             int size=int.TryParse(query["pageSize"],out int n)?Math.Clamp(n,1,100):24;
                             projects=projects.Skip((page-1)*size).Take(size);
                         }
-                        await Json(context.Response,projects.ToArray(),deadline.Token);
+                        CommunityMapProject[] pageItems = projects.ToArray();
+                        await CatalogJson(context, pageItems, deadline.Token,
+                            privateResult: creator != null);
                         return;
                     }
 
@@ -926,14 +973,16 @@ public static class MapCommunityServer
                                 canManageLifecycle:creator!=null
                                     &&all.Any(m=>m.OwnerId==creator.CreatorId));
                             if(project==null){context.Response.StatusCode=404;return;}
-                            await Json(context.Response,project,deadline.Token);
+                            await CatalogJson(context, project, deadline.Token,
+                                privateResult: canManage || creator != null);
                             return;
                         }
                         if(parts[3]=="revisions")
                         {
-                            await Json(context.Response,revisionCatalog.BuildRevisions(
+                            await CatalogJson(context, revisionCatalog.BuildRevisions(
                                 projectId,visible,revealCreatorIdentity:canManage,
-                                includeDeleted:canManage),deadline.Token);
+                                includeDeleted:canManage),deadline.Token,
+                                privateResult: canManage || creator != null);
                             return;
                         }
                     }
@@ -978,7 +1027,8 @@ public static class MapCommunityServer
                         int size = int.TryParse(query["pageSize"], out int n) ? Math.Clamp(n, 1, 100) : 24;
                         found = found.Skip((page - 1) * size).Take(size);
                     }
-                    await Json(context.Response, found.ToArray(), deadline.Token);
+                    await CatalogJson(context, found.ToArray(), deadline.Token,
+                        privateResult: creator != null);
                 }
                 else if ((route.StartsWith(root + "/maps/", StringComparison.Ordinal) || route.StartsWith(root + "/packages/", StringComparison.Ordinal)) && context.Request.HttpMethod == "GET")
                 {
