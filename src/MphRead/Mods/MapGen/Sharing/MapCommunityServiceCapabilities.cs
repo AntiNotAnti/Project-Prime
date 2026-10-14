@@ -1,9 +1,9 @@
 namespace MphRead.Mods.MapGen;
 
 /// <summary>
-/// Optional service preflight for future generic content/asset clients.
-/// Published map transfer routes remain v2/legacy until a separately
-/// negotiated protocol transition. API v3 here is capabilities-only.
+/// Optional service preflight for typed read-only v3 metadata clients.
+/// Published map transfer routes remain v2/legacy. Generic asset publishing
+/// is disabled until the separate type-specific PR-09 validation pipeline.
 /// </summary>
 public sealed record MapCommunityServiceCapabilities
 {
