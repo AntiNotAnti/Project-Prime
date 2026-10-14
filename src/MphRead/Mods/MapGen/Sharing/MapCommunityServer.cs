@@ -68,6 +68,13 @@ public static class MapCommunityServer
         // Non-map v3 metadata is deliberately separate. Maps are projected
         // from the existing v2 revision catalog on every read, never dual-written.
         var contentRegistry = new CommunityContentRegistry(storage);
+        // CDN exposure is explicit operator configuration. No draft content is
+        // mirrored or given a globally readable URL.
+        bool mirrorEnabled = Environment.GetEnvironmentVariable(
+            "PROJECT_PRIME_MAP_OBJECT_MIRROR_ENABLED") == "1";
+        var objectStore = new CommunityObjectStore(storage, mirrorEnabled
+            ? Environment.GetEnvironmentVariable("PROJECT_PRIME_MAP_CDN_BASE")
+            : null);
         long publishedBytes = maps.Values.Sum(m => m.Bytes);
         DateTimeOffset nextLifecycleSweep = DateTimeOffset.UtcNow.AddHours(1);
         object lifecycleSweepGate = new();
@@ -447,6 +454,29 @@ public static class MapCommunityServer
                 async Task<T> Body<T>()
                 {using var data=new MemoryStream();await MapCommunityClient.CopyBoundedAsync(context.Request.InputStream,data,16384,deadline.Token);return JsonSerializer.Deserialize<T>(data.ToArray(),MapPackageReader.JsonOptions)??throw new InvalidDataException("Missing request body.");}
 
+                if (parts.Length == 4 && parts[0] == "v3"
+                    && parts[1] == "distribution" && parts[2] == "maps"
+                    && context.Request.HttpMethod == "GET")
+                {
+                    string hash = parts[3];
+                    if (!MapCommunityClient.ValidHash(hash)
+                        || !maps.TryGetValue(hash, out var distributed)
+                        || !distributed.Listed || distributed.Draft
+                        || !revisionCatalog.IsProjectDiscoverable(distributed.MapId)
+                        || revisionCatalog.IsRevisionDeleted(hash))
+                    { context.Response.StatusCode = 404; return; }
+
+                    // Metadata does not bypass the origin: if no verified
+                    // mirrored immutable object exists, advertise origin only.
+                    Uri? cdn = mirrorEnabled
+                        ? objectStore.PublicLocation(hash, distributed.Bytes, published: true)
+                        : null;
+                    await Json(context.Response, new CommunityPackageDistribution(
+                        1, hash, distributed.Bytes,
+                        "packages/" + hash, cdn?.ToString(),
+                        CdnEnabled: cdn != null), deadline.Token);
+                    return;
+                }
                 if (route == root + "/v3/capabilities" && context.Request.HttpMethod == "GET")
                 {
                     await Json(context.Response, new MapCommunityServiceCapabilities
