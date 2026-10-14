@@ -1,6 +1,7 @@
 #if MPHREAD_AVALONIA
 using System;
 using System.Collections.Generic;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
