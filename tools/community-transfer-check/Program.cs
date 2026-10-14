@@ -17,6 +17,22 @@ using MphRead.Mods.MapGen;
 // The child mode is a REAL second dotnet process. It intentionally opens the
 // same durable manager directory to prove index fencing and per-job ownership,
 // not just two objects that happen to share one managed lock.
+if (args.Length == 6 && args[0] == "--crossprocess-stalled-owner")
+{
+    string directory=args[1], endpoint=args[2], package=args[3],
+        secret=args[4], receipt=args[5];
+    var credentials = new DelegateCommunityCredentialSource(
+        ct => Task.FromResult(secret), ct => Task.FromResult(secret));
+    await using var manager = new CommunityTransferManager(directory, credentials);
+    Guid id=await manager.EnqueueUploadAsync(endpoint,package,publish:null,
+        listed:true,draft:false);
+    File.WriteAllText(receipt,id.ToString("D"));
+    // Parent kills this process without a managed Dispose, deliberately
+    // simulating an editor crash in the middle of an HTTP upload.
+    await Task.Delay(Timeout.InfiniteTimeSpan);
+    return;
+}
+
 if (args.Length == 9 && args[0] == "--crossprocess-child")
 {
     string directory = args[1], endpoint = args[2],
