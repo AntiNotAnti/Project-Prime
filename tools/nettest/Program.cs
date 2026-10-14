@@ -43,6 +43,7 @@ namespace MphRead.NetTest
                     + "  --timed-shot-replay-scene <assets> [room] Test actual authority launch fact persistence.\n"
                     + "  --timed-shot-certificate-benchmark [json] Measure certificate storage operations.\n"
                     + "  --timed-shot-native <assets> [room] Test real native shot certificates and Shadow parity.\n"
+                    + "  --native-grant-hunter-tour <filesystem> [room] [json] Test seven hunters/three genuine native timed items.\n"
                     + "  --timed-shot-accepted <assets> [room] Test admitted remote shot certificates.\n"
                     + "  --timed-damage-profiles           Test frozen native damage arithmetic.\n"
                     + "  --timed-damage-profile-scene <assets> [room] Test authority damage profile history.\n"
@@ -177,6 +178,23 @@ namespace MphRead.NetTest
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return TimedShotNativeTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 0 && args[0] == "--native-grant-hunter-tour")
+            {
+                if (args.Length < 2 || args.Length > 4)
+                {
+                    Console.Error.WriteLine("Usage: --native-grant-hunter-tour <extracted AMHE1 filesystem> [room] [fresh json]");
+                    return 1;
+                }
+                string assets = System.IO.Path.GetFullPath(args[1]);
+                string? output = args.Length > 3 ? System.IO.Path.GetFullPath(args[3]) : null;
+                if (!System.IO.Directory.Exists(assets))
+                {
+                    Console.Error.WriteLine("Native grant hunter tour requires an existing extracted filesystem.");
+                    return 1;
+                }
+                Paths.MphKey = "AMHE1"; Paths.SetPath(Paths.MphKey, assets);
+                return NativeGrantHunterTourTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS", output);
             }
             if (args.Length > 1 && args[0] == "--timed-shot-accepted")
             {
