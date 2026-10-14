@@ -514,6 +514,8 @@ public static class MapCommunityServer
                             if (upload == null || upload.CreatorId != creator.CreatorId || upload.PackageHash != hash || upload.Bytes != start.Bytes)
                             {
                                 DeleteUpload(key);
+                                if (!HasAvailableUploadDisk(storage, start.Bytes))
+                                { context.Response.StatusCode = 507; return; }
                                 if (!uploadQuota.TryReserve(key, creator.CreatorId,
                                     start.Bytes, out HttpStatusCode quotaFailure))
                                 {
@@ -603,6 +605,10 @@ public static class MapCommunityServer
                             // Expected bytes were reserved at upload start,
                             // including the entire remaining sequential transfer.
                             // No per-chunk directory walk or race-prone quota sum.
+                            long incoming = context.Request.ContentLength64 >= 0
+                                ? context.Request.ContentLength64 : maximum;
+                            if (!HasAvailableUploadDisk(storage, incoming))
+                            { context.Response.StatusCode = 507; return; }
                             string partial = UploadPartPath(key);
                             await using (var file = new FileStream(partial, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None,
                                 65536, FileOptions.Asynchronous | FileOptions.SequentialScan))
@@ -1197,6 +1203,32 @@ public static class MapCommunityServer
             string metadata = Path.ChangeExtension(part, ".json");
             if (File.Exists(metadata) || File.GetLastWriteTimeUtc(part) >= cutoff) continue;
             try { File.Delete(part); } catch { }
+        }
+    }
+
+    /// <summary>
+    /// Cheap disk-space preflight at admission boundaries. This does not
+    /// promise the whole compressed upload fits (another process may write);
+    /// it avoids beginning a chunk when even a bounded request cannot fit.
+    /// Real I/O errors still fail closed, preserving partial offset recovery.
+    /// </summary>
+    private static bool HasAvailableUploadDisk(string storage, long requestBytes)
+    {
+        try
+        {
+            string root = Path.GetPathRoot(Path.GetFullPath(storage))
+                ?? throw new IOException("Cannot resolve Community storage volume.");
+            long available = new DriveInfo(root).AvailableFreeSpace;
+            long needed = Math.Min(requestBytes, MapCommunityClient.UploadChunkBytes)
+                + 16L * 1024 * 1024;
+            return available > needed;
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException
+            or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine("[maphub] Cannot verify storage disk budget: "
+                + ex.GetType().Name);
+            return false;
         }
     }
 
