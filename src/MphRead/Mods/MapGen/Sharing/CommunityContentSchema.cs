@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 
 namespace MphRead.Mods.MapGen;
 
@@ -15,12 +14,17 @@ public static class CommunityContentKinds
     public const string Model = "model";
     public const string Prefab = "prefab";
 
-    public static readonly string[] Supported = { Map, Texture, Material, Model, Prefab };
+    // Return a fresh public array; callers cannot mutate the process-wide
+    // allowlist through the capability/default DTO representation.
+    public static string[] Supported => new[] { Map, Texture, Material, Model, Prefab };
+
+    public static bool IsSupported(string? kind)
+        => kind is Map or Texture or Material or Model or Prefab;
 
     public static string Normalize(string? kind)
     {
         string value = kind?.Trim().ToLowerInvariant() ?? "";
-        if (!Supported.Contains(value, StringComparer.Ordinal))
+        if (!IsSupported(value))
             throw new ArgumentException("Unknown Community content kind.", nameof(kind));
         return value;
     }
