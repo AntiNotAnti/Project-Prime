@@ -46,6 +46,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - name: Verify native acceptance evidence fails closed
+        run: python tools/campaign-acceptance/native_evidence.py --self-test
       - name: Build independent campaign contract runner
         run: dotnet build tools/nettest/nettest.csproj -c Release
       - name: Run original saves, campaign journey, film, audio and protocol isolation
