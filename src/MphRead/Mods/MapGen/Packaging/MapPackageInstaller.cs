@@ -187,9 +187,10 @@ public static class MapPackageInstaller
     /// Not for paths owned by callers, installed libraries or cache objects.
     /// </summary>
     internal static Task<PreparedMapInstallation> PrepareOwnedAsync(
-        string privateDownload, MapContentIdentity required, CancellationToken token = default)
+        string privateDownload, MapContentIdentity required, CancellationToken token = default,
+        Action? onValidated = null)
         => PrepareSourceAsync(privateDownload, required, ownsSource: true,
-            preparationCopiedBytes: 0, token);
+            preparationCopiedBytes: 0, token, onValidated);
 
     /// <summary>
     /// A CAS read lease protects a verified archive across validation, build
@@ -215,7 +216,8 @@ public static class MapPackageInstaller
 
     private static async Task<PreparedMapInstallation> PrepareSourceAsync(
         string source, MapContentIdentity required, bool ownsSource,
-        long preparationCopiedBytes, CancellationToken token)
+        long preparationCopiedBytes, CancellationToken token,
+        Action? onValidated = null)
     {
         try
         {
@@ -225,6 +227,7 @@ public static class MapPackageInstaller
                 throw new InvalidDataException("Downloaded map identity or package hash does not match the server.");
             RequireNoConflict(identity);
             var definition = MapDefinition.Load(source);
+            onValidated?.Invoke();
             var build = await MapBuildScheduler.Shared.BuildAsync(
                 MapBuildSnapshot.Capture(definition), token).ConfigureAwait(false);
             MapCompiler.ThrowIfInvalid(build.Validation());
