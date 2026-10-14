@@ -25,6 +25,14 @@ using var stop = new CancellationTokenSource();
 Task? service = null;
 try
 {
+    Check(!CommunityCutoverPolicy.Enabled(null)
+        && !CommunityCutoverPolicy.Enabled("")
+        && !CommunityCutoverPolicy.Enabled("true")
+        && !CommunityCutoverPolicy.Enabled("0")
+        && CommunityCutoverPolicy.Enabled("1")
+        && !CommunityCutoverPolicy.NetRadiantDefault,
+        "PR-14 creator hub requires deliberate opt-in and NetRadiant stays nondefault");
+
     string package = MapPackageBuilder.Build(
         MapTemplates.Create("COMMUNITY_TRANSFER_CHECK", true).Definition,
         Path.Combine(root, "source.ppmap"));
