@@ -250,6 +250,7 @@ internal static class NetTimedShotProof
         NetShotSourceJournal.Fired(value.Key, value.Fire, emission.AmmoType, emission.Cost, value.Source.Cooldown);
         var result = (_store ??= new()).Remember(final, NetSession.NetFrame);
         if (result != TimedShotRetention.Stored) return;
+        if (NetCampaignEvidence.Enabled) NetTimedSourceCapabilities.Completed(final);
         Stored++;
         if (final.DoubleHintAgrees == false) HintMismatch++;
         if (final.Unavailable != TimedShotUnavailable.None) Unavailable++;
@@ -277,5 +278,6 @@ internal static class NetTimedShotProof
     { _store = null; Array.Clear(_unavailableSourceLives); _nativeInput = false; _nativeLife = default;
       NetTimedShotModifiers.Reset();
       NetTimedDamageProfile.Reset();
+      if (NetCampaignEvidence.Enabled) NetTimedSourceCapabilities.Reset();
       Stored = Granted = NotGranted = Unavailable = HintMismatch = NoEmission = Unsupported = 0; }
 }

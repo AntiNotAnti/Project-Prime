@@ -437,6 +437,7 @@ internal static class NetCampaignEvidence
                 IntentHistory = NetFireEvents.CaptureHistory(),
                 ShotProof = NetShotProof.Capture(),
                 TimedModifiers = NetTimedShotModifiers.Capture(),
+                TimedSourceCapabilities = NetTimedSourceCapabilities.Capture(),
                 CombatReconciliation = NetHitPrediction.Capture(),
                 CombatPayments = NetCombatPayments.Capture(),
                 AiClient = NetAiClient.Capture(),
