@@ -129,6 +129,15 @@ class RunnerTests(unittest.TestCase):
             receipt = runner.shell_receipt(root, root, text + '\ngame files ready=True')
             self.assertEqual(receipt['expectedCaptures'], 14)
             self.assertEqual(len(receipt['captures']), 14)
+            mirrored = runner.shell_receipt(root, root, text, text + '\ngame files ready=True')
+            self.assertEqual(mirrored['completedCycles'], ['1', '2'])
+            self.assertEqual(mirrored['debugCompletedCycles'], ['1', '2'])
+            # Repeated actual execution must fail in either stream. Set-based
+            # deduplication would turn these malformed repetitions into PASS.
+            with self.assertRaisesRegex(ValueError, 'cycles='):
+                runner.shell_receipt(root, root, text + '\n' + text, text + '\ngame files ready=True')
+            with self.assertRaisesRegex(ValueError, 'debugCycles='):
+                runner.shell_receipt(root, root, text, text + '\n' + text + '\ngame files ready=True')
 
 
 if __name__ == '__main__':

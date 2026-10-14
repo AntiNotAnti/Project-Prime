@@ -181,6 +181,24 @@ the serial campaign; future operations remain NOT_RUN rather than disappearing
 from evidence. Native runs remain coordinated separately from ordinary timing
 benchmarks. No executor run has yet qualified these broader native/UI gates.
 
+The first native tool launch at integrated `88f9d29e` failed before a GL context
+because an external direct-reference harness project omitted ProjectPrime from
+its dependency manifest. That packaging setup failure is preserved separately
+from native ownership evidence. After corrected managed-reference packaging,
+the four native resource arms, rendered replica check, actual export and native
+NCSF/MiniAudio check completed successfully. The full shell process exited zero
+and captured all 43 images with both actual lifecycle cycles completed, but the
+executor then failed its oracle: it concatenated stdout with DebugLog's mirrored
+stdout, producing two copies of the same `[1, 2]` marker sequence. This remains
+a failed executor receipt; respawn was NOT_RUN after that stop.
+
+The corrected oracle validates stdout and the same-PID debug stream separately:
+each must contain exactly `[1, 2]` in order, and they must agree. Only readiness
+and failure context are combined. It never set-deduplicates real execution.
+The lightweight tests now include valid mirror streams and separate negative
+controls for actual repeated cycles in either stream. Eight Python tests pass;
+new-head integrated qualification and the actual serial rerun remain required.
+
 The first integrated build at `b58377ab` failed because the fixture applied LINQ
 to the foreach-only native entity iterator. The explicit native traversal fix
 was followed by a full successful build at `ff16b44d`. Its first real 10-load
