@@ -130,6 +130,7 @@ try
         && pub.OwnerId == null
         && pub.Name == textureMeta.Name
         && pub.Description == textureMeta.Description
+        && pub.UpdatedAt == texture.UpdatedAt
         && !pub.Tags.Contains("draft-secret"),
         "anonymous readers cannot discover or infer an owner's draft revision");
     Check(registry.GetVisible(CommunityContentKinds.Texture, textureId,
@@ -336,6 +337,52 @@ try
             "generic and map read-through catalog survives complete Community service restart");
     }
     await StopAsync();
+
+    // Public parent hashes and timestamps must not reveal a private draft
+    // that happened to sit between two released asset revisions.
+    string lineageFile = Path.Combine(root, "lineage.json");
+    Guid lineageId = Guid.Parse("763a5910-893a-4197-863a-dd29d8a006ef");
+    var lineageMeta = new CommunityContentRegistration(
+        CommunityContentKinds.Material, lineageId,
+        MapCreatorCatalog.ServiceOwner, "Visible material", null,
+        "Fixture creator", "Public description", new[] { "public" },
+        "application/vnd.projectprime.material+json",
+        CommunityContentVisibility.Published);
+    File.WriteAllText(lineageFile, "{\"stage\":1}");
+    var lineageOne = registry.RegisterVerifiedBlob(lineageFile, lineageMeta);
+    File.WriteAllText(lineageFile, "{\"stage\":2}");
+    var lineageDraft = registry.RegisterVerifiedBlob(lineageFile,
+        lineageMeta with
+        {
+            Name = "SECRET DRAFT",
+            Description = "Secret notes",
+            Tags = new[] { "private" },
+            Visibility = CommunityContentVisibility.Draft,
+            ExpectedParentHash = lineageOne.LatestHash
+        });
+    var publicBefore = registry.GetVisible(CommunityContentKinds.Material,
+        lineageId, null);
+    Check(publicBefore?.Name == "Visible material"
+        && publicBefore.UpdatedAt == lineageOne.UpdatedAt
+        && publicBefore.Description == "Public description"
+        && publicBefore.LatestHash == lineageOne.LatestHash,
+        "private draft never changes public content presentation or modification time");
+    File.WriteAllText(lineageFile, "{\"stage\":3}");
+    registry.RegisterVerifiedBlob(lineageFile,
+        lineageMeta with
+        {
+            ExpectedParentHash = lineageDraft.LatestHash
+        });
+    CommunityContentRevision[] publicLineage = registry.RevisionsVisible(
+        CommunityContentKinds.Material, lineageId, null);
+    CommunityContentRevision[] ownerLineage = registry.RevisionsVisible(
+        CommunityContentKinds.Material, lineageId, MapCreatorCatalog.ServiceOwner);
+    Check(publicLineage.Length == 2 && ownerLineage.Length == 3
+        && publicLineage[0].ParentHash == lineageOne.LatestHash
+        && ownerLineage[0].ParentHash == lineageDraft.LatestHash
+        && !publicLineage.Any(rev => rev.ContentHash == lineageDraft.LatestHash
+            || rev.ParentHash == lineageDraft.LatestHash),
+        "public revision links never expose private parent hashes; owner keeps full lineage");
 
     // Registration is trusted local metadata only: reject unsupported MIME,
     // foreign map kind, oversized fields and self dependencies.
