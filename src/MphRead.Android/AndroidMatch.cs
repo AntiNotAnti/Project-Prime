@@ -170,6 +170,7 @@ namespace MphRead.Droid
             scene.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: 0, team: -1);
             scene.AddRoom(roomKey, GameMode.SinglePlayer);
             MatchStart.ClearRecentShipDock();
+            MatchStart.ClearRecentCampaignEnding();
             Console.WriteLine($"[match] adventure, slot {plan.SaveSlot}, "
                 + $"{(plan.NewGame ? "new game" : "continued")}, room {roomKey}");
             return scene;
