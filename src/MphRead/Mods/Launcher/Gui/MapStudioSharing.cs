@@ -131,5 +131,37 @@ internal sealed partial class MapStudioScreen
         MapRuntimeUsage.RequireInstallationAllowed();
     }
 
-    private void ShowCommunity() => ShowCommunityDashboard();
+    private void ShowCommunity()
+    {
+        if (!CommunityCutoverPolicy.StudioCreatorPreview)
+        {
+            ShowCommunityDashboard();
+            return;
+        }
+
+        try
+        {
+            string endpoint = MapCommunityClient.DefaultAddress;
+            if (File.Exists(CommunitySettingsPath))
+            {
+                string stored = File.ReadAllText(CommunitySettingsPath).Trim();
+                if (!string.IsNullOrWhiteSpace(stored)) endpoint = stored;
+            }
+            // Capture at invocation, not when publish is submitted. The new
+            // workspace cannot retain or mutate the active editor document.
+            CommunityStudioPublishIntent? intent = _document == null
+                ? null : CommunityStudioPublishIntent.Capture(
+                    _document.Project.Definition);
+            var hub = new StudioCreatorCommunityWorkspace(
+                endpoint, intent,
+                close: Dismiss,
+                advanced: () => { Dismiss(); ShowCommunityDashboard(); });
+            Modal(hub, fitContent: true);
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException
+            or MapAuthoringException or InvalidDataException)
+        {
+            Failure(ex);
+        }
+    }
 }
