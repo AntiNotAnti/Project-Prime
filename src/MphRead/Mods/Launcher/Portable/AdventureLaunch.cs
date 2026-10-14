@@ -8,10 +8,12 @@ namespace MphRead.Mods.Launcher
     public static class AdventureLaunch
     {
         public static LaunchPlan Create(byte slot, bool newGame, Hunter hunter,
-            Campaign.CampaignPlanet? destination = null)
+            Campaign.CampaignPlanet? destination = null, bool exitShipToSurface = false)
         {
             if (newGame && destination.HasValue)
                 throw new System.ArgumentException("A new game cannot bypass its starting planet.", nameof(destination));
+            if (exitShipToSurface && (newGame || !destination.HasValue))
+                throw new System.ArgumentException("Exiting the gunship requires a selected existing planet.", nameof(exitShipToSurface));
             LauncherPrefs.LastHunter = hunter;
             LauncherPrefs.LastKind = (int)LaunchKind.Adventure;
             LauncherPrefs.Save();
@@ -23,7 +25,8 @@ namespace MphRead.Mods.Launcher
                 RoomKey = "",
                 SaveSlot = slot,
                 NewGame = newGame,
-                AdventureDestination = destination
+                AdventureDestination = destination,
+                ExitShipToSurface = exitShipToSurface
             };
         }
     }
