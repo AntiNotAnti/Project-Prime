@@ -82,6 +82,18 @@ internal static class CampaignShipFlowTests
             LaunchPlan plan = AdventureLaunch.Create(1, false, Hunter.Samus, CampaignPlanet.Alinos);
             Check(plan.Kind == LaunchKind.Adventure && plan.AdventureDestination == CampaignPlanet.Alinos
                 && plan.SaveSlot == 1 && !plan.NewGame, "ship-selected destination survives launch plan");
+            var exitPlan = AdventureLaunch.Create(1, false, Hunter.Samus,
+                CampaignPlanet.CelestialArchives, exitShipToSurface: true);
+            Check(exitPlan.ExitShipToSurface && exitPlan.AdventureDestination == CampaignPlanet.CelestialArchives,
+                "Exit Ship carries a distinct same-planet no-movie intent");
+            bool invalidExitRejected = false;
+            try { _ = AdventureLaunch.Create(1, true, Hunter.Samus, exitShipToSurface: true); }
+            catch (ArgumentException) { invalidExitRejected = true; }
+            Check(invalidExitRejected, "new game cannot request ship Exit movie suppression");
+            invalidExitRejected = false;
+            try { _ = AdventureLaunch.Create(1, false, Hunter.Samus, exitShipToSurface: true); }
+            catch (ArgumentException) { invalidExitRejected = true; }
+            Check(invalidExitRejected, "ship Exit without selected planet is refused");
 
             // This is the same post-match save owner used by desktop and
             // Android; the ticket must not appear until a real committed ship
