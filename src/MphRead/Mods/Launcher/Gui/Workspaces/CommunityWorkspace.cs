@@ -504,10 +504,12 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
                 return;
             }
 
-            string archive = _transfers.VerifiedArchivePath(id)
-                ?? throw new IOException("Verified Community archive is missing.");
+            // The read lease protects the immutable cache entry from another
+            // process's LRU cleanup throughout the private map install.
+            using var archive = _transfers.LeaseVerifiedArchive(id)
+                ?? throw new IOException("Verified Community archive is missing or changed.");
             MapDefinition installed = await Task.Run(() =>
-                MapPackageInstaller.Install(archive, map.MapId, map.ContentHash, map.Hash,
+                MapPackageInstaller.Install(archive.Path, map.MapId, map.ContentHash, map.Hash,
                     CustomRooms.UserMapDirectory), cancel.Token);
 
             // Commit may finish just before navigation changes. Registration
