@@ -240,9 +240,9 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         {
             if (!_jobs.TryGetValue(id, out job!))
                 throw new KeyNotFoundException("Unknown Community transfer.");
-            if (_running.ContainsKey(id) || job.State is CommunityTransferState.Queued
+            if (_running.ContainsKey(id) || (job.State is CommunityTransferState.Queued
                 or CommunityTransferState.Preparing or CommunityTransferState.Uploading
-                or CommunityTransferState.Downloading or CommunityTransferState.Verifying)
+                or CommunityTransferState.Downloading or CommunityTransferState.Verifying))
                 throw new InvalidOperationException("Pause or finish the transfer before removing it.");
             _jobs.Remove(id);
             PersistLocked();
@@ -292,8 +292,8 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         // in-progress or paused receipt is never silently discarded.
         CommunityTransferJob? oldest = _jobs.Values
             .Where(j => !_running.ContainsKey(j.Id)
-                && j.State is CommunityTransferState.Completed
-                    or CommunityTransferState.Cancelled)
+                && (j.State is CommunityTransferState.Completed
+                    or CommunityTransferState.Cancelled))
             .OrderBy(j => j.UpdatedAt).FirstOrDefault();
         if (oldest == null)
             throw new IOException("Community transfer queue is full (32 active/paused jobs).");
