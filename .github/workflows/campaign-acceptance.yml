@@ -1,0 +1,60 @@
+# CAMP-07: run the complete content-free campaign contract on each desktop
+# platform in isolated processes. This does not claim in-game cartridge or
+# Android-device acceptance; the full build workflow covers Android packaging.
+name: campaign acceptance
+on:
+  pull_request:
+    paths:
+      - 'src/MphRead/**'
+      - 'src/MphRead.Android/**'
+      - 'tools/nettest/**'
+      - 'tools/campaign-acceptance/**'
+      - 'global.json'
+      - '.github/workflows/campaign-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/MphRead/**'
+      - 'src/MphRead.Android/**'
+      - 'tools/nettest/**'
+      - 'tools/campaign-acceptance/**'
+      - 'global.json'
+      - '.github/workflows/campaign-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: campaign-acceptance-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  content-free:
+    name: campaign contracts (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Build independent campaign contract runner
+        run: dotnet build tools/nettest/nettest.csproj -c Release
+      - name: Run original saves, campaign journey, film, audio and protocol isolation
+        run: python tools/campaign-acceptance/run.py --output artifacts/campaign-acceptance --include-guardrails
+      - name: Preserve independent machine-readable acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: campaign-contracts-${{ runner.os }}-${{ runner.arch }}
+          path: artifacts/campaign-acceptance/
+          if-no-files-found: warn
+          retention-days: 14
