@@ -1,0 +1,1382 @@
+{
+  "schema": 1,
+  "draft": true,
+  "preparedUtc": "2026-10-14T06:43:56.518877+00:00",
+  "status": "NOT_ACCEPTED",
+  "publication": "PREPARED_FOR_REPOSITORY_EVIDENCE_CURRENT_WHOLE_HEAD_QUALIFICATION_PENDING",
+  "base": {
+    "mergedMain": "989709d58c745178860398c36953e83e88de7470",
+    "net01": "7846ff426a5ebb11e3ca219bd53e15f21097bea1",
+    "net01PR": 541,
+    "net01CurrentQualification": "7846 exact-head hostedCI31SUCCESS; no old binary relabel",
+    "previousMergedMain": "f85def5bb8ab17a208717d9ad9990381ab142db2",
+    "previousQualifiedNet01": "b8d22ad8d57c9b0bbf0edfa033301b98674c7c00"
+  },
+  "currentSourceReview": {
+    "head": "07cc5f253bc95d8727f8228a6157f139d41f1661",
+    "committedSourceManifest": true,
+    "workingTreeStatusAtPreparation": " M .github/workflows/build.yml\n M tools/nettest/TimedShotDamageTests.cs\n",
+    "tree": "9f008c7c0f73ec8cde23f2a8db79566934349f74",
+    "base": "7846ff426a5ebb11e3ca219bd53e15f21097bea1",
+    "diffFromBaseSha256": "7fd71cd23151a21ee404931cf4df53433e54fd30433bd761c27a3f937fd2b240",
+    "fileSha256": {
+      ".github/workflows/build.yml": "ce320375c57fab18d86ca4d3bf6e11bd53da1f8e067a9a30b2affb9ced2a9df8",
+      "src/MphRead/Entities/Players/PlayerInput.cs": "fe1076f17c5983fd1fb17fcede7d3e2b250da3990215182f2582686c7326260f",
+      "src/MphRead/Mods/Network/NetCampaignEvidence.cs": "3bfa0f46943e403655e908a38334ec2ce39f3fb952ae5330f7529435733b8008",
+      "src/MphRead/Mods/Network/NetFireEvents.cs": "d8ee1b6c693cd8f32e34c9e1227ad4a050baf601e98c43749f532c51343f55ba",
+      "src/MphRead/Mods/Network/NetHitClaims.cs": "774a13fb68b883c319e0fded656eeebab0b6529a229f736518af023a2ca6a036",
+      "src/MphRead/Mods/Network/NetShotProof.cs": "6a5acc2150feb1c8be16c754eeda899dda25ddc5391a4ae91a373d870b1e4c3a",
+      "src/MphRead/Mods/Network/NetTimedDamageProfile.cs": "beafa147e3f383d43e7773c484b1283661e135b963f2f07f198bf3efb3bf20a1",
+      "src/MphRead/Mods/Network/NetTimedShotDamage.cs": "f2787f4b8817a410a8d83b0ead821fc39cf9dc69cc787852792c7a69b227a494",
+      "src/MphRead/Mods/Network/NetTimedShotModifiers.cs": "75e4df1693c62fb29e9ffda1ea079f79d4893e9a5b7a09c8b027a1708ad89f3a",
+      "src/MphRead/Mods/Network/NetTimedShotProof.cs": "1ab1154b13b8835756105fa67480a1ad0c2f0ef4728e2bd93d964dcbadaf8544",
+      "src/MphRead/Mods/Network/NetUnlagged.cs": "95947cb39f3b713b848373a36d4167e6a877c94549931dbe5c38c75b17b5b582",
+      "src/MphRead/Mods/Network/PlayerEntityAcceptedShot.cs": "a374dd640aa2f1859da732856e4932e1794efd9548d2411b25ac4f0b1ac2f391",
+      "tools/nettest/Program.cs": "c3811e75642c6efdd9f16122a20f09a8bd6c4a5d625339217bf3a3667f4c8b5b",
+      "tools/nettest/TimedDamageProfileSceneTests.cs": "53189928bd1ca92097ef5d5710213ca71a55307a6ff26114e34fb56f2d71cf05",
+      "tools/nettest/TimedDamageProfileTests.cs": "82e3c4e7b314217ec4ae2acc29ea30c81840fe814de4f151017f1c4c34b27f10",
+      "tools/nettest/TimedShotDamageTests.cs": "8bedabe325f7d361acb924292c3ddedc57690eadde3239862b752ef86bedc25c",
+      "tools/nettest/TimedShotModifierTests.cs": "00ddd78b24c7d83e80fb9bee4cd01e0aa0a53d85d0425c65c66c6a16761e0f64",
+      "tools/nettest/TimedShotRescueTests.cs": "07777cc9aab10f88de625da94d5e0a0c4c3e52be53b674305bbc94de093d5575"
+    },
+    "mainAncestor": true,
+    "net01Ancestor": true,
+    "qualification": "Committed07cc code/test snapshot. Whole07cc and ensuing CI/test/documentation head qualification PENDING. Working edits are not included in this committed manifest; frozenbf3 physical evidence retains exact source/binary identity."
+  },
+  "currentPolicy": {
+    "environmentVariable": "PRIME_TIMED_GRANT_PROOF",
+    "configuredModes": [
+      "Off",
+      "Shadow"
+    ],
+    "default": "Off",
+    "shadowValue": "shadow",
+    "otherValues": "Off",
+    "productionEnvironmentEnforce": "REMOVED",
+    "internalEnforce": "CONTROLLED_FIXTURES_ONLY"
+  },
+  "implementation": {
+    "beforeSpawn": "Copied A1 AuthorizedDouble plus retained Prime/affinity source facts sanitize ordinary native/accepted projectile flags and row selection before the native kernel; missing remote history preserves only intrinsic affinity for the exact current authority life, not forwarded Prime/affinity hints. Original FireEvent is preserved.",
+    "launchChannels": "Completed native kernel copies body/head/splash and effect/geometry scalar values into immutable certificates; no pooled projectile/equipment/player reference retained.",
+    "victimProfiles": {
+      "slots": 8,
+      "framesPerSlot": 128,
+      "cells": 1024,
+      "immutableAtSameFrame": true,
+      "fullIdentityAndExactFrame": true,
+      "unlagDisabledRecording": "current source records authority facts even when positional rewind is disabled; unqualified correction",
+      "pending": "Copies an available victim profile into pending admission before grace/history eviction"
+    },
+    "settlement": "Existing payment identity/arbitration/grace/retry paths remain; internal timed hook caps rescue payment and head correction, clearing unsupported head advantages while retaining an admitted body channel.",
+    "headFallback": "Supported captured Imperialist ray and bounded ordinary PowerBeam/VoltDriver initial segment; no inferred later trajectory, pellet, child or continuous witness.",
+    "bound": "Legal per-launch channel ceiling plus immutable victim susceptibility/damage-level/handicap/armour profile; NOT an exact native impact payout.",
+    "capturedDirectOnlyEffects": {
+      "commit": "36ec7bf0ee93caccbc42b6009c5b7c2e2ccb9e64",
+      "field": "DirectOnlyEffects",
+      "rule": "Actual captured Balanced Kanden/VoltDriver Disrupted and Spire/Magmaul Burning bits require Charged and direct. Other captured effects remain; no eligibility rule invents an absent effect. Mask is compared and retained immutably for direct/splash policy.",
+      "qualification": "Included in frozenbf3 production and81pure checks; complete all-seven-hunter native affinity/conditional effect-duration claim acceptance remains NOT_RUN"
+    }
+  },
+  "frozenCandidateEvidence": {
+    "source": "28599f6ee802dab9bccfaad1919f1cb760081a68",
+    "clientSha256": "0fbfc111344c5b444b8cd5aa28f5a3106e318158c574429f491aedc67860e6ef",
+    "clientMvid": "6172abbe-73a6-4eac-bd60-1982f8cb9c04",
+    "buildId": "local+28599f6ee802dab9bccfaad1919f1cb760081a68",
+    "constants": {
+      "protocol": 56,
+      "replicaCheckpoint": 12,
+      "worldCheckpoint": 10
+    },
+    "build": "PASS",
+    "focusedRoutes": 15,
+    "pythonTests": 119,
+    "pureAssertions": {
+      "timedDamageProfiles": 53,
+      "timedShotCertificates": 5238
+    },
+    "sourceRuntimeDonorUnchanged": true,
+    "ownedGroupsClosedAfterResume": true,
+    "originalImmediateSetupClosureFailure": "PRESERVED",
+    "receipts": [
+      "candidate-28599f6e/qualification-summary.json",
+      "candidate-28599f6e/extra-pure-receipt.json"
+    ],
+    "qualification": "Pure constructed checks only; not current-source native/claim rescue acceptance"
+  },
+  "correctedExternalModifierFixture": {
+    "productionSource": "28599f6ee802dab9bccfaad1919f1cb760081a68",
+    "clientSha256": "0fbfc111344c5b444b8cd5aa28f5a3106e318158c574429f491aedc67860e6ef",
+    "clientMvid": "6172abbe-73a6-4eac-bd60-1982f8cb9c04",
+    "externalFixtureSha256": "00ddd78b24c7d83e80fb9bee4cd01e0aa0a53d85d0425c65c66c6a16761e0f64",
+    "externalFixtureMvid": "24aacf2e-5cc0-4471-8e86-9f038417724f",
+    "assertions": 5493,
+    "status": "PASS",
+    "arms": [
+      {
+        "mode": "Enforce",
+        "nativeGrant": false,
+        "hint": false,
+        "delayed": false,
+        "sourceFrame": 1001,
+        "authorityFrame": 1001,
+        "hintInOriginalFire": false,
+        "Body": 6,
+        "Head": 8,
+        "Splash": 0,
+        "Debit": 6,
+        "paidDamage": 6
+      },
+      {
+        "mode": "Enforce",
+        "nativeGrant": false,
+        "hint": true,
+        "delayed": false,
+        "sourceFrame": 1001,
+        "authorityFrame": 1001,
+        "hintInOriginalFire": true,
+        "Body": 6,
+        "Head": 8,
+        "Splash": 0,
+        "Debit": 6,
+        "paidDamage": 6
+      },
+      {
+        "mode": "Enforce",
+        "nativeGrant": true,
+        "hint": false,
+        "delayed": false,
+        "sourceFrame": 1002,
+        "authorityFrame": 1002,
+        "hintInOriginalFire": false,
+        "Body": 12,
+        "Head": 16,
+        "Splash": 0,
+        "Debit": 12,
+        "paidDamage": 12
+      },
+      {
+        "mode": "Enforce",
+        "nativeGrant": true,
+        "hint": true,
+        "delayed": true,
+        "sourceFrame": 2800,
+        "authorityFrame": 2802,
+        "hintInOriginalFire": true,
+        "Body": 12,
+        "Head": 16,
+        "Splash": 0,
+        "Debit": 12,
+        "paidDamage": 12
+      }
+    ],
+    "processGroupClosed": true,
+    "originalSixPhysicalFilesStillExact": true,
+    "scope": "Controlled asset-backed remote lifecycle admission/private drain/native projectile collision/payment; positive ownership actual complete native item contact. No authenticated UDP/natural input/unpaid rescue cap/private GL or replay acceptance claim.",
+    "clockCorrection": "Before: Step manually incremented server clock then production NetSession.Update incremented again; scalar actual contact1002/source1001 proved timing assertion wrong. After: submit expectednext source, let real ServerSim.Step exclusively advance authority one tick, assert result. No grant/observation/paid outcome injected.",
+    "receipts": [
+      "modifier-proof285.json",
+      "modifiers-diagnostic285/receipt.json"
+    ],
+    "qualification": "New external friend-nettest against frozen285; does not relabel original compiled full nettest or qualify newer production source"
+  },
+  "negatives": [
+    {
+      "receipt": "modifiers-28599f6e-attempt1/receipt.json",
+      "status": "FAIL",
+      "scope": "Original full285 fixture contact-clock assertion"
+    },
+    {
+      "receipt": "modifiers-diagnostic285/wrongclock-negative-receipt.json",
+      "status": "FAIL",
+      "scope": "Diagnostic fixture advanced server clock manually and again via production Update; actual contact1002/source1001 falsified expected clock; original log retained"
+    },
+    {
+      "receipt": "candidate-28599f6e/setup-closure/original-setup-receipt.json",
+      "status": "ORIGINAL_CLOSURE_FAILURE_PRESERVED",
+      "scope": "Later identified group absence/closure does not relabel original setup"
+    },
+    {
+      "receipt": "candidate-ac35fe94/rescue-attempt1/receipt.json",
+      "status": "FAIL_PRESERVED",
+      "scope": "Fixture manually advanced clock before ServerSim advanced it again; queried wrong A1 source frame."
+    },
+    {
+      "receipt": "candidate-ac35fe94/rescue-attempt2-thin/receipt.json",
+      "status": "FAIL_PRESERVED",
+      "scope": "Same-ID terminal assertion incorrectly required Duplicate rather than original Applied; thin native dependency path warning retained."
+    },
+    {
+      "receipt": "candidate-ac35fe94/rescue-attempt3-thin/receipt.json",
+      "status": "FAIL_PRESERVED",
+      "scope": "Valid retry named an unrecorded newer ACK world after initial refusal; thin native dependency path warning retained."
+    },
+    {
+      "receipt": "assets-bf3c1441/receipt.json",
+      "route": "timed-damage-profile-scene",
+      "status": "FAIL_PRESERVED",
+      "exit": 1,
+      "logSha256": "1aa74c913c5e851305035ed892f8f3ba93cf8d682e597c93a0b21cb70f06ad8a",
+      "scope": "Original fullbf3 double-advanced fixture clock; external corrected294 has distinct entry. Production unchanged."
+    }
+  ],
+  "acceptanceBlockers": [
+    {
+      "status": "PENDING_CURRENT_WHOLE_HEAD",
+      "scope": "Committed07cc clock repair and ensuing CI/test/docs-head require own whole qualification; frozenbf3 PASS routes and external294 retain exact identities."
+    },
+    {
+      "status": "NOT_ACCEPTED",
+      "scope": "ClaimHitPoint body origin cannot reconstruct authority projectile/direct-hit or explosion-origin impact falloff; per-launch channel ceiling is not exact native payout."
+    },
+    {
+      "status": "NOT_RUN",
+      "scope": "All-seven-hunter native intrinsic-affinity and conditional direct/splash effect duration/immunity claim acceptance;81constructed mask/channel rows are not native family proof"
+    },
+    {
+      "status": "BLOCKER_NET03_EFFECT_STATE",
+      "scope": "Preexisting rescue disruption NetHitClaims\u2192ModSetDisrupted(true) sets120 frames; native Balanced Kanden ModTryBalancedDisrupt sets75 plus120 immunity (195 timer). Frozen effect eligibility mask does not capture duration/immunity semantics; exact effect-state proof remains absent.",
+      "sourcePaths": [
+        "src/MphRead/Mods/Network/NetHitClaims.cs",
+        "src/MphRead/Mods/Network/PlayerEntityNetAim.cs",
+        "src/MphRead/Entities/Players/PlayerEntityBalancedAffinity.cs",
+        "src/MphRead/Mods/Multiplayer/BalancedModeRules.cs"
+      ]
+    },
+    {
+      "status": "PENDING_NET03",
+      "scope": "Trajectory, splash, continuous/turret/child/instant-AOE/Omega and other special-family provenance/geometry"
+    },
+    {
+      "status": "PENDING_NET04",
+      "scope": "Live authenticated UDP, replay/checkpoint persistence and rollout acceptance"
+    },
+    {
+      "status": "UNVERIFIED",
+      "scope": "Whole-frame performance quantiles, managed/native allocation, GPU, delivered FPS and physical GL/audio"
+    }
+  ],
+  "compatibility": {
+    "protocol": 56,
+    "replicaCheckpoint": 12,
+    "worldCheckpoint": 10,
+    "packetFieldsChanged": false,
+    "grantDurationChanged": false,
+    "saveSettingsAssetsMigration": false
+  },
+  "rollback": "Keep PRIME_TIMED_GRANT_PROOF unset/off; no production Enforce setting is exposed. Revert the NET02 hooks/profile/template as a coherent unit preserving NET01 and A1\u2013A3; no wire/checkpoint version migration.",
+  "limits": "Bounded arithmetic/controlled native proofs are not exact impact reconstruction, general damage enforcement, performance gain, hosted-current-head PASS or whole-plan acceptance.",
+  "frozenAc35Evidence": {
+    "source": "ac35fe9428cd030c22a4a8b87317adf0aa41be1e",
+    "clientSha256": "da250fe1c2157c3bdbb8f0821b19efac88d368badae6c57abb34a18b6049f42e",
+    "clientMvid": "17708f27-0e73-4348-a773-ae4bfe62640e",
+    "buildId": "local+ac35fe9428cd030c22a4a8b87317adf0aa41be1e",
+    "buildSeconds": 42.83,
+    "buildErrors": 0,
+    "existingWarnings": 1,
+    "focusedRoutes": 15,
+    "pythonTests": 119,
+    "pureAssertions": {
+      "timedDamageProfiles": 739,
+      "timedShotCertificates": 5238,
+      "frozenDamageChannels": 46
+    },
+    "sourceRuntimeDonorUnchanged": true,
+    "ownedGroupsAbsentAfterResume": true,
+    "receipt": "candidate-ac35fe94/qualification-summary.json",
+    "qualification": "Frozen source only; newer intrinsic-affinity/direct-only-effect changes not included"
+  },
+  "correctedExternalRescueFixture": {
+    "status": "PASS_DIAGNOSTIC_UNPAID_RESCUE",
+    "clientSource": "ac35fe9428cd030c22a4a8b87317adf0aa41be1e",
+    "clientSha256": "da250fe1c2157c3bdbb8f0821b19efac88d368badae6c57abb34a18b6049f42e",
+    "clientMvid": "17708f27-0e73-4348-a773-ae4bfe62640e",
+    "externalFixtureSha256": "07777cc9aab10f88de625da94d5e0a0c4c3e52be53b674305bbc94de093d5575",
+    "entryMvid": "b4a6d002-0890-4671-9d7a-c9d41ee75910",
+    "entrySha256": "6313654c32c7bd22cb5d23df46cc719ad66b8ec4a724347798c6f6463dbf1139",
+    "assertions": 5673,
+    "arms": [
+      {
+        "grant": false,
+        "hint": false,
+        "missingSource": false,
+        "head": false,
+        "source": 1002,
+        "Knowledge": 1,
+        "Unavailable": 0,
+        "expected": 6,
+        "DamageApplied": 6,
+        "HealthAfter": 993,
+        "DamageSequence": 1,
+        "Flags": 64
+      },
+      {
+        "grant": false,
+        "hint": true,
+        "missingSource": false,
+        "head": false,
+        "source": 1002,
+        "Knowledge": 1,
+        "Unavailable": 0,
+        "expected": 6,
+        "DamageApplied": 6,
+        "HealthAfter": 993,
+        "DamageSequence": 1,
+        "Flags": 64
+      },
+      {
+        "grant": true,
+        "hint": true,
+        "missingSource": false,
+        "head": false,
+        "source": 1003,
+        "Knowledge": 2,
+        "Unavailable": 0,
+        "expected": 12,
+        "DamageApplied": 12,
+        "HealthAfter": 987,
+        "DamageSequence": 1,
+        "Flags": 64
+      },
+      {
+        "grant": true,
+        "hint": false,
+        "missingSource": false,
+        "head": false,
+        "source": 1003,
+        "Knowledge": 2,
+        "Unavailable": 0,
+        "expected": 12,
+        "DamageApplied": 12,
+        "HealthAfter": 987,
+        "DamageSequence": 1,
+        "Flags": 64
+      },
+      {
+        "grant": false,
+        "hint": true,
+        "missingSource": true,
+        "head": false,
+        "source": 1002,
+        "Knowledge": 0,
+        "Unavailable": 1,
+        "expected": 6,
+        "DamageApplied": 6,
+        "HealthAfter": 993,
+        "DamageSequence": 1,
+        "Flags": 64
+      },
+      {
+        "grant": false,
+        "hint": true,
+        "missingSource": false,
+        "head": true,
+        "source": 1002,
+        "Knowledge": 1,
+        "Unavailable": 0,
+        "expected": 6,
+        "DamageApplied": 6,
+        "HealthAfter": 993,
+        "DamageSequence": 1,
+        "Flags": 64
+      }
+    ],
+    "allNineArms": [
+      "unfunded ordinary6",
+      "unfunded forged Double hint6",
+      "native funded hint true12",
+      "native funded hint false12",
+      "missing exact A1/pose observation fallback6",
+      "unverified PowerBeam head fallback6/noHead flag",
+      "first ushortMax refusal then valid body rescue6",
+      "actual grant expiry during grace retains12",
+      "admitted victim profile copy survives129later recorded frames"
+    ],
+    "canonicalRetries": "Same claim ID repeats original terminal Applied; new claim ID returns Duplicate with identical paid damage/health/sequence/flags, no second gameplay side effect",
+    "positivePaymentContract": "Actual admitted remote carrier/private Pending\u2192Fired native template, authority beam removed before Process, zero native prepayment, serialized claim enters existing geometry/grace/payment route. No TryGrant/Physical/TakeDamage injection.",
+    "process": {
+      "pid": 35279,
+      "exit": 0,
+      "timeout": false,
+      "physicalFilesUnchanged": true,
+      "thinEntryUnchanged": true,
+      "originalPathsUnchanged": true,
+      "processGroupClosed": true
+    },
+    "limitations": [
+      "Diagnostic internal Enforce only; no rollout or full NET02 acceptance",
+      "Explicit body placement, authored fixture carriers and withheld actual flight; no natural AI/movement/UDP claim",
+      "Victim profile eviction deliberately withholds settlement Tick while recording129stationary authority frames",
+      "GL/audio fidelity, authenticated UDP, special families and confirmed head geometry NOT_RUN"
+    ],
+    "nativeDependencyWarningInPassingRun": false,
+    "receipt": "candidate-ac35fe94/rescue-attempt4-thin/rescue-result.json",
+    "qualification": "External corrected fixture against frozenac35, separate from new full finalbf3 entry/binary; no final-source qualification"
+  },
+  "intendedRepositoryEvidencePath": "docs/evidence/net02-modifiers-results.json",
+  "net01ParentHostedCI": {
+    "headRefOid": "7846ff426a5ebb11e3ca219bd53e15f21097bea1",
+    "number": 541,
+    "state": "OPEN",
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:16:44Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094721",
+        "name": "no game assets",
+        "startedAt": "2026-10-14T06:16:09Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:16:31Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216759/job/115711094297",
+        "name": "content-free",
+        "startedAt": "2026-10-14T06:16:10Z",
+        "status": "COMPLETED",
+        "workflowName": "semantic event foundation"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:16:28Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521211890/job/115711078717",
+        "name": "content-free",
+        "startedAt": "2026-10-14T06:16:07Z",
+        "status": "COMPLETED",
+        "workflowName": "semantic event foundation"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:16:43Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094923",
+        "name": "Windows/Linux release updater and rollback (ubuntu-latest)",
+        "startedAt": "2026-10-14T06:16:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:16:59Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094878",
+        "name": "Windows/Linux release updater and rollback (windows-latest)",
+        "startedAt": "2026-10-14T06:16:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:18:10Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094891",
+        "name": "dedicated server compile gate",
+        "startedAt": "2026-10-14T06:16:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:19:02Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094550",
+        "name": "HD character model contract",
+        "startedAt": "2026-10-14T06:16:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:19:15Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094771",
+        "name": "content-free fidelity oracle (F0/F1)",
+        "startedAt": "2026-10-14T06:16:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:21:22Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094847",
+        "name": "OpenGL compatibility and retained graph smoke",
+        "startedAt": "2026-10-14T06:16:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:16:33Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094880",
+        "name": "Android frame pacing and governor policy",
+        "startedAt": "2026-10-14T06:16:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:19:05Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094758",
+        "name": "Desktop frame pacing policy",
+        "startedAt": "2026-10-14T06:16:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:19:24Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094854",
+        "name": "renderer state, lifecycle and low-latency policy",
+        "startedAt": "2026-10-14T06:16:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:16:36Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094768",
+        "name": "PNG callback ownership (ubuntu-latest)",
+        "startedAt": "2026-10-14T06:16:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:16:51Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094990",
+        "name": "PNG callback ownership (windows-latest)",
+        "startedAt": "2026-10-14T06:16:10Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:19:29Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094919",
+        "name": "PNG callback ownership (macos-latest)",
+        "startedAt": "2026-10-14T06:18:57Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:20:53Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094893",
+        "name": "PNG callback ownership (macos-15-intel)",
+        "startedAt": "2026-10-14T06:19:32Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:20:19Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094782",
+        "name": "input regressions (windows-latest)",
+        "startedAt": "2026-10-14T06:16:11Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:19:27Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094810",
+        "name": "input regressions (macos-latest)",
+        "startedAt": "2026-10-14T06:16:25Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:25:00Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711094966",
+        "name": "input regressions (macos-15-intel)",
+        "startedAt": "2026-10-14T06:19:32Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:20:56Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711279162",
+        "name": "retired hunter compatibility regressions",
+        "startedAt": "2026-10-14T06:16:46Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:21:22Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711279008",
+        "name": "map editor regressions (ubuntu-latest)",
+        "startedAt": "2026-10-14T06:16:46Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:23:13Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711279059",
+        "name": "map editor regressions (windows-latest)",
+        "startedAt": "2026-10-14T06:16:46Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:25:20Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711278976",
+        "name": "map editor regressions (macos-latest)",
+        "startedAt": "2026-10-14T06:20:59Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:21:13Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711279172",
+        "name": "win-x64",
+        "startedAt": "2026-10-14T06:16:46Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:26:44Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711279262",
+        "name": "linux-x64",
+        "startedAt": "2026-10-14T06:16:46Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:21:10Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711278969",
+        "name": "linux-x64-server",
+        "startedAt": "2026-10-14T06:16:46Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:22:02Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711279044",
+        "name": "linux-arm64",
+        "startedAt": "2026-10-14T06:16:46Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:28:13Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711279111",
+        "name": "macOS osx-arm64",
+        "startedAt": "2026-10-14T06:22:33Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:30:17Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711279063",
+        "name": "macOS osx-x64",
+        "startedAt": "2026-10-14T06:21:01Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:29:22Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711278944",
+        "name": "android",
+        "startedAt": "2026-10-14T06:16:46Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      },
+      {
+        "__typename": "CheckRun",
+        "completedAt": "2026-10-14T06:21:09Z",
+        "conclusion": "SUCCESS",
+        "detailsUrl": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/38521216702/job/115711279322",
+        "name": "win-x64 dedicated server",
+        "startedAt": "2026-10-14T06:16:46Z",
+        "status": "COMPLETED",
+        "workflowName": "build"
+      }
+    ],
+    "observedUtc": "2026-10-14T06:43:56.518877+00:00",
+    "reportedEarlierObservedUtc": "2026-10-14T06:34:40Z",
+    "status": "ALL_31_SUCCESS_EXACT_HEAD"
+  },
+  "frozenBf3Evidence": {
+    "source": "bf3c144178e70b5bdcaec334b79e2980cdb56405",
+    "client": {
+      "sourceQualifiedPhysicalClient": true,
+      "sha256": "852c052471353beed1201a329a3fa88ec609d739bfefff5433d5d3863dd1b043",
+      "mvid": "0064e4e1-c40d-4eb0-abef-0614318534c2",
+      "buildId": "local+bf3c144178e70b5bdcaec334b79e2980cdb56405",
+      "protocol": 56,
+      "replicaCheckpoint": 12,
+      "worldCheckpoint": 10,
+      "timedGrantPacket": 77,
+      "timedGrantBootstrapPacket": 79
+    },
+    "nettestSha256": "51fed5c5430721c10bb2e2e9e9458b404af453903f0df6ce0e739f91f3f63552",
+    "nettestMvid": "c511b3f1-f6cb-4ca7-a073-b8851e27285f",
+    "buildSeconds": 45.51,
+    "buildErrors": 0,
+    "existingCS0105Warnings": 1,
+    "focusedRoutes": 15,
+    "pythonTests": 119,
+    "pureAssertions": {
+      "timedDamageProfiles": 739,
+      "timedShotCertificates": 5238,
+      "frozenDamageChannels": 81
+    },
+    "fullCompiledAssetRoutes": [
+      {
+        "name": "timed-shot-modifiers",
+        "exit": 0,
+        "checks": 5493,
+        "logSha256": "a486953edce9ef2e6a84607374231816d241a29e21481a0be5ce1473fdbeb8a9",
+        "processGroupClosed": true
+      },
+      {
+        "name": "timed-shot-rescue",
+        "exit": 0,
+        "checks": 5673,
+        "logSha256": "1cb2659ac973859e580b9d7d1b35d4a6da28e9ea4dde34311f400d06e29e7e20",
+        "processGroupClosed": true
+      },
+      {
+        "name": "timed-damage-profile-scene",
+        "exit": 1,
+        "checks": null,
+        "logSha256": "1aa74c913c5e851305035ed892f8f3ba93cf8d682e597c93a0b21cb70f06ad8a",
+        "processGroupClosed": true
+      },
+      {
+        "name": "timed-shot-native",
+        "exit": 0,
+        "checks": 6463,
+        "logSha256": "a32809774a3a0582c6439edb5e0ee438af7b1b66d62fb5a3cb94c32032e4ecc1",
+        "processGroupClosed": true
+      },
+      {
+        "name": "timed-shot-accepted",
+        "exit": 0,
+        "checks": 343,
+        "logSha256": "cbb30772b7053d860d1ef837cfff0c6e2cc86ab5bff326552c5fd02dd4aecd00",
+        "processGroupClosed": true
+      }
+    ],
+    "originalSixFilesStillExact": true,
+    "allOwnedGroupsClosed": true,
+    "receipt": "bf3c-scoped-proof-summary.json",
+    "qualification": "Frozen full bf3c source/runtime scoped headless asset/native byte parity and pure arithmetic checks; profile test clock correction qualified separately against exact same production client. No GL/audio/authenticated UDP/natural campaign/canary/fullNET02 acceptance claim."
+  },
+  "correctedExternalProfileScene": {
+    "testOnlyCommit": "07cc5f253bc95d8727f8228a6157f139d41f1661",
+    "fixtureSourceSha256": "53189928bd1ca92097ef5d5710213ca71a55307a6ff26114e34fb56f2d71cf05",
+    "productionSource": "bf3c144178e70b5bdcaec334b79e2980cdb56405",
+    "clientSha256": "852c052471353beed1201a329a3fa88ec609d739bfefff5433d5d3863dd1b043",
+    "clientMvid": "0064e4e1-c40d-4eb0-abef-0614318534c2",
+    "externalFixtureMvid": "9dff73af-83ae-49aa-b700-829e01bf5105",
+    "checks": 294,
+    "exit": 0,
+    "processGroupClosed": true,
+    "receipt": "profile-scene-bf3c-fixed/receipt.json",
+    "qualification": "New external friend-nettest test source; unchanged compiledbf3 production client. Original fullbf3 profile failure preserved. Final whole07cc or subsequent documentation-head binary not built by lifecycle agent."
+  },
+  "benchmarks": {
+    "compiledSource": "bf3c144178e70b5bdcaec334b79e2980cdb56405",
+    "client": {
+      "sourceQualifiedPhysicalClient": true,
+      "sha256": "852c052471353beed1201a329a3fa88ec609d739bfefff5433d5d3863dd1b043",
+      "mvid": "0064e4e1-c40d-4eb0-abef-0614318534c2",
+      "buildId": "local+bf3c144178e70b5bdcaec334b79e2980cdb56405",
+      "protocol": 56,
+      "replicaCheckpoint": 12,
+      "worldCheckpoint": 10,
+      "timedGrantPacket": 77,
+      "timedGrantBootstrapPacket": 79
+    },
+    "samplesTotal": 30,
+    "workloads": 6,
+    "samplesPerWorkload": 5,
+    "warmupOperationsPerWorkload": 10000,
+    "operationsPerBatch": 20000,
+    "callerThreadAllocatedBytesAllSamples": 0,
+    "measuredBoundary": "No startup hook during either timed benchmark; physical command and6exactfilehashes join to actual loader identities captured by preceding full compiledasset routes. Allocation is warmed caller-thread loop only; CPU is processCPU, not owner-thread CPU;5batch averages cannot supply operation/frame/GPU/FPS tail quantiles.",
+    "unfavorableEvidence": "Certificate Record maxbatch6384.9458ns/op with129.953ms processCPU retained alongside median641.7854ns/op; no sample discarded or broad performance acceptance inferred.",
+    "samples": [
+      {
+        "rawReceipt": "assets-bf3c1441-followup/timed-shot-damage-benchmark.json",
+        "rawSha256": "bc3aee97de64f67a73b4e837cae89d5882672e62c9f48e53b76dff65bed65583",
+        "rawSamples": {
+          "scope": "constructed frozen-channel ceiling and victim arithmetic only",
+          "excluded": "setup/serialization/CPU queries/actual certificate lookup/claim validation/native collision/transport/replay",
+          "runtime": ".NET 10.0.12",
+          "architecture": "Arm64",
+          "stopwatchFrequency": 1000000000,
+          "warmupOperationsPerWorkload": 10000,
+          "operationsPerBatch": 20000,
+          "samplesPerWorkload": 5,
+          "quantileQualification": "Five raw batch averages. Nearest-rank p95/p99/p99.9 all select maximum; these are not individual-operation, frame, GPU or FPS quantiles.",
+          "cpuQualification": "Process CPU includes runtime/background threads; this is not owner-thread CPU. Caller-thread allocation measures the warmed arithmetic loop only.",
+          "results": [
+            {
+              "Workload": "Channel",
+              "Index": 0,
+              "Operations": 20000,
+              "StopwatchTicks": 66041,
+              "ElapsedMilliseconds": 0.066041,
+              "NanosecondsPerOperation": 3.30205,
+              "ProcessCpuTicks": 710,
+              "ProcessCpuMilliseconds": 0.071,
+              "ThreadAllocatedBytes": 0,
+              "Checksum": 21959278595000
+            },
+            {
+              "Workload": "Channel",
+              "Index": 1,
+              "Operations": 20000,
+              "StopwatchTicks": 70291,
+              "ElapsedMilliseconds": 0.070291,
+              "NanosecondsPerOperation": 3.51455,
+              "ProcessCpuTicks": 710,
+              "ProcessCpuMilliseconds": 0.071,
+              "ThreadAllocatedBytes": 0,
+              "Checksum": 21959278595000
+            },
+            {
+              "Workload": "Channel",
+              "Index": 2,
+              "Operations": 20000,
+              "StopwatchTicks": 65666,
+              "ElapsedMilliseconds": 0.065666,
+              "NanosecondsPerOperation": 3.2833,
+              "ProcessCpuTicks": 650,
+              "ProcessCpuMilliseconds": 0.065,
+              "ThreadAllocatedBytes": 0,
+              "Checksum": 21959278595000
+            },
+            {
+              "Workload": "Channel",
+              "Index": 3,
+              "Operations": 20000,
+              "StopwatchTicks": 69041,
+              "ElapsedMilliseconds": 0.069041,
+              "NanosecondsPerOperation": 3.45205,
+              "ProcessCpuTicks": 710,
+              "ProcessCpuMilliseconds": 0.071,
+              "ThreadAllocatedBytes": 0,
+              "Checksum": 21959278595000
+            },
+            {
+              "Workload": "Channel",
+              "Index": 4,
+              "Operations": 20000,
+              "StopwatchTicks": 69125,
+              "ElapsedMilliseconds": 0.069125,
+              "NanosecondsPerOperation": 3.45625,
+              "ProcessCpuTicks": 690,
+              "ProcessCpuMilliseconds": 0.069,
+              "ThreadAllocatedBytes": 0,
+              "Checksum": 21959278595000
+            },
+            {
+              "Workload": "ChannelAndProfile",
+              "Index": 0,
+              "Operations": 20000,
+              "StopwatchTicks": 136625,
+              "ElapsedMilliseconds": 0.136625,
+              "NanosecondsPerOperation": 6.83125,
+              "ProcessCpuTicks": 1370,
+              "ProcessCpuMilliseconds": 0.137,
+              "ThreadAllocatedBytes": 0,
+              "Checksum": 320000
+            },
+            {
+              "Workload": "ChannelAndProfile",
+              "Index": 1,
+              "Operations": 20000,
+              "StopwatchTicks": 136708,
+              "ElapsedMilliseconds": 0.136708,
+              "NanosecondsPerOperation": 6.8354,
+              "ProcessCpuTicks": 1360,
+              "ProcessCpuMilliseconds": 0.136,
+              "ThreadAllocatedBytes": 0,
+              "Checksum": 320000
+            },
+            {
+              "Workload": "ChannelAndProfile",
+              "Index": 2,
+              "Operations": 20000,
+              "StopwatchTicks": 132708,
+              "ElapsedMilliseconds": 0.132708,
+              "NanosecondsPerOperation": 6.6354,
+              "ProcessCpuTicks": 1330,
+              "ProcessCpuMilliseconds": 0.133,
+              "ThreadAllocatedBytes": 0,
+              "Checksum": 320000
+            },
+            {
+              "Workload": "ChannelAndProfile",
+              "Index": 3,
+              "Operations": 20000,
+              "StopwatchTicks": 131792,
+              "ElapsedMilliseconds": 0.131792,
+              "NanosecondsPerOperation": 6.5896,
+              "ProcessCpuTicks": 1310,
+              "ProcessCpuMilliseconds": 0.131,
+              "ThreadAllocatedBytes": 0,
+              "Checksum": 320000
+            },
+            {
+              "Workload": "ChannelAndProfile",
+              "Index": 4,
+              "Operations": 20000,
+              "StopwatchTicks": 132417,
+              "ElapsedMilliseconds": 0.132417,
+              "NanosecondsPerOperation": 6.62085,
+              "ProcessCpuTicks": 1320,
+              "ProcessCpuMilliseconds": 0.132,
+              "ThreadAllocatedBytes": 0,
+              "Checksum": 320000
+            }
+          ]
+        }
+      },
+      {
+        "rawReceipt": "assets-bf3c1441-followup/timed-shot-certificate-benchmark.json",
+        "rawSha256": "c070d362fdb5e56ebdc3ada403aeccfd07c077f379f9e41e3d2dbb9d64cde516",
+        "rawSamples": {
+          "fixture": "pure constructed values; no authenticated/native admission proof",
+          "runtime": ".NET 10.0.12",
+          "architecture": "Arm64",
+          "stopwatchFrequency": 1000000000,
+          "samples": 5,
+          "warmupOperationsPerWorkload": 10000,
+          "iterationsPerSample": 20000,
+          "caveat": "Raw local samples only. Process CPU includes runtime/background threads and timer overhead; thread allocation excludes setup, reporting and CPU timer queries. No comparative optimization or zero-allocation claim is inferred.",
+          "recordWorkload": "All eight owners fill 256 cells; authority time advances 1025 ticks between batches. Struct candidate construction is measured.",
+          "results": [
+            {
+              "workload": "Record",
+              "sample": 0,
+              "iterations": 20000,
+              "stopwatchTicks": 127698916,
+              "elapsedMilliseconds": 127.698916,
+              "processCpuTicks": 1299530,
+              "processCpuMilliseconds": 129.953,
+              "threadAllocatedBytes": 0,
+              "checksum": 2522960,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Record",
+              "sample": 1,
+              "iterations": 20000,
+              "stopwatchTicks": 12897583,
+              "elapsedMilliseconds": 12.897583,
+              "processCpuTicks": 128960,
+              "processCpuMilliseconds": 12.896,
+              "threadAllocatedBytes": 0,
+              "checksum": 2522960,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Record",
+              "sample": 2,
+              "iterations": 20000,
+              "stopwatchTicks": 12638583,
+              "elapsedMilliseconds": 12.638583,
+              "processCpuTicks": 126390,
+              "processCpuMilliseconds": 12.639,
+              "threadAllocatedBytes": 0,
+              "checksum": 2522960,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Record",
+              "sample": 3,
+              "iterations": 20000,
+              "stopwatchTicks": 12662917,
+              "elapsedMilliseconds": 12.662917,
+              "processCpuTicks": 126600,
+              "processCpuMilliseconds": 12.66,
+              "threadAllocatedBytes": 0,
+              "checksum": 2522960,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Record",
+              "sample": 4,
+              "iterations": 20000,
+              "stopwatchTicks": 12835708,
+              "elapsedMilliseconds": 12.835708,
+              "processCpuTicks": 128360,
+              "processCpuMilliseconds": 12.836,
+              "threadAllocatedBytes": 0,
+              "checksum": 2522960,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Duplicate",
+              "sample": 0,
+              "iterations": 20000,
+              "stopwatchTicks": 9867417,
+              "elapsedMilliseconds": 9.867417,
+              "processCpuTicks": 98600,
+              "processCpuMilliseconds": 9.86,
+              "threadAllocatedBytes": 0,
+              "checksum": 40000,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Duplicate",
+              "sample": 1,
+              "iterations": 20000,
+              "stopwatchTicks": 9756500,
+              "elapsedMilliseconds": 9.7565,
+              "processCpuTicks": 97540,
+              "processCpuMilliseconds": 9.754,
+              "threadAllocatedBytes": 0,
+              "checksum": 40000,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Duplicate",
+              "sample": 2,
+              "iterations": 20000,
+              "stopwatchTicks": 9980792,
+              "elapsedMilliseconds": 9.980792,
+              "processCpuTicks": 99820,
+              "processCpuMilliseconds": 9.982,
+              "threadAllocatedBytes": 0,
+              "checksum": 40000,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Duplicate",
+              "sample": 3,
+              "iterations": 20000,
+              "stopwatchTicks": 10038834,
+              "elapsedMilliseconds": 10.038834,
+              "processCpuTicks": 100370,
+              "processCpuMilliseconds": 10.037,
+              "threadAllocatedBytes": 0,
+              "checksum": 40000,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Duplicate",
+              "sample": 4,
+              "iterations": 20000,
+              "stopwatchTicks": 9740084,
+              "elapsedMilliseconds": 9.740084,
+              "processCpuTicks": 97470,
+              "processCpuMilliseconds": 9.747,
+              "threadAllocatedBytes": 0,
+              "checksum": 40000,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Read",
+              "sample": 0,
+              "iterations": 20000,
+              "stopwatchTicks": 25048417,
+              "elapsedMilliseconds": 25.048417,
+              "processCpuTicks": 250370,
+              "processCpuMilliseconds": 25.037,
+              "threadAllocatedBytes": 0,
+              "checksum": 20000,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Read",
+              "sample": 1,
+              "iterations": 20000,
+              "stopwatchTicks": 25601541,
+              "elapsedMilliseconds": 25.601541,
+              "processCpuTicks": 255920,
+              "processCpuMilliseconds": 25.592,
+              "threadAllocatedBytes": 0,
+              "checksum": 20000,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Read",
+              "sample": 2,
+              "iterations": 20000,
+              "stopwatchTicks": 24674167,
+              "elapsedMilliseconds": 24.674167,
+              "processCpuTicks": 246710,
+              "processCpuMilliseconds": 24.671,
+              "threadAllocatedBytes": 0,
+              "checksum": 20000,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Read",
+              "sample": 3,
+              "iterations": 20000,
+              "stopwatchTicks": 24815292,
+              "elapsedMilliseconds": 24.815292,
+              "processCpuTicks": 248120,
+              "processCpuMilliseconds": 24.812,
+              "threadAllocatedBytes": 0,
+              "checksum": 20000,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "Read",
+              "sample": 4,
+              "iterations": 20000,
+              "stopwatchTicks": 24305000,
+              "elapsedMilliseconds": 24.305,
+              "processCpuTicks": 243000,
+              "processCpuMilliseconds": 24.3,
+              "threadAllocatedBytes": 0,
+              "checksum": 20000,
+              "CapacityRefused": 0,
+              "Aliases": 0
+            },
+            {
+              "workload": "FullCapacity",
+              "sample": 0,
+              "iterations": 20000,
+              "stopwatchTicks": 15820584,
+              "elapsedMilliseconds": 15.820584,
+              "processCpuTicks": 158170,
+              "processCpuMilliseconds": 15.817,
+              "threadAllocatedBytes": 0,
+              "checksum": 80000,
+              "CapacityRefused": 20000,
+              "Aliases": 0
+            },
+            {
+              "workload": "FullCapacity",
+              "sample": 1,
+              "iterations": 20000,
+              "stopwatchTicks": 15583875,
+              "elapsedMilliseconds": 15.583875,
+              "processCpuTicks": 155710,
+              "processCpuMilliseconds": 15.571,
+              "threadAllocatedBytes": 0,
+              "checksum": 80000,
+              "CapacityRefused": 20000,
+              "Aliases": 0
+            },
+            {
+              "workload": "FullCapacity",
+              "sample": 2,
+              "iterations": 20000,
+              "stopwatchTicks": 16033666,
+              "elapsedMilliseconds": 16.033666,
+              "processCpuTicks": 160370,
+              "processCpuMilliseconds": 16.037,
+              "threadAllocatedBytes": 0,
+              "checksum": 80000,
+              "CapacityRefused": 20000,
+              "Aliases": 0
+            },
+            {
+              "workload": "FullCapacity",
+              "sample": 3,
+              "iterations": 20000,
+              "stopwatchTicks": 15829500,
+              "elapsedMilliseconds": 15.8295,
+              "processCpuTicks": 158240,
+              "processCpuMilliseconds": 15.824,
+              "threadAllocatedBytes": 0,
+              "checksum": 80000,
+              "CapacityRefused": 20000,
+              "Aliases": 0
+            },
+            {
+              "workload": "FullCapacity",
+              "sample": 4,
+              "iterations": 20000,
+              "stopwatchTicks": 15668166,
+              "elapsedMilliseconds": 15.668166,
+              "processCpuTicks": 156670,
+              "processCpuMilliseconds": 15.667,
+              "threadAllocatedBytes": 0,
+              "checksum": 80000,
+              "CapacityRefused": 20000,
+              "Aliases": 0
+            }
+          ]
+        }
+      }
+    ],
+    "summary": {
+      "timed-shot-damage-benchmark": {
+        "Channel": {
+          "samples": 5,
+          "medianBatchAverageNanosecondsPerOperation": 3.45205,
+          "p95BatchAverageNanosecondsPerOperation": 3.51455,
+          "rankQualification": "Five raw batch averages: nearest-rank p95/p99/p99.9 select maximum. No operation/frame/GPU/FPS quantiles.",
+          "threadAllocatedBytes": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "processCpuMilliseconds": [
+            0.071,
+            0.071,
+            0.065,
+            0.071,
+            0.069
+          ]
+        },
+        "ChannelAndProfile": {
+          "samples": 5,
+          "medianBatchAverageNanosecondsPerOperation": 6.6354,
+          "p95BatchAverageNanosecondsPerOperation": 6.8354,
+          "rankQualification": "Five raw batch averages: nearest-rank p95/p99/p99.9 select maximum. No operation/frame/GPU/FPS quantiles.",
+          "threadAllocatedBytes": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "processCpuMilliseconds": [
+            0.137,
+            0.136,
+            0.133,
+            0.131,
+            0.132
+          ]
+        }
+      },
+      "timed-shot-certificate-benchmark": {
+        "Duplicate": {
+          "samples": 5,
+          "medianBatchAverageNanosecondsPerOperation": 493.37085,
+          "p95BatchAverageNanosecondsPerOperation": 501.9417,
+          "rankQualification": "Five raw batch averages: nearest-rank p95/p99/p99.9 select maximum. No operation/frame/GPU/FPS quantiles.",
+          "threadAllocatedBytes": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "processCpuMilliseconds": [
+            9.86,
+            9.754,
+            9.982,
+            10.037,
+            9.747
+          ]
+        },
+        "FullCapacity": {
+          "samples": 5,
+          "medianBatchAverageNanosecondsPerOperation": 791.0292,
+          "p95BatchAverageNanosecondsPerOperation": 801.6833,
+          "rankQualification": "Five raw batch averages: nearest-rank p95/p99/p99.9 select maximum. No operation/frame/GPU/FPS quantiles.",
+          "threadAllocatedBytes": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "processCpuMilliseconds": [
+            15.817,
+            15.571,
+            16.037,
+            15.824,
+            15.667
+          ]
+        },
+        "Read": {
+          "samples": 5,
+          "medianBatchAverageNanosecondsPerOperation": 1240.7646,
+          "p95BatchAverageNanosecondsPerOperation": 1280.07705,
+          "rankQualification": "Five raw batch averages: nearest-rank p95/p99/p99.9 select maximum. No operation/frame/GPU/FPS quantiles.",
+          "threadAllocatedBytes": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "processCpuMilliseconds": [
+            25.037,
+            25.592,
+            24.671,
+            24.812,
+            24.3
+          ]
+        },
+        "Record": {
+          "samples": 5,
+          "medianBatchAverageNanosecondsPerOperation": 641.7854,
+          "p95BatchAverageNanosecondsPerOperation": 6384.9458,
+          "rankQualification": "Five raw batch averages: nearest-rank p95/p99/p99.9 select maximum. No operation/frame/GPU/FPS quantiles.",
+          "threadAllocatedBytes": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "processCpuMilliseconds": [
+            129.953,
+            12.896,
+            12.639,
+            12.66,
+            12.836
+          ]
+        }
+      }
+    },
+    "qualification": "Descriptive constructed warmed-loop batch averages only; five-point nearest-rank p95/p99/p99.9 all max, not operation/frame/GPU/FPS latency or broad zero-allocation/performance acceptance"
+  }
+}
