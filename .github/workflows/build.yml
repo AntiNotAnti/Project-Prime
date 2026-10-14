@@ -430,6 +430,10 @@ jobs:
         timeout-minutes: 6
         run: dotnet run --project tools/community-service-check -c Release
 
+      - name: v3 typed content, map read-through and private metadata acceptance
+        timeout-minutes: 6
+        run: dotnet run --project tools/community-v3-check -c Release
+
       - name: encoder worker exit and inherited-pipe cancellation
         run: dotnet run --project tools/encoder-pipe-check -c Release
 
