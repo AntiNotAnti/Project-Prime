@@ -10,10 +10,9 @@
   Revisions** action still opens the established creator dashboard for My Maps,
   revision rollback and visibility controls. **Online -> Host current map**
   stays separate; local playtesting never requires a Community upload.
-- **Optional creator preview:** A QA build can set
-  `PROJECT_PRIME_STUDIO_COMMUNITY_HUB_PREVIEW=1` before launching Studio.
-  The Online -> Community maps command then opens a separate Creator Community
-  workspace with **My Uploads**, **Transfers** and **Publish**. It captures a
+- **Creator hub activation:** The new workspace is available by default
+  in current builds. Set `PROJECT_PRIME_STUDIO_COMMUNITY_HUB_PREVIEW=0` before
+  launching Studio to restore the previous dashboard. It captures a
   frozen current project and queues a self-contained verified `.ppmap` via
   the shared durable transfer queue. Public, unlisted and private draft
   publication are explicit actions; a newer server revision triggers review
