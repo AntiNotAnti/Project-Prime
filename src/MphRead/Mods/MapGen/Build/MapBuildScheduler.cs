@@ -253,7 +253,11 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
         Directory.CreateDirectory(Path.GetDirectoryName(destination.Manifest)!);
         using var lease = AcquireLease(destination.Manifest + ".lock");
         if (File.Exists(destination.Manifest)) File.Delete(destination.Manifest);
-        foreach (var pair in result.Outputs.Files.Zip(destination.Files)) AtomicFile.Write(pair.Second, File.ReadAllBytes(pair.First));
+        // Compilation cache outputs are already integrity-checked by ReadCache.
+        // Stream each file into destination-volume atomic staging, rather than
+        // materializing every mesh/node archive in one managed byte array.
+        foreach (var pair in result.Outputs.Files.Zip(destination.Files))
+            AtomicFile.Copy(pair.First, pair.Second);
         MapBuildManifest.Write(definition, destination, fingerprint);
     }
 }
