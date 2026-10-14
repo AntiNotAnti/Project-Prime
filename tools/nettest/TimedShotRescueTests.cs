@@ -71,6 +71,16 @@ internal static class TimedShotRescueTests
                 Check(NetFireEvents.UsesEvents(Owner) && !NetFireEvents.CanFire(Owner),
                     "admitted remote event stream prevents native held-input fallback");
                 Step();
+                var actualLedger = NetPowerUpLedger.Ledger;
+                bool atAuthority = actualLedger?.TryReadObservation(ShotKey.For(0, 0), NetSession.NetFrame,
+                    TimedPowerUp.DoubleDamage, out _, out _) == true;
+                uint carrierFrame = NetSession.RemoteIntents[0].Frame;
+                bool atCarrier = actualLedger?.TryReadObservation(ShotKey.For(0, 0), carrierFrame,
+                    TimedPowerUp.DoubleDamage, out _, out _) == true;
+                Console.WriteLine("RESCUE INPUT CLOCK " + JsonSerializer.Serialize(new {
+                    authorityFrame = NetSession.NetFrame, carrierFrame, atAuthority, atCarrier,
+                    RemoteValid = NetSession.RemoteIntentValid[0], life = ShotKey.For(0, 0)
+                }));
                 Check(NetPowerUpLedger.Ledger is { } observedLedger
                     && observedLedger.TryReadObservation(ShotKey.For(0, 0), NetSession.NetFrame,
                         TimedPowerUp.DoubleDamage, out _, out _),
@@ -100,10 +110,11 @@ internal static class TimedShotRescueTests
             => Check(NetSession.AcceptSlotIntent(slot, packet), "real lifecycle/event carrier intake accepts fixture input");
         internal void Step()
         {
-            Frame(unchecked(NetSession.NetFrame + 1));
-            Submit(0, Packet(0, NetSession.NetFrame)); Submit(1, Packet(1, NetSession.NetFrame));
+            uint expected = unchecked(NetSession.NetFrame + 1);
+            Submit(0, Packet(0, expected)); Submit(1, Packet(1, expected));
             long failures = _sim.StepFailures; _sim.Step();
-            Check(_sim.StepFailures == failures && Owner.ModIsInPlay && Victim.ModIsInPlay,
+            Check(_sim.StepFailures == failures && NetSession.NetFrame == expected
+                && Owner.ModIsInPlay && Victim.ModIsInPlay,
                 "actual timer/input/native world step has no simulation failure");
         }
         internal TimedGrantRecord Grant()
@@ -155,7 +166,9 @@ internal static class TimedShotRescueTests
                 ShooterGeneration = shot.Certificate.Key.Generation, ShooterLifeId = shot.Certificate.Key.LifeId,
                 VictimSlot = 1, VictimGeneration = NetPlayerLifecycle.Generation(1), VictimLifeId = NetPlayerLifecycle.Get(1),
                 ClaimId = ++_claim, ShotId = shot.Fire.ShotId, ComponentId = shot.Beam.ModComponentId,
-                Frame = NetSession.NetFrame, AckFrame = NetSession.NetFrame, LaunchFrame = shot.Fire.AckFrame,
+                // The fixture's impact world was actually recorded at this
+                // launch/ACK stamp; later receipt time is not a new known world.
+                Frame = NetSession.NetFrame, AckFrame = shot.Fire.AckFrame, LaunchFrame = shot.Fire.AckFrame,
                 Beam = (byte)BeamType.PowerBeam, Flags = (byte)(HitClaimPacket.FlagDirect | (head ? HitClaimPacket.FlagHeadshot : 0)),
                 Damage = damage, HitPoint = Victim.Position, Direction = Vector3.Zero };
 
@@ -202,7 +215,8 @@ internal static class TimedShotRescueTests
                 && health - Victim.Health == expected && ack.HealthAfter == Victim.Health
                 && ack.DamageSequence == NetDamage.Sequence(1) && NetDamage.Sequence(1) != sequence
                 && NetCombatPayments.Payments == payments + 1,
-                "unpaid actual rescue pays exact once-only " + expected + "; ack=" + JsonSerializer.Serialize(ack));
+                "unpaid actual rescue pays exact once-only " + expected + "; ack="
+                    + JsonSerializer.Serialize(ack, new JsonSerializerOptions { IncludeFields = true }));
             if (head) Check((ack.Flags & CombatAckFlags.Headshot) == 0, "unverified PowerBeam head hint cannot grant head/armour channel");
             Check(NetCombatPayments.TryGet(NetShotProof.PaymentKey(0, claim), claim.Beam, out var paid)
                 && paid.DamageApplied == ack.DamageApplied && paid.HealthAfter == ack.HealthAfter
@@ -214,11 +228,13 @@ internal static class TimedShotRescueTests
                 if (retry == 1) claim.ClaimId = ++_claim;
                 claim.Damage = ushort.MaxValue;
                 var duplicate = Receive(claim);
-                Check(duplicate.Result == HitVerdictPacket.ResultDuplicate && duplicate.DamageApplied == ack.DamageApplied
+                byte expectedResult = retry == 0 ? ack.Result : HitVerdictPacket.ResultDuplicate;
+                Check(duplicate.Result == expectedResult && duplicate.DamageApplied == ack.DamageApplied
                     && duplicate.HealthAfter == ack.HealthAfter && duplicate.DamageSequence == ack.DamageSequence
                     && duplicate.VictimSlot == ack.VictimSlot && duplicate.VictimGeneration == ack.VictimGeneration
                     && duplicate.VictimLife == ack.VictimLife && duplicate.Flags == ack.Flags,
-                    "same/new-ID oversize retry receives original canonical rescued outcome");
+                    "same-ID original terminal/new-ID duplicate retains canonical rescued outcome; retry=" + retry
+                        + "; ack=" + JsonSerializer.Serialize(duplicate, new JsonSerializerOptions { IncludeFields = true }));
                 Check(Victim.Health == health && NetDamage.Sequence(1) == sequence && NetCombatPayments.Payments == payments
                     && Victim.Speed == speed && (Victim.ModFrozen, Victim.ModBurning, Victim.ModDisrupted) == effects,
                     "rescued duplicate never repeats health/sequence/effects/impulse");
