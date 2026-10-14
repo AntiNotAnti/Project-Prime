@@ -121,7 +121,7 @@ internal static class AssetLifecycleTests
         Scene scene = Load(Rooms[iteration % Rooms.Length]);
         Require(previous == null || !ForegroundSceneBinding.TryRelease(previous),
             "previous released generation cannot clear the next loaded foreground");
-        int entities = scene.Entities.Count(), players = scene.Players.PlayerCount, roomId = scene.RoomId;
+        int entities = EntityCount(scene), players = scene.Players.PlayerCount, roomId = scene.RoomId;
         ulong frameBefore = scene.FrameCount;
         for (int frame = 0; frame < 60; frame++) scene.OnSimulationFrame();
         Require(scene.FrameCount == frameBefore + 60, "all sixty native steps actually advance the loaded world");
@@ -170,7 +170,7 @@ internal static class AssetLifecycleTests
         Require(GameState.Current == current.GameState && PlayerEntity.LegacyRegistry == current.Players && Rng.Current == current.Random,
             "actual detached replica step preserves current foreground aliases");
         string currentHash = ReplayStateHash.Compute(current);
-        RoomEntity oldRoom = old.Entities.OfType<RoomEntity>().Single();
+        RoomEntity oldRoom = old.Room ?? throw new InvalidOperationException("Old loaded scene has no native room owner.");
         Require(!Task.Run(() => oldRoom.TryCompleteTransition(old.LifetimeGeneration + 1, CancellationToken.None)).GetAwaiter().GetResult(),
             "foreign generation worker completion cannot publish into old owner");
         using (var outer = Candidates(old))
@@ -213,10 +213,16 @@ internal static class AssetLifecycleTests
             foreach (Hunter hunter in Hunters) scene.AddPlayer(hunter);
             scene.AddRoom(room, GameMode.Battle, playerCount: 8); scene.OnLoad();
             scene.GameState.PointGoal = 0; scene.GameState.MatchTime = -1;
-            Require(scene.RoomId >= 0 && scene.Players.PlayerCount == 8 && scene.Entities.Count() > 8, "native room, actors and entities initialized");
+            Require(scene.RoomId >= 0 && scene.Players.PlayerCount == 8 && EntityCount(scene) > 8, "native room, actors and entities initialized");
             return scene;
         }
         catch { scene.DoCleanup(); scene.UnloadGl(); throw; }
+    }
+    private static int EntityCount(Scene scene)
+    {
+        int count = 0;
+        foreach (EntityBase entity in scene.Entities) count++;
+        return count;
     }
     private static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     [MethodImpl(MethodImplOptions.NoInlining)] private static bool Alive(WeakReference<Scene> world) => world.TryGetTarget(out _);
