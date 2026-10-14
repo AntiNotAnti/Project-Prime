@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
@@ -39,6 +40,7 @@ internal static class TimedShotNativeTests
         private readonly ServerSim _sim = new();
         private readonly KeyboardState _keyboard;
         private readonly Action<KeyboardState, Keys, bool> _setKey;
+        private long _allowedStepFailures;
         internal readonly Scene Scene;
         internal readonly PlayerEntity Owner;
         internal Fixture(string room, ShotProofMode oldMode, TimedGrantProofMode newMode)
@@ -75,6 +77,7 @@ internal static class TimedShotNativeTests
                 { control.Type = ButtonType.Key; control.Key = Keys.Unknown; }
                 Owner.Controls.Shoot.Key = Keys.Space;
                 Owner.Controls.Missile.Key = Keys.M;
+                Owner.Controls.PowerBeam.Key = Keys.P;
                 Owner.Controls.MouseAim = false;
                 _keyboard = (KeyboardState)typeof(Scene).GetField("_keyboardState", Hidden)!.GetValue(Scene)!;
                 _setKey = typeof(KeyboardState).GetMethod("SetKeyState", Hidden | BindingFlags.Public)!
@@ -91,15 +94,21 @@ internal static class TimedShotNativeTests
             }
             catch { _sim.Stop(); NetSession.Stop(); throw; }
         }
-        internal void Step(bool shoot = false, bool missile = false)
+        internal void Step(bool shoot = false, bool missile = false, bool powerBeam = false,
+            bool expectedInjectedFailure = false)
         {
             _setKey(_keyboard, Keys.Space, shoot);
             _setKey(_keyboard, Keys.M, missile);
+            _setKey(_keyboard, Keys.P, powerBeam);
             uint prior = NetSession.NetFrame;
+            long failures = _sim.StepFailures;
+            Check(failures == _allowedStepFailures, "no unaccounted native simulation failures before step");
             Session(nameof(NetSession.NetFrame), unchecked(prior + 1));
             _sim.Step();
-            Check(_sim.StepFailures == 0 && NetSession.NetFrame == unchecked(prior + 1),
-                "one complete native simulation step without exception");
+            long expected = expectedInjectedFailure ? 1 : 0;
+            Check(_sim.StepFailures - failures == expected && NetSession.NetFrame == unchecked(prior + 1),
+                expectedInjectedFailure ? "exactly one declared injected native failure" : "one complete native step without a new exception");
+            _allowedStepFailures += expected;
         }
         internal void Steps(int count) { for (int i = 0; i < count; i++) Step(); }
         internal void Until(uint frame)
@@ -277,11 +286,148 @@ internal static class TimedShotNativeTests
         int fired = NetDamage.Fired[0]; long stored = NetTimedShotProof.Stored;
         long empty = NetShotDiagnostics.Outcomes[(int)BeamType.Missile, (int)ShotAttemptResult.NoAmmo];
         fixture.Step(shoot: true);
-        Check(NetDamage.Fired[0] == fired && NetTimedShotProof.Stored == stored
-            && NetShotDiagnostics.Outcomes[(int)BeamType.Missile, (int)ShotAttemptResult.NoAmmo] == empty + 1,
-            "genuine sampled no-ammo attempt has no successful component/certificate");
+        string state = AmmoState(fixture.Owner, fired, stored, empty);
+        // Production PlayerProcess auto-selects an available weapon before its
+        // native input scope when the current weapon has insufficient base ammo.
+        // This is a natural selection check, not a Missile Spawn refusal.
+        Check(fixture.Owner.CurrentWeapon == BeamType.PowerBeam
+            && NetShotDiagnostics.Outcomes[(int)BeamType.Missile, (int)ShotAttemptResult.NoAmmo] == empty,
+            "natural zero-bank input switches from Missile before its firing gate; " + state);
         if (NetFireEvents.TryActiveAttempt(fixture.Owner, out var key, out var fire))
-            Check(!NetTimedShotProof.TryGet(key, fire.SourceFrame, out _), "failed attempt exact key has no certificate");
+        {
+            Check(fire.Weapon != (byte)BeamType.Missile, "natural zero-bank transition never certifies a Missile; " + state);
+            if (NetDamage.Fired[0] != fired)
+            {
+                var value = Certificate(new(key, fire, default), TimedGrantKnowledge.NotGranted);
+                Check(NetDamage.Fired[0] == fired + 1 && NetTimedShotProof.Stored == stored + 1
+                    && value.Fire.Weapon == (byte)BeamType.PowerBeam,
+                    "any actual replacement PowerBeam emission retains its truthful native certificate; " + state);
+            }
+            else Check(NetTimedShotProof.Stored == stored, "unfired natural weapon transition has no certificate; " + state);
+        }
+        else Check(NetDamage.Fired[0] == fired && NetTimedShotProof.Stored == stored,
+            "natural gun transition did not emit an unidentified shot; " + state);
+        Console.WriteLine("TIMED NATIVE ZERO BANK " + state);
+    }
+
+    private static string AmmoState(PlayerEntity owner, int fired, long stored, long empty)
+        => JsonSerializer.Serialize(new {
+            FiredDelta = NetDamage.Fired[0] - fired, StoredDelta = NetTimedShotProof.Stored - stored,
+            MissileNoAmmoDelta = NetShotDiagnostics.Outcomes[(int)BeamType.Missile, (int)ShotAttemptResult.NoAmmo] - empty,
+            CurrentWeapon = owner.CurrentWeapon, Charge = owner.EquipInfo.ChargeLevel,
+            ShotAge = typeof(PlayerEntity).GetField("_timeSinceShot", Hidden)!.GetValue(owner),
+            AutofireCooldown = typeof(PlayerEntity).GetField("_autofireCooldown", Hidden)!.GetValue(owner),
+            GunAnimation = owner.GunAnimation,
+            Outcomes = Enumerable.Range(0, Enum.GetValues<ShotAttemptResult>().Length)
+                .Select(i => new { Result = ((ShotAttemptResult)i).ToString(),
+                    Missile = NetShotDiagnostics.Outcomes[(int)BeamType.Missile, i],
+                    PowerBeam = NetShotDiagnostics.Outcomes[(int)BeamType.PowerBeam, i] }).ToArray()
+        });
+
+    private static void MidFrameAmmoFault(string room)
+    {
+        using var fixture = new Fixture(room, ShotProofMode.Off, TimedGrantProofMode.Shadow);
+        fixture.Step(missile: true); fixture.Steps(60);
+        var owner = fixture.Owner;
+        Check(owner.CurrentWeapon == BeamType.Missile && !owner.EquipInfo.InfiniteAmmo,
+            "controlled negative starts with a naturally owned finite-ammo Missile");
+        var getter = owner.EquipInfo.GetAmmo
+            ?? throw new InvalidOperationException("Native Missile equipment lacks its actual ammo getter.");
+        int actualAmmo = getter();
+        Check(actualAmmo >= owner.EquipInfo.Weapon.AmmoCost && owner.EquipInfo.Weapon.AmmoCost > 0,
+            "controlled negative first read has actual native bank funding for automatic selection");
+        int fired = NetDamage.Fired[0]; long stored = NetTimedShotProof.Stored;
+        long empty = NetShotDiagnostics.Outcomes[(int)BeamType.Missile, (int)ShotAttemptResult.NoAmmo];
+        var reads = new List<(int Value, string[] Calls)>();
+        // Explicit fault input: preserve the real bank at the automatic weapon
+        // precheck, then expose zero during the actual native firing attempt.
+        // This is not a natural ammo race or positive funding/source proof.
+        owner.EquipInfo.GetAmmo = () => {
+            Check(reads.Count < 64, "controlled ammo fault read capture remains bounded");
+            int value = reads.Count == 0 ? getter() : 0;
+            string[] calls = new StackTrace().GetFrames().Select(f => f.GetMethod()?.Name ?? "unknown").ToArray();
+            reads.Add((value, calls));
+            return value;
+        };
+        try { fixture.Step(shoot: true); }
+        finally { owner.EquipInfo.GetAmmo = getter; }
+        string state = AmmoState(owner, fired, stored, empty);
+        Check(reads.Count >= 2 && reads[0].Value == actualAmmo
+            && reads[0].Calls.Contains("ProcessPlayer") && !reads[0].Calls.Contains("ProcessInput")
+            && reads.Any(r => r.Value == 0 && r.Calls.Contains("SpawnWithEmission")),
+            "controlled zero reaches actual Spawn after real pre-input ammo gate; " + state
+                + " reads=" + JsonSerializer.Serialize(reads.Select(r => new { r.Value, r.Calls })));
+        Check(NetDamage.Fired[0] == fired && NetTimedShotProof.Stored == stored
+            && NetShotDiagnostics.Outcomes[(int)BeamType.Missile, (int)ShotAttemptResult.NoAmmo] == empty + 1
+            && getter() == actualAmmo && owner.CurrentWeapon == BeamType.Missile,
+            "controlled mid-frame zero produces native NoAmmo with no spend/emission/certificate; " + state);
+        Check(NetFireEvents.TryActiveAttempt(owner, out var key, out var fire)
+            && fire.SourceFrame == NetSession.NetFrame && fire.Weapon == (byte)BeamType.Missile
+            && !NetTimedShotProof.TryGet(key, fire.SourceFrame, out _)
+            && !owner.EquipInfo.Beams.Any(b => b.ModLaunchKey == key && b.ModComponentId != 0),
+            "actual refused native attempt has exact identity and no allocated component evidence; " + state);
+        Console.WriteLine("TIMED NATIVE CONTROLLED AMMO FAULT " + state + " reads="
+            + JsonSerializer.Serialize(reads.Select(r => new { r.Value, r.Calls })));
+    }
+
+    private sealed class PostSpendFault : Exception
+    {
+        internal PostSpendFault() : base("EXPECTED FIXTURE FAULT: real native ammo setter completed before deliberate throw") { }
+    }
+
+    private static void PostSpendException(string room)
+    {
+        using var fixture = new Fixture(room, ShotProofMode.Off, TimedGrantProofMode.Shadow);
+        var priorShot = fixture.Fire();
+        var priorCertificate = Certificate(priorShot, TimedGrantKnowledge.NotGranted);
+        fixture.Step(missile: true); fixture.Steps(60);
+        var owner = fixture.Owner;
+        Check(owner.CurrentWeapon == BeamType.Missile && !owner.EquipInfo.InfiniteAmmo,
+            "post-spend fault selects genuine native finite-ammo Missile");
+        var setter = owner.EquipInfo.SetAmmo
+            ?? throw new InvalidOperationException("Native Missile equipment lacks its actual ammo setter.");
+        int bankBefore = owner.EquipInfo.Ammo, setterCalls = 0;
+        Check(bankBefore >= owner.EquipInfo.Weapon.AmmoCost && owner.EquipInfo.Weapon.AmmoCost > 0,
+            "post-spend exception begins with real native inventory");
+        int fired = NetDamage.Fired[0]; long stored = NetTimedShotProof.Stored;
+        string[] calls = Array.Empty<string>();
+        owner.EquipInfo.SetAmmo = value => {
+            setterCalls++;
+            setter(value); // Actual native bank mutation precedes the fault.
+            calls = new StackTrace().GetFrames().Select(f => f.GetMethod()?.Name ?? "unknown").ToArray();
+            throw new PostSpendFault();
+        };
+        Console.WriteLine("TIMED NATIVE EXPECTED POST-SPEND FAULT: one declared StepFailure, not a natural native positive.");
+        try { fixture.Step(shoot: true, expectedInjectedFailure: true); }
+        finally { owner.EquipInfo.SetAmmo = setter; }
+        string state = AmmoState(owner, fired, stored, 0);
+        Check(setterCalls == 1 && calls.Contains("SpawnWithEmission") && owner.EquipInfo.Ammo < bankBefore
+            && NetDamage.Fired[0] == fired && NetTimedShotProof.Stored == stored,
+            "actual native post-spend exception mutates bank but cannot commit a shot/certificate; " + state);
+        Check(NetFireEvents.TryActiveAttempt(owner, out var failedKey, out var failedFire)
+            && failedFire.Weapon == (byte)BeamType.Missile && failedFire.SourceFrame == NetSession.NetFrame
+            && !NetTimedShotProof.TryGet(failedKey, failedFire.SourceFrame, out _)
+            && !owner.EquipInfo.Beams.Any(b => b.ModLaunchKey == failedKey && b.ModComponentId != 0),
+            "thrown native attempt retains exact failed key and no fabricated component proof");
+        Check(NetTimedShotProof.TryGet(priorShot.Key, priorShot.Fire.SourceFrame, out var unchanged)
+            && unchanged == priorCertificate, "post-spend uncertainty leaves previously retained native certificate immutable");
+        // Restore ordinary sampled input, switch by its normal bound key, and
+        // allow native cooldown/animation to pass. No manual source repair.
+        fixture.Step(); fixture.Step(powerBeam: true); fixture.Steps(60);
+        Check(owner.CurrentWeapon == BeamType.PowerBeam, "normal keyboard selection restores a supported native weapon");
+        var laterShot = fixture.Fire();
+        Check(NetTimedShotProof.TryGet(laterShot.Key, laterShot.Fire.SourceFrame, out var later)
+            && later.Components > 0 && later.Lane == TimedShotSource.NativeInput
+            && later.Source.Source == ShotProofReason.SourceChanged
+            && later.Unavailable == TimedShotUnavailable.Source && !later.TrustedSource && !later.AuthorizedDouble,
+            "later genuine native emission truthfully retains private post-spend source uncertainty");
+        Check(NetTimedShotProof.TryGet(priorShot.Key, priorShot.Fire.SourceFrame, out unchanged)
+            && unchanged == priorCertificate, "later unavailable source cannot rewrite prior successful certificate");
+        Console.WriteLine("TIMED NATIVE POST-SPEND RESULT " + JsonSerializer.Serialize(new {
+            bankBefore, bankAfter = owner.ModAmmo.Missiles, setterCalls, calls,
+            failedKey, failedFire.SourceFrame, laterShot.Key, Source = later.Source.Source,
+            later.Unavailable, ExpectedStepFailures = 1
+        }));
     }
 
     internal static int Run(string room)
@@ -300,6 +446,8 @@ internal static class TimedShotNativeTests
             NativeGrant(room);
             NonadmittedHelpers(room);
             EmptyAmmo(room);
+            MidFrameAmmoFault(room);
+            PostSpendException(room);
             Console.WriteLine($"PASS: {_checks} genuine native timed-shot assertions.");
             Console.WriteLine("SCOPE: actual headless keyboard/player/spawn/contact/commit and unmodified canonical intent/accepted replay bytes; fixture Host/local0 and item placement. No-target firing may have zero impact ReplayShotFacts; actual WeaponFired replay fact is required. NOT_RUN: GL/audio, natural AI, authenticated UDP, special-family acceptance.");
             return 0;

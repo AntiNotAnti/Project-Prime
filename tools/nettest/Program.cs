@@ -36,6 +36,7 @@ namespace MphRead.NetTest
                     + "  --timed-shot-certificates         Test bounded immutable timed shot storage.\n"
                     + "  --timed-shot-certificate-benchmark [json] Measure certificate storage operations.\n"
                     + "  --timed-shot-native <assets> [room] Test real native shot certificates and Shadow parity.\n"
+                    + "  --timed-shot-accepted <assets> [room] Test admitted remote shot certificates.\n"
                     + "  --pickup-protocol                 Test pickup packet codecs, registry and budgets.\n"
                     + "  --pickup-claims                   Test authoritative pickup claim decisions.\n"
                     + "  --pickup-claim-scene <assets> [room] Test native pickup claim settlement and timer phases.\n"
@@ -94,6 +95,12 @@ namespace MphRead.NetTest
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return TimedShotNativeTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 1 && args[0] == "--timed-shot-accepted")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedShotAcceptedTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
             if (args.Length > 0 && args[0] == "--timed-grants") return TimedGrantTests.Run();
             if (args.Length > 0 && args[0] == "--timed-grant-codec") return TimedGrantFactTests.Run();
