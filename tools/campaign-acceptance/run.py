@@ -126,6 +126,13 @@ def main() -> int:
                 records.append({"case": "asset-lifecycle", "status": "FAIL",
                                 "reason": "local asset/replay path missing"})
             else:
+                native_receipt = output / "campaign-native-scene.json"
+                execute("campaign-native-scene", [
+                    "dotnet", "run", "--project", str(NETTEST),
+                    "-c", args.configuration, "--no-build", "--",
+                    "--campaign-native-scene", str(args.assets_dir.resolve()),
+                    str(native_receipt)
+                ], runtime=True)
                 asset_receipt = output / "asset-lifecycle.json"
                 execute("asset-lifecycle", [
                     "dotnet", "run", "--project", str(NETTEST),
@@ -152,6 +159,7 @@ def main() -> int:
             "assetBacked": ("REQUESTED" if args.assets_dir else "NOT_RUN"),
             "nativeDeviceAudioGraphics": "NOT_RUN",
             "actualCampaignCombatScanningMoviesCredits": "NOT_RUN",
+            "nativeAdventureSceneSmoke": "REQUESTED" if args.assets_dir else "NOT_RUN",
             "multiplayerLiveProtocolInteroperability": "NOT_RUN",
             "replayHistoricalMediaPlayback": "NOT_RUN",
             "passed": passed,
