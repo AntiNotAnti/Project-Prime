@@ -498,6 +498,16 @@ public sealed class MapCommunityClient : IDisposable
                         length = Math.Max(MinimumAdaptiveChunkBytes, length / 2);
                         continue;
                     }
+                    // A separate creator upload lane may be full while
+                    // players continue downloading. Respect temporary server
+                    // admission responses without discarding this frozen
+                    // package or restarting the authoritative offset.
+                    if (IsTransientAdmission(response.StatusCode) && recoveries++ < 8)
+                    {
+                        await Task.Delay(AdmissionRetryDelay(response, recoveries), token)
+                            .ConfigureAwait(false);
+                        continue;
+                    }
                     if (response.StatusCode == HttpStatusCode.Conflict)
                     {
                         state = await GetUploadStateAsync(hash, token).ConfigureAwait(false);
@@ -529,24 +539,40 @@ public sealed class MapCommunityClient : IDisposable
 
         if (!state.Complete)
         {
-            using var complete = await _http.PostAsync("uploads/" + hash + "/complete",
-                new ByteArrayContent(Array.Empty<byte>()), token).ConfigureAwait(false);
-            if (complete.StatusCode == HttpStatusCode.Conflict)
+            HttpResponseMessage complete;
+            int verificationRetries = 0;
+            while (true)
             {
-                CommunityRevisionConflict? conflict =
-                    await ReadRevisionConflictAsync(complete, token).ConfigureAwait(false);
-                if (conflict != null) throw new CommunityRevisionConflictException(conflict);
-                throw new HttpRequestException(
-                    "This map version already has different published contents. Increase the project's Version before publishing.",
-                    null, complete.StatusCode);
+                using var emptyBody = new ByteArrayContent(Array.Empty<byte>());
+                complete = await _http.PostAsync("uploads/" + hash + "/complete",
+                    emptyBody, token).ConfigureAwait(false);
+                if (!IsTransientAdmission(complete.StatusCode) || verificationRetries++ >= 8)
+                    break;
+                using (complete)
+                    await Task.Delay(AdmissionRetryDelay(complete, verificationRetries), token)
+                        .ConfigureAwait(false);
             }
-            EnsureSuccess(complete);
-            using var data = new MemoryStream();
-            await CopyBoundedAsync(await complete.Content.ReadAsStreamAsync(token), data, 64 * 1024, token).ConfigureAwait(false);
-            var published = JsonSerializer.Deserialize<CommunityMap>(data.ToArray(), MapPackageReader.JsonOptions)
-                ?? throw new InvalidDataException("The community returned no map identity.");
-            progress?.Invoke(bytes, bytes);
-            return ConfirmUpload(path, published);
+            using (complete)
+            {
+                if (complete.StatusCode == HttpStatusCode.Conflict)
+                {
+                    CommunityRevisionConflict? conflict =
+                        await ReadRevisionConflictAsync(complete, token).ConfigureAwait(false);
+                    if (conflict != null) throw new CommunityRevisionConflictException(conflict);
+                    throw new HttpRequestException(
+                        "This map version already has different published contents. Increase the project's Version before publishing.",
+                        null, complete.StatusCode);
+                }
+                EnsureSuccess(complete);
+                using var data = new MemoryStream();
+                await CopyBoundedAsync(await complete.Content.ReadAsStreamAsync(token), data,
+                    64 * 1024, token).ConfigureAwait(false);
+                var published = JsonSerializer.Deserialize<CommunityMap>(
+                    data.ToArray(), MapPackageReader.JsonOptions)
+                    ?? throw new InvalidDataException("The community returned no map identity.");
+                progress?.Invoke(bytes, bytes);
+                return ConfirmUpload(path, published);
+            }
         }
 
         var existing = await GetPackageAsync(hash, token).ConfigureAwait(false)
@@ -974,6 +1000,18 @@ public sealed class MapCommunityClient : IDisposable
             + "Check VPN/proxy settings, antivirus HTTPS inspection, captive-portal login, or network filtering, then retry. "
             + "TLS certificate validation remains enabled. Direct error: " + directFailure.GetBaseException().Message,
             new AggregateException(routedFailure, directFailure));
+    }
+
+    private static bool IsTransientAdmission(HttpStatusCode status)
+        => status is HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable;
+
+    private static TimeSpan AdmissionRetryDelay(HttpResponseMessage response, int attempt)
+    {
+        TimeSpan delay = response.Headers.RetryAfter?.Delta
+            ?? TimeSpan.FromMilliseconds(Math.Min(3000, 250 * attempt * attempt));
+        if (response.Headers.RetryAfter?.Date is { } until)
+            delay = until - DateTimeOffset.UtcNow;
+        return TimeSpan.FromMilliseconds(Math.Clamp(delay.TotalMilliseconds, 200, 3000));
     }
 
     private static void EnsureSuccess(HttpResponseMessage response)
