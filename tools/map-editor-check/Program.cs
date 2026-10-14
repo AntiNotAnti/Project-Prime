@@ -1200,6 +1200,70 @@ try
         finally { MphRead.Paths.SetPath(MphRead.Paths.MphKey,runtimeBefore); }
     }
 
+    // Changing revisions must retain the previous exact .ppmap if a later
+    // runtime publication fails after archive replacement. Use an exclusive
+    // read handle on the compilation cache to induce a checked filesystem
+    // failure without damaging or rewriting the cached compilation.
+    using(var revision = await MapPackageInstaller.PrepareAsync(repacked,alteredIdentity))
+    {
+        var buildField=typeof(PreparedMapInstallation).GetField("_build",
+            System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)!;
+        var built=(MapBuildResult)buildField.GetValue(revision)!;
+        string sourceModel=built.Outputs!.Model;
+        var runtimeBefore=MphRead.Paths.AllPaths[MphRead.Paths.MphKey];
+        try
+        {
+            MphRead.Paths.SetPath(MphRead.Paths.MphKey,Path.Combine(root,"staged-runtime"));
+            bool failed=false;
+            using(var excluded=new FileStream(sourceModel,FileMode.Open,
+                FileAccess.Read,FileShare.None))
+            {
+                try { revision.Commit(stagedLibrary); }
+                catch(IOException) { failed=true; }
+            }
+            string installedPath=Path.Combine(stagedLibrary,exactIdentity.MapId.ToString("N")+".ppmap");
+            Check(failed && MapContentIdentity.FromPackage(installedPath).Matches(exactIdentity),
+                "runtime copy failure after replacement restores previous immutable archive");
+            Check(!Directory.EnumerateFiles(stagedLibrary).Any(path =>
+                path.EndsWith(".backup",StringComparison.Ordinal)
+                || path.EndsWith(".staging",StringComparison.Ordinal)),
+                "failed runtime publication cleans temporary archive and rollback files");
+        }
+        finally { MphRead.Paths.SetPath(MphRead.Paths.MphKey,runtimeBefore); }
+    }
+
+    // Installing a different exact archive requires one same-volume commit
+    // copy plus a backup of the previous archived revision. Restoring the
+    // older archive is an independently verified exact-hash operation.
+    using(var revision = await MapPackageInstaller.PrepareAsync(repacked,alteredIdentity))
+    {
+        string runtimeBefore=MphRead.Paths.AllPaths[MphRead.Paths.MphKey];
+        try
+        {
+            MphRead.Paths.SetPath(MphRead.Paths.MphKey,Path.Combine(root,"staged-runtime"));
+            var updated=revision.Commit(stagedLibrary);
+            Check(MapContentIdentity.FromPackage(Path.Combine(stagedLibrary,
+                exactIdentity.MapId.ToString("N")+".ppmap")).Matches(alteredIdentity)
+                && revision.ArchiveIo.CommitCopyBytes==new FileInfo(repacked).Length
+                && revision.ArchiveIo.BackupCopyBytes==new FileInfo(package).Length,
+                "different exact revision streams replacement and keeps rollback backup");
+        }
+        finally { MphRead.Paths.SetPath(MphRead.Paths.MphKey,runtimeBefore); }
+    }
+    using(var restored=await MapPackageInstaller.PrepareAsync(package,exactIdentity))
+    {
+        string runtimeBefore=MphRead.Paths.AllPaths[MphRead.Paths.MphKey];
+        try
+        {
+            MphRead.Paths.SetPath(MphRead.Paths.MphKey,Path.Combine(root,"staged-runtime"));
+            restored.Commit(stagedLibrary);
+            Check(MapContentIdentity.FromPackage(Path.Combine(stagedLibrary,
+                exactIdentity.MapId.ToString("N")+".ppmap")).Matches(exactIdentity),
+                "historic exact .ppmap revision remains restorable after an overwrite");
+        }
+        finally { MphRead.Paths.SetPath(MphRead.Paths.MphKey,runtimeBefore); }
+    }
+
     // General PrepareAsync still isolates mutable caller-owned files from
     // concurrent editor edits/deletions. A private owned network download or
     // explicitly leased CAS archive may skip this snapshot instead.
