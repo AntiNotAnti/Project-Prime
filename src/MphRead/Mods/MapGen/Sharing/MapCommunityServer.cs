@@ -469,11 +469,14 @@ public static class MapCommunityServer
                             if (upload == null || upload.CreatorId != creator.CreatorId || upload.PackageHash != hash || upload.Bytes != start.Bytes)
                             {
                                 DeleteUpload(key);
-                                int sessions = Directory.EnumerateFiles(storage, "upload-*.json").Take(MaxPartialUploads).Count();
-                                long partialBytes = Directory.EnumerateFiles(storage, "upload-*.part")
-                                    .Select(p => { try { return new FileInfo(p).Length; } catch { return 0L; } }).Sum();
-                                if (sessions >= MaxPartialUploads) { context.Response.StatusCode = 429; return; }
-                                if (partialBytes + start.Bytes > MaxPartialUploadBytes) { context.Response.StatusCode = 507; return; }
+                                if (!uploadQuota.TryReserve(key, creator.CreatorId,
+                                    start.Bytes, out HttpStatusCode quotaFailure))
+                                {
+                                    context.Response.StatusCode = (int)quotaFailure;
+                                    if (quotaFailure == HttpStatusCode.TooManyRequests)
+                                        context.Response.Headers["Retry-After"] = "2";
+                                    return;
+                                }
                                 upload = new(creator.CreatorId, hash, start.Bytes, start.Listed, start.Draft)
                                 {
                                     MapId = start.MapId,
@@ -482,7 +485,12 @@ public static class MapCommunityServer
                                     ReleaseNotes = start.ReleaseNotes?.Trim(),
                                     AllowStaleParent = start.AllowStaleParent
                                 };
-                                SaveUpload(key, upload);
+                                try { SaveUpload(key, upload); }
+                                catch
+                                {
+                                    uploadQuota.Release(key);
+                                    throw;
+                                }
                             }
                             else if (upload.Listed != start.Listed || upload.Draft != start.Draft
                                 || upload.MapId != start.MapId
@@ -547,12 +555,9 @@ public static class MapCommunityServer
                             long maximum = Math.Min(MapCommunityClient.UploadChunkBytes, remaining);
                             if (context.Request.ContentLength64 > maximum)
                             { context.Response.StatusCode = 413; return; }
-                            long incoming = context.Request.ContentLength64 >= 0 ? context.Request.ContentLength64 : maximum;
-                            long partialBytes = Directory.EnumerateFiles(storage, "upload-*.part")
-                                .Select(p => { try { return new FileInfo(p).Length; } catch { return 0L; } }).Sum();
-                            if (partialBytes + incoming > MaxPartialUploadBytes)
-                            { context.Response.StatusCode = 507; return; }
-
+                            // Expected bytes were reserved at upload start,
+                            // including the entire remaining sequential transfer.
+                            // No per-chunk directory walk or race-prone quota sum.
                             string partial = UploadPartPath(key);
                             await using (var file = new FileStream(partial, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None,
                                 65536, FileOptions.Asynchronous | FileOptions.SequentialScan))
@@ -1031,6 +1036,7 @@ public static class MapCommunityServer
                     await using var file = File.OpenRead(Path.Combine(storage, hash + ".ppmap"));
                     if (start > 0) file.Position = start;
                     await file.CopyToAsync(context.Response.OutputStream, 65536, deadline.Token);
+                    Interlocked.Add(ref completedDownloadBytes, total - start);
                 }
                 else if (context.Request.HttpMethod == "POST" && (route == root + "/maps"
                     || route.StartsWith(root + "/maps/", StringComparison.Ordinal) && route.EndsWith("/versions", StringComparison.Ordinal)))
