@@ -130,6 +130,75 @@ public sealed class MapCommunityClient : IDisposable
     /// This is presentation metadata: installing maps still uses the exact
     /// v2 package hash and the existing runtime preparation barrier.
     /// </summary>
+    /// <summary>
+    /// Publish a validated, immutable non-map asset. The server derives owner
+    /// permissions from the bearer credential and validates file magic/JSON.
+    /// This initial type-specific endpoint is bounded to 128 MiB, with no
+    /// modification to existing map upload sessions or replay identities.
+    /// </summary>
+    public async Task<CommunityContentProject> PublishContentAsync(
+        string source, CommunityContentRegistration metadata, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        if (metadata.Kind == CommunityContentKinds.Map)
+            throw new InvalidDataException("Maps must publish as exact .ppmap packages.");
+        CommunityAssetValidator.Validate(source, metadata.Kind, metadata.MimeType);
+        string hash = MapBuildFingerprint.HashFile(source);
+        byte[] info = JsonSerializer.SerializeToUtf8Bytes(metadata,
+            MapPackageReader.JsonOptions);
+        if (info.Length > 6144)
+            throw new InvalidDataException("Typed Community upload metadata too large.");
+
+        using var sourceFile = new FileStream(source, FileMode.Open,
+            FileAccess.Read, FileShare.Read, 65536,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            "v3/content/" + metadata.Kind + "/" + metadata.ContentId + "/revisions");
+        request.Headers.TryAddWithoutValidation("X-Prime-Content-Metadata",
+            Convert.ToBase64String(info));
+        request.Headers.TryAddWithoutValidation("X-Prime-SHA256", hash);
+        request.Content = new StreamContent(sourceFile, 65536);
+        request.Content.Headers.ContentType =
+            new MediaTypeHeaderValue(metadata.MimeType);
+        request.Content.Headers.ContentLength = sourceFile.Length;
+        using var response = await _http.SendAsync(request,
+            HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(
+            await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false),
+            data, 1024 * 1024, token).ConfigureAwait(false);
+        CommunityContentProject result = JsonSerializer.Deserialize<CommunityContentProject>(
+            data.ToArray(), MapPackageReader.JsonOptions)
+            ?? throw new InvalidDataException("Typed publisher returned no content project.");
+        if (result.Kind != metadata.Kind || result.ContentId != metadata.ContentId
+            || result.LatestHash != hash)
+            throw new InvalidDataException("Typed Community publish response changed immutable identity.");
+        return result;
+    }
+
+    public Task<long> DownloadContentAsync(string sha256, string destination,
+        long bytes, CancellationToken token, Action<long, long>? progress = null)
+    {
+        if (!ValidHash(sha256) || bytes is <= 0 or > CommunityAssetValidator.MaxModelBytes)
+            throw new InvalidDataException("Invalid typed Community content identity.");
+        return DownloadVerifiedPackageAsync("v3/objects/" + sha256, destination,
+            bytes, sha256, token, progress);
+    }
+
+    public async Task ArchiveContentAsync(string kind, Guid contentId,
+        bool restore, CancellationToken token)
+    {
+        kind = CommunityContentKinds.Normalize(kind);
+        if (kind == CommunityContentKinds.Map)
+            throw new InvalidDataException("V2 map lifecycle remains authoritative.");
+        using var request = new HttpRequestMessage(restore ? HttpMethod.Post : HttpMethod.Delete,
+            "v3/content/" + kind + "/" + contentId + (restore ? "/restore" : ""));
+        using var response = await _http.SendAsync(request,
+            HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+        EnsureSuccess(response);
+    }
+
     public async Task<CommunityContentPage> BrowseContentAsync(
         CancellationToken token, string? kind = null, bool mine = false,
         string? query = null, string? sort = null, int page = 1, int pageSize = 24)
