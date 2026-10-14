@@ -55,6 +55,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     private const int MaximumRetainedJobs = 32;
     private readonly string _root;
     private readonly string _indexPath;
+    private readonly CommunityArchiveCache _archiveCache;
     private readonly ICommunityCredentialSource? _credentials;
     private readonly SemaphoreSlim _workers;
     private readonly CancellationTokenSource _lifetime = new();
@@ -72,6 +73,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             throw new ArgumentOutOfRangeException(nameof(maxConcurrent));
         _root = Path.GetFullPath(root);
         _indexPath = Path.Combine(_root, "jobs-v1.json");
+        _archiveCache = new CommunityArchiveCache(_root);
         _credentials = credentials;
         _workers = new SemaphoreSlim(maxConcurrent, maxConcurrent);
         Directory.CreateDirectory(_root);
@@ -117,15 +119,25 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                 : throw new KeyNotFoundException("Unknown Community transfer job.");
     }
 
-    public string? VerifiedArchivePath(Guid id)
+    /// <summary>Acquire a read lease before consuming an exact archive.</summary>
+    public CommunityArchiveCache.ArchiveLease? LeaseVerifiedArchive(Guid id)
     {
         CommunityTransferJob job = GetJob(id);
         if (job.Kind != CommunityTransferKind.Download
-            || job.State != CommunityTransferState.Completed) return null;
-        string path = ArchivePath(job.PackageHash);
-        // Caller must run the map installer's strict identity validation before
-        // using this archive, even if this transfer completed previously.
-        return File.Exists(path) ? path : null;
+            || job.State != CommunityTransferState.Completed
+            || job.Download == null) return null;
+        CommunityMap map = job.Download;
+        var identity = new MapContentIdentity(map.MapId, map.Name,
+            MapHash256.Parse(map.ContentHash), MapHash256.Parse(map.Hash), true);
+        return _archiveCache.TryAcquire(identity);
+    }
+
+    // Compatibility for older UI/tests. Consumers performing longer reads must
+    // keep LeaseVerifiedArchive alive, or LRU eviction can race their use.
+    public string? VerifiedArchivePath(Guid id)
+    {
+        using var lease = LeaseVerifiedArchive(id);
+        return lease?.Path;
     }
 
     public async Task<Guid> EnqueueUploadAsync(string endpoint, string packagePath,
@@ -450,25 +462,36 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     {
         CommunityMap map = job.Download
             ?? throw new InvalidDataException("Missing exact Community map selection.");
-        string destination = ArchivePath(map.Hash);
-        string partial = PartialPath(map.Hash);
-        if (File.Exists(destination))
+        var exact = new MapContentIdentity(map.MapId, map.Name,
+            MapHash256.Parse(map.ContentHash), MapHash256.Parse(map.Hash), true);
+
+        // Strict cache validation occurs under a cross-process read lease.
+        // An earlier completed download cannot bypass package inspection.
+        using (var cached = _archiveCache.TryAcquire(exact))
         {
-            var prior = await Task.Run(() => MapBuildFingerprint.HashFile(destination),
-                cancellation).ConfigureAwait(false);
-            if (prior == map.Hash && new FileInfo(destination).Length == map.Bytes
-                && MapContentIdentity.FromPackage(destination) is { } cached
-                && cached.MapId == map.MapId && cached.ContentHash.ToString() == map.ContentHash
-                && cached.RoomKey == map.Name)
+            if (cached != null)
             {
                 Update(job.Id, j => j with { State = CommunityTransferState.Completed,
                     AcknowledgedBytes = map.Bytes, Error = null });
                 return;
             }
-            // This is our private staging archive, not the installed package.
-            File.Delete(destination);
         }
 
+        // Serialize this hash across Game and Studio processes. Recheck after
+        // acquiring the gate because another client may have finished it.
+        using var gate = await _archiveCache.AcquireDownloadGateAsync(map.Hash, cancellation)
+            .ConfigureAwait(false);
+        using (var cached = _archiveCache.TryAcquire(exact))
+        {
+            if (cached != null)
+            {
+                Update(job.Id, j => j with { State = CommunityTransferState.Completed,
+                    AcknowledgedBytes = map.Bytes, Error = null });
+                return;
+            }
+        }
+
+        string partial = PartialPath(map.Hash);
         Update(job.Id, j => j with { State = CommunityTransferState.Downloading });
         var operations = new CommunityMapOperations(job.Endpoint, _credentials);
         await operations.UseClientAsync(map.Draft,
@@ -481,8 +504,14 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             }, cancellation).ConfigureAwait(false);
         cancellation.ThrowIfCancellationRequested();
         Update(job.Id, j => j with { State = CommunityTransferState.Verifying });
-        // A partial is never visible as a completed archive.
-        File.Move(partial, destination, overwrite: true);
+
+        // Atomic cache promotion owns its exclusive lease and rechecks the
+        // full immutable identity after copying across any volume boundary.
+        _archiveCache.Promote(partial, exact);
+        if (File.Exists(partial)) File.Delete(partial);
+        _archiveCache.Prune();
+        using var verified = _archiveCache.TryAcquire(exact)
+            ?? throw new IOException("Verified archive was evicted before completion.");
         Update(job.Id, j => j with { State = CommunityTransferState.Completed,
             AcknowledgedBytes = map.Bytes, Error = null });
     }
