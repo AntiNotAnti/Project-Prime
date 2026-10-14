@@ -283,6 +283,8 @@ def main(argv=None):
         receipt.update(executed=True, status='RUNNING')
         run = watched(receipt['plannedCommand'], args.source_worktree, env, args.out / 'campaign-runner.log',
                       receipt, receipt_path, 'campaign', CASES[args.case].seconds + 35 + 240)
+        if not run['ownedProcessGroupClosed']:
+            raise ValueError('owned campaign process group remains live; dependent audit blocked')
         for name in ('summary', 'ai-summary', 'manifest'):
             path = campaign / f'{name}.json'
             receipt[name] = json.loads(path.read_text()) if path.exists() else {'status': 'MISSING'}
