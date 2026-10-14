@@ -418,6 +418,9 @@ namespace MphRead.Mods.Network
             _collisionCacheActive = false;
             if (!Enabled)
             {
+                // Timed damage facts describe the published authority snapshot,
+                // independent of whether positional rewind is enabled.
+                if (NetTimedShotProof.Active) NetTimedDamageProfile.Record(frame);
                 return;
             }
             // A rewound world must never outlive the frame it was rewound in.
@@ -428,6 +431,7 @@ namespace MphRead.Mods.Network
             // call, once a frame, and a no-op on all but the pathological one.
             Restore();
             _inProgress = false;
+            if (NetTimedShotProof.Active) NetTimedDamageProfile.Record(frame);
             NetDynamicGeometryHistory.RecordWorld(frame);
             int index = (int)(frame % HistoryFrames);
             _stamp[index] = frame;

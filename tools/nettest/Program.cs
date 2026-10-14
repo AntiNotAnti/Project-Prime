@@ -41,6 +41,12 @@ namespace MphRead.NetTest
                     + "  --timed-shot-certificate-benchmark [json] Measure certificate storage operations.\n"
                     + "  --timed-shot-native <assets> [room] Test real native shot certificates and Shadow parity.\n"
                     + "  --timed-shot-accepted <assets> [room] Test admitted remote shot certificates.\n"
+                    + "  --timed-damage-profiles           Test frozen native damage arithmetic.\n"
+                    + "  --timed-damage-profile-scene <assets> [room] Test authority damage profile history.\n"
+                    + "  --timed-shot-modifiers <assets> [room] Test native trusted modifiers and payment retries.\n"
+                    + "  --timed-shot-rescue <assets> [room] Test controlled unpaid timed-modifier rescue.\n"
+                    + "  --timed-shot-damage               Test immutable launch channel ceilings.\n"
+                    + "  --timed-shot-damage-benchmark [json] Measure launch channel/profile arithmetic.\n"
                     + "  --pickup-protocol                 Test pickup packet codecs, registry and budgets.\n"
                     + "  --pickup-claims                   Test authoritative pickup claim decisions.\n"
                     + "  --pickup-claim-scene <assets> [room] Test native pickup claim settlement and timer phases.\n"
@@ -97,6 +103,27 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--grant-network") return GrantNetworkTests.Run();
             if (args.Length > 0 && args[0] == "--terminal-retries") return TerminalRetryTests.Run(Array.IndexOf(args, "--lost-terminal-only") >= 0);
             if (args.Length > 0 && args[0] == "--timed-shot-certificates") return TimedShotCertificateTests.Run();
+            if (args.Length > 0 && args[0] == "--timed-damage-profiles") return TimedDamageProfileTests.Run();
+            if (args.Length > 1 && args[0] == "--timed-damage-profile-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedDamageProfileSceneTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 1 && args[0] == "--timed-shot-rescue")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedShotRescueTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 0 && args[0] == "--timed-shot-damage") return TimedShotDamageTests.Run();
+            if (args.Length > 0 && args[0] == "--timed-shot-damage-benchmark") return TimedShotDamageTests.RunBenchmark(args);
+            if (args.Length > 1 && args[0] == "--timed-shot-modifiers")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedShotModifierTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
             if (args.Length > 0 && args[0] == "--timed-shot-certificate-benchmark") return TimedShotCertificateTests.RunBenchmark(args);
             if (args.Length > 1 && args[0] == "--timed-shot-native")
             {

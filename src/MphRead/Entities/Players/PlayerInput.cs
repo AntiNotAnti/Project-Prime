@@ -1397,6 +1397,13 @@ namespace MphRead.Entities
                     shotView, shotReticle, shotReticleValid);
                 Mods.Network.NetUnlagged.BeginShot(this, shotOrigin, shotVec);
                 timedAttempt = NetTimedShotProof.NativeAttempt(this);
+                var modifiers = NetTimedShotModifiers.Resolve(timedAttempt, this);
+                if (modifiers.Applied)
+                {
+                    flags &= ~(BeamSpawnFlags.DoubleDamage | BeamSpawnFlags.PrimeHunter);
+                    if (modifiers.Double) flags |= BeamSpawnFlags.DoubleDamage;
+                    else if (modifiers.Prime) flags |= BeamSpawnFlags.PrimeHunter;
+                }
                 result = BeamProjectileEntity.SpawnWithEmission(this, EquipInfo, shotOrigin, shotVec,
                     flags, NodeRef, _scene, out var timedEmission);
                 if (result != BeamResultFlags.NoSpawn)

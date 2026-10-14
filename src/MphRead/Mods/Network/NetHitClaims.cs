@@ -705,6 +705,7 @@ namespace MphRead.Mods.Network
 
         private struct Pending
         {
+            public TimedVictimDamageProfile? TimedProfile;
             public Telemetry.NetTelemetryEvent RescueStudy;
             public uint ContinuousPhase;
             public ushort MatchId;
@@ -1834,7 +1835,16 @@ namespace MphRead.Mods.Network
                 return;
             }
 
-            uint correction = (uint)(entry.Damage - resolved);
+            uint target = entry.Damage;
+            if (NetTimedShotModifiers.Enforcing)
+            {
+                var claim = ProofClaim(entry);
+                if (!NetTimedShotModifiers.TryClaimLimit(shooterSlot, claim, entry.TimedProfile,
+                    out uint limit, out bool headshot) || !headshot) return;
+                target = Math.Min(target, limit);
+                if (target <= resolved) return;
+            }
+            uint correction = target - (uint)resolved;
             uint before = (uint)victim.Health;
             var previousClaimContext = (ApplyingClaim, ApplyingClaimAck, ApplyingClaimLaunch, ApplyingClaimShotId,
                 ApplyingClaimHitPoint, ApplyingClaimFlags, _applyingContinuousPhase, ApplyingClaimKey, ApplyingClaimComponent);
@@ -1946,6 +1956,10 @@ namespace MphRead.Mods.Network
 
         private static void Park(int shooterSlot, in HitClaimPacket claim)
         {
+            TimedVictimDamageProfile? timedProfile = null;
+            if (NetTimedShotModifiers.Enforcing && NetTimedDamageProfile.TryGet(claim.VictimSlot,
+                claim.VictimGeneration, claim.VictimLifeId, claim.AckFrame, out var damageProfile))
+                timedProfile = damageProfile;
             int index = -1;
             int start = shooterSlot * PendingPerShooter;
             for (int pass = 0; pass < 2 && index < 0; pass++)
@@ -1965,6 +1979,7 @@ namespace MphRead.Mods.Network
             }
             _pending[index] = new Pending
             {
+                TimedProfile = timedProfile,
                 // Capture at admission, before arbitration grace elapses or
                 // historical poses expire. Grace is not requested rewind.
                 RescueStudy = Telemetry.ProductionTelemetry.Enabled
@@ -2343,6 +2358,16 @@ namespace MphRead.Mods.Network
                 return;
             }
             var paidClaim = ProofClaim(entry);
+            if (NetTimedShotModifiers.Enforcing)
+            {
+                if (!NetTimedShotModifiers.TryClaimLimit(shooterSlot, paidClaim, entry.TimedProfile,
+                    out uint limit, out bool headshot))
+                { RefusedHere++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultDamageLimit); return; }
+                entry.Damage = (ushort)Math.Min(entry.Damage, limit);
+                if (!headshot) entry.Flags &= unchecked((byte)~HitClaimPacket.FlagHeadshot);
+                if (entry.Damage == 0)
+                { RefusedHere++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultDamageLimit); return; }
+            }
             if (NetShotProof.Mode == ShotProofMode.Enforce
                 && NetShotProof.TryPhysicalOutcome(shooterSlot, paidClaim, out _))
             {

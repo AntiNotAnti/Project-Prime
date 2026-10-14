@@ -3,7 +3,7 @@ using MphRead.Entities;
 
 namespace MphRead.Mods.Network;
 
-internal enum TimedGrantProofMode { Off, Shadow }
+internal enum TimedGrantProofMode { Off, Shadow, Enforce }
 internal enum TimedShotSource { NativeInput, AcceptedFire }
 internal enum TimedShotUnavailable { None, ObservationMissing, ObservationExpired, OwnershipUnavailable,
     GrantRecordMissing, FundingMismatch, Source, Unsupported }
@@ -14,7 +14,7 @@ internal readonly record struct TimedShotFunding(ulong Sequence, PowerUpSpawnKey
 internal readonly record struct TimedShotCertificate(ShotKey Key, FireEvent Fire, uint Room,
     uint AuthorityFrame, TimedShotSource Lane, ShotSourceEvidence Source,
     TimedGrantAnswer LedgerAnswer, TimedGrantKnowledge Knowledge, TimedShotFunding? Funding,
-    TimedShotUnavailable Unavailable, int Components)
+    TimedShotUnavailable Unavailable, int Components, TimedShotDamageTemplate Damage = default)
 {
     internal bool? DoubleHintAgrees => Knowledge == TimedGrantKnowledge.Unavailable ? null
         : Fire.DoubleAtFire == (Knowledge == TimedGrantKnowledge.Granted);
@@ -71,6 +71,18 @@ internal sealed class TimedShotCertificateStore
         }
         return false;
     }
+    internal bool TryGet(ShotKey key, uint room, uint now, out TimedShotCertificate value)
+    {
+        value = default;
+        if ((uint)key.ShooterSlot >= 8) return false;
+        for (int i = 0; i < PerSlot; i++)
+        {
+            ref var cell = ref _cells[key.ShooterSlot, i];
+            if (cell.Live && cell.Value.Key == key && cell.Value.Room == room
+                && Retained(now, cell.Value.AuthorityFrame)) { value = cell.Value; return true; }
+        }
+        return false;
+    }
 }
 
 // Local to one Spawn invocation. Only completed AddEntity terminals contribute.
@@ -89,19 +101,23 @@ internal struct TimedShotEmission
         if (parent != null || beam.Owner is not PlayerEntity || beam.ModComponentId == 0
             || beam.Flags.TestFlag(BeamFlags.Continuous) || !float.IsFinite(beam.Lifespan)
             || beam.Lifespan > 8.5f) { Conflict = true; return; }
-        if (Components == 0) Key = beam.ModLaunchKey;
-        else if (Key != beam.ModLaunchKey) Conflict = true;
+        var damage = TimedShotDamageTemplate.From(beam);
+        if (Components == 0) { Key = beam.ModLaunchKey; Damage = damage; }
+        else if (Key != beam.ModLaunchKey || !Damage.SameChannels(damage)) Conflict = true;
         Components++;
     }
     internal ShotKey Key { get; private set; }
+    internal TimedShotDamageTemplate Damage { get; private set; }
 }
 
 internal static class NetTimedShotProof
 {
     internal static TimedGrantProofMode Mode { get; set; } =
-        Environment.GetEnvironmentVariable("PRIME_TIMED_GRANT_PROOF") == "shadow"
-            ? TimedGrantProofMode.Shadow : TimedGrantProofMode.Off;
-    internal static bool Active => Mode == TimedGrantProofMode.Shadow && NetSession.Active && NetSession.IsAuthority;
+        Environment.GetEnvironmentVariable("PRIME_TIMED_GRANT_PROOF") switch
+        // Enforcement is exercised by controlled fixtures only until the
+        // per-family fallback and live/replay acceptance gates are closed.
+        { "shadow" => TimedGrantProofMode.Shadow, _ => TimedGrantProofMode.Off };
+    internal static bool Active => Mode != TimedGrantProofMode.Off && NetSession.Active && NetSession.IsAuthority;
     internal static bool Eligible(PlayerEntity player) => Active && !player.SceneServices.IsReplica
         && player.OwningScene.GameState.Multiplayer && (uint)player.SlotIndex < 8;
     private static TimedShotCertificateStore? _store;
@@ -225,7 +241,7 @@ internal static class NetTimedShotProof
         if (value.Unavailable == TimedShotUnavailable.Unsupported || emission.Conflict
             || !emission.HasSpend || emission.Components == 0 || emission.Key != value.Key)
         { NoEmission++; Abort(attempt); return; }
-        var final = value with { Components = emission.Components };
+        var final = value with { Components = emission.Components, Damage = emission.Damage };
         if (value.Source.Cost != emission.Cost || value.Source.AmmoType != emission.AmmoType)
             final = final with { Source = final.Source with { Source = ShotProofReason.SourceChanged },
                 Unavailable = TimedShotUnavailable.Source };
@@ -249,7 +265,17 @@ internal static class NetTimedShotProof
             && NetPowerUpLedger.Ledger is { } ledger && _store != null
             && _store.TryGet(key, sourceFrame, ledger.Room, NetSession.NetFrame, out certificate);
     }
+    internal static bool TryGet(ShotKey key, out TimedShotCertificate certificate)
+    {
+        certificate = default;
+        return Active && CurrentStream(key) && (uint)key.ShooterSlot < 8
+            && key.Generation == NetPlayerLifecycle.Generation(key.ShooterSlot)
+            && NetPowerUpLedger.Ledger is { } ledger && _store != null
+            && _store.TryGet(key, ledger.Room, NetSession.NetFrame, out certificate);
+    }
     internal static void Reset()
     { _store = null; Array.Clear(_unavailableSourceLives); _nativeInput = false; _nativeLife = default;
+      NetTimedShotModifiers.Reset();
+      NetTimedDamageProfile.Reset();
       Stored = Granted = NotGranted = Unavailable = HintMismatch = NoEmission = Unsupported = 0; }
 }

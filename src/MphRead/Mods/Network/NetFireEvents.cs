@@ -500,7 +500,8 @@ public static class NetFireEvents
                 && admission != ShotProofReason.Verified)
                 return BeamResultFlags.NoSpawn;
             timedAttempt = admittedDiscrete ? NetTimedShotProof.AcceptedAttempt(player, key, fire) : null;
-            var result = player.ModSpawnAcceptedShot(fire, out var timedEmission);
+            var modifiers = NetTimedShotModifiers.Resolve(timedAttempt, player);
+            var result = player.ModSpawnAcceptedShot(fire, out var timedEmission, modifiers);
             if (result != BeamResultFlags.NoSpawn)
             {
                 NetShotProof.Fired(key);
