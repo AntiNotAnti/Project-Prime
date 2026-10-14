@@ -37,8 +37,12 @@ jobs:
         run: dotnet run --project tools/community-format-check -c Release
 
   package-compatibility:
-    name: Real .ppmap build, legacy mesh and identity parity
-    runs-on: ubuntu-latest
+    name: Real .ppmap build and exact identity (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
