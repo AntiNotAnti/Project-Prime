@@ -182,6 +182,83 @@ try
     Check(refused && !File.Exists(conflictOutput),
         "export rejects unrelated sidecar identity without modifying source");
 
+    // PR-13 convex stage: NetRadiant-authored ramps/angled cover must
+    // remain truly editable closed Prime geometry, not baked BSP.
+    Guid rampId = Guid.Parse("e3612416-e19a-4d8a-8870-25adcf0576d8");
+    var ramp = new MapConvexBrush
+    {
+        Id = rampId,
+        Material = 0,
+        Label = "Sloped competitive ramp",
+        Vertices = new()
+        {
+            new[] { 0f, 0f, 0f }, new[] { 8f, 0f, 0f },
+            new[] { 0f, 0f, -8f }, new[] { 8f, 0f, -8f },
+            new[] { 0f, 4f, -8f }, new[] { 8f, 4f, -8f }
+        },
+        Faces = new()
+        {
+            new[] { 0, 2, 3, 1 }, // solid base
+            new[] { 0, 4, 2 },    // left triangle
+            new[] { 1, 3, 5 },    // right triangle
+            new[] { 2, 4, 5, 3 }, // back face
+            new[] { 0, 1, 5, 4 }  // sloped surface
+        }
+    };
+    Check(GeometryCompiler.Compile(ramp, 16f).Count == 5,
+        "authored wedge has 5 native collision/render planes before Quake conversion");
+    var rampMap = new MapDefinition
+    {
+        FormatVersion = 2, MapId = Guid.NewGuid(), Name = "CONVEX_DUEL"
+    };
+    rampMap.Materials.Add(new MapMaterial
+    {
+        Id = Guid.NewGuid(), Name = "textures/common/caulk", SourceMaterial = 2
+    });
+    rampMap.Geometry.Add(ramp);
+    rampMap.Spawns.Add(new MapSpawn
+    {
+        Id = Guid.NewGuid(), Position = new[] { 30f, 5f, 30f }, Yaw = 0
+    });
+    string rampSource = Path.Combine(root, "ramp.map");
+    string rampSidecar = Path.Combine(root, "ramp-sidecar.json");
+    QuakeMapInterchange.Export(rampMap, rampSource, rampSidecar);
+    var rampParsed = QuakeMapInterchange.Import(rampSource, rampSidecar);
+    Check(rampParsed.Definition.MapId == rampMap.MapId
+        && rampParsed.Definition.Geometry.Single() is MapConvexBrush,
+        "nonaxial sloped brush imports as native editable convex geometry");
+    MapConvexBrush convertedRamp = (MapConvexBrush)rampParsed.Definition.Geometry.Single();
+    Check(convertedRamp.Id == rampId
+        && convertedRamp.Vertices.Count == 6
+        && convertedRamp.Faces.Count == 5
+        && GeometryCompiler.Compile(convertedRamp, 16f).Count == 5,
+        "wedge retains native face count, stable ID and solid collision topology");
+
+    string rampAgain = Path.Combine(root, "ramp-again.map");
+    string rampAgainSidecar = Path.Combine(root, "ramp-again-sidecar.json");
+    QuakeMapInterchange.Export(rampParsed.Definition, rampAgain, rampAgainSidecar);
+    var rampAgainParsed = QuakeMapInterchange.Import(rampAgain, rampAgainSidecar);
+    MapConvexBrush twiceConverted = (MapConvexBrush)rampAgainParsed.Definition.Geometry.Single();
+    Check(twiceConverted.Id == convertedRamp.Id && twiceConverted.Faces.Count == 5
+        && twiceConverted.Vertices.All(p => convertedRamp.Vertices.Any(q =>
+            p.Zip(q, (a, b) => Math.Abs(a - b)).All(delta => delta <= 0.001f))),
+        "second convex source round-trip retains every hull corner and 5 planes");
+
+    string invertedSource = Path.Combine(root, "inverted-ramp.map");
+    var sourceLines = File.ReadAllLines(rampSource);
+    int planeLine = Array.FindIndex(sourceLines, l => l.TrimStart().StartsWith("(", StringComparison.Ordinal));
+    if (planeLine < 0) throw new InvalidDataException("Exported ramp has no face records.");
+    var sourcePoints = Regex.Matches(sourceLines[planeLine], @"\([^)]*\)")
+        .Select(m => m.Value).ToArray();
+    sourceLines[planeLine] = sourcePoints[0] + " " + sourcePoints[2] + " "
+        + sourcePoints[1] + " textures/common/caulk 0 0 0 1 1 0 0 0";
+    File.WriteAllLines(invertedSource, sourceLines);
+    refused = false;
+    try { QuakeMapInterchange.Import(invertedSource); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-CONVEX"); }
+    Check(refused, "inward-facing brush plane is refused rather than inverted silently");
+
     map.Geometry.Add(new MapWedge());
     refused = false;
     try { QuakeMapInterchange.Export(map, Path.Combine(root, "refused.map")); }
