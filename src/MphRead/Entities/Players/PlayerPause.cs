@@ -247,8 +247,8 @@ namespace MphRead.Entities
                             Vector3 teleporterPos = entitySymbol.Position + roomNode.Animation.Row3.Xyz.AddY(1);
                             if (Matrix.ProjectPosition(teleporterPos, viewMtx, orthoMtx, out Vector2 distPos) > 0)
                             {
-                                var screenPos = new Vector2((distPos.X + 1) / 2, (1 - distPos.Y) / 2);
-                                if (screenPos.X > 0 && screenPos.X < 1 && screenPos.Y > 0 && screenPos.Y < 1)
+                                // ProjectPosition is already a 0..1 screen coordinate.
+                                if (Mods.Campaign.CampaignMapPresentation.Visible(distPos.X, distPos.Y))
                                 {
                                     _mapLegendOtherInst.PositionX = distPos.X - 1 / (256 / 8f);
                                     _mapLegendOtherInst.PositionY = distPos.Y - 1 / (192 / 8f);
@@ -574,7 +574,7 @@ namespace MphRead.Entities
             {
                 _navDrawZoom += 0.0625f;
             }
-            _navDrawZoom = Math.Clamp(_navDrawZoom, 0.4375f, 3);
+            _navDrawZoom = Mods.Campaign.CampaignMapPresentation.ClampZoom(_navDrawZoom);
             if (Controls.AimLeft.IsDown)
             {
                 _navDrawRotX += 2.8125f / 2;
@@ -664,12 +664,10 @@ namespace MphRead.Entities
                                 Vector3 nodePos = node.Animation.Row3.Xyz;
                                 if (node.Name.StartsWith("cent") && Matrix.ProjectPosition(nodePos, viewMtx, orthoMtx, out Vector2 distPos) > 0)
                                 {
-                                    var screenPos = new Vector2((distPos.X + 1) / 2, (1 - distPos.Y) / 2);
-                                    // undo the coordinate transform so we get percentages from center
-                                    float distX = distPos.X * 2 - 1;
-                                    float distY = 1 - distPos.Y * 2;
-                                    float dist = distX * distX + distY * distY;
-                                    if (screenPos.X > 0 && screenPos.X < 1 && screenPos.Y > 0 && screenPos.Y < 1 && dist < minDist)
+                                    float dist = Mods.Campaign.CampaignMapPresentation.CenterDistanceSquared(
+                                        distPos.X, distPos.Y);
+                                    if (Mods.Campaign.CampaignMapPresentation.Visible(distPos.X, distPos.Y)
+                                        && dist < minDist)
                                     {
                                         newRoomNode = roomNode;
                                         newCenterNode = node;
@@ -733,7 +731,9 @@ namespace MphRead.Entities
 
         public (Matrix4 ViewMatrix, Matrix4 PerspectiveMatrix) GetPauseMapMatrices()
         {
-            Matrix4 orthoMtx = Matrix4.CreateOrthographic(256 * _navDrawZoom, 192 / 256f * 256 * _navDrawZoom, -400, 400);
+            (float mapWidth, float mapHeight) = Mods.Campaign.CampaignMapPresentation.Projection(
+                _scene.Size.X, _scene.Size.Y, _navDrawZoom);
+            Matrix4 orthoMtx = Matrix4.CreateOrthographic(mapWidth, mapHeight, -400, 400);
             (Vector3 cameraPos, Vector3 cameraTarget) = GetPauseMapLookVectors();
             Matrix4 viewMtx = Matrix4.LookAt(cameraPos, cameraTarget, Vector3.UnitY);
             return (viewMtx, orthoMtx);
