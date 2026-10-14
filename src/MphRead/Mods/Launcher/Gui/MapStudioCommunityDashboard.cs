@@ -1004,22 +1004,20 @@ internal sealed partial class MapStudioScreen
                     bool draft = selectedVisibility == "Draft";
                     bool listed = selectedVisibility == "Published";
                     CommunityPublishResult result =
-                        await WithCommunityAuthentication(
-                            Endpoint(), token,
-                            client => client.PublishAsync(
-                                path,
-                                new CommunityPublishRequest(
-                                    ExistingMap: true,
-                                    ExpectedParentHash: expectedParentHash,
-                                    ReleaseNotes: releaseNotes,
-                                    AllowStaleParent: allowStaleParent),
-                                token,
-                                listed: listed,
-                                draft: draft,
-                                progress: (sent, total) =>
-                                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                                        status.Text =
-                                            $"Completing stored upload… {sent / 1048576d:0.0}/{total / 1048576d:0.0} MiB")));
+                        await CommunityOperations(Endpoint()).PublishPackageAsync(
+                            path,
+                            new CommunityPublishRequest(
+                                ExistingMap: true,
+                                ExpectedParentHash: expectedParentHash,
+                                ReleaseNotes: releaseNotes,
+                                AllowStaleParent: allowStaleParent),
+                            token,
+                            listed: listed,
+                            draft: draft,
+                            progress: (sent, total) =>
+                                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                                    status.Text =
+                                        $"Completing stored upload… {sent / 1048576d:0.0}/{total / 1048576d:0.0} MiB"));
                     GuardJob(token);
                     projects = await WithCommunityAuthentication(
                         Endpoint(), token,
@@ -1072,22 +1070,20 @@ internal sealed partial class MapStudioScreen
                     CommunityPublishResult result;
                     try
                     {
-                        result = await WithCommunityAuthentication(
-                            Endpoint(), token,
-                            client => client.PublishAsync(
-                                temporary,
-                                new CommunityPublishRequest(
-                                    existingMap,
-                                    expectedParentHash,
-                                    releaseNotes,
-                                    allowStaleParent),
-                                token,
-                                listed: listed,
-                                draft: draft,
-                                progress: (sent, total) =>
-                                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                                        status.Text =
-                                            $"Uploading… {sent / 1048576d:0.0}/{total / 1048576d:0.0} MiB · {(total > 0 ? sent * 100d / total : 0):0}%")));
+                        result = await CommunityOperations(Endpoint()).PublishPackageAsync(
+                            temporary,
+                            new CommunityPublishRequest(
+                                existingMap,
+                                expectedParentHash,
+                                releaseNotes,
+                                allowStaleParent),
+                            token,
+                            listed: listed,
+                            draft: draft,
+                            progress: (sent, total) =>
+                                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                                    status.Text =
+                                        $"Uploading… {sent / 1048576d:0.0}/{total / 1048576d:0.0} MiB · {(total > 0 ? sent * 100d / total : 0):0}%"));
                     }
                     catch (CommunityRevisionConflictException ex)
                     {
