@@ -189,6 +189,10 @@ public sealed class CommunityArchiveCache
         foreach (var item in objects)
         {
             if (total <= MaximumBytes) break;
+            // Download work takes the .download gate first, then the archive
+            // lease for promotion. Follow that exact lock order during eviction.
+            using FileStream? downloadGate = OpenExclusiveDownload(item.Hash);
+            if (downloadGate == null) continue;
             using FileStream? gate = OpenExclusive(item.Hash);
             if (gate == null) continue;
             if (!File.Exists(item.Path)) continue;
@@ -227,6 +231,17 @@ public sealed class CommunityArchiveCache
         {
             return new FileStream(Path.Combine(_locks, hash + ".lease"),
                 FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, bufferSize: 1);
+        }
+        catch (IOException) { return null; }
+    }
+
+    private FileStream? OpenExclusiveDownload(string hash)
+    {
+        try
+        {
+            return new FileStream(Path.Combine(_locks, hash + ".download"),
+                FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None,
+                bufferSize: 1);
         }
         catch (IOException) { return null; }
     }
