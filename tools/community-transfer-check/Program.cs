@@ -414,6 +414,165 @@ try
         }
     }
 
+    // A deliberately unresponsive loopback HTTP listener keeps a real upload
+    // in progress while a second process pauses/resumes or crashes. No external
+    // service, privileged IPC, sleeps-as-correctness or proprietary files.
+    using (var blackhole = new TcpListener(IPAddress.Loopback,0))
+    {
+        blackhole.Start();
+        string blockedEndpoint = "http://127.0.0.1:"
+            + ((IPEndPoint)blackhole.LocalEndpoint).Port + "/";
+        using var trapStop = new CancellationTokenSource();
+        var clients = new System.Collections.Generic.List<TcpClient>();
+        Task accept = Task.Run(async () =>
+        {
+            try
+            {
+                while(!trapStop.IsCancellationRequested)
+                {
+                    TcpClient connection =
+                        await blackhole.AcceptTcpClientAsync(trapStop.Token);
+                    lock(clients) clients.Add(connection);
+                    // Keep the HTTP request open; the worker must terminate
+                    // through its cancellation token rather than timeout.
+                }
+            }
+            catch(OperationCanceledException) when(trapStop.IsCancellationRequested) { }
+        });
+        static async Task Eventually(Func<bool> condition)
+        {
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            while(!condition()) await Task.Delay(50,deadline.Token);
+        }
+        static bool LocalOwner(CommunityTransferManager manager,Guid id)
+        {
+            var field=typeof(CommunityTransferManager).GetField(
+                "_running",System.Reflection.BindingFlags.NonPublic |
+                    System.Reflection.BindingFlags.Instance);
+            return field?.GetValue(manager) is System.Collections.IDictionary
+                owners && owners.Contains(id);
+        }
+        static Process SpawnBlockedOwner(string queue,string endpoint,
+            string package,string token,string receipt)
+        {
+            var start=new ProcessStartInfo("dotnet")
+            {
+                UseShellExecute=false,
+                RedirectStandardError=true
+            };
+            foreach(string arg in new[]{
+                Assembly.GetExecutingAssembly().Location,
+                "--crossprocess-stalled-owner",queue,endpoint,package,token,receipt
+            }) start.ArgumentList.Add(arg);
+            return Process.Start(start)
+                ?? throw new InvalidDataException("Cannot launch crashed-owner fixture.");
+        }
+        try
+        {
+            // The child owns the job BEFORE Game opens its transfer manager.
+            // Loading a second manager must not relabel this live Uploading
+            // record as Retryable, nor try to send a duplicate POST.
+            string pauseRoot=Path.Combine(root,"remote-pause");
+            string pauseReceipt=Path.Combine(root,"remote-pause-id");
+            using (Process child=SpawnBlockedOwner(
+                pauseRoot,blockedEndpoint,pkgA,secret,pauseReceipt))
+            {
+                try
+                {
+                    await Eventually(()=>File.Exists(pauseReceipt));
+                    Guid id=Guid.Parse(File.ReadAllText(pauseReceipt));
+                    await using var peer=new CommunityTransferManager(
+                        pauseRoot,credentials);
+                    await Eventually(()=>peer.GetJob(id).State ==
+                        CommunityTransferState.Uploading);
+                    Check(!LocalOwner(peer,id),
+                        "joining Game process respects still-live Studio upload ownership");
+                    peer.Pause(id);
+                    await Eventually(()=>peer.GetJob(id).State ==
+                        CommunityTransferState.Paused);
+                    Check(peer.GetJob(id).State==CommunityTransferState.Paused,
+                        "remote Game pause persists atomically into Studio-owned job state");
+                    // The secondary worker observes the pause within 500ms and
+                    // releases its exclusive lifetime lease before resuming.
+                    await Eventually(()=>
+                    {
+                        try
+                        {
+                            using var lease=new FileStream(Path.Combine(
+                                pauseRoot,"transfer-leases",id.ToString("N")+".job.lock"),
+                                FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None,1);
+                            return true;
+                        }
+                        catch(IOException){return false;}
+                    });
+                    peer.Resume(id);
+                    await Eventually(()=>peer.GetJob(id).State ==
+                        CommunityTransferState.Uploading);
+                    Check(peer.GetJob(id).State == CommunityTransferState.Uploading,
+                        "remote resume claims one new job owner without losing immutable source");
+                    peer.Cancel(id);
+                    await Eventually(()=>peer.GetJob(id).State ==
+                        CommunityTransferState.Cancelled);
+                    Check(peer.GetJob(id).State == CommunityTransferState.Cancelled,
+                        "remote cancellation remains terminal and cannot publish stale bytes");
+                }
+                finally
+                {
+                    if(!child.HasExited)
+                    {
+                        child.Kill(entireProcessTree:true);
+                        await child.WaitForExitAsync();
+                    }
+                }
+            }
+
+            // A true process death must release its OS job lease. An already
+            // running sibling automatically observes and safely adopts that
+            // orphan; manually paused/cancelled jobs are never adopted.
+            string crashRoot=Path.Combine(root,"crashed-owner");
+            string crashReceipt=Path.Combine(root,"crashed-owner-id");
+            using(Process child=SpawnBlockedOwner(
+                crashRoot,blockedEndpoint,pkgB,secret,crashReceipt))
+            {
+                try
+                {
+                    await Eventually(()=>File.Exists(crashReceipt));
+                    Guid id=Guid.Parse(File.ReadAllText(crashReceipt));
+                    await using var peer=new CommunityTransferManager(
+                        crashRoot,credentials);
+                    await Eventually(()=>peer.GetJob(id).State ==
+                        CommunityTransferState.Uploading);
+                    Check(!LocalOwner(peer,id),
+                        "active sibling process does not steal an owned Studio job");
+                    child.Kill(entireProcessTree:true);
+                    await child.WaitForExitAsync();
+                    await Eventually(()=>LocalOwner(peer,id));
+                    Check(LocalOwner(peer,id),
+                        "live Game process adopts abandoned transfer only after OS lease release");
+                    peer.Cancel(id);
+                    Check((await peer.WaitAsync(id)).State ==
+                        CommunityTransferState.Cancelled,
+                        "adopted crash recovery cancels cleanly without rewriting exact package identity");
+                }
+                finally
+                {
+                    if(!child.HasExited)
+                    {
+                        child.Kill(entireProcessTree:true);
+                        await child.WaitForExitAsync();
+                    }
+                }
+            }
+        }
+        finally
+        {
+            trapStop.Cancel();
+            blackhole.Stop();
+            lock(clients) foreach(var connection in clients) connection.Dispose();
+            try {await accept;} catch(ObjectDisposedException) {}
+        }
+    }
+
     // Auth is not persisted: reopening without credentials cannot create new
     // authenticated upload operations, but already completed receipts remain.
     await using (var noCredentials = new CommunityTransferManager(jobsDir))
