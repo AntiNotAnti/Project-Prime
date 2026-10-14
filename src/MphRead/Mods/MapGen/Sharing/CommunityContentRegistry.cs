@@ -123,6 +123,13 @@ public sealed class CommunityContentRegistry
                             "Published v3 content cannot expose a private or unresolved dependency.");
                 }
 
+            // A published asset may reference only the already-approved
+            // optional/editor dependency graph. Reject cycles before writing
+            // either immutable bytes or revision metadata.
+            if (metadata.Visibility == CommunityContentVisibility.Published)
+                EnsureAcyclic(metadata.Kind, metadata.ContentId,
+                    metadata.Dependencies ?? Array.Empty<CommunityContentDependency>());
+
             // Immutable objects are persisted before the metadata pointer.
             // If metadata persistence fails, an unreferenced blob is harmless,
             // while no catalog revision ever points to an unwritten object.
@@ -456,6 +463,37 @@ public sealed class CommunityContentRegistry
         _ => false
     };
 
+    private void EnsureAcyclic(string rootKind, Guid rootId,
+        CommunityContentDependency[] roots)
+    {
+        var explored = new HashSet<(string Kind, Guid Id)>();
+        var visiting = new HashSet<(string Kind, Guid Id)> { (rootKind, rootId) };
+        void Walk(CommunityContentDependency dependency, int depth)
+        {
+            if (depth > 12 || explored.Count > 128)
+                throw new InvalidDataException("Optional content graph exceeds its depth or item limit.");
+            var next = (dependency.Kind, dependency.ContentId);
+            if (!visiting.Add(next))
+                throw new InvalidDataException("Cyclic generic content dependencies are prohibited.");
+            try
+            {
+                if (_projects.TryGetValue(next, out var p))
+                {
+                    var rev = p.Revisions.FirstOrDefault(r =>
+                        r.ContentHash == dependency.Hash
+                        && r.Visibility == CommunityContentVisibility.Published);
+                    if (rev != null)
+                        foreach (var child in rev.Dependencies
+                            ?? Array.Empty<CommunityContentDependency>())
+                            Walk(child, depth + 1);
+                }
+                explored.Add(next);
+            }
+            finally { visiting.Remove(next); }
+        }
+        foreach (var dependency in roots) Walk(dependency, 0);
+    }
+
     private static void ValidateDependencies(CommunityContentDependency[]? items,
         string kind, Guid id)
     {
@@ -464,6 +502,7 @@ public sealed class CommunityContentRegistry
         foreach (CommunityContentDependency item in items)
         {
             if (item == null || item.ContentId == Guid.Empty
+                || !CommunityDependencyRoles.IsAllowed(item.Role)
                 || !MapCommunityClient.ValidHash(item.Hash)
                 || (item.Kind == kind && item.ContentId == id))
                 throw new InvalidDataException("Invalid or self-referencing v3 content dependency.");
