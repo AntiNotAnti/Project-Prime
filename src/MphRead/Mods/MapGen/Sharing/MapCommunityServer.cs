@@ -1087,7 +1087,8 @@ public static class MapCommunityServer
                             preview = MapPackageReader.ReadCatalogEntry(archivePath,
                                 manifest.Preview, 1024 * 1024);
                         }
-                        catch (InvalidDataException)
+                        catch (InvalidDataException ex) when (ex.Message.Contains(
+                            "oversized", StringComparison.OrdinalIgnoreCase))
                         { context.Response.StatusCode = 413; return; }
                         if (preview == null)
                         { context.Response.StatusCode = 404; return; }
