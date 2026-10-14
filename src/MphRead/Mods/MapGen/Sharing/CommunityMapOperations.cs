@@ -46,9 +46,10 @@ public sealed class CommunityMapOperations
 
     public CommunityMapOperations(string endpoint, ICommunityCredentialSource? credentials = null)
     {
-        // Preserve the HTTPS-only (except loopback) and URL-shape constraints.
-        using var validation = new MapCommunityClient(endpoint);
-        _endpoint = endpoint;
+        // MapCommunityClient remains the sole URL/TLS policy validator. Creating
+        // an HTTP client just to validate every browse/publish request is wasteful.
+        _endpoint = !string.IsNullOrWhiteSpace(endpoint) ? endpoint
+            : throw new ArgumentException("A Community service address is required.", nameof(endpoint));
         _credentials = credentials;
     }
 
