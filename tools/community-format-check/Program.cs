@@ -101,16 +101,75 @@ try
             .SequenceEqual(imported.Definition.Geometry.Select(x => x.Id)),
         "second export/import is stable for supported source geometry");
 
-    string uv = Path.Combine(root, "uv-unsupported.map");
+    // q3map classic floor/ceiling axes: +Z normal uses U=+QuakeX,
+    // V=-QuakeY. Prime (1,0,2) maps to Quake (16,-32,0).
+    var projection = new MapQuakeFace
+    {
+        Material = 0, ShiftU = 5, ShiftV = -7,
+        Rotation = 0, ScaleU = 2, ScaleV = -4, UnitsPerPrimeUnit = 16
+    };
+    var exactUv = QuakeClassicTexture.Calculate(
+        new System.Numerics.Vector3(1, 0, 2),
+        System.Numerics.Vector3.UnitY, projection);
+    Check(Math.Abs(exactUv.X - 13f) < 0.001f
+        && Math.Abs(exactUv.Y + 15f) < 0.001f,
+        "Quake floor texture shift and negative scale follow q3map projection axes");
+
+    string uv = Path.Combine(root, "uv-supported.map");
     File.WriteAllText(uv, File.ReadAllText(path).Replace(
         " 0 0 0 1 1 0 0 0", " 4 0 0 1 1 0 0 0", StringComparison.Ordinal));
+    var projectedMap = QuakeMapInterchange.Import(uv);
+    Check(projectedMap.Definition.Geometry.All(geo => geo is MapBox
+        && geo.QuakeFaces is { Count: 6 }
+        && geo.QuakeFaces.All(face => face.ShiftU == 4)),
+        "nondefault classic Quake texture offsets retain editable box geometry");
+    string uvRoundtrip = Path.Combine(root, "uv-supported-roundtrip.map");
+    QuakeMapInterchange.Export(projectedMap.Definition, uvRoundtrip,
+        Path.Combine(root, "uv-supported-sidecar.json"));
+    var projectedAgain = QuakeMapInterchange.Import(uvRoundtrip);
+    Check(projectedAgain.Definition.Geometry.All(g =>
+        g.QuakeFaces is { Count: 6 } && g.QuakeFaces.All(face => face.ShiftU == 4)),
+        "classic UV shift survives a second source round-trip");
+
+    string mixed = Path.Combine(root, "mixed-face.map");
+    string original = File.ReadAllText(path);
+    int shaderIndex = original.IndexOf("textures/common/caulk 0 0 0 1 1 0 0 0",
+        StringComparison.Ordinal);
+    if (shaderIndex < 0) throw new InvalidDataException("Missing source shader fixture.");
+    File.WriteAllText(mixed, original[..shaderIndex]
+        + "textures/custom/steel 32 -16 90 0.5 2 0 0 0"
+        + original[(shaderIndex+"textures/common/caulk 0 0 0 1 1 0 0 0".Length)..]);
+    var mixedMap = QuakeMapInterchange.Import(mixed);
+    MapBox authoredBox = (MapBox)mixedMap.Definition.Geometry.First();
+    Check(mixedMap.Definition.Materials.Count == 2
+        && authoredBox.QuakeFaces is { Count: 6 }
+        && authoredBox.QuakeFaces.Select(face => face.Material).Distinct().Count() == 2
+        && authoredBox.QuakeFaces.Any(face => face.ShiftU == 32
+            && face.ShiftV == -16 && face.Rotation == 90
+            && face.ScaleU == 0.5f && face.ScaleV == 2f),
+        "independent box-face shader, UV translation, rotation and scale survive import");
+    Check(GeometryCompiler.Compile(authoredBox, 16f)
+        .Select(face => face.Material).Distinct().Count() == 2,
+        "native solid geometry compiler respects Quake per-face materials");
+    var serialized = MapProjectSerializer.Clone(mixedMap.Definition);
+    Check(serialized.Geometry[0].QuakeFaces?.Count == 6,
+        "editable source projections survive native project JSON clone");
+    string mixedRoundtrip = Path.Combine(root, "mixed-face-roundtrip.map");
+    QuakeMapInterchange.Export(mixedMap.Definition, mixedRoundtrip,
+        Path.Combine(root, "mixed-sidecar.json"));
+    var mixedAgain = QuakeMapInterchange.Import(mixedRoundtrip);
+    Check(mixedAgain.Definition.Geometry[0].QuakeFaces?.Any(face =>
+        face.Rotation == 90 && face.ShiftU == 32 && face.ScaleV == 2) == true,
+        "mixed shader and rotated Quake texdefs survive source export and reimport");
+
     bool refused = false;
-    try { QuakeMapInterchange.Import(uv); }
+    string badUv = Path.Combine(root, "uv-unsupported-flags.map");
+    File.WriteAllText(badUv, original.Replace(
+        " 0 0 0 1 1 0 0 0", " 0 0 0 1 1 1 0 0", StringComparison.Ordinal));
+    try { QuakeMapInterchange.Import(badUv); }
     catch (QuakeMapInterchangeException ex)
-    {
-        refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-UV");
-    }
-    Check(refused, "non-default UV projection cannot silently flatten to an untextured box");
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-UV"); }
+    Check(refused, "unknown Quake surface flags remain explicitly unsupported");
 
     string patch = Path.Combine(root, "patch-unsupported.map");
     File.WriteAllText(patch, "{\n\"classname\" \"worldspawn\"\n{\npatchDef2\n{\n}\n}\n}\n");
