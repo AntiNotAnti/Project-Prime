@@ -440,8 +440,7 @@ public static class QuakeMapInterchange
                 if (invalidCoordinate) continue;
                 string tail = line[(matches[2].Index + matches[2].Length)..].Trim();
                 string[] args = tail.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-                if (args.Length is not (6 or 9) || args[0].Contains("..")
-                    || args[0].Any(char.IsControl))
+                if (args.Length is not (6 or 9) || !SafeShader(args[0]))
                 {
                     Error("FP-RADIANT-UV", lineNo, "Unsupported surface shader/UV syntax.");
                     continue;
@@ -605,9 +604,7 @@ public static class QuakeMapInterchange
         foreach (MapGeometry geometry in map.Geometry)
         {
             string shader = map.Materials[geometry.Material].Name;
-            if (string.IsNullOrWhiteSpace(shader)
-                || shader.Any(char.IsWhiteSpace)
-                || shader.Contains("..", StringComparison.Ordinal))
+            if (!SafeShader(shader))
                 throw new InvalidDataException("Shader name is not portable to Quake .map.");
             sb.AppendLine("{");
             sb.AppendLine("// PRIME_ID=" + geometry.Id);
@@ -622,9 +619,7 @@ public static class QuakeMapInterchange
                 MapQuakeFace? face = geometry.QuakeFaces?[faceIndex];
                 string faceShader = face == null
                     ? shader : map.Materials[face.Material].Name;
-                if (string.IsNullOrWhiteSpace(faceShader)
-                    || faceShader.Any(char.IsWhiteSpace)
-                    || faceShader.Contains("..", StringComparison.Ordinal))
+                if (!SafeShader(faceShader))
                     throw new InvalidDataException("Face shader name cannot be represented in Quake .map.");
                 static string F(float n) => n.ToString("R", CultureInfo.InvariantCulture);
                 string projection = face == null ? "0 0 0 1 1"
@@ -748,6 +743,21 @@ public static class QuakeMapInterchange
         AtomicFile.Write(sidecar, JsonSerializer.SerializeToUtf8Bytes(
             new QuakeMapSidecar(1, map.MapId, map.Name, unitsPerPrimeUnit,
                 MapBuildFingerprint.HashFile(full)), MapPackageReader.JsonOptions));
+    }
+
+    private static bool SafeShader(string? shader)
+    {
+        if (string.IsNullOrEmpty(shader) || shader.Length > 128
+            || shader.StartsWith("/", StringComparison.Ordinal)
+            || shader.EndsWith("/", StringComparison.Ordinal)
+            || shader.Contains("..", StringComparison.Ordinal)
+            || shader.Contains("//", StringComparison.Ordinal))
+            return false;
+        foreach (char ch in shader)
+            if (!(ch is >= 'a' and <= 'z' or >= 'A' and <= 'Z'
+                or >= '0' and <= '9' or '_' or '-' or '.' or '/'))
+                return false;
+        return true;
     }
 
     private static QuakeMapSidecar? ReadSidecarStrict(byte[] bytes)
