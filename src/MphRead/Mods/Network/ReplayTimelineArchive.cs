@@ -19,7 +19,9 @@ internal static class ReplayTimelineArchive
         using var checkpoint = ReplayWorldCheckpoint.Capture(world, world.Session.RecordingFrame);
         return new ReplayMetadata
         {
-            FormatVersion = 4, Type = type, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
+            FormatVersion = world.State.TimedShots.Enabled ? (byte)6 : (byte)4,
+            TimedShotCertificates = world.State.TimedShots.Enabled,
+            Type = type, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
             MapHash = world.MapHash, OriginRecordingFrame = world.Session.RecordingFrame,
             WorldCheckpoint = checkpoint.Bytes.ToArray(),
             Players = Enumerable.Range(0, 8).Select(slot => (Slot: slot, Occupant: world.State.Occupant(slot)))

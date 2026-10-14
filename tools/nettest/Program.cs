@@ -34,6 +34,8 @@ namespace MphRead.NetTest
                     + "  --shot-source-journal              Test independent authority resources and grant chronology.\n"
                     + "  --timed-grants                    Test authority timed pickup reservations and source history.\n"
                     + "  --timed-shot-certificates         Test bounded immutable timed shot storage.\n"
+                    + "  --timed-shot-replay               Test detached archival fact codecs and optional replay schemas.\n"
+                    + "  --timed-shot-replay-scene <assets> [room] Test actual authority launch fact persistence.\n"
                     + "  --timed-shot-certificate-benchmark [json] Measure certificate storage operations.\n"
                     + "  --timed-shot-native <assets> [room] Test real native shot certificates and Shadow parity.\n"
                     + "  --timed-shot-accepted <assets> [room] Test admitted remote shot certificates.\n"
@@ -95,6 +97,13 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--grant-network") return GrantNetworkTests.Run();
             if (args.Length > 0 && args[0] == "--terminal-retries") return TerminalRetryTests.Run(Array.IndexOf(args, "--lost-terminal-only") >= 0);
             if (args.Length > 0 && args[0] == "--timed-shot-certificates") return TimedShotCertificateTests.Run();
+            if (args.Length > 0 && args[0] == "--timed-shot-replay") return TimedShotReplayTests.Run();
+            if (args.Length > 1 && args[0] == "--timed-shot-replay-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedShotReplaySceneTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
             if (args.Length > 0 && args[0] == "--timed-damage-profiles") return TimedDamageProfileTests.Run();
             if (args.Length > 1 && args[0] == "--timed-damage-profile-scene")
             {

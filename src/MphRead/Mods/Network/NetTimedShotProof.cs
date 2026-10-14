@@ -14,7 +14,8 @@ internal readonly record struct TimedShotFunding(ulong Sequence, PowerUpSpawnKey
 internal readonly record struct TimedShotCertificate(ShotKey Key, FireEvent Fire, uint Room,
     uint AuthorityFrame, TimedShotSource Lane, ShotSourceEvidence Source,
     TimedGrantAnswer LedgerAnswer, TimedGrantKnowledge Knowledge, TimedShotFunding? Funding,
-    TimedShotUnavailable Unavailable, int Components, TimedShotDamageTemplate Damage = default)
+    TimedShotUnavailable Unavailable, int Components, TimedShotDamageTemplate Damage = default,
+    TimedGrantProofMode CaptureMode = TimedGrantProofMode.Off)
 {
     internal bool? DoubleHintAgrees => Knowledge == TimedGrantKnowledge.Unavailable ? null
         : Fire.DoubleAtFire == (Knowledge == TimedGrantKnowledge.Granted);
@@ -82,6 +83,12 @@ internal sealed class TimedShotCertificateStore
                 && Retained(now, cell.Value.AuthorityFrame)) { value = cell.Value; return true; }
         }
         return false;
+    }
+    internal void VisitRetained(uint room, uint now, Action<TimedShotCertificate> accept)
+    {
+        for (int slot = 0; slot < 8; slot++) for (int index = 0; index < PerSlot; index++)
+            if (_cells[slot, index] is { Live: true } cell && cell.Value.Room == room
+                && Retained(now, cell.Value.AuthorityFrame)) accept(cell.Value);
     }
 }
 
@@ -241,7 +248,7 @@ internal static class NetTimedShotProof
         if (value.Unavailable == TimedShotUnavailable.Unsupported || emission.Conflict
             || !emission.HasSpend || emission.Components == 0 || emission.Key != value.Key)
         { NoEmission++; Abort(attempt); return; }
-        var final = value with { Components = emission.Components, Damage = emission.Damage };
+        var final = value with { Components = emission.Components, Damage = emission.Damage, CaptureMode = Mode };
         if (value.Source.Cost != emission.Cost || value.Source.AmmoType != emission.AmmoType)
             final = final with { Source = final.Source with { Source = ShotProofReason.SourceChanged },
                 Unavailable = TimedShotUnavailable.Source };
@@ -251,12 +258,15 @@ internal static class NetTimedShotProof
         var result = (_store ??= new()).Remember(final, NetSession.NetFrame);
         if (result != TimedShotRetention.Stored) return;
         Stored++;
+        ReplayCapture.AcceptedTimedShotCertificate(final);
         if (final.DoubleHintAgrees == false) HintMismatch++;
         if (final.Unavailable != TimedShotUnavailable.None) Unavailable++;
         else if (value.Knowledge == TimedGrantKnowledge.Granted) Granted++;
         else if (value.Knowledge == TimedGrantKnowledge.NotGranted) NotGranted++;
         else Unavailable++;
     }
+    internal static void VisitRetained(uint room, uint now, Action<TimedShotCertificate> accept)
+        => _store?.VisitRetained(room, now, accept);
     internal static bool TryGet(ShotKey key, uint sourceFrame, out TimedShotCertificate certificate)
     {
         certificate = default;

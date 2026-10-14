@@ -199,6 +199,7 @@ namespace MphRead.Mods.Network
             FormatVersion = source.FormatVersion, WorldCheckpoint = source.WorldCheckpoint,
             OriginRecordingFrame = source.OriginRecordingFrame, LeadInFrames = source.LeadInFrames,
             IndexedFireContinuation = source.IndexedFireContinuation,
+            TimedShotCertificates = source.TimedShotCertificates,
             ProtocolVersion = source.ProtocolVersion, BuildVersion = source.BuildVersion, BuildId = source.BuildId,
             RecordedAtUtc = source.RecordedAtUtc, Type = type, RoomKey = room, Mode = mode, Players = players,
             MapHash = hash, Bootstrap = bootstrap, Recovered = recovered
@@ -216,7 +217,8 @@ namespace MphRead.Mods.Network
                 bool? continuation = source.Type == ReplayType.FullMatch ? true : source.IndexedFireContinuation;
                 var metadata = new ReplayMetadata
                 {
-                    FormatVersion = continuation.HasValue ? (byte)5 : (byte)4, ProtocolVersion = source.ProtocolVersion,
+                    FormatVersion = source.TimedShotCertificates ? (byte)6 : continuation.HasValue ? (byte)5 : (byte)4,
+                    TimedShotCertificates = source.TimedShotCertificates, ProtocolVersion = source.ProtocolVersion,
                     BuildVersion = source.BuildVersion, BuildId = source.BuildId, RecordedAtUtc = source.RecordedAtUtc,
                     Type = ReplayType.Clip, RoomKey = source.RoomKey, Mode = source.Mode, Players = source.Players,
                     MapHash = source.MapHash, Bootstrap = source.Bootstrap, Recovered = source.Recovered,

@@ -33,6 +33,7 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
     internal bool HasTurretOutcomeContract { get; }
     internal bool HasNativeTouchContract => (_appendices & ReplayWorldCheckpointAppendices.NativeTouch) != 0;
     internal bool HasTimedPickupContract => (_appendices & ReplayWorldCheckpointAppendices.Pickups) != 0;
+    internal bool HasTimedShotContract => (_decoderFeatures & ReplayReplicaCheckpointFeatures.TimedShots) != 0;
     internal bool RequiresNativeTouchContract => (_decoderFeatures & ReplayReplicaCheckpointFeatures.NativeTouch) != 0;
     private readonly ReplayWorldCheckpointAppendices _appendices;
     private readonly ReplayReplicaCheckpointFeatures _decoderFeatures;
@@ -79,7 +80,8 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
         ReadWorldHeader(reader); reader.ReadString();
         string room = reader.ReadString(); var mode = (GameMode)reader.ReadInt32(); ulong map = reader.ReadUInt64();
         uint origin = reader.ReadUInt32();
-        return new ReplayMetadata { FormatVersion = 4, Type = ReplayType.Clip, RoomKey = room, Mode = mode,
+        return new ReplayMetadata { FormatVersion = HasTimedShotContract ? (byte)6 : (byte)4,
+            TimedShotCertificates = HasTimedShotContract, Type = ReplayType.Clip, RoomKey = room, Mode = mode,
             MapHash = map, OriginRecordingFrame = origin, LeadInFrames = leadIn,
             WorldCheckpoint = Bytes.ToArray(), Players = players };
     }
@@ -258,7 +260,9 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
             bool indexedFirePresentation = replay.Scene.ReplayPoses is { } poses && poses.Prepare() && poses.IndexedFirePresentation;
             writer.Write(indexedFirePresentation);
             ReplayPerfTelemetry.CheckpointBytes = stream.Length;
-            return new(stream.Detach(), frame, indexedFirePresentation: indexedFirePresentation);
+            return new(stream.Detach(), frame, indexedFirePresentation: indexedFirePresentation,
+                decoderFeatures: ReplayReplicaCheckpointLayout.CurrentFeatures
+                    | (replay.State.TimedShots.Enabled ? ReplayReplicaCheckpointFeatures.TimedShots : ReplayReplicaCheckpointFeatures.None));
         }
         finally { graph.Clear(); }
     }
