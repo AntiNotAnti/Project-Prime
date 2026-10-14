@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 
 namespace MphRead.Mods.MapGen
 {
@@ -37,6 +38,61 @@ namespace MphRead.Mods.MapGen
             if(new FileInfo(full).Length>MapPackageReader.MaxEntryBytes)throw new InvalidDataException("Map asset is too large.");
             return File.ReadAllBytes(full);
         }
+        /// <summary>
+        /// Opens exactly one declared authoring asset for the duration of
+        /// consume. Loose files remain project-root bounded; ZIP-backed assets
+        /// retain MapBundle's trust check. No asset-sized byte array is made.
+        /// </summary>
+        internal static void WithPackageRead(MapDefinition definition, string relative,
+            Action<Stream, long> consume)
+        {
+            MapPackageReader.CanonicalName(relative);
+            if (definition.BundlePath != null)
+            {
+                MapBundle.WithReadEntryStream(definition.BundlePath, relative, consume);
+                return;
+            }
+
+            string root = Path.GetFullPath(definition.BaseDirectory ?? CustomRooms.MapDirectory);
+            string full = Path.GetFullPath(Path.Combine(root, relative));
+            if (!full.StartsWith(root + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Map asset escapes its project.");
+            using var stream = new FileStream(full, FileMode.Open, FileAccess.Read,
+                FileShare.Read, 65536, FileOptions.SequentialScan);
+            if (stream.Length > MapPackageReader.MaxEntryBytes)
+                throw new InvalidDataException("Map asset is too large.");
+            consume(stream, stream.Length);
+        }
+
+        internal static long PackageLength(MapDefinition definition, string relative)
+        {
+            long length = -1;
+            WithPackageRead(definition, relative, (_, size) => length = size);
+            return length;
+        }
+
+        internal static string HashPackageAsset(MapDefinition definition, string relative)
+        {
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            WithPackageRead(definition, relative, (source, length) =>
+            {
+                long readTotal = 0;
+                byte[] buffer = new byte[65536];
+                int n;
+                while ((n = source.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    readTotal += n;
+                    if (readTotal > length || readTotal > MapPackageReader.MaxEntryBytes)
+                        throw new InvalidDataException("Map asset length changed while hashing.");
+                    hash.AppendData(buffer, 0, n);
+                }
+                if (readTotal != length)
+                    throw new InvalidDataException("Map asset length changed while hashing.");
+            });
+            return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+        }
+
         public static void Validate(MapDefinition definition,MapValidationResult result,bool checkFiles)
         {
             if(definition.Assets==null){result.Error("FP-MAP-021","Asset list cannot be null.");return;}
