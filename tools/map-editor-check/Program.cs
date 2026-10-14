@@ -1142,6 +1142,8 @@ try
     var packageResult=await realScheduler.BuildAsync(MapBuildSnapshot.Capture(importedPackage));
     Check(packageResult.Succeeded,"existing ppmap package compiles through scheduler");
     string stagedLibrary = Path.Combine(root,"staged-library");
+    string[] publishedRuntimeFiles = Array.Empty<string>();
+    var unchangedStamp = new DateTime(2001,1,1,0,0,0,DateTimeKind.Utc);
     using(var prepared = await MapPackageInstaller.PrepareAsync(package,exactIdentity))
     {
         Check(prepared.ArchiveIo.PreparationCopyBytes == new FileInfo(package).Length,
@@ -1164,6 +1166,12 @@ try
                 && !prepared.ArchiveIo.ReusedExactArchive,
                 "first install streams exactly one package copy with no backup");
             Check(!CustomRooms.NeedsGenerating(installed),"staged installation publishes validated runtime outputs");
+            publishedRuntimeFiles=MapOutputSet.Create(installed,CustomRooms.ArchiveDirectory(installed),
+                CustomRooms.EntityDirectory(),CustomRooms.NodeDirectory()).Files.ToArray();
+            Check(publishedRuntimeFiles.Length==5 && publishedRuntimeFiles.All(File.Exists),
+                "first install publishes every required runtime output before warm reuse");
+            foreach(string file in publishedRuntimeFiles)
+                File.SetLastWriteTimeUtc(file,unchangedStamp);
         }
         finally { MphRead.Paths.SetPath(MphRead.Paths.MphKey,oldRuntime); }
     }
@@ -1185,6 +1193,9 @@ try
                 f.EndsWith(".backup",StringComparison.Ordinal)
                 || f.EndsWith(".staging",StringComparison.Ordinal)),
                 "streamed commit leaves no temporary archive or rollback files");
+            Check(publishedRuntimeFiles.All(file => File.GetLastWriteTimeUtc(file)
+                <= unchangedStamp.AddDays(1)),
+                "verified warm map reuses all five compiled outputs without rewriting them");
         }
         finally { MphRead.Paths.SetPath(MphRead.Paths.MphKey,runtimeBefore); }
     }
