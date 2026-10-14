@@ -535,7 +535,7 @@ public static class MapCommunityServer
                             all = all.Where(item => string.Equals(item.Author, author,
                                 StringComparison.OrdinalIgnoreCase)).ToList();
 
-                        IEnumerable<CommunityContentProject> ordered =
+                        IOrderedEnumerable<CommunityContentProject> ordered =
                             query["sort"] is "new" or "updated"
                                 ? all.OrderByDescending(item => item.UpdatedAt)
                                 : all.OrderBy(item => item.DisplayName ?? item.Name,
