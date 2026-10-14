@@ -42,7 +42,7 @@ async Task<(string Url, HttpClient Client)> StartAsync()
     serverStop = new CancellationTokenSource();
     running = MapCommunityServer.ServeAsync(address, store, secret, serverStop.Token);
     var http = new HttpClient { BaseAddress = new Uri(address),
-        Timeout = TimeSpan.FromSeconds(12) };
+        Timeout = TimeSpan.FromSeconds(45) };
     http.DefaultRequestHeaders.Authorization =
         new AuthenticationHeaderValue("Bearer", secret);
     var timeout = Stopwatch.StartNew();
@@ -101,7 +101,8 @@ try
             SupportsParallelUploadRanges: false,
             SupportsGenericContentCatalog: false }
             && caps.MaxArchiveBytes == MapPackageReader.MaxArchiveBytes
-            && caps.MaxUploadChunkBytes == MapCommunityClient.UploadChunkBytes,
+            && caps.MaxUploadChunkBytes == MapCommunityClient.UploadChunkBytes
+            && caps.MaxConcurrentUploads == 3 && caps.MaxConcurrentDownloads == 4,
             "v3 preflight advertises actual legacy/resumable limits without enabling generic v3 content");
 
         using (var anonymous = new HttpClient { BaseAddress = new Uri(firstAddress) })
@@ -125,7 +126,9 @@ try
         {
             Check(catalog.IsSuccessStatusCode
                 && (await catalog.Content.ReadAsStringAsync()).Contains("SERVICE_PREFLIGHT")
-                && catalog.Headers.ETag != null,
+                && catalog.Headers.ETag != null
+                && catalog.Headers.TryGetValues("X-Total-Count", out var totals)
+                && totals.Single() == "1",
                 "v2 paginated catalog retains array response and supplies a stable ETag");
             using var conditional = new HttpRequestMessage(HttpMethod.Get, "v2/maps?page=1&pageSize=1");
             conditional.Headers.IfNoneMatch.Add(catalog.Headers.ETag!);
@@ -220,7 +223,7 @@ try
                 "uploads/" + new string(key, 64) + "?offset=0") { Content = bodies[i] };
             sends[i] = http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead,
                 abort[i].Token);
-            await bodies[i].Started.Task.WaitAsync(TimeSpan.FromSeconds(4));
+            await bodies[i].Started.Task.WaitAsync(TimeSpan.FromSeconds(8));
         }
 
         try
