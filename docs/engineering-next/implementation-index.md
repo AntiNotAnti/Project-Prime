@@ -56,6 +56,31 @@ The actual current rendered control passes nine exact decoded RGBA and six bitwi
 
 [Current primitive overhead](../evidence/net-campaign-2026-10-14/primitive-overhead-7588d986/README.md) retains two attempts with 180 raw batches each. Attempt1 failed a blanket allocation assertion; attempt2 passes semantic/identity/budget/no-overwrite checks without filtering nonzero allocations. In-page storage has 23 zero and seven nonzero batches, maximum 7,456 bytes/batch; new-page allocation is 12,322,304 bytes/batch. These are constructed primitive measurements and establish no gameplay/frame/FPS speedup.
 
+## Final network and replay campaign results
+
+All six requested actual workloads ran at frozen source 7588 with native AI, authored MP12 SIC TRANSIT items, Off/Shadow policy and the existing impairment runner. Short cases request 90 seconds; long cases request 1,200 seconds, each with a 35-second drain budget. There are no seeded grants, evidence-row overwrites or gameplay changes. The interrupted first long2 attempt remains UNKNOWN-cause partial evidence, including its unfinished recordings; its separate retry supplies the final two-player workload.
+
+| Workload | Original execution/audit | Corrected strict audit | Funded / verified source / fully joined paid cases | Finalized files / scene EOF |
+|---|---|---|---:|---:|
+| Poor two-player smoke | INCOMPLETE | INCOMPLETE | 0 / 0 / 0 | 3 / 3 PASS |
+| Poor two-player 20-minute retry | INCOMPLETE | INCOMPLETE | 2 / 0 / 0 | 3 / 3 PASS |
+| Poor eight-player 20-minute workload | Wrapper FAIL; recovery generic FAIL / strict INCOMPLETE | INCOMPLETE | 64 / 19 / 6 | 9 / 9 PASS |
+| Two-player LAN smoke | INCOMPLETE | INCOMPLETE | 0 / 0 / 0 | 3 / 3 PASS |
+| Four-player moderate smoke | INCOMPLETE | INCOMPLETE | 0 / 0 / 0 | 5 / 5 PASS |
+| Eight-player worst smoke | Original strict FAIL retained | Bounded PASS | 2 / 2 / 2 | 9 / 9 PASS |
+
+The corrected read-only auditor is independently frozen at `a74d15754e6af67e8905181afc95dd82c2b58d59`. All 32 per-role report hashes and original verdicts remain unchanged; all six auditor groups close. Descriptive totals are 68 funded ordinary certificates, 21 verified source certificates, 31 funded payments and eight fully joined paid cases. Observed source coverage 21/68 (30.88%) is not a statistically meaningful 99.9% canary or whole-plan acceptance. Low or zero positive coverage never becomes a PASS from transport activity alone.
+
+Worst8's actual shot captured its original funding before spawning, then native self-splash killed that same shooter before certificate completion in frame 1189. The old auditor incorrectly treated the later Death transition as pre-emission expiry. The correction requires the exact shot/component/source-victim generation/life, native nonclaim/noncorrection lethal payment, completed matching witness, original unexpired funding, identical frames and strict component < payment < completion ordinal order. Missing proof is INCOMPLETE; expiry, after-end and other closure reasons remain FAIL. The original failing output is preserved, and 27 audit plus 12 wrapper regressions pass, including 20 self-death falsifiers.
+
+Long8 observed the requested workload and matching drain acknowledgments, with 72,820 authority frames and nine finalized files, before final report publication hit the unchanged 1.5 GiB guard. Its original wrapper failure, cleanup EPERM and missing final child exits/assembly-after fields remain unchanged. Separate recovery validation remains generic FAIL and strict INCOMPLETE. The legacy Forms buffer overflowed 6,660 rows at its explicit 1,048,576-row cap; all new join buffers retained Dropped=0. Capacity recovery losslessly archived 146 inactive historical native-state JSON files with exact decoded hash/byte checks, restoring observed free space from 1.092 to 8.008 GiB. The wrapper cleanup fix preserves the primary guard, records cleanup errors separately and prevents dependent auditing until actual group closure.
+
+Authority pacing remains measured rather than waived: poor smoke 7 dropped steps/1 stall, long2 retry 9/1, long8 8/1, and all three matrix smokes 7/1; every case has zero recorded StepFailures. Actual matrix campaign times are 99.573415 / 100.809050 / 107.868319 seconds, with 5,619 / 5,669 / 5,837 authority frames. These are not matched-baseline performance gains. Presentation stall counters retain separate definitions and all chronological samples.
+
+[All 32 campaign recordings](../evidence/replay-scene-2026-10-14/) pass actual original-file `PassiveReplayScene.Step` through natural EOF: successful decode, zero pending bombs, no live session/authority, unchanged inputs and closed groups. Clients use format 4 and authorities opt into format 6, protocol 56. The consumer tool is frozen `be7329de`, with distinct thin-entry identities from the full fixture. The three older original-file consumers and current 118-assertion native replay fixture remain separate qualification. EOF does not invent grant facts or supply missing settlement, rendered replay, seek or platform proof.
+
+Final source-only regression testing passes 561 nettest Python tests with one existing skip. The fully observed published head `be7329de` has [32 hosted SUCCESS checks](../evidence/integration-ci-2026-10-14/README.md) and latest main `f632e313`; later final source/evidence commits trigger their own CI. The final PR records a one-shot observation without waiting for hosted builds, as requested. No previous-head CI is relabeled as final-head acceptance.
+
 ## Remaining acceptance blockers
 
 **NET source and settlement coverage:** immutable source certificates, native impact/effect controls, full-key component/claim/terminal/payment observations and strict auditing are implemented. A generic transport PASS cannot override strict INCOMPLETE, missing supported-positive coverage or evidence loss. Unsupported continuous-fire spend accounting invalidates the source journal for that life; subsequent funded shots safely report SourceChanged rather than receiving trusted Double authorization. The complete two-player campaign observed this fallback. Clearing the fence would weaken authority and is not an acceptance repair. Broad source-family and statistically meaningful 99.9% canary gates remain unestablished.

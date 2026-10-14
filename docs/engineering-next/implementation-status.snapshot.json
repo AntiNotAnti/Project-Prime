@@ -1,5 +1,5 @@
 {
-  "snapshotUTC": "2026-10-14T12:53:00.548041+00:00",
+  "snapshotUTC": "2026-10-14T13:13:13.550843+00:00",
   "integrationSource": "7588d98689899c9868e8a0105b78653c7a1db50d",
   "integrationQualification": "PASS_AVAILABLE_SOURCE_NATIVE_QUALIFICATION; LIVE_TIMED_ACCEPTANCE_INCOMPLETE; FULL_NOT_ACCEPTED",
   "planFile": "implementation-plan.md",
@@ -195,7 +195,7 @@
   },
   "historicalInitialIntegrationSource": "b58377ab2ad6b678c6690f3687b69d68683ab8b5",
   "historicalInitialIntegrationQualification": "PENDING_NEW_SOURCE_BUILD_AND_RUNS",
-  "currentEvidencePackagingParent": "224070e29e6827256d8e60c3ccb624fdc9d272e0",
+  "currentEvidencePackagingParent": "1452c99fd7945acc1857618eb448b660483615f9",
   "historicalNative88Evidence": {
     "source": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
     "package": "../evidence/life-native-2026-10-14/README.md",
@@ -278,5 +278,217 @@
     ],
     "focusedTests": 12,
     "scope": "Primary guard preserved; cleanup errors separate; actual process membership required before dependent audit. Frozen runtime and original failed receipts unchanged."
+  },
+  "liveCampaigns": {
+    "producerSource": "7588d98689899c9868e8a0105b78653c7a1db50d",
+    "auditorSource": "a74d15754e6af67e8905181afc95dd82c2b58d59",
+    "statusCounts": {
+      "PASS": 1,
+      "INCOMPLETE": 5,
+      "FAIL": 0
+    },
+    "totalsDescriptiveOnly": {
+      "fundedOrdinaryCertificates": 68,
+      "verifiedSourceCertificates": 21,
+      "nativeComponents": 68,
+      "fundedPayments": 31,
+      "fullyJoinedPaidCases": 8,
+      "nativeImpactObservations": 4007,
+      "continuousPayments": 841
+    },
+    "sourceVerifiedFractionDescriptiveOnly": 0.3088235294117647,
+    "all32RoleReportsUnchanged": true,
+    "allOriginalVerdictsUnchanged": true,
+    "allAuditorGroupsClosed": true,
+    "cases": [
+      {
+        "case": "smoke2",
+        "directory": "smoke2-7588-attempt1",
+        "originalExecutionStatus": "INCOMPLETE",
+        "correctedStrictStatus": "INCOMPLETE",
+        "metrics": {
+          "fundedOrdinaryCertificates": 0,
+          "verifiedSourceCertificates": 0,
+          "nativeComponents": 0,
+          "fundedPayments": 0,
+          "fullyJoinedPaidCases": 0,
+          "nativePaidWithoutOwnerClaim": 0,
+          "nativeImpactObservations": 23,
+          "authorityNativePaidJoins": 0,
+          "corrections": 0,
+          "continuousPayments": 0
+        },
+        "recordingCount": 3,
+        "allRecordingsSceneEOF": "PASS",
+        "sourceRuntimeSDKUnchanged": true
+      },
+      {
+        "case": "long2",
+        "directory": "long2-7588-attempt2",
+        "originalExecutionStatus": "INCOMPLETE",
+        "correctedStrictStatus": "INCOMPLETE",
+        "metrics": {
+          "fundedOrdinaryCertificates": 2,
+          "verifiedSourceCertificates": 0,
+          "nativeComponents": 2,
+          "fundedPayments": 0,
+          "fullyJoinedPaidCases": 0,
+          "nativePaidWithoutOwnerClaim": 0,
+          "nativeImpactObservations": 159,
+          "authorityNativePaidJoins": 0,
+          "corrections": 0,
+          "continuousPayments": 425
+        },
+        "recordingCount": 3,
+        "allRecordingsSceneEOF": "PASS",
+        "sourceRuntimeSDKUnchanged": true
+      },
+      {
+        "case": "long8",
+        "directory": "long8-7588-attempt1",
+        "originalExecutionStatus": "FAIL_PRECONDITION_OR_PARTIAL",
+        "correctedStrictStatus": "INCOMPLETE",
+        "metrics": {
+          "fundedOrdinaryCertificates": 64,
+          "verifiedSourceCertificates": 19,
+          "nativeComponents": 64,
+          "fundedPayments": 29,
+          "fullyJoinedPaidCases": 6,
+          "nativePaidWithoutOwnerClaim": 1,
+          "nativeImpactObservations": 3479,
+          "authorityNativePaidJoins": 0,
+          "corrections": 0,
+          "continuousPayments": 374
+        },
+        "recordingCount": 9,
+        "allRecordingsSceneEOF": "PASS",
+        "sourceRuntimeSDKUnchanged": true
+      },
+      {
+        "case": "smoke-lan2",
+        "directory": "smoke-lan2-7588-attempt1",
+        "originalExecutionStatus": "INCOMPLETE",
+        "correctedStrictStatus": "INCOMPLETE",
+        "metrics": {
+          "fundedOrdinaryCertificates": 0,
+          "verifiedSourceCertificates": 0,
+          "nativeComponents": 0,
+          "fundedPayments": 0,
+          "fullyJoinedPaidCases": 0,
+          "nativePaidWithoutOwnerClaim": 0,
+          "nativeImpactObservations": 30,
+          "authorityNativePaidJoins": 0,
+          "corrections": 0,
+          "continuousPayments": 0
+        },
+        "recordingCount": 3,
+        "allRecordingsSceneEOF": "PASS",
+        "sourceRuntimeSDKUnchanged": true,
+        "actualCampaignSeconds": 99.57341504096985,
+        "authorityFrames": 5619,
+        "authorityDroppedSteps": 7,
+        "authorityStalls": 1,
+        "authorityStepFailures": 0,
+        "legacyOverflow": 0,
+        "newJoinDropped": 0
+      },
+      {
+        "case": "smoke-moderate4",
+        "directory": "smoke-moderate4-7588-attempt1",
+        "originalExecutionStatus": "INCOMPLETE",
+        "correctedStrictStatus": "INCOMPLETE",
+        "metrics": {
+          "fundedOrdinaryCertificates": 0,
+          "verifiedSourceCertificates": 0,
+          "nativeComponents": 0,
+          "fundedPayments": 0,
+          "fullyJoinedPaidCases": 0,
+          "nativePaidWithoutOwnerClaim": 0,
+          "nativeImpactObservations": 78,
+          "authorityNativePaidJoins": 0,
+          "corrections": 0,
+          "continuousPayments": 0
+        },
+        "recordingCount": 5,
+        "allRecordingsSceneEOF": "PASS",
+        "sourceRuntimeSDKUnchanged": true,
+        "actualCampaignSeconds": 100.8090500831604,
+        "authorityFrames": 5669,
+        "authorityDroppedSteps": 7,
+        "authorityStalls": 1,
+        "authorityStepFailures": 0,
+        "legacyOverflow": 0,
+        "newJoinDropped": 0
+      },
+      {
+        "case": "smoke-worst8",
+        "directory": "smoke-worst8-7588-attempt1",
+        "originalExecutionStatus": "FAIL",
+        "correctedStrictStatus": "PASS",
+        "metrics": {
+          "fundedOrdinaryCertificates": 2,
+          "verifiedSourceCertificates": 2,
+          "nativeComponents": 2,
+          "fundedPayments": 2,
+          "fullyJoinedPaidCases": 2,
+          "nativePaidWithoutOwnerClaim": 0,
+          "nativeImpactObservations": 238,
+          "authorityNativePaidJoins": 0,
+          "corrections": 0,
+          "continuousPayments": 42
+        },
+        "recordingCount": 9,
+        "allRecordingsSceneEOF": "PASS",
+        "sourceRuntimeSDKUnchanged": true,
+        "actualCampaignSeconds": 107.86831903457642,
+        "authorityFrames": 5837,
+        "authorityDroppedSteps": 7,
+        "authorityStalls": 1,
+        "authorityStepFailures": 0,
+        "legacyOverflow": 0,
+        "newJoinDropped": 0
+      }
+    ],
+    "wholeAcceptance": "NOT_ACCEPTED",
+    "originalLong8Execution": "FAIL_PRECONDITION_OR_PARTIAL: disk guard during final reports; missing final manifest exits; FormsOverflow6660",
+    "originalWorst8Audit": "FAIL_RETAINED: corrected-tool exact originating native self-death proof yields bounded PASS",
+    "interruptedLong2Predecessor": "UNKNOWN_INTERRUPTION_CAUSE; incomplete duration/drain and .part recordings retained; excluded from successful final-file counts"
+  },
+  "campaignReplayConsumption": {
+    "status": "PASS_32_ACTUAL_FULL_FILE_SCENES",
+    "recordingCount": 32,
+    "protocol": 56,
+    "formats": [
+      4,
+      6
+    ],
+    "producerSource": "7588d98689899c9868e8a0105b78653c7a1db50d",
+    "consumerToolSource": "be7329dec9bae308ef307da7e4f9a537b422d100",
+    "normalSceneStep": "PassiveReplayScene.Step",
+    "allNaturalEOF": true,
+    "allDecodeSuccess": true,
+    "allPendingBombs": 0,
+    "allLiveSessionOrAuthority": false,
+    "allInputsUnchanged": true,
+    "allOwnedGroupsClosed": true,
+    "packages": "../evidence/replay-scene-2026-10-14/",
+    "renderedReplayOrSettlementAcceptance": "NOT_ESTABLISHED_BY_EOF"
+  },
+  "finalSourceOnlyRegression": {
+    "nettestPython": 561,
+    "existingSkipped": 1,
+    "auditMethods": 27,
+    "campaignWrapperMethods": 12,
+    "networkEvidenceMethods": 12,
+    "replayConsumerMethods": 12,
+    "productionRuntimeSourceUnchanged": true
+  },
+  "diskRecovery": {
+    "status": "VERIFIED_LOSSLESS_ARCHIVE",
+    "files": 146,
+    "originalObservedFreeGiB": 1.092,
+    "restoredObservedFreeGiB": 8.008,
+    "currentInputsChanged": false,
+    "package": "../evidence/network-campaigns-2026-10-14/disk-recovery/README.md"
   }
 }
