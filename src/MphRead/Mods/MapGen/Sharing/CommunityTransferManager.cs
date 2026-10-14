@@ -284,16 +284,29 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         Task? retiring = null;
         lock (_gate)
         {
+            using var gate = LockAndReloadLocked();
             if (!_jobs.TryGetValue(id, out var job))
                 throw new KeyNotFoundException("Unknown transfer.");
             if (job.State is CommunityTransferState.Completed
                 or CommunityTransferState.Cancelled)
-                throw new InvalidOperationException("Completed or cancelled transfers cannot resume.");
+                throw new InvalidOperationException(
+                    "Completed or cancelled transfers cannot resume.");
+            if (job.State == CommunityTransferState.NeedsReview)
+                throw new InvalidOperationException(
+                    "Resolve the revision conflict explicitly before resuming.");
+            // A queued state survives if a worker in another process is
+            // currently retiring from Pause. Either observer can claim its
+            // lifetime lease when the previous job owner exits.
+            if (job.State is CommunityTransferState.Paused
+                or CommunityTransferState.Retryable
+                or CommunityTransferState.Failed)
+            {
+                _jobs[id] = job with { State = CommunityTransferState.Queued,
+                    UpdatedAt = DateTimeOffset.UtcNow, Error = null };
+                PersistLocked();
+            }
             if (_running.TryGetValue(id, out var active))
             {
-                // Pausing cancels a running worker, but it still needs to exit
-                // its HTTP request and release the slot. A quick Resume click
-                // must not be lost while that cancelled worker is retiring.
                 if (!active.Cancellation.IsCancellationRequested) return;
                 retiring = active.Running;
             }
@@ -307,7 +320,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         {
             try
             {
-                if (!_disposed && GetJob(id).State == CommunityTransferState.Paused)
+                if (!_disposed && GetJob(id).State == CommunityTransferState.Queued)
                     Schedule(id);
             }
             catch (Exception ex) when (ex is ObjectDisposedException
@@ -356,9 +369,31 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     public async Task<CommunityTransferJob> WaitAsync(Guid id)
     {
         Task? running;
-        lock (_gate) running = _running.TryGetValue(id, out var value) ? value.Running : null;
-        if (running != null) await running.ConfigureAwait(false);
-        return GetJob(id);
+        lock (_gate)
+            running = _running.TryGetValue(id, out var value)
+                ? value.Running : null;
+        if (running != null)
+        {
+            await running.ConfigureAwait(false);
+            return GetJob(id);
+        }
+        // Wait for a different process's lifetime lease instead of returning
+        // the first stale local snapshot. The transfer retains a bounded HTTP
+        // timeout; paused, failed and review-needed jobs return immediately.
+        while (true)
+        {
+            CommunityTransferJob job = GetJob(id);
+            if (job.State is CommunityTransferState.Completed
+                or CommunityTransferState.Failed
+                or CommunityTransferState.Cancelled
+                or CommunityTransferState.Paused
+                or CommunityTransferState.NeedsReview
+                or CommunityTransferState.Retryable)
+                return job;
+            if (job.State == CommunityTransferState.Queued)
+                Schedule(id);
+            await Task.Delay(250).ConfigureAwait(false);
+        }
     }
 
     public void ResolveConflict(Guid id, CommunityPublishRequest request)
@@ -369,8 +404,13 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         if (job.Kind != CommunityTransferKind.Upload
             || job.State != CommunityTransferState.NeedsReview)
             throw new InvalidOperationException("Only an upload conflict can be resolved.");
-        Update(id, _ => job with { Publish = request, State = CommunityTransferState.Paused, Error = null },
-            force: true);
+        Update(id, latest =>
+        {
+            if (latest.State != CommunityTransferState.NeedsReview)
+                throw new InvalidOperationException("Revision conflict was already handled.");
+            return latest with { Publish = request,
+                State = CommunityTransferState.Paused, Error = null };
+        }, force: true);
     }
 
     private void AddJob(CommunityTransferJob job)
