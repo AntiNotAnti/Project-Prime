@@ -787,6 +787,29 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                 {
                     var previous = _jobs.ToDictionary(pair => pair.Key, pair => pair.Value);
                     using var gate = LockAndReloadLocked();
+                    var orphaned = new List<Guid>();
+                    foreach (var job in _jobs.Values.ToArray())
+                    {
+                        if (job.State is CommunityTransferState.Preparing
+                            or CommunityTransferState.Uploading
+                            or CommunityTransferState.Downloading
+                            or CommunityTransferState.Verifying
+                            && !_running.ContainsKey(job.Id)
+                            && !_coordination.IsJobOwned(job.Id))
+                        {
+                            // Previous owner crashed or exited after another
+                            // manager was already opened. No duplicate HTTP
+                            // transfer can survive once the OS released its
+                            // exclusive per-job file lease.
+                            _jobs[job.Id] = job with
+                            {
+                                State = CommunityTransferState.Retryable,
+                                Error = "Previous transfer owner exited; recovering."
+                            };
+                            orphaned.Add(job.Id);
+                        }
+                    }
+                    if (orphaned.Count > 0) PersistLocked();
                     foreach (var job in _jobs.Values)
                     {
                         if (!previous.TryGetValue(job.Id, out var before)
@@ -795,7 +818,8 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                             && job.State is CommunityTransferState.Paused
                                 or CommunityTransferState.Cancelled)
                             cancel.Add(active.Cancellation);
-                        if (job.State == CommunityTransferState.Queued
+                        if ((job.State == CommunityTransferState.Queued
+                            || orphaned.Contains(job.Id))
                             && !_running.ContainsKey(job.Id))
                             queued.Add(job.Id);
                     }
