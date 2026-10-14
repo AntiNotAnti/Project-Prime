@@ -158,6 +158,7 @@ namespace MphRead
                     _graphicsProgram = GL.CreateProgram();
                     GL.AttachShader(_graphicsProgram, vertex);
                     GL.AttachShader(_graphicsProgram, fragment);
+                    Mods.Render.OpenGlFailureInjection.ShaderObject("graphics-pipeline-program", _graphicsProgram);
                     GL.LinkProgram(_graphicsProgram);
 #if !ANDROID
                     GL.GetProgram(_graphicsProgram, GetProgramParameterName.LinkStatus,
@@ -241,6 +242,7 @@ namespace MphRead
         {
             int shader = GL.CreateShader(type);
             GL.ShaderSource(shader, source);
+            Mods.Render.OpenGlFailureInjection.ShaderObject("graphics-pipeline-" + (type == ShaderType.VertexShader ? "vertex" : "fragment"), shader);
             GL.CompileShader(shader);
             GL.GetShader(shader, ShaderParameter.CompileStatus, out int status);
             if (status == 0)

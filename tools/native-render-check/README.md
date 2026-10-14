@@ -372,3 +372,61 @@ unprofiled trials. Keep profiler binaries/dumps outside the repository. The
 describes the collection behavior and shared TMPDIR requirement. A cached
 shared-pool byte array and a retained SFX bank are different roots; do not infer
 one from total LOH bytes alone.
+
+## AGX-01 immutable evidence gate
+
+Context campaigns require `--user-data-template /absolute/operator-user-data`.
+Only paths.txt is read; a fresh user-data root is created in the campaign. Asset
+contents, binaries, capture files and per-context receipts have separate hashes.
+All requested native phases are held until external sampling is acknowledged;
+`--capture-native-stacks` no longer requires final GLFW termination. Source-dirty
+or unsupported profiler evidence remains UNVERIFIED. The runner defaults to no
+allocation failure injection; use a separate `--failure-stages ...` campaign.
+Run `validate_context_campaign.py /absolute/campaign` to check existing evidence.
+See [AGX-01](../../docs/engineering-next/agx01.md) for limits and rollback.
+
+### Minimal shader compiler controls (AGX-02)
+
+`--minimal-gl` enters before user-data, assets, graphics preferences, Scene or audio initialization. It creates only serial 32×32 unshared desktop compatibility contexts and uses exact `Shaders` source strings (legacy depth-vertex source by default). `--minimal-gl-depth-vertex` explicitly selects the other source. No production renderer/cache/default changes are made by these controls.
+
+| Mode | Contexts | Compile/link operations | Draw operations |
+|---|---:|---:|---:|
+| `no-shader` | iterations | zero | zero |
+| `compile-only` | one | iterations × selected variants | zero; draw-time driver allocation NOT_RUN |
+| `compile-delete` | one | iterations × selected variants | once per newly linked program |
+| `fresh-contexts` | iterations | selected variants per fresh context | once per newly linked program |
+| `rebind-draw` | one | selected variants once | iterations × selected variants |
+
+Variants: `tiny` (literal GLSL 1.20 triangle), `canonical`, `native`, `plain`, `unlit`, and `four-prewarm` (canonical/native/plain/unlit live together until retirement). `--minimal-gl-define NAME=scalar` and `--minimal-gl-bind attribute:location` are repeatable explicit inputs. `--minimal-gl-sampler-unit 0..15` identifies synthetic sampler state. An inactive define/attribute/sampler does not prove a changed driver pipeline key.
+
+The source/stage SHA-256 and link-input SHA-256 are separate from draw-state hashes. Drawing initializes identity matrices/32 palette entries, uses an untextured synthetic triangle and changes override color. Every draw requires nonblack pixel coverage; subsequent draws on the same program require changed pixels. Raw RGBA hashes and coverage/change counts are recorded. This is a non-vacuous diagnostic control, not gameplay fidelity validation. Sampler units are set explicitly but textures/material permutations are not exercised. True shared contexts, GLES, full game state, driver leak classification and boundedness remain NOT_RUN/UNVERIFIED.
+
+Build and device-free checks:
+
+```sh
+dotnet build tools/native-render-check/native-render-check.csproj -c Release
+# A stable external client can be referenced for minimal-control-only builds:
+# add -p:MphReadProject=/absolute/path/to/prime/src/MphRead/MphRead.csproj
+# To exercise this branch's new source/status hooks, build its own client project.
+dotnet tools/native-render-check/bin/Release/net10.0/native-render-check.dll --minimal-gl-selftest
+dotnet tools/native-render-check/bin/Release/net10.0/native-render-check.dll --minimal-gl-describe --minimal-gl-variant four-prewarm
+python3 -m unittest discover -s tools/native-render-check -p 'test_*.py'
+```
+
+The self-test drives the same program-owner rollback through a fake GL facade: allocation/compile/link/bind/draw injected failures, failed compiler/link statuses, detach-before-shader-delete and unbind-before-program-delete. It verifies no recognized owned names or attachments survive. Real-driver lifecycle closure and positive pixel coverage require a native run and are not implied by this self-test.
+
+For a reviewed native run, the serial runner records immutable source/binary/MVID/OS/OpenTK identities, exact arguments, retained scalar event receipts and optional outstanding native-stack/VM captures:
+
+```sh
+python3 tools/native-render-check/run_minimal_gl_controls.py \
+  --binary tools/native-render-check/bin/Release/net10.0/native-render-check.dll \
+  --output /fresh/path/minimal-tiny-compile-delete \
+  --mode compile-delete --variant tiny --iterations 30 \
+  --capture-native-stacks --compress-stacks
+```
+
+Native capture acknowledgements hold `minimal-NNN-before-workload`, `after-workload`, and `after-disposal`; each phase waits until profiling completes. There are no context recreations after a GLFW termination control: this small runner does not perform GLFW termination. `--max-rss-mib`, `--min-free-disk-mib` and timeout stop an unsafe campaign while preserving partial evidence. `--dry-run` starts no native process. Gzip preserves complete stdout and both compressed/uncompressed hashes. Profiling changes allocator/CPU behavior, so these results cannot be used as FPS evidence.
+
+`--minimal-gl-fail-at` supports `vertex-allocated`, `fragment-allocated`, `vertex-compiled`, `fragment-compiled`, `program-allocated`, `attached`, `linked`, `bound`, and `drawn`. Injected native failures intentionally produce unsuccessful receipts with completed rollback observations. Bind/draw stages require a drawing mode.
+
+Desktop map/source accounting also now observes existing opt-in thread-local callbacks in canonical scene/world variants, GraphicsPipeline, PlayerOutlines, launcher photo, launcher/thumbnail diagnostics, and desktop GraphicsApi wrappers (including OpenGlVisualCheck). Normal startup leaves callbacks null. Facade CompileShader/LinkProgram events count actual attempts and immediate status exactly once; owner hooks are source attribution only. Current sources are hashed at each compile, including repeated compilation and reused names. `--shader-source-ledger-selftest` verifies nested facade/owner hooks, source reassignment, recompilation/relinking, reused names, generic routes and disabled no-query behavior. Compile/link attempt counts are distinct from immediate GL success/failure status counts; incomplete status coverage is UNVERIFIED. Launcher/preview/diagnostic paths require separate positive workloads and are NOT_RUN when a map campaign does not execute them. GLES and third-party native UI shader creation are outside this ledger's scope. GL-name counts do not equal compilation attempts or native allocation groups.

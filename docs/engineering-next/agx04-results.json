@@ -1,0 +1,225 @@
+{
+  "schema": 1,
+  "slice": "AGX-04",
+  "metric": "current-outstanding-direct-agx-malloc-origin",
+  "dataQuality": "VALID",
+  "boundednessGate": "FAIL",
+  "boundedness": "UNVERIFIED",
+  "releaseDisposition": "UNRESOLVED_P0",
+  "programAcceptance": "NOT_ACCEPTED",
+  "synthetic": false,
+  "runtimeMitigation": "NONE_ACCEPTED",
+  "agx03ProgramLeaseCache": "NOT_ELIGIBLE",
+  "hardware": {
+    "gpu": "Apple M4 Pro",
+    "os": "macOS 27.0",
+    "osBuild": "26A428",
+    "driver": "OpenGL 2.1 Metal - 91.7",
+    "openTk": "4.9.4",
+    "runtime": ".NET 10.0.12"
+  },
+  "allocationCampaignIdentity": {
+    "sourceSha": "a08ade80c49c3897e90e5a53a6a7b36e0a5f89fb",
+    "harnessSha256": "8c97ace1e914dcd9e85325a378c40fafc0dd3c7b61f01d62ce3a698e0f1aac15",
+    "clientSha256": "71e1d03cf920128c8c7a69300a82c9765936ba9917fea2400440eee6cd026dc3",
+    "assemblyMvid": "3bfa7736-08ad-4ddf-89e6-91d3bfacdd01",
+    "harnessAssemblyMvid": "2acc95d2-98de-48d8-bb40-bcdf6ba0a252",
+    "fixtureSha256": "99f5e0128f301d7e5188a0bdde0d07f95d6d532fcff448084be126063ceb2ec8",
+    "osBuild": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0\nBuildVersion:\t\t26A428",
+    "gpu": "Apple M4 Pro",
+    "driver": "2.1 Metal - 91.7",
+    "runtime": ".NET 10.0.12",
+    "openTkVersion": "4.9.4.0",
+    "workloadSha256": "98a988b20dd2b5690e443fb565a2d92a100a303a5cc22023475b142c25451881",
+    "profileSha256": "a58e54c8f647d092dd501a16b2c83f5f44d767d595d3c821a0d36ff8f24d204f",
+    "contextStrategy": "serial-unshared-create-dispose",
+    "observationPhase": "after-context-disposal"
+  },
+  "noiseControls": [
+    {
+      "run": "agx01-30-120",
+      "manifestSha256": "1250b6ab37410ce31d1862fefe59bde91d5a082ac511c53da4abcd1047e96b36",
+      "loads": 60,
+      "phase": "context-00-after-disposal",
+      "outstandingDirectAgxFragmentBytes": 47008432
+    },
+    {
+      "run": "agx01-repeat30",
+      "manifestSha256": "ae7ba8919696f85b783ca73dd84ce52ec021f27b95000430e7fdcac70dfef9fb",
+      "loads": 60,
+      "phase": "context-00-after-disposal",
+      "outstandingDirectAgxFragmentBytes": 46890192
+    }
+  ],
+  "noiseEnvelope": {
+    "method": "observed maximum-minus-minimum across matched repeated controls; no candidate-derived tolerance",
+    "controlRuns": 2,
+    "controlLoads": 60,
+    "origins": {
+      "agxFragmentVariant": {
+        "minimumBytes": 46890192,
+        "maximumBytes": 47008432,
+        "envelopeBytes": 118240
+      }
+    }
+  },
+  "warmupLoads": 60,
+  "minimumSuccessivePostWarmupWindows": 3,
+  "observedPostWarmupWindows": 1,
+  "allocationWindows": [
+    {
+      "loads": 60,
+      "context": 0,
+      "phase": "after-context-disposal",
+      "originBytes": {
+        "agxFragmentVariant": 47008432
+      }
+    },
+    {
+      "loads": 300,
+      "context": 1,
+      "phase": "after-context-disposal",
+      "originBytes": {
+        "agxFragmentVariant": 235557328
+      }
+    }
+  ],
+  "growthBeyondControls": [
+    {
+      "fromLoads": 60,
+      "toLoads": 300,
+      "originDeltaBytes": {
+        "agxFragmentVariant": 188548896
+      },
+      "growthExceedsControlEnvelope": {
+        "agxFragmentVariant": true
+      }
+    }
+  ],
+  "materialGrowthObserved": true,
+  "compilerAttribution": {
+    "classification": "reproducible driver-origin draw/program-churn behavior; not a definitive driver leak",
+    "arms": [
+      {
+        "arm": "compile-delete-four-prewarm",
+        "sourceSha": "cdbaa4bc5492bf1876511d6c973ef79a47779fc8",
+        "identity": {
+          "harnessSha256": "17cefba801b415196cc863e00711dbc811335aa153914119ece9584049d2de0c",
+          "clientSha256": "d814cbff5a6e375f1daf3d8c769a74ac34d58bd6af60e37176c394ea5381d8b4"
+        },
+        "dataQuality": "VALID",
+        "links": 480,
+        "draws": 480,
+        "finalPhase": "minimal-000-after-disposal",
+        "outstandingDirectAgxFragmentBytes": 50482160,
+        "minimumNonBlackPixels": 128,
+        "resultSha256": "342cc633ca89f1a97c4b51db7d44908600709179d76381567fd5a88f40b2a21d"
+      },
+      {
+        "arm": "compile-delete-tiny",
+        "sourceSha": "cdbaa4bc5492bf1876511d6c973ef79a47779fc8",
+        "identity": {
+          "harnessSha256": "17cefba801b415196cc863e00711dbc811335aa153914119ece9584049d2de0c",
+          "clientSha256": "d814cbff5a6e375f1daf3d8c769a74ac34d58bd6af60e37176c394ea5381d8b4"
+        },
+        "dataQuality": "VALID",
+        "links": 120,
+        "draws": 120,
+        "finalPhase": "minimal-000-after-disposal",
+        "outstandingDirectAgxFragmentBytes": 3516368,
+        "minimumNonBlackPixels": 128,
+        "resultSha256": "936de099a168b72669b15a0a2f119496a992f7b3ab698d0cef159ce61a4f3fdd"
+      },
+      {
+        "arm": "compile-only-tiny",
+        "sourceSha": "cdbaa4bc5492bf1876511d6c973ef79a47779fc8",
+        "identity": {
+          "harnessSha256": "17cefba801b415196cc863e00711dbc811335aa153914119ece9584049d2de0c",
+          "clientSha256": "d814cbff5a6e375f1daf3d8c769a74ac34d58bd6af60e37176c394ea5381d8b4"
+        },
+        "dataQuality": "VALID",
+        "links": 120,
+        "draws": 0,
+        "finalPhase": "minimal-000-after-disposal",
+        "outstandingDirectAgxFragmentBytes": 18928,
+        "minimumNonBlackPixels": null,
+        "resultSha256": "ff7a2091f0a3b7556a943afdd9d14280f9541925dd1467cf0536eca3f2c10731"
+      },
+      {
+        "arm": "fresh-contexts-tiny",
+        "sourceSha": "cdbaa4bc5492bf1876511d6c973ef79a47779fc8",
+        "identity": {
+          "harnessSha256": "17cefba801b415196cc863e00711dbc811335aa153914119ece9584049d2de0c",
+          "clientSha256": "d814cbff5a6e375f1daf3d8c769a74ac34d58bd6af60e37176c394ea5381d8b4"
+        },
+        "dataQuality": "VALID",
+        "links": 3,
+        "draws": 3,
+        "finalPhase": "minimal-002-after-disposal",
+        "outstandingDirectAgxFragmentBytes": 106768,
+        "minimumNonBlackPixels": 128,
+        "resultSha256": "121d19f3fc121e5017cb3eb2f9b274db9511afc20a03c42b047395c66bc24da2"
+      },
+      {
+        "arm": "no-shader-tiny",
+        "sourceSha": "cdbaa4bc5492bf1876511d6c973ef79a47779fc8",
+        "identity": {
+          "harnessSha256": "17cefba801b415196cc863e00711dbc811335aa153914119ece9584049d2de0c",
+          "clientSha256": "d814cbff5a6e375f1daf3d8c769a74ac34d58bd6af60e37176c394ea5381d8b4"
+        },
+        "dataQuality": "VALID",
+        "links": 0,
+        "draws": 0,
+        "finalPhase": "minimal-001-after-disposal",
+        "outstandingDirectAgxFragmentBytes": 18896,
+        "minimumNonBlackPixels": null,
+        "resultSha256": "c6e43adef65f09d15c5de06b2656338fb78059fae479c0c7abc6819068c277db"
+      },
+      {
+        "arm": "rebind-draw-tiny",
+        "sourceSha": "cdbaa4bc5492bf1876511d6c973ef79a47779fc8",
+        "identity": {
+          "harnessSha256": "17cefba801b415196cc863e00711dbc811335aa153914119ece9584049d2de0c",
+          "clientSha256": "d814cbff5a6e375f1daf3d8c769a74ac34d58bd6af60e37176c394ea5381d8b4"
+        },
+        "dataQuality": "VALID",
+        "links": 1,
+        "draws": 120,
+        "finalPhase": "minimal-000-after-disposal",
+        "outstandingDirectAgxFragmentBytes": 25424,
+        "minimumNonBlackPixels": 128,
+        "resultSha256": "b0986ac93d7b565299dc8b9e70e667f4ac6fec1e6bc26e4dc6692294fb9966bd"
+      }
+    ],
+    "sharedContexts": "NOT_RUN"
+  },
+  "correctedSceneLedger": {
+    "sourceSha": "1866fc2b25e7e19023415d2cfe79c00e22ed5a85",
+    "receiptSha256": "ee43666e54ee67c29b3c7e8f410fa6867847c7bb77b49ea8f184ca2da21c7adc",
+    "counterSemantics": "facade-operation-v2",
+    "mapLoads": 2,
+    "framesPerLoad": 120,
+    "compileAttempts": 32,
+    "linkAttempts": 18,
+    "compileFailures": 0,
+    "linkFailures": 0,
+    "unexpectedStatusCallbacks": 0,
+    "exactRgbaDepthParity": true,
+    "recognizedOwnedNamesAfterUnload": 0
+  },
+  "negativeAttributionReceipt": {
+    "receiptSha256": "7f02e38deb9cd9bc9cfe684f7d904d2c37072871a515b173ad71c1accca9c3d6",
+    "status": "INVALID_FOR_ATTEMPT_ATTRIBUTION",
+    "reason": "Duplicate nested facade/owner events; 64/36 are not actual native operation counts."
+  },
+  "operationalObservation": "Fresh processes reset the observed direct AGX fragment baseline to approximately 0.0185 MiB; restart only, not a fixed runtime.",
+  "notRun": [
+    "600/900 same-context load windows",
+    "second macOS/GPU/OS combination",
+    "true shared contexts",
+    "reversed-order baseline/candidate acceptance",
+    "Windows/Linux/GLES native lifecycle regression"
+  ],
+  "limitations": "Two increasing-load observations do not establish stabilization; outstanding stack origins are not residency or retaining-owner proof. Diagnostic CI and scoped parity do not accept the full program.",
+  "materialVariationObserved": true
+}
