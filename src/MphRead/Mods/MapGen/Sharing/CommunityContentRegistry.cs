@@ -30,6 +30,13 @@ public sealed class CommunityContentRegistry
     private const int MaximumRevisions = 16384;
     private const int MaximumTags = 16;
     private const int MaximumDependencies = 32;
+    // Distinct raw objects are a separate storage pool from historical
+    // .ppmap packages. Cap both the service and a single creator so valid
+    // credentials cannot exhaust origin disk by accumulating revisions.
+    private const long DefaultObjectBudget = 50L * 1024 * 1024 * 1024;
+    private const long DefaultCreatorBudget = 10L * 1024 * 1024 * 1024;
+    private readonly long _maximumStoredBytes;
+    private readonly long _maximumOwnerBytes;
     private readonly string _root;
     private readonly string _objects;
     private readonly string _index;
@@ -37,9 +44,17 @@ public sealed class CommunityContentRegistry
     private readonly Dictionary<(string Kind, Guid Id), CommunityContentStoredProject> _projects
         = new();
 
-    public CommunityContentRegistry(string storage)
+    public CommunityContentRegistry(string storage,
+        long maximumStoredBytes = DefaultObjectBudget,
+        long maximumOwnerBytes = DefaultCreatorBudget)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storage);
+        if (maximumStoredBytes < 1 || maximumOwnerBytes < 1
+            || maximumOwnerBytes > maximumStoredBytes)
+            throw new ArgumentOutOfRangeException(nameof(maximumStoredBytes),
+                "V3 content pool and creator quotas must be positive and ordered.");
+        _maximumStoredBytes = maximumStoredBytes;
+        _maximumOwnerBytes = maximumOwnerBytes;
         _root = Path.GetFullPath(storage);
         _objects = Path.Combine(_root, "content-v3");
         _index = Path.Combine(_root, "content_catalog_v3.json");
@@ -107,6 +122,33 @@ public sealed class CommunityContentRegistry
             if (current != null
                 && metadata.ExpectedParentHash != current.LatestHash)
                 throw new InvalidDataException("Stale v3 content parent; reload before publishing.");
+
+            // Pool/account quotas count each exact SHA only once even when
+            // several materials or creators reference the same immutable file.
+            // The bounded revision catalog has at most 16,384 entries; only
+            // creator publication takes this quota snapshot under _gate.
+            var allRevisions = _projects.Values
+                .SelectMany(p => p.Revisions).ToArray();
+            bool alreadyStored = allRevisions.Any(revision =>
+                revision.ContentHash == hash);
+            long globalBytes = allRevisions
+                .GroupBy(revision => revision.ContentHash, StringComparer.Ordinal)
+                .Sum(group => group.First().Bytes);
+            if (!alreadyStored && bytes > _maximumStoredBytes - globalBytes)
+                throw new InvalidDataException(
+                    "Community generic content pool storage quota exceeded.");
+
+            var ownerRevisions = _projects.Values
+                .Where(p => p.OwnerId == metadata.OwnerId)
+                .SelectMany(p => p.Revisions).ToArray();
+            bool ownerAlreadyUses = ownerRevisions.Any(revision =>
+                revision.ContentHash == hash);
+            long ownerBytes = ownerRevisions
+                .GroupBy(revision => revision.ContentHash, StringComparer.Ordinal)
+                .Sum(group => group.First().Bytes);
+            if (!ownerAlreadyUses && bytes > _maximumOwnerBytes - ownerBytes)
+                throw new InvalidDataException(
+                    "Community creator generic content storage quota exceeded.");
 
             // A published typed item cannot advertise a private or unresolved
             // dependency hash. PR-10 will generalize this into a lockfile DAG;
@@ -212,6 +254,95 @@ public sealed class CommunityContentRegistry
         if (!MapCommunityClient.ValidHash(contentHash)) return null;
         string path = Path.Combine(_objects, contentHash + ".blob");
         return File.Exists(path) ? path : null;
+    }
+
+    /// <summary>Owner-only lifecycle. Retain immutable bytes and revisions
+    /// for historical creator references and safe rollback.</summary>
+    public bool Archive(string kind, Guid id, string owner, bool archived)
+    {
+        kind = CommunityContentKinds.Normalize(kind);
+        if (kind == CommunityContentKinds.Map) return false;
+        lock (_gate)
+        {
+            if (!_projects.TryGetValue((kind, id), out var project)
+                || project.OwnerId != owner) return false;
+            if (project.Archived == archived) return true;
+            var changed = project with { Archived = archived, UpdatedAt = DateTimeOffset.UtcNow };
+            SaveReplacing(changed);
+            return true;
+        }
+    }
+
+    public CommunityContentProject? Promote(string kind, Guid id, string owner,
+        string revisionHash)
+    {
+        kind = CommunityContentKinds.Normalize(kind);
+        if (!MapCommunityClient.ValidHash(revisionHash)
+            || kind == CommunityContentKinds.Map) return null;
+        lock (_gate)
+        {
+            if (!_projects.TryGetValue((kind, id), out var project)
+                || project.OwnerId != owner) return null;
+            var revision = project.Revisions.FirstOrDefault(r => r.ContentHash == revisionHash
+                && r.Visibility == CommunityContentVisibility.Published);
+            if (revision == null) return null;
+            var changed = project with
+            {
+                CurrentHash = revisionHash,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+            SaveReplacing(changed);
+            return Project(changed, owner: true);
+        }
+    }
+
+    /// <summary>Authorize a raw immutable asset by exact revision hash. The
+    /// requested hash is not itself proof of public visibility.</summary>
+    public string? AuthorizedBlob(string hash, string? viewerId)
+    {
+        if (!MapCommunityClient.ValidHash(hash)) return null;
+        long declared = -1;
+        lock (_gate)
+        {
+            foreach (var project in _projects.Values)
+            {
+                if (project.Archived && project.OwnerId != viewerId) continue;
+                bool owner = viewerId != null && project.OwnerId == viewerId;
+                foreach (var revision in project.Revisions)
+                {
+                    if (revision.ContentHash != hash) continue;
+                    // Every published immutable revision is discoverable
+                    // through the public revisions API, including versions
+                    // superseded by a newer published CurrentHash. Retain
+                    // exact historical blob fetches until explicit lifecycle
+                    // deletion, without exposing drafts or archived projects.
+                    if (!owner && revision.Visibility != CommunityContentVisibility.Published)
+                        continue;
+                    declared = revision.Bytes;
+                    break;
+                }
+                if (declared >= 0) break;
+            }
+        }
+        if (declared < 0) return null;
+        string path = Path.Combine(_objects, hash + ".blob");
+        if (!File.Exists(path) || new FileInfo(path).Length != declared
+            || MapBuildFingerprint.HashFile(path) != hash)
+            throw new InvalidDataException("Referenced v3 asset is missing or corrupted.");
+        return path;
+    }
+
+    private void SaveReplacing(CommunityContentStoredProject replacement)
+    {
+        CommunityContentStoredProject[] updated = _projects.Values
+            .Where(p => !(p.Kind == replacement.Kind && p.ContentId == replacement.ContentId))
+            .Append(replacement)
+            .OrderBy(p => p.Kind, StringComparer.Ordinal)
+            .ThenBy(p => p.ContentId).ToArray();
+        AtomicFile.Write(_index, JsonSerializer.SerializeToUtf8Bytes(
+            new CommunityContentStoredState(Format, updated),
+            MapPackageReader.JsonOptions));
+        _projects[(replacement.Kind, replacement.ContentId)] = replacement;
     }
 
     private void PutVerifiedBlob(string source, string hash, long bytes)
