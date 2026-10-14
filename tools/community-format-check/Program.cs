@@ -282,6 +282,20 @@ try
     {
         Id = Guid.NewGuid(), Name = "textures/common/caulk", SourceMaterial = 2
     });
+    rampMap.Materials.Add(new MapMaterial
+    {
+        Id = Guid.NewGuid(), Name = "textures/arena/ramp_trim", SourceMaterial = 2
+    });
+    ramp.QuakeFaces = Enumerable.Range(0, 5).Select(i => new MapQuakeFace
+    {
+        Material = i == 4 ? 1 : 0,
+        ShiftU = i == 4 ? 12f : 0f,
+        ShiftV = i == 4 ? -8f : 0f,
+        Rotation = i == 4 ? 15f : 0f,
+        ScaleU = i == 4 ? 0.5f : 1f,
+        ScaleV = i == 4 ? 2f : 1f,
+        UnitsPerPrimeUnit = 16
+    }).ToList();
     rampMap.Geometry.Add(ramp);
     Guid itemId = Guid.Parse("d3be52b8-4eca-49d8-95af-86b9e6ab811e");
     rampMap.Items.Add(new MapItem
@@ -309,6 +323,21 @@ try
         && !rampParsed.Definition.Items.Single().HasBase,
         "Quake pickup identity, native type, respawn interval and base policy survive");
     MapConvexBrush convertedRamp = (MapConvexBrush)rampParsed.Definition.Geometry.Single();
+    Check(convertedRamp.QuakeFaces is { Count: 5 }
+        && convertedRamp.QuakeFaces.Select(f => f.Material).Distinct().Count() == 2
+        && convertedRamp.QuakeFaces.Any(f => f.Rotation == 15
+            && f.ShiftU == 12 && f.ShiftV == -8 && f.ScaleU == 0.5f),
+        "angled ramp retains exact independent shader and UV projection per face");
+    Check(GeometryCompiler.Compile(convertedRamp, 16f)
+        .Select(f => f.Material).Distinct().Count() == 2,
+        "native convex renderer uses independent face materials");
+    string portable = Path.Combine(root, "ramp-portable.json");
+    rampParsed.Definition.Save(portable);
+    MapDefinition reloaded = MapDefinition.Load(portable);
+    Check(reloaded.Geometry[0].QuakeFaces?.Count == 5
+        && reloaded.Geometry[0].QuakeFaces
+            .Select(f => reloaded.Materials[f.Material].Name).Distinct().Count() == 2,
+        "deterministic JSON save remaps Quake face materials without changing shader identity");
     Check(convertedRamp.Id == rampId
         && convertedRamp.Vertices.Count == 6
         && convertedRamp.Faces.Count == 5
@@ -320,6 +349,10 @@ try
     QuakeMapInterchange.Export(rampParsed.Definition, rampAgain, rampAgainSidecar);
     var rampAgainParsed = QuakeMapInterchange.Import(rampAgain, rampAgainSidecar);
     MapConvexBrush twiceConverted = (MapConvexBrush)rampAgainParsed.Definition.Geometry.Single();
+    Check(twiceConverted.QuakeFaces is { Count: 5 }
+        && twiceConverted.QuakeFaces.Any(f => f.ShiftU == 12
+            && f.Rotation == 15 && f.ScaleU == 0.5f),
+        "angled brush classic per-face texture projection survives repeated export");
     Check(rampAgainParsed.Definition.Items.Single().Id == itemId
         && rampAgainParsed.Definition.Items.Single().SpawnInterval == 720,
         "repeated source export does not reset native pickup respawn semantics");
