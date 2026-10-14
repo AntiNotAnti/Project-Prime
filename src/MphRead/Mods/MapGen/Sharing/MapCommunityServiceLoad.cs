@@ -184,10 +184,10 @@ internal sealed class MapCommunityServiceAdmission : IDisposable
 /// </summary>
 internal sealed class MapCommunityUploadReservations
 {
-    private const int MaxTotalSessions = 16;
-    private const int MaxCreatorSessions = 8;
-    private const long MaxTotalBytes = 2L * 1024 * 1024 * 1024;
-    private const long MaxCreatorBytes = 1024L * 1024 * 1024;
+    internal const int MaxTotalSessions = 16;
+    internal const int MaxCreatorSessions = 8;
+    internal const long MaxTotalBytes = 2L * 1024 * 1024 * 1024;
+    internal const long MaxCreatorBytes = 1024L * 1024 * 1024;
     private readonly object _gate = new();
     private readonly Dictionary<string, (string Creator, long Bytes)> _reserved
         = new(StringComparer.Ordinal);
