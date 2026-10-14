@@ -104,57 +104,31 @@ public static class QuakeMapInterchange
 
         void CloseBrush()
         {
-            if (faces.Count != 6)
+            if (faces.Count is < 4 or > 32)
             {
                 Error("FP-RADIANT-BRUSH", lineNo,
-                    "Native editable import supports exactly six axial planar brush faces.");
+                    "Editable Quake convex brushes require between 4 and 32 complete planes.");
+                faces.Clear();
+                brushId = Guid.Empty;
                 return;
             }
-            var limits = new List<float>[] { new(), new(), new() };
             string shader = faces[0].Shader;
             foreach (Face face in faces)
-            {
                 if (!string.Equals(face.Shader, shader, StringComparison.OrdinalIgnoreCase))
                     Error("FP-RADIANT-MATERIAL", face.Line,
-                        "Different per-face shaders are not represented by a single MapBox.");
-                var u = face.Points[1] - face.Points[0];
-                var v = face.Points[2] - face.Points[0];
-                Vector3 normal = Vector3.Cross(u, v);
-                if (normal.LengthSquared() < 0.0001f)
-                {
-                    Error("FP-RADIANT-PLANE", face.Line, "Degenerate brush plane.");
-                    continue;
-                }
-                normal = Vector3.Normalize(normal);
-                float[] comps = { Math.Abs(normal.X), Math.Abs(normal.Y), Math.Abs(normal.Z) };
-                int axis = Array.IndexOf(comps, comps.Max());
-                if (comps[axis] < 0.999f)
-                {
-                    Error("FP-RADIANT-NONAXIAL", face.Line,
-                        "Angled brushes need a lossless convex importer; no silent box conversion.");
-                    continue;
-                }
-                limits[axis].Add(axis == 0 ? face.Points[0].X
-                    : axis == 1 ? face.Points[0].Y : face.Points[0].Z);
-            }
+                        "Per-face Quake materials require a lossless material/UV importer.");
             if (diagnostics.Any(d => d.Error)) return;
-            var lo = new float[3];
-            var hi = new float[3];
-            for (int axis = 0; axis < 3; axis++)
+
+            MapGeometry geometry;
+            try
             {
-                var distinct = limits[axis].Distinct().ToArray();
-                if (distinct.Length != 2)
-                {
-                    Error("FP-RADIANT-BOUNDS", lineNo, "Box must have two distinct bounds on every axis.");
-                    return;
-                }
-                lo[axis] = distinct.Min();
-                hi[axis] = distinct.Max();
-                if (hi[axis] - lo[axis] < 0.01f)
-                {
-                    Error("FP-RADIANT-BOUNDS", lineNo, "Brush thickness is too small.");
-                    return;
-                }
+                geometry = QuakeConvexHull.FromQuakePlanes(
+                    faces.Select(f => f.Points).ToArray(), unitsPerPrimeUnit);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Error("FP-RADIANT-CONVEX", faces[0].Line, ex.Message);
+                return;
             }
             if (!materials.TryGetValue(shader, out int material))
             {
@@ -163,33 +137,32 @@ public static class QuakeMapInterchange
                 definition.Materials.Add(new MapMaterial
                 {
                     Id = GuidFrom("prime-material:" + shader),
-                    Name = shader, SourceMaterial = 2,
-                    TexScale = 16f
+                    Name = shader, SourceMaterial = 2, TexScale = 16f
                 });
             }
-            var center = new[] { (lo[0]+hi[0])*0.5f / unitsPerPrimeUnit,
-                (lo[2]+hi[2])*0.5f / unitsPerPrimeUnit,
-                -(lo[1]+hi[1])*0.5f / unitsPerPrimeUnit };
-            var extent = new[] { (hi[0]-lo[0]) / unitsPerPrimeUnit,
-                (hi[2]-lo[2]) / unitsPerPrimeUnit,
-                (hi[1]-lo[1]) / unitsPerPrimeUnit };
             Guid id = brushId != Guid.Empty ? brushId
                 : GuidFrom("prime-brush:" + mapId + ":" + brushIndex + ":"
-                    + string.Join(",", lo.Select(v => v.ToString("R", CultureInfo.InvariantCulture)))
-                    + ":" + string.Join(",", hi.Select(v => v.ToString("R", CultureInfo.InvariantCulture)))
-                    + ":" + shader);
+                    + string.Join("|", faces.Select(f =>
+                        string.Join(",", f.Points.SelectMany(p => new[] { p.X, p.Y, p.Z })
+                            .Select(v => v.ToString("R", CultureInfo.InvariantCulture))))));
             if (!seenBrushIds.Add(id))
             {
-                Error("FP-RADIANT-ID", lineNo, "Duplicate brush identity; map authoring IDs must be unique.");
+                Error("FP-RADIANT-ID", lineNo,
+                    "Duplicate brush identity; map authoring IDs must be unique.");
                 return;
             }
-            definition.Geometry.Add(new MapBox
+            geometry.Id = id;
+            geometry.Label = "Quake brush " + (brushIndex + 1);
+            geometry.Material = material;
+            // A solved hull still needs to satisfy Prime's native face and UV
+            // budgets before it becomes an editable authoring document.
+            try { GeometryCompiler.Compile(geometry, definition.Materials[material].TexScale); }
+            catch (MapAuthoringException ex)
             {
-                Id = id,
-                Label = "Quake brush " + (brushIndex + 1),
-                Material = material,
-                Transform = new MapTransform { Position = center, Scale = extent }
-            });
+                Error(ex.Code, lineNo, ex.Message);
+                return;
+            }
+            definition.Geometry.Add(geometry);
             brushIndex++;
             brushId = Guid.Empty;
             faces.Clear();
@@ -392,19 +365,31 @@ public static class QuakeMapInterchange
         int index = 0;
         foreach (var geometry in map.Geometry)
         {
-            if (geometry is not MapBox box || geometry.Hidden || !geometry.Solid
-                || geometry.Damaging || geometry.FaceUv.Count != 0
+            if (geometry is not (MapBox or MapConvexBrush)
+                || geometry.Hidden || !geometry.Solid || geometry.Damaging
+                || geometry.FaceUv.Count != 0
                 || geometry.Uv.Rotation != 0
                 || geometry.Uv.Offset.Any(v => v != 0)
                 || geometry.Uv.Scale.Any(v => v != 1)
-                || box.Transform.Rotation.Length != 4
-                || box.Transform.Rotation.Where((v, i) => v != (i == 3 ? 1 : 0)).Any())
+                || geometry.Transform.Rotation.Length != 4
+                || geometry.Transform.Rotation.Where((v, i) => v != (i == 3 ? 1 : 0)).Any()
+                || (geometry is MapConvexBrush
+                    && (geometry.Transform.Position.Any(v => v != 0)
+                        || geometry.Transform.Scale.Any(v => v != 1))))
                 errors.Add(new("FP-RADIANT-EXPORT-GEOMETRY", index,
-                    "Only visible, axis-aligned solid boxes with default UVs can round-trip.",
+                    "Only solid boxes and untransformed native convex brushes with default UVs can round-trip.",
                     true));
             if (geometry.Material < 0 || geometry.Material >= map.Materials.Count)
                 errors.Add(new("FP-RADIANT-EXPORT-MATERIAL", index,
                     "Missing material binding.", true));
+            else if (geometry is MapConvexBrush)
+            {
+                try { GeometryCompiler.Compile(geometry, map.Materials[geometry.Material].TexScale); }
+                catch (MapAuthoringException ex)
+                {
+                    errors.Add(new("FP-RADIANT-EXPORT-CONVEX", index, ex.Message, true));
+                }
+            }
             index++;
         }
         if (map.Spawns.Any(s => s.Team != -1
@@ -417,51 +402,69 @@ public static class QuakeMapInterchange
         sb.AppendLine("// Project Prime original Quake3 .map brush authoring source");
         sb.AppendLine("{");
         sb.AppendLine("\"classname\" \"worldspawn\"");
-        foreach (MapBox box in map.Geometry.Cast<MapBox>())
+        foreach (MapGeometry geometry in map.Geometry)
         {
-            string shader = map.Materials[box.Material].Name;
+            string shader = map.Materials[geometry.Material].Name;
             if (string.IsNullOrWhiteSpace(shader)
                 || shader.Any(char.IsWhiteSpace)
                 || shader.Contains("..", StringComparison.Ordinal))
                 throw new InvalidDataException("Shader name is not portable to Quake .map.");
-            float[] p = box.Transform.Position, s = box.Transform.Scale;
-            if (p.Length != 3 || s.Length != 3 || s.Any(x => !float.IsFinite(x) || x <= 0)
-                || p.Any(x => !float.IsFinite(x)))
-                throw new InvalidDataException("Invalid authored box transform.");
-
-            float minX = (p[0] - s[0] / 2) * unitsPerPrimeUnit;
-            float maxX = (p[0] + s[0] / 2) * unitsPerPrimeUnit;
-            float minY = (-p[2] - s[2] / 2) * unitsPerPrimeUnit;
-            float maxY = (-p[2] + s[2] / 2) * unitsPerPrimeUnit;
-            float minZ = (p[1] - s[1] / 2) * unitsPerPrimeUnit;
-            float maxZ = (p[1] + s[1] / 2) * unitsPerPrimeUnit;
-
-            Vector3[] corner =
-            {
-                new(minX,minY,minZ), new(maxX,minY,minZ),
-                new(minX,maxY,minZ), new(maxX,maxY,minZ),
-                new(minX,minY,maxZ), new(maxX,minY,maxZ),
-                new(minX,maxY,maxZ), new(maxX,maxY,maxZ)
-            };
             sb.AppendLine("{");
-            sb.AppendLine("// PRIME_ID=" + box.Id);
-            void Plane(int a, int b, int c, Vector3 expected)
+            sb.AppendLine("// PRIME_ID=" + geometry.Id);
+            static string P(Vector3 p) => "( " + p.X.ToString("G9", CultureInfo.InvariantCulture)
+                + " " + p.Y.ToString("G9", CultureInfo.InvariantCulture)
+                + " " + p.Z.ToString("G9", CultureInfo.InvariantCulture) + " )";
+            void Plane(Vector3 first, Vector3 second, Vector3 third, Vector3 expected)
             {
-                Vector3 first = corner[a], second = corner[b], third = corner[c];
-                if (Vector3.Dot(Vector3.Cross(second-first, third-first), expected) < 0)
+                if (Vector3.Dot(Vector3.Cross(second - first, third - first), expected) < 0)
                     (second, third) = (third, second);
-                static string P(Vector3 p) => "( " + p.X.ToString("G9", CultureInfo.InvariantCulture)
-                    + " " + p.Y.ToString("G9", CultureInfo.InvariantCulture)
-                    + " " + p.Z.ToString("G9", CultureInfo.InvariantCulture) + " )";
                 sb.AppendLine(P(first) + " " + P(second) + " " + P(third)
                     + " " + shader + " 0 0 0 1 1 0 0 0");
             }
-            Plane(0,2,6,-Vector3.UnitX);
-            Plane(1,5,7,Vector3.UnitX);
-            Plane(0,4,5,-Vector3.UnitY);
-            Plane(2,3,7,Vector3.UnitY);
-            Plane(0,1,3,-Vector3.UnitZ);
-            Plane(4,6,7,Vector3.UnitZ);
+            if (geometry is MapBox box)
+            {
+                float[] p = box.Transform.Position, s = box.Transform.Scale;
+                if (p.Length != 3 || s.Length != 3 || s.Any(x => !float.IsFinite(x) || x <= 0)
+                    || p.Any(x => !float.IsFinite(x)))
+                    throw new InvalidDataException("Invalid authored box transform.");
+
+                float minX = (p[0] - s[0] / 2) * unitsPerPrimeUnit;
+                float maxX = (p[0] + s[0] / 2) * unitsPerPrimeUnit;
+                float minY = (-p[2] - s[2] / 2) * unitsPerPrimeUnit;
+                float maxY = (-p[2] + s[2] / 2) * unitsPerPrimeUnit;
+                float minZ = (p[1] - s[1] / 2) * unitsPerPrimeUnit;
+                float maxZ = (p[1] + s[1] / 2) * unitsPerPrimeUnit;
+                Vector3[] corner =
+                {
+                    new(minX,minY,minZ), new(maxX,minY,minZ),
+                    new(minX,maxY,minZ), new(maxX,maxY,minZ),
+                    new(minX,minY,maxZ), new(maxX,minY,maxZ),
+                    new(minX,maxY,maxZ), new(maxX,maxY,maxZ)
+                };
+                Plane(corner[0], corner[2], corner[6], -Vector3.UnitX);
+                Plane(corner[1], corner[5], corner[7], Vector3.UnitX);
+                Plane(corner[0], corner[4], corner[5], -Vector3.UnitY);
+                Plane(corner[2], corner[3], corner[7], Vector3.UnitY);
+                Plane(corner[0], corner[1], corner[3], -Vector3.UnitZ);
+                Plane(corner[4], corner[6], corner[7], Vector3.UnitZ);
+            }
+            else if (geometry is MapConvexBrush brush)
+            {
+                Vector3[] primeVertices = brush.Vertices.Select(v =>
+                    new Vector3(v[0], v[1], v[2])).ToArray();
+                Vector3 centroid = primeVertices.Aggregate(Vector3.Zero,
+                    (sum, point) => sum + point) / primeVertices.Length;
+                static Vector3 Q(Vector3 prime, float units)
+                    => new(prime.X * units, -prime.Z * units, prime.Y * units);
+                Vector3 quakeCenter = Q(centroid, unitsPerPrimeUnit);
+                foreach (int[] face in brush.Faces)
+                {
+                    Vector3 first = Q(primeVertices[face[0]], unitsPerPrimeUnit);
+                    Vector3 second = Q(primeVertices[face[1]], unitsPerPrimeUnit);
+                    Vector3 third = Q(primeVertices[face[2]], unitsPerPrimeUnit);
+                    Plane(first, second, third, first - quakeCenter);
+                }
+            }
             sb.AppendLine("}");
         }
         sb.AppendLine("}");
