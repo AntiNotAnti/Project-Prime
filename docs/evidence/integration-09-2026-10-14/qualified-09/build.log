@@ -1,0 +1,15 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  NcsfPlay -> ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/NcsfPlay.dll
+  MphRead.Protocol.Generator -> ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/MphRead.Protocol.Generator.dll
+  MphRead -> ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/ProjectPrime.dll
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/PlayerNameChatTests.cs(7,7): warning CS0105: The using directive for 'System.Text' appeared previously in this namespace [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+  nettest -> ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/nettest.dll
+
+Build succeeded.
+
+${WORKSPACE}/work/prime-plan-integration/tools/nettest/PlayerNameChatTests.cs(7,7): warning CS0105: The using directive for 'System.Text' appeared previously in this namespace [${WORKSPACE}/work/prime-plan-integration/tools/nettest/nettest.csproj]
+    1 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:44.13

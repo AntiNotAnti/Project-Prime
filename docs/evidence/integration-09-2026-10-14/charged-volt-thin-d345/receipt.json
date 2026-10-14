@@ -1,0 +1,31 @@
+{
+  "scope": "External thin source-copied d345 diagnostic. Not full nettest; actual frozen d345 client.",
+  "clientSHA256": "b4c0b09ae023c7a0495558cab77464bb68e241762de8ce600402c4d7ae2f1652",
+  "entrySHA256": "d26c03d0a55c98ec0e2242bfae935758b0630d7051278f9f24fd0838d139705c",
+  "results": [
+    {
+      "charge": 180,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/charged-volt-diagnostic-d345ae86/runtime/nettest.dll",
+        "180"
+      ],
+      "pid": 52190,
+      "exit": 1,
+      "groupAbsentVerified": true
+    },
+    {
+      "charge": 120,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/plan-completion-evidence/charged-volt-diagnostic-d345ae86/runtime/nettest.dll",
+        "120"
+      ],
+      "pid": 52191,
+      "exit": 0,
+      "groupAbsentVerified": true
+    }
+  ],
+  "loadedIdentity": "DIAG IDENTITY path=${WORKSPACE}/work/plan-completion-evidence/charged-volt-diagnostic-d345ae86/runtime/ProjectPrime.dll sha256=b4c0b09ae023c7a0495558cab77464bb68e241762de8ce600402c4d7ae2f1652 MVID=615398c6-86ea-41d0-be54-ba5269d09fb2 entryMVID=dd9b5061-8a49-4833-81a3-03f45a03108e",
+  "sourceFixtureSHA256": "e4897443c8b1a978ca2de742e90149132d9afb5e5d4ff534b9ac8390150d6681"
+}

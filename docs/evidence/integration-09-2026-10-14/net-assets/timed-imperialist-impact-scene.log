@@ -1,0 +1,198 @@
+COMPACT_LOADED_IDENTITY nettest location=${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/nettest.dll mvid=e9ae08c8-235b-45e0-8f52-c550a1e2e207
+COMPACT_LOADED_IDENTITY ProjectPrime location=${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/runtime/ProjectPrime.dll mvid=d6f53ab0-c704-4d18-8665-e83509063a09
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] slot 0 (Samus) wears suit 1
+[net] slot 1 (Samus) wears suit 2 -- asked for 1
+[net] slot 2 (Samus) wears suit 3 -- asked for 1
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] slot 2 (Samus) wears suit 1
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] slot 2 (Samus) wears suit 3 -- asked for 1
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (Impact fixture 0) -- 1 player(s) in scene
+[net] slot 1 activated (Impact fixture 1) -- 2 player(s) in scene
+[net] slot 2 activated (Impact fixture 2) -- 3 player(s) in scene
+System.InvalidOperationException: Imperialist impact: native friendly damage refusal does not let the ray pay a farther enemy
+   at MphRead.NetTest.TimedImperialistImpactTests.Check(Boolean value, String label) in ${WORKSPACE}/work/prime-plan-integration/tools/nettest/TimedImperialistImpactTests.cs:line 20
+   at MphRead.NetTest.TimedImperialistImpactTests.RunScene(String profile, String room) in ${WORKSPACE}/work/prime-plan-integration/tools/nettest/TimedImperialistImpactTests.cs:line 251

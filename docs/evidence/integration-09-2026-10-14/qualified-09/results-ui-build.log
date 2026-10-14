@@ -1,0 +1,13 @@
+  Determining projects to restore...
+  Restored ${WORKSPACE}/work/prime-plan-integration/tools/results-ui-check/results-ui-check.csproj (in 558 ms).
+  3 of 4 projects are up-to-date for restore.
+  NcsfPlay -> ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/results-ui-runtime/NcsfPlay.dll
+  MphRead.Protocol.Generator -> ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/results-ui-runtime/MphRead.Protocol.Generator.dll
+  MphRead -> ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/results-ui-runtime/ProjectPrime.dll
+  results-ui-check -> ${WORKSPACE}/work/plan-completion-evidence/candidate-09ada0ab/results-ui-runtime/nettest.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:42.20
