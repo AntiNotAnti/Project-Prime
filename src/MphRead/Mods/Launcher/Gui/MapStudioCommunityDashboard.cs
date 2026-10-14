@@ -173,15 +173,9 @@ internal sealed partial class MapStudioScreen
             return endpoint;
         }
 
-        async Task<T> WithClient<T>(bool authenticated, CancellationToken token,
+        Task<T> WithClient<T>(bool authenticated, CancellationToken token,
             Func<MapCommunityClient, Task<T>> action)
-        {
-            string endpoint = Endpoint();
-            if (authenticated)
-                return await WithCommunityAuthentication(endpoint, token, action);
-            using var client = new MapCommunityClient(endpoint);
-            return await action(client);
-        }
+            => CommunityOperations(Endpoint()).UseClientAsync(authenticated, action, token);
 
         CommunityMap Presentation(CommunityMapProject project)
             => CurrentTab() == CommunityDashboardTab.MyMaps
@@ -279,11 +273,11 @@ internal sealed partial class MapStudioScreen
                     throw new IOException("Set up game files before installing playable maps.");
                 EnsureMapInstallationAllowed();
                 GameFiles.ApplyPaths();
-                MapDefinition installed = await WithClient(package.Draft, token,
-                    client => client.InstallAsync(package, UserMapLibrary, token,
-                        progress: (received, total) =>
-                            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                                status.Text = $"Downloading… {received / 1048576d:0.0}/{total / 1048576d:0.0} MiB · {(total > 0 ? received * 100d / total : 0):0}%")));
+                MapDefinition installed = await CommunityOperations(Endpoint()).InstallAsync(
+                    package, UserMapLibrary, token,
+                    progress: (received, total) =>
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                            status.Text = $"Downloading… {received / 1048576d:0.0}/{total / 1048576d:0.0} MiB · {(total > 0 ? received * 100d / total : 0):0}%"));
                 GuardJob(token);
                 Metadata.RegisterDownloadedMap(installed);
                 status.Text = "Installed " + (package.DisplayName ?? package.Name) + ".";
@@ -302,12 +296,10 @@ internal sealed partial class MapStudioScreen
         async Task ReloadProjects(CancellationToken token, Guid? preserve = null)
         {
             CommunityDashboardTab tab = CurrentTab();
-            bool authenticated = tab != CommunityDashboardTab.Discover;
-            projects = await WithClient(authenticated, token,
-                client => client.BrowseProjectsAsync(token,
-                    mine: tab == CommunityDashboardTab.MyMaps,
-                    favorites: tab == CommunityDashboardTab.Favorites,
-                    sort: "name"));
+            projects = await CommunityOperations(Endpoint()).BrowseProjectsAsync(
+                mine: tab == CommunityDashboardTab.MyMaps,
+                favorites: tab == CommunityDashboardTab.Favorites,
+                sort: "name", cancellation: token);
             GuardJob(token);
             RenderList(preserve);
         }
