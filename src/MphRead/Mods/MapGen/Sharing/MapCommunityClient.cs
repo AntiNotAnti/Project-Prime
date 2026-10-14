@@ -710,6 +710,7 @@ public sealed class MapCommunityClient : IDisposable
         const int maximumRetries = 4;
         long expected = expectedBytes ?? -1;
         int failures = 0;
+        int admissionRetries = 0;
         while (true)
         {
             token.ThrowIfCancellationRequested();
@@ -730,6 +731,16 @@ public sealed class MapCommunityClient : IDisposable
                 using var request = new HttpRequestMessage(HttpMethod.Get, resource);
                 if (offset > 0) request.Headers.Range = new RangeHeaderValue(offset, null);
                 using var response = await SendReadAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+
+                if (IsTransientAdmission(response.StatusCode) && admissionRetries++ < 20)
+                {
+                    // A busy service does not own new bytes from this attempt.
+                    // Retain the verified local Range prefix while waiting for
+                    // a download slot; do not restart at byte zero.
+                    await Task.Delay(AdmissionRetryDelay(response, admissionRetries), token)
+                        .ConfigureAwait(false);
+                    continue;
+                }
 
                 if (offset > 0 && response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
                 {
