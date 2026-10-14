@@ -9,7 +9,7 @@ namespace MphRead.Mods.Launcher.Gui;
 internal sealed partial class MapStudioScreen
 {
     private void ImportEditableQuakeMap()
-        => Browse("Import supported editable Quake .map brush source",
+        => Browse("Import editable Quake .map brushes, curves and gameplay objects",
             false, source =>
             {
                 try
@@ -24,8 +24,11 @@ internal sealed partial class MapStudioScreen
                     string warnings = string.Join("; ", result.Diagnostics
                         .Where(d => !d.Error).Take(2)
                         .Select(d => d.Code + ": " + d.Message));
-                    _status.Text = "Imported " + result.Definition.Geometry.Count
+                    int patchCount = result.Definition.Geometry.OfType<MapBezierPatch>().Count();
+                    int brushCount = result.Definition.Geometry.Count - patchCount;
+                    _status.Text = "Imported " + brushCount
                         + " editable box/convex brush(es), "
+                        + patchCount + " Bezier patch(es), "
                         + result.Definition.Spawns.Count + " spawn(s), and "
                         + result.Definition.Items.Count + " pickup(s). "
                         + "Scale factor " + result.Definition.ScaleFactor
@@ -45,7 +48,7 @@ internal sealed partial class MapStudioScreen
             }, ".map");
 
     private void ExportEditableQuakeMap()
-        => Browse("Export supported boxes/spawns as editable Quake .map",
+        => Browse("Export supported brushes, Bezier patches and gameplay as Quake .map",
             true, output =>
             {
                 try
