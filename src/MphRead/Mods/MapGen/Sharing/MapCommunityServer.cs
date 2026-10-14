@@ -1049,6 +1049,53 @@ public static class MapCommunityServer
                         await Json(context.Response, hash.EndsWith("/versions", StringComparison.Ordinal) ? (object)versions : versions[0], deadline.Token);
                         return;
                     }
+                    if (hash.EndsWith("/preview", StringComparison.Ordinal))
+                    {
+                        // A thumbnail is presentation-only. Never ask clients
+                        // to download 512 MiB merely to display a map preview.
+                        string packageHash = hash[..^8];
+                        if (!MapCommunityClient.ValidHash(packageHash)
+                            || !maps.TryGetValue(packageHash, out CommunityMap? previewMap))
+                        { context.Response.StatusCode = 404; return; }
+                        if (previewMap.Draft && (creator == null
+                            || !catalog.CanPublish(creator.CreatorId, previewMap)))
+                        { context.Response.StatusCode = 403; return; }
+                        string archivePath = Path.Combine(storage, packageHash + ".ppmap");
+                        byte[]? manifestBytes = MapPackageReader.ReadCatalogEntry(
+                            archivePath, "manifest.json", 65536);
+                        if (manifestBytes == null)
+                        { context.Response.StatusCode = 404; return; }
+                        var manifest = JsonSerializer.Deserialize<MapPackageManifest>(
+                            manifestBytes, MapPackageReader.JsonOptions);
+                        if (string.IsNullOrWhiteSpace(manifest?.Preview))
+                        { context.Response.StatusCode = 404; return; }
+                        byte[]? preview;
+                        try
+                        {
+                            preview = MapPackageReader.ReadCatalogEntry(archivePath,
+                                manifest.Preview, 1024 * 1024);
+                        }
+                        catch (InvalidDataException)
+                        { context.Response.StatusCode = 413; return; }
+                        if (preview == null)
+                        { context.Response.StatusCode = 404; return; }
+                        byte[] png = { 137, 80, 78, 71, 13, 10, 26, 10 };
+                        if (preview.Length < png.Length || !preview.AsSpan(0, 8).SequenceEqual(png))
+                        { context.Response.StatusCode = 415; return; }
+                        string previewEtag = "\"" + Convert.ToHexString(
+                            SHA256.HashData(preview)).ToLowerInvariant() + "\"";
+                        context.Response.Headers["ETag"] = previewEtag;
+                        context.Response.Headers["Cache-Control"] =
+                            previewMap.Listed && !previewMap.Draft
+                                ? "public, max-age=300"
+                                : "private, no-store";
+                        if (context.Request.Headers["If-None-Match"] == previewEtag)
+                        { context.Response.StatusCode = 304; return; }
+                        context.Response.ContentType = "image/png";
+                        context.Response.ContentLength64 = preview.LongLength;
+                        await context.Response.OutputStream.WriteAsync(preview, deadline.Token);
+                        return;
+                    }
                     if (hash.EndsWith("/metadata", StringComparison.Ordinal))
                     {
                         string packageHash = hash[..^9];
@@ -1058,7 +1105,16 @@ public static class MapCommunityServer
                     }
                     if (!MapCommunityClient.ValidHash(hash) || !maps.ContainsKey(hash)) { context.Response.StatusCode = 404; return; }
                     if(maps[hash].Draft&&(creator==null||!catalog.CanPublish(creator.CreatorId,maps[hash]))){context.Response.StatusCode=403;return;}
-                    long total = maps[hash].Bytes, start = 0;
+                    CommunityMap downloadMap = maps[hash];
+                    string packageEtag = "\"" + hash + "\"";
+                    context.Response.Headers["ETag"] = packageEtag;
+                    context.Response.Headers["Cache-Control"] = downloadMap.Listed
+                        && !downloadMap.Draft ? "public, max-age=31536000, immutable"
+                        : "private, no-store";
+                    if (context.Request.Headers["Range"] == null
+                        && context.Request.Headers["If-None-Match"] == packageEtag)
+                    { context.Response.StatusCode = 304; return; }
+                    long total = downloadMap.Bytes, start = 0;
                     context.Response.Headers["Accept-Ranges"] = "bytes";
                     if (context.Request.Headers["Range"] is { Length: > 0 } range)
                     {
