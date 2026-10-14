@@ -109,9 +109,12 @@ internal static class TimedShotNativeTests
             int fired = NetDamage.Fired[0];
             int semantic = Scene.MatchEvents.Bus.Events.Count(e => e.Type == MphRead.Mods.MatchEvents.MatchSemanticEventType.WeaponFired);
             uint expected = unchecked(NetSession.NetFrame + 1);
+            Check(!_keyboard.IsKeyDown(Keys.Space) && !Owner.Controls.Shoot.IsDown,
+                "released keyboard/control baseline precedes actual native press");
             Step(shoot: true);
-            Check(Owner.Controls.Shoot.IsPressed && Owner.Input.KeyboardState!.IsKeyDown(Keys.Space)
-                && !Owner.Input.PrevKeyboardState!.IsKeyDown(Keys.Space), "real sampled rising keyboard edge");
+            Check(Owner.Controls.Shoot.IsPressed && Owner.Controls.Shoot.IsDown
+                && !Owner.Controls.Shoot.IsReleased && _keyboard.IsKeyDown(Keys.Space),
+                "real sampled rising keyboard edge");
             Check(NetFireEvents.TryActiveAttempt(Owner, out var key, out var fire)
                 && fire.SourceFrame == expected && key.ShotId != 0 && fire.SourceLife == key.LifeId,
                 "native Begin retains exact full key and actual source frame");
