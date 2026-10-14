@@ -55,6 +55,8 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     private const int MaximumRetainedJobs = 32;
     private readonly string _root;
     private readonly string _indexPath;
+    private readonly CommunityTransferCoordination _coordination;
+    private readonly Task _watcher;
     private readonly CommunityArchiveCache _archiveCache;
     private readonly ICommunityCredentialSource? _credentials;
     private readonly SemaphoreSlim _workers;
@@ -73,6 +75,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             throw new ArgumentOutOfRangeException(nameof(maxConcurrent));
         _root = Path.GetFullPath(root);
         _indexPath = Path.Combine(_root, "jobs-v1.json");
+        _coordination = new CommunityTransferCoordination(_root);
         _archiveCache = new CommunityArchiveCache(_root);
         _credentials = credentials;
         _workers = new SemaphoreSlim(maxConcurrent, maxConcurrent);
@@ -81,42 +84,56 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         Directory.CreateDirectory(Path.Combine(_root, "partials"));
         Directory.CreateDirectory(Path.Combine(_root, "archives"));
 
-        if (!File.Exists(_indexPath)) return;
-        if (new FileInfo(_indexPath).Length > 256 * 1024)
-            throw new InvalidDataException("Community transfer index exceeds its budget.");
-        var persisted = JsonSerializer.Deserialize<CommunityTransferIndex>(
-            File.ReadAllText(_indexPath), MapPackageReader.JsonOptions)
-            ?? throw new InvalidDataException("Community transfer index is missing.");
-        if (persisted.Schema != SchemaVersion || persisted.Jobs.Length > MaximumRetainedJobs)
-            throw new InvalidDataException("Unsupported Community transfer index schema or size.");
-        foreach (var job in persisted.Jobs)
+        // Before any process can inspect and restart a job, acquire the
+        // short-lived index transaction lock. A different live process must
+        // retain its running-job state; only ownerless work can be recovered.
+        lock (_gate)
         {
-            ValidateRecord(job);
-            if (!_jobs.TryAdd(job.Id, job with
+            using var indexLease = LockAndReloadLocked();
+            bool recovered = false;
+            foreach (var job in _jobs.Values.ToArray())
+            {
+                if (job.State is CommunityTransferState.Preparing
+                    or CommunityTransferState.Uploading
+                    or CommunityTransferState.Downloading
+                    or CommunityTransferState.Verifying
+                    or CommunityTransferState.Queued)
                 {
-                    State = job.State is CommunityTransferState.Preparing
-                        or CommunityTransferState.Uploading
-                        or CommunityTransferState.Downloading
-                        or CommunityTransferState.Verifying
-                        or CommunityTransferState.Queued ? CommunityTransferState.Retryable : job.State
-                }))
-                throw new InvalidDataException("Duplicate Community transfer job ID.");
+                    if (_coordination.IsJobOwned(job.Id)) continue;
+                    _jobs[job.Id] = job with
+                    {
+                        State = CommunityTransferState.Retryable,
+                        Error = "Previous owner exited; immutable bytes retained."
+                    };
+                    recovered = true;
+                }
+            }
+            if (recovered) PersistLocked();
         }
-        // An unexpected power loss must never silently publish a job as Complete.
-        lock (_gate) PersistLocked();
+        // A read-only process can observe and control another owner's jobs
+        // without keeping its own stale copy of jobs-v1.json.
+        _watcher = Task.Run(WatchOtherProcessesAsync);
     }
 
     public IReadOnlyList<CommunityTransferJob> ListJobs()
     {
+        ThrowIfDisposed();
         lock (_gate)
+        {
+            using var gate = LockAndReloadLocked();
             return _jobs.Values.OrderByDescending(j => j.UpdatedAt).ToArray();
+        }
     }
 
     public CommunityTransferJob GetJob(Guid id)
     {
+        ThrowIfDisposed();
         lock (_gate)
+        {
+            using var gate = LockAndReloadLocked();
             return _jobs.TryGetValue(id, out var job) ? job
                 : throw new KeyNotFoundException("Unknown Community transfer job.");
+        }
     }
 
     /// <summary>Acquire a read lease before consuming an exact archive.</summary>
@@ -620,6 +637,101 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         Changed?.Invoke(result);
     }
 
+    /// <summary>
+    /// Always call under _gate, and keep the returned cross-process lease
+    /// alive through any transaction's PersistLocked call. Refreshing first
+    /// prevents stale in-memory copies from rewriting another process's jobs.
+    /// </summary>
+    private FileStream LockAndReloadLocked()
+    {
+        FileStream gate = _coordination.LockIndex(_lifetime.Token);
+        try
+        {
+            ReloadIndexLocked();
+            return gate;
+        }
+        catch
+        {
+            gate.Dispose();
+            throw;
+        }
+    }
+
+    private void ReloadIndexLocked()
+    {
+        if (!File.Exists(_indexPath))
+        {
+            _jobs.Clear();
+            return;
+        }
+        if (new FileInfo(_indexPath).Length > 256 * 1024)
+            throw new InvalidDataException("Community transfer index exceeds its budget.");
+        CommunityTransferIndex persisted = JsonSerializer.Deserialize<CommunityTransferIndex>(
+            File.ReadAllText(_indexPath), MapPackageReader.JsonOptions)
+            ?? throw new InvalidDataException("Community transfer index is missing.");
+        if (persisted.Schema != SchemaVersion || persisted.Jobs == null
+            || persisted.Jobs.Length > MaximumRetainedJobs)
+            throw new InvalidDataException("Unsupported Community transfer index schema or size.");
+        var copy = new Dictionary<Guid, CommunityTransferJob>();
+        foreach (CommunityTransferJob job in persisted.Jobs)
+        {
+            ValidateRecord(job);
+            if (!copy.TryAdd(job.Id, job))
+                throw new InvalidDataException("Duplicate Community transfer job ID.");
+        }
+        _jobs.Clear();
+        foreach (var pair in copy) _jobs.Add(pair.Key, pair.Value);
+    }
+
+    /// <summary>
+    /// Poll the tiny atomic index for changes from other processes. This is a
+    /// bounded 500ms control plane, never an HTTP polling loop. Cross-process
+    /// pause/cancel requests cancel only the current job owner. A queued
+    /// unowned job may be claimed by exactly one process via its job lease.
+    /// </summary>
+    private async Task WatchOtherProcessesAsync()
+    {
+        try
+        {
+            while (!_lifetime.IsCancellationRequested)
+            {
+                await Task.Delay(500, _lifetime.Token).ConfigureAwait(false);
+                var changed = new List<CommunityTransferJob>();
+                var cancel = new List<CancellationTokenSource>();
+                var queued = new List<Guid>();
+                lock (_gate)
+                {
+                    var previous = _jobs.ToDictionary(pair => pair.Key, pair => pair.Value);
+                    using var gate = LockAndReloadLocked();
+                    foreach (var job in _jobs.Values)
+                    {
+                        if (!previous.TryGetValue(job.Id, out var before)
+                            || before != job) changed.Add(job);
+                        if (_running.TryGetValue(job.Id, out var active)
+                            && job.State is CommunityTransferState.Paused
+                                or CommunityTransferState.Cancelled)
+                            cancel.Add(active.Cancellation);
+                        if (job.State == CommunityTransferState.Queued
+                            && !_running.ContainsKey(job.Id))
+                            queued.Add(job.Id);
+                    }
+                }
+                foreach (var signal in cancel)
+                {
+                    try { signal.Cancel(); }
+                    catch (ObjectDisposedException) { }
+                }
+                foreach (var job in changed) Changed?.Invoke(job);
+                foreach (Guid id in queued)
+                {
+                    if (!_lifetime.IsCancellationRequested)
+                        Schedule(id);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+    }
+
     private void PersistLocked()
         => AtomicFile.Write(_indexPath,
             JsonSerializer.SerializeToUtf8Bytes(new CommunityTransferIndex(
@@ -688,6 +800,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         Task[] running;
         lock (_gate) running = _running.Values.Select(v => v.Running).ToArray();
         if (running.Length > 0) await Task.WhenAll(running).ConfigureAwait(false);
+        await _watcher.ConfigureAwait(false);
         _lifetime.Dispose();
         _workers.Dispose();
     }
