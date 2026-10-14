@@ -116,6 +116,71 @@ No production behavior, protocol, replay format, save serializer or settings
 default is changed. Roll back this test/dispatch/document slice independently;
 retain all prior negative or incomplete native evidence.
 
+## Serial acceptance executor
+
+`tools/nettest/run_life_campaign.py` wraps the existing commands above and the
+current OpenGL shell/respawn routes. Supply qualified tool DLLs that resolve the
+same immutable ProjectPrime.dll; compiling a standalone harness must preserve
+that qualified physical client, for example through BuildProjectReferences=false
+and a generated external project with its reference HintPath set to the
+qualified DLL. A freshly rebuilt client alias is not interchangeable with the
+qualified DLL. The executor rejects mismatched client copies. It also requires
+the integrated build receipt whose sourceBefore/sourceAfter match the clean
+source head and whose actualLoadedClient includes the qualified SHA and MVID.
+
+```sh
+python3 tools/nettest/run_life_campaign.py \
+  --nettest /absolute/qualified/bin/nettest.dll \
+  --client /absolute/qualified/bin/ProjectPrime.dll \
+  --native /absolute/qualified/native/native-render-check.dll \
+  --music /absolute/qualified/music/music-lifecycle-check.dll \
+  --filesystem /absolute/licensed/AMHE1/filesystem \
+  --replay /absolute/positive-recording.ppdemo \
+  --paths-template /absolute/fixture-template/paths.txt \
+  --qualification-receipt /absolute/exact-head-build/receipt.json \
+  --output /absolute/fresh/evidence/life-campaign \
+  --counts 10 100 500 --native-cycles 10 \
+  --operations asset native replica export music shell respawn
+```
+
+The runner normalizes only paths.txt into fresh isolated user data, does not copy
+player settings or credentials, and clears every ambient PRIME/MPH/PROJECT
+environment control before setting its explicit user-data path. It records and
+checks source state, DLL/dependency/runtime-config hashes, replay, paths,
+qualification receipt, runner/helper scripts before and after workloads. The
+existing asset-identity helper hashes the actual licensed input files and
+verifies their identity at campaign completion. Loaded fixture SHA/MVID must
+match the qualification receipt. Raw logs remain external and retain failures.
+
+Each executable runs in an owned POSIX process group. Timeout or executor
+SIGTERM/SIGINT terminates the group, escalates if a descendant ignores SIGTERM,
+reaps its leader and records remaining members. Success requires no live
+descendants left before cleanup. This ownership implementation is qualified on
+POSIX only; executable Windows campaigns are explicitly NOT_RUN until a
+Windows process-tree owner is validated. The lightweight Python suite exercises
+success, a real SIGTERM-resistant descendant, executor termination, environment
+isolation, exact qualification rejection, PNG integrity/black controls and
+positive/missing shell and respawn denominators without starting game processes.
+
+`shell` uses `-shellshot OUTPUT -shelllifecycle REPLAY -noupdate -debuglog`,
+including the full standard fullscreen/rematch/map-rotation script. It never
+adds the obsolete modern-backend flags described in historical documentation.
+The current standard script has 31 captures; its two added cycles require twelve
+more. Both exact PASS cycle markers, logged actual asset readiness, no missing
+steps, every expected nonblack PNG and matching OpenGL final-composite evidence
+are required. Inspect the pictures independently as well. This covers actual
+rendered menus, rematch, Map Studio open/close and replay UI seek/return; it does
+not author maps or establish editor playtest, lobby network reconnect or native
+memory boundedness.
+
+Optional `respawn` reuses `-respawnrendercheck 'MP3 PROVING GROUND' -cycles 9
+-timeout 300` and validates its actual nine-case PASS summary, deaths/respawns,
+positive checked frames, fourteen control comparisons and zero reported
+invariant/GL/failure counts. A failure or incomplete route remains FAIL and stops
+the serial campaign; future operations remain NOT_RUN rather than disappearing
+from evidence. Native runs remain coordinated separately from ordinary timing
+benchmarks. No executor run has yet qualified these broader native/UI gates.
+
 The first integrated build at `b58377ab` failed because the fixture applied LINQ
 to the foreach-only native entity iterator. The explicit native traversal fix
 was followed by a full successful build at `ff16b44d`. Its first real 10-load
@@ -127,3 +192,15 @@ from the actual active native room grids and borrows the existing production
 GetCandidatesForLimits lease. All nonempty and outer identity/count assertions
 remain mandatory. Preserve both failed receipts; neither failure is a native
 world/ownership PASS.
+
+At corrected integrated head `38ae3ceb`, the qualified full client/nettest passed
+all three actual asset campaigns: 10, 100 and 500 loads, totaling 610 real room
+loads, 36,600 native frames and 610 exact save comparisons. Each campaign also
+loaded three simultaneous worlds including the original authority recording's
+detached replica and finished with zero sequential/simultaneous weak targets
+alive after eligible release. The physical client SHA-256 was
+`2238516d0eee2976c49cff8f3e2eb59b180d0bb704b50ad63561235d9272a517`, MVID
+`0727be91-ff32-463e-b0b8-431bcbb272e8`. These source-qualified external receipts
+establish loaded-world/save ownership in this headless workload. GL/audio, shell
+UI and media campaigns remain separate; their positive receipts cannot be
+inferred from this pass.
