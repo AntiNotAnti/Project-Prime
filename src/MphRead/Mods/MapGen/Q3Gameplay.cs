@@ -2,12 +2,76 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using MphRead.Entities;
 
 namespace MphRead.Mods.MapGen;
 
 /// <summary>Prime gameplay adaptation shared by preflight, conversion and legacy BSP imports.</summary>
 public static class Q3Gameplay
 {
+        public static ItemType MapPickupType(string classname)
+        {
+            return classname.ToLowerInvariant() switch
+            {
+                "weapon_railgun" => ItemType.Imperialist,
+                "weapon_rocketlauncher" => ItemType.Magmaul,
+                "weapon_lightning" => ItemType.ShockCoil,
+                "weapon_plasmagun" => ItemType.VoltDriver,
+                "weapon_shotgun" => ItemType.Battlehammer,
+                "weapon_grenadelauncher" => ItemType.Judicator,
+                "weapon_bfg" => ItemType.OmegaCannon,
+                "item_quad" => ItemType.DoubleDamage,
+                "item_invis" => ItemType.Cloak,
+                "item_health" => ItemType.HealthMedium,
+                "item_health_small" => ItemType.HealthSmall,
+                "item_health_large" => ItemType.HealthBig,
+                "item_health_mega" => ItemType.HealthBig,
+                "item_armor_shard" => ItemType.UASmall,
+                "item_armor_combat" => ItemType.UABig,
+                "item_armor_body" => ItemType.UABig,
+                "ammo_rockets" => ItemType.MissileBig,
+                "ammo_slugs" => ItemType.UABig,
+                "ammo_cells" => ItemType.UASmall,
+                "ammo_shells" => ItemType.UASmall,
+                "ammo_bullets" => ItemType.UASmall,
+                "ammo_grenades" => ItemType.MissileSmall,
+                "ammo_lightning" => ItemType.UASmall,
+                _ => ItemType.None
+            };
+        }
+
+
+    /// <summary>
+    /// Deterministic, explicitly lossy-on-source-name canonical spellings for
+    /// Prime-authored pickup roundtrips. Unsupported Prime items cannot be
+    /// exported as fake Quake entities.
+    /// </summary>
+    public static string? CanonicalQuakePickup(string primeType)
+    {
+        if (!Enum.TryParse<ItemType>(primeType, true, out var item))
+            return null;
+        return item switch
+        {
+            ItemType.Imperialist => "weapon_railgun",
+            ItemType.Magmaul => "weapon_rocketlauncher",
+            ItemType.ShockCoil => "weapon_lightning",
+            ItemType.VoltDriver => "weapon_plasmagun",
+            ItemType.Battlehammer => "weapon_shotgun",
+            ItemType.Judicator => "weapon_grenadelauncher",
+            ItemType.OmegaCannon => "weapon_bfg",
+            ItemType.DoubleDamage => "item_quad",
+            ItemType.Cloak => "item_invis",
+            ItemType.HealthMedium => "item_health",
+            ItemType.HealthSmall => "item_health_small",
+            ItemType.HealthBig => "item_health_large",
+            ItemType.UASmall => "item_armor_shard",
+            ItemType.UABig => "item_armor_combat",
+            ItemType.MissileBig => "ammo_rockets",
+            ItemType.MissileSmall => "ammo_grenades",
+            _ => null
+        };
+    }
+
     public static bool IsPlayerStart(string classname) => classname.ToLowerInvariant() is
         "info_player_start" or "info_player_deathmatch" or "team_ctf_redplayer"
         or "team_ctf_blueplayer" or "team_ctf_redspawn" or "team_ctf_bluespawn";
