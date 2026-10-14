@@ -1,10 +1,32 @@
 using System;
+using System.Diagnostics;
+using System.Reflection;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
+
+// Real process witness: the OS must enforce the archive read lease between
+// two independently launched CLR processes, not just between C# objects.
+if (args.Length > 0 && args[0] == "--hold-cache-lease")
+{
+    if (args.Length != 8) throw new ArgumentException("Invalid lease witness arguments.");
+    var identity = new MapContentIdentity(Guid.Parse(args[2]), args[3],
+        MapHash256.Parse(args[4]), MapHash256.Parse(args[5]), true);
+    using var lease = new CommunityArchiveCache(args[1]).TryAcquire(identity)
+        ?? throw new InvalidDataException("Cache lease witness could not verify exact archive.");
+    File.WriteAllText(args[6], "ready");
+    var timeout = Stopwatch.StartNew();
+    while (!File.Exists(args[7]))
+    {
+        if (timeout.Elapsed > TimeSpan.FromSeconds(45))
+            throw new TimeoutException("Parent did not release cache lease witness.");
+        await Task.Delay(50);
+    }
+    return;
+}
 
 // Asset-free cache acceptance. Uses real .ppmap construction and the exact
 // strict archive reader, without modifying installed or gameplay map files.
@@ -90,6 +112,65 @@ try
             throw new Exception("Promoted while another reader held the object.");
         }
         catch (IOException) { checks++; Console.WriteLine("PASS promotion respects read lease"); }
+    }
+
+    // Exercise the lock with a distinct process. A normal FileStream lease
+    // must survive a simultaneous prune from the parent process.
+    cache.Promote(first, a);
+    cache.Promote(second, b);
+    string ready = Path.Combine(root, "lease-child-ready");
+    string release = Path.Combine(root, "lease-child-release");
+    string processPath = Environment.ProcessPath
+        ?? throw new InvalidOperationException("Cannot locate cache acceptance executable.");
+    var start = new ProcessStartInfo(processPath)
+    {
+        UseShellExecute = false,
+        RedirectStandardError = true,
+        WorkingDirectory = AppContext.BaseDirectory
+    };
+    if (Path.GetFileNameWithoutExtension(processPath).Equals(
+        "dotnet", StringComparison.OrdinalIgnoreCase))
+        start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
+    foreach (string argument in new[]
+    {
+        "--hold-cache-lease", store, a.MapId.ToString(),
+        a.RoomKey, a.ContentHash.ToString(), a.PackageHash.ToString(),
+        ready, release
+    }) start.ArgumentList.Add(argument);
+    using (Process child = Process.Start(start)
+        ?? throw new IOException("Could not launch independent cache lease witness."))
+    {
+        try
+        {
+            var deadline = Stopwatch.StartNew();
+            while (!File.Exists(ready))
+            {
+                if (child.HasExited)
+                    throw new IOException("Cache witness exited early: "
+                        + await child.StandardError.ReadToEndAsync());
+                if (deadline.Elapsed > TimeSpan.FromSeconds(30))
+                    throw new TimeoutException("Cache witness did not acquire its archive.");
+                await Task.Delay(50);
+            }
+            var result = secondProcess.Prune();
+            Check(result.AfterBytes <= max && secondProcess.TryAcquire(b) == null
+                && File.Exists(Path.Combine(store, "archives", a.PackageHash + ".ppmap")),
+                "real child-process read lease prevents parent-process LRU eviction");
+        }
+        finally
+        {
+            File.WriteAllText(release, "release");
+            try
+            {
+                await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15));
+            }
+            catch (TimeoutException)
+            {
+                if (!child.HasExited) child.Kill(entireProcessTree: true);
+                throw;
+            }
+        }
+        Check(child.ExitCode == 0, "independent lease witness cleanly releases its OS handle");
     }
 
     using var firstGate = await cache.AcquireDownloadGateAsync(a.PackageHash.ToString());
