@@ -34,7 +34,7 @@ namespace MphRead.Mods.Campaign
             };
         }
 
-        public static Sound.UiFeedbackCue Cue(CampaignAudioPage page) => page switch
+        internal static Sound.UiFeedbackCue Cue(CampaignAudioPage page) => page switch
         {
             CampaignAudioPage.Dock => Sound.UiFeedbackCue.CampaignDock,
             CampaignAudioPage.StarMap => Sound.UiFeedbackCue.CampaignStarMap,
