@@ -432,6 +432,41 @@ public static class NetShotProof
         or ShotProofReason.MuzzleDistance or ShotProofReason.BlockedMuzzle or ShotProofReason.MissedBody
         or ShotProofReason.BlockedWorld or ShotProofReason.WrongHeadshot or ShotProofReason.Reach or ShotProofReason.DamageMismatch
         or ShotProofReason.ClaimEffectsMismatch or ShotProofReason.SourceClock;
+    // Timed modifier policy needs only the captured Imperialist head ray. This
+    // does not consult or update the optional legacy proof/payment stores.
+    internal static ShotProofReason ValidateTimedHead(in HitClaimPacket claim, in TimedShotCertificate shot)
+    {
+        if ((claim.Flags & HitClaimPacket.FlagHeadshot) == 0) return ShotProofReason.Verified;
+        var key = shot.Key;
+        if ((uint)key.ShooterSlot >= 8 || key.LifeId == 0 || claim.VictimLifeId == 0
+            || shot.Fire.SourceLife != key.LifeId || shot.Fire.ShotId != key.ShotId
+            || Key(key.ShooterSlot, claim) != key
+            || !NetSession.MatchesStream(key.MatchId, key.AuthorityEpoch)
+            || key.Generation != NetPlayerLifecycle.Generation(key.ShooterSlot)
+            || !NetPlayerLifecycle.Matches(claim.VictimSlot, claim.VictimGeneration, claim.VictimLifeId))
+            return ShotProofReason.WrongLife;
+        if (claim.Beam != shot.Fire.Weapon) return ShotProofReason.WeaponMismatch;
+        if (claim.LaunchFrame != shot.Fire.AckFrame || claim.LaunchFrame > claim.AckFrame)
+            return ShotProofReason.StaleAck;
+        if (claim.Beam != (byte)BeamType.Imperialist
+            || (claim.Flags & HitClaimPacket.FlagDirect) == 0
+            || shot.Fire.Kind is FireEventKind.ContinuousTick or FireEventKind.TurretFire)
+            return ShotProofReason.PhysicalWitnessRequired;
+        // The receipt retains one ray; it cannot identify a pellet/child ray.
+        if (!shot.Damage.Present || shot.Components != 1 || claim.ComponentId != 1)
+            return ShotProofReason.UnknownComponent;
+        var damage = shot.Damage;
+        if (!float.IsFinite(damage.Radius) || damage.Radius < 0)
+            return ShotProofReason.InvalidRay;
+        var component = new Component { Live = true, Key = key, Id = claim.ComponentId,
+            Weapon = claim.Beam, Origin = damage.Origin, Direction = damage.Direction,
+            Radius = damage.Radius, Speed = damage.Speed, Reach = damage.Reach,
+            Damage = damage.Body, HeadDamage = damage.Head, Family = ShotProofFamily.Straight };
+        var reason = Trace(key.ShooterSlot, claim, shot.Fire, component);
+        // Clear head geometry is enough here; damage/effect ownership is decided
+        // separately by the timed policy, not promoted into legacy shot proof.
+        return reason == ShotProofReason.PhysicalWitnessRequired ? ShotProofReason.Verified : reason;
+    }
     private static ShotProofReason Trace(int slot,in HitClaimPacket claim,in FireEvent fire,in Component component)
     {
         if(!Finite(component.Origin)||!Finite(component.Direction)||component.Direction.LengthSquared<.99f)return ShotProofReason.InvalidRay;
