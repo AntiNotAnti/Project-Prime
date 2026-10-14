@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "scope": "Original-file PassiveReplayScene.Step only; full plan NOT_ACCEPTED",
+  "files": [
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/smoke-long2-7588-attempt1/receipt.json",
+      "originalSha256": "969f9f43808755514d66dbb0d27c5fbf4c93f6b6a2b706e4d3ded15ca07ddb7b",
+      "originalBytes": 914214,
+      "derivativePath": "receipt.json",
+      "derivativeSha256": "177ad9a7f331fab34f1d94de814d92866f434095c014389d670c90ffa6120e0c",
+      "derivativeBytes": 907966,
+      "treatment": "Exact workspace/home prefix replacement; complete JSON retained"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/smoke-long2-7588-attempt1/build.log",
+      "originalSha256": "7d9ec69d5783b2771b6de2c2ff3a1cb393a2d7af45d343cb66fec03feddde545",
+      "originalBytes": 474,
+      "derivativePath": "build.log.json",
+      "derivativeSha256": "10b16fe4ea83d2dbede9611c2fea97705816a17a4d6e407b21bbd0770bd6974f",
+      "derivativeBytes": 358,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/smoke-long2-7588-attempt1/replay-00.log",
+      "originalSha256": "878cd5a437942ebf2d71db8a9ebf12021d3501ccc2b58562d8bcbf97942e98e0",
+      "originalBytes": 1217,
+      "derivativePath": "replay-00.log.json",
+      "derivativeSha256": "3524f8f3c8c4c2d6bbdeef340796047641f657ce5284ee390a3b6cb64c9c3cf9",
+      "derivativeBytes": 1175,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/smoke-long2-7588-attempt1/replay-01.log",
+      "originalSha256": "db0b6b3706fc19fc33c1d0a240aad9b44a3f776c294374fd93e1298dc515fe2a",
+      "originalBytes": 1217,
+      "derivativePath": "replay-01.log.json",
+      "derivativeSha256": "c0770924d58c87be2919f49dfabe53b742a5788d153b72047fbcb8cbdfd09677",
+      "derivativeBytes": 1175,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/smoke-long2-7588-attempt1/replay-02.log",
+      "originalSha256": "3fab9ebc41fd9de0ef0a380e99b20251a4c9064c584ba6d3b530fdaca0a4dede",
+      "originalBytes": 1223,
+      "derivativePath": "replay-02.log.json",
+      "derivativeSha256": "a86f2679a0e2702bd456310b1806d3119d63f2c742f156f0bd2cb99e214f44c7",
+      "derivativeBytes": 1181,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/smoke-long2-7588-attempt1/replay-03.log",
+      "originalSha256": "4a6ac06edc3351404c0dfe69b56b62369087ba29189163f369a5c427b193efc8",
+      "originalBytes": 5567,
+      "derivativePath": "replay-03.log.json",
+      "derivativeSha256": "9993c6f2c374e3cca1ce578812a20359ca2565da4c1f166236df66beb0490407",
+      "derivativeBytes": 5592,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/smoke-long2-7588-attempt1/replay-04.log",
+      "originalSha256": "f56cab1b4350976b12c55856bf44ad4341e54265b77e2f58ae4efdcf7c3df474",
+      "originalBytes": 5567,
+      "derivativePath": "replay-04.log.json",
+      "derivativeSha256": "a6e818c2ec2d858623326159c5af8b550cc91da7fadf486a28cb6033b60e7dfc",
+      "derivativeBytes": 5592,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    },
+    {
+      "originalRelativePath": "work/replay-scene-campaigns/smoke-long2-7588-attempt1/replay-05.log",
+      "originalSha256": "033533ebab25b736d2888663234dadb3105c005cad945809e76ffddf8c202416",
+      "originalBytes": 5697,
+      "derivativePath": "replay-05.log.json",
+      "derivativeSha256": "205715475cec78c8b73978099f16131d383b7bcbf234ecedaf5768611229f803",
+      "derivativeBytes": 5722,
+      "treatment": "Exact workspace/home prefix replacement; untruncated log JSON text"
+    }
+  ]
+}
