@@ -164,7 +164,11 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         ValidateEndpoint(endpoint);
         Guid id = Guid.NewGuid();
         string snapshot = UploadPath(id);
-        lock (_gate) RequireCapacityLocked();
+        lock (_gate)
+        {
+            using var gate = LockAndReloadLocked();
+            RequireCapacityLocked();
+        }
 
         // Freeze before queue admission: subsequent editor changes or close may
         // not mutate an in-flight upload. Copy and SHA-256 work off the UI thread.
@@ -321,11 +325,13 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         CommunityTransferJob job;
         lock (_gate)
         {
+            using var gate = LockAndReloadLocked();
             if (!_jobs.TryGetValue(id, out job!))
                 throw new KeyNotFoundException("Unknown Community transfer.");
-            if (_running.ContainsKey(id) || (job.State is CommunityTransferState.Queued
-                or CommunityTransferState.Preparing or CommunityTransferState.Uploading
-                or CommunityTransferState.Downloading or CommunityTransferState.Verifying))
+            if (_running.ContainsKey(id) || _coordination.IsJobOwned(id)
+                || (job.State is CommunityTransferState.Queued
+                    or CommunityTransferState.Preparing or CommunityTransferState.Uploading
+                    or CommunityTransferState.Downloading or CommunityTransferState.Verifying))
                 throw new InvalidOperationException("Pause or finish the transfer before removing it.");
             _jobs.Remove(id);
             PersistLocked();
@@ -361,6 +367,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     {
         lock (_gate)
         {
+            using var gate = LockAndReloadLocked();
             RequireCapacityLocked();
             _jobs.Add(job.Id, job);
             PersistLocked();
@@ -575,6 +582,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     {
         lock (_gate)
         {
+            using var gate = LockAndReloadLocked();
             if (!_jobs.TryGetValue(id, out var job)
                 || job.State is CommunityTransferState.Paused
                     or CommunityTransferState.Cancelled) return;
@@ -602,6 +610,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         CancellationTokenSource? signal = null;
         lock (_gate)
         {
+            using var gate = LockAndReloadLocked();
             if (!_jobs.TryGetValue(id, out var job))
                 throw new KeyNotFoundException("Unknown transfer.");
             if (job.State is CommunityTransferState.Completed
@@ -625,6 +634,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         CommunityTransferJob result;
         lock (_gate)
         {
+            using var gate = LockAndReloadLocked();
             var job = _jobs[id];
             if (!force && job.State is CommunityTransferState.Paused
                 or CommunityTransferState.Cancelled) return;
