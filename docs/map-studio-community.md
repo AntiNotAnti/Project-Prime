@@ -43,8 +43,11 @@
   A real NetRadiant/q3map2/gameplay validation and license review are still
   required before that can change.
 
-The creator preview is a staged PR-14 feature, not enabled by default.
-Full platform/gameplay/replay testing is deferred and must not be assumed.
+Creator Hub is enabled in new builds but does not bypass validation of
+live gameplay maps. CDN and external NetRadiant require locally configured
+trusted hosts or installed binaries. Full platform/gameplay/replay manual
+testing is deferred and must not be assumed. See
+[feature activation and rollback](architecture/community-hub-feature-activation.md).
 See [the cutover readiness and rollback plan](architecture/community-hub-pr14-cutover.md).
 
 
