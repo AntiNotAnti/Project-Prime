@@ -99,7 +99,10 @@ try
         Check(caps is { ApiVersion: 3, LegacyApiVersion: 2,
             SupportsSequentialResumableUploads: true,
             SupportsParallelUploadRanges: false,
-            SupportsGenericContentCatalog: false }
+            SupportsGenericContentCatalog: true,
+            SupportsGenericContentPublishing: false }
+            && caps.SupportedKinds.Contains(CommunityContentKinds.Map)
+            && caps.SupportedKinds.Contains(CommunityContentKinds.Texture)
             && caps.MaxArchiveBytes == MapPackageReader.MaxArchiveBytes
             && caps.MaxUploadChunkBytes == MapCommunityClient.UploadChunkBytes
             && caps.MaxConcurrentUploads == 3 && caps.MaxConcurrentDownloads == 16,

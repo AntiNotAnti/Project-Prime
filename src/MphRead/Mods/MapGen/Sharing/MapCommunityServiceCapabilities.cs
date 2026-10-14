@@ -1,19 +1,20 @@
 namespace MphRead.Mods.MapGen;
 
 /// <summary>
-/// Optional service preflight for future generic content/asset clients.
-/// Published map transfer routes remain v2/legacy until a separately
-/// negotiated protocol transition. API v3 here is capabilities-only.
+/// Optional service preflight for typed read-only v3 metadata clients.
+/// Published map transfer routes remain v2/legacy. Generic asset publishing
+/// is disabled until the separate type-specific PR-09 validation pipeline.
 /// </summary>
 public sealed record MapCommunityServiceCapabilities
 {
     public int ApiVersion { get; init; } = 3;
     public int LegacyApiVersion { get; init; } = 2;
-    public string[] SupportedKinds { get; init; } = new[] { "map" };
+    public string[] SupportedKinds { get; init; } = CommunityContentKinds.Supported;
     public bool SupportsSequentialResumableUploads { get; init; } = true;
     public bool SupportsRangeDownloads { get; init; } = true;
     public bool SupportsParallelUploadRanges { get; init; }
-    public bool SupportsGenericContentCatalog { get; init; }
+    public bool SupportsGenericContentCatalog { get; init; } = true;
+    public bool SupportsGenericContentPublishing { get; init; } = false;
     public long MaxArchiveBytes { get; init; } = MapPackageReader.MaxArchiveBytes;
     public int MaxUploadChunkBytes { get; init; } = MapCommunityClient.UploadChunkBytes;
     public int RecommendedUploadChunkBytes { get; init; } = 4 * 1024 * 1024;
@@ -36,5 +37,8 @@ public sealed record MapCommunityServiceCapabilities
         MapCommunityServiceAdmission.VerificationConcurrency;
     public int MaximumPreviewBytes { get; init; } = 1024 * 1024;
     public string[] SupportedReadRoutes { get; init; } =
-        new[] { "/maps", "/v2/maps", "/packages/{sha256}", "/maps/{sha256}/preview" };
+        new[] { "/maps", "/v2/maps", "/packages/{sha256}",
+            "/maps/{sha256}/preview", "/v3/content",
+            "/v3/content/{kind}/{contentId}",
+            "/v3/content/{kind}/{contentId}/revisions" };
 }
