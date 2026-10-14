@@ -27,6 +27,8 @@ internal readonly record struct NativeImpactWitness(ShotPaymentKey Payment, byte
 internal static class NetNativeImpactWitness
 {
     [ThreadStatic] private static NativeImpactWitness? _current;
+    private readonly record struct Segment(ShotKey Key, uint Component, Vector3 Start, Vector3 End);
+    [ThreadStatic] private static Segment? _segment;
 
     internal static bool TryCapture(out NativeImpactWitness witness)
     {
@@ -37,15 +39,29 @@ internal static class NetNativeImpactWitness
     internal readonly struct Scope : IDisposable
     {
         private readonly NativeImpactWitness? _prior;
-        internal Scope(NativeImpactWitness? value) { _prior = _current; _current = value; }
-        public void Dispose() => _current = _prior;
+        private readonly bool _active;
+        internal Scope(NativeImpactWitness? value) { _active = true; _prior = _current; _current = value; }
+        public void Dispose() { if (_active) _current = _prior; }
+    }
+
+    internal readonly struct SegmentScope : IDisposable
+    {
+        private readonly Segment? _prior;
+        private readonly bool _active;
+        internal SegmentScope(BeamProjectileEntity beam, Vector3 start, Vector3 end)
+        {
+            _active = NetTimedShotProof.Active;
+            _prior = _active ? _segment : null;
+            if (_active) _segment = new Segment(beam.ModLaunchKey, beam.ModComponentId, start, end);
+        }
+        public void Dispose() { if (_active) _segment = _prior; }
     }
 
     internal static Scope Enter(PlayerEntity victim, BeamProjectileEntity beam,
         uint channel, DamageFlags flags, Vector3 point)
     {
-        if (!NetTimedShotProof.Active || !NetSession.Active || !NetSession.IsAuthority
-            || beam.OwningScene.Services.IsReplica || NetDamage.ApplyingClaim || NetDamage.Replaying)
+        if (!NetTimedShotProof.Active) return default;
+        if (beam.OwningScene.Services.IsReplica || NetDamage.ApplyingClaim || NetDamage.Replaying)
             return new Scope(null);
         bool direct = beam.EnhancedDirectHit;
         bool turret = flags.TestFlag(DamageFlags.Halfturret);
@@ -53,14 +69,18 @@ internal static class NetNativeImpactWitness
         var payment = new ShotPaymentKey(beam.ModLaunchKey, (byte)victim.SlotIndex,
             NetPlayerLifecycle.Generation(victim.SlotIndex), NetPlayerLifecycle.Get(victim.SlotIndex),
             beam.ModComponentId, kind);
-        bool ordinary = direct && !turret && beam.Owner is PlayerEntity
+        var segment = _segment;
+        bool exactSegment = segment is { } value && value.Key == beam.ModLaunchKey
+            && value.Component == beam.ModComponentId;
+        bool ordinary = exactSegment && direct && !turret && beam.Owner is PlayerEntity
             && beam.ModComponentId == 1 && NetTimedShotModifiers.Ordinary((byte)beam.Beam)
             && !beam.EnhancedMicroSeeker && beam.Homing <= 0
-            && !beam.Flags.TestFlag(BeamFlags.Continuous | BeamFlags.Ricochet)
+            && (beam.Flags & (BeamFlags.Continuous | BeamFlags.Ricochet)) == 0
             && beam.RicochetWeapon == null && beam.EnhancedBounceCount == 0;
         var witness = new NativeImpactWitness(payment, (byte)beam.Beam, NetSession.NetFrame,
             point, channel, flags.TestFlag(DamageFlags.Headshot), beam.SpawnPosition,
-            beam.BackPosition, beam.Position, direct, ordinary);
+            exactSegment ? segment!.Value.Start : beam.BackPosition,
+            exactSegment ? segment!.Value.End : beam.Position, direct, ordinary);
         return new Scope(witness.Valid ? witness : null);
     }
 }

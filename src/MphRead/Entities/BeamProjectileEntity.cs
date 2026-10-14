@@ -438,7 +438,7 @@ namespace MphRead.Entities
             return true;
         }
 
-        private static bool TryBeamObstacle(Vector3 start, Vector3 end, Scene scene,
+        internal static bool TryBeamObstacle(Vector3 start, Vector3 end, Scene scene,
             out CollisionResult anyRes, out EntityBase? colWith)
         {
             anyRes = default; colWith = null; float minDist = 2f;
@@ -664,6 +664,7 @@ namespace MphRead.Entities
                     }
                 }
             }
+            using var nativeSegment = new NetNativeImpactWitness.SegmentScope(this, BackPosition, Position);
             ResolveCollision(anyRes, colWith, noColEff, minDist, hitHalfturret);
         }
 
