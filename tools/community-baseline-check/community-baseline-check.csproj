@@ -3,5 +3,6 @@
   <ItemGroup>
     <ProjectReference Include="../../src/MphRead/MphRead.csproj" />
     <None Update="community-baseline-golden.sha256" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="community-baseline-golden-win.sha256" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
