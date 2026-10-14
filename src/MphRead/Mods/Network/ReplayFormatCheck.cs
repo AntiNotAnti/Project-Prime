@@ -605,7 +605,8 @@ namespace MphRead.Mods.Network
                     Require(Reject(malformed, 5), "v5 rejects malformed continuation policy");
                     Require(Reject(header[..^1], 5), "v5 rejects truncated continuation policy");
                     Require(Reject(header, 4), "v4 rejects continuation metadata tails");
-                    Require(Reject(header, 6), "metadata rejects unknown future versions");
+                    Require(Reject(header, 6), "v6 rejects v5 metadata without timed shot capability");
+                    Require(Reject(header, 7), "metadata rejects unknown future versions");
                     string v5 = Path.Combine(directory, $"world-policy-{policy}.ppdemo");
                     using (var writer = new ReplayWriterV3(v5, v5Metadata))
                         for (uint frame = 0; frame <= 80; frame++) ReplayTimelineArchive.EndFrame(writer, frame);
@@ -614,7 +615,13 @@ namespace MphRead.Mods.Network
                             && read.Metadata!.IndexedFireContinuation == policy && read.DurationFrames == 20,
                             "v5 container reader retains consumer policy and lead-in");
                     Require(ReplayArchive.Validate(v5) == ReplayOpenResult.Success, "v5 container CRC validation");
-                    byte[] future = File.ReadAllBytes(v5); future[4] = 6;
+                    byte[] upgraded = File.ReadAllBytes(v5); upgraded[4] = 6;
+                    string upgradedPath = Path.Combine(directory, $"world-invalid-v6-{policy}.ppdemo");
+                    File.WriteAllBytes(upgradedPath, upgraded);
+                    using (var read = DemoReader.Open(upgradedPath, out var opened))
+                        Require(read == null && opened == ReplayOpenResult.Corrupt,
+                            "v6 container rejects v5 metadata without timed shot capability");
+                    byte[] future = File.ReadAllBytes(v5); future[4] = 7;
                     string futurePath = Path.Combine(directory, $"world-future-{policy}.ppdemo");
                     File.WriteAllBytes(futurePath, future);
                     using (var read = DemoReader.Open(futurePath, out var opened))

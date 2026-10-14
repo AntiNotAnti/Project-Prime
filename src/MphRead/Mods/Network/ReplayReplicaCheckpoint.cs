@@ -31,8 +31,11 @@ internal sealed partial class ReplayReplicaState
     }
     internal void WriteCheckpoint(BinaryWriter writer)
     {
-        writer.Write(CheckpointMagic); writer.Write(CheckpointVersion); writer.Write((byte)NetConfig.ProtocolVersion);
-        writer.Write((byte)ReplayReplicaCheckpointLayout.CurrentFeatures);
+        writer.Write(CheckpointMagic);
+        writer.Write(TimedShots.Enabled ? CheckpointVersion : ReplayReplicaCheckpointLayout.DefaultVersion);
+        writer.Write((byte)NetConfig.ProtocolVersion);
+        writer.Write((byte)(ReplayReplicaCheckpointLayout.CurrentFeatures
+            | (TimedShots.Enabled ? ReplayReplicaCheckpointFeatures.TimedShots : ReplayReplicaCheckpointFeatures.None)));
         writer.Write(RecordingFrame); writer.Write(MatchRecordingFrame); writer.Write(ServerTick);
         writer.Write(Rng1); writer.Write(Rng2);
         writer.Write(AcceptedPackets); writer.Write(IgnoredPackets);
@@ -90,6 +93,7 @@ internal sealed partial class ReplayReplicaState
         WriteTurretOutcomes(writer);
         WritePickupFacts(writer);
         WriteGrantFacts(writer);
+        if (TimedShots.Enabled) WriteTimedShotCertificates(writer);
 
     }
 
@@ -256,6 +260,7 @@ internal sealed partial class ReplayReplicaState
             if (version >= 9) restored.ReadTurretOutcomes(reader);
             if (layout.Has(ReplayReplicaCheckpointFeatures.Pickups)) restored.ReadPickupFacts(reader);
             if (layout.Has(ReplayReplicaCheckpointFeatures.Grants)) restored.ReadGrantFacts(reader);
+            if (layout.Has(ReplayReplicaCheckpointFeatures.TimedShots)) restored.ReadTimedShotCertificates(reader);
             if (stream.Position != stream.Length || restored.MatchRecordingFrame > restored.RecordingFrame
                 || restored.AcceptedPackets < 0 || restored.IgnoredPackets < 0) throw Malformed();
         }
@@ -269,6 +274,7 @@ internal sealed partial class ReplayReplicaState
         RestoreTurretOutcomes(restored);
         RestorePickupFacts(restored);
         TimedGrants = restored.TimedGrants;
+        TimedShots = restored.TimedShots;
         ChatLines.Clear(); ChatLines.AddRange(restored.ChatLines);
         SemanticEvents = restored.SemanticEvents;
         ContainsBots = restored.ContainsBots;

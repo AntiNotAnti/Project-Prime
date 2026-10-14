@@ -47,6 +47,7 @@ namespace MphRead.Mods.Network
             using var perf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.Capture);
             DemoClip.Tick(scene.Size);
             if (DemoPlayback.IsActive || !NetSession.Active || !scene.GameState.Multiplayer) return;
+            EnableTimedShotCertificates();
             if (LatestAuthorityWorld is { } receivedWorld) NetObjectiveSync.Apply(scene, receivedWorld);
             uint historyFrames = (uint)Math.Max(45, DemoClip.Seconds + DemoClip.PostRollSeconds) * 60;
             if (historyFrames != _historyFrames)
@@ -112,6 +113,7 @@ namespace MphRead.Mods.Network
 
         public static ReplayMetadata Capture(ReplayType type, bool hashMap = true)
         {
+            EnableTimedShotCertificates();
             var packets = new List<byte[]>();
             var players = new List<ReplayPlayerInfo>();
             MatchStatePacket? match = NetSession.ServerMatch;
@@ -155,8 +157,16 @@ namespace MphRead.Mods.Network
             if (_snapshotLength > 0) packets.Add(Snapshot.AsSpan(0, _snapshotLength).ToArray());
             Recorder.SeedBombFacts(record => packets.Add(record.Payload.ToArray()));
             Recorder.SeedGrantFacts(NetSession.NetFrame, record => packets.Add(record.Payload.ToArray()));
+            // A detached construction seed avoids an unbounded metadata packet
+            // list when up to 2048 retained launches precede recording start.
+            if (Recorder.HasTimedShotCertificates)
+            {
+                packets = new() { ReplayTimelineArchive.Construction(Recorder.CaptureTimedShotSeed(NetSession.NetFrame)) };
+            }
             return new ReplayMetadata
             {
+                FormatVersion = Recorder.HasTimedShotCertificates ? (byte)6 : (byte)3,
+                TimedShotCertificates = Recorder.HasTimedShotCertificates,
                 Type = type, RoomKey = room, Mode = (GameMode)(match?.Mode ?? 0), MapHash = _mapHash,
                 Players = players, Bootstrap = new ReplayBootstrap { Packets = packets }
             };

@@ -106,6 +106,7 @@ namespace MphRead.Mods.Network
         public void Rewind()
         {
             ResetTurretOutcomes(); ResetPickupFacts(); TimedGrants.Reset();
+            TimedShots.Reset();
             _bombPackets.Clear();
             ChatLines.Clear();
             _shotFacts.Clear();
@@ -142,6 +143,13 @@ namespace MphRead.Mods.Network
             }
             ReadOnlySpan<byte> payload = packet[1..];
             bool accepted = false;
+            if (packet[0] is ReplayTimedShotScope.Tag or ReplayTimedShotFact.Tag)
+            {
+                accepted = AcceptTimedShotRecord(packet);
+                RecordingFrame = frame;
+                if (accepted) AcceptedPackets++; else IgnoredPackets++;
+                return;
+            }
             switch ((PacketType)packet[0])
             {
                 case PacketType.TimedGrantBootstrap:
@@ -349,6 +357,7 @@ namespace MphRead.Mods.Network
                 _hasPlayer[slot] = true;
             }
             ServerTick = header.Frame;
+            TimedShots.AdvanceAuthority(ServerTick);
             Rng1 = header.Rng1;
             Rng2 = header.Rng2;
             _worldTail = payload[tail..].ToArray();

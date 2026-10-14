@@ -95,6 +95,57 @@ class FrozenBuildStagingTests(unittest.TestCase):
                 RUNNER.stage_build(build, root / "stage")
             self.assertFalse((root / "stage").exists())
 
+
+class TimedEvidenceRunnerTests(unittest.TestCase):
+    parse = AiParserTests.parse
+    rejects = AiParserTests.rejects
+
+    def environment(self, args, name="server"):
+        return RUNNER.child_environment(args, name, Path("/tmp/isolated-profile"), {
+            "PATH": "/runtime", "PRIME_TIMED_GRANT_PROOF": "enforce",
+            "PRIME_TIMED_REPLAY_FACTS": "1", "PRIME_SHOT_PROOF": "enforce",
+            "MPHREAD_UNDECLARED": "1", "PROJECT_PRIME_UNDECLARED": "1"})
+
+    def test_default_clears_inherited_timed_flags_and_keeps_legacy_policy(self):
+        args = self.parse()
+        self.assertEqual((args.timed_grant_proof, args.timed_replay_facts), ("off", False))
+        env = self.environment(args)
+        self.assertEqual(env["PATH"], "/runtime")
+        self.assertEqual(env["PRIME_SHOT_PROOF"], "shadow")
+        for flag in ("PRIME_TIMED_GRANT_PROOF", "PRIME_TIMED_REPLAY_FACTS",
+                     "MPHREAD_UNDECLARED", "PROJECT_PRIME_UNDECLARED"):
+            self.assertNotIn(flag, env)
+        command = RUNNER.authority_arguments(args, Path("/tmp/rotation.txt"))
+        self.assertIn("-noserverreplays", command)
+        self.assertNotIn("-recorddemo", command)
+
+    def test_shadow_observation_is_independent_of_legacy_mode_and_record(self):
+        args = self.parse("--timed-grant-proof", "shadow", "--shot-proof", "off", "--record")
+        for role in ("server", "peer1"):
+            env = self.environment(args, role)
+            self.assertEqual(env["PRIME_TIMED_GRANT_PROOF"], "shadow")
+            self.assertEqual(env["PRIME_SHOT_PROOF"], "off")
+            self.assertNotIn("PRIME_TIMED_REPLAY_FACTS", env)
+        self.assertIn("-noserverreplays", RUNNER.authority_arguments(args, Path("/tmp/rotation.txt")))
+
+    def test_archival_opt_in_records_authority_and_sets_only_its_replay_flag(self):
+        args = self.parse("--timed-grant-proof", "shadow", "--timed-replay-facts", "--powerups")
+        env = self.environment(args)
+        self.assertEqual(env["PRIME_TIMED_REPLAY_FACTS"], "1")
+        self.assertNotIn("PRIME_TIMED_REPLAY_FACTS", self.environment(args, "peer1"))
+        command = RUNNER.authority_arguments(args, Path("/tmp/rotation.txt"))
+        self.assertNotIn("-noserverreplays", command)
+        self.assertIn("-powerups", command)
+        self.assertEqual(command[command.index("-rotation") + 1], "/tmp/rotation.txt")
+        self.assertFalse(args.record)  # Archival opt-in does not request client files.
+
+    def test_archival_off_and_production_enforce_are_rejected_before_launch(self):
+        self.rejects("--timed-replay-facts")
+        self.rejects("--timed-grant-proof", "off", "--timed-replay-facts")
+        self.rejects("--timed-grant-proof", "enforce")
+        # The pre-existing legacy mode remains a separate permitted contract.
+        self.assertEqual(self.parse("--shot-proof", "enforce").shot_proof, "enforce")
+
 class PacingLobbyParserTests(unittest.TestCase):
     parse = AiParserTests.parse
     rejects = AiParserTests.rejects

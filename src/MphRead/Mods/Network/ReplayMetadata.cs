@@ -69,6 +69,9 @@ namespace MphRead.Mods.Network
         public byte[] WorldCheckpoint { get; init; } = Array.Empty<byte>();
         // Consumer continuation policy is distinct from capsule producer provenance.
         public bool? IndexedFireContinuation { get; init; }
+        // Format6 authority producer schema. Individual missing facts remain
+        // unavailable; this is not a claim of complete native visual fidelity.
+        public bool TimedShotCertificates { get; init; }
         public IReadOnlyList<ReplayEvent> Events { get; set; } = Array.Empty<ReplayEvent>();
         public ushort HashSchema { get; set; }
         public string HashBuildId { get; set; } = "";

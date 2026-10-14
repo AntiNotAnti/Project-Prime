@@ -19,7 +19,9 @@ internal static class ReplayTimelineArchive
         using var checkpoint = ReplayWorldCheckpoint.Capture(world, world.Session.RecordingFrame);
         return new ReplayMetadata
         {
-            FormatVersion = 4, Type = type, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
+            FormatVersion = world.State.TimedShots.Enabled ? (byte)6 : (byte)4,
+            TimedShotCertificates = world.State.TimedShots.Enabled,
+            Type = type, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
             MapHash = world.MapHash, OriginRecordingFrame = world.Session.RecordingFrame,
             WorldCheckpoint = checkpoint.Bytes.ToArray(),
             Players = Enumerable.Range(0, 8).Select(slot => (Slot: slot, Occupant: world.State.Occupant(slot)))
@@ -44,10 +46,12 @@ internal static class ReplayTimelineArchive
     // It preserves the legacy preflight roster/rules even for clips shorter
     // than that preflight, without including future gameplay in the clip.
     internal static byte[] Construction(ReplayReplicaState state)
+        => Construction(state.CaptureCheckpoint());
+    internal static byte[] Construction(ReplayReplicaCheckpoint checkpoint)
     {
         using var buffer = new MemoryStream(); buffer.WriteByte(253);
         using (var compressed = new DeflateStream(buffer, CompressionLevel.SmallestSize, leaveOpen: true))
-            compressed.Write(state.CaptureCheckpoint().Bytes);
+            compressed.Write(checkpoint.Bytes);
         return buffer.ToArray();
     }
     internal static ReplayReplicaCheckpoint ReadConstruction(ReadOnlySpan<byte> packet)

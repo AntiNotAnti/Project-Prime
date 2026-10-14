@@ -45,6 +45,8 @@ namespace MphRead.Mods.Network
         internal Replay.ReplayWorldCheckpoint LoadCheckpoint(ReplayCheckpointIndex index, bool requireIndexedFirePresentation = true)
         {
             var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(_reader!.ReadCheckpoint(index), _reader.Metadata?.BuildId);
+            if (_reader.Metadata?.TimedShotCertificates == true && !checkpoint.HasTimedShotContract)
+            { checkpoint.Dispose(); throw new InvalidDataException("Durable world lacks recorded timed shot facts; reconstructing from baseline."); }
             if (checkpoint.RequiresNativeTouchContract && !checkpoint.HasNativeTouchContract)
             { checkpoint.Dispose(); throw new InvalidDataException("Durable world lacks native Morph Ball state; reconstructing from baseline."); }
             if (_reader.ProtocolVersion >= 52 && !checkpoint.HasTurretOutcomeContract)
@@ -237,6 +239,8 @@ namespace MphRead.Mods.Network
                         if (_host is not PassiveReplaySessionHost passive)
                             throw new InvalidDataException("This replay requires the isolated world player.");
                         using var world = Replay.ReplayWorldCheckpoint.FromBytes(metadata.WorldCheckpoint, metadata.BuildId);
+                        if (world.HasTimedShotContract != metadata.TimedShotCertificates)
+                            throw new InvalidDataException("Initial world timed shot contract differs from recording metadata.");
                         if (world.Frame != metadata.OriginRecordingFrame)
                             throw new InvalidDataException("Replay origin differs from its initial world.");
                         passive.State.RestoreCheckpoint(world.ConstructionState());
@@ -470,6 +474,9 @@ namespace MphRead.Mods.Network
         {
             try
             {
+                if (!packet.IsEmpty && (packet[0] is ReplayTimedShotScope.Tag or ReplayTimedShotFact.Tag)
+                    && _reader!.Metadata?.TimedShotCertificates != true)
+                    throw new InvalidDataException("Timed shot facts lack a recording capability.");
                 ReadOnlySpan<byte> converted = ReplayIdentityCompatibility.Convert(packet, _reader!.ProtocolVersion);
                 if (!converted.IsEmpty) _host.Inject(converted, frame);
             }

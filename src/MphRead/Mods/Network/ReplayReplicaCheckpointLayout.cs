@@ -8,13 +8,13 @@ namespace MphRead.Mods.Network;
 internal enum ReplayReplicaCheckpointFeatures : byte
 {
     None = 0, NativeTouch = 1, Pickups = 2,
-    Grants = 4
+    Grants = 4, TimedShots = 8
 }
 
 internal readonly record struct ReplayReplicaCheckpointLayout(ushort Version, int Protocol,
     ReplayReplicaCheckpointFeatures Features, int HeaderBytes)
 {
-    internal const ushort CurrentVersion = 12;
+    internal const ushort DefaultVersion = 12, CurrentVersion = 13;
     internal const ReplayReplicaCheckpointFeatures CurrentFeatures
         = ReplayReplicaCheckpointFeatures.NativeTouch | ReplayReplicaCheckpointFeatures.Pickups | ReplayReplicaCheckpointFeatures.Grants;
     internal bool Has(ReplayReplicaCheckpointFeatures feature) => (Features & feature) != 0;
@@ -40,13 +40,16 @@ internal readonly record struct ReplayReplicaCheckpointLayout(ushort Version, in
                 new(version, protocol, ReplayReplicaCheckpointFeatures.Pickups, 7)];
         if (version == 11 && protocol == 54)
             return [new(version, protocol, ReplayReplicaCheckpointFeatures.Pickups | ReplayReplicaCheckpointFeatures.Grants, 7)];
-        if (version == CurrentVersion && bytes.Length >= 8)
+        if (version == DefaultVersion && bytes.Length >= 8)
         {
             var features = (ReplayReplicaCheckpointFeatures)bytes[7];
             if (protocol == 55 && features == (ReplayReplicaCheckpointFeatures.NativeTouch | ReplayReplicaCheckpointFeatures.Pickups)
                 || protocol == 56 && features == CurrentFeatures)
                 return [new(version, protocol, features, 8)];
         }
+        if (version == CurrentVersion && bytes.Length >= 8 && protocol == 56
+            && (ReplayReplicaCheckpointFeatures)bytes[7] == (CurrentFeatures | ReplayReplicaCheckpointFeatures.TimedShots))
+            return [new(version, protocol, (ReplayReplicaCheckpointFeatures)bytes[7], 8)];
         throw new InvalidDataException("Unsupported replica checkpoint layout/features.");
     }
 
