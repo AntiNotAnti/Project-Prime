@@ -15,7 +15,7 @@ internal sealed class MapCommunityServiceAdmission : IDisposable
 {
     public const int MetadataConcurrency = 8;
     public const int UploadConcurrency = 3;
-    public const int DownloadConcurrency = 4;
+    public const int DownloadConcurrency = 8;
     public const int VerificationConcurrency = 1;
 
     internal enum Lane { Metadata, Upload, Download, Verification }
