@@ -784,6 +784,37 @@ public sealed class MapCommunityClient : IDisposable
             + $"Expected {expectedHash}, received {actualHash}. The download was discarded after a retry.");
     }
 
+    /// <summary>
+    /// Download an exact map into a caller-owned persistent partial path.
+    /// Unlike InstallAsync/DownloadExactAsync, cancellation keeps the valid
+    /// prefix for a later HTTP Range retry. The caller must never install,
+    /// expose or publish this path before the method returns successfully.
+    /// </summary>
+    public async Task DownloadResumableAsync(CommunityMap map, string partialPath,
+        CancellationToken token, Action<long, long>? progress = null)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        if (!ValidHash(map.Hash) || !ValidHash(map.ContentHash)
+            || map.MapId == Guid.Empty || map.Bytes <= 0
+            || map.Bytes > MapPackageReader.MaxArchiveBytes)
+            throw new InvalidDataException("Invalid Community map package identity.");
+        if (map.MinimumProtocol > Network.NetConfig.ProtocolVersion)
+            throw new InvalidDataException("This Community map requires a newer protocol.");
+
+        string fullPath = Path.GetFullPath(partialPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        await DownloadVerifiedPackageAsync("packages/" + map.Hash, fullPath,
+            map.Bytes, map.Hash, token, progress).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        MapContentIdentity identity = MapContentIdentity.FromPackage(fullPath);
+        if (identity.MapId != map.MapId
+            || identity.ContentHash.ToString() != map.ContentHash
+            || identity.PackageHash.ToString() != map.Hash
+            || !identity.RoomKey.Equals(map.Name, StringComparison.Ordinal))
+            throw new InvalidDataException(
+                "Downloaded Community map is not the exact selected map revision.");
+    }
+
     public async Task<MapDefinition> InstallAsync(CommunityMap map, string library, CancellationToken token,
         Action<long, long>? progress = null)
     {
