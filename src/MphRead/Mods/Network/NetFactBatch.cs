@@ -17,6 +17,7 @@ internal static class NetFactBatch
         PacketType.TurretFireOutcome => TurretFireOutcome.Size,
         PacketType.PickupVerdict => PickupVerdict.Size,
         PacketType.PickupItem => PickupItemFact.Size,
+        PacketType.TimedGrant => TimedGrantFact.Size,
         _ => 0
     };
     internal static bool Validate(PacketType type, ReadOnlySpan<byte> payload)
@@ -34,6 +35,8 @@ internal static class NetFactBatch
             { if (!TurretFireOutcome.TryRead(record, out _)) return false; }
             else if (type == PacketType.PickupVerdict)
             { if (!PickupVerdict.TryRead(record, out _)) return false; }
+            else if (type == PacketType.TimedGrant)
+            { if (!TimedGrantFact.TryRead(record, out _)) return false; }
             else if (type == PacketType.PickupItem)
             { if (!PickupItemFact.TryRead(record, out _)) return false; }
             else if (type == PacketType.ReplayShotFact)

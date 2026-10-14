@@ -45,7 +45,7 @@ namespace MphRead.Mods.Network
         internal Replay.ReplayWorldCheckpoint LoadCheckpoint(ReplayCheckpointIndex index, bool requireIndexedFirePresentation = true)
         {
             var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(_reader!.ReadCheckpoint(index), _reader.Metadata?.BuildId);
-            if (_reader.ProtocolVersion >= 53 && !checkpoint.HasNativeTouchContract)
+            if (checkpoint.RequiresNativeTouchContract && !checkpoint.HasNativeTouchContract)
             { checkpoint.Dispose(); throw new InvalidDataException("Durable world lacks native Morph Ball state; reconstructing from baseline."); }
             if (_reader.ProtocolVersion >= 52 && !checkpoint.HasTurretOutcomeContract)
             { checkpoint.Dispose(); throw new InvalidDataException("Durable world has no turret outcome contract; reconstructing from baseline."); }

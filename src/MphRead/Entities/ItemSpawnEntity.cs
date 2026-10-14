@@ -96,6 +96,24 @@ namespace MphRead.Entities
             }
         }
 
+        internal void ModApplyTimedPickup(Mods.Network.PickupItemFact? fact,
+            Mods.Network.TimedGrantPresentation presentation, uint frame)
+        {
+            if (Item != null && (fact == null || !fact.Value.Available || Item.ModPickupSpawn != fact.Value.Spawn))
+            {
+                // Retire without collected-message callbacks. A new incarnation
+                // must never share the previous item's prediction visibility.
+                Item.DespawnTimer = 0; Item = null;
+            }
+            if (fact is not { Available: true } current) return;
+            if (Item == null)
+            {
+                Item = SpawnItem(_data.ItemType, current.Position, NodeRef, _scene, owner: this);
+                if (Item != null) { Item.ParentId = _data.ParentId; Item.ModPickupSpawn = current.Spawn; }
+            }
+            if (Item != null) Item.ModPickupHidden = presentation.Hides(current.Spawn, frame);
+        }
+
         public override bool Process()
         {
             if (!_linkDone && _data.ParentId != -1)
@@ -114,6 +132,7 @@ namespace MphRead.Entities
             {
                 Position = Matrix.Vec3MultMtx4(_invPos, _parent.CollisionTransform);
             }
+            if (Mods.Network.TimedPickupProjection.Apply(this, _data.ItemType)) return base.Process();
             if (_scene.Services.ReplicatesHealthSpawns && (Mods.Multiplayer.MapResourceRules.IsHealth(_data.ItemType)
                 || _scene.Services is Mods.Network.ReplaySceneServices { HasAuthorityWorld: true }))
             {
@@ -250,6 +269,8 @@ namespace MphRead.Entities
             {
                 return null;
             }
+            if (owner == null && Mods.Network.NetPowerUpLedger.TryType(type, out _)
+                && Mods.Network.TimedPickupProjection.TrySource(scene, out _, out _, out _)) return null;
             ItemInstanceEntity? item = null;
             if (type != ItemType.None && (!chance.HasValue || scene.Random.GetRandomInt2(100) < chance.Value))
             {

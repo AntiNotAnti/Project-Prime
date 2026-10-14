@@ -271,6 +271,10 @@ internal static class PickupClaimSceneTests
 
     private static void NativeWinAndRace(PlayerEntity owner, PlayerEntity other)
     {
+        // Prior fixtures reset delivery independently to inspect queued work.
+        // Begin a complete authority scope before issuing new grants; production
+        // couples delivery reset to the ledger's room/session boundary.
+        NetPowerUpLedger.BeginRoom();
         Advance(10); owner.ModForceForm(false); owner.Health = other.Health = 199;
         var item = Spawn(owner, ItemType.DoubleDamage);
         other.ModPlaceAt(owner.Position); RemotePose(other);

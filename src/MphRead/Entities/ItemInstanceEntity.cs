@@ -25,6 +25,8 @@ namespace MphRead.Entities
     // todo: preallocation
     public class ItemInstanceEntity : SpinningEntityBase
     {
+        internal Mods.Network.PowerUpSpawnKey? ModPickupSpawn { get; set; }
+        internal bool ModPickupHidden { get; set; }
         public int TokenId { get; set; }
         public int TokenVictimSlot { get; set; } = -1;
         public int TokenTeam { get; set; } = -1;
@@ -111,6 +113,7 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            Mods.Network.TimedPickupProjection.Update(this);
             if (TokenId > 0 && DespawnTimer > 0)
                 Mods.Multiplayer.TokenRules.Process(_scene, this);
             if (!_linkDone && ParentId != -1)
@@ -144,7 +147,7 @@ namespace MphRead.Entities
             {
                 if (Owner != null)
                 {
-                    Owner.Item = null;
+                    if (ReferenceEquals(Owner.Item, this)) Owner.Item = null;
                     if (_scene.GameState.SinglePlayer)
                     {
                         _scene.GameState.StorySave.SetRoomState(_scene.RoomId, Owner.Id, state: 1);
@@ -250,7 +253,7 @@ namespace MphRead.Entities
 
         public override void GetDrawInfo()
         {
-            bool visible = IsVisible(NodeRef) && IsPickupVisuallyVisible();
+            bool visible = !ModPickupHidden && IsVisible(NodeRef) && IsPickupVisuallyVisible();
             // Effects are drawn from a separate queue; keep the artifact
             // aura's visibility coherent with the physical pickup.
             _effectEntry?.SetDrawEnabled(visible);

@@ -23,7 +23,7 @@ internal sealed partial class ReplayRecorder
     public void Reset()
     {
         Resetting?.Invoke();
-        ResetBombFacts();
+        ResetBombFacts(); ResetPickupSeed(); _grantSeed.Reset(); _grantSeedLatestFrame = 0;
         _worldWire.Reset();
         _semantic.Begin(0, 0);
         Timeline.Reset();
@@ -151,6 +151,7 @@ internal sealed partial class ReplayRecorder
                 }
                 var semantics = new List<ReplayTimelineRecord>();
                 VisitSemanticBaseline(frame, record => { record.Retain(); semantics.Add(record); });
+                SeedGrantFacts(frame, record => { record.Retain(); semantics.Add(record); });
                 records.AddRange(semantics);
                 try
                 {
@@ -196,6 +197,9 @@ internal sealed partial class ReplayRecorder
         foreach (var intent in _intents) if (intent is { } record) accept(record);
         VisitSemanticBaseline(_snapshot?.RecordingFrame ?? 0, accept);
         SeedBombFacts(accept);
+        uint grantFrame = Timeline.LastRecordingFrame ?? _snapshot?.RecordingFrame ?? _grantSeedLatestFrame;
+        if (NetLifecycleTracker.Newer(_grantSeedLatestFrame, grantFrame)) grantFrame = _grantSeedLatestFrame;
+        SeedGrantFacts(grantFrame, accept);
     }
 
     private void VisitSemanticBaseline(uint frame, Action<ReplayTimelineRecord> accept)

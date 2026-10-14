@@ -15,6 +15,30 @@ internal static partial class ReplayCapture
 }
 internal sealed partial class ReplayRecorder
 {
+    private readonly Dictionary<PowerUpSpawnKey, PickupItemFact> _pickupSeed = new();
+    private uint _pickupSeedRoom;
+    private void ResetPickupSeed() { _pickupSeed.Clear(); _pickupSeedRoom = 0; }
+    private bool ObservePickupSeedRoom(uint room)
+    {
+        if (room < _pickupSeedRoom) return false;
+        if (room > _pickupSeedRoom) { ResetPickupSeed(); _pickupSeedRoom = room; }
+        return _grantSeed.ObserveRoom(_epoch, _matchId, room);
+    }
+    private void SeedPickupItems(uint frame, Action<ReplayTimelineRecord> accept)
+    {
+        // Replay the retained identities in authority order: the normal decoder's
+        // stale-packet watermark must not discard an older still-available item.
+        var facts = new List<PickupItemFact>(_pickupSeed.Values);
+        facts.Sort((a, b) => unchecked((int)(a.AuthorityFrame - b.AuthorityFrame)));
+        Span<byte> packet = stackalloc byte[1 + PickupItemFact.Size];
+        packet[0] = (byte)PacketType.PickupItem;
+        foreach (var fact in facts)
+        {
+            fact.Write(packet[1..]);
+            var record = new ReplayTimelineRecord(frame, fact.AuthorityFrame, ReplayFactKind.Presentation, packet);
+            try { accept(record); } finally { record.Release(); }
+        }
+    }
     internal void AcceptPickupClaim(PickupClaim fact, uint frame)
     {
         if (!fact.IsValid || !HasMatch || fact.Key.Match != _matchId || fact.Key.Epoch != _epoch) return;
@@ -28,18 +52,25 @@ internal sealed partial class ReplayRecorder
         // not the admitted replay ledger (reconnects cannot grow it unbounded).
         if (fact.Result == PickupResult.Capacity && fact.DecisionFrame == 0 && fact.ProofFrame == 0) return;
         if (!fact.IsValid || !HasMatch || fact.Claim.Key.Match != _matchId || fact.Claim.Key.Epoch != _epoch) return;
+        if (ObservePickupSeedRoom(fact.Claim.Spawn.Room) && _grantSeed.HasCoverage) _grantSeed.Settle(fact, frame);
+        ObserveGrantSeedFrame(frame);
         Span<byte> packet = stackalloc byte[1 + PickupVerdict.Size]; packet[0] = (byte)PacketType.PickupVerdict;
         fact.Write(packet[1..]); PublishTransient(new(frame, fact.DecisionFrame, ReplayFactKind.Presentation, packet));
     }
     internal void AcceptPickupItem(PickupItemFact fact, uint frame)
     {
         if (!fact.IsValid || !HasMatch || fact.Spawn.Match != _matchId || fact.Spawn.Epoch != _epoch) return;
+        if (!ObservePickupSeedRoom(fact.Spawn.Room)) return;
+        var result = PickupItemHistory.Accept(_pickupSeed, fact);
+        if (result == PickupItemAcceptance.Unchanged) return;
+        if (result != PickupItemAcceptance.Accepted) throw new InvalidDataException("Invalid replay pickup seed transition.");
+        ObserveGrantSeedFrame(frame);
         Span<byte> packet = stackalloc byte[1 + PickupItemFact.Size]; packet[0] = (byte)PacketType.PickupItem;
         fact.Write(packet[1..]); PublishTransient(new(frame, fact.AuthorityFrame, ReplayFactKind.Presentation, packet));
     }
 }
 
-// A2 identity/terminal evidence only. No foreground ledger or visual/gameplay application.
+// Private identity/terminal evidence, feeding A3 presentation without a foreground ledger.
 internal sealed partial class ReplayReplicaState
 {
     internal const int PickupReplayCapacity = 2048;
@@ -47,6 +78,7 @@ internal sealed partial class ReplayReplicaState
     private readonly Dictionary<PickupClaimKey, PickupClaim> _pickupClaims = new();
     private readonly Dictionary<PickupClaimKey, PickupVerdict> _pickupVerdicts = new();
     private readonly Dictionary<PowerUpSpawnKey, PickupItemFact> _pickupItems = new();
+    internal uint PickupRoomIdentity => _pickupRoom;
     internal IReadOnlyDictionary<PickupClaimKey, PickupClaim> PickupClaims => _pickupClaims;
     internal IReadOnlyDictionary<PickupClaimKey, PickupVerdict> PickupVerdicts => _pickupVerdicts;
     internal IReadOnlyDictionary<PowerUpSpawnKey, PickupItemFact> PickupItems => _pickupItems;
@@ -55,6 +87,7 @@ internal sealed partial class ReplayReplicaState
     private bool PickupRoom(uint room)
     {
         if (room < _pickupRoom) return false;
+        if (Match is not { } match || !TimedGrants.ObserveRoom(match.AuthorityEpoch, match.MatchId, room)) return false;
         if (room > _pickupRoom) { ResetPickupFacts(); _pickupRoom = room; }
         return true;
     }
@@ -68,7 +101,7 @@ internal sealed partial class ReplayReplicaState
         if (_pickupClaims.Count >= PickupReplayCapacity) throw new InvalidDataException("Replay pickup claim budget exceeded.");
         _pickupClaims.Add(fact.Key, fact); return true;
     }
-    private bool AcceptPickupVerdict(ReadOnlySpan<byte> payload)
+    private bool AcceptPickupVerdict(ReadOnlySpan<byte> payload, uint frame, bool settle = true)
     {
         if (!PickupVerdict.TryRead(payload, out var fact)) throw Malformed();
         var key = fact.Claim.Key;
@@ -77,6 +110,8 @@ internal sealed partial class ReplayReplicaState
         { if (prior != fact) throw Malformed(); return false; }
         if (_pickupClaims.TryGetValue(key, out var claim) && claim != fact.Claim) throw Malformed();
         if (_pickupVerdicts.Count >= PickupReplayCapacity) throw new InvalidDataException("Replay pickup verdict budget exceeded.");
+        // A2 historical verdicts alone never establish an A3 presentation contract.
+        if (settle && TimedGrants.HasCoverage) TimedGrants.Settle(fact, frame);
         _pickupVerdicts.Add(key, fact); return true;
     }
     private bool AcceptPickupItem(ReadOnlySpan<byte> payload)
@@ -111,7 +146,7 @@ internal sealed partial class ReplayReplicaState
         for (int i = 0, count = Count(); i < count; i++)
         {
             byte[] bytes = reader.ReadBytes(PickupVerdict.Size);
-            if (!PickupVerdict.TryRead(bytes, out var fact) || fact.Claim.Spawn.Room != room || !AcceptPickupVerdict(bytes)) throw Malformed();
+            if (!PickupVerdict.TryRead(bytes, out var fact) || fact.Claim.Spawn.Room != room || !AcceptPickupVerdict(bytes, RecordingFrame, settle: false)) throw Malformed();
         }
         for (int i = 0, count = Count(); i < count; i++)
         {

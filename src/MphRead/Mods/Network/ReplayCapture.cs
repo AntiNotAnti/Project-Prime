@@ -154,6 +154,7 @@ namespace MphRead.Mods.Network
             }
             if (_snapshotLength > 0) packets.Add(Snapshot.AsSpan(0, _snapshotLength).ToArray());
             Recorder.SeedBombFacts(record => packets.Add(record.Payload.ToArray()));
+            Recorder.SeedGrantFacts(NetSession.NetFrame, record => packets.Add(record.Payload.ToArray()));
             return new ReplayMetadata
             {
                 Type = type, RoomKey = room, Mode = (GameMode)(match?.Mode ?? 0), MapHash = _mapHash,

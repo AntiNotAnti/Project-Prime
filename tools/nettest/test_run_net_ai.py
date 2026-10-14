@@ -3,6 +3,7 @@ import contextlib
 import importlib.util
 import io
 from pathlib import Path
+import tempfile
 import unittest
 
 SPEC = importlib.util.spec_from_file_location('run_net_ai_tests', Path(__file__).with_name('run-net2.py'))
@@ -61,6 +62,61 @@ class AiParserTests(unittest.TestCase):
         self.rejects('--ai-net-client', '--players', '8', '--server-bot')
         args = self.parse('--ai-net-client', '--players', '4', '--server-bot', '--seed', '-100', '--ai-seed', '50')
         self.assertEqual((args.seed, args.ai_seed, args.server_bot), (-100, 50, True))
+
+
+class FrozenBuildStagingTests(unittest.TestCase):
+    def test_staging_keeps_entry_physical_and_dependency_link_shared(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            build = root / "build"
+            build.mkdir()
+            for name in ("ProjectPrime.dll", "ProjectPrime.deps.json", "ProjectPrime.runtimeconfig.json"):
+                (build / name).write_bytes(name.encode())
+            dependency = root / "shared.dll"
+            dependency.write_bytes(b"unchanged package dependency")
+            (build / dependency.name).symlink_to(dependency)
+            stage = root / "stage"
+            receipt = RUNNER.stage_build(build, stage)
+            self.assertTrue((stage / dependency.name).is_symlink())
+            self.assertEqual((stage / dependency.name).read_bytes(), dependency.read_bytes())
+            for name, evidence in receipt.items():
+                self.assertFalse((stage / name).is_symlink())
+                self.assertEqual(evidence["sha256"], RUNNER.digest(build / name))
+
+    def test_staging_refuses_a_redirected_entry_point(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            build = root / "build"
+            build.mkdir()
+            client = root / "other-client.dll"
+            client.write_bytes(b"wrong source")
+            (build / "ProjectPrime.dll").symlink_to(client)
+            with self.assertRaisesRegex(RuntimeError, "physical file"):
+                RUNNER.stage_build(build, root / "stage")
+            self.assertFalse((root / "stage").exists())
+
+class PacingLobbyParserTests(unittest.TestCase):
+    parse = AiParserTests.parse
+    rejects = AiParserTests.rejects
+
+    def test_lobby_route_uses_common_authentication_not_a1_server_switch(self):
+        with tempfile.TemporaryDirectory() as root:
+            entry = Path(root) / "nettest.dll"
+            entry.write_bytes(b"isolated entry")
+            args = self.parse('--pacing-lobby-client', str(entry), '--players', '8',
+                              '--ai-net-client', '2', '--powerups')
+            args.pacing_owner_token = 'explicit-test-token'
+            self.assertEqual(RUNNER.server_flags(args), ['-lobby'])
+
+    def test_lobby_route_refuses_incompatible_workloads_before_staging(self):
+        with tempfile.TemporaryDirectory() as root:
+            entry = Path(root) / "nettest.dll"
+            entry.write_bytes(b"isolated entry")
+            valid = ['--pacing-lobby-client', str(entry), '--players', '8', '--ai-net-client', '--powerups']
+            for extra in (('--players', '4'), ('--rendered',), ('--server-bot',), ('--rooms', 'A,B')):
+                self.rejects(*valid, *extra)
+            self.rejects('--pacing-lobby-client', str(entry), '--players', '8', '--ai-net-client')
+            self.rejects('--pacing-lobby-client', str(entry) + '.missing', '--players', '8', '--ai-net-client', '--powerups')
 
 
 if __name__ == '__main__':

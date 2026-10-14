@@ -89,6 +89,7 @@ internal sealed partial class ReplayReplicaState
         WriteBombPackets(writer);
         WriteTurretOutcomes(writer);
         WritePickupFacts(writer);
+        WriteGrantFacts(writer);
 
     }
 
@@ -254,6 +255,7 @@ internal sealed partial class ReplayReplicaState
             if (version >= 8) restored.ReadBombPackets(reader);
             if (version >= 9) restored.ReadTurretOutcomes(reader);
             if (layout.Has(ReplayReplicaCheckpointFeatures.Pickups)) restored.ReadPickupFacts(reader);
+            if (layout.Has(ReplayReplicaCheckpointFeatures.Grants)) restored.ReadGrantFacts(reader);
             if (stream.Position != stream.Length || restored.MatchRecordingFrame > restored.RecordingFrame
                 || restored.AcceptedPackets < 0 || restored.IgnoredPackets < 0) throw Malformed();
         }
@@ -266,6 +268,7 @@ internal sealed partial class ReplayReplicaState
         _bombPackets.Clear(); _bombPackets.AddRange(restored._bombPackets);
         RestoreTurretOutcomes(restored);
         RestorePickupFacts(restored);
+        TimedGrants = restored.TimedGrants;
         ChatLines.Clear(); ChatLines.AddRange(restored.ChatLines);
         SemanticEvents = restored.SemanticEvents;
         ContainsBots = restored.ContainsBots;

@@ -631,7 +631,7 @@ namespace MphRead.Mods.Network
         {
             if (type is not (PacketType.MatchSemanticEvent or PacketType.MatchAward
                 or PacketType.ReplayShotFact or PacketType.BombIntent or PacketType.BombEvent or PacketType.TurretFireOutcome
-                or PacketType.PickupClaim or PacketType.PickupVerdict or PacketType.PickupItem or PacketType.PickupReady)) return false;
+                or PacketType.PickupClaim or PacketType.PickupVerdict or PacketType.PickupItem or PacketType.PickupReady or PacketType.TimedGrant)) return false;
             uint eventId;
             double now = NowMilliseconds;
             long stamp = EnterConnectionLock();

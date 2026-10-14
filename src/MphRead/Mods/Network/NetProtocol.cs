@@ -31,6 +31,8 @@ namespace MphRead.Mods.Network
         ConfirmedImpact = 71, // optional authority-only, expendable live presentation
         TurretFireOutcome = 72, // authority emission/refusal for an admitted turret fire identity
         PickupClaim = 73, PickupVerdict = 74, PickupItem = 75, PickupReady = 76,
+        TimedGrant = 77, // authority timed state, ordinary reliable event/delta lane
+        PickupPrediction = 78, TimedGrantBootstrap = 79, // local replay only; never live authority messages
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
@@ -2528,7 +2530,8 @@ namespace MphRead.Mods.Network
         // Protocol 52 adds exact reliable turret fire emission/refusal outcomes.
         // Protocol 53 carries ordered 30 Hz Morph Ball touch input in live compact intents.
         // Protocol 55 combines native touch with pickup claims; staged 53/54 layouts are distinct historical inputs.
-        public const int ProtocolVersion = 55;
+        public const int ProtocolVersion = 56;
+        // Protocol 56 adds authoritative timed grant reconciliation to the combined touch/pickup contract.
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

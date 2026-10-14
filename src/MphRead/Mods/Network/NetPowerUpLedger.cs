@@ -5,7 +5,7 @@ using MphRead.Entities;
 namespace MphRead.Mods.Network;
 
 /// <summary>Native authority reservations and contact proof adapter. Client
-/// reconciliation and source damage enforcement belong to later slices.</summary>
+/// presentation is replicated separately from source damage enforcement.</summary>
 internal static class NetPowerUpLedger
 {
     private static readonly Dictionary<ItemInstanceEntity, PowerUpSpawnKey> Items = new();
@@ -50,7 +50,7 @@ internal static class NetPowerUpLedger
         if (_ledger == null || _epoch != NetSession.AuthorityEpoch || _match != NetSession.CurrentMatchId)
         {
             Items.Clear(); _epoch = NetSession.AuthorityEpoch; _match = NetSession.CurrentMatchId;
-            _ledger = new(_epoch, _match, _room, NetCampaignEvidence.TimedGrant);
+            _ledger = new(_epoch, _match, _room, NetGrantNetwork.Changed);
             _claims = new(_epoch, _match, _room, _ledger, NetCampaignEvidence.PickupProof);
         }
         return _ledger;
@@ -102,6 +102,7 @@ internal static class NetPowerUpLedger
         if (!Items.TryGetValue(item, out var key)) return false;
         var life = ShotKey.For(player.SlotIndex, 0);
         ledger.BeginLife(life, NetSession.NetFrame);
+        NetGrantNetwork.BeginLife(life, _room, NetSession.NetFrame);
         uint? source = SourceFrame(player);
         // Preserve the input phase even for a native callback that reaches this
         // adapter outside the usual player loop (including same-frame renewal).
@@ -157,6 +158,7 @@ internal static class NetPowerUpLedger
                 || !TryType(item.ItemType, out var type) || type != contact.Type) return TimedGrantResult.Gone;
             var life = ShotKey.For(senderSlot, 0);
             _ledger!.BeginLife(life, decision);
+            NetGrantNetwork.BeginLife(life, _room, decision);
             // Activation belongs to current input time. The older contact proof
             // never rewrites immutable A1 source observations or native timers.
             uint? source = SourceFrame(player);
@@ -179,6 +181,7 @@ internal static class NetPowerUpLedger
         var ledger = Ensure();
         var life = ShotKey.For(player.SlotIndex, 0);
         ledger.BeginLife(life, NetSession.NetFrame);
+        NetGrantNetwork.BeginLife(life, _room, NetSession.NetFrame);
         ledger.ObserveInput(life, source, NetSession.NetFrame);
     }
     internal static void RetireSlot(int slot, TimedGrantEnd reason)

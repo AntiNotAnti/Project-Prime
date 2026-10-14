@@ -39,6 +39,8 @@ namespace MphRead.NetTest
                     + "  --pickup-network                  Test bounded pickup retries and impaired reliable delivery.\n"
                     + "  --pickup-readiness                Test hosted pickup discovery after scene loading.\n"
                     + "  --pickup-replay                   Test pickup replay facts and checkpoint state.\n"
+                    + "  --timed-grant-presentation        Test prediction, reconciliation and private checkpoints.\n"
+                    + "  --grant-replay                    Test recorded grant presentation and private restore.\n"
                     + "  --powerup-ledger-scene <assets> [profile] [room] Test native timed pickups and timer phases.\n"
                     + "  --shot-inputs                     Test live physical-input codec and bounded sender history.\n"
                     + "  --compact-intents                 Test compact live intent transport and replay compatibility.\n"
@@ -72,8 +74,18 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--pickup-network") return PickupNetworkTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-readiness") return PickupReadinessTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-replay") return PickupReplayTests.Run();
+            if (args.Length > 1 && args[0] == "--native-timed-grant-presentation")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return NativeTimedGrantPresentationTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 0 && args[0] == "--timed-grant-presentation") return TimedGrantPresentationTests.Run();
+            if (args.Length > 0 && args[0] == "--grant-replay") return GrantReplayTests.Run();
+            if (args.Length > 0 && args[0] == "--grant-network") return GrantNetworkTests.Run();
             if (args.Length > 0 && args[0] == "--terminal-retries") return TerminalRetryTests.Run(Array.IndexOf(args, "--lost-terminal-only") >= 0);
             if (args.Length > 0 && args[0] == "--timed-grants") return TimedGrantTests.Run();
+            if (args.Length > 0 && args[0] == "--timed-grant-codec") return TimedGrantFactTests.Run();
             if (args.Length > 1 && args[0] == "--powerup-ledger-scene")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));

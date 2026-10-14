@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "scope": "synthetic authority-value grants; actual identity-bound reliable UDP, batching and bounded delivery",
+  "diagnosticSourceCommit": "641b1a00509e7db19a36d9fa56c43082082f1ed8",
+  "client": {
+    "sha256": "8075fdaceadefe952b2213991be729b1266aaab145bac23c3f29b7a0bc573165",
+    "expectedSha256": "8075fdaceadefe952b2213991be729b1266aaab145bac23c3f29b7a0bc573165",
+    "mvid": "a12fe92f-081c-4c3f-ae3b-934d4a612ac8",
+    "buildId": "local+0c2eefb5424b91ba618e0d4e759643815e95fde9"
+  },
+  "diagnostic": {
+    "sha256": "7ea64bee53ea01c5c7c26c8c70afc21458cd8497eb271ad03b08ad4605117f46",
+    "mvid": "bd523b70-6bda-4818-9fac-99017d2126aa",
+    "buildId": "1.0.0+641b1a00509e7db19a36d9fa56c43082082f1ed8"
+  },
+  "checks": 303,
+  "protocol": 56,
+  "states": 24,
+  "bootstrap": {
+    "states": 24,
+    "applicationDatagrams": 2,
+    "GrantLengths": [
+      1194,
+      134,
+      1194,
+      134,
+      1194,
+      134,
+      1194,
+      134,
+      1194,
+      134
+    ],
+    "GrantAttempts": 10,
+    "DroppedAcks": 4,
+    "DuplicateCopies": 1,
+    "ReorderedPairs": 1,
+    "Retransmissions": 8,
+    "Reordered": 1
+  },
+  "lateJoin": {
+    "datagrams": 2,
+    "states": 24,
+    "remainingTicks": 1000
+  },
+  "stalled": {
+    "observedSeconds": 15.0032427,
+    "applicationFailed": true,
+    "failureNotice": true,
+    "reliable": {
+      "Pending": 16,
+      "HighWater": 16,
+      "Refused": 0,
+      "ReserveUses": 0,
+      "SpanRefused": 0,
+      "Retransmissions": 240,
+      "Duplicates": 0,
+      "OldestAgeMilliseconds": 15016.3514159997,
+      "Failed": true,
+      "CurrentRtoMilliseconds": 75
+    },
+    "baselinePacketsRetained": 2,
+    "healthyStateBefore": "a64f3f872a161a53c79dc566aa6e36cbdcf6cd958e4b82c6a7698538c06bdea2",
+    "healthyStateAfter": "a64f3f872a161a53c79dc566aa6e36cbdcf6cd958e4b82c6a7698538c06bdea2",
+    "healthyServicePumps": 6024,
+    "healthyUnchanged": true
+  },
+  "elapsedSeconds": 16.411159,
+  "isolatedProfile": true,
+  "rawReceipt": {
+    "externalPath": "work/grant-transport-final.json",
+    "sha256": "8a72b6db45f12b2f572bbcc4e5d44c77d6e8b530c3fde524e6d46b5cc0a2826f"
+  },
+  "negativeReceipts": [
+    {
+      "externalPath": "work/grant-transport-first.json",
+      "classification": "EXCLUDED_HARNESS_FAILURE",
+      "reason": "omitted ongoing healthy peer pump during stalled interval"
+    },
+    {
+      "externalPath": "work/grant-transport-corrected.json",
+      "classification": "EXCLUDED_INSTRUMENTATION_FAILURE",
+      "reason": "bootstrap datagram-length list retained mutable reference into later phases"
+    }
+  ],
+  "nativeContactGeometry": "NOT_RUN",
+  "naturalAIThreeTypeCoverage": "NOT_RUN",
+  "gpuWork": "NOT_RUN",
+  "highLevelHostedDedicatedAdmission": "NOT_RUN",
+  "acceptedShotDamageAuthorization": "NOT_RUN"
+}

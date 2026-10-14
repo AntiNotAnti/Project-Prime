@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using MphRead.Entities;
+using MphRead.Mods.Replay;
 
 namespace MphRead.Mods.Network
 {
@@ -34,11 +35,14 @@ namespace MphRead.Mods.Network
         public void BeforeSimulation(Scene scene)
         {
             State.Advance(Session.RecordingFrame);
+            State.TimedGrants.Advance(Session.RecordingFrame, life => State.MatchesLife(life.ShooterSlot, life.Generation, life.LifeId)
+                && State.TryGetPlayer(life.ShooterSlot, out var actor) && actor.Health > 0);
             if (State.Match is not MatchStatePacket match) return;
             if (!string.Equals(scene.Room?.Meta.Name, match.RoomKey, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("The replica scene belongs to a different recorded room.");
             ApplyRules(scene, Session.RecordingFrame);
             State.PrepareBombWorld(scene);
+            TimedPickupProjection.ApplyDynamic(scene);
             scene.EnhancedWorld.Read(State.EnhancedWorldState);
             if (State.AuthorityWorld is { } clock)
             {
@@ -86,6 +90,10 @@ namespace MphRead.Mods.Network
                 // accepted intent; only the firing edge/weapon/charge are
                 // replaced here, immediately before ProcessInput consumes them.
                 scene.ReplayPoses?.ApplyFireEvent(player);
+                if (State.TimedGrants.HasCoverage && State.TryGetPlayer(slot, out var grantPlayer))
+                    player.ModProjectTimedGrants(State.TimedGrants,
+                        new(match.AuthorityEpoch, match.MatchId, slot, grantPlayer.SlotGeneration, grantPlayer.LifeId, 0),
+                        Session.RecordingFrame, quiet: Session.Transport.IsSeeking || !ReplayAudioOwner.MayPlay(scene));
             }
             scene.Players.PlayerCount = scene.GameState.ActivePlayers = active;
         }

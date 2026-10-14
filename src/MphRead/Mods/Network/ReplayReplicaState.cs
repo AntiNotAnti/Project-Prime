@@ -86,6 +86,7 @@ namespace MphRead.Mods.Network
         internal void Advance(uint frame)
         {
             RecordingFrame = frame;
+            TimedGrants.Advance(frame);
             if (_shotFactsFrame != frame)
             {
                 _shotFacts.Clear();
@@ -104,7 +105,7 @@ namespace MphRead.Mods.Network
         }
         public void Rewind()
         {
-            ResetTurretOutcomes(); ResetPickupFacts();
+            ResetTurretOutcomes(); ResetPickupFacts(); TimedGrants.Reset();
             _bombPackets.Clear();
             ChatLines.Clear();
             _shotFacts.Clear();
@@ -143,10 +144,16 @@ namespace MphRead.Mods.Network
             bool accepted = false;
             switch ((PacketType)packet[0])
             {
+                case PacketType.TimedGrantBootstrap:
+                    accepted = AcceptGrantBootstrap(payload, frame); break;
+                case PacketType.TimedGrant:
+                    accepted = AcceptTimedGrant(payload, frame); break;
+                case PacketType.PickupPrediction:
+                    accepted = AcceptPickupPrediction(payload, frame); break;
                 case PacketType.PickupClaim:
                     accepted = AcceptPickupClaim(payload); break;
                 case PacketType.PickupVerdict:
-                    accepted = AcceptPickupVerdict(payload); break;
+                    accepted = AcceptPickupVerdict(payload, frame); break;
                 case PacketType.PickupItem:
                     accepted = AcceptPickupItem(payload); break;
                 case PacketType.TurretFireOutcome:

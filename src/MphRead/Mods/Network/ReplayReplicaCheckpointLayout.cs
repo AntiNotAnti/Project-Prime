@@ -8,7 +8,6 @@ namespace MphRead.Mods.Network;
 internal enum ReplayReplicaCheckpointFeatures : byte
 {
     None = 0, NativeTouch = 1, Pickups = 2,
-    // Reserved for A3. A2 must refuse it until its decoder is installed.
     Grants = 4
 }
 
@@ -17,7 +16,7 @@ internal readonly record struct ReplayReplicaCheckpointLayout(ushort Version, in
 {
     internal const ushort CurrentVersion = 12;
     internal const ReplayReplicaCheckpointFeatures CurrentFeatures
-        = ReplayReplicaCheckpointFeatures.NativeTouch | ReplayReplicaCheckpointFeatures.Pickups;
+        = ReplayReplicaCheckpointFeatures.NativeTouch | ReplayReplicaCheckpointFeatures.Pickups | ReplayReplicaCheckpointFeatures.Grants;
     internal bool Has(ReplayReplicaCheckpointFeatures feature) => (Features & feature) != 0;
     internal int IntentBytes => Has(ReplayReplicaCheckpointFeatures.NativeTouch) ? IntentPacket.TouchCanonicalSize
         : Protocol >= 43 ? IntentPacket.FullSize : Protocol >= 39 ? IntentPacket.Protocol42FullSize
@@ -39,12 +38,16 @@ internal readonly record struct ReplayReplicaCheckpointLayout(ushort Version, in
         if (version == 10 && protocol == 53)
             return [new(version, protocol, ReplayReplicaCheckpointFeatures.NativeTouch, 7),
                 new(version, protocol, ReplayReplicaCheckpointFeatures.Pickups, 7)];
-        if (version == 11)
-            throw new InvalidDataException("Staged A3 grant checkpoints require the A3 decoder.");
-        if (version != CurrentVersion || protocol < 55 || bytes.Length < 8
-            || (ReplayReplicaCheckpointFeatures)bytes[7] != CurrentFeatures)
-            throw new InvalidDataException("Unsupported replica checkpoint layout/features.");
-        return [new(version, protocol, CurrentFeatures, 8)];
+        if (version == 11 && protocol == 54)
+            return [new(version, protocol, ReplayReplicaCheckpointFeatures.Pickups | ReplayReplicaCheckpointFeatures.Grants, 7)];
+        if (version == CurrentVersion && bytes.Length >= 8)
+        {
+            var features = (ReplayReplicaCheckpointFeatures)bytes[7];
+            if (protocol == 55 && features == (ReplayReplicaCheckpointFeatures.NativeTouch | ReplayReplicaCheckpointFeatures.Pickups)
+                || protocol == 56 && features == CurrentFeatures)
+                return [new(version, protocol, features, 8)];
+        }
+        throw new InvalidDataException("Unsupported replica checkpoint layout/features.");
     }
 
     internal static T DecodeUnique<T>(ReadOnlySpan<byte> bytes, Func<ReplayReplicaCheckpointLayout, T> decode)

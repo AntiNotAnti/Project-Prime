@@ -1,0 +1,124 @@
+using System;
+using System.Buffers.Binary;
+using System.Collections.Generic;
+using System.IO;
+using MphRead.Entities;
+using MphRead.Mods.Input;
+using MphRead.Mods.Network;
+
+namespace MphRead.Mods.Replay;
+
+[Flags]
+internal enum ReplayWorldCheckpointAppendices : byte { None = 0, NativeTouch = 1, Pickups = 2 }
+
+internal sealed partial class ReplayWorldCheckpoint
+{
+    private static (ushort Version, ReplayWorldCheckpointAppendices Declared) ReadWorldHeader(BinaryReader reader)
+    {
+        if (reader.ReadUInt32() != Magic) throw new InvalidDataException("Unsupported replay world checkpoint format.");
+        ushort version = reader.ReadUInt16();
+        if (version is < 1 or > Version) throw new InvalidDataException("Unsupported replay world checkpoint format.");
+        var declared = version >= 10 ? (ReplayWorldCheckpointAppendices)reader.ReadByte() : ReplayWorldCheckpointAppendices.None;
+        if (version >= 10 && declared != (ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups))
+            throw new InvalidDataException("Unsupported replay world appendix contract.");
+        return (version, declared);
+    }
+
+    // The stable object fingerprint covers neither optional appendix. The
+    // collided v9 layouts are identified by complete validated decoder bodies,
+    // not protocol >= comparisons or a guessed appendix size.
+    private static (ReplayWorldCheckpointAppendices Appendices, ReplayReplicaCheckpointFeatures DecoderFeatures, bool IndexedFire)
+        InspectWorldBody(BinaryReader reader, ushort version, ReplayWorldCheckpointAppendices declared)
+    {
+        reader.ReadUInt32(); reader.ReadUInt32(); // RNG values
+        var construction = new ReplayReplicaCheckpoint(ReadBytes(reader, ReplayReplicaCheckpoint.MaximumBytes));
+        var decoder = new ReplayReplicaCheckpoint(ReadBytes(reader, ReplayReplicaCheckpoint.MaximumBytes));
+        var initialLayout = ReplayReplicaState.InspectCheckpointLayout(construction);
+        var currentLayout = ReplayReplicaState.InspectCheckpointLayout(decoder);
+        if ((initialLayout.Features & ~currentLayout.Features) != 0)
+            throw new InvalidDataException("Contradictory replay world decoder contracts.");
+        var appendices = declared;
+        if (version == 9)
+        {
+            if (currentLayout.Has(ReplayReplicaCheckpointFeatures.NativeTouch)
+                && !currentLayout.Has(ReplayReplicaCheckpointFeatures.Grants))
+                appendices = ReplayWorldCheckpointAppendices.NativeTouch;
+            else if (!currentLayout.Has(ReplayReplicaCheckpointFeatures.NativeTouch)
+                && currentLayout.Features == (ReplayReplicaCheckpointFeatures.Pickups | ReplayReplicaCheckpointFeatures.Grants))
+                appendices = ReplayWorldCheckpointAppendices.Pickups;
+            else throw new InvalidDataException("Ambiguous or unsupported historical world v9 contract.");
+        }
+        if (appendices.HasFlag(ReplayWorldCheckpointAppendices.NativeTouch)
+            && !currentLayout.Has(ReplayReplicaCheckpointFeatures.NativeTouch)
+            || appendices.HasFlag(ReplayWorldCheckpointAppendices.Pickups)
+            && !currentLayout.Has(ReplayReplicaCheckpointFeatures.Pickups))
+            throw new InvalidDataException("Replay world appendix differs from its decoder contract.");
+        int count = Count(reader, MaximumObjects);
+        var types = new Type[count];
+        for (int i = 0; i < count; i++)
+        {
+            ushort type = reader.ReadUInt16(); reader.ReadUInt64();
+            if (type >= ObjectTypes.Length) throw new InvalidDataException("Unknown replay object contract.");
+            types[i] = ObjectTypes[type]; ReadBytes(reader, MaximumBytes);
+        }
+        if (version >= 2) ReadBytes(reader, MaximumBytes);
+        if (version >= 3) ReadBytes(reader, 4096);
+        if (version >= 4) ReadBytes(reader, MaximumBytes);
+        if (version >= 5) ReadBytes(reader, 256 * 1024);
+        if (version >= 7) ReadBytes(reader, 4096);
+        if (appendices.HasFlag(ReplayWorldCheckpointAppendices.NativeTouch))
+            ValidateNativeTouchAppendix(ReadBytes(reader, 4096));
+        if (appendices.HasFlag(ReplayWorldCheckpointAppendices.Pickups))
+        {
+            var state = new ReplayReplicaState(); state.RestoreCheckpoint(decoder);
+            ValidatePickupAppendix(ReadBytes(reader, 65536), types, state);
+        }
+        byte indexed = version >= 6 ? reader.ReadByte() : (byte)0;
+        if (indexed > 1 || reader.BaseStream.Position != reader.BaseStream.Length)
+            throw new InvalidDataException("Invalid replay world capsule length/presentation marker.");
+        return (appendices, currentLayout.Features, indexed == 1);
+    }
+
+    private static void ValidateNativeTouchAppendix(byte[] bytes)
+    {
+        // Frozen native-touch appendix: two owner flags/two ushort identities,
+        // 45-byte NativeTouchSample, six-byte boost latch for each of eight slots.
+        const int rowBytes = 57;
+        if (bytes.Length != rowBytes * PlayerEntity.SlotCapacity)
+            throw new InvalidDataException("Invalid native touch checkpoint appendix length.");
+        for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
+        {
+            var row = bytes.AsSpan(slot * rowBytes, rowBytes);
+            foreach (int at in new[] { 0, 1, 26, 27, 36, 37, 51 })
+                if (row[at] > 1) throw new InvalidDataException("Noncanonical native touch checkpoint boolean.");
+            byte flags = row[42];
+            if ((flags & ~31) != 0 || (flags & 2) != 0
+                && (Math.Abs((int)BinaryPrimitives.ReadInt16LittleEndian(row[43..])) > 1020
+                    || Math.Abs((int)BinaryPrimitives.ReadInt16LittleEndian(row[45..])) > 1020))
+                throw new InvalidDataException("Invalid native touch report in checkpoint.");
+            using var stream = new MemoryStream(row.ToArray(), writable: false); using var reader = new BinaryReader(stream);
+            reader.ReadBoolean(); reader.ReadBoolean(); reader.ReadUInt16(); reader.ReadUInt16();
+            new NativeTouchSample().RestoreCheckpoint(reader);
+            new MorphBallBoostStateMachine().RestoreCheckpoint(reader);
+            if (stream.Position != stream.Length) throw new InvalidDataException("Invalid native touch checkpoint row.");
+        }
+    }
+
+    private static void ValidatePickupAppendix(byte[] bytes, Type[] types, ReplayReplicaState state)
+    {
+        using var stream = new MemoryStream(bytes, writable: false); using var reader = new BinaryReader(stream);
+        int count = Count(reader, 2048); var seen = new HashSet<int>(); var identities = new HashSet<PowerUpSpawnKey>();
+        for (int i = 0; i < count; i++)
+        {
+            int id = reader.ReadInt32();
+            var key = new PowerUpSpawnKey(reader.ReadUInt64(), reader.ReadUInt16(), reader.ReadUInt32(), reader.ReadInt32(), reader.ReadUInt32());
+            byte hidden = reader.ReadByte();
+            if ((uint)id >= types.Length || types[id] != typeof(ItemInstanceEntity) || hidden > 1
+                || !seen.Add(id) || !identities.Add(key) || !PickupWire.ValidSpawn(key)
+                || state.Match is not { } match || key.Epoch != match.AuthorityEpoch || key.Match != match.MatchId
+                || state.PickupRoomIdentity != 0 && key.Room != state.PickupRoomIdentity)
+                throw new InvalidDataException("Invalid replay pickup item appendix contract.");
+        }
+        if (stream.Position != stream.Length) throw new InvalidDataException("Trailing replay pickup item appendix data.");
+    }
+}

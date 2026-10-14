@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>nettest</AssemblyName>
+    <Nullable>enable</Nullable>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <Target Name="RequireFrozenClient" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(FrozenClientDirectory)' == ''" Text="Set FrozenClientDirectory to an absolute directory containing the frozen physical ProjectPrime.dll and OpenTK.Mathematics.dll." />
+    <Error Condition="!Exists('$(FrozenClientDirectory)/ProjectPrime.dll')" Text="Frozen ProjectPrime.dll is missing." />
+    <Error Condition="!Exists('$(FrozenClientDirectory)/OpenTK.Mathematics.dll')" Text="Frozen OpenTK.Mathematics.dll is missing." />
+  </Target>
+  <ItemGroup>
+    <Reference Include="ProjectPrime">
+      <HintPath>$(FrozenClientDirectory)/ProjectPrime.dll</HintPath>
+      <Private>true</Private>
+      <ExternallyResolved>true</ExternallyResolved>
+    </Reference>
+    <Reference Include="OpenTK.Mathematics">
+      <HintPath>$(FrozenClientDirectory)/OpenTK.Mathematics.dll</HintPath>
+      <Private>true</Private>
+      <ExternallyResolved>true</ExternallyResolved>
+    </Reference>
+  </ItemGroup>
+</Project>

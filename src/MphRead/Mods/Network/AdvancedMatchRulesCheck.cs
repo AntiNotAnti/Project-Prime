@@ -826,8 +826,10 @@ namespace MphRead.Mods.Network
             // three pickup counts. All are absent from schema 4.
             // Check the empty appendices before stripping them so this fixture
             // cannot silently discard populated history or target the wrong bytes.
-            const int historicalAppendixBytes = 8 * sizeof(int) + 3 * sizeof(uint);
-            Check(historicalBytes.Skip(historicalBytes.Count - historicalAppendixBytes).All(value => value == 0),
+            const int grantAppendixBytes = 87; // length prefix + empty v11 pure presentation state
+            const int historicalAppendixBytes = 8 * sizeof(int) + 3 * sizeof(uint) + grantAppendixBytes;
+            Check(historicalBytes.Skip(historicalBytes.Count - historicalAppendixBytes)
+                .Select((value, index) => value == (index == historicalAppendixBytes - grantAppendixBytes ? 83 : 0)).All(value => value),
                 "protocol-27 fixture strips only empty later-schema appendices");
             historicalBytes.RemoveRange(historicalBytes.Count - historicalAppendixBytes, historicalAppendixBytes);
             historicalBytes[4] = 4; historicalBytes[5] = 0;

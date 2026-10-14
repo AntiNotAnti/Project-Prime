@@ -1811,6 +1811,9 @@ namespace MphRead.Entities
             }
             _boostDamage = _modReportedBoostDamage;
 
+            // Authority native grants and modern replica grants own this timer.
+            // Neither a true nor a false owner bit may override them.
+            if ((!_scene.Services.IsReplica && NetSession.IsAuthority) || ModUsesTimedGrantPresentation) return;
             if (doubleDamage)
             {
                 // Held up rather than counted down: the owner says so again

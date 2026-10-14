@@ -277,10 +277,13 @@ internal static class TurretFireOutcomeTests
         accepted = restored.AcceptedPackets; restored.Accept(packet, 134);
         Check(restored.PendingTurretOutcomeCount == 1 && restored.AcceptedPackets == accepted,
             "v12 restoration preserves duplicate-terminal suppression");
+
         // Preserve actual v9 compatibility: its last bytes are the pending
         // outcome; v10 adds an empty room watermark and three pickup counts.
-        const int pickupTail = sizeof(uint) + 3 * sizeof(int);
-        Check(checkpoint.Bytes[^pickupTail..].ToArray().All(value => value == 0),
+        const int grantTail = 87;
+        const int pickupTail = sizeof(uint) + 3 * sizeof(int) + grantTail;
+        Check(checkpoint.Bytes[^pickupTail..].ToArray()
+            .Select((value, index) => value == (index == pickupTail - grantTail ? 83 : 0)).All(value => value),
             "historical v9 fixture strips only empty pickup data");
         byte[] historical = ReplicaCheckpointCompatibilityTests.HistoricalFixture(checkpoint,
             touch: false, pickups: false, version: 9, protocol: 52);

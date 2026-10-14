@@ -620,6 +620,10 @@ jobs:
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --pickup-network
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --pickup-readiness
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --pickup-replay
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --timed-grant-codec
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --timed-grant-presentation
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --grant-network
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --grant-replay
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --campaign-claims
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --replay-form-history
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --turret-fire-outcome-codec

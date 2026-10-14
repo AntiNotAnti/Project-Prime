@@ -7,7 +7,7 @@ namespace MphRead.Mods.Network;
 
 /// <summary>Owner-thread, bounded A2 discovery and claim delivery. Reliable UDP
 /// retries admitted bytes; application retries recover a lost terminal response.
-/// No client timer reconciliation is performed here (A3).</summary>
+/// Presentation reconciliation has its own bounded state and life fences.</summary>
 internal static class NetPickupNetwork
 {
     internal const int PendingPerSlot = 16;
@@ -23,6 +23,7 @@ internal static class NetPickupNetwork
     private sealed record Answer(PickupVerdict Verdict, double Created);
     internal sealed class PeerState
     {
+        internal NetGrantNetwork.Peer Grants = null!;
         internal NetRetainedDelivery Store = null!;
         internal NetRetainedDelivery.Cursor Cursor = null!;
         internal readonly Queue<byte[]> Baseline = new();
@@ -30,6 +31,7 @@ internal static class NetPickupNetwork
     }
     private static readonly Dictionary<PickupClaimKey, Pending> Owners = new();
     private static readonly Dictionary<PowerUpSpawnKey, PickupItemFact> KnownItems = new();
+    internal static IReadOnlyDictionary<PowerUpSpawnKey, PickupItemFact> ItemFacts => KnownItems;
     private static readonly Dictionary<PickupClaimKey, Pending>[] Incoming = new Dictionary<PickupClaimKey, Pending>[8];
     private static readonly Queue<Answer>[] Answers = new Queue<Answer>[8];
     private static readonly bool[] Failed = new bool[8];
@@ -57,6 +59,7 @@ internal static class NetPickupNetwork
     internal static void Reset()
     {
         NetSession.ResetPickupReadiness();
+        NetGrantNetwork.Reset();
         Owners.Clear(); KnownItems.Clear(); _room = 0;
         // Preserve process claim sequence across same-match reconnect/scene reload.
         _discovery = new(2048);
@@ -89,7 +92,7 @@ internal static class NetPickupNetwork
     }
     internal static PeerState Join()
     {
-        var peer = new PeerState { Store = _discovery, Cursor = _discovery.Join(), Started = Now };
+        var peer = new PeerState { Grants = NetGrantNetwork.Join(), Store = _discovery, Cursor = _discovery.Join(), Started = Now };
         var items = NetPowerUpLedger.CaptureItems();
         int perPacket = NetFactBatch.MaximumPayload / PickupItemFact.Size;
         for (int at = 0; at < items.Length; at += perPacket)
@@ -102,10 +105,10 @@ internal static class NetPickupNetwork
         return peer;
     }
     internal static bool Current(PeerState peer) => ReferenceEquals(peer.Store, _discovery);
-    internal static int PeerPending(PeerState peer) => Current(peer) ? peer.Baseline.Count + peer.Store.Pending(peer.Cursor) : 1;
+    internal static int PeerPending(PeerState peer) => Current(peer) ? peer.Baseline.Count + peer.Store.Pending(peer.Cursor) + NetGrantNetwork.Pending(peer.Grants) : 1;
     internal static bool Pump(PeerState peer, int slot, NetRetainedDelivery.BatchSink send)
     {
-        if (!Current(peer) || FailedSlot(slot)) return false;
+        if (!Current(peer) || FailedSlot(slot) || !NetGrantNetwork.Pump(peer.Grants, send)) return false;
         if ((uint)slot < 8)
             foreach (var request in Incoming[slot].Values)
                 if (Now - request.Created >= DeadlineSeconds) return false;
@@ -149,7 +152,12 @@ internal static class NetPickupNetwork
     }
     internal static void AfterSimulation()
     {
-        if (!NetSession.IsAuthority) { PumpOwner(); return; }
+        if (!NetSession.IsAuthority)
+        {
+            PumpOwner();
+            if (NetBombs.LiveScene is { } clientScene) TimedPickupProjection.ApplyDynamic(clientScene);
+            return;
+        }
         if (NetBombs.LiveScene is not { } scene || scene.Services.IsReplica) return;
         // Active actors arbitrate during their native pickup phase, before the
         // trailing Double Damage decrement and form/presentation maintenance.
@@ -200,6 +208,7 @@ internal static class NetPickupNetwork
     {
         if (!NetSession.MatchesStream(fact.Spawn.Match, fact.Spawn.Epoch) || !fact.IsValid) return false;
         if (_room != 0 && fact.Spawn.Room < _room) return false;
+        if (!NetGrantNetwork.ObserveItemRoom(fact)) return false;
         if (_room != fact.Spawn.Room)
         { KnownItems.Clear(); Owners.Clear(); _room = fact.Spawn.Room; }
         var accepted = PickupItemHistory.Accept(KnownItems, fact);
@@ -215,15 +224,8 @@ internal static class NetPickupNetwork
         if (!NetSession.IsClient || NetSession.IsAuthority || player.OwningScene.Services.IsReplica
             || player.SlotIndex != NetSession.LocalSlot || !NetSession.WorldIsReady
             || !NetPowerUpLedger.TryType(item.ItemType, out var type)) return;
-        // Dynamic drops have no shared entity identity yet. Position-only mapping
-        // must never invent an incarnation. Their native authority contact still
-        // grants normally; A3 will reconcile the resulting grant state.
-        if (item.Owner == null) return;
-        PickupItemFact? identity = null;
-        foreach (var fact in KnownItems.Values)
-            if (fact.Spawn.SpawnId == item.Owner.Id && fact.Type == type
-                && (identity == null || fact.Spawn.Generation > identity.Value.Spawn.Generation)) identity = fact;
-        if (identity is not PickupItemFact known) return;
+        if (item.ModPickupSpawn is not { } key || !KnownItems.TryGetValue(key, out var known)
+            || !known.Available || known.Type != type || NetGrantNetwork.Presentation.Hides(key, NetSession.NetFrame)) return;
         foreach (var pending in Owners.Values)
             if (pending.Claim.Spawn == known.Spawn && pending.Claim.Key.LifeKey == ShotKey.For(player.SlotIndex, 0)) return;
         if (Owners.Count >= PendingPerSlot || _sequence == uint.MaxValue)
@@ -234,6 +236,12 @@ internal static class NetPickupNetwork
         if (!claim.IsValid) return;
         Owners.Add(claim.Key, new() { Claim = claim, Created = Now });
         NetCampaignEvidence.PickupClaim(claim, "offered");
+        if (NetGrantNetwork.Presentation.Predict(claim, NetSession.NetFrame))
+        {
+            ReplayCapture.AcceptPickupPrediction(claim, NetSession.NetFrame);
+            item.ModPickupHidden = true;
+            player.ModProjectTimedGrants(NetGrantNetwork.Presentation, life, NetSession.NetFrame, quiet: false);
+        }
     }
     internal static void PumpOwner()
     {
@@ -262,6 +270,7 @@ internal static class NetPickupNetwork
             || verdict.Claim.Key.Slot != NetSession.LocalSlot
             || !Owners.TryGetValue(verdict.Claim.Key, out var pending) || pending.Claim != verdict.Claim) return false;
         Owners.Remove(verdict.Claim.Key);
+        NetGrantNetwork.Presentation.Settle(verdict, NetSession.NetFrame);
         ReplayCapture.AcceptPickupVerdict(verdict);
         NetCampaignEvidence.PickupVerdict(verdict, "received");
         Terminal?.Invoke(verdict); return true;

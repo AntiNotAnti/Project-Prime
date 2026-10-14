@@ -1,6 +1,10 @@
 using System;
 using System.Buffers.Binary;
 using System.IO;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using MphRead.Entities;
+using MphRead.Mods.Replay;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
@@ -59,6 +63,42 @@ internal static class PickupReplayTests
             "newer false-to-true contradicts authoritative availability explicitly");
     }
 
+    private static void ItemAppendix()
+    {
+        var state = State();
+        var item = (ItemInstanceEntity)RuntimeHelpers.GetUninitializedObject(typeof(ItemInstanceEntity));
+        typeof(ItemInstanceEntity).GetField("<ItemType>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(item, ItemType.DoubleDamage);
+        item.Position = new Vector3(1, 2, 3); item.ModPickupSpawn = new(9, 2, 7, -1, 8); item.ModPickupHidden = true;
+        var graphType = typeof(ReplayWorldCheckpoint).GetNestedType("CaptureGraph", BindingFlags.NonPublic)!;
+        object graph = Activator.CreateInstance(graphType, nonPublic: true)!;
+        graphType.GetMethod("Id", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(graph, new object[] { item });
+        var write = typeof(ReplayWorldCheckpoint).GetMethod("WritePickupItems", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var read = typeof(ReplayWorldCheckpoint).GetMethod("ReadPickupItems", BindingFlags.Static | BindingFlags.NonPublic)!;
+        using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
+        write.Invoke(null, new object[] { writer, graph, state }); writer.Flush(); byte[] bytes = stream.ToArray();
+        var key = item.ModPickupSpawn; item.ModPickupSpawn = null; item.ModPickupHidden = false;
+        void Load(byte[] value, object[] objects)
+        {
+            try { read.Invoke(null, new object[] { value, objects, state }); }
+            catch (TargetInvocationException ex) when (ex.InnerException is InvalidDataException)
+            { throw (InvalidDataException)ex.InnerException; }
+        }
+        Load(bytes, new object[] { item });
+        Check(item.ModPickupSpawn == key && item.ModPickupHidden,
+            "actual outer item appendix restores private identity and hidden presentation without base schema changes");
+        byte[] invalid = (byte[])bytes.Clone(); invalid[^1] = 2;
+        Reject(() => Load(invalid, new object[] { item }), "outer item appendix rejects noncanonical hidden boolean");
+        Check(item.ModPickupSpawn == key && item.ModPickupHidden, "invalid item appendix does not partially mutate existing presentation");
+        Reject(() => Load(bytes, new object[] { new object() }), "outer item graph id requires actual item type");
+        byte[] duplicates = new byte[bytes.Length + bytes.Length - 4];
+        bytes.CopyTo(duplicates, 0); bytes.AsSpan(4).CopyTo(duplicates.AsSpan(bytes.Length));
+        BinaryPrimitives.WriteInt32LittleEndian(duplicates, 2);
+        Reject(() => Load(duplicates, new object[] { item }), "outer item appendix rejects duplicate graph identity");
+        Load(new byte[4], new object[] { item });
+        Check(item.ModPickupSpawn == null && !item.ModPickupHidden,
+            "empty item appendix clears unlisted optional fields without resurrecting visual state");
+    }
     internal static int Run()
     {
         _checks = 0;
@@ -95,6 +135,7 @@ internal static class PickupReplayTests
             Check(other.CaptureCheckpoint().Bytes.SequenceEqual(before), "failed restore leaves complete replica unchanged");
             byte[] old = ReplicaCheckpointCompatibilityTests.HistoricalFixture(State().CaptureCheckpoint(),
                 touch: false, pickups: false, version: 9, protocol: 52);
+
             other.RestoreCheckpoint(new ReplayReplicaCheckpoint(old));
             Check(other.PickupClaims.Count == 0 && other.PickupVerdicts.Count == 0 && other.PickupItems.Count == 0,
                 "historical v9 prefix restores empty A2 state and clears existing facts");
@@ -113,7 +154,10 @@ internal static class PickupReplayTests
             Check(bounded.PickupClaims.Count == ReplayReplicaState.PickupReplayCapacity && bounded.PickupClaims.ContainsKey(claim.Key with { Sequence = 1 }),
                 "bounded identity store retains earliest key at capacity");
             LongItemHistory();
+            ItemAppendix();
             ReplicaCheckpointCompatibilityTests.Run(Check);
+            WorldCheckpointCompatibilityTests.Run(Check);
+            NativeTouchCheckpointTests.Run(Check);
             Console.WriteLine($"PICKUP REPLAY PASS: {_checks} checks"); return 0;
         }
         catch (Exception ex) { Console.WriteLine("PICKUP REPLAY FAIL: " + ex); return 1; }

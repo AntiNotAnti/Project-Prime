@@ -862,6 +862,7 @@ namespace MphRead.Mods.Network
                     HandlePickupClaim(packet); break;
                 case PacketType.PickupReady when Role == NetRole.Host:
                     HandlePickupReady(packet); break;
+                case PacketType.TimedGrant when Role == NetRole.Client:
                 case PacketType.PickupItem when Role == NetRole.Client:
                 case PacketType.PickupVerdict when Role == NetRole.Client:
                     HandlePickupFact(packet); break;

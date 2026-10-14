@@ -27,6 +27,32 @@ internal static class NetCampaignEvidence
     private static readonly List<Shot> Shots = new();
     private static readonly List<object> TurretOutcomes = new();
     private static readonly List<object> TimedGrants = new();
+    private static readonly List<object> TimedGrantStates = new(), TimedGrantViews = new();
+    private static readonly (ShotKey Life, ulong Sequence, uint Prediction, int Bucket, bool Confirmed)[,] GrantViewKeys =
+        new (ShotKey, ulong, uint, int, bool)[8, 3];
+    internal static void TimedGrantState(TimedGrantFact fact, string stage)
+    {
+        if (!Enabled) return;
+        Span<byte> bytes = stackalloc byte[TimedGrantFact.Size]; fact.Write(bytes);
+        Add(TimedGrantStates, new { Stage = stage, fact.Life, fact.Room, fact.Revision, Type = fact.Type.ToString(),
+            fact.Sequence, fact.Spawn, fact.ContactFrame, fact.EndFrame, Reason = fact.Reason.ToString(),
+            fact.AuthorityFrame, fact.Resume, ObservedFrame = NetSession.NetFrame, Payload = Convert.ToHexString(bytes) });
+    }
+    internal static void TimedGrantView(PlayerEntity player, TimedGrantPresentation presentation, ShotKey life, uint frame)
+    {
+        if (!Enabled || player.OwningScene.Services.IsReplica) return;
+        for (int type = 0; type < 3; type++)
+        {
+            var view = player.Health > 0 && player.ModIsInPlay ? presentation.View(life, (TimedPowerUp)type, frame) : default;
+            var key = (life, view.GrantSequence, view.PredictionSequence, (view.Remaining + 59) / 60, view.ConfirmedRemaining > 0);
+            if (GrantViewKeys[player.SlotIndex, type] == key) continue;
+            GrantViewKeys[player.SlotIndex, type] = key;
+            Add(TimedGrantViews, new { Life = life, Type = ((TimedPowerUp)type).ToString(), ObservedFrame = frame,
+                AuthorityFrame = presentation.AuthorityNow(frame), Owner = player.SlotIndex == NetSession.LocalSlot,
+                view.Covered, view.Remaining, view.ConfirmedRemaining, view.GrantSequence, view.PredictionSequence,
+                NativeRemaining = player.ModTimedVisualRemaining((TimedPowerUp)type), Alive = player.Health > 0 });
+        }
+    }
     private static readonly List<object> PickupClaims = new(), PickupVerdicts = new(), PickupItems = new(), PickupProofs = new();
     internal static void PickupProof(PickupContactProof proof)
     {
@@ -414,7 +440,7 @@ internal static class NetCampaignEvidence
                 CombatPayments = NetCombatPayments.Capture(),
                 AiClient = NetAiClient.Capture(),
                 TurretOutcomes,
-                TimedGrants, PickupClaims, PickupVerdicts, PickupItems, PickupProofs,
+                TimedGrants, TimedGrantStates, TimedGrantViews, PickupClaims, PickupVerdicts, PickupItems, PickupProofs,
                 CampaignClaims = CaptureClaims(),
                 HitClaims = new { NetHitClaims.Declared, NetHitClaims.Applied, NetHitClaims.Duplicate,
                     NetHitClaims.RefusedDeadShooter, NetHitClaims.RefusedDeadVictim, NetHitClaims.RefusedOther,
