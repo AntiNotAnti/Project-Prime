@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using MphRead.Mods.Campaign;
+using MphRead.Mods.Network;
+using MphRead.Text;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -14,6 +16,33 @@ namespace MphRead.Mods.Launcher.Gui
     internal sealed class CampaignJournalView : UserControl
     {
         public event EventHandler? Closed;
+
+        public static bool Available(ScenePlayerRegistry? players)
+        {
+            if (players == null || players.PlayerCount == 0 || NetSession.Active
+                || DemoPlayback.IsActive) return false;
+            var scene = players.Main?.OwningScene;
+            return scene != null && scene.GameState.SinglePlayer && !scene.Services.IsReplica;
+        }
+
+        /// <summary>
+        /// Copy immutable values on the pause-menu UI thread; no renderer,
+        /// loaded model, audio task or Scene survives in the resulting view.
+        /// </summary>
+        public static CampaignJournalView? OpenFor(ScenePlayerRegistry? players)
+        {
+            if (!Available(players)) return null;
+            StorySave save = players!.Main.OwningScene.GameState.StorySave;
+            System.Collections.Generic.IReadOnlyList<StringTableEntry>? entries = null;
+            try { entries = Strings.ReadStringTable(StringTables.ScanLog); }
+            catch (Exception ex)
+            {
+                // A user may not yet have extracted this localization table.
+                // The discovered rooms and bit counts must still be viewable.
+                Console.WriteLine("[campaign] scan archive text unavailable: " + ex.Message);
+            }
+            return new CampaignJournalView(CampaignJournal.Capture(save, entries));
+        }
 
         private readonly CampaignJournal _journal;
         private readonly StackPanel _entries = new() { Spacing = 8 };
