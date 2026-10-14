@@ -10,8 +10,9 @@ The previous server admitted at most eight in-flight requests through a single `
 ## Implemented service boundaries
 
 - **Metadata lane:** eight slots for catalog browsing, creator/auth commands, capabilities and health, independent from transfer capacity.
-- **Bulk transfer lane:** three slots for `PUT /uploads/{sha256}`, immutable `GET /packages/{sha256}`/`GET /maps/{sha256}`, and bounded preview GETs. A full lane responds immediately with HTTP 503 and `Retry-After: 1` instead of waiting in an unbounded queue.
-- **Verification lane:** one slot for `POST /uploads/{sha256}/complete` and legacy one-shot archive publication `POST /maps[/.../versions]`; separate from catalog and bulk traffic.
+- **Creator upload lane:** three slots for sequential `PUT /uploads/{sha256}`. Excess upload work responds immediately with HTTP 503 and `Retry-After: 1`, never queueing indefinitely.
+- **Player download lane:** four independent slots for immutable `GET /packages/{sha256}`/`GET /maps/{sha256}` and bounded preview reads. Saturated creator uploads therefore cannot deny admission to player map downloads/prewarming.
+- **Verification lane:** one slot for `POST /uploads/{sha256}/complete` and legacy one-shot archive publication `POST /maps[/.../versions]`; separate from catalog, upload and download traffic.
 - **Publication lock:** still serializes final catalog/immutable package registration and lifecycle changes. A legacy POST now acquires it **after** receiving the archive bytes, not while waiting on the network.
 - **Per-peer request rate:** configurable with `PROJECT_PRIME_MAP_IP_REQUESTS_PER_MINUTE` (60–100000); uses actual peer socket IP, never untrusted `X-Forwarded-For`. **Disabled by default** because many Cloudflare/reverse-proxy visitors may share one origin peer IP. Metadata/transfer/verification lanes have separate bounded windows.
 - **Moderator diagnostics:** `GET /v2/metrics` is protected by existing moderator authentication and reports admitted, active, completed and rejected counts by lane, aggregate verified download bytes, quotas and published storage. It never exposes bearer tokens, peer addresses, private map lists or individual creator identities.
@@ -45,11 +46,11 @@ Existing endpoints and clients do not need to call v3. New `MapCommunityClient.G
 
 ## Automated evidence and gates
 
-`tools/community-service-check` creates an asset-free loopback HttpListener and exercises real service startup, v3 capability document, preview bytes, legacy package/modern catalog ETags, authenticated moderation access, sequential 512 MiB quota reservations, a full service restart with durable reservations, quota release on upload deletion, **three intentionally stalled PUT request bodies** alongside responsive health/catalog requests, fourth-transfer admission refusal/Retry-After, and optional per-peer rate rejection.
+`tools/community-service-check` creates an asset-free loopback HttpListener and exercises real service startup, v3 capability document, preview bytes, legacy package/modern catalog ETags, authenticated moderation access, sequential 512 MiB quota reservations, a full service restart with durable reservations, quota release on upload deletion, **three intentionally stalled PUT request bodies** alongside responsive health/catalog requests **and a successful concurrent immutable player download**, with a fourth upload refused using Retry-After, and optional per-peer rate rejection.
 
 The CI matrix runs this test on Linux, Windows and macOS alongside the existing immutable map goldens, streaming ZIP parity, map-editor check, `map-community-check`, `map-multiplayer-check`, community transfer/cache acceptance, and dedicated server compile/Android release gates.
 
-**Performance baseline:** The pre-PR-07 server had one 8-slot shared gate; the new test checks that the catalog stays responsive with *all 3 transfer slots actively stalled*. This is a live server backpressure test, **not** an internet latency or large-CDN throughput measurement. Real network campaigns with multi-hundred-MiB maps and several creators should be measured separately before claiming upload speedups.
+**Performance baseline:** The pre-PR-07 server had one 8-slot shared gate; the new test checks that the catalog **and a separate exact package download** stay responsive with *all three creator upload slots actively stalled*. This is a live server backpressure test, **not** an internet latency or large-CDN throughput measurement. Real network campaigns with multi-hundred-MiB maps and several creators should be measured separately before claiming upload speedups.
 
 ### Review commands
 
