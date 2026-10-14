@@ -62,7 +62,8 @@ internal static class CampaignNativeSceneTests
             scene.OnLoad();
             loadedRoom = scene.RoomId;
             players = scene.Players.PlayerCount;
-            entities = scene.Entities.Count();
+            entities = 0;
+            foreach (EntityBase entity in scene.Entities) entities++;
             if (loadedRoom != 45 || players != 1 || entities < 2
                 || !scene.GameState.SinglePlayer)
                 throw new InvalidOperationException("Native Celestial Archives Adventure room/player/entities did not load.");
