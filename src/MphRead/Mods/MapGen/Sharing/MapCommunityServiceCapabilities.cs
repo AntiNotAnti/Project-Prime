@@ -21,8 +21,8 @@ public sealed record MapCommunityServiceCapabilities
     public long MaxEntryBytes { get; init; } = MapPackageReader.MaxEntryBytes;
     public int MaxPackageEntries { get; init; } = MapPackageReader.MaxEntries;
     public long PublishedStorageLimitBytes { get; init; }
-    public long MaxPartialReservationBytes { get; init; } = 2L * 1024 * 1024 * 1024;
-    public int MaxPartialUploadSessions { get; init; } = 16;
+    public long MaxPartialReservationBytes { get; init; } = MapCommunityUploadReservations.MaxTotalBytes;
+    public int MaxPartialUploadSessions { get; init; } = MapCommunityUploadReservations.MaxTotalSessions;
     public int MaxConcurrentMetadataRequests { get; init; } =
         MapCommunityServiceAdmission.MetadataConcurrency;
     public int MaxConcurrentTransfers { get; init; } =
