@@ -427,7 +427,8 @@ namespace MphRead.Mods.Launcher.Gui
             // Everything on this stack is read over the match: the menu, the
             // settings it opens and the map vote all ask for the scrim alone.
             ShowGround(false);
-            var view = new PauseMenuView(offerWindowMode: false);
+            var view = new PauseMenuView(offerWindowMode: false,
+                campaignAvailable: CampaignJournalView.Available(players));
             view.Resumed += (_, _) => { Pop(); onResume(); };
             view.LeaveRequested += (_, _) => { Pop(); onLeave(); };
             view.QuitRequested += (_, _) => { Pop(); onQuit(); };
@@ -471,6 +472,13 @@ namespace MphRead.Mods.Launcher.Gui
                 Push(confirm);
             };
             view.VoteMapRequested += (_, _) => OpenVote();
+            view.CampaignJournalRequested += (_, _) =>
+            {
+                CampaignJournalView? journal = CampaignJournalView.OpenFor(players);
+                if (journal == null) return;
+                journal.Closed += (_, _) => Pop();
+                Push(journal);
+            };
             view.ReplayControlsRequested += (_, _) =>
             {
                 var controls = new ReplayControlsView();
