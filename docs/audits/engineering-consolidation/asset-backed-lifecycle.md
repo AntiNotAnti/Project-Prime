@@ -115,3 +115,15 @@ actual receipts exist. The new fixture writes those scope labels explicitly.
 No production behavior, protocol, replay format, save serializer or settings
 default is changed. Roll back this test/dispatch/document slice independently;
 retain all prior negative or incomplete native evidence.
+
+The first integrated build at `b58377ab` failed because the fixture applied LINQ
+to the foreach-only native entity iterator. The explicit native traversal fix
+was followed by a full successful build at `ff16b44d`. Its first real 10-load
+smoke then failed before sequential loads: three actual simultaneous worlds
+initialized and the original server recording's detached replica stepped, but
+the fixture's diagonal line-segment query yielded no candidates in MP3. That
+point query is not a bounding-box query. The corrected fixture derives limits
+from the actual active native room grids and borrows the existing production
+GetCandidatesForLimits lease. All nonempty and outer identity/count assertions
+remain mandatory. Preserve both failed receipts; neither failure is a native
+world/ownership PASS.
