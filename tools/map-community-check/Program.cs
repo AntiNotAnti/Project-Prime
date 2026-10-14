@@ -30,6 +30,34 @@ try
     Check(published.Hash==MapBuildFingerprint.HashFile(package)&&published.Name==definition.Name,"upload identity");
     var duplicate=await client.UploadAsync(package,default);
     Check(duplicate.Hash==published.Hash&&(await client.BrowseAsync(default)).Length==1,"idempotent content-addressed upload");
+    // The application facade must be callable by the game or Studio without
+    // constructing an Avalonia screen. Verify anonymous browsing, short-lived
+    // authenticated client ownership, one-time 401 refresh and cancellation.
+    var publicOperations = new CommunityMapOperations(address);
+    Check((await publicOperations.BrowseProjectsAsync(false, false, "name", default))
+        .Single().MapId == definition.MapId, "UI-neutral Community catalog lists map");
+    int issued = 0, renewed = 0;
+    var credentials = new DelegateCommunityCredentialSource(
+        cancellation => { issued++; return Task.FromResult("expired-local-ticket"); },
+        cancellation => { renewed++; return Task.FromResult(secret); });
+    var operations = new CommunityMapOperations(address, credentials);
+    var mine = await operations.BrowseProjectsAsync(true, false, "name", default);
+    Check(mine.Single().MapId == definition.MapId && issued == 1 && renewed == 1,
+        "Community facade refreshes a rejected ticket once and preserves catalog");
+    var repeated = await operations.UploadPackageAsync(package, default);
+    Check(repeated.Hash == published.Hash && issued == 2 && renewed == 2,
+        "Community facade retains existing idempotent upload and re-authentication");
+    using (var alreadyCancelled = new CancellationTokenSource())
+    {
+        alreadyCancelled.Cancel();
+        try
+        {
+            await operations.BrowseProjectsAsync(true, false, "name", alreadyCancelled.Token);
+            throw new Exception("A cancelled Community request contacted the service.");
+        }
+        catch (OperationCanceledException) { checks++; }
+    }
+    Check(issued == 2 && renewed == 2, "cancelled operation did not mint credentials");
     using var http=new HttpClient();
     Check((await http.GetStringAsync(address+"health")).Contains("prime-maps"),"service health endpoint");
     byte[] downloaded=await http.GetByteArrayAsync(address+"maps/"+published.Hash);

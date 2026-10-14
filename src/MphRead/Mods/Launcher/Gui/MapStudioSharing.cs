@@ -2,8 +2,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -17,29 +15,16 @@ internal sealed partial class MapStudioScreen
     private static string CommunitySettingsPath => Path.Combine(LauncherPrefs.Directory, "map-community.txt");
     private static string UserMapLibrary => CustomRooms.UserMapDirectory;
 
-    private static async Task<T> WithCommunityAuthentication<T>(string address,
-        CancellationToken token, Func<MapCommunityClient, Task<T>> action)
-    {
-        string credential = await HunterLicenseClient.GetCommunityMapTicketAsync(token);
-        using (var client = new MapCommunityClient(address, credential))
-        {
-            try { return await action(client); }
-            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized) { }
-        }
+    // The editor only supplies the current account's ticket callbacks.
+    // Authentication, retry and client lifetime belong to the shared facade.
+    private static CommunityMapOperations CommunityOperations(string address)
+        => new(address, new DelegateCommunityCredentialSource(
+            HunterLicenseClient.GetCommunityMapTicketAsync,
+            HunterLicenseClient.RefreshCommunityMapTicketAsync));
 
-        // A 401 cannot be repaired by simply pressing the button again if the
-        // cached ticket is still alive. Force a mint and retry the operation once.
-        credential = await HunterLicenseClient.RefreshCommunityMapTicketAsync(token);
-        using var retry = new MapCommunityClient(address, credential);
-        try { return await action(retry); }
-        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            throw new HttpRequestException(
-                "The Community service rejected a freshly minted Hunter License credential. "
-                + "Redeploy/restart the map service so it includes Hunter License ticket verification.",
-                ex, HttpStatusCode.Unauthorized);
-        }
-    }
+    private static Task<T> WithCommunityAuthentication<T>(string address,
+        CancellationToken token, Func<MapCommunityClient, Task<T>> action)
+        => CommunityOperations(address).UseClientAsync(true, action, token);
 
     private async Task PopOut()
     {
@@ -116,15 +101,14 @@ internal sealed partial class MapStudioScreen
             string hash = MapBuildFingerprint.HashFile(path);
             if (publish)
             {
-                await WithCommunityAuthentication(address, token,
-                    client => client.UploadAsync(path, token, listed, progress: (sent, total) =>
+                await CommunityOperations(address).UploadPackageAsync(path, token,
+                    listed: listed, progress: (sent, total) =>
                         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                            _status.Text = $"Uploading map · {sent / 1048576d:0.0}/{total / 1048576d:0.0} MiB · {(total > 0 ? sent * 100d / total : 0):0}%")));
+                            _status.Text = $"Uploading map · {sent / 1048576d:0.0}/{total / 1048576d:0.0} MiB · {(total > 0 ? sent * 100d / total : 0):0}%"));
             }
             else
             {
-                using var community = new MapCommunityClient(address);
-                var published = await community.GetPackageAsync(hash,token);
+                var published = await CommunityOperations(address).GetPackageAsync(hash, token);
                 if (published == null || published.MapId != manifest.MapId || published.ContentHash != manifest.ContentHash)
                     throw new IOException("This exact version is not published. Choose Publish & Host or Host Unlisted.");
             }
