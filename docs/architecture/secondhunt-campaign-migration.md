@@ -76,12 +76,13 @@ Acceptance: byte-identical copy; backups never clobbered; empty/missing/bad slot
 - Preserve notifications, multiplayer sound levels, render pacing, file ownership and device/lifecycle behavior.
 - Consider extra HD imported content only as a separately accepted local importer.
 
-### CAMP-07: End-to-end campaign acceptance and cleanup
+### CAMP-07: End-to-end campaign acceptance and cleanup (stacked draft in review)
 
-- Fresh file -> opening -> first scan -> ship -> planet unlock -> save/continue -> late game -> both endings -> credits.
-- Original cartridge reference comparisons; Windows, Linux, macOS, Android; cold/warm boot; 60/120/240 Hz present with stable simulation.
-- Save byte parity and compatibility, renderer/media/scene lifetime, previous replay/protocol compatibility, memory/frametime regressions.
-- Retire temporary adapters only after proving parity; do not remove legacy campaign behavior prematurely.
+- Add a real native-serializer, three-slot **simulated journey** from fresh file to first scan, ship, earned unlock, planet travel, saved continue, Oubliette, both Gorea ending classifications, credits soundtrack mapping, and unsaved/ordinary quit. **Scripted game actions are simulated**; this is not proof of interactive ROM gameplay.
+- Run the existing CAMP-01..06 contract checks plus scene lifetime, legacy post-match save parity and multiplayer/replay guardrail tests in fresh processes on Linux, Windows and macOS. Save commit-specific JSON evidence with a complete hash log; forbid silently reusing stale receipts.
+- Provide an **opt-in** game-file-backed native single-player scene/simulation/save parity probe with existing AssetLifecycle headless ownership checks. No licensed cartridge assets are committed, uploaded to Actions or copied into the output.
+- Ship a fail-closed physical-device evidence manifest for Windows, Linux, macOS, Android: fresh/warm launch, real scanner/story progression, ship page/sound, both ending videos/credits, controls, save/rollback, real online protocol and historical replay, 60/120/240-capable displays, memory and GPU lifetime. Do not mark any of these as PASS from device-free fixtures.
+- **Full instructions and release decision checklist:** [CAMP-07 acceptance](camp07-acceptance.md). Retire temporary adapters only after proving parity; retain legacy campaign gameplay, serialization, replay and multiplayer behavior until then.
 
 ## Reference code
 
