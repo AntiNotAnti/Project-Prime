@@ -392,6 +392,39 @@ public static class QuakeMapInterchange
                 "The .map source changed while being read; retry from a frozen source.");
         if (!definition.Geometry.Any())
             Error("FP-RADIANT-GEOMETRY", lineNo, "No supported editable world brushes found.");
+
+        // Quake maps can exceed the +/-128 Prime-unit geometry range at the
+        // default ScaleFactor 4. Choose the smallest supported fixed-point
+        // scale that contains every authored object, without altering
+        // gameplay coordinates or requiring a destructive source edit.
+        float furthest = 0;
+        void Measure(IEnumerable<float> coordinates)
+        {
+            foreach (float value in coordinates)
+            {
+                if (!float.IsFinite(value))
+                    Error("FP-RADIANT-RANGE", lineNo, "Imported geometry or entity has nonfinite coordinates.");
+                else furthest = MathF.Max(furthest, MathF.Abs(value));
+            }
+        }
+        foreach (MapGeometry geometry in definition.Geometry)
+        {
+            if (geometry is MapBox box)
+                Measure(Enumerable.Range(0, 3).Select(i =>
+                    Math.Abs(box.Transform.Position[i]) + box.Transform.Scale[i] / 2));
+            else if (geometry is MapConvexBrush convex)
+                foreach (float[] vertex in convex.Vertices) Measure(vertex);
+        }
+        foreach (MapSpawn spawn in definition.Spawns) Measure(spawn.Position);
+        foreach (MapItem item in definition.Items) Measure(item.Position);
+        while (definition.ScaleFactor < 16
+            && furthest >= 8 * MathF.Pow(2, definition.ScaleFactor))
+            definition.ScaleFactor++;
+        if (furthest >= 8 * MathF.Pow(2, definition.ScaleFactor)
+            || furthest >= 524288)
+            Error("FP-RADIANT-RANGE", lineNo,
+                "Imported coordinates exceed the supported native fixed-point map range.");
+
         if (diagnostics.Any(d => d.Error))
             throw new QuakeMapInterchangeException(diagnostics.ToArray());
         return new QuakeMapImportResult(definition, diagnostics.ToArray());
