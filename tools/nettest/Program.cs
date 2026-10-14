@@ -49,6 +49,7 @@ namespace MphRead.NetTest
                     + "  --timed-shot-rescue <assets> [room] Test controlled unpaid timed-modifier rescue.\n"
                     + "  --timed-shot-damage               Test immutable launch channel ceilings.\n"
                     + "  --timed-source-capabilities       Test source-family capability classification.\n"
+                    + "  --timed-campaign-joins           Test bounded process-owned join value storage.\n"
                     + "  --timed-shot-damage-benchmark [json] Measure launch channel/profile arithmetic.\n"
                     + "  --pickup-protocol                 Test pickup packet codecs, registry and budgets.\n"
                     + "  --pickup-claims                   Test authoritative pickup claim decisions.\n"
@@ -128,6 +129,7 @@ namespace MphRead.NetTest
             }
             if (args.Length > 0 && args[0] == "--timed-shot-damage") return TimedShotDamageTests.Run();
             if (args.Length > 0 && args[0] == "--timed-source-capabilities") return TimedSourceCapabilityTests.Run();
+            if (args.Length > 0 && args[0] == "--timed-campaign-joins") return TimedCampaignJoinTests.Run();
             if (args.Length > 0 && args[0] == "--timed-shot-damage-benchmark") return TimedShotDamageTests.RunBenchmark(args);
             if (args.Length > 1 && args[0] == "--timed-shot-modifiers")
             {

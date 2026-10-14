@@ -1331,6 +1331,8 @@ namespace MphRead.Mods.Network
                 HitClaimPacket claim = HitClaimPacket.Read(payload[at..]);
                 Received++;
                 NetCampaignEvidence.ClaimReceived();
+                using var claimEvidence = NetCampaignEvidence.Enabled
+                    ? NetTimedCampaignJoin.Claim(shooterSlot, claim) : default;
                 if (claim.ShooterLifeId == 0 || claim.VictimLifeId == 0
                     || !NetSession.MatchesStream(claim.MatchId, claim.AuthorityEpoch)
                     || claim.ShooterGeneration == 0 || claim.ShooterGeneration != NetPlayerLifecycle.Generation(shooterSlot))
@@ -2600,7 +2602,8 @@ namespace MphRead.Mods.Network
                 + $"{NetSession.NetFrame - entry.AckFrame} frames ago"
                 + (_dead[shooterSlot] ? " -- and was dead by the time it arrived" : ""));
             var outcome = CaptureOutcome(victim, (int)(before - victim.Health), _latestOutcome[victimSlot].Flags);
-            payment.Commit(outcome);
+            payment.Commit(outcome, NetCampaignEvidence.Enabled
+                ? Math.Max(0, turretBefore - (victim.Halfturret?.Health ?? 0)) : 0, entry.Id);
             if (continuous)
             {
                 int turretRemoved = Math.Max(0, turretBefore - (victim.Halfturret?.Health ?? 0));
@@ -2669,6 +2672,10 @@ namespace MphRead.Mods.Network
             Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.Claim, NetSession.NetFrame,
                 Player: (byte)slot, Victim: answer.VictimSlot, Id: id, Result: result, Flags: (int)answer.Flags,
                 A: answer.DamageApplied, B: answer.HealthAfter, ShotId: answer.ShotId));
+            if (NetCampaignEvidence.Enabled)
+                NetTimedCampaignJoin.Terminal(slot, NetTimedCampaignJoin.TryRequestKey(slot, id, out var requested)
+                    ? requested : remember && _seenIds[slot, at] == id
+                        && _seenKeys[slot, at].ShotId == answer.ShotId ? _seenKeys[slot, at] : null, answer);
             if (remember) { Remember(slot, id, result); _seenOutcomes[slot, at] = answer; }
             if (_verdictCount[slot] >= VerdictCapacity) return;
             _verdicts[slot, _verdictCount[slot]++] = answer;

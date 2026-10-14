@@ -106,6 +106,9 @@ internal static class NetContinuousPayments
             Payments++; LifetimePayments++; LifetimeDamage += outcome.DamageApplied; LifetimeTurretDamage += entry.DamageTurret;
             LifetimeHealBody += entry.HealBody; LifetimeHealTurret += entry.HealTurret;
             RecordPhase(_key.OwnerTick);
+            if (NetCampaignEvidence.Enabled)
+                NetTimedCampaignJoin.Continuous(_key, entry.Frame, outcome,
+                    entry.DamageTurret, entry.HealBody, entry.HealTurret);
             if (EvidenceEnabled || NetCampaignEvidence.Enabled)
             {
                 int tail = (EvidenceHead + EvidenceCount) % EvidenceCapacity;

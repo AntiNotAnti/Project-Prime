@@ -22,8 +22,20 @@ internal static class NetCampaignEvidence
     internal static bool Enabled => !String.IsNullOrWhiteSpace(Path);
     // A 30-minute eight-slot campaign can retain two rows per continuous shot.
     // This is an opt-in evidence bound, independent of gameplay/transport queues.
-    private static readonly int RowLimit = Environment.GetEnvironmentVariable("PRIME_NET2_SOAK") == "1"
-        ? 1048576 : 262144;
+    internal static readonly int EvidenceRowLimit = ReadRowLimit();
+    // Preserve the historical key-set bound unless the campaign explicitly
+    // opts into the validated larger diagnostic budget (without soak rules).
+    internal static readonly int EvidenceShotKeyLimit = Enabled
+        && Environment.GetEnvironmentVariable("PRIME_NET2_EVIDENCE_ROW_LIMIT") != null ? EvidenceRowLimit : 16384;
+    private static int RowLimit => EvidenceRowLimit;
+    private static int ReadRowLimit()
+    {
+        int fallback = Environment.GetEnvironmentVariable("PRIME_NET2_SOAK") == "1" ? 1048576 : 262144;
+        string? value = Environment.GetEnvironmentVariable("PRIME_NET2_EVIDENCE_ROW_LIMIT");
+        if (!Enabled || value == null) return fallback;
+        if (int.TryParse(value, out int parsed) && parsed is >= 262144 and <= 1048576) return parsed;
+        throw new ArgumentException("PRIME_NET2_EVIDENCE_ROW_LIMIT must be between 262144 and 1048576.");
+    }
     private static readonly List<Shot> Shots = new();
     private static readonly List<object> TurretOutcomes = new();
     private static readonly List<object> TimedGrants = new();
@@ -425,7 +437,7 @@ internal static class NetCampaignEvidence
                 Version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
                 Platform = RuntimeInformation.OSDescription, Runtime = RuntimeInformation.FrameworkDescription,
                 Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
-                Frames = _frames, AliveFrames, Overflow = _overflow,
+                Frames = _frames, AliveFrames, Overflow = _overflow, EvidenceRowLimit,
                 ConnectionLost = _connectionLost || NetSession.ConnectionLost,
                 SemanticOverrun = _semanticOverrun || NetSession.SemanticReceived.PresentationOverrun,
                 SemanticDisconnects = semanticDisconnects, LastError = _lastError ?? NetSession.LastError,
@@ -438,6 +450,7 @@ internal static class NetCampaignEvidence
                 ShotProof = NetShotProof.Capture(),
                 TimedModifiers = NetTimedShotModifiers.Capture(),
                 TimedSourceCapabilities = NetTimedSourceCapabilities.Capture(),
+                TimedCaseJoins = NetTimedCampaignJoin.Capture(),
                 CombatReconciliation = NetHitPrediction.Capture(),
                 CombatPayments = NetCombatPayments.Capture(),
                 AiClient = NetAiClient.Capture(),

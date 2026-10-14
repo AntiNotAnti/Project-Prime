@@ -3148,7 +3148,8 @@ namespace MphRead.Entities
             {
                 combatPayment.Commit(Mods.Network.NetHitClaims.CaptureOutcome(this, Math.Max(0, combatHealthBefore - _health),
                     (flags.TestFlag(DamageFlags.Headshot) ? Mods.Network.CombatAckFlags.Headshot : 0)
-                    | (flags.TestFlag(DamageFlags.Halfturret) ? Mods.Network.CombatAckFlags.HalfturretAffected : 0)));
+                    | (flags.TestFlag(DamageFlags.Halfturret) ? Mods.Network.CombatAckFlags.HalfturretAffected : 0)),
+                    NetCampaignEvidence.Enabled ? Math.Max(0, combatTurretBefore - (Halfturret?.Health ?? 0)) : 0);
                 if (confirmedImpact is { } impact && combatSequence == replayDamageEventId)
                     NetConfirmedImpacts.Publish(impact);
                 if (beam != null)

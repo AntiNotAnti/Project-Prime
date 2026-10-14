@@ -146,6 +146,18 @@ class TimedEvidenceRunnerTests(unittest.TestCase):
         # The pre-existing legacy mode remains a separate permitted contract.
         self.assertEqual(self.parse("--shot-proof", "enforce").shot_proof, "enforce")
 
+    def test_explicit_evidence_budget_preserves_ai_gameplay_and_default(self):
+        default = self.parse('--ai-net-client')
+        self.assertIsNone(default.evidence_row_limit)
+        self.assertNotIn('PRIME_NET2_EVIDENCE_ROW_LIMIT', self.environment(default))
+        for limit in (262144, 1048576):
+            args = self.parse('--ai-net-client', '--drain-seconds', '35', '--evidence-row-limit', str(limit))
+            self.assertFalse(args.soak)
+            self.assertEqual(args.scenario, 'ai')
+            self.assertEqual(self.environment(args)['PRIME_NET2_EVIDENCE_ROW_LIMIT'], str(limit))
+        for value in ('262143', '1048577', '0', 'nan'):
+            self.rejects('--evidence-row-limit', value)
+
 class PacingLobbyParserTests(unittest.TestCase):
     parse = AiParserTests.parse
     rejects = AiParserTests.rejects
