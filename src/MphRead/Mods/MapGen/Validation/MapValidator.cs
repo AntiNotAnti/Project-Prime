@@ -66,6 +66,19 @@ namespace MphRead.Mods.MapGen
             var ids = new HashSet<Guid>();
             if (d.Geometry.Count + d.Brushes.Count > 10000 || d.Spawns.Count + d.Items.Count + d.JumpPads.Count > 32767)
             { r.Error("FP-MAP-003", "Map object count exceeds the compiler budget."); return r; }
+            long patchTriangles = d.Geometry.OfType<MapBezierPatch>().Sum(p =>
+            {
+                long tilesX = Math.Clamp((long)p.Columns, 0, 17) / 2;
+                long tilesY = Math.Clamp((long)p.Rows, 0, 17) / 2;
+                long level = Math.Clamp((long)p.Tessellation, 0, 4);
+                return tilesX * tilesY * level * level * 2;
+            });
+            if (d.Geometry.Count(g => g is MapBezierPatch) > 32
+                || patchTriangles > 8192)
+            {
+                r.Error("FP-RADIANT-PATCH", "Map exceeds the total Bezier patch/collision triangle budget.");
+                return r;
+            }
             void Id(Guid id)
             {
                 if (id != Guid.Empty && !ids.Add(id)) r.Error("FP-MAP-010", "Duplicate object ID.", id);
