@@ -88,8 +88,17 @@ internal static class CampaignSaveManagementTests
             // A directory occupying a slot path causes the publication to
             // fail; the temporary copy must be removed and the source kept.
             Directory.CreateDirectory(second);
-            Reject<IOException>(() => AdventureSave.Copy(1, 2),
-                "failed destination publish is surfaced");
+            // A directory occupying a file path raises IOException on
+            // Unix, but UnauthorizedAccessException on Windows. Both are
+            // correct publish failures; the invariants below prove no data
+            // was overwritten and the temporary staging file was retired.
+            bool publicationRejected = false;
+            try { AdventureSave.Copy(1, 2); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                publicationRejected = true;
+            }
+            Check(publicationRejected, "failed destination publish is surfaced");
             Check(Directory.Exists(second) && File.ReadAllBytes(first).SequenceEqual(original),
                 "failed publication leaves source and destination untouched");
             Check(Directory.GetFiles("Savedata", "*.copy-*").Length == 0,
