@@ -100,9 +100,9 @@ try
 
     // Optional checked-in package golden digest: populated from the reviewed,
     // frozen baseline fixture, not generated/overwritten by test execution.
-    // The current ZIP Deflate implementation produces different archive bytes
-    // on Windows versus Linux/macOS for this identical source. Freeze each known
-    // encoder output separately. Neither hash may be silently normalized: the
+    // Current package output differs between Windows and Linux/macOS for this
+    // identical source; the precise contributing stage is not yet verified.
+    // Freeze each observed archive output separately. Neither hash may be silently normalized: the
     // downloaded exact package SHA-256 remains the authoritative wire identity.
     string goldenName = OperatingSystem.IsWindows()
         ? "community-baseline-golden-win.sha256"
