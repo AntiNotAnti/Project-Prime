@@ -15,19 +15,26 @@ source format until the real editor/gameplay gates pass.
    editable MapBox. Closed finite convex hulls of 4–32 planes, including
    angled ramps, wedge cover and beveled solids, become editable
    MapConvexBrush vertices/faces, never a linked BSP render-only mesh.
-3. Import uses the same handedness-preserving (x,z,-y) coordinates, and the
+3. Classic Quake brush-face shader names and texture shift/rotation/scale
+   now have an opt-in per-face source record on native MapBox and MapConvexBrush.
+   Quake's six axial projection bases convert source coordinates into native
+   texel UVs at geometry-compile time, so brush edits refresh the projection.
+   Source face material indices participate in deterministic material remapping.
+   Nonzero Quake surface/content flags are still rejected; proprietary game
+   textures and executable shader programs are not imported.
+4. Import uses the same handedness-preserving (x,z,-y) coordinates, and the
    same +90 degree spawn heading conversion as existing Q3Gameplay.
    Large arenas select the lowest supported fixed-point ScaleFactor that
    covers imported geometry, spawns and pickups. Native geometry compiles
    are checked for convex/collision and UV budget compliance.
-4. Export writes original authoring-readable classic Quake .map planes,
+5. Export writes original authoring-readable classic Quake .map planes,
    permanent PRIME_ID comments, stable prime_id entity keys and a
    project-prime.json sidecar. Both source and sidecar are written only after
    source validity and sidecar MapId conflicts have been checked.
-5. A supported Prime pickup is exported using Q3Gameplay's shared canonical
+6. A supported Prime pickup is exported using Q3Gameplay's shared canonical
    classname mapping plus explicit prime_spawn_interval and prime_has_base.
    The source importer preserves those native gameplay values exactly.
-6. Save the imported project as JSON for normal Prime build, package,
+7. Save the imported project as JSON for normal Prime build, package,
    playtest and Community publication. Nothing in this PR changes the
    self-contained .ppmap gameplay output, historic SHA-256 identity,
    multiplayer Ready barrier or the existing v2 Community APIs.
@@ -35,8 +42,11 @@ source format until the real editor/gameplay gates pass.
 ## Unsupported data is a hard failure
 
 - Quake brushDef, brushDef3, patchDef2/3 Bezier patches or detail shader stages
-- Classic face UV shifts, texture rotation/scale, nonzero surface flags,
-  mixed per-face shaders, displacement and shader-provided material effects
+- Nonzero Quake surface/content flags, displacements, external material
+  shader programs or shader-derived behavior; only classic numeric UV
+  shifts/rotation/scales and per-face shader names are supported.
+  Imported shader names are authoring identities, not evidence that licensed
+  textures or equivalent runtime shading have been installed
 - Nonconvex/disconnected volume, open, duplicate or inverted planes,
   degenerate faces, malformed or oversized lines/archives
 - Brush-model/scripted/linked gameplay entities, team CTF spawns,
@@ -81,7 +91,23 @@ Before marking PR-13 complete, still require:
 - Full normal Prime JSON build -> validated .ppmap -> local game smoke,
   correct collision, textures, spawns and item respawns
 - 1v1, 8-player FFA, exact-map join/host rotation, historic replay checks
-- Explicit support plan for mixed per-face materials/UVs and Bezier patches,
+- Explicit support plan for Bezier patches and unsupported brush/texture projection formats,
   or separate versioned editor-source support with validated round-trip
   before enabling NetRadiant as the default source editor
 - Editor package/license/asset provenance and supported-platform checks
+
+## Texture reference and scope
+
+Classic Quake numeric face projection follows the original Q3Map
+`TextureAxisFromPlane` / `QuakeTextureVecs` six-base-axis mapping (Q3 Z-up
+world-to-texture mapping, then Q3-to-Prime coordinate conversion). See the
+upstream Quake 3 `q3map/map.c` implementation; this is not a guess based
+on editor screenshots. The extra authoring metadata is optional/null for
+legacy map projects, preserving existing geometry and serializer behavior.
+
+Project Prime still needs permission-cleared source textures and separate
+in-game visual QA to establish actual material parity. Identically named
+`MapMaterial` slots alone do not guarantee that a Quake shader is available
+or identical in the Prime renderer. New material metadata is not a multiplayer
+protocol revision, but mixed-client visual compatibility should be versioned
+and explicitly checked before publishing these maps to older builds.
