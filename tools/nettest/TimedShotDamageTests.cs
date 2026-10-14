@@ -58,13 +58,46 @@ internal static class TimedShotDamageTests
         Check(value.Channel(irrelevant, out nativeHead) == 16 && nativeHead,
             "claimed oversize and claimed position do not change retained legal channel ceiling");
     }
+    private static void EffectMasks()
+    {
+        const byte captured = HitClaimPacket.FlagFrozen | HitClaimPacket.FlagBurning | HitClaimPacket.FlagDisrupted;
+        foreach (var row in new[] { (Hunter.Kanden, BeamType.VoltDriver, HitClaimPacket.FlagDisrupted),
+            (Hunter.Spire, BeamType.Magmaul, HitClaimPacket.FlagBurning) })
+        foreach (bool balanced in new[] { false, true }) foreach (bool charged in new[] { false, true })
+        {
+            byte effects = TimedShotDamageTemplate.FilterEffects(row.Item1, row.Item2, balanced, charged,
+                captured, out byte mask);
+            byte expectedMask = balanced && charged ? row.Item3 : (byte)0;
+            byte expectedEffects = balanced && !charged ? (byte)(captured & ~row.Item3) : captured;
+            var frozen = Template() with { Effects = effects, DirectOnlyEffects = mask };
+            Check(effects == expectedEffects && mask == expectedMask,
+                "constructed affinity effect row preserves captured unrelated bits and gates its charged Balanced effect");
+            Check(frozen.EffectsFor(true) == expectedEffects && frozen.EffectsFor(false) == (byte)(expectedEffects & ~expectedMask),
+                "frozen direct/splash channels respect captured mask under each charge/rule combination");
+            byte absent = TimedShotDamageTemplate.FilterEffects(row.Item1, row.Item2, balanced, charged, 0, out mask);
+            Check(absent == 0 && mask == 0, "hunter/rule/charge eligibility cannot invent uncaptured effects");
+        }
+        foreach (var row in new[] { (Hunter.Samus, BeamType.VoltDriver), (Hunter.Kanden, BeamType.Magmaul),
+            (Hunter.Spire, BeamType.VoltDriver), (Hunter.Spire, BeamType.Missile) })
+        foreach (bool charged in new[] { false, true })
+        {
+            byte effects = TimedShotDamageTemplate.FilterEffects(row.Item1, row.Item2, true, charged,
+                captured, out byte mask);
+            Check(effects == captured && mask == 0,
+                "ordinary hunter or different weapon retains actual captured effect bits without creating affinity restrictions");
+        }
+        var restricted = Template() with { Effects = HitClaimPacket.FlagDisrupted, DirectOnlyEffects = HitClaimPacket.FlagDisrupted };
+        Check(!restricted.SameChannels(restricted with { DirectOnlyEffects = 0 })
+            && restricted.EffectsFor(true) == HitClaimPacket.FlagDisrupted && restricted.EffectsFor(false) == 0,
+            "equal effect union with unequal direct-only mask cannot merge different frozen direct/splash policy");
+    }
     private static void FrozenRowFacts()
     {
-        var value = Template();
+        var value = Template() with { Effects = HitClaimPacket.FlagDisrupted, DirectOnlyEffects = HitClaimPacket.FlagDisrupted };
         foreach (var changed in new[] { value with { Body = 13 }, value with { Head = 17 },
             value with { Splash = 5 }, value with { Origin = Vector3.UnitX },
             value with { Reach = 41 }, value with { Curve = 0 }, value with { Balanced = true },
-            value with { Effects = HitClaimPacket.FlagFrozen }, value with { Present = false } })
+            value with { Effects = HitClaimPacket.FlagFrozen }, value with { DirectOnlyEffects = 0 }, value with { Present = false } })
             Check(!value.SameChannels(changed), "emission cannot merge unequal frozen damage-policy row facts");
         Check(value.SameChannels(value with { Direction = Vector3.UnitX, Radius = .5f, Speed = 2 }),
             "separate component geometry is not conflated with shared damage-policy channel equality");
@@ -83,6 +116,9 @@ internal static class TimedShotDamageTests
             && store.TryGet(key, 500, 3, 200, out var retained) && retained.Damage == value
             && retained.Fire == fire && retained.Knowledge == TimedGrantKnowledge.NotGranted,
             "same-fire later grant/kernel state cannot recompute or replace actual frozen charge/modifier result");
+        Check(store.Remember(first with { Damage = value with { DirectOnlyEffects = 0 } }, 200) == TimedShotRetention.Duplicate
+            && store.TryGet(key, 500, 3, 200, out retained) && retained.Damage.EffectsFor(true) == HitClaimPacket.FlagDisrupted
+            && retained.Damage.EffectsFor(false) == 0, "later equal-effect-union mask cannot broaden retained splash eligibility");
         Check(store.Remember(first with { Fire = fire with { Charge = 0 } }, 200) == TimedShotRetention.Alias
             && store.TryGet(key, 500, 3, 200, out retained) && retained.Damage.Channel(Claim(), out _) == 12,
             "changed authored charge cannot borrow or mutate prior completed channel facts");
@@ -130,7 +166,7 @@ internal static class TimedShotDamageTests
     }
     public static int Run()
     {
-        try { _checks = 0; ChannelsAndArmour(); FrozenRowFacts(); LegalCeilingsAndDistanceCounterexample(); ZeroAndMalformed();
+        try { _checks = 0; ChannelsAndArmour(); EffectMasks(); FrozenRowFacts(); LegalCeilingsAndDistanceCounterexample(); ZeroAndMalformed();
             Console.WriteLine($"PASS: {_checks} pure constructed frozen-channel/ceiling assertions; no native/admission/impact proof."); return 0; }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
     }
