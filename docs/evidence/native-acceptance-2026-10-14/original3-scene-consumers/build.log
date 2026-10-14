@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  Restored <candidate>/original3-scene-consumers/source/diagnostic.csproj (in 19 ms).
+  diagnostic -> <candidate>/original3-scene-consumers/runtime/nettest.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.94

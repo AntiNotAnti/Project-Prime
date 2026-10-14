@@ -1,0 +1,18 @@
+COMPACT_LOADED_IDENTITY ProjectPrime location=<candidate>/runtime/ProjectPrime.dll mvid=5e534c23-57c6-4026-a55a-f8233293a732
+[debug] standard error is being written to <candidate>/graphicscheck-profile/logs/ProjectPrime-20261014-060012-52644-native.txt
+Project Prime a local build
+OS: macOS 27.0.0
+OS architecture: Arm64
+Process architecture: Arm64
+RID: osx-arm64
+Runtime: .NET 10.0.12
+Base directory: <candidate>/runtime/
+Launch directory: <candidate>/graphicscheck-profile
+Current directory: <candidate>/graphicscheck-profile
+User data: <candidate>/graphicscheck-profile
+Native: <candidate>/runtime/libopenal.1.dylib
+Native: <candidate>/runtime/libglfw.3.dylib
+Native: <candidate>/runtime/libSkiaSharp.dylib
+Native: <candidate>/runtime/libAvaloniaNative.dylib
+Native: <candidate>/runtime/libminiaudio.dylib
+[graphicscheck] presets, migration and modern texture policy passed

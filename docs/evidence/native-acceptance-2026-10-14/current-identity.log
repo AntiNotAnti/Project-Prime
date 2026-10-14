@@ -1,0 +1,13 @@
+{
+  "sourceQualifiedPhysicalClient": true,
+  "path": "<candidate>/runtime/ProjectPrime.dll",
+  "sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+  "mvid": "5e534c23-57c6-4026-a55a-f8233293a732",
+  "buildId": "local\u002B7588d98689899c9868e8a0105b78653c7a1db50d",
+  "protocol": 56,
+  "replicaCheckpoint": 13,
+  "worldCheckpoint": 10,
+  "timedGrantPacket": 77,
+  "timedGrantBootstrapPacket": 79,
+  "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+}

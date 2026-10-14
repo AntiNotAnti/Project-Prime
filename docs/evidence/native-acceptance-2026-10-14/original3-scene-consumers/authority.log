@@ -1,0 +1,12 @@
+IDENTITY ClientPath=<candidate>/original3-scene-consumers/runtime/ProjectPrime.dll SHA256=2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694 MVID=5e534c23-57c6-4026-a55a-f8233293a732
+IDENTITY EntrySHA256=d5018508916afbbb243902a8ebb562cf6f2af0bd3cfefe9e9b6757d5acd067b2 MVID=c8d56952-8809-4080-b6ed-95f1e941e653
+ENTRY_SCOPE Final fce adapter compatibility; thin friend entry separate from full nettest fixture.
+SESSION_BEFORE active=False authority=False
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+SCENE_PROGRESS frames=1000 current=1000 certs=7 pendingBombs=0
+SCENE_PROGRESS frames=2000 current=2000 certs=19 pendingBombs=0
+SCENE_PROGRESS frames=3000 current=3000 certs=32 pendingBombs=0
+SCENE_PROGRESS frames=4000 current=4000 certs=34 pendingBombs=0
+SCENE_PROGRESS frames=5000 current=5000 certs=34 pendingBombs=0
+SCENE_FINAL frames=5690 sceneEvents=40553 certs=44 scopes=0 current=5690 result=Success error= warning= pendingBombs=0 activeNetSession=False authority=False

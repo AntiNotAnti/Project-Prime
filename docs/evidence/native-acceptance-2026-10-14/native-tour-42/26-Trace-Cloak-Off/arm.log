@@ -1,0 +1,8 @@
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Native timed source) -- 1 player(s) in scene
+[net] player slots prepared -- local slot 0, 1 active, AI enabled only on authoritative bot slots
+[net] slot 0 (Trace) wears suit 1
+NATIVE GRANT ARM PASS hunter=Trace item=Cloak mode=Off contacts=1 nativeShots=1 nativeFrames=1801 checks=29

@@ -1,0 +1,27 @@
+COMPACT_LOADED_IDENTITY nettest location=<candidate>/runtime/nettest.dll mvid=0151d5f2-81b8-4566-96e3-aadf793388ee
+COMPACT_LOADED_IDENTITY ProjectPrime location=<candidate>/runtime/ProjectPrime.dll mvid=5e534c23-57c6-4026-a55a-f8233293a732
+BINDING PASS foreground lease is a value token with no prior-world restore chain
+BINDING PASS save completion retains facades until the exit coordinator finishes its remaining consumers
+BINDING PASS successful handoff and completed visual cleanup release only the eligible foreground owner
+BINDING PASS configuration, nickname values, slot preference and RNG seeds survive without actors/progress
+BINDING PASS actual eligible bot scene is collectible while the released lease/context/snapshots remain alive
+BINDING PASS value diagnostic observes successful conditional facade release
+BINDING PASS old completed owner cannot clear any replacement scene facade
+BINDING PASS save completion alone cannot release a running scene
+BINDING PASS cleanup alone cannot release an owner awaiting visual teardown
+BINDING PASS a foreign thread cannot release the owning foreground binding
+BINDING PASS owning thread can release after both required cleanup boundaries
+BINDING PASS current foreground still performs the existing global AI adapter reset
+BINDING PASS old still-live room adapter cannot clear newer foreground AI global sentinels
+BINDING PASS old handoff cannot perform AI cleanup after a newer scene binds
+BINDING PASS owned-entry AI release drops only old actor/node references and preserves newer/global state
+BINDING PASS actual eligible handoff releases its ended bot entries without a global table reset
+BINDING PASS private replica construction/cleanup cannot publish foreground facades
+BINDING PASS generation-mismatched completion cannot publish into this room owner
+BINDING PASS valid synchronous owner preserves the existing transition completion value
+BINDING PASS cancelled owner atomically rejects completion after the former final-check/publication gap
+BINDING PASS real cancelled ProcessTransition returns before metadata/setup even with CancellationToken.None
+BINDING PASS active-transition capture never gains release eligibility from a later state change
+BINDING PASS exited scene cannot publish terminal room state even when no caller token was cancelled
+BINDING PASS compiled coordinators release only after all existing reset/UI-return consumers
+BINDING summary checks=24 scope=device-free foreground/terminal publication contracts; native transition flows NOT_RUN

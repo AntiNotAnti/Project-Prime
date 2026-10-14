@@ -1,0 +1,18 @@
+  Determining projects to restore...
+  Restored <workspace>/work/prime-plan-qualified-source/src/NcsfPlay/NcsfPlay.csproj (in 849 ms).
+  Restored <workspace>/work/prime-plan-qualified-source/src/MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj (in 864 ms).
+  Restored <workspace>/work/prime-plan-qualified-source/tools/nettest/nettest.csproj (in 874 ms).
+  Restored <workspace>/work/prime-plan-qualified-source/src/MphRead/MphRead.csproj (in 880 ms).
+  NcsfPlay -> <candidate>/runtime/NcsfPlay.dll
+  MphRead.Protocol.Generator -> <candidate>/runtime/MphRead.Protocol.Generator.dll
+  MphRead -> <candidate>/runtime/ProjectPrime.dll
+<workspace>/work/prime-plan-qualified-source/tools/nettest/PlayerNameChatTests.cs(7,7): warning CS0105: The using directive for 'System.Text' appeared previously in this namespace [<workspace>/work/prime-plan-qualified-source/tools/nettest/nettest.csproj]
+  nettest -> <candidate>/runtime/nettest.dll
+
+Build succeeded.
+
+<workspace>/work/prime-plan-qualified-source/tools/nettest/PlayerNameChatTests.cs(7,7): warning CS0105: The using directive for 'System.Text' appeared previously in this namespace [<workspace>/work/prime-plan-qualified-source/tools/nettest/nettest.csproj]
+    1 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:45.54

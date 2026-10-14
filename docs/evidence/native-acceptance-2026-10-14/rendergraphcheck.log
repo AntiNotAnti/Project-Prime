@@ -1,0 +1,586 @@
+COMPACT_LOADED_IDENTITY ProjectPrime location=<candidate>/runtime/ProjectPrime.dll mvid=5e534c23-57c6-4026-a55a-f8233293a732
+[dynamicstreamcheck] PASS: Triangles exact indices and winding
+[dynamicstreamcheck] PASS: Triangles empty primitive
+[dynamicstreamcheck] PASS: Quads exact indices and winding
+[dynamicstreamcheck] PASS: Quads empty primitive
+[dynamicstreamcheck] PASS: TriangleStrip exact indices and winding
+[dynamicstreamcheck] PASS: TriangleStrip empty primitive
+[dynamicstreamcheck] PASS: QuadStrip exact indices and winding
+[dynamicstreamcheck] PASS: QuadStrip empty primitive
+[dynamicstreamcheck] PASS: TriangleFan exact indices and winding
+[dynamicstreamcheck] PASS: TriangleFan empty primitive
+[dynamicstreamcheck] PASS: Lines exact indices and winding
+[dynamicstreamcheck] PASS: Lines empty primitive
+[dynamicstreamcheck] PASS: LineStrip exact indices and winding
+[dynamicstreamcheck] PASS: LineStrip empty primitive
+[dynamicstreamcheck] PASS: LineLoop exact indices and winding
+[dynamicstreamcheck] PASS: LineLoop empty primitive
+[dynamicstreamcheck] PASS: mixed triangles precede lines with vertex offsets
+[dynamicstreamcheck] PASS: deferred batches preserve triangle/line ordering barriers
+[dynamicstreamcheck] PASS: adjacent strips merge without connecting primitives or reversing winding
+[dynamicstreamcheck] PASS: adjacent fans retain independent centers
+[dynamicstreamcheck] PASS: adjacent line loops close independently
+[dynamicstreamcheck] PASS: Lines cannot cross pending triangles
+[dynamicstreamcheck] PASS: LineLoop cannot cross pending triangles
+[dynamicstreamcheck] PASS: LineStrip cannot cross pending triangles
+[dynamicstreamcheck] PASS: deferred color alpha and normal are immutable per-vertex snapshots
+[dynamicstreamcheck] PASS: same-state triangles preserve submission sequence
+[dynamicstreamcheck] PASS: inherited vertices resolve final primitive color including alpha
+[dynamicstreamcheck] PASS: inherited-color baking preserves explicitly colored vertices and lighting sentinel
+[dynamicstreamcheck] PASS: later primitive baking never recolors queued earlier primitives
+[dynamicstreamcheck] PASS: empty inherited-color range leaves queued vertices unchanged
+[dynamicstreamcheck] PASS: warmed scratch reuse allocates no arrays
+[dynamicstreamcheck] PASS: oversize fallback preserves indices without retaining oversized memory
+[dynamicstreamcheck] PASS: bounded scratch remains usable after fallback
+[dynamicstreamcheck] PASS: reset releases scratch and rebuilds correctly
+[dynamicstreamcheck] PASS: undersized copy rejected
+[glmodernizationcheck] PASS: depth shader preserves full fallback for overrides, outlines and cosmetic coverage
+[glmodernizationcheck] PASS: depth shader retains native material alpha multiplication order
+[glmodernizationcheck] PASS: HUD discard only rejects exact zero final alpha behind a uniform gate
+[glmodernizationcheck] PASS: depth CPU preparation requires actual depth shader and excludes color and outline draws
+[glmodernizationcheck] PASS: procedural Box preserves full preparation
+[glmodernizationcheck] PASS: procedural Cylinder preserves full preparation
+[glmodernizationcheck] PASS: procedural Sphere preserves full preparation
+[glmodernizationcheck] PASS: procedural Quad preserves full preparation
+[glmodernizationcheck] PASS: procedural Ngon preserves full preparation
+[glmodernizationcheck] PASS: procedural Particle preserves full preparation
+[glmodernizationcheck] PASS: procedural TrailSingle preserves full preparation
+[glmodernizationcheck] PASS: procedural TrailMulti preserves full preparation
+[glmodernizationcheck] PASS: procedural TrailStack preserves full preparation
+[glmodernizationcheck] PASS: alpha-bearing override forces full preparation
+[glmodernizationcheck] PASS: active cosmetic skin forces full preparation
+[glmodernizationcheck] PASS: active cosmetic effect forces full preparation
+[glmodernizationcheck] PASS: dissolving geometry keeps original discard preparation
+[glmodernizationcheck] PASS: unknown dissolve state fails closed
+[glmodernizationcheck] PASS: nonfinite positive dissolve preserves full preparation
+[glmodernizationcheck] PASS: nonactive negative dissolve follows exact shader guard
+[glmodernizationcheck] PASS: eligibility preserves current geometry, normal UV, weights, alpha and base texture data
+[glmodernizationcheck] PASS: RGB material and palette changes do not alter alpha-only eligibility
+[glmodernizationcheck] PASS: untextured and decal alpha arithmetic remains eligible without texture assumptions
+[glmodernizationcheck] PASS: macOS compatibility version remains GL2.1
+[glmodernizationcheck] PASS: GL2.1 requires advertised extensions
+[glmodernizationcheck] PASS: depth blit requires context support and callable entry points
+[glmodernizationcheck] PASS: missing required entry point disables only affected capability
+[glmodernizationcheck] PASS: extension names match whole tokens
+[glmodernizationcheck] PASS: desktop ARB VAO extension is independently supported
+[glmodernizationcheck] PASS: GLES3 core features do not inherit desktop-only extensions
+[glmodernizationcheck] PASS: GLES2 cannot inherit ARB VAO
+[glmodernizationcheck] PASS: GLES disjoint timer support remains separate
+[glmodernizationcheck] PASS: separate context facts never reuse capability decisions
+[glmodernizationcheck] PASS: GL2.1 selects verified APPLE VAO without changing core capability fact
+[glmodernizationcheck] PASS: glGenVertexArraysAPPLE is required for APPLE VAO selection
+[glmodernizationcheck] PASS: glBindVertexArrayAPPLE is required for APPLE VAO selection
+[glmodernizationcheck] PASS: glDeleteVertexArraysAPPLE is required for APPLE VAO selection
+[glmodernizationcheck] PASS: glIsVertexArrayAPPLE is required for APPLE VAO selection
+[glmodernizationcheck] PASS: APPLE extension matching uses exact whole tokens
+[glmodernizationcheck] PASS: GLES core fact is preserved while desktop APPLE selection is excluded
+[glmodernizationcheck] PASS: verified core VAO takes precedence over APPLE
+[glmodernizationcheck] PASS: verified ARB VAO takes precedence over APPLE on GL2.1
+[glmodernizationcheck] PASS: independent GL2.1 contexts cannot inherit APPLE VAO capability
+[glmodernizationcheck] PASS: invalid version fails closed
+[glmodernizationcheck] PASS: unvalidated experiment defaults off
+[glmodernizationcheck] PASS: explicit supported experiment enabled
+[glmodernizationcheck] PASS: unsupported feature always disabled
+[glmodernizationcheck] PASS: forced legacy takes precedence
+[glmodernizationcheck] PASS: explicit zero overrides validated default
+[glmodernizationcheck] PASS: invalid experiment token cannot opt in
+[glmodernizationcheck] PASS: validated default requires capability
+[glmodernizationcheck] PASS: VAO defaults enabled when supported
+[glmodernizationcheck] PASS: VAO respects explicit disable
+[glmodernizationcheck] PASS: VAO respects force legacy
+[glmodernizationcheck] PASS: DYNAMIC_STREAM defaults enabled when supported
+[glmodernizationcheck] PASS: DYNAMIC_STREAM respects explicit disable
+[glmodernizationcheck] PASS: DYNAMIC_STREAM respects force legacy
+[glmodernizationcheck] PASS: UNIFORM_REVISIONS defaults enabled when supported
+[glmodernizationcheck] PASS: UNIFORM_REVISIONS respects explicit disable
+[glmodernizationcheck] PASS: UNIFORM_REVISIONS respects force legacy
+[glmodernizationcheck] PASS: STATIC_CACHE defaults enabled when supported
+[glmodernizationcheck] PASS: STATIC_CACHE respects explicit disable
+[glmodernizationcheck] PASS: STATIC_CACHE respects force legacy
+[glmodernizationcheck] PASS: SHADOW_FAST defaults enabled when supported
+[glmodernizationcheck] PASS: SHADOW_FAST respects explicit disable
+[glmodernizationcheck] PASS: SHADOW_FAST respects force legacy
+[glmodernizationcheck] PASS: HUD_SAMPLERS defaults enabled when supported
+[glmodernizationcheck] PASS: HUD_SAMPLERS respects explicit disable
+[glmodernizationcheck] PASS: HUD_SAMPLERS respects force legacy
+[glmodernizationcheck] PASS: ATLAS_EVICTION defaults enabled when supported
+[glmodernizationcheck] PASS: ATLAS_EVICTION respects explicit disable
+[glmodernizationcheck] PASS: ATLAS_EVICTION respects force legacy
+[glmodernizationcheck] PASS: HUD_DISCARD defaults enabled when supported
+[glmodernizationcheck] PASS: HUD_DISCARD respects explicit disable
+[glmodernizationcheck] PASS: HUD_DISCARD respects force legacy
+[glmodernizationcheck] PASS: DEPTH_SHADER defaults enabled when supported
+[glmodernizationcheck] PASS: DEPTH_SHADER respects explicit disable
+[glmodernizationcheck] PASS: DEPTH_SHADER respects force legacy
+[glmodernizationcheck] PASS: GLES_UNIFORMS defaults enabled when supported
+[glmodernizationcheck] PASS: GLES_UNIFORMS respects explicit disable
+[glmodernizationcheck] PASS: GLES_UNIFORMS respects force legacy
+[glmodernizationcheck] PASS: DEPTH_BATCH defaults enabled when supported
+[glmodernizationcheck] PASS: DEPTH_BATCH respects explicit disable
+[glmodernizationcheck] PASS: DEPTH_BATCH respects force legacy
+[glmodernizationcheck] PASS: HUD_GLYPHS defaults enabled when supported
+[glmodernizationcheck] PASS: HUD_GLYPHS respects explicit disable
+[glmodernizationcheck] PASS: HUD_GLYPHS respects force legacy
+[glmodernizationcheck] PASS: HUD_SPRITES defaults enabled when supported
+[glmodernizationcheck] PASS: HUD_SPRITES respects explicit disable
+[glmodernizationcheck] PASS: HUD_SPRITES respects force legacy
+[glmodernizationcheck] PASS: DEPTH_PREP defaults enabled when supported
+[glmodernizationcheck] PASS: DEPTH_PREP respects explicit disable
+[glmodernizationcheck] PASS: DEPTH_PREP respects force legacy
+[glmodernizationcheck] PASS: PROCEDURAL_BATCH defaults enabled when supported
+[glmodernizationcheck] PASS: PROCEDURAL_BATCH respects explicit disable
+[glmodernizationcheck] PASS: PROCEDURAL_BATCH respects force legacy
+[glmodernizationcheck] PASS: ROOM_CACHE defaults enabled when supported
+[glmodernizationcheck] PASS: ROOM_CACHE respects explicit disable
+[glmodernizationcheck] PASS: ROOM_CACHE respects force legacy
+[glmodernizationcheck] PASS: DEPTH_KEEP defaults enabled when supported
+[glmodernizationcheck] PASS: DEPTH_KEEP respects explicit disable
+[glmodernizationcheck] PASS: DEPTH_KEEP respects force legacy
+[glmodernizationcheck] PASS: SHADER_VARIANTS defaults enabled when supported
+[glmodernizationcheck] PASS: SHADER_VARIANTS respects explicit disable
+[glmodernizationcheck] PASS: SHADER_VARIANTS respects force legacy
+[glmodernizationcheck] PASS: ROOM_GROUPS defaults enabled when supported
+[glmodernizationcheck] PASS: ROOM_GROUPS respects explicit disable
+[glmodernizationcheck] PASS: ROOM_GROUPS respects force legacy
+[glmodernizationcheck] PASS: PLAIN_SHADER defaults enabled when supported
+[glmodernizationcheck] PASS: PLAIN_SHADER respects explicit disable
+[glmodernizationcheck] PASS: PLAIN_SHADER respects force legacy
+[glmodernizationcheck] PASS: SHADOW_PREP defaults enabled when supported
+[glmodernizationcheck] PASS: SHADOW_PREP respects explicit disable
+[glmodernizationcheck] PASS: SHADOW_PREP respects force legacy
+[glmodernizationcheck] PASS: ROOM_IDENTITY defaults enabled when supported
+[glmodernizationcheck] PASS: ROOM_IDENTITY respects explicit disable
+[glmodernizationcheck] PASS: ROOM_IDENTITY respects force legacy
+[glmodernizationcheck] PASS: MESH_OBJECT defaults enabled when supported
+[glmodernizationcheck] PASS: MESH_OBJECT respects explicit disable
+[glmodernizationcheck] PASS: MESH_OBJECT respects force legacy
+[glmodernizationcheck] PASS: UNLIT_SHADER defaults enabled when supported
+[glmodernizationcheck] PASS: UNLIT_SHADER respects explicit disable
+[glmodernizationcheck] PASS: UNLIT_SHADER respects force legacy
+[glmodernizationcheck] PASS: SHADOW_GROUPS defaults enabled when supported
+[glmodernizationcheck] PASS: SHADOW_GROUPS respects explicit disable
+[glmodernizationcheck] PASS: SHADOW_GROUPS respects force legacy
+[glmodernizationcheck] PASS: DEPTH_VERTEX remains opt-in after mixed frame measurements
+[glmodernizationcheck] PASS: DEPTH_VERTEX opt-in respects legacy
+[glmodernizationcheck] PASS: PROCEDURAL_STREAM remains opt-in after mixed frame measurements
+[glmodernizationcheck] PASS: PROCEDURAL_STREAM opt-in respects legacy
+[glmodernizationcheck] PASS: vertex source selection uses stable legacy and fast sources
+[glmodernizationcheck] PASS: legacy vertex removes specialization while preserving color, skinning and texgen
+[glmodernizationcheck] PASS: future feature is not implicitly enabled
+[glmodernizationcheck] PASS: unrecorded palette cannot skip upload
+[glmodernizationcheck] PASS: same immutable palette stamp can skip upload
+[glmodernizationcheck] PASS: program, uniform location and palette length each isolate uploads
+[glmodernizationcheck] PASS: source identity, pose revision and scale each isolate uploads
+[glmodernizationcheck] PASS: unknown source/revision/program/location always fall back
+[glmodernizationcheck] PASS: ordinary writes and lifecycle invalidation erase stamp
+[glmodernizationcheck] PASS: replacement stamp never revives prior palette
+[glmodernizationcheck] PASS: declared independent camera matrix preserves palette stamp
+[glmodernizationcheck] PASS: registering another program retains original independent matrix layout
+[glmodernizationcheck] PASS: relink or delete of another program preserves original palette layout and stamp
+[glmodernizationcheck] PASS: own program relink or deletion invalidates its palette stamp
+[glmodernizationcheck] PASS: deleted program layout cannot survive recycled locations
+[glmodernizationcheck] PASS: unknown or interior array writes invalidate palette
+[glmodernizationcheck] PASS: relink erases layout and palette stamp
+[glmodernizationcheck] PASS: forgotten layout cannot preserve stale camera location
+[glmodernizationcheck] PASS: other program registration preserves independent matrix cache
+[glmodernizationcheck] PASS: other program relink or deletion retains original verified array layout
+[glmodernizationcheck] PASS: own program relink or deletion restores conservative matrix fallback
+[glmodernizationcheck] PASS: context reset forgets all program layouts
+[glmodernizationcheck] PASS: explicit noncontiguous palette layout accepts disjoint independent matrices
+[glmodernizationcheck] PASS: known palette write preserves only declared independent matrices without guessed location stride
+[glmodernizationcheck] PASS: targeted retention never mistakes another program's same location for current state
+[glmodernizationcheck] PASS: oversize/interior palette writes use full matrix invalidation fallback
+[glmodernizationcheck] PASS: unknown array write invalidates independent single matrices conservatively
+[glmodernizationcheck] PASS: zero/invalid array count cannot authorize retention
+[glmodernizationcheck] PASS: overlapping array/independent declarations reject layout and erase prior proof
+[glmodernizationcheck] PASS: failed layout registration cannot revive prior independent retention
+[glmodernizationcheck] PASS: inactive/duplicate array locations, unknown programs and empty independent proofs fail closed
+[glmodernizationcheck] PASS: relink invalidation forgets explicit palette layout
+[glmodernizationcheck] PASS: context reset forgets independent matrix proof
+[glmodernizationcheck] PASS: warmed targeted matrix invalidation retains reusable removal storage without allocations
+[glmodernizationcheck] PASS: palette layout owns independent location proof snapshot
+[glmodernizationcheck] PASS: absent samples have null percentiles
+[glmodernizationcheck] PASS: invalid samples do not enter statistics
+[glmodernizationcheck] PASS: sample storage is bounded
+[glmodernizationcheck] PASS: nearest-rank percentiles preserve independent tails
+[glmodernizationcheck] PASS: window reset drops prior samples and accepts measured zero
+[glmodernizationcheck] PASS: reset cannot leak prior percentile
+[glmodernizationcheck] PASS: context reset safely invalidates inactive scope tokens
+[hudglyphcheck] PASS: unknown glyph has no invented binding
+[hudglyphcheck] PASS: stored RGBA image accounts only its exact resident pixels
+[hudglyphcheck] PASS: exact decoded pixels reuse binding across different array objects
+[hudglyphcheck] PASS: changed RGBA channel 0 never aliases cached glyph
+[hudglyphcheck] PASS: changed RGBA channel 1 never aliases cached glyph
+[hudglyphcheck] PASS: changed RGBA channel 2 never aliases cached glyph
+[hudglyphcheck] PASS: changed RGBA channel 3 never aliases cached glyph
+[hudglyphcheck] PASS: same texels with different dimensions retain distinct images
+[hudglyphcheck] PASS: dimension-specific bindings coexist
+[hudglyphcheck] PASS: mutating a decoder buffer cannot modify cached pixel snapshots
+[hudglyphcheck] PASS: oversized backing buffer tail is outside glyph identity
+[hudglyphcheck] PASS: unused tail mutation never changes cache lookup
+[hudglyphcheck] PASS: entry exhaustion preserves existing immutable binding without eviction
+[hudglyphcheck] PASS: byte budget rejects oversize image without partial allocation
+[hudglyphcheck] PASS: zero budgets use fallback
+[hudglyphcheck] PASS: invalid texture bindings are never published
+[hudglyphcheck] PASS: invalid dimensions and arithmetic bounds fail closed
+[hudglyphcheck] PASS: duplicate store cannot replace an image used by an earlier draw
+[hudglyphcheck] PASS: independent scene and context owners never share GL bindings
+[hudglyphcheck] PASS: unload clear forgets pixels and old context bindings
+[hudglyphcheck] PASS: fresh context can rebuild same pixels with a new binding
+[proceduralgeometrycheck] PASS: Particle coverage preparation requires enabled policy and alpha-only pass
+[proceduralgeometrycheck] PASS: Particle override retains full preparation
+[proceduralgeometrycheck] PASS: TrailSingle coverage preparation requires enabled policy and alpha-only pass
+[proceduralgeometrycheck] PASS: TrailSingle override retains full preparation
+[proceduralgeometrycheck] PASS: TrailMulti coverage preparation requires enabled policy and alpha-only pass
+[proceduralgeometrycheck] PASS: TrailMulti override retains full preparation
+[proceduralgeometrycheck] PASS: TrailStack coverage preparation requires enabled policy and alpha-only pass
+[proceduralgeometrycheck] PASS: TrailStack override retains full preparation
+[proceduralgeometrycheck] PASS: particle packs native vertex sequence with UV scales and z zero
+[proceduralgeometrycheck] PASS: TrailSingle preserves native Quads/QuadStrip order and three-component UV without particle scaling
+[proceduralgeometrycheck] PASS: TrailMulti preserves native Quads/QuadStrip order and three-component UV without particle scaling
+[proceduralgeometrycheck] PASS: TrailStack preserves native Quads/QuadStrip order and three-component UV without particle scaling
+[proceduralgeometrycheck] PASS: shared item is packed once across passes without aliasing later point edits
+[proceduralgeometrycheck] PASS: next frame clears ranges and captures fresh current points
+[proceduralgeometrycheck] PASS: exact 16384-vertex boundary is accepted without truncation
+[proceduralgeometrycheck] PASS: capacity overflow falls back without publishing ranges or modifying packed vertices
+[proceduralgeometrycheck] PASS: Particle malformed/unsupported geometry rejects before any partial write
+[proceduralgeometrycheck] PASS: TrailSingle malformed/unsupported geometry rejects before any partial write
+[proceduralgeometrycheck] PASS: TrailMulti malformed/unsupported geometry rejects before any partial write
+[proceduralgeometrycheck] PASS: TrailMulti malformed/unsupported geometry rejects before any partial write
+[proceduralgeometrycheck] PASS: TrailMulti malformed/unsupported geometry rejects before any partial write
+[proceduralgeometrycheck] PASS: TrailStack malformed/unsupported geometry rejects before any partial write
+[proceduralgeometrycheck] PASS: TrailStack malformed/unsupported geometry rejects before any partial write
+[proceduralgeometrycheck] PASS: TrailStack malformed/unsupported geometry rejects before any partial write
+[proceduralgeometrycheck] PASS: Mesh malformed/unsupported geometry rejects before any partial write
+[proceduralgeometrycheck] PASS: warmed frame packing, deduplication and clear allocate nothing
+[proceduralgeometrycheck] PASS: adjacent particle material sharing follows procedural policy
+[proceduralgeometrycheck] PASS: shared material batching keeps current per-item pose light stencil and order
+[proceduralgeometrycheck] PASS: emissive intensity change cannot inherit prior shared material
+[proceduralgeometrycheck] PASS: procedural alpha change splits shared material batch
+[proceduralgeometrycheck] PASS: procedural texture matrix change splits shared material batch
+[proceduralgeometrycheck] PASS: Particle supports only policy-selected adjacent shared material
+[proceduralgeometrycheck] PASS: Particle never becomes reorderable even when marked room-owned opaque
+[proceduralgeometrycheck] PASS: TrailSingle supports only policy-selected adjacent shared material
+[proceduralgeometrycheck] PASS: TrailSingle never becomes reorderable even when marked room-owned opaque
+[proceduralgeometrycheck] PASS: TrailMulti supports only policy-selected adjacent shared material
+[proceduralgeometrycheck] PASS: TrailMulti never becomes reorderable even when marked room-owned opaque
+[proceduralgeometrycheck] PASS: TrailStack supports only policy-selected adjacent shared material
+[proceduralgeometrycheck] PASS: TrailStack never becomes reorderable even when marked room-owned opaque
+[proceduralgeometrycheck] PASS: identical procedural overrides remain sharing barriers
+[proceduralgeometrycheck] PASS: procedural viewmodel remains a sharing barrier
+[proceduralgeometrycheck] PASS: procedural billboard remains a sharing barrier
+[proceduralgeometrycheck] PASS: forced legacy disables procedural material batching even with explicit enable
+[proceduralgeometrycheck] PASS: adjacent proven-material procedural objects may reuse identical state despite stencil-ID difference
+[proceduralgeometrycheck] PASS: fresh changed pose prevents object state reuse
+[proceduralgeometrycheck] PASS: fresh changed pose restoration rebuilds exact reuse proof
+[proceduralgeometrycheck] PASS: diffuse color prevents object state reuse
+[proceduralgeometrycheck] PASS: diffuse color restoration rebuilds exact reuse proof
+[proceduralgeometrycheck] PASS: light one vector prevents object state reuse
+[proceduralgeometrycheck] PASS: light one vector restoration rebuilds exact reuse proof
+[proceduralgeometrycheck] PASS: light one color prevents object state reuse
+[proceduralgeometrycheck] PASS: light one color restoration rebuilds exact reuse proof
+[proceduralgeometrycheck] PASS: light two vector prevents object state reuse
+[proceduralgeometrycheck] PASS: light two vector restoration rebuilds exact reuse proof
+[proceduralgeometrycheck] PASS: light two color prevents object state reuse
+[proceduralgeometrycheck] PASS: light two color restoration rebuilds exact reuse proof
+[proceduralgeometrycheck] PASS: viewmodel prevents object state reuse
+[proceduralgeometrycheck] PASS: viewmodel restoration rebuilds exact reuse proof
+[proceduralgeometrycheck] PASS: sphere billboard prevents object state reuse
+[proceduralgeometrycheck] PASS: sphere billboard restoration rebuilds exact reuse proof
+[proceduralgeometrycheck] PASS: cylinder billboard prevents object state reuse
+[proceduralgeometrycheck] PASS: cylinder billboard restoration rebuilds exact reuse proof
+[proceduralgeometrycheck] PASS: weighted skinning prevents object state reuse
+[proceduralgeometrycheck] PASS: weighted skinning restoration rebuilds exact reuse proof
+[proceduralgeometrycheck] PASS: matrix palette prevents object state reuse
+[proceduralgeometrycheck] PASS: matrix palette restoration rebuilds exact reuse proof
+[proceduralgeometrycheck] PASS: invalid palette count prevents object state reuse
+[proceduralgeometrycheck] PASS: invalid palette count restoration rebuilds exact reuse proof
+[proceduralgeometrycheck] PASS: nonprocedural mesh prevents object state reuse
+[proceduralgeometrycheck] PASS: nonprocedural mesh restoration rebuilds exact reuse proof
+[proceduralgeometrycheck] PASS: Particle permits exact zero-palette object reuse
+[proceduralgeometrycheck] PASS: TrailSingle permits exact zero-palette object reuse
+[proceduralgeometrycheck] PASS: TrailMulti permits exact zero-palette object reuse
+[proceduralgeometrycheck] PASS: TrailStack permits exact zero-palette object reuse
+[proceduralgeometrycheck] PASS: first object palette also forbids reuse
+[proceduralgeometrycheck] PASS: first object viewmodel also forbids reuse
+[proceduralgeometrycheck] PASS: first object billboard also forbids reuse
+[proceduralgeometrycheck] PASS: first object weighted skinning also forbids reuse
+[proceduralgeometrycheck] PASS: first nonprocedural object also forbids reuse
+[depthreplaycheck] PASS: untextured unit alpha cannot alter mark-pass depth
+[depthreplaycheck] PASS: textured modulate needs alpha proof unless textures hidden
+[depthreplaycheck] PASS: decal alpha ignores sampled texture alpha
+[depthreplaycheck] PASS: textured toon retains sampled alpha fallback
+[depthreplaycheck] PASS: unsafe/nonfinite alpha falls back: 0
+[depthreplaycheck] PASS: unsafe/nonfinite alpha falls back: 0.999
+[depthreplaycheck] PASS: unsafe/nonfinite alpha falls back: NaN
+[depthreplaycheck] PASS: unsafe/nonfinite alpha falls back: Infinity
+[depthreplaycheck] PASS: unsafe/nonfinite alpha falls back: -Infinity
+[depthreplaycheck] PASS: outline draw cannot claim ordinary alpha proof
+[depthreplaycheck] PASS: override is a proof barrier
+[depthreplaycheck] PASS: palette override conservatively falls back
+[depthreplaycheck] PASS: per-item outline is a proof barrier
+[depthreplaycheck] PASS: player skin is a proof barrier
+[depthreplaycheck] PASS: cosmetic or nonfinite dissolve cannot claim coverage
+[depthreplaycheck] PASS: cosmetic or nonfinite dissolve cannot claim coverage
+[depthreplaycheck] PASS: cosmetic or nonfinite dissolve cannot claim coverage
+[depthreplaycheck] PASS: cosmetic or nonfinite dissolve cannot claim coverage
+[depthreplaycheck] PASS: cosmetic material conservatively falls back
+[depthreplaycheck] PASS: Particle has canonical alpha proof independent of current points/pose
+[depthreplaycheck] PASS: TrailSingle has canonical alpha proof independent of current points/pose
+[depthreplaycheck] PASS: TrailMulti has canonical alpha proof independent of current points/pose
+[depthreplaycheck] PASS: TrailStack has canonical alpha proof independent of current points/pose
+[depthreplaycheck] PASS: nonempty alpha-rejected list respects decal and legacy barriers
+[depthreplaycheck] PASS: current-frame alpha mutation invalidates prior packet proof
+[depthreplaycheck] PASS: empty intervening lists preserve opaque depth
+[displaylistattributecheck] PASS: explicit attributes precede vertices and retain exact final color/normal/3D UV
+[displaylistattributecheck] PASS: ordinary noncompile attribute writes never mutate stored list effects
+[displaylistattributecheck] PASS: vertex reads before late explicit writes remain inherited dependencies
+[displaylistattributecheck] PASS: nested inherited reads resolve against preceding explicit parent attributes
+[displaylistattributecheck] PASS: nested inherited reads propagate when parent has no explicit attributes
+[displaylistattributecheck] PASS: execution-order merge updates only explicitly touched final attributes
+[displaylistattributecheck] PASS: callee recompilation invalidates dependent parents transitively but preserves unrelated lists
+[displaylistattributecheck] PASS: callee deletion invalidates every parent which cached its final effect
+[displaylistattributecheck] PASS: unknown external nested list never becomes trusted metadata
+[displaylistattributecheck] PASS: unknown attribute-stack/nonzero texture effects force fallback
+[displaylistattributecheck] PASS: empty known list preserves untouched flags without invented initial values
+[displaylistattributecheck] PASS: context reset clears completed and partial list metadata
+[displaylistattributecheck] PASS: metadata budget overflow uses unknown-list fallback
+[displaylistattributecheck] PASS: recompilation reclaims its bounded metadata slot
+[worldshadercheck] PASS: desktop preserves every expression outside the removed stage
+[worldshadercheck] PASS: desktop removes the complete nested stage body only
+[worldshadercheck] PASS: desktop canonical fallback retains the original stage
+[worldshadercheck] PASS: desktop retains cosmetic and alpha coverage paths
+[worldshadercheck] PASS: desktop plain preserves every expression outside the removed stage
+[worldshadercheck] PASS: desktop plain removes the complete nested stage body only
+[worldshadercheck] PASS: desktop plain canonical fallback retains the original stage
+[worldshadercheck] PASS: desktop plain retains cosmetic and alpha coverage paths
+[worldshadercheck] PASS: desktop depth vertex specializes lighting value without changing skinning, UV, billboard or alpha expressions
+[worldshadercheck] PASS: desktop depth vertex normal texgen retains constant-false camera transform choice
+[worldshadercheck] PASS: desktop legacy vertex specializes lighting value without changing skinning, UV, billboard or alpha expressions
+[worldshadercheck] PASS: desktop legacy vertex normal texgen retains constant-false camera transform choice
+[worldshadercheck] PASS: empty world is eligible
+[worldshadercheck] PASS: neutral items eligible
+[worldshadercheck] PASS: later active/nonfinite cosmetic item rejects specialization
+[worldshadercheck] PASS: later active/nonfinite cosmetic item rejects specialization
+[worldshadercheck] PASS: later active/nonfinite cosmetic item rejects specialization
+[worldshadercheck] PASS: later active/nonfinite cosmetic item rejects specialization
+[worldshadercheck] PASS: later active/nonfinite cosmetic item rejects specialization
+[worldshadercheck] PASS: inactive cosmetic parameters follow canonical early return
+[worldshadercheck] PASS: neutral separately collected preview items eligible
+[worldshadercheck] PASS: active preview item rejects whole-frame plain program
+[worldshadercheck] PASS: outlined item outside retained packets rejects whole-frame plain program
+[worldshadercheck] PASS: all-unlit world and preview items permit constant vertex lighting
+[worldshadercheck] PASS: later lit world/preview item rejects constant vertex lighting
+[worldshadercheck] PASS: missing material stage fails explicitly
+[transitiongccheck] PASS: inactive observer cannot change SceneLoad collection policy
+[transitiongccheck] PASS: inactive observer cannot change SceneEnd collection policy
+[transitiongccheck] PASS: diagnostic control observes both calls and skips only requested phase: Keep
+[transitiongccheck] PASS: diagnostic control observes both calls and skips only requested phase: SkipLoad
+[transitiongccheck] PASS: diagnostic control observes both calls and skips only requested phase: SkipEnd
+[transitiongccheck] PASS: diagnostic control observes both calls and skips only requested phase: SkipBoth
+[transitiongccheck] PASS: removed observer invalidates an outstanding stage scope
+[drawattributioncheck] PASS: room ownership is explicit metadata
+[drawattributioncheck] PASS: matrix palette identifies mesh preparation
+[drawattributioncheck] PASS: unowned nonpalette mesh uses a single transform
+[drawattributioncheck] PASS: first-person owner wins over mesh preparation kind
+[drawattributioncheck] PASS: fixed storage covers every current owner and pass plus unknown sources
+[drawattributioncheck] PASS: nested ownership restores the outer source without double counting
+[drawattributioncheck] PASS: HUD and unknown draws remain visible
+[drawattributioncheck] PASS: all immediate sources conserve the executed draw total
+[drawattributioncheck] PASS: cancelled scopes cannot contaminate a replacement frame/window
+[uniformattributioncheck] PASS: inactive upload observation allocates no state
+[uniformattributioncheck] PASS: nested setup and geometry scopes restore exact source and unknown owner
+[uniformattributioncheck] PASS: program partition distinguishes executed uploads from palette skips
+[uniformattributioncheck] PASS: source and program partitions conserve every operation and byte
+[uniformattributioncheck] PASS: program capacity overflow remains explicit and counted
+[uniformattributioncheck] PASS: cancellation drops pending observations and partial windows
+[uniformattributioncheck] PASS: context reset releases bounded numeric storage and rejects stale observations
+[uniformattributioncheck] PASS: diagnostic state retains only value fields and numeric arrays, never scene or item owners
+[palettecollectioncheck] PASS: inactive collection diagnostics allocate no state
+[palettecollectioncheck] PASS: requests distinguish unknown revisions and count only copied floats
+[palettecollectioncheck] PASS: completed frames release source identity and reject late collection observations
+[palettecollectioncheck] PASS: cancellation releases temporary palette source identity
+[palettecollectioncheck] PASS: disabled collection/upload hot path allocates no state or per-call objects
+[gl01-disabled-seam] iterations=1000000 allocatedBytes=0 nanosecondsPerIteration=2.679 scope=synthetic-diagnostic-calls-only; end-to-end-overhead=UNVERIFIED
+[paletteprepcheck] PASS: preparation cache requires opt-in and respects forced legacy
+[paletteprepcheck] PASS: first known palette preserves every original float bit
+[paletteprepcheck] PASS: identical source revision length scale reuses exact arithmetic
+[paletteprepcheck] PASS: item snapshots and private scratch do not share mutable arrays
+[paletteprepcheck] PASS: near-equal scale forces new exact arithmetic
+[paletteprepcheck] PASS: equal-valued distinct source cannot impersonate a revision identity
+[paletteprepcheck] PASS: changed revision recomputes current native values
+[paletteprepcheck] PASS: signed-zero scales have distinct bitwise identity
+[paletteprepcheck] PASS: palette count change invalidates the last preparation
+[paletteprepcheck] PASS: unknown revision falls back and releases prior identity
+[paletteprepcheck] PASS: unversioned mutation stays on original path
+[paletteprepcheck] PASS: unknown mutation fallback sees current values
+[paletteprepcheck] PASS: partial invalid oversized nonfinite and short-output inputs preserve fallback
+[paletteprepcheck] PASS: fixed scratch covers the exact 32-matrix shader limit
+[paletteprepcheck] PASS: collection boundary drops identity rather than borrowing last-frame preparation
+[paletteprepcheck] PASS: clear releases the sole cached source reference
+[roombatchmembershipcheck] PASS: membership fixture proves current merge compatibility
+[roombatchmembershipcheck] PASS: new frame with identical ordered IDs preserves membership and token
+[roombatchmembershipcheck] PASS: changed ordered IDs invalidate token even with same count
+[roombatchmembershipcheck] PASS: current pose change still rejects merge regardless of stored token
+[roombatchmembershipcheck] PASS: restored proof retains unchanged membership after a failed frame
+[roombatchmembershipcheck] PASS: changed exact membership count invalidates token
+[shadowprepcheck] PASS: first static caster applies all preparation
+[shadowprepcheck] PASS: exact adjacent zero-palette caster shares preparation
+[shadowprepcheck] PASS: current pose mutation restores object state without stale snapshot
+[shadowprepcheck] PASS: current lighting mutation restores object state
+[shadowprepcheck] PASS: emissive intensity change restores material state
+[shadowprepcheck] PASS: animated texture coordinates restore material state
+[shadowprepcheck] PASS: unknown palette always uploads current object state
+[shadowprepcheck] PASS: known source/version uses existing palette policy
+[shadowprepcheck] PASS: changed palette revision cannot reuse stale pose
+[shadowprepcheck] PASS: different palette source invalidates object reuse
+[shadowprepcheck] PASS: changed palette scale invalidates object reuse
+[shadowprepcheck] PASS: override caster is a preparation barrier
+[shadowprepcheck] PASS: barrier invalidates prior shared state
+[shadowprepcheck] PASS: moving entity always follows full preparation
+[shadowprepcheck] PASS: new pass and scene cleanup cannot inherit prior cache
+[shadowgroupscheck] PASS: fully outside group can reject its original nodes
+[shadowgroupscheck] PASS: union spanning viewport remains conservative even with outside members
+[shadowgroupscheck] PASS: existing two-unit margin retains exact light boundary
+[shadowgroupscheck] PASS: unknown member makes whole cluster visible
+[shadowgroupscheck] PASS: inverted member cannot hide any caster
+[shadowgroupscheck] PASS: nonfinite member conservatively retains cluster
+[shadowgroupscheck] PASS: later valid bounds cannot repair an unknown union
+[shadowgroupscheck] PASS: nonpositive projection W never rejects a group
+[shadowgroupscheck] PASS: union exactly encloses every immutable member bound
+[glfailurecheck] PASS: ordinary client has no active allocation injection
+[glfailurecheck] PASS: only explicit requested stage throws dedicated diagnostic failure
+[glfailurecheck] PASS: failure injection is isolated to harness GL thread
+[roomidentitycheck] PASS: equal materials across meshes share exact identity
+[roomidentitycheck] PASS: unchanged item reuses identity
+[roomidentitycheck] PASS: material change invalidates cached identity
+[roomidentitycheck] PASS: scene reset invalidates old ownership
+[meshobjectcheck] PASS: identical mesh uniform state reuses
+[meshobjectcheck] PASS: viewmodel transition invalidates projection reuse
+[meshobjectcheck] PASS: current transform change invalidates reuse
+[meshobjectcheck] PASS: weighted skinning transition invalidates reuse
+[meshobjectcheck] PASS: billboard transition invalidates reuse
+[meshobjectcheck] PASS: unknown mutable palettes never reuse
+[meshobjectcheck] PASS: known exact palette revision follows policy
+[meshobjectcheck] PASS: changed palette revision invalidates reuse
+[glbatchpreflightcheck] PASS: unknown failure retries geometry preflight
+[glbatchpreflightcheck] PASS: exact failure reuses proof across passes and frames
+[glbatchpreflightcheck] PASS: hash collision and sequence length never authorize fallback proof
+[glbatchpreflightcheck] PASS: stored IDs are isolated from mutable scratch
+[glbatchpreflightcheck] PASS: compile/delete generation invalidates every negative proof
+[glbatchpreflightcheck] PASS: unrecorded budget or driver failure retries next attempt
+[glbatchpreflightcheck] PASS: bounded entry budget preserves ordinary fallback
+[glbatchpreflightcheck] PASS: oversized ID sequence cannot retain unbounded storage
+[glbatchpreflightcheck] PASS: maximum bounded proof remains reusable
+[glbatchpreflightcheck] PASS: new context cache cannot inherit another context proof
+[glbatchtokencheck] PASS: same owning context and exact membership generation reuse token
+[glbatchtokencheck] PASS: different or recreated context cannot inherit handles
+[glbatchtokencheck] PASS: compile/delete/eviction generation rejects released geometry
+[glbatchtokencheck] PASS: ordered membership change rejects prior group
+[glbatchtokencheck] PASS: successful revalidation can renew token without allocation
+[glbatchattributecheck] PASS: pure inherited lists can share unchanged current attributes
+[glbatchattributecheck] PASS: nonfinal trailing color cannot disappear from merged final state
+[glbatchattributecheck] PASS: nonfinal trailing normal cannot feed later inherited vertices in merged arrays
+[glbatchattributecheck] PASS: nonfinal trailing UV cannot feed later inherited coverage or palette index
+[glbatchattributecheck] PASS: final trailing attributes remain reproducible by final attribute application
+[glbatchattributecheck] PASS: fully authored arrays retain per-vertex attributes and final list state
+[glatlasevictioncheck] PASS: bounded LRU, oversized fallback and scope pinning
+[rendergraphcheck] PASS: atlas eviction preserves current-scope groups and the resident budget
+[rendergraphcheck] PASS: desktop VBO promotion accepts only homogeneous fixed-function attribute streams
+[rendergraphcheck] PASS: light-space XY bounds reject distant nodes without using the camera frustum
+[rendergraphcheck] PASS: pickup visual culling requires all five blocked samples
+[rendergraphcheck] PASS: six-pass graph validates
+[rendergraphcheck] PASS: per-render portal visibility refresh preserves tick-only audio and transition fallback
+[rendergraphcheck] PASS: binding cache forwards every request outside a world graph
+[rendergraphcheck] PASS: per-unit texture cache preserves unknown first binds and independent units
+[rendergraphcheck] PASS: raster state cache elides only exact redundant values
+[rendergraphcheck] PASS: unknown display-list/attribute state invalidates texture inference
+[rendergraphcheck] PASS: binding state cache does not escape the world graph
+[rendergraphcheck] PASS: outside-world GL state requests are always forwarded
+[rendergraphcheck] PASS: world scoped capability cache removes only same-value requests
+[rendergraphcheck] PASS: compiling GL lists invalidates prior inferred capability state
+[rendergraphcheck] PASS: known geometry-only display list preserves inferred world capability
+[rendergraphcheck] PASS: reclaimed display list IDs cannot inherit stale state purity
+[rendergraphcheck] PASS: capability-changing display list invalidates inferred state
+[rendergraphcheck] PASS: untracked GL display list triggers conservative state invalidation
+[rendergraphcheck] PASS: new world graph starts with unknown driver capability state
+[rendergraphcheck] PASS: interval-derived 1-percent low estimate requires a positive p99 frame interval
+[rendergraphcheck] PASS: bounded GL CPU percentile sampling uses nearest rank
+[rendergraphcheck] PASS: depth batching has an independent ordered-draw fallback
+[rendergraphcheck] PASS: depth batching cannot merge decal or translucent stencil passes
+[rendergraphcheck] PASS: depth batching defaults on with explicit disable and forced legacy precedence
+[rendergraphcheck] PASS: opaque-depth elision excludes decals/translucency and has A/B fallback
+[rendergraphcheck] PASS: top-level frame render graph validates
+[rendergraphcheck] PASS: OpenGL frame graph excludes retired GPU visibility and Hi-Z passes
+[rendergraphcheck] PASS: packet classes preserve membership
+[rendergraphcheck] PASS: captured decal/translucent packets force normal depth rebuild
+[rendergraphcheck] PASS: capture preserves submission order
+[rendergraphcheck] PASS: sequence is retained explicitly
+[rendergraphcheck] PASS: immutable mesh descriptors preserve geometry identity
+[rendergraphcheck] PASS: different display lists keep distinct mesh descriptors
+[rendergraphcheck] PASS: adjacent identical material state batches across mesh IDs
+[rendergraphcheck] PASS: override packet breaks batching
+[rendergraphcheck] PASS: batching records at least one shared state reuse
+[rendergraphcheck] PASS: opaque reuse is counted in both opaque and depth passes
+[rendergraphcheck] PASS: captured material descriptor is immutable for the frame
+[rendergraphcheck] PASS: frame revision advances
+[rendergraphcheck] PASS: state key is deterministic
+[rendergraphcheck] PASS: capture reuses and clears packet lists
+[rendergraphcheck] PASS: opaque-only retained frame can reuse its depth attachment
+[rendergraphcheck] PASS: compatible packets remain one adjacent batch next frame
+[rendergraphcheck] PASS: mesh descriptor table is retained rather than rebuilt per frame
+[rendergraphcheck] PASS: room-owned opaque safe run sorts by retained state
+[rendergraphcheck] PASS: private replica preserves original opaque order where ordinary sorting reorders it
+[rendergraphcheck] PASS: relocated GL texture and display-list handles cannot reorder private replica packets
+[rendergraphcheck] PASS: ordinary live mode retains existing opaque state sorting with relocated handles
+[rendergraphcheck] PASS: private original order retains adjacent exact-state batches and rejects different transforms
+[rendergraphcheck] PASS: uniform-identical static opaque room packets qualify for one indexed draw
+[rendergraphcheck] PASS: different world transforms prevent combined opaque geometry
+[rendergraphcheck] PASS: translucent/stencil packets are never combined
+[rendergraphcheck] PASS: dynamic opaque packet is a hard sorting barrier
+[rendergraphcheck] PASS: base-only retained texture set stays non-advanced
+[rendergraphcheck] PASS: retained texture set preserves companion map units
+[rendergraphcheck] PASS: cached opaque permutation uses current-frame items/poses and preserves diagnostics
+[rendergraphcheck] PASS: changed state key invalidates opaque permutation
+[rendergraphcheck] PASS: new sorting barrier invalidates opaque permutation without crossing barrier
+[rendergraphcheck] PASS: packet count change invalidates opaque permutation
+[rendergraphcheck] PASS: scene clear drops sort proof and permutation
+[rendergraphcheck] PASS: room descriptor first capture interns exact geometry key
+[rendergraphcheck] PASS: unchanged room descriptor avoids the interning dictionary
+[rendergraphcheck] PASS: room descriptor key change invalidates list ID
+[rendergraphcheck] PASS: room descriptor key change invalidates culling
+[rendergraphcheck] PASS: room descriptor key change invalidates billboard
+[rendergraphcheck] PASS: room descriptor key change invalidates type
+[rendergraphcheck] PASS: room descriptor key change invalidates viewmodel
+[rendergraphcheck] PASS: room descriptor key change invalidates wireframe
+[rendergraphcheck] PASS: descriptor cache never resurrects invisible room packets
+[rendergraphcheck] PASS: descriptor reuse retains fresh visibility, material, UV and pose data
+[rendergraphcheck] PASS: owner-isolated descriptor token cannot retain another scene/world
+[rendergraphcheck] PASS: returning to original owner revalidates through its own interning table
+[rendergraphcheck] PASS: world clear releases descriptor dictionary and packet references
+[rendergraphcheck] PASS: clear invalidates invisible item cache tokens before reuse
+[rendergraphcheck] PASS: disabled room cache uses ordinary interning without retaining owner stamps
+[rendergraphcheck] PASS: dynamic/procedural ownership never uses retained room descriptor cache
+[rendergraphcheck] PASS: room batch plan captures exact current opaque membership
+[rendergraphcheck] PASS: opaque and depth replay share one execution proof and ID array
+[rendergraphcheck] PASS: new execution rejects changed current transform
+[rendergraphcheck] PASS: failed merge proof is reused safely for depth replay
+[rendergraphcheck] PASS: restored transform renews proof without reallocating IDs
+[rendergraphcheck] PASS: current light vectors and colors participate in renewed proof
+[rendergraphcheck] PASS: unknown-version palette contents are compared exactly
+[rendergraphcheck] PASS: current palette length invalidates plan even with matching first matrix
+[rendergraphcheck] PASS: changed membership updates ID sequence and hash on next execution
+[rendergraphcheck] PASS: ordered ID hash never treats reversed draw membership as same sequence
+[rendergraphcheck] PASS: presentation override is a hard indexed batch proof barrier
+[rendergraphcheck] PASS: translucent material cannot enter opaque cached batch plan
+[rendergraphcheck] PASS: one-item run uses ordinary draw path
+[rendergraphcheck] PASS: oversize plan falls back before copying or retaining unbounded IDs
+[rendergraphcheck] PASS: maximum bounded plan preserves every packet ID
+[rendergraphcheck] PASS: plan remains reusable after failure and size fallback
+[rendergraphcheck] PASS: warmed proof renewal and replay reuse allocate no managed storage
+[rendergraphcheck] PASS: room groups retain compatible subsets across pose and dynamic barriers
+[rendergraphcheck] PASS: room partition emits each original packet once in order including singletons
+[rendergraphcheck] PASS: disabled or nonopaque partition retains ordinary adjacent material grouping
+[rendergraphcheck] PASS: room group size cap preserves the ordered remainder
+[rendergraphcheck] PASS: translucent material cannot join opaque room groups
+[rendergraphcheck] PASS
