@@ -21,6 +21,14 @@ public enum CommunityVisualQuality { Standard, Hd, Ultra }
 
 public sealed record CommunityResolvedDependency(
     string Kind, Guid ContentId, string Hash, long Bytes, string Role);
+
+/// <summary>
+/// A published exact revision supplied by the authorized v3 revision API.
+/// The lightweight project catalog includes only current/latest pointers;
+/// historical revisions must be passed explicitly for older pinned hashes.
+/// </summary>
+public sealed record CommunityAuthorizedRevision(
+    string Kind, Guid ContentId, CommunityContentRevision Revision);
 public sealed record CommunityDependencyLockfile(
     int SchemaVersion, Guid MapId, string ExactMapPackageHash,
     CommunityVisualQuality Quality,
@@ -40,16 +48,37 @@ public static class CommunityDependencyResolver
 {
     private const int MaximumDepth = 12;
     private const int MaximumItems = 128;
+    private const int MaximumHistoryEntries = 2048;
     private const long MaximumBytes = 1024L * 1024 * 1024;
 
     public static CommunityDependencyLockfile Resolve(
         Guid mapId, string exactMapHash, CommunityVisualQuality quality,
         IEnumerable<CommunityContentDependency> roots,
-        IEnumerable<CommunityContentProject> available)
+        IEnumerable<CommunityContentProject> available,
+        IEnumerable<CommunityAuthorizedRevision>? publishedHistory = null)
     {
         if (mapId == Guid.Empty || !MapCommunityClient.ValidHash(exactMapHash))
             throw new InvalidDataException("Optional profile needs an exact map SHA-256.");
         var lookup = available.ToLookup(x => (x.Kind, x.ContentId));
+        var history = (publishedHistory ?? Array.Empty<CommunityAuthorizedRevision>())
+            .Take(MaximumHistoryEntries + 1).ToArray();
+        if (history.Length > MaximumHistoryEntries)
+            throw new InvalidDataException("Optional revision history exceeds its input budget.");
+        var older = new Dictionary<(string Kind, Guid Id, string Hash), CommunityContentRevision>();
+        foreach (CommunityAuthorizedRevision entry in history)
+        {
+            if (entry == null || entry.ContentId == Guid.Empty
+                || entry.Revision == null
+                || !MapCommunityClient.ValidHash(entry.Revision.ContentHash)
+                || entry.Revision.Visibility != CommunityContentVisibility.Published)
+                throw new InvalidDataException("An optional historical revision is not publicly published.");
+            string kind = CommunityContentKinds.Normalize(entry.Kind);
+            if (kind == CommunityContentKinds.Map)
+                throw new InvalidDataException("A visual revision cannot redirect a gameplay map.");
+            var key = (kind, entry.ContentId, entry.Revision.ContentHash);
+            if (!older.TryAdd(key, entry.Revision))
+                throw new InvalidDataException("Duplicate immutable optional revision supplied.");
+        }
         var resolved = new Dictionary<(string Kind, Guid Id, string Hash), CommunityResolvedDependency>();
         var visiting = new HashSet<(string Kind, Guid Id, string Hash)>();
         var missing = new Dictionary<(string Kind, Guid Id, string Hash), CommunityContentDependency>();
@@ -57,7 +86,7 @@ public static class CommunityDependencyResolver
 
         void Walk(CommunityContentDependency dependency, int depth)
         {
-            if (depth > MaximumDepth || resolved.Count + missing.Count > MaximumItems)
+            if (depth > MaximumDepth || resolved.Count + missing.Count >= MaximumItems)
                 throw new InvalidDataException("Optional content dependency graph exceeds bounded limits.");
             if (!CommunityDependencyRoles.IsAllowed(dependency.Role)
                 || !MapCommunityClient.ValidHash(dependency.Hash)
@@ -73,7 +102,10 @@ public static class CommunityDependencyResolver
 
             try
             {
-                CommunityContentRevision? revision = lookup[(kind, dependency.ContentId)]
+                CommunityContentRevision? revision = null;
+                if (older.TryGetValue(key, out var historical))
+                    revision = historical;
+                revision ??= lookup[(kind, dependency.ContentId)]
                     .SelectMany(p => p.CurrentRevision is null
                         ? new[] { p.LatestRevision }
                         : new[] { p.CurrentRevision, p.LatestRevision })
