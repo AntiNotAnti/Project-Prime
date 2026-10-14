@@ -98,13 +98,13 @@ internal sealed class StudioCreatorCommunityWorkspace : UserControl, IDisposable
         Grid.SetRow(content, 2);
         root.Children.Add(content);
 
-        var advanced = new PrimeButton("ADVANCED REVISIONS",
+        var advancedButton = new PrimeButton("ADVANCED REVISIONS",
             () => { Dispose(); _advanced(); }, compact: true);
         var exit = new PrimeButton("CLOSE",
             () => { Dispose(); _close(); }, compact: true);
-        ControllerNav.Identify(advanced, "studio.creator.advanced");
+        ControllerNav.Identify(advancedButton, "studio.creator.advanced");
         ControllerNav.Identify(exit, "studio.creator.close");
-        var footer = PrimeChrome.Columns("*,Auto,Auto", _status, advanced, exit);
+        var footer = PrimeChrome.Columns("*,Auto,Auto", _status, advancedButton, exit);
         Grid.SetRow(footer, 3);
         root.Children.Add(footer);
         Content = root;
