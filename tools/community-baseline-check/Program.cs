@@ -153,12 +153,16 @@ try
     if (MapBuildFingerprint.HashFile(download) != hash)
         throw new InvalidDataException("Exact download changed package bytes.");
 
+    MapInstallationArchiveIo coldIo;
     watch.Restart();
     using (var prepared = await client.PrepareExactAsync(identity, CancellationToken.None))
     {
+        if (prepared.ArchiveIo.PreparationCopyBytes != 0)
+            throw new InvalidDataException("An owned Community download was copied before preparation.");
         var installed = prepared.Commit(CustomRooms.UserMapDirectory);
         if (installed.MapId != mapId)
             throw new InvalidDataException("Installed map identity changed during preparation.");
+        coldIo = prepared.ArchiveIo;
     }
     timings["loopback_prepare_build_install_ms"] = watch.Elapsed.TotalMilliseconds;
     watch.Restart();
@@ -166,6 +170,19 @@ try
     if (!File.Exists(installedArchive) || !MapContentIdentity.FromPackage(installedArchive).Matches(identity))
         throw new InvalidDataException("Installed archive is missing its exact identity.");
     timings["installed_exact_lookup_ms"] = watch.Elapsed.TotalMilliseconds;
+
+    MapInstallationArchiveIo warmIo;
+    watch.Restart();
+    using (var warm = await MapPackageInstaller.PrepareAsync(installedArchive, identity,
+        CancellationToken.None))
+    {
+        warm.Commit(CustomRooms.UserMapDirectory);
+        warmIo = warm.ArchiveIo;
+        if (!warmIo.ReusedExactArchive || warmIo.CommitCopyBytes != 0
+            || warmIo.BackupCopyBytes != 0)
+            throw new InvalidDataException("Warm identical install unexpectedly rewrote an archive.");
+    }
+    timings["warm_exact_reinstall_ms"] = watch.Elapsed.TotalMilliseconds;
 
     if (stress)
     {
@@ -200,7 +217,16 @@ try
             sha256 = MapBuildFingerprint.HashFile(typeof(MapDefinition).Assembly.Location),
             mvid = typeof(MapDefinition).Assembly.ManifestModule.ModuleVersionId
         },
-        pipeline = "existing-self-contained-ppmap",
+        pipeline = "streamed-owned-archive-install",
+        archiveIo = new
+        {
+            cold = coldIo,
+            warm = warmIo,
+            // Historical installer wrote one redundant full snapshot plus
+            // one commit copy for a first install. This is a logical byte
+            // accounting baseline, not a direct physical disk measurement.
+            legacyColdArchiveCopyBytes = new FileInfo(first).Length * 2L
+        },
         timingsMs = timings,
         peakProcessWorkingSetBytes = peakWorkingSet,
         stressSizeFenceChecked = stress,
