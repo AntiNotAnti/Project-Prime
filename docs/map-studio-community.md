@@ -18,7 +18,10 @@
   publication are explicit actions; a newer server revision triggers review
   rather than an automatic parent overwrite.
 - **Advanced revisions:** The preview's **Advanced Revisions** action opens
-  the established dashboard for rollback, visibility and conflict decisions.
+  the established dashboard for rollback and visibility. Stale-parent upload
+  receipts remain in **Transfers → NeedsReview** until the creator explicitly
+  reviews the server history and confirms the older-parent publication. They
+  are never promoted automatically.
   Transfers already queued continue after the preview or editor closes; the
   underlying archive and MapId remain immutable.
 - **Rollback / troubleshooting:** Unset the preview variable (or set it to
