@@ -2,11 +2,11 @@
   "snapshotUTC": "2026-10-14T09:17:22.601974+00:00",
   "integrationSource": "b58377ab2ad6b678c6690f3687b69d68683ab8b5",
   "integrationQualification": "PENDING_NEW_SOURCE_BUILD_AND_RUNS",
-  "planFile": "implementation-plan.original.md",
+  "planFile": "implementation-plan.md",
   "originalAttachmentName": "Project_Prime_Next_Engineering_Implementation_Plan (1).md",
   "originalSHA256": "d242d939a3163cb494a8e9564be4523b3fb7eef4fc3b40d5f9e6ff13c565c279",
   "originalBytes": 50940,
-  "sourceChangeBoundary": "Documentation only; preserves exact supplied plan; no runtime or policy change.",
+  "sourceChangeBoundary": "Documentation only. Original input identity retained; exactly five equivalent Markdown hard-break normalizations in committed derivative. No runtime or policy change.",
   "slices": [
     {
       "slice": "AGX-01",
@@ -170,5 +170,8 @@
     "loaded-world lifecycle fixture execution",
     "long two/eight-player impaired campaign",
     "private visual/Studio/export/audio and platform gates"
-  ]
+  ],
+  "normalizedDerivativeSHA256": "9e82d4aedd63b21c565d3627724134361f54950141643e83aa963043641788ff",
+  "normalizedDerivativeBytes": 50935,
+  "planNormalizationReceipt": "implementation-plan-normalization.json"
 }

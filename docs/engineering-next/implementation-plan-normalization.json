@@ -1,0 +1,31 @@
+{
+  "snapshotUTC": "2026-10-14T09:20:49.236471+00:00",
+  "originalInput": {
+    "attachmentName": "Project_Prime_Next_Engineering_Implementation_Plan (1).md",
+    "sha256": "d242d939a3163cb494a8e9564be4523b3fb7eef4fc3b40d5f9e6ff13c565c279",
+    "bytes": 50940
+  },
+  "normalizedDerivative": {
+    "path": "docs/engineering-next/implementation-plan.md",
+    "sha256": "9e82d4aedd63b21c565d3627724134361f54950141643e83aa963043641788ff",
+    "bytes": 50935
+  },
+  "change": "Exactly five original two-space Markdown hard breaks replaced with explicit backslash hard breaks. No wording or line order change.",
+  "historicalWhitespaceNegative": {
+    "commit": "9b1b91a1c13557e5174f0357c110686f7c85316d",
+    "exitCode": 2,
+    "warnings": [
+      "docs/engineering-next/implementation-plan.original.md:3: trailing whitespace.",
+      "+**Scope:** P0 persistent AGX graphics allocations; P1 targeted OpenGL CPU submission optimization; P1 Netcode 2.1 timed-pickup authority completion; P2 scene lifecycle and ownership refinement.  ",
+      "docs/engineering-next/implementation-plan.original.md:4: trailing whitespace.",
+      "+**Repository:** [`AntiNotAnti/Project-Prime`](https://github.com/AntiNotAnti/Project-Prime)  ",
+      "docs/engineering-next/implementation-plan.original.md:5: trailing whitespace.",
+      "+**Reference source reviewed:** `main` at `64af9a78e7b9484b450c42e1479144a7663bd47a`, October 13, 2026.  ",
+      "docs/engineering-next/implementation-plan.original.md:6: trailing whitespace.",
+      "+**Audience:** Autonomous coding agent, reviewer, and release maintainer.  ",
+      "docs/engineering-next/implementation-plan.original.md:7: trailing whitespace.",
+      "+**Status:** Implementation specification, **not** a claim that the following changes have already been implemented or passed.  "
+    ]
+  },
+  "scope": "Document normalization only. No .gitattributes or gate configuration change."
+}

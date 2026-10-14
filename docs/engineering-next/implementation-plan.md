@@ -1,10 +1,10 @@
 # Project Prime: Next Engineering Implementation Plan
 
-**Scope:** P0 persistent AGX graphics allocations; P1 targeted OpenGL CPU submission optimization; P1 Netcode 2.1 timed-pickup authority completion; P2 scene lifecycle and ownership refinement.  
-**Repository:** [`AntiNotAnti/Project-Prime`](https://github.com/AntiNotAnti/Project-Prime)  
-**Reference source reviewed:** `main` at `64af9a78e7b9484b450c42e1479144a7663bd47a`, October 13, 2026.  
-**Audience:** Autonomous coding agent, reviewer, and release maintainer.  
-**Status:** Implementation specification, **not** a claim that the following changes have already been implemented or passed.  
+**Scope:** P0 persistent AGX graphics allocations; P1 targeted OpenGL CPU submission optimization; P1 Netcode 2.1 timed-pickup authority completion; P2 scene lifecycle and ownership refinement.\
+**Repository:** [`AntiNotAnti/Project-Prime`](https://github.com/AntiNotAnti/Project-Prime)\
+**Reference source reviewed:** `main` at `64af9a78e7b9484b450c42e1479144a7663bd47a`, October 13, 2026.\
+**Audience:** Autonomous coding agent, reviewer, and release maintainer.\
+**Status:** Implementation specification, **not** a claim that the following changes have already been implemented or passed.\
 
 ## 0. Mission, assumptions, and execution rules
 
