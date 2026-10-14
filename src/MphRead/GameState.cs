@@ -68,6 +68,11 @@ namespace MphRead
         public const float MatchEndingSeconds = 10;
         public const float MatchKillcamSeconds = 5;
 
+        // Value-only evidence of how an Adventure session exited. The ship
+        // receipt is published by the existing save commit after teardown.
+        internal Mods.Campaign.CampaignDeparture LastCampaignDeparture { get; set; }
+        internal int LastCampaignDepartureRoomId { get; set; } = -1;
+
         public GameMode Mode { get; set; } = GameMode.SinglePlayer;
         public bool SinglePlayer => Mode == GameMode.SinglePlayer;
         public bool Multiplayer => Mode != GameMode.SinglePlayer;
@@ -2042,6 +2047,8 @@ namespace MphRead
             EscapePaused = false;
             QueuedOctolithMessageId = -1;
             QueuedOublietteUnlockMessage = false;
+            LastCampaignDeparture = Mods.Campaign.CampaignDeparture.None;
+            LastCampaignDepartureRoomId = -1;
         }
     }
 
