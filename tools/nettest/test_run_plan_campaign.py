@@ -1,16 +1,92 @@
 """Wrapper recipes/guards only; no game, native item or fabricated campaign."""
 import importlib.util
+import json
 from pathlib import Path
 from types import SimpleNamespace
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 SPEC = importlib.util.spec_from_file_location('plan_campaign', Path(__file__).with_name('run_plan_campaign.py'))
 MODULE = importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(MODULE)
 
 
 class PreflightTests(unittest.TestCase):
+    def test_unclosed_campaign_blocks_dependent_auditor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); source = root / 'source'
+            (source / 'tools/nettest').mkdir(parents=True)
+            for name in ('run-net2.py', 'net04_join_evidence.py'):
+                (source / 'tools/nettest' / name).write_text('unit fixture only')
+            build = root / 'build'; build.mkdir()
+            sdk = root / 'sdk'; sdk.write_text('unit fixture only')
+            paths = root / 'paths'; paths.write_text('unit fixture only')
+            identity = {'commit': 'abc', 'tree': 'def', 'dirty': ''}
+            hashes = {'ProjectPrime.dll': 'hash'}
+            metadata = {'status': 'PASS', 'sourceBefore': identity, 'sourceAfter': identity,
+                'physicalHashesBefore': hashes, 'physicalHashesAfter': hashes,
+                'actualLoadedClient': {'sha256': 'hash', 'mvid': 'id', 'protocol': 61,
+                    'sourceQualifiedPhysicalClient': True}, 'sourceConstants': {'protocol': 61}}
+            proof = root / 'proof.json'; proof.write_text(json.dumps(metadata))
+            out = root / 'out'
+            def unclosed(*args):
+                receipt = args[4]
+                receipt['error'] = 'primary disk guard'
+                receipt['runs'] = [{'guardFailure': 'primary disk guard', 'cleanupError': 'denied',
+                    'ownedProcessGroupClosed': False}]
+                campaign = out / 'campaign'; campaign.mkdir()
+                (campaign / 'server.json').write_text('{}')
+                return receipt['runs'][0]
+            with patch.object(MODULE, 'source_identity', return_value=identity), \
+                    patch.object(MODULE, 'frozen_hashes', return_value=hashes), \
+                    patch.object(MODULE, 'source_protocol', return_value=61), \
+                    patch.object(MODULE, 'sdk_identity', return_value={}), \
+                    patch.object(MODULE, 'inventory', return_value={}), \
+                    patch.object(MODULE.shutil, 'disk_usage', return_value=SimpleNamespace(free=MODULE.DISK_FLOOR)), \
+                    patch.object(MODULE.socket, 'socket'), \
+                    patch.object(MODULE, 'watched', side_effect=unclosed) as watched:
+                result = MODULE.main(['--source-worktree', str(source), '--source', 'abc', '--build', str(build),
+                    '--build-receipt', str(proof), '--qualification', str(proof), '--paths', str(paths),
+                    '--dotnet', str(sdk), '--out', str(out), '--case', 'smoke2', '--execute'])
+            self.assertEqual(result, 1)
+            self.assertEqual(watched.call_count, 1)
+            self.assertEqual(watched.call_args.args[6], 'campaign')
+            receipt = json.loads((out / 'receipt.json').read_text())
+            self.assertEqual(receipt['error'], 'primary disk guard')
+            self.assertIn('dependent audit blocked', receipt['secondaryError'])
+            self.assertEqual(receipt['runs'][0]['cleanupError'], 'denied')
+
+    def test_cleanup_missing_group_never_signals(self):
+        process = Mock(pid=12345)
+        with patch.object(MODULE, 'members', return_value=[]), patch.object(MODULE.os, 'killpg') as kill:
+            self.assertEqual(MODULE.stop_owned(process), [])
+        kill.assert_not_called()
+
+    def test_cleanup_permission_race_rechecks_without_escalation(self):
+        process = Mock(pid=12345); process.poll.return_value = 0
+        for error in (PermissionError('denied'), ProcessLookupError('gone')):
+            with patch.object(MODULE, 'members', side_effect=[['owned'], [], []]), \
+                    patch.object(MODULE.os, 'killpg', side_effect=error) as kill:
+                self.assertEqual(MODULE.stop_owned(process), [])
+                kill.assert_called_once_with(12345, MODULE.signal.SIGTERM)
+
+    def test_cleanup_denied_live_group_preserves_guard_and_actual_members(self):
+        process = Mock(pid=12345); process.poll.return_value = None
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); receipt = {}
+            with patch.object(MODULE.subprocess, 'Popen', return_value=process), \
+                    patch.object(MODULE, 'members', return_value=['12345 12345 owned']), \
+                    patch.object(MODULE.shutil, 'disk_usage', return_value=SimpleNamespace(free=0)), \
+                    patch.object(MODULE.os, 'killpg', side_effect=PermissionError('denied')) as kill:
+                row = MODULE.watched(['unused'], root, {}, root / 'log', receipt, root / 'receipt.json', 'test', 10)
+            kill.assert_called_once_with(12345, MODULE.signal.SIGTERM)
+            self.assertIn('partial data preserved', row['guardFailure'])
+            self.assertEqual(receipt['error'], row['guardFailure'])
+            self.assertEqual(row['cleanupError'], 'denied')
+            self.assertEqual(row['remainingOwnedGroupMembers'], ['12345 12345 owned'])
+            self.assertFalse(row['ownedProcessGroupClosed'])
+            self.assertIn('cleanupError', (root / 'receipt.json').read_text())
+
     def recipe(self, name):
         args = SimpleNamespace(case=name, port=None, source_worktree=Path('/qualified/source'),
             source='a' * 40, build=Path('/frozen/runtime'), paths=Path('/isolated/paths.txt'),
