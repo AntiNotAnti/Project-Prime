@@ -525,9 +525,19 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         await operations.UseClientAsync(map.Draft,
             async client =>
             {
-                await client.DownloadResumableAsync(map, partial, cancellation,
-                    (received, total) => Progress(job.Id, received, total))
-                    .ConfigureAwait(false);
+                string? trustedHosts = Environment.GetEnvironmentVariable(
+                    "PROJECT_PRIME_TRUSTED_CDN_HOSTS");
+                if (!string.IsNullOrWhiteSpace(trustedHosts))
+                    await client.DownloadViaTrustedCdnOrOriginAsync(
+                        map, partial, new CommunityCdnPolicy(
+                            trustedHosts.Split(',', StringSplitOptions.RemoveEmptyEntries)),
+                        cancellation,
+                        (received, total) => Progress(job.Id, received, total))
+                        .ConfigureAwait(false);
+                else
+                    await client.DownloadResumableAsync(map, partial, cancellation,
+                        (received, total) => Progress(job.Id, received, total))
+                        .ConfigureAwait(false);
                 return true;
             }, cancellation).ConfigureAwait(false);
         cancellation.ThrowIfCancellationRequested();
