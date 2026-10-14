@@ -1144,6 +1144,8 @@ try
     string stagedLibrary = Path.Combine(root,"staged-library");
     using(var prepared = await MapPackageInstaller.PrepareAsync(package,exactIdentity))
     {
+        Check(prepared.ArchiveIo.PreparationCopyBytes == new FileInfo(package).Length,
+            "mutable source keeps its isolated snapshot and bounded copy accounting");
         Check(!Directory.Exists(stagedLibrary),"preparation builds privately without publishing a package");
         var acquire = typeof(MapRuntimeUsage).GetMethod("AcquirePreparation",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic)!;
         using(var reader = (IDisposable)acquire.Invoke(null,new object[] {exactIdentity.RoomKey})!)
@@ -1157,10 +1159,75 @@ try
             MphRead.Paths.SetPath(MphRead.Paths.MphKey,Path.Combine(root,"staged-runtime"));
             var installed = prepared.Commit(stagedLibrary);
             Check(InstalledMapRegistry.Create(new[] {installed}).HasExact(exactIdentity),"prepared package publishes exact immutable bytes");
+            Check(prepared.ArchiveIo.CommitCopyBytes == new FileInfo(package).Length
+                && prepared.ArchiveIo.BackupCopyBytes == 0
+                && !prepared.ArchiveIo.ReusedExactArchive,
+                "first install streams exactly one package copy with no backup");
             Check(!CustomRooms.NeedsGenerating(installed),"staged installation publishes validated runtime outputs");
         }
         finally { MphRead.Paths.SetPath(MphRead.Paths.MphKey,oldRuntime); }
     }
+    // A repeated exact install retains the existing package bytes and skips
+    // both commit and rollback archive copies. It may refresh runtime outputs.
+    using(var reused = await MapPackageInstaller.PrepareAsync(package,exactIdentity))
+    {
+        string runtimeBefore = MphRead.Paths.AllPaths[MphRead.Paths.MphKey];
+        try
+        {
+            MphRead.Paths.SetPath(MphRead.Paths.MphKey,Path.Combine(root,"staged-runtime"));
+            var repeated = reused.Commit(stagedLibrary);
+            Check(repeated.MapId == exactIdentity.MapId
+                && reused.ArchiveIo.ReusedExactArchive
+                && reused.ArchiveIo.CommitCopyBytes == 0
+                && reused.ArchiveIo.BackupCopyBytes == 0,
+                "reinstalling identical verified archive writes zero package/backup bytes");
+            Check(!Directory.EnumerateFiles(stagedLibrary).Any(f =>
+                f.EndsWith(".backup",StringComparison.Ordinal)
+                || f.EndsWith(".staging",StringComparison.Ordinal)),
+                "streamed commit leaves no temporary archive or rollback files");
+        }
+        finally { MphRead.Paths.SetPath(MphRead.Paths.MphKey,runtimeBefore); }
+    }
+
+    // General PrepareAsync still isolates mutable caller-owned files from
+    // concurrent editor edits/deletions. A private owned network download or
+    // explicitly leased CAS archive may skip this snapshot instead.
+    string mutableSource=Path.Combine(root,"mutable-source.ppmap");
+    File.Copy(package,mutableSource);
+    using(var frozen=await MapPackageInstaller.PrepareAsync(mutableSource,exactIdentity))
+    {
+        File.Delete(mutableSource);
+        Check(frozen.ArchiveIo.PreparationCopyBytes == new FileInfo(package).Length,
+            "general mutable map input freezes archive bytes before caller deletion");
+        string runtimeBefore=MphRead.Paths.AllPaths[MphRead.Paths.MphKey];
+        try
+        {
+            MphRead.Paths.SetPath(MphRead.Paths.MphKey,Path.Combine(root,"staged-runtime"));
+            string destination=Path.Combine(root,"frozen-owned-library");
+            var restored=frozen.Commit(destination);
+            Check(MapContentIdentity.FromPackage(Path.Combine(destination,
+                exactIdentity.MapId.ToString("N")+".ppmap")).Matches(exactIdentity),
+                "prepared immutable snapshot survives original source deletion");
+        }
+        finally { MphRead.Paths.SetPath(MphRead.Paths.MphKey,runtimeBefore); }
+    }
+
+    // A broken private prepared snapshot is detected before publication and
+    // cannot create or replace an installed library.
+    using(var broken=await MapPackageInstaller.PrepareAsync(package,exactIdentity))
+    {
+        var field=typeof(PreparedMapInstallation).GetField("_source",
+            System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)!;
+        string privateSnapshot=(string)field.GetValue(broken)!;
+        using(var append=new FileStream(privateSnapshot,FileMode.Append))append.WriteByte(0);
+        string rejectLibrary=Path.Combine(root,"corrupt-install-library");
+        bool rejected=false;
+        try { broken.Commit(rejectLibrary); }
+        catch(InvalidDataException) { rejected=true; }
+        Check(rejected && !Directory.Exists(rejectLibrary),
+            "changed prepared archive is rejected before publication or library mutation");
+    }
+
     using(var cancelled = new CancellationTokenSource())
     {
         cancelled.Cancel(); bool stopped=false;
