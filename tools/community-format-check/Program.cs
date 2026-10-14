@@ -596,6 +596,41 @@ try
     { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-PATCH"); }
     Check(refused, "malformed even-sized control grids are refused before geometry publication");
 
+    // External NetRadiant edits are independent source-of-truth changes.
+    // A stale sidecar must not grant permission to overwrite those bytes.
+    string watched = Path.Combine(root, "external-edit.map");
+    string watchedSidecar = Path.Combine(root, "external-edit-sidecar.json");
+    QuakeMapInterchange.Export(map, watched, watchedSidecar);
+    File.AppendAllText(watched, "\n// NetRadiant edit after previous fingerprint\n");
+    string editedSource = File.ReadAllText(watched);
+    string oldSidecar = File.ReadAllText(watchedSidecar);
+    refused = false;
+    try { QuakeMapInterchange.Export(map, watched, watchedSidecar); }
+    catch (IOException) { refused = true; }
+    Check(refused && File.ReadAllText(watched) == editedSource
+        && File.ReadAllText(watchedSidecar) == oldSidecar,
+        "external NetRadiant source changes cannot be silently overwritten by Studio");
+
+    string unmanaged = Path.Combine(root, "unmanaged-source.map");
+    File.WriteAllText(unmanaged, "Creator's independent Quake source file");
+    string missingSidecar = Path.Combine(root, "absent-sidecar.json");
+    refused = false;
+    try { QuakeMapInterchange.Export(map, unmanaged, missingSidecar); }
+    catch (IOException) { refused = true; }
+    Check(refused && File.ReadAllText(unmanaged)
+        == "Creator's independent Quake source file" && !File.Exists(missingSidecar),
+        "existing untracked .map files require a matching identity sidecar before overwrite");
+
+    var invalidMaterialProject = MapProjectSerializer.Clone(rampMap);
+    ((MapConvexBrush)invalidMaterialProject.Geometry.Single()).Material = 999;
+    string invalidMaterialOutput = Path.Combine(root, "bad-material.map");
+    refused = false;
+    try { QuakeMapInterchange.Export(invalidMaterialProject, invalidMaterialOutput); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-EXPORT-MATERIAL"); }
+    Check(refused && !File.Exists(invalidMaterialOutput),
+        "invalid convex material indices fail with a typed diagnostic, not index exception");
+
     map.Geometry.Add(new MapWedge());
     refused = false;
     try { QuakeMapInterchange.Export(map, Path.Combine(root, "refused.map")); }
