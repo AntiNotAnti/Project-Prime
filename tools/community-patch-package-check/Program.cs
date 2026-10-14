@@ -23,7 +23,6 @@ void Check(bool ok, string label)
 }
 try
 {
-    Headless.Enter();
     Paths.SetPath(Paths.MphKey, Path.Combine(root, "runtime"));
     Directory.CreateDirectory(Paths.FileSystem);
 
