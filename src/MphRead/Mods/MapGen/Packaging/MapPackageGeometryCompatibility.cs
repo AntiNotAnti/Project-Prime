@@ -58,13 +58,13 @@ public static class MapPackageGeometryCompatibility
                 {
                     var point = face.Points[v];
                     var key = (point.X, point.Y, point.Z);
-                    if (!vertexIndex.TryGetValue(key,out int index))
+                    if (!vertexIndex.TryGetValue(key,out int vertexId))
                     {
-                        index = mesh.Vertices.Count;
-                        vertexIndex.Add(key,index);
+                        vertexId = mesh.Vertices.Count;
+                        vertexIndex.Add(key,vertexId);
                         mesh.Vertices.Add(new[] { point.X, point.Y, point.Z });
                     }
-                    indices[v] = index;
+                    indices[v] = vertexId;
                 }
                 mesh.Faces.Add(indices);
                 mesh.FaceMaterials.Add(face.Material);
