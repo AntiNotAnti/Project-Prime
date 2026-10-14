@@ -511,16 +511,16 @@ try
     Check(curved.Definition.Geometry.Count == 1
         && curved.Definition.Geometry[0] is MapBezierPatch,
         "native .map import retains quadratic control grid rather than a baked BSP");
-    var patch = (MapBezierPatch)curved.Definition.Geometry.Single();
-    Check(patch.Columns == 3 && patch.Rows == 3 && patch.ControlPoints.Count == 9
-        && patch.Id == Guid.Parse("18365f80-bc63-4e93-a798-3b52ab89e4e5")
-        && patch.Tessellation == 2 && !patch.Solid
-        && patch.Material == 0
-        && patch.ControlPoints[4][1] == 1
-        && patch.ControlPoints[4][3] == 0.5f
-        && patch.ControlPoints[4][4] == 0.5f,
+    var editablePatch = (MapBezierPatch)curved.Definition.Geometry.Single();
+    Check(editablePatch.Columns == 3 && editablePatch.Rows == 3 && editablePatch.ControlPoints.Count == 9
+        && editablePatch.Id == Guid.Parse("18365f80-bc63-4e93-a798-3b52ab89e4e5")
+        && editablePatch.Tessellation == 2 && !editablePatch.Solid
+        && editablePatch.Material == 0
+        && editablePatch.ControlPoints[4][1] == 1
+        && editablePatch.ControlPoints[4][3] == 0.5f
+        && editablePatch.ControlPoints[4][4] == 0.5f,
         "patchDef2 preserves source column/row order, control height, UVs, identity and flags");
-    var patchFaces = GeometryCompiler.Compile(patch, 16f);
+    var patchFaces = GeometryCompiler.Compile(editablePatch, 16f);
     Check(patchFaces.Count == 8
         && patchFaces.SelectMany(face => face.Points).Any(p =>
             Math.Abs(p.X - 1) < .0001 && Math.Abs(p.Y - .25f) < .0001
@@ -532,13 +532,13 @@ try
     GeometryCompiler.Add(renderOnly, curved.Definition);
     Check(renderOnly.Faces.Count == 8 && renderOnly.Solid.Count == 0,
         "explicit render-only Quake patch does not accidentally create gameplay collision");
-    patch.Solid = true;
+    editablePatch.Solid = true;
     var collisionEnabled = new BuiltMap(curved.Definition);
     GeometryCompiler.Add(collisionEnabled, curved.Definition);
     Check(collisionEnabled.Solid.Count == collisionEnabled.Faces.Count
         && collisionEnabled.Solid.Count == 8,
         "opted-in patch collision uses the exact rendered tessellation triangles");
-    patch.Solid = false;
+    editablePatch.Solid = false;
 
     string patchNative = Path.Combine(root, "quad-native.json");
     curved.Definition.Save(patchNative);
@@ -554,13 +554,13 @@ try
         patchAgainSidecar, 16);
     var patchAgain = QuakeMapInterchange.Import(patchAgainSource, patchAgainSidecar);
     var patchReimported = (MapBezierPatch)patchAgain.Definition.Geometry.Single();
-    Check(patchReimported.Id == patch.Id
+    Check(patchReimported.Id == editablePatch.Id
         && patchAgain.Definition.MapId == curved.Definition.MapId
-        && patchReimported.Columns == patch.Columns
-        && patchReimported.Rows == patch.Rows
-        && patchReimported.Tessellation == patch.Tessellation
-        && patchReimported.Solid == patch.Solid
-        && patchReimported.ControlPoints.Zip(patch.ControlPoints,
+        && patchReimported.Columns == editablePatch.Columns
+        && patchReimported.Rows == editablePatch.Rows
+        && patchReimported.Tessellation == editablePatch.Tessellation
+        && patchReimported.Solid == editablePatch.Solid
+        && patchReimported.ControlPoints.Zip(editablePatch.ControlPoints,
             (a,b) => a.Zip(b,(x,y) => Math.Abs(x-y)).All(delta => delta < .00001f)).All(x=>x),
         "patchDef2 export/import retains MapId, control points, UVs, collision and tessellation");
 
