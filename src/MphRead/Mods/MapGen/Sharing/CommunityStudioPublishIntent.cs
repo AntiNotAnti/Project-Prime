@@ -54,9 +54,9 @@ public sealed class CommunityStudioPublishIntent
             throw new ArgumentException("A trusted Community endpoint is required.", nameof(endpoint));
         if (!Enum.IsDefined(visibility))
             throw new ArgumentOutOfRangeException(nameof(visibility));
-        if (releaseNotes?.Length > 2000)
+        if (releaseNotes?.Length > 4000)
             throw new ArgumentOutOfRangeException(nameof(releaseNotes),
-                "Release notes are limited to 2,000 characters.");
+                "Release notes are limited to 4,000 characters.");
         cancellation.ThrowIfCancellationRequested();
 
         // Authenticate the owner's catalog before queueing. Never guess parent
