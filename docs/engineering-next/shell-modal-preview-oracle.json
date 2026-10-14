@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "slice": "shell-modal-preview-oracle",
+  "baseSource": "88f9d29e58d0cf6254b2d33e682955bd432d0bd2",
+  "mainSource": "7dfaa6a74fa86fdbccef0de6162fb622ccc0e324",
+  "classification": "Authored modal preview ownership contradicts inherited blanket diagnostic assertion; original FAIL retained, no waiver",
+  "productionBlobsUnchanged": {
+    "src/MphRead/Mods/Launcher/Gui/CreateServerScreen.cs": {
+      "88f9d29e58d0cf6254b2d33e682955bd432d0bd2": "0ec47c13b45ad6b145726f886617cdd0f2dae094",
+      "origin/main": "0ec47c13b45ad6b145726f886617cdd0f2dae094"
+    },
+    "src/MphRead/Mods/Launcher/Gui/HunterStand.cs": {
+      "88f9d29e58d0cf6254b2d33e682955bd432d0bd2": "0aafe6012544a3f68a9a53f506c6798123a7b103",
+      "origin/main": "0aafe6012544a3f68a9a53f506c6798123a7b103"
+    },
+    "src/MphRead/Mods/Render/LauncherHunter.cs": {
+      "88f9d29e58d0cf6254b2d33e682955bd432d0bd2": "ea788c7daf388058094d00830bdd44aa019b27b9",
+      "origin/main": "ea788c7daf388058094d00830bdd44aa019b27b9"
+    }
+  },
+  "originalClassificationReceipt": {
+    "name": "shell-modal-preview-classification.json",
+    "sha256": "390246ed54f0a4b0be9d49254be55c26d0aeb2bb8ff6c32483ed72e5fa22f065",
+    "bytes": 3424,
+    "storage": "External original; host paths omitted from this derivative summary"
+  },
+  "originalFailures": [
+    {
+      "attempt": "life-native-attempt3",
+      "originalStatus": "FAIL",
+      "clientExit": 0,
+      "logSha256": "ef30eeac8643f8d5244fbad339743f79c3bb7fffb0c322580bf572ebb55e66d5",
+      "executorError": "ValueError: Incomplete full shell script: cycles=['1', '2', '1', '2'], assetsReady=True, failures=[]",
+      "ownedProcessGroupClosed": true,
+      "lifecycleCycles": "Both1 and2 completed; stdout/debug markers must remain separately validated"
+    },
+    {
+      "attempt": "life-native-attempt4",
+      "originalStatus": "FAIL",
+      "clientExit": 1,
+      "logSha256": "afd16adb1b672522695278a4c632cb5985b434611f89d32c601fc435bebfdf64",
+      "executorError": null,
+      "ownedProcessGroupClosed": true,
+      "lifecycleCycles": "Both1 and2 completed; stdout/debug markers must remain separately validated"
+    }
+  ],
+  "originalCapture": {
+    "name": "shell-create-lobby.png",
+    "sha256": "ba91850aa5d7092775916dd0ebd4164a860287016c6c46302d26bb4e369a8413",
+    "scope": "Original captured active modal deployment stand, external native evidence"
+  },
+  "implementation": "One-shot diagnostic helper checks current modal/root, CreateServerScreen stand, bound existing delegate target/method and background ineligibility. No production rendering/UI changes, strong retained owner fields or per-frame hooks.",
+  "headlessFixture": {
+    "tool": "tools/results-ui-check",
+    "plannedAssertions": 13,
+    "execution": "NOT_RUN",
+    "positive": "Actual modal tree eligibility, owned request/draw and existing fallback",
+    "negative": "Background production Beat and Draw guards, false/missing overlay, unowned predicate, hidden owner and detached stale modal"
+  },
+  "validation": {
+    "sourceDiffCheck": "PASS",
+    "csharpBuild": "NOT_RUN",
+    "headlessAssertions": "NOT_RUN",
+    "sameFullNativeShellScript": "NOT_RUN",
+    "nativePngGlFidelity": "NOT_RUN"
+  },
+  "requiredNext": "Fresh integrated source qualification, same-client tool rebuild and root-dispatched headless/full shell campaign; preserve original failures and strict PNG/GL gates"
+}
