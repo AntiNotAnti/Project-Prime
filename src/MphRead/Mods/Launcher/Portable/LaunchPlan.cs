@@ -118,6 +118,8 @@ namespace MphRead.Mods.Launcher
 
         /// <summary>Only a verified ship boarding may choose a new landing.</summary>
         public Campaign.CampaignPlanet? AdventureDestination { get; init; }
+        /// <summary>Ship-hatch EXIT on foot skips the revisit landing film.</summary>
+        public bool ExitShipToSurface { get; init; }
 
         /// <summary>Demo only: the recorded file to play back.</summary>
         public string DemoPath { get; init; }
