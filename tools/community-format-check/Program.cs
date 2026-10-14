@@ -216,6 +216,15 @@ try
         Id = Guid.NewGuid(), Name = "textures/common/caulk", SourceMaterial = 2
     });
     rampMap.Geometry.Add(ramp);
+    Guid itemId = Guid.Parse("d3be52b8-4eca-49d8-95af-86b9e6ab811e");
+    rampMap.Items.Add(new MapItem
+    {
+        Id = itemId, Position = new[] { 9f, 4f, 6f },
+        Type = "HealthMedium", SpawnInterval = 720, HasBase = false
+    });
+    Check(Q3Gameplay.MapPickupType("weapon_railgun").ToString() == "Imperialist"
+        && Q3Gameplay.CanonicalQuakePickup("HealthMedium") == "item_health",
+        "shared native Q3 gameplay pickup mapping remains available to both import paths");
     rampMap.Spawns.Add(new MapSpawn
     {
         Id = Guid.NewGuid(), Position = new[] { 30f, 5f, 30f }, Yaw = 0
@@ -227,6 +236,11 @@ try
     Check(rampParsed.Definition.MapId == rampMap.MapId
         && rampParsed.Definition.Geometry.Single() is MapConvexBrush,
         "nonaxial sloped brush imports as native editable convex geometry");
+    Check(rampParsed.Definition.Items.Single().Id == itemId
+        && rampParsed.Definition.Items.Single().Type == "HealthMedium"
+        && rampParsed.Definition.Items.Single().SpawnInterval == 720
+        && !rampParsed.Definition.Items.Single().HasBase,
+        "Quake pickup identity, native type, respawn interval and base policy survive");
     MapConvexBrush convertedRamp = (MapConvexBrush)rampParsed.Definition.Geometry.Single();
     Check(convertedRamp.Id == rampId
         && convertedRamp.Vertices.Count == 6
@@ -239,6 +253,9 @@ try
     QuakeMapInterchange.Export(rampParsed.Definition, rampAgain, rampAgainSidecar);
     var rampAgainParsed = QuakeMapInterchange.Import(rampAgain, rampAgainSidecar);
     MapConvexBrush twiceConverted = (MapConvexBrush)rampAgainParsed.Definition.Geometry.Single();
+    Check(rampAgainParsed.Definition.Items.Single().Id == itemId
+        && rampAgainParsed.Definition.Items.Single().SpawnInterval == 720,
+        "repeated source export does not reset native pickup respawn semantics");
     Check(twiceConverted.Id == convertedRamp.Id && twiceConverted.Faces.Count == 5
         && twiceConverted.Vertices.All(p => convertedRamp.Vertices.Any(q =>
             p.Zip(q, (a, b) => Math.Abs(a - b)).All(delta => delta <= 0.001f))),
@@ -258,6 +275,37 @@ try
     catch (QuakeMapInterchangeException ex)
     { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-CONVEX"); }
     Check(refused, "inward-facing brush plane is refused rather than inverted silently");
+
+    string itemMetadata = Path.Combine(root, "unsupported-pickup-property.map");
+    File.WriteAllText(itemMetadata, File.ReadAllText(rampSource).Replace(
+        "\"prime_has_base\" \"False\"",
+        "\"prime_has_base\" \"False\"\n\"targetname\" \"must-preserve\"",
+        StringComparison.Ordinal));
+    refused = false;
+    try { QuakeMapInterchange.Import(itemMetadata); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-ITEM"); }
+    Check(refused, "foreign pickup script metadata is rejected rather than dropped");
+
+    string duplicateItem = Path.Combine(root, "duplicate-pickup-id.map");
+    File.WriteAllText(duplicateItem, File.ReadAllText(rampSource).Replace(
+        "\"prime_id\" \"" + itemId + "\"",
+        "\"prime_id\" \"" + rampId + "\"", StringComparison.Ordinal));
+    refused = false;
+    try { QuakeMapInterchange.Import(duplicateItem); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-ID"); }
+    Check(refused, "pickup GUID colliding with brush identity is refused");
+
+    string badInterval = Path.Combine(root, "invalid-pickup-timing.map");
+    File.WriteAllText(badInterval, File.ReadAllText(rampSource).Replace(
+        "\"prime_spawn_interval\" \"720\"",
+        "\"prime_spawn_interval\" \"-42\"", StringComparison.Ordinal));
+    refused = false;
+    try { QuakeMapInterchange.Import(badInterval); }
+    catch (QuakeMapInterchangeException ex)
+    { refused = ex.Diagnostics.Any(d => d.Code == "FP-RADIANT-ITEM"); }
+    Check(refused, "pickup timing cannot overflow/underflow native ushort metadata");
 
     map.Geometry.Add(new MapWedge());
     refused = false;
