@@ -26,7 +26,7 @@ internal static class NetShotSourceJournal
     }
     private static readonly Life?[,] Lives = new Life?[8, 8];
     internal static long CapacityRefused, Compacted;
-    private static bool Active => NetHitClaims.Arbitrating && NetShotProof.Mode != ShotProofMode.Off;
+    private static bool Active => NetShotProof.SourceObserving;
     private static bool SameLife(ShotKey a, ShotKey b) => a with { ShotId = 0 } == b with { ShotId = 0 };
     private static bool Before(uint a, uint b) => unchecked((int)(a - b)) < 0;
     private static Life? Get(ShotKey key) => (uint)key.ShooterSlot < 8
@@ -34,7 +34,7 @@ internal static class NetShotSourceJournal
 
     internal static void Seed(PlayerEntity player, ShotProofSource source)
     {
-        if (!Active || (uint)player.SlotIndex >= 8) return;
+        if (!NetShotProof.SourceInterested(player) || (uint)player.SlotIndex >= 8) return;
         var key = ShotKey.For(player.SlotIndex, 0);
         Lives[key.ShooterSlot, key.LifeId % 8] = new Life { Key = key, Baseline = source,
             Birth = NetSession.NetFrame, DoubleTicks = source.Double ? 1800 : 0 };
@@ -50,14 +50,14 @@ internal static class NetShotSourceJournal
     }
     internal static uint? Birth(ShotKey key) => Get(key)?.Birth;
     internal static void Invalidate(PlayerEntity player)
-    { if (Active && Get(ShotKey.For(player.SlotIndex, 0)) is { } life) life.Invalid = true; }
+    { if (NetShotProof.SourceInterested(player) && Get(ShotKey.For(player.SlotIndex, 0)) is { } life) life.Invalid = true; }
 
     // Source and authority clocks are separate. A successful native pickup occurs
     // after the input/shot phase which used this position. It cannot fund that input.
     private static bool Boundary(PlayerEntity player, out Life life, out uint frame)
     {
         life = Get(ShotKey.For(player.SlotIndex, 0))!; frame = 0;
-        if (!Active || life == null || life.Invalid || !life.Baseline.Supported) return false;
+        if (!NetShotProof.SourceInterested(player) || life == null || life.Invalid || !life.Baseline.Supported) return false;
         int slot = player.SlotIndex;
         if (player.IsBot || slot == NetSession.LocalSlot) frame = NetSession.NetFrame + 1;
         else if (NetSession.RemoteIntentValid[slot]
@@ -216,7 +216,7 @@ internal static class NetShotSourceJournal
     }
     internal static void Tick(PlayerEntity player)
     {
-        if (!Active || Get(ShotKey.For(player.SlotIndex, 0)) is not { } life) return;
+        if (!NetShotProof.SourceInterested(player) || Get(ShotKey.For(player.SlotIndex, 0)) is not { } life) return;
         if (player.Health == 0) { if (life.DoubleTicks > 0) SetDouble(player, 0); return; }
         if (life.DoubleTicks > 0 && --life.DoubleTicks == 0) SetDouble(player, 0);
     }

@@ -45,7 +45,11 @@ public partial class PlayerEntity
     // Emit an authored shot or live continuous pulse without rerunning input,
     // inventory, cooldown, zoom, charge-release, or respawn transitions.
     internal BeamResultFlags ModSpawnAcceptedShot(in FireEvent fire)
+        => ModSpawnAcceptedShot(fire, out _);
+
+    internal BeamResultFlags ModSpawnAcceptedShot(in FireEvent fire, out TimedShotEmission emission)
     {
+        emission = default;
         bool continuous = fire.Kind == FireEventKind.ContinuousTick;
         if (continuous && (fire.Weapon != (byte)BeamType.ShockCoil || fire.SourceLife != NetPlayerLifecycle.Get(SlotIndex)
             || Health <= 0 || !ModIsInPlay || Flags2.TestFlag(PlayerFlags2.Spectating))) return BeamResultFlags.NoSpawn;
@@ -71,8 +75,8 @@ public partial class PlayerEntity
             NetUnlagged.BeginShot(this, fire.Origin, direction, equip);
             if (continuous && NetFireEvents.TryAcceptedKey(this, out var sourceKey))
                 NetContinuousAdmission.CaptureWorld(sourceKey, NetUnlagged.ContinuousTargetFrame(this));
-            result = BeamProjectileEntity.Spawn(this, equip, fire.Origin, direction,
-                flags, NodeRef, _scene);
+            result = BeamProjectileEntity.SpawnWithEmission(this, equip, fire.Origin, direction,
+                flags, NodeRef, _scene, out emission);
             if (result != BeamResultFlags.NoSpawn)
             {
                 NetCampaignEvidence.Committed(this, fire);

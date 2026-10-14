@@ -342,7 +342,7 @@ public static class NetFireEvents
         }
     }
     public static void Reset()
-    { NetShotProof.Reset(); NetSession.ResetTurretOutcomes(); foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.HasTurretRetirement = slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); Array.Clear(slot.TurretRecovery); Array.Clear(slot.TurretTerminals); slot.TurretTerminalOverflow = false; slot.TurretTerminalOverflows = 0; slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
+    { NetShotProof.Reset(); NetTimedShotProof.Reset(); NetSession.ResetTurretOutcomes(); foreach (var slot in _slots) { slot.Ledger.Retire(0, 0, -1, 0); slot.Ledger = NewLedger(); slot.HasTurretRetirement = slot.PlayingAccepted = slot.EventStream = false; slot.Fence = default; slot.Outgoing.Clear(); slot.Incoming.Clear(); Array.Clear(slot.TurretRecovery); Array.Clear(slot.TurretTerminals); slot.TurretTerminalOverflow = false; slot.TurretTerminalOverflows = 0; slot.Selected = false; slot.Active = default; slot.NextId = 0; } }
     internal static bool Accept(int slot, in IntentPacket intent)
     {
         if ((uint)slot >= 8 || !Validate(intent)) return false;
@@ -452,7 +452,7 @@ public static class NetFireEvents
             { state.Ledger.Complete(shot.Key, ShotDisposition.Rejected, "ownership retired"); continue; }
             if (!shot.Fire.HasPose)
             { state.Ledger.Complete(shot.Key, ShotDisposition.Rejected, "missing authored pose"); continue; }
-            var result = PlayAccepted(player, shot.Key, shot.Fire);
+            var result = PlayAccepted(player, shot.Key, shot.Fire, admittedDiscrete: true);
             state.Ledger.Complete(shot.Key, result == BeamResultFlags.NoSpawn
                 ? ShotDisposition.Rejected : ShotDisposition.Fired,
                 result == BeamResultFlags.NoSpawn ? "projectile spawn refused" : "projectile spawned");
@@ -471,6 +471,9 @@ public static class NetFireEvents
         }
     }
     internal static BeamResultFlags PlayAccepted(PlayerEntity player, ShotKey key, FireEvent fire)
+        => PlayAccepted(player, key, fire, admittedDiscrete: false);
+
+    private static BeamResultFlags PlayAccepted(PlayerEntity player, ShotKey key, FireEvent fire, bool admittedDiscrete)
     {
         var state = _slots[player.SlotIndex];
         if (state.PlayingAccepted) throw new InvalidOperationException("Nested accepted shot playback.");
@@ -487,8 +490,13 @@ public static class NetFireEvents
             if (NetHitClaims.Arbitrating && NetShotProof.Mode == ShotProofMode.Enforce
                 && admission != ShotProofReason.Verified)
                 return BeamResultFlags.NoSpawn;
-            var result = player.ModSpawnAcceptedShot(fire);
-            if (result != BeamResultFlags.NoSpawn) NetShotProof.Fired(key);
+            var timedAttempt = admittedDiscrete ? NetTimedShotProof.AcceptedAttempt(player, key, fire) : null;
+            var result = player.ModSpawnAcceptedShot(fire, out var timedEmission);
+            if (result != BeamResultFlags.NoSpawn)
+            {
+                NetShotProof.Fired(key);
+                NetTimedShotProof.Complete(timedAttempt, timedEmission);
+            }
             return result;
         }
         finally { state.PlayingAccepted = false; state.ActiveKey = default; state.Active = saved; }
@@ -741,6 +749,24 @@ public static class NetFireEvents
     internal static void Fill(ref IntentPacket intent, int slot)
     {
         For(slot).Outgoing.Fill(ref intent);
+    }
+    internal static bool PendingAccepted(ShotKey key, in FireEvent fire)
+    {
+        if ((uint)key.ShooterSlot >= 8) return false;
+        var state = _slots[key.ShooterSlot];
+        return state.PlayingAccepted && state.ActiveKey == key
+            && state.Ledger.TryGet(key, out var shot, out var disposition, out _)
+            && disposition == ShotDisposition.Pending && shot.Fire == fire;
+    }
+    internal static bool TryActiveAttempt(PlayerEntity player, out ShotKey key, out FireEvent fire)
+    {
+        key = default; fire = default;
+        if (!NetSession.Active || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8) return false;
+        var state = _slots[player.SlotIndex]; fire = state.Active;
+        if (fire.ShotId == 0) return false;
+        key = state.PlayingAccepted ? state.ActiveKey : ShotKey.For(player.SlotIndex, fire.ShotId)
+            with { LifeId = fire.SourceLife };
+        return key.LifeId != 0;
     }
     internal static bool TryTiming(PlayerEntity player, out FireEvent e)
     {

@@ -1395,8 +1395,14 @@ namespace MphRead.Entities
                 NetFireEvents.Begin(this, shotOrigin, shotVec, shotAim,
                     shotView, shotReticle, shotReticleValid);
                 Mods.Network.NetUnlagged.BeginShot(this, shotOrigin, shotVec);
-                result = BeamProjectileEntity.Spawn(this, EquipInfo, shotOrigin, shotVec, flags, NodeRef, _scene);
-                if (result != BeamResultFlags.NoSpawn) NetFireEvents.Commit(this);
+                var timedAttempt = NetTimedShotProof.NativeAttempt(this);
+                result = BeamProjectileEntity.SpawnWithEmission(this, EquipInfo, shotOrigin, shotVec,
+                    flags, NodeRef, _scene, out var timedEmission);
+                if (result != BeamResultFlags.NoSpawn)
+                {
+                    NetFireEvents.Commit(this);
+                    NetTimedShotProof.Complete(timedAttempt, timedEmission);
+                }
                 Mods.Network.NetUnlagged.EndShot(this);
             }
             finally

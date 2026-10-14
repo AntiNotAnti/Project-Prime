@@ -36,13 +36,13 @@ internal static class NetShotInputProof
         internal readonly Sample[] Samples = new Sample[Capacity];
     }
     private static readonly Life?[,] Lives = new Life?[8, 8];
-    private static bool Active => NetHitClaims.Arbitrating && NetShotProof.Mode != ShotProofMode.Off;
+    private static bool Active => NetShotProof.SourceObserving;
     private static Life? Get(ShotKey key) => (uint)key.ShooterSlot < 8
         && Lives[key.ShooterSlot, key.LifeId % 8] is { } life
         && life.Key == (key with { ShotId = 0 }) ? life : null;
     internal static void Seed(PlayerEntity player)
     {
-        if (!Active || (uint)player.SlotIndex >= 8) return;
+        if (!NetShotProof.SourceInterested(player) || (uint)player.SlotIndex >= 8) return;
         var key = ShotKey.For(player.SlotIndex, 0);
         Lives[key.ShooterSlot, key.LifeId % 8] = new Life { Key = key, Birth = NetSession.NetFrame };
     }

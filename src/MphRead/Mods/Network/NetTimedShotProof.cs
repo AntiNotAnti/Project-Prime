@@ -1,0 +1,223 @@
+using System;
+using MphRead.Entities;
+
+namespace MphRead.Mods.Network;
+
+internal enum TimedGrantProofMode { Off, Shadow }
+internal enum TimedShotSource { NativeInput, AcceptedFire }
+internal enum TimedShotUnavailable { None, ObservationMissing, ObservationExpired, OwnershipUnavailable,
+    GrantRecordMissing, FundingMismatch, Source, Unsupported }
+internal enum TimedShotRetention { Stored, Duplicate, Alias, Capacity, Invalid }
+internal readonly record struct TimedShotFunding(ulong Sequence, PowerUpSpawnKey Spawn, ShotKey Life,
+    TimedPowerUp Type, uint ContactFrame, uint SourceContactFrame, uint ExpiresAtFrame,
+    uint ObservationAuthorityFrame);
+internal readonly record struct TimedShotCertificate(ShotKey Key, FireEvent Fire, uint Room,
+    uint AuthorityFrame, TimedShotSource Lane, ShotSourceEvidence Source,
+    TimedGrantAnswer LedgerAnswer, TimedGrantKnowledge Knowledge, TimedShotFunding? Funding,
+    TimedShotUnavailable Unavailable, int Components)
+{
+    internal bool? DoubleHintAgrees => Knowledge == TimedGrantKnowledge.Unavailable ? null
+        : Fire.DoubleAtFire == (Knowledge == TimedGrantKnowledge.Granted);
+    internal bool TrustedSource => Source.Source == ShotProofReason.Verified && Source.Pose == ShotProofReason.Verified;
+    internal bool AuthorizedDouble => TrustedSource && Knowledge == TimedGrantKnowledge.Granted
+        && Unavailable == TimedShotUnavailable.None && Funding.HasValue;
+}
+
+// Fixed value storage, independent of mutable grants, players and component pools.
+// Life changes preserve flight; occupant/room/stream changes permit cell reuse.
+internal sealed class TimedShotCertificateStore
+{
+    internal const int PerSlot = 256;
+    internal const uint Retention = 1024;
+    private struct Cell { internal bool Live; internal TimedShotCertificate Value; }
+    private readonly Cell[,] _cells = new Cell[8, PerSlot];
+    internal long CapacityRefused, Aliases;
+    private static bool Retained(uint now, uint frame) => unchecked(now - frame) <= Retention;
+    internal TimedShotRetention Remember(in TimedShotCertificate value, uint now)
+    {
+        var key = value.Key;
+        if ((uint)key.ShooterSlot >= 8 || key.AuthorityEpoch == 0 || key.MatchId == 0
+            || key.ShotId == 0 || key.Generation == 0 || key.LifeId == 0
+            || key.ShotId != value.Fire.ShotId || value.Fire.SourceLife != key.LifeId
+            || value.Components <= 0 || !Retained(now, value.AuthorityFrame)) return TimedShotRetention.Invalid;
+        int free = -1;
+        for (int i = 0; i < PerSlot; i++)
+        {
+            ref var cell = ref _cells[key.ShooterSlot, i];
+            if (cell.Live && Retained(now, cell.Value.AuthorityFrame) && cell.Value.Room == value.Room
+                && cell.Value.Key == key)
+            {
+                if (cell.Value.Fire == value.Fire) return TimedShotRetention.Duplicate;
+                Aliases++; return TimedShotRetention.Alias;
+            }
+            if (free < 0 && (!cell.Live || !Retained(now, cell.Value.AuthorityFrame)
+                || cell.Value.Room != value.Room || cell.Value.Key.AuthorityEpoch != key.AuthorityEpoch
+                || cell.Value.Key.MatchId != key.MatchId || cell.Value.Key.Generation != key.Generation)) free = i;
+        }
+        if (free < 0) { CapacityRefused++; return TimedShotRetention.Capacity; }
+        _cells[key.ShooterSlot, free] = new Cell { Live = true, Value = value };
+        return TimedShotRetention.Stored;
+    }
+    internal bool TryGet(ShotKey key, uint sourceFrame, uint room, uint now, out TimedShotCertificate value)
+    {
+        value = default;
+        if ((uint)key.ShooterSlot >= 8) return false;
+        for (int i = 0; i < PerSlot; i++)
+        {
+            ref var cell = ref _cells[key.ShooterSlot, i];
+            if (cell.Live && cell.Value.Key == key && cell.Value.Fire.SourceFrame == sourceFrame
+                && cell.Value.Room == room && Retained(now, cell.Value.AuthorityFrame))
+            { value = cell.Value; return true; }
+        }
+        return false;
+    }
+}
+
+// Local to one Spawn invocation. Only completed AddEntity terminals contribute.
+// A successful return with zero projectiles, partial exception, child or effect
+// kernel does not prove a complete ordinary originating emission.
+internal struct TimedShotEmission
+{
+    internal int AmmoType { get; private set; }
+    internal int Cost { get; private set; }
+    internal bool HasSpend { get; private set; }
+    internal void Spent(int ammoType, int cost) { AmmoType = ammoType; Cost = cost; HasSpend = true; }
+    internal int Components { get; private set; }
+    internal bool Conflict { get; private set; }
+    internal void Added(BeamProjectileEntity beam, BeamProjectileEntity? parent)
+    {
+        if (parent != null || beam.Owner is not PlayerEntity || beam.ModComponentId == 0
+            || beam.Flags.TestFlag(BeamFlags.Continuous) || !float.IsFinite(beam.Lifespan)
+            || beam.Lifespan > 8.5f) { Conflict = true; return; }
+        if (Components == 0) Key = beam.ModLaunchKey;
+        else if (Key != beam.ModLaunchKey) Conflict = true;
+        Components++;
+    }
+    internal ShotKey Key { get; private set; }
+}
+
+internal static class NetTimedShotProof
+{
+    internal static TimedGrantProofMode Mode { get; set; } =
+        Environment.GetEnvironmentVariable("PRIME_TIMED_GRANT_PROOF") == "shadow"
+            ? TimedGrantProofMode.Shadow : TimedGrantProofMode.Off;
+    internal static bool Active => Mode == TimedGrantProofMode.Shadow && NetSession.Active && NetSession.IsAuthority;
+    internal static bool Eligible(PlayerEntity player) => Active && !player.SceneServices.IsReplica
+        && player.OwningScene.GameState.Multiplayer && (uint)player.SlotIndex < 8;
+    private static TimedShotCertificateStore? _store;
+    private static ShotKey _nativeLife;
+    private static uint _nativeFrame;
+    private static bool _nativeInput;
+    internal static long Stored, Granted, NotGranted, Unavailable, HintMismatch, NoEmission, Unsupported;
+    internal readonly struct InputScope : IDisposable
+    {
+        private readonly bool _entered;
+        internal InputScope(bool entered) { _entered = entered; }
+        public void Dispose() { if (_entered) { _nativeInput = false; _nativeLife = default; } }
+    }
+    internal static InputScope NativeInput(PlayerEntity player)
+    {
+        if (!Eligible(player) || !(player.IsBot || player.SlotIndex == NetSession.LocalSlot)) return default;
+        if (_nativeInput) { _nativeInput = false; Unsupported++; return default; }
+        _nativeInput = true; _nativeLife = ShotKey.For(player.SlotIndex, 0); _nativeFrame = NetSession.NetFrame;
+        return new(true);
+    }
+    internal static TimedShotCertificate? NativeAttempt(PlayerEntity player)
+    {
+        if (!Eligible(player) || !_nativeInput || _nativeFrame != NetSession.NetFrame
+            || _nativeLife != ShotKey.For(player.SlotIndex, 0)
+            || !NetFireEvents.TryActiveAttempt(player, out var key, out var fire)
+            || (key with { ShotId = 0 }) != _nativeLife) return null;
+        return Snapshot(player, key, fire, TimedShotSource.NativeInput);
+    }
+    // Caller is the private admitted-discrete DrainAccepted lane. Direct helper
+    // playback cannot supply that admission, even with an exact-looking key.
+    internal static TimedShotCertificate? AcceptedAttempt(PlayerEntity player, ShotKey key, in FireEvent fire)
+    {
+        if (!Eligible(player) || !CurrentStream(key)
+            || key.Generation != NetPlayerLifecycle.Generation(player.SlotIndex)
+            || !NetFireEvents.PendingAccepted(key, fire)) return null;
+        return Snapshot(player, key, fire, TimedShotSource.AcceptedFire);
+    }
+    private static bool CurrentStream(ShotKey key) => key.MatchId != 0 && key.AuthorityEpoch != 0
+        && key.MatchId == NetSession.CurrentMatchId && key.AuthorityEpoch == NetSession.AuthorityEpoch;
+    private static bool Before(uint a, uint b) => unchecked((int)(a - b)) < 0;
+    private static TimedShotCertificate? Snapshot(PlayerEntity player, ShotKey key, in FireEvent fire, TimedShotSource lane)
+    {
+        if (fire.Kind is FireEventKind.ContinuousTick or FireEventKind.TurretFire
+            || fire.Weapon is (byte)BeamType.Judicator or (byte)BeamType.OmegaCannon
+            || fire.Weapon > (byte)BeamType.OmegaCannon) { Unsupported++; return null; }
+        uint now = NetSession.NetFrame;
+        var source = NetShotProof.EvaluateSource(player, key, fire, ignoreDoubleHint: true,
+            nativeInput: lane == TimedShotSource.NativeInput);
+        var ledger = NetPowerUpLedger.Ledger;
+        var answer = new TimedGrantAnswer(TimedGrantKnowledge.Unavailable);
+        var knowledge = TimedGrantKnowledge.Unavailable;
+        TimedShotFunding? funding = null;
+        var reason = TimedShotUnavailable.ObservationMissing;
+        uint room = ledger?.Room ?? 0;
+        if (ledger != null && ledger.TryReadObservation(key, fire.SourceFrame, TimedPowerUp.DoubleDamage,
+            out answer, out uint observed))
+        {
+            if (unchecked(now - observed) > NetTimedGrants.Retention) reason = TimedShotUnavailable.ObservationExpired;
+            else if (answer.Knowledge == TimedGrantKnowledge.NotGranted)
+            { knowledge = TimedGrantKnowledge.NotGranted; reason = TimedShotUnavailable.None; }
+            else if (answer.Knowledge == TimedGrantKnowledge.Unavailable) reason = TimedShotUnavailable.OwnershipUnavailable;
+            else if (!ledger.TryRecord(answer.Sequence, out var grant)) reason = TimedShotUnavailable.GrantRecordMissing;
+            else if (grant.Sequence != answer.Sequence || grant.Type != TimedPowerUp.DoubleDamage
+                || grant.Life != (key with { ShotId = 0 }) || grant.Spawn.Epoch != key.AuthorityEpoch
+                || grant.Spawn.Match != key.MatchId || grant.Spawn.Room != room || grant.Spawn.Generation == 0
+                || grant.SourceContactFrame is not uint contactSource
+                || grant.ExpiresAtFrame != unchecked(grant.ContactFrame + NetTimedGrants.Duration)
+                || Before(observed, grant.EffectiveFrame) || !Before(observed, grant.ExpiresAtFrame)
+                || Before(fire.SourceFrame, unchecked(contactSource + 1))) reason = TimedShotUnavailable.FundingMismatch;
+            else
+            {
+                funding = new(grant.Sequence, grant.Spawn, grant.Life, grant.Type, grant.ContactFrame,
+                    contactSource, grant.ExpiresAtFrame, observed);
+                knowledge = TimedGrantKnowledge.Granted; reason = TimedShotUnavailable.None;
+            }
+        }
+        // Ownership and admission are separate facts. The Double hint never
+        // replaces either; other legacy modifier contracts remain independent.
+        if (reason == TimedShotUnavailable.None && (source.Source != ShotProofReason.Verified
+            || source.Pose != ShotProofReason.Verified)) reason = TimedShotUnavailable.Source;
+        return new(key, fire, room, now, lane, source, answer, knowledge, funding, reason, 0);
+    }
+    internal static void Complete(TimedShotCertificate? attempt, in TimedShotEmission emission)
+    {
+        if (!Active || attempt is not { } value) return;
+        bool admitted = value.Lane == TimedShotSource.NativeInput
+            ? _nativeInput && _nativeFrame == value.Fire.SourceFrame
+                && _nativeLife == (value.Key with { ShotId = 0 })
+            : value.Lane == TimedShotSource.AcceptedFire && NetFireEvents.PendingAccepted(value.Key, value.Fire);
+        if (!admitted || !CurrentStream(value.Key)) { NoEmission++; return; }
+        if (emission.Conflict || !emission.HasSpend || emission.Components == 0 || emission.Key != value.Key) { NoEmission++; return; }
+        var final = value with { Components = emission.Components };
+        if (value.Source.Cost != emission.Cost || value.Source.AmmoType != emission.AmmoType)
+            final = final with { Source = final.Source with { Source = ShotProofReason.SourceChanged },
+                Unavailable = TimedShotUnavailable.Source };
+        // One journal, exact-shot deduplication; old proof Fired may already have
+        // recorded this spend. No admission or failed/partial spawn spends here.
+        NetShotSourceJournal.Fired(value.Key, value.Fire, emission.AmmoType, emission.Cost, value.Source.Cooldown);
+        var result = (_store ??= new()).Remember(final, NetSession.NetFrame);
+        if (result != TimedShotRetention.Stored) return;
+        Stored++;
+        if (final.DoubleHintAgrees == false) HintMismatch++;
+        if (final.Unavailable != TimedShotUnavailable.None) Unavailable++;
+        else if (value.Knowledge == TimedGrantKnowledge.Granted) Granted++;
+        else if (value.Knowledge == TimedGrantKnowledge.NotGranted) NotGranted++;
+        else Unavailable++;
+    }
+    internal static bool TryGet(ShotKey key, uint sourceFrame, out TimedShotCertificate certificate)
+    {
+        certificate = default;
+        return Active && CurrentStream(key)
+            && (uint)key.ShooterSlot < 8 && key.Generation == NetPlayerLifecycle.Generation(key.ShooterSlot)
+            && NetPowerUpLedger.Ledger is { } ledger && _store != null
+            && _store.TryGet(key, sourceFrame, ledger.Room, NetSession.NetFrame, out certificate);
+    }
+    internal static void Reset()
+    { _store = null; _nativeInput = false; _nativeLife = default;
+      Stored = Granted = NotGranted = Unavailable = HintMismatch = NoEmission = Unsupported = 0; }
+}

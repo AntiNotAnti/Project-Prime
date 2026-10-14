@@ -84,6 +84,14 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--grant-replay") return GrantReplayTests.Run();
             if (args.Length > 0 && args[0] == "--grant-network") return GrantNetworkTests.Run();
             if (args.Length > 0 && args[0] == "--terminal-retries") return TerminalRetryTests.Run(Array.IndexOf(args, "--lost-terminal-only") >= 0);
+            if (args.Length > 0 && args[0] == "--timed-shot-certificates") return TimedShotCertificateTests.Run();
+            if (args.Length > 0 && args[0] == "--timed-shot-certificate-benchmark") return TimedShotCertificateTests.RunBenchmark(args);
+            if (args.Length > 1 && args[0] == "--timed-shot-native")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedShotNativeTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
             if (args.Length > 0 && args[0] == "--timed-grants") return TimedGrantTests.Run();
             if (args.Length > 0 && args[0] == "--timed-grant-codec") return TimedGrantFactTests.Run();
             if (args.Length > 1 && args[0] == "--powerup-ledger-scene")

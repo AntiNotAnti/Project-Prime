@@ -1629,7 +1629,14 @@ namespace MphRead.Entities
         public static BeamResultFlags Spawn(EntityBase owner, EquipInfo equip, Vector3 position, Vector3 direction,
             BeamSpawnFlags spawnFlags, NodeRef nodeRef, Scene scene, BeamProjectileEntity? parent = null,
             bool enhancedMicro = false)
+            => SpawnWithEmission(owner, equip, position, direction, spawnFlags, nodeRef, scene,
+                out _, parent, enhancedMicro);
+
+        internal static BeamResultFlags SpawnWithEmission(EntityBase owner, EquipInfo equip, Vector3 position,
+            Vector3 direction, BeamSpawnFlags spawnFlags, NodeRef nodeRef, Scene scene,
+            out TimedShotEmission emission, BeamProjectileEntity? parent = null, bool enhancedMicro = false)
         {
+            emission = default;
             bool finitePosition = Single.IsFinite(position.X) && Single.IsFinite(position.Y)
                 && Single.IsFinite(position.Z);
             bool finiteDirection = Single.IsFinite(direction.X) && Single.IsFinite(direction.Y)
@@ -1766,6 +1773,7 @@ namespace MphRead.Entities
             // after the ammo gate, through the same obstacle and impact kernel as
             // normal flight. Child ricochets are not new muzzle emissions.
             equip.Ammo = ammo - cost;
+            if (NetTimedShotProof.Active) emission.Spent(weapon.AmmoType, cost);
             EffectEntry? muzzleEffect = null;
             if (!spawnFlags.TestFlag(BeamSpawnFlags.NoMuzzle))
             {
@@ -2233,6 +2241,7 @@ namespace MphRead.Entities
                     if (!scene.Services.IsReplica && NetSession.Active && weapon.Flags.TestFlag(WeaponFlags.Continuous))
                         NetShotDiagnostics.Continuous(beam, cost);
                     scene.AddEntity(beam);
+                    if (NetTimedShotProof.Active) emission.Added(beam, parent);
                     continue;
                 }
                 Debug.Assert(beam.Target == null);
@@ -2279,6 +2288,7 @@ namespace MphRead.Entities
                     NetShotDiagnostics.Continuous(beam, cost);
                 beam._soundSource.Update(beam.Position, rangeIndex: 0);
                 scene.AddEntity(beam);
+                if (NetTimedShotProof.Active) emission.Added(beam, parent);
                 Mods.EnhancedHunters.EnhancedHunterProjectiles.Spawned(beam, parent);
             }
             if (turretOwner != null) NetFireEvents.Commit(turretOwner);
