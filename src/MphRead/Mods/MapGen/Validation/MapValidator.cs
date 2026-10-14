@@ -66,6 +66,19 @@ namespace MphRead.Mods.MapGen
             var ids = new HashSet<Guid>();
             if (d.Geometry.Count + d.Brushes.Count > 10000 || d.Spawns.Count + d.Items.Count + d.JumpPads.Count > 32767)
             { r.Error("FP-MAP-003", "Map object count exceeds the compiler budget."); return r; }
+            long patchTriangles = d.Geometry.OfType<MapBezierPatch>().Sum(p =>
+            {
+                long tilesX = Math.Clamp((long)p.Columns, 0, 17) / 2;
+                long tilesY = Math.Clamp((long)p.Rows, 0, 17) / 2;
+                long level = Math.Clamp((long)p.Tessellation, 0, 4);
+                return tilesX * tilesY * level * level * 2;
+            });
+            if (d.Geometry.Count(g => g is MapBezierPatch) > 32
+                || patchTriangles > 8192)
+            {
+                r.Error("FP-RADIANT-PATCH", "Map exceeds the total Bezier patch/collision triangle budget.");
+                return r;
+            }
             void Id(Guid id)
             {
                 if (id != Guid.Empty && !ids.Add(id)) r.Error("FP-MAP-010", "Duplicate object ID.", id);
@@ -204,6 +217,14 @@ namespace MphRead.Mods.MapGen
                         r.Diagnostics.Add(new("FP-MESH-001",problem.Severity,problem.Message,geometry.Id));
                 if (geometry.Material < 0 || geometry.Material >= d.Materials.Count || d.Materials[geometry.Material] == null)
                 { r.Error("FP-MAP-001", "Geometry references a missing material.", geometry.Id); continue; }
+                if (geometry.QuakeFaces is { } quakeFaces
+                    && (geometry is not (MapBox or MapConvexBrush)
+                        || quakeFaces.Count != (geometry is MapBox ? 6 : ((MapConvexBrush)geometry).Faces.Count)
+                        || quakeFaces.Any(face => face == null || !face.Valid
+                            || face.Material >= d.Materials.Count)))
+                    r.Error("FP-MAP-001",
+                        "Quake face projections require bounded values and a valid material for every solid face.",
+                        geometry.Id);
                 if (geometry is MapMesh { Slipperiness: < 0 or > 3 }) r.Error("FP-MAP-013", "Mesh slipperiness must be 0–3.", geometry.Id);
                 if (geometry is MapMesh mesh && mesh.FaceMaterials != null
                     && mesh.FaceMaterials.Any(material => material < 0 || material >= d.Materials.Count))

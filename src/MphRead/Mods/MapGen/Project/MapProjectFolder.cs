@@ -18,7 +18,7 @@ public static class MapProjectFolder
         int Material(int index)=>remap.GetValueOrDefault(index,index);
         copy.Materials=order.Select(x=>x.m).ToList();
         foreach(var brush in copy.Brushes)brush.Material=Material(brush.Material);
-        foreach(var geometry in copy.Geometry){geometry.Material=Material(geometry.Material);if(geometry is MapMesh mesh)mesh.FaceMaterials=mesh.FaceMaterials.Select(Material).ToList();}
+        foreach(var geometry in copy.Geometry){geometry.Material=Material(geometry.Material);if(geometry is MapMesh mesh)mesh.FaceMaterials=mesh.FaceMaterials.Select(Material).ToList();if(geometry.QuakeFaces!=null)foreach(var face in geometry.QuakeFaces)face.Material=Material(face.Material);}
         if(copy.Import is {} import){import.DefaultMaterial=Material(import.DefaultMaterial);import.ShaderMaterials=import.ShaderMaterials.OrderBy(p=>p.Key,StringComparer.Ordinal).ToDictionary(p=>p.Key,p=>Material(p.Value));foreach(var replacement in import.MaterialReplacements)if(!replacement.TargetSource)replacement.Target=Material(replacement.Target);}
         if(copy.NativeRoom is {} native)foreach(var replacement in native.MaterialReplacements)if(!replacement.TargetSource)replacement.Target=Material(replacement.Target);
         foreach(var model in copy.ModelSources)foreach(var obj in model.Objects){obj.BaseMaterial=Material(obj.BaseMaterial);obj.FaceMaterials=obj.FaceMaterials.OrderBy(p=>p.Key,StringComparer.Ordinal).ToDictionary(p=>p.Key,p=>Material(p.Value));}

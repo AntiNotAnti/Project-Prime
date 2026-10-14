@@ -158,6 +158,7 @@ namespace MphRead.Mods.Launcher.Gui
             MenuGroup("File",("Source changes…",ShowSourceChanges),("Library",ShowLibrary),("New",NewMap),("Clone built-in",CloneBuiltIn),
                 ("Open…",()=>Browse("Open project",false,Open,".json",".ppmap")),("Import Q3…",Import),
                 ("Open in NetRadiant…",LaunchNetRadiant),("Compile NetRadiant Source…",CompileNetRadiantSource),
+                ("Import editable .map…",ImportEditableQuakeMap),("Export editable .map…",ExportEditableQuakeMap),
                 ("Import 3D Model…",ImportModel),("Model Sources / Reimport…",ManageModelSources),
                 ("Export project folder…",()=>Browse("Export project folder (choose map.json destination)",true,path=>{try{if(_document!=null){string exported=MapProjectFolder.Export(_document.Project.Definition,Path.Combine(Path.GetDirectoryName(path)!,Path.GetFileNameWithoutExtension(path)));_status.Text="Exported "+exported;}}catch(Exception ex){Failure(ex);}},".json")),("Save",Save),("Save as…",()=>Browse("Save project",true,SaveTo,".json")),("Back to launcher",Close));
             MenuGroup("Edit",("Undo",()=>_document?.History.Undo()),("Redo",()=>_document?.History.Redo()),
