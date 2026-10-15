@@ -14,6 +14,25 @@ using MphRead.Mods.MapGen;
 // Asset-free local Community transfer contract. Does not install into a live
 // scene or claim to validate Android UI or a real remote-service throughput.
 //
+// Cross-process receipt files are published by rename, not created at their
+// final path while still being written. On Windows, File.Exists can see an
+// open File.WriteAllText target before it is closed; readers then fail with
+// a sharing violation (or observe a partial GUID). Keep the rendezvous
+// protocol deterministic on every supported filesystem.
+static void PublishReceipt(string path, string contents)
+{
+    string pending = path + "." + Guid.NewGuid().ToString("N") + ".pending";
+    try
+    {
+        File.WriteAllText(pending, contents);
+        File.Move(pending, path);
+    }
+    finally
+    {
+        if (File.Exists(pending)) File.Delete(pending);
+    }
+}
+
 // The child mode is a REAL second dotnet process. It intentionally opens the
 // same durable manager directory to prove index fencing and per-job ownership,
 // not just two objects that happen to share one managed lock.
@@ -26,7 +45,7 @@ if (args.Length == 6 && args[0] == "--crossprocess-stalled-owner")
     await using var manager = new CommunityTransferManager(directory, credentials);
     Guid id=await manager.EnqueueUploadAsync(endpoint,package,publish:null,
         listed:true,draft:false);
-    File.WriteAllText(receipt,id.ToString("D"));
+    PublishReceipt(receipt,id.ToString("D"));
     // Parent kills this process without a managed Dispose, deliberately
     // simulating an editor crash in the middle of an HTTP upload.
     await Task.Delay(Timeout.InfiniteTimeSpan);
@@ -42,7 +61,7 @@ if (args.Length == 9 && args[0] == "--crossprocess-child")
     var credentials = new DelegateCommunityCredentialSource(
         ct => Task.FromResult(secret), ct => Task.FromResult(secret));
     await using var manager = new CommunityTransferManager(directory, credentials);
-    File.WriteAllText(rendezvous + ".ready", "ready");
+    PublishReceipt(rendezvous + ".ready", "ready");
 
     static async Task WaitFlag(string name)
     {
@@ -54,11 +73,11 @@ if (args.Length == 9 && args[0] == "--crossprocess-child")
     await WaitFlag(rendezvous + ".upload");
     Guid upload = await manager.EnqueueUploadAsync(
         endpoint, package, publish: null, listed: true, draft: false);
-    File.WriteAllText(receipt + ".upload", upload.ToString("D"));
+    PublishReceipt(receipt + ".upload", upload.ToString("D"));
     var uploaded = await manager.WaitAsync(upload);
     if (uploaded.State != CommunityTransferState.Completed)
         throw new InvalidDataException("Secondary-process upload did not complete: " + uploaded.State);
-    File.WriteAllText(receipt + ".upload-complete", uploaded.PackageHash);
+    PublishReceipt(receipt + ".upload-complete", uploaded.PackageHash);
 
     await WaitFlag(rendezvous + ".download");
     using (var client = new MapCommunityClient(endpoint,secret))
@@ -66,13 +85,13 @@ if (args.Length == 9 && args[0] == "--crossprocess-child")
         CommunityMap exact = await client.GetPackageAsync(exactHash,CancellationToken.None)
             ?? throw new InvalidDataException("Missing published map for cross-process download.");
         Guid id = manager.EnqueueDownload(endpoint,exact);
-        File.WriteAllText(receipt + ".download",id.ToString("D"));
+        PublishReceipt(receipt + ".download",id.ToString("D"));
         var downloaded = await manager.WaitAsync(id);
         if (downloaded.State != CommunityTransferState.Completed)
             throw new InvalidDataException("Secondary-process download did not complete: " + downloaded.State);
-        File.WriteAllText(receipt + ".download-complete", downloaded.PackageHash);
+        PublishReceipt(receipt + ".download-complete", downloaded.PackageHash);
     }
-    File.WriteAllText(receipt + ".jobs",
+    PublishReceipt(receipt + ".jobs",
         string.Join(",",manager.ListJobs().Select(j => j.Id.ToString("D"))));
     await WaitFlag(rendezvous + ".stop");
     return;
