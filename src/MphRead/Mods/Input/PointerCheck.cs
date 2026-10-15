@@ -23,6 +23,7 @@ namespace MphRead.Mods.Input
                 NativeTouchChecks.Run();
                 CheckCameraBasis();
                 CheckZone();
+                CheckStackedGeometry();
                 CheckPlayerInput();
                 CheckOfflineInput();
                 CheckSettings();
@@ -53,6 +54,69 @@ namespace MphRead.Mods.Input
             if (!condition)
             {
                 throw new InvalidOperationException(label);
+            }
+        }
+
+        private static void CheckStackedGeometry()
+        {
+            bool oldStylus = PointerInput.StylusMode;
+            bool oldEnabled = DsLayout.Enabled;
+            string oldAspect = DsLayout.ScreenAspect;
+            float oldSize = DsLayout.RadarSize, oldX = DsLayout.RadarX, oldY = DsLayout.RadarY;
+            try
+            {
+                PointerInput.StylusMode = true;
+                DsLayout.Enabled = true;
+                DsLayout.ScreenAspect = "4:3";
+                var screens = DsLayout.Bounds(768, 1152);
+                Require(screens.Top.Equals(new OpenTK.Mathematics.Vector4i(0, 0, 768, 576))
+                    && screens.Bottom.Equals(new OpenTK.Mathematics.Vector4i(0, 576, 768, 576)),
+                    "4:3 equal LCDs exact authored 768x576 reference");
+                DsLayout.UpdateInputBounds(768, 1152);
+                Require(StylusZone.Enabled && MathF.Abs(StylusZone.Top - .5f) < .0001f
+                    && MathF.Abs(StylusZone.Height - .5f) < .0001f,
+                    "4:3 pen uses actual lower LCD while enabled");
+                float SelectX() => StylusZone.Left + (232f / StylusZone.DsWidth) * StylusZone.Width;
+                float SelectY() => StylusZone.Top + (43f / StylusZone.DsHeight) * StylusZone.Height;
+                Require(StylusZone.RegionAt(SelectX(), SelectY()) == StylusRegion.WeaponSelect,
+                    "4:3 round select button maps to LCD");
+                Require(StylusZone.RegionAt(.5f, .25f) == StylusRegion.None,
+                    "top LCD is excluded from touch");
+
+                DsLayout.ScreenAspect = "5:3";
+                screens = DsLayout.Bounds(960, 1152);
+                Require(screens.Top.Equals(new OpenTK.Mathematics.Vector4i(0, 0, 960, 576))
+                    && screens.Bottom.Equals(new OpenTK.Mathematics.Vector4i(0, 576, 960, 576)),
+                    "5:3 equal LCDs exact authored 960x576 reference");
+                DsLayout.UpdateInputBounds(960, 1152);
+                Require(MathF.Abs(DsLayout.HorizontalStretch - 1.25f) < .0001f
+                    && StylusZone.RegionAt(SelectX(), SelectY()) == StylusRegion.WeaponSelect,
+                    "5:3 horizontal stretch keeps native weapon-control center");
+                float edgeX = StylusZone.Left + (252f / StylusZone.DsWidth) * StylusZone.Width;
+                Require(StylusZone.RegionAt(edgeX, SelectY()) == StylusRegion.Aim,
+                    "5:3 round control compensates for horizontal stretch");
+                DsLayout.RadarSize = 1.5f;
+                DsLayout.RadarX = DsLayout.RadarY = .5f;
+                var center = DsLayout.RadarCenter;
+                Require(MathF.Abs(center.X - 384f) < .001f &&
+                    MathF.Abs(center.Y - 288f) < .001f,
+                    "independent radar controls keep center at fifty percent");
+                DsLayout.RadarX = -10f;
+                DsLayout.RadarY = 25f;
+                Require(DsLayout.RadarX == 0f && DsLayout.RadarY == 1f,
+                    "radar position bounds clamped");
+                Require(DsLayout.HealthBlink(100, 0) == 1f
+                    && DsLayout.HealthBlink(99, 0) >= .35f,
+                    "99 HP warning threshold preserves actual health resource");
+            }
+            finally
+            {
+                DsLayout.Enabled = oldEnabled;
+                DsLayout.ScreenAspect = oldAspect;
+                DsLayout.RadarSize = oldSize;
+                DsLayout.RadarX = oldX;
+                DsLayout.RadarY = oldY;
+                PointerInput.StylusMode = oldStylus;
             }
         }
 

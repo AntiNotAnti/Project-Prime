@@ -55,6 +55,7 @@ namespace MphRead.Mods.Input
             PointerSample previous = Current;
             Current = sample;
             StylusZone.AspectCorrection = width / (float)Math.Max(height, 1);
+            DsLayout.UpdateInputBounds(width, height);
             bool identityChanged = sample.Device != previous.Device || sample.Id != previous.Id;
             bool hadPendingRelease = _stylusReleasePending;
             bool rawContact = Active && acceptsInput && sample.InContact;
