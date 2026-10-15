@@ -30,6 +30,8 @@ CASES = (
     "campaign-presentation",
     "campaign-audio",
     "campaign-journey",
+    "campaign-dialog-input",
+    "campaign-delano7",
     "foreground-binding",
 )
 GUARDRAILS = ("pickup-protocol", "compact-intents", "pickup-replay")
