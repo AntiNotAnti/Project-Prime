@@ -35,7 +35,7 @@ automated evidence, native executable evidence and release approval.
 | ST-04 | Canonical engine projection, owner-context OpenGL surfaces, public CGL/IOSurface GPU transport on macOS, Safe Mode | Actual Mac scene and lifecycle checks pass; cross-platform pixels, picking, high-DPI and performance qualification remain |
 | ST-05 | Private replay documents/player, non-destructive authoring, bounded detached export worker, loopback audio | Two native Mac video/audio exports pass; historical/cosmetic fidelity and other platforms remain separate acceptance |
 | ST-06 | Canonical map editor/compiler/package and existing Community operations hosted in Studio; Game owns runtime install/playtest | Offline host cycles and broker tests; staging creator service acceptance pending |
-| RD-01 | Pinned independent fork source/build/bundle recipe, original gamepack and graybox, candidate CI | Local native Q3Map2 compile executed; Windows/Linux builds and real editor GUI pending |
+| RD-01 | Pinned independent fork source/build/bundle recipe, original gamepack and graybox, candidate CI | Native Windows/Linux editor+compiler builds and real BSP checks pass; GUI, dependency/source licensing and signing remain pending |
 | RD-02/03 | Strict supported geometry reconciliation with Prime metadata preserved, revision review, source watch and cancellation | Unsupported geometry stays native; no promise that all native maps convert |
 | MAP-01 | Vote/load/rotation exact readiness gates, bounded failed-generation retries, traversal and authored pickup probes | Automated/native kernel evidence below; live 1v1/8-player and Android pending |
 | ST-07/08 | Explicit external entry points and compatibility fallback | **Gate held**: do not remove embedded full editors before functional/platform parity |
@@ -131,6 +131,11 @@ intermediate passing counts do not certify a later candidate automatically.
   source/compiler checks pass again; the refreshed candidate includes the exact
   combined patch and source receipt. Current remote results are recorded in
   [PR #561 checks](https://github.com/AntiNotAnti/Project-Prime/pull/561/checks).
+- Source revision `b3339620` builds the full Radiant editor/compiler on Linux and
+  Windows and passes each real BSP check. Linux candidate upload passes. Windows
+  upload exposed a mixed C:/D: artifact-root error after successful build/compile;
+  the workflow now uploads platform outputs and dependency receipts separately.
+  This is source/build evidence, not GUI or redistribution certification.
 - Paired updater rollback/archive checks passed, including actual child-process
   denial of Game startup during an exclusive update and recovery afterward.
   Python pair checks 9/9, release

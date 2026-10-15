@@ -31,6 +31,12 @@ from local source acceptance. On macOS `--compiler-only` builds native Q3Map2;
 the upstream editor's X11/Qt5 GUI remains unqualified. Native JSON Studio is the
 supported fallback pending an actual native-editor test.
 
+October 15 source revision `b3339620` passed full editor/compiler builds and real
+BSP checks on Windows and Linux CI. Linux uploaded its candidate; Windows found
+an upload-only C:/D: path error, now corrected with separate platform/receipt
+uploads. GUI usability, signing and dependency/license qualification are still
+pending. Current job results are linked from the implementation ledger.
+
 The real-tool check creates original graybox source and checkerboard pixels and
 requires a real BSP46 with collision brushes and draw surfaces. It records
 compiler/source/output SHA-256 and logs. A successful process exit producing an
