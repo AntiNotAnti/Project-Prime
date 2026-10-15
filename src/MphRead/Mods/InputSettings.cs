@@ -484,6 +484,7 @@ namespace MphRead.Mods
         {
             Input.GamepadProfiles.Initialize();
             Input.DsLayout.Enabled = false;
+            Input.StylusZone.SelectSize = 1f;
             Input.DsLayout.ScreenAspect = "4:3";
             Input.DsLayout.RadarSize = 1f;
             Input.DsLayout.RadarX = Input.DsLayout.RadarY = .5f;
@@ -520,6 +521,13 @@ namespace MphRead.Mods
                         {
                             MouseSensitivity = Math.Clamp(parsed, 0.01f, 10f);
                         }
+                        continue;
+                    }
+                    if (key == "stylus_select_size"
+                        && Single.TryParse(value, NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out float selectSize))
+                    {
+                        Input.StylusZone.SelectSize = selectSize;
                         continue;
                     }
                     if (key == "ds_stacked" && bool.TryParse(value, out bool stacked))
@@ -880,6 +888,7 @@ namespace MphRead.Mods
                     $"scroll_all_weapons={ScrollAllWeapons.ToString().ToLowerInvariant()}",
                     $"stylus_mode={Input.PointerInput.StylusMode.ToString().ToLowerInvariant()}",
                     $"ds_stacked={Input.DsLayout.Enabled.ToString().ToLowerInvariant()}",
+                    $"stylus_select_size={Input.StylusZone.SelectSize.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"ds_aspect={Input.DsLayout.ScreenAspect}",
                     $"ds_radar_size={Input.DsLayout.RadarSize.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"ds_radar_x={Input.DsLayout.RadarX.ToString("0.###", CultureInfo.InvariantCulture)}",
@@ -997,6 +1006,7 @@ namespace MphRead.Mods
             Input.TouchSettings.Reset();
             Input.PointerInput.StylusMode = false;
             Input.DsLayout.Enabled = false;
+            Input.StylusZone.SelectSize = 1f;
             Input.DsLayout.ScreenAspect = "4:3";
             Input.DsLayout.RadarSize = 1f;
             Input.DsLayout.RadarX = Input.DsLayout.RadarY = .5f;
