@@ -212,7 +212,7 @@ public partial class PlayerEntity
             }
         }
         // A moving pen cursor is always rendered on its owning LCD.
-        if (!Mods.PauseMenu.Open) ModDrawStylusCursor();
+        if (!Mods.PauseMenu.Open) DrawStylusCursor();
     }
 
     private void DsDrawRadar()
