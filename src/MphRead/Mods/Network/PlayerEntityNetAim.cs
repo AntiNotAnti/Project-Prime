@@ -672,11 +672,10 @@ namespace MphRead.Entities
 
             Vector3 renderFacing;
             Vector3 upHint;
-            // Classic moving-reticle presentation intentionally keeps the
-            // legacy eased camera. Pro HUD is different: Dynamic/Metroid may
-            // keep that eased simulation state for weapon drift, but
-            // its local rendered camera must still use the responsive raw-aim
-            // path so changing weapon style cannot add mouse latency.
+            // Both Classic and Dynamic/Metroid use the native camera timeline.
+            // Applying the static late-latch rotation to a moving-reticle pose
+            // makes the crosshair disagree with the rendered shot direction.
+            // Only the Static/Quake presentation uses responsive raw-aim pose.
             Vector3 drawCameraPosition = default;
             Vector3 drawCameraTarget = default;
             Vector3 drawCameraUp = default;
