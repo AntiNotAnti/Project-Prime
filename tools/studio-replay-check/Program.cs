@@ -117,16 +117,25 @@ try
         Rejected(()=>StudioReplayOutputGuard.ValidateVideo(replay,[logical,replay]));
         Rejected(()=>StudioReplayOutputGuard.ValidateClip(replay,[logical]));
         Rejected(()=>StudioReplayOutputGuard.ValidateClip(logical,[logical,replay]));
-        string alias=Path.Combine(root,"alias.ppdemo");File.CreateSymbolicLink(alias,replay);
-        Rejected(()=>StudioReplayOutputGuard.ValidateClip(alias,[replay]));
-        string videoAlias=Path.Combine(root,"alias.mp4");File.CreateSymbolicLink(videoAlias,replay);
-        Rejected(()=>StudioReplayOutputGuard.ValidateVideo(videoAlias,[replay]));
-        string directoryAlias=Path.Combine(root,"linked");Directory.CreateSymbolicLink(directoryAlias,root);
-        Rejected(()=>StudioReplayOutputGuard.ValidateClip(Path.Combine(directoryAlias,"fixture.ppdemo"),[replay]));
+        string alias=Path.Combine(root,"alias.ppdemo");bool symbolicLinks=true;
+        try{File.CreateSymbolicLink(alias,replay);}
+        catch(Exception ex)when(OperatingSystem.IsWindows()&&(ex is UnauthorizedAccessException or IOException))
+        {symbolicLinks=false;Console.WriteLine("SKIP: output symbolic-link cases require Windows symbolic-link permission.");}
+        if(symbolicLinks)
+        {
+            try
+            {
+                Rejected(()=>StudioReplayOutputGuard.ValidateClip(alias,[replay]));
+                string videoAlias=Path.Combine(root,"alias.mp4");File.CreateSymbolicLink(videoAlias,replay);
+                try{Rejected(()=>StudioReplayOutputGuard.ValidateVideo(videoAlias,[replay]));}finally{File.Delete(videoAlias);}
+                string directoryAlias=Path.Combine(root,"linked");Directory.CreateSymbolicLink(directoryAlias,root);
+                try{Rejected(()=>StudioReplayOutputGuard.ValidateClip(Path.Combine(directoryAlias,"fixture.ppdemo"),[replay]));}finally{Directory.Delete(directoryAlias);}
+            }
+            finally{File.Delete(alias);}
+        }
         StudioReplayOutputGuard.ValidateVideo(Path.Combine(root,"safe.mp4"),[logical,replay]);
         StudioReplayOutputGuard.ValidateClip(Path.Combine(root,"safe.ppdemo"),[logical,replay]);
         Require(File.ReadAllBytes(replay).SequenceEqual(bytes),"guard modified source bytes");
-        Directory.Delete(directoryAlias);
     }));
     Process StartIdle()
     {

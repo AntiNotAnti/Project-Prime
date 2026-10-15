@@ -74,8 +74,11 @@ internal static class StudioAcceptanceChecks
                     var second=new MapStudioDocument(paths,window,jobs);
                     second.Host.ConfigureSourceOwnership(path=>documents.CanOpenSource(second,path),path=>documents.RequireSaveTarget(second,path));
                     Complete(second.OpenAsync(secondSource));documents.Add(second);
-                    string alias=Path.Combine(root,"source-alias.json");File.CreateSymbolicLink(alias,target);
-                    Check(ReferenceEquals(documents.Find(StudioDocumentKind.Map,alias),map),"physical source aliases resolve to the owning tab");
+                    string alias=Path.Combine(root,"source-alias.json");bool symbolicAlias=true;
+                    try{File.CreateSymbolicLink(alias,target);}
+                    catch(Exception ex)when(OperatingSystem.IsWindows()&&(ex is UnauthorizedAccessException or IOException))
+                    {symbolicAlias=false;alias=Path.Combine(root,".","saved-0.json");}
+                    Check(ReferenceEquals(documents.Find(StudioDocumentKind.Map,alias),map),"source aliases resolve to the owning tab");
                     var secondDocument=second.Host.Document;
                     Complete(second.Host.OpenAsync(alias));
                     Check(ReferenceEquals(second.Host.Document,secondDocument)&&ReferenceEquals(documents.ActiveDocument,map),"hosted inner open selects source owner without replacing another tab");
@@ -87,7 +90,7 @@ internal static class StudioAcceptanceChecks
                     try{Complete(documents.SaveAsync(second,target));}catch(IOException){refused=true;}
                     Check(refused,"shell Save As shares source ownership protection");
                     Complete(documents.RequestCloseAsync(second,_=>Task.FromResult(StudioCloseDecision.Discard),_=>Task.FromResult<string?>(null)));
-                    File.Delete(alias);
+                    if(symbolicAlias)File.Delete(alias);
                     window.Content=map.Host;window.Width=1280;window.Height=800;window.Show();
                     Dispatcher.UIThread.RunJobs();
                     map.Host.Measure(new Size(1280,800));map.Host.Arrange(new Rect(0,0,1280,800));

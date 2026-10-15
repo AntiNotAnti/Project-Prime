@@ -45,8 +45,14 @@ try
     try { StudioPackagePathPolicy.Validate(package1, CustomRooms.MapDirectory); throw new Exception("Untrusted root accepted"); }
     catch (UnauthorizedAccessException) { Check(true, "package outside approved staging roots is rejected"); }
     string alias = Path.Combine(root, "alias.ppmap");
-    File.CreateSymbolicLink(alias, package1);
-    try { RejectPath(alias, "symbolic-link package is rejected"); } finally { File.Delete(alias); }
+    bool symbolicLinks = true;
+    try { File.CreateSymbolicLink(alias, package1); }
+    catch (Exception ex) when (OperatingSystem.IsWindows() && (ex is UnauthorizedAccessException or IOException))
+    { symbolicLinks = false; Console.WriteLine("SKIP: symbolic-link package check requires Windows symbolic-link permission."); }
+    if (symbolicLinks)
+    {
+        try { RejectPath(alias, "symbolic-link package is rejected"); } finally { File.Delete(alias); }
+    }
     using (var cancelled = new CancellationTokenSource())
     {
         int calls = 0;
