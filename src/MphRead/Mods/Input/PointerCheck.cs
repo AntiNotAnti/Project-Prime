@@ -69,8 +69,8 @@ namespace MphRead.Mods.Input
                 DsLayout.Enabled = true;
                 DsLayout.ScreenAspect = "4:3";
                 var screens = DsLayout.Bounds(768, 1152);
-                Require(screens.Top == new OpenTK.Mathematics.Vector4i(0, 0, 768, 576)
-                    && screens.Bottom == new OpenTK.Mathematics.Vector4i(0, 576, 768, 576),
+                Require(screens.Top.Equals(new OpenTK.Mathematics.Vector4i(0, 0, 768, 576))
+                    && screens.Bottom.Equals(new OpenTK.Mathematics.Vector4i(0, 576, 768, 576)),
                     "4:3 equal LCDs exact authored 768x576 reference");
                 DsLayout.UpdateInputBounds(768, 1152);
                 Require(StylusZone.Enabled && MathF.Abs(StylusZone.Top - .5f) < .0001f
@@ -85,8 +85,8 @@ namespace MphRead.Mods.Input
 
                 DsLayout.ScreenAspect = "5:3";
                 screens = DsLayout.Bounds(960, 1152);
-                Require(screens.Top == new OpenTK.Mathematics.Vector4i(0, 0, 960, 576)
-                    && screens.Bottom == new OpenTK.Mathematics.Vector4i(0, 576, 960, 576),
+                Require(screens.Top.Equals(new OpenTK.Mathematics.Vector4i(0, 0, 960, 576))
+                    && screens.Bottom.Equals(new OpenTK.Mathematics.Vector4i(0, 576, 960, 576)),
                     "5:3 equal LCDs exact authored 960x576 reference");
                 DsLayout.UpdateInputBounds(960, 1152);
                 Require(MathF.Abs(DsLayout.HorizontalStretch - 1.25f) < .0001f
