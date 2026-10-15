@@ -44,6 +44,7 @@ namespace MphRead.NetTest
                     + "  --campaign-audio                  Test original gunship/credits audio and ownership fencing.\n"
                     + "  --campaign-journey                Simulate complete 3-slot journey with actual native save IO.\n"
                     + "  --campaign-dialog-input           Test campaign keyboard/pad dialog confirmation.\n"
+                    + "  --campaign-delano7                Test story-only Sylux ship presentation eligibility.\n"
                     + "  --campaign-native-scene <assets> <json> Load actual single-player room, simulate, verify save.\n"
                     + "  --foreground-binding              Test eligible facade release and cancelled room publication.\n"
                     + "  --lifecycle-soak                  Test 10/100/500 device-free save/bot-owner handoffs.\n"
@@ -107,6 +108,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--campaign-audio") return CampaignAudioTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-journey") return CampaignJourneyTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-dialog-input") return CampaignDialogInputTests.Run();
+            if (args.Length > 0 && args[0] == "--campaign-delano7") return CampaignDelano7Tests.Run();
             if (args.Length > 0 && args[0] == "--foreground-binding") return ForegroundBindingTests.Run();
             if (args.Length > 0 && args[0] == "--lifecycle-soak") return LifecycleSoakTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-native-scene")
